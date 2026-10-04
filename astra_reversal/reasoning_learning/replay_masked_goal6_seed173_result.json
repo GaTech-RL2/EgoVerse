@@ -1,0 +1,1064 @@
+{
+  "label": "Replay \u00b7 evidence-masked useful actions",
+  "method": "teacher_replay_masked",
+  "workflow": "astra-pi05-reasoning-learning-20261003-replay-masked-1",
+  "status": "fixed_data_learner_ablation_complete",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "source_revision": "c9f69fb78db48b7d73331c21bb6bc4cec5c86c9b",
+  "protocol_version": "reasoning-policy-learning-5",
+  "checkpoint_configuration": {
+    "repo_id": "lerobot/pi05_libero_base",
+    "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "input_profile": "openpi_libero",
+    "runtime_action_horizon": 10,
+    "internal_action_dim": 32,
+    "controller_action_dim": 7,
+    "native_flow_direction": "noise_1_to_action_0",
+    "generation_steps": 10,
+    "execute_steps": 5
+  },
+  "environment_configuration": {
+    "suites": [
+      "libero_goal_ood",
+      "libero_spatial_ood"
+    ],
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "tasks_per_suite": 10,
+    "control_frequency_hz": 20,
+    "actions_per_rollout": 300,
+    "stabilization_steps_counted_separately": 10,
+    "observations": [
+      "external_camera",
+      "wrist_camera",
+      "robot_state8",
+      "original_instruction"
+    ],
+    "training_feedback": [
+      "binary_environment_success",
+      "real_observation_history"
+    ],
+    "privileged_object_poses": false,
+    "physical_candidate_retries": false
+  },
+  "learner_configuration": {
+    "base_native_learner": {
+      "objective": "native_flow_matching",
+      "parameters": "action_expert_attention_and_mlp_lora",
+      "rank": 8,
+      "learning_rate": 0.0001,
+      "update_steps_per_collection_rollout": 20,
+      "fresh_native_beta_distributed_times": true,
+      "fresh_noise": true,
+      "original_demonstration_replay_beta": 0,
+      "synthetic_candidate_training_weight": 0,
+      "complete_executed_action_windows_only": true,
+      "update_boundary": "end_of_collection_rollout",
+      "sampling": "event_and_stage_balanced_with_2x_correction_group_weight",
+      "loss_action_dimensions": 7,
+      "padding_loss_excluded": true
+    },
+    "fixed_data_recipe": {
+      "schema": "reasoning-executed-masked-replay-ablation-1",
+      "status": "prepared_for_development_test",
+      "manifest_sha256": "12df65efece3e4cea844960718a260e31187c71d1c440a2de6c1b6ed39194ba5",
+      "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+      "source_collection_control_steps": 620,
+      "source_teacher_total_tokens": 4152587,
+      "source_collection_episodes": 2,
+      "admitted_windows": 47,
+      "correction_containing_windows": 8,
+      "native_only_windows": 39,
+      "initial_updates_per_source_episode": 20,
+      "optimizer_step_checkpoints": [
+        40,
+        100,
+        200
+      ],
+      "loss_action_dimensions": 7,
+      "first_checkpoint": "Same recorded V3 episodes and original 20+20 update order, with loss only on useful steps in complete real windows. This changes evidence admission and its loss weighting; source experience is unchanged.",
+      "later_checkpoints": "Test 100 and 200 total updates over the same recorded data, with the existing event/stage balancing and 2x correction-group weight.",
+      "original_demonstration_replay_beta": 0,
+      "synthetic_training_windows": 0,
+      "new_collection_actions": 0,
+      "new_teacher_calls": 0,
+      "interpretation": "All ten actions and their pre-action observation are real. Only evidence-supported steps enter the seven-channel flow loss; failed/ambiguous actions remain known noisy input context, not loss targets. No unexecuted tails, new collection actions or new teacher calls. Development learner ablation; retain the source 620 controls and 4,152,587 tokens without duplicating global charges. Cross-step denoising attention still sees the noised known actions at unsupervised steps; this is an explicit limitation to test.",
+      "admission_rule": "mask_loss_by_evidence",
+      "unique_supervised_steps": 175,
+      "unique_supervised_correction_steps": 20,
+      "original_strict_unique_supervised_correction_steps": 5
+    }
+  },
+  "learner_configuration_source": "protocol.json:learner + replay_recipe.json",
+  "runtime_configuration": {
+    "phase": "replay-masked",
+    "task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "seed": 173,
+    "source_revision": "c9f69fb78db48b7d73331c21bb6bc4cec5c86c9b",
+    "payload_sha256": "c263f1a0f320b478798e93c21e6655101060c03703e3ed819582e9c0fe236960",
+    "workflow": "astra-pi05-reasoning-learning-20261003-replay-masked-1",
+    "gpu": "NVIDIA L40S",
+    "new_collection_steps": 0,
+    "new_teacher_calls": 0
+  },
+  "task_instruction": "put the wine bottle in the bowl",
+  "points": [
+    {
+      "collection_rollouts": 0,
+      "collection_steps": 0,
+      "evaluation_steps_cumulative": 0,
+      "policy_version": 0,
+      "successes": 5,
+      "rollouts": 10,
+      "reference_evaluation_steps": 1989,
+      "reused_from_workflow": "astra-pi05-reasoning-learning-20261003-pilot-1",
+      "reference_sha256": "924d0c3325458fc8c77e9360e10397105a78bb306b0cb1cdf1de6191f60c04b5",
+      "new_evaluation_interactions": 0,
+      "independent_new_evaluation_replicate": false,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 83,
+          "total_control_steps": 93,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 91,
+          "total_control_steps": 101,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 87,
+          "total_control_steps": 97,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 57,
+          "total_control_steps": 67,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 620,
+      "new_collection_steps": 0,
+      "teacher_tokens_from_reused_data": 4152587,
+      "optimizer_steps_cumulative": 40,
+      "evaluation_steps_cumulative": 1964,
+      "policy_version": 2,
+      "successes": 5,
+      "rollouts": 10,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 4152587,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 89,
+          "total_control_steps": 99,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 55,
+          "total_control_steps": 65,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 76,
+          "total_control_steps": 86,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 56,
+          "total_control_steps": 66,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 620,
+      "new_collection_steps": 0,
+      "teacher_tokens_from_reused_data": 4152587,
+      "optimizer_steps_cumulative": 100,
+      "evaluation_steps_cumulative": 4476,
+      "policy_version": 3,
+      "successes": 3,
+      "rollouts": 10,
+      "success_rate": 0.3,
+      "wilson_95": [
+        0.10779126740630099,
+        0.6032218525388546
+      ],
+      "teacher_total_tokens": 4152587,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 117,
+          "total_control_steps": 127,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 95,
+          "total_control_steps": 105,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 100,
+          "total_control_steps": 110,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": -0.2,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [
+          "libero_goal_ood:seed173:task6:state23",
+          "libero_goal_ood:seed173:task6:state28"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 620,
+      "new_collection_steps": 0,
+      "teacher_tokens_from_reused_data": 4152587,
+      "optimizer_steps_cumulative": 200,
+      "evaluation_steps_cumulative": 7576,
+      "policy_version": 4,
+      "successes": 0,
+      "rollouts": 10,
+      "success_rate": 0.0,
+      "wilson_95": [
+        0,
+        0.2775327998628892
+      ],
+      "teacher_total_tokens": 4152587,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": -0.5,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [
+          "libero_goal_ood:seed173:task6:state20",
+          "libero_goal_ood:seed173:task6:state23",
+          "libero_goal_ood:seed173:task6:state25",
+          "libero_goal_ood:seed173:task6:state28",
+          "libero_goal_ood:seed173:task6:state29"
+        ],
+        "paired_reset_identities_verified": true
+      }
+    }
+  ],
+  "collection": [],
+  "replayed_training_data": {
+    "schema": "reasoning-executed-replay-1",
+    "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+    "source_revision": "3439d378fec15e8c85d380cd8b30bd58cb05145d",
+    "source_task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "source_seed": 173,
+    "source_protocol": {
+      "schema_version": "reasoning-policy-learning-3",
+      "status": "bounded_gripper_revision_awaiting_rollout_test",
+      "proposal_sha256": "da0631966e942858cad08653509fb644f134dcec53ac0cdcdda30fee6ebe96c5",
+      "checkpoint": {
+        "repo_id": "lerobot/pi05_libero_base",
+        "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+        "input_profile": "openpi_libero",
+        "runtime_action_horizon": 10,
+        "internal_action_dim": 32,
+        "controller_action_dim": 7,
+        "native_flow_direction": "noise_1_to_action_0",
+        "generation_steps": 10,
+        "execute_steps": 5
+      },
+      "environment": {
+        "suites": [
+          "libero_goal_ood",
+          "libero_spatial_ood"
+        ],
+        "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+        "tasks_per_suite": 10,
+        "control_frequency_hz": 20,
+        "actions_per_rollout": 300,
+        "stabilization_steps_counted_separately": 10,
+        "observations": [
+          "external_camera",
+          "wrist_camera",
+          "robot_state8",
+          "original_instruction"
+        ],
+        "training_feedback": [
+          "binary_environment_success",
+          "real_observation_history"
+        ],
+        "privileged_object_poses": false,
+        "physical_candidate_retries": false
+      },
+      "teacher": {
+        "model": "gpt-6-astra",
+        "reasoning_effort": "medium",
+        "harness": "codex_exec_via_authenticated_relay",
+        "roles": [
+          "diagnose",
+          "compare",
+          "assess"
+        ],
+        "timeout_seconds_per_call": 240,
+        "monitor_every_actions": 25,
+        "active_replan_actions": 5,
+        "soft_correction_episodes": 3,
+        "max_actions_per_active_plan": 50,
+        "independent_candidate_strengths": [
+          0.25,
+          1.0
+        ],
+        "candidate_noise": "common independent Gaussian draw, also used for the fixed native proposal",
+        "guidance_schedule": "clipped RTC/PiGDM coefficient: min(100, strength*((1-t)^2+t^2)/(t*(1-t)))",
+        "max_gradient_norm": 5.0,
+        "max_controller_target_delta": 0.5,
+        "frs_action_steering": false,
+        "simulator_paused_during_reasoning": true,
+        "candidate_configurations": [
+          {
+            "strength": 5.0,
+            "schedule": "rtc_pigdm",
+            "project_gradient": true
+          },
+          {
+            "strength": 10.0,
+            "schedule": "rtc_pigdm",
+            "project_gradient": true
+          },
+          {
+            "strength": 10.0,
+            "schedule": "rtc_pigdm",
+            "project_gradient": false
+          }
+        ],
+        "temporal_diagnosis": true,
+        "history": "Previous real monitor images plus up to three collection-only failure summaries; evaluation outcomes are never sent to the teacher.",
+        "controller_delta_limits": [
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          0.5,
+          2.0
+        ],
+        "gripper_revision": "Allow additive sign reversal for the gripper; target must still satisfy the unchanged [-1,1] controller bounds. Translation/rotation deltas stay <=0.5. No clipping of invalid teacher targets."
+      },
+      "learner": {
+        "objective": "native_flow_matching",
+        "parameters": "action_expert_attention_and_mlp_lora",
+        "rank": 8,
+        "learning_rate": 0.0001,
+        "update_steps_per_collection_rollout": 20,
+        "fresh_native_beta_distributed_times": true,
+        "fresh_noise": true,
+        "original_demonstration_replay_beta": 0,
+        "synthetic_candidate_training_weight": 0,
+        "complete_executed_action_windows_only": true,
+        "update_boundary": "end_of_collection_rollout",
+        "sampling": "event_and_stage_balanced_with_2x_correction_group_weight"
+      },
+      "pilot": {
+        "scope": "engineering and mechanism screening; not evidence of superiority over strong RL",
+        "development_tasks": [
+          {
+            "suite": "libero_goal_ood",
+            "task_id": 6
+          },
+          {
+            "suite": "libero_spatial_ood",
+            "task_id": 2
+          }
+        ],
+        "seeds": [
+          173,
+          179,
+          181
+        ],
+        "collection_reset_indices": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "autonomous_evaluation_reset_indices": [
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29
+        ],
+        "evaluation_after_collection_rollouts": [
+          0,
+          2,
+          4,
+          8
+        ],
+        "autonomous_success_threshold": 0.8,
+        "threshold_rule": "At least 8/10 successes at a scheduled checkpoint; report Wilson intervals and seed-level variation, not a win from one crossing.",
+        "learning_curve_x": "all new collection control steps including failed and assisted actions; stabilization separately disclosed and included in total",
+        "evaluation_interactions": "separate ledger; identical schedule and resets for every compared method",
+        "confirmation": "Freeze recipe/tuning, then preregister fresh seeds and resets across all 20 tasks; no confirmation claim from pilot tasks.",
+        "record_all_evaluation_observations": false,
+        "evaluation_recording": "Retain video, all executed commands/reset audits and the initial observation; skip redundant per-step evaluation NPZ files. Collection still retains every pre-action observation."
+      },
+      "baselines": [
+        {
+          "name": "RLinf DSRL pi0.5 SAC",
+          "repository": "https://github.com/RLinf/RLinf",
+          "revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+          "configuration": "examples/embodiment/config/libero_spatial_dsrl_openpi_pi05.yaml",
+          "status": "source_pinned_checkpoint_and_ood_integration_pending"
+        },
+        {
+          "name": "RLinf pi0.5 PPO",
+          "repository": "https://github.com/RLinf/RLinf",
+          "revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+          "configuration": "examples/embodiment/config/libero_spatial_ppo_openpi_pi05.yaml",
+          "status": "source_pinned_checkpoint_and_ood_integration_pending"
+        }
+      ],
+      "comparison_gates": [
+        "Strictly load the SAME selected LeRobot checkpoint; never substitute RLinf's differently trained default checkpoint.",
+        "Verify normalization, tokenizer, camera orientation, horizon, velocity and native-action numerical parity after any checkpoint conversion.",
+        "Adapt the released OOD task/reset protocol and common action accounting to each baseline.",
+        "Equal development tuning budget, repeated seeds, same autonomous evaluation schedule.",
+        "Report threshold crossings as right-censored if not reached; no sample-efficiency win from assisted success alone."
+      ],
+      "compute": {
+        "platform": "OSMO L40S",
+        "maximum_simultaneous_gpus": 2,
+        "authorized_gpu_hours": 24,
+        "status": "authorized_by_user_20261003",
+        "authorization": "yes take 24 if you want",
+        "accounting": "Sum allocated GPU task durations including bootstrap, failures and all compared methods; never exceed 24 GPU-hours.",
+        "launch_allowed": true
+      },
+      "research_objective_met": false,
+      "revision_evidence": {
+        "workflow": "astra-pi05-reasoning-learning-20261003-guidance-probe-1",
+        "finding": "On one archived observation, projected strength10 reduced target error 68.10% with RTC weighting versus 0.758% with t taper. Full gradient reduced 71.51% but substantially changed unmasked output components. This is not task-success evidence.",
+        "v1_rollout_evidence": "Astra rejected weak v1 lift candidates as ties; source and results are retained separately.",
+        "unchanged": "Checkpoint, observations, bounds, resets, update objective, evaluation schedule; no FRS guidance.",
+        "v3_gripper": "In v1 Goal6/reset0 at step175, Astra proposed three overlapping +0.5 gripper edits, correctly rejected by the cumulative limit; at step210 it explicitly declined intervention because +0.5 could not reverse the approximately -1 opening command. Widen only this channel to its full representable change. This prospective revision has no success-rate result yet."
+      },
+      "teacher_native_evaluation_references": {
+        "libero_goal_ood:6:173": {
+          "file": "native_goal6_seed173.json",
+          "sha256": "924d0c3325458fc8c77e9360e10397105a78bb306b0cb1cdf1de6191f60c04b5",
+          "scope": "Reuse the already-measured native baseline only if checkpoint, processors, deployment and reset hashes match; count no new interactions or independent evaluation replicate."
+        }
+      }
+    },
+    "source_policy_signature": {
+      "format": "lerobot_pi05",
+      "backend": "pytorch",
+      "horizon": 10,
+      "model_action_dim": 32,
+      "device": "cuda",
+      "dtype": "float32",
+      "artifact_sha256": {
+        "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+        "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+        "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+        "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+      },
+      "tokenizer_sha256": "c44a0503146efc99bbd748f05667ddfeb0ae5d1afb63019df2d4c020cfb6b928",
+      "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+      "adapter_source_sha256": "9700beba45fe9b740d04e3cf428479bbd5e899447eb395762cedf750833aba51",
+      "processor_source_sha256": {
+        "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+        "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+        "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+        "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+        "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+        "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+        "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+      },
+      "torch_version": "2.7.1+cu126",
+      "transformers_version": "4.53.3",
+      "transformers_source_sha256": {
+        "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+        "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+        "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+      },
+      "normalization": {
+        "type": "quantile",
+        "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84"
+      },
+      "provenance": "lerobot/pi05_libero_base@a217bfd3b14673cf2ce597e69997ab21866438dd",
+      "input_profile": "openpi_libero",
+      "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+      "runtime_overrides": {
+        "chunk_size": 10,
+        "discrete_state_input": false,
+        "image_size": 224
+      }
+    },
+    "source_collection_control_steps": 620,
+    "source_teacher_total_tokens": 4152587,
+    "source_gpu_hours": 1.3636874038888889,
+    "instruction": "put the wine bottle in the bowl",
+    "episodes": [
+      {
+        "directory": "rollout_0",
+        "episode_id": "libero_goal_ood:seed173:task6:state0"
+      },
+      {
+        "directory": "rollout_1",
+        "episode_id": "libero_goal_ood:seed173:task6:state1"
+      }
+    ],
+    "admitted_windows": 47,
+    "new_collection_actions": 0,
+    "synthetic_windows": 0,
+    "files": {
+      "rollout_0/0214ea1367d0fc7a1c963d76091f9888822adf553d1fdfcd996e5e978a02f3ae.npz": "2bf702e2e355de06e44d11ad25a1a4c6c8bd919c57bab64ffb04fbc27478554e",
+      "rollout_0/13b50692c0d1b4454301c0562eb8b03d6a219548cde9a5b5bd8684df7cee2da5.npz": "17f9e9ac05dcb3960d2f384207a60f45d80d5e96b8a4db121d8155adb2aea8ec",
+      "rollout_0/4de0955fe7ff11633fb06437ff53d61d2a121472f6cca87c492877fbfc8c379a.npz": "ab08baa58c34feb486144f5b667590f76a246dc70902c38760d7efe01fc71b53",
+      "rollout_0/4f2f16d5cc7100e5c4af2518a84e970b97e6662eb1101044af3db13f33e6dd96.npz": "e18b983ed03ac48e025d689bf40f33d9b54af77e28bbeafc8812aec18a315b73",
+      "rollout_0/5aed75c3fbb80da84f5dc7f306d52da94ca726234df3c78b02f1c42a49bb0386.npz": "fad7a22e56fc94759215a45c8c5dd1a7f3dafb4997bccb32eea7ae2b04f5c806",
+      "rollout_0/6be090ab9470ff45b819772e27f381c755097139ba40edc7058966e37448c513.npz": "998f0eb4422f450fe473d89cf1780e0d8019ee0d57cf99ac64418c8c3879ade5",
+      "rollout_0/7019dea169d26336373ecaab0ac4fadb568ed2fbde52df4811e612dbae213f3f.npz": "c6dd4676c6289a2a870b6031120baa787e6aa6a7474348e6061032078a134841",
+      "rollout_0/75df775ed0da85d973ee71182a3c02e60cdc7dd7e91dfe94cce83fe506b56d0d.npz": "6dcd5b8ee1ad8a3994772201478e839faf13529f623d6f368e9f223f620efec8",
+      "rollout_0/84dc3cf593b6f5131ad6d7136110b5344297624f31a48691e1d861a2c8885abe.npz": "d0b6c6afac8070046ee28aa4c9b6d5b0694f6142292ce1c05e9581f82dd244ac",
+      "rollout_0/85121e8fe0a6178d08167f2e4550b4b882266e793a050908a4761bc9ad44e2ac.npz": "0a97190a63f1b5624ce44bf1301073b22964b6efc7375532990a221ef4975cd1",
+      "rollout_0/9d63257bbfe169c6e780100e0ae9c004ecb7a05ff800a92bdd2609a1264ebcd8.npz": "b442f37e6da79216161adc2672c1440104390162c95461cf96e1198ebb307e68",
+      "rollout_0/aa5560334db5a134b6df872cd591aed84eb896ed65033e5bc77f4319bd3bcdeb.npz": "9115dc8daff9ce6cae55a04783ddd4df617f0b78d86f1c325dab02e6acfe6e1a",
+      "rollout_0/admission.jsonl": "782052081bfc3cd373bf2d0b47e0b6714b2da2a8c9cd8ec7b55c5789657de68c",
+      "rollout_0/b7cca368cc3b714ad9978ece5c7d9be0fb8065d430fcf1457e3b92ced44d8137.npz": "b7119bb1347c21cc1dc252684375a514589b32f866ef85d97e6455fa19ddb583",
+      "rollout_0/c5943f87f95b9906289c11ac5bfd870c848c8e64a826072ea673ba2a022c16d6.npz": "68ef33c75debe65b44bb04ceb3c12c5f30dd159346a805a03af6533db161c331",
+      "rollout_0/c870b62f1b430624f94ccc26b843c3bae2c84424ca1c6a546e587532bbbea883.npz": "e09c705ce12cb5b1a0921c5cec80f628fdf2efd5413aba96f522f4fa7381f659",
+      "rollout_0/dfe5d130505e226889bf7574cf20cbe4ca13e6f1cce62c11d3863ab1dbfd72bc.npz": "e9785174704fb18402194a241593a7ed70cb0f78699ab176267db7b49e1cadf2",
+      "rollout_0/e380fec81e87f531445f18c797fd7458bdc3a03980d9ba3de7ab578939432b1a.npz": "9fec93367c27b3a596d088f0d8b6e45451ed499e019f0d82b5e59b1c8dee6e48",
+      "rollout_0/executed_steps.jsonl": "764fdea86a464b4f435d8771069497a9b41c90b6c22d902f64df19b49e7b3ce6",
+      "rollout_0/result.json": "2fb11fb06cc215f0335ea6f8df24a889d2e0ac406690711146c31eeda1c2f117",
+      "rollout_1/030bfb1bdac31499c0242c7bff1d5d8d026f38a4e2582976fc0ca5f7f2475e30.npz": "13fdc99d1aa27363f48265b79efce80274e993720223b95f67076767c1da229c",
+      "rollout_1/17b75e43f34f42454c213725b3df2ae99e5f5a8120e80d9f16b8155ff1253fe6.npz": "31cc2f35896229efca6d2655fd476164ddb396f365a57112ce2cd0b573c089ff",
+      "rollout_1/20cbfc08062ada8aee2e1c1cebbc0a16de4c536bac76b5b20ef9e30391dc6d87.npz": "82b84a3fbb8bdd5298e8402492e2840dd90b6498d27300a1e1520cfc10b7b909",
+      "rollout_1/38706398e2eebc2180bc87a14ce3fe5202424051bcd171e455c4d4ba9b8d0a30.npz": "80f304eee669eddbec0e2ed6f63ae25e308c06fec6a78eba530ab4e05ff65cfd",
+      "rollout_1/44cb0d5d5410d5941a7fd0cddca5be4272439429807a75bd7ccc72e0f3530b2f.npz": "5a286d3ba58a664f03d319e484a7b96d642b8a8227697291541ebd129ab15735",
+      "rollout_1/4f4957fb248b82a3da2b1a4045b82f153100f4f5263667c49ece363d536ed324.npz": "bc16aab5a3f8c3be38a0ffe8c183912f0255419a1b5e7694c343ec6042c61ea6",
+      "rollout_1/596d7321b6a8be9ef8da31b811b70930db8b6cb47080ccef58ca155f2b95eef6.npz": "5c1c2d87bfb2b49efa38c4471a214f91c792e374bc6efbcd5f41431e1bf6eaa6",
+      "rollout_1/5bff54f451f28ca4bb33a760909d02908cb7b2e688448c9d252d9afd81bc3ba3.npz": "f3b61041b1c4f3d0336c86151ecc50ac04d815633eb538bb61dceefaf68efc2d",
+      "rollout_1/5de3681a51245130e975df2d9cbaa635108441acc58fdc814953d54b0a2163d9.npz": "f641c21b2032bc01fbe2351ca08f7cdd56c27033de1cd545e420454a40b47d76",
+      "rollout_1/71d32ddbab0bffc2bfe7f6a9bb94557103ce8d3c99dbad428df627bee8152df3.npz": "cbf63f0f7639dc1d2f78b491455d89be2d8daa3bd1e7364c083abb12f2d5a4d7",
+      "rollout_1/7851dbd7674b711873965e09501eb6e05cce7c74092c13a3964698a14f36f191.npz": "6bfe67f0be4f79c6046683fe92dbb76e83a6002403aeafcc51323a4b92fd5713",
+      "rollout_1/838791b21df3553667be4cd0b7b76334903c235ecd3f882ed783772724e3bf95.npz": "3287bb607768ba979d71b0f7a9f6318cb65ba32e7e79baf17e148a11927c7b83",
+      "rollout_1/872688213b43753e853db9d99e4318e9c7aec2d93d030f5e3c6dc0d8a5b8ae41.npz": "e015be3675784818ea56e22830db7ac08c966b52e270e3f41ea59dc74574f45b",
+      "rollout_1/924ffb91e3fddf9eb7ca8d04bc6925a5335fb1e68906f63a9f582033972b8510.npz": "bd0ff595e397fecfeb76c8a8935ee9e5e593e548c78c8028febaf96b7f12a343",
+      "rollout_1/9340378293e312116973d08cc5f8dd3c755f86bfb69cbea8dc4001f73af6d362.npz": "ec628f50870d393fbe92ba5416af63fa3ac06be8a934ee54a95fc5179588f751",
+      "rollout_1/94927085823d470e3e6b89e12653a0da6cef84d349a326baaa002382ceff6ce8.npz": "de41acb926eb075f45e9223a2316afad0345030016ac8a4bae3395be58741a27",
+      "rollout_1/995218bab38fd6588506781c6aa55e0803bf3137175ab5a3bf0d40159f738123.npz": "5d2d01cd78dace136dd0517b17e1c6f8892a4bc7133fdb3557de04a3a99be14b",
+      "rollout_1/9cd427fe005ddfe0a69676430d2729ddd25baa81491cbda7a94954970d24ddc9.npz": "f08d591e8956642c717b984c8e4d6b996392c123e50b247ae8857e3f7ef6e5a1",
+      "rollout_1/9d5664124e204f70631a55125a5ec953c1eefd6349b692d126ebe7238a98f2e7.npz": "d1589eedc044745d0392a098e20a5685a473fb35f1e59825ce3517f9d47f26b4",
+      "rollout_1/a14ade9540607952a798b62519485307cdc8bd457b1099580af2ec7c62e9ea90.npz": "34efbc837dd397d9a8ad44516f04413a2d864d7f0aadbde617acc4e06206769b",
+      "rollout_1/a257770437f01084f8ae647a7ae1b5aa1c9bb9ae97d87f45b734bd89db526da5.npz": "a319336afce0f21a003f9963fe07393dcaeb1abb0545e7bf15e7f66214233869",
+      "rollout_1/a9f7ffe1c245d1473bb180b8457d7995414bb60a04cca84674650ffad5c76d44.npz": "41887f7cae149f20b9e225e4b6e6cc1fca76e4014d379cbe331661302cacfaa4",
+      "rollout_1/ac6a8e179c481f67f6c8881c893cf78c49bc67c78cbc28680b39de5e973b44a0.npz": "bdc79260b714ae03e8591f6248dfd4a9d500998fe615f07a53f0256a1037f966",
+      "rollout_1/admission.jsonl": "ad764d44177d0bad9650d007f4a05578361b5a3cd9a9e082af78878a8cbb96c0",
+      "rollout_1/b6c3245b682098d62ba7c71b9f69b890fdb64eaa80a38a7bbedbe59f27197f3b.npz": "993447cd0dc39ae43d421e7f5e1fdeb634a639b4976351b77c3f5b4fafed3e44",
+      "rollout_1/b8045a7c63fbb4a23b61d67aa60e776b2c6f9f196ad0d3a9e6b89d4ea3123e73.npz": "2537c4cb6d9e14b032812d0b26c92957621377e6538ac955b3dc5a963aa4c2f4",
+      "rollout_1/d5adfa3d227ecf49eaeaa3d723f5980ee05a8220ad862ae281e0ce17c4605589.npz": "5de25c0a6f9208990dc2c9e5893540fa82d82574f0043be6013c9c81905e1b38",
+      "rollout_1/df2f2eb7883beb4490629c47f8c2e0e9070ba911f9f917e2a09de0913643872d.npz": "f181e24441305b7906c2ebc5929a29f37a0c9ea752dd128a38661bcf9e49e649",
+      "rollout_1/executed_steps.jsonl": "c7db71fa329af1757edfe1a0c70bbb86527a619feb9d556f6780fabad628ed5d",
+      "rollout_1/f482dd96da5bf41f36f2bdd17b1933390b63f677d739a4dcd035bdde0dbba52a.npz": "15f122a62add860f444df7a3a549a9631d9112a1823fdbc8429b8606bf4d22de",
+      "rollout_1/fa247a8e1612a750747f0ef02d5a6e66c1f1935adecae1bf3b0d92eae184cdd5.npz": "134575f2568801c9e43f3ae5b83d6451e22b1d462c84ac240f4eeb1e755f9cbe",
+      "rollout_1/fc2206ef9da885a937b9bc1fd04996a47a512e4edfc4953242d85c8079a7cae2.npz": "e421a8cca7d89405d6da56c227b869ba3131e8670345ffa9c2b613c8d9e88fa4",
+      "rollout_1/result.json": "495c3148bfa4e9a7da77bc558930533d80a55fc9a5c6b197830246a1374e9e98"
+    },
+    "correction_containing_windows": 8,
+    "native_only_windows": 39,
+    "admission_rule": "mask_loss_by_evidence",
+    "original_strict_manifest_sha256": "9a14ebd41ae96057206226103412d4b5ac62eedbcaa727992e3db1de2201ea8b",
+    "original_strict_admitted_windows": 22,
+    "known_unsupervised_actions_in_denoising_input": true,
+    "loss_weight_for_ambiguous_or_failed_steps": 0,
+    "interpretation": "All ten actions and their pre-action observation are real. Only evidence-supported steps enter the seven-channel flow loss; failed/ambiguous actions remain known noisy input context, not loss targets. No unexecuted tails, new collection actions or new teacher calls.",
+    "unique_supervised_steps": 175,
+    "unique_supervised_correction_steps": 20
+  },
+  "partial_collection": [],
+  "collection_steps_retained": 0,
+  "collection_steps_may_be_lower_bound": false,
+  "evaluation_steps_retained": 7576,
+  "evaluation_steps_may_be_lower_bound": false,
+  "completed_collection_rollouts": 0,
+  "collected_successes": 0,
+  "policy_updates": 4,
+  "latest_evaluated_policy_version": 4,
+  "latest_updated_policy_version": 4,
+  "latest_update_has_autonomous_evaluation": true,
+  "teacher_usage": {
+    "completed_calls": 0,
+    "failed_provider_calls": 0,
+    "input_tokens": 0,
+    "cached_input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 0,
+    "latency_seconds": 0,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 0
+  },
+  "teacher_decisions": {
+    "roles": {},
+    "requested_interventions": 0,
+    "requested_methods": {},
+    "candidate_preferences": {},
+    "selected_non_native_proposals": 0,
+    "selected_candidates": {},
+    "observed_prefix_outcomes": {},
+    "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts."
+  },
+  "usage_by_episode": {},
+  "threshold_crossing": null,
+  "threshold_status": "not_reached_in_completed_evaluations",
+  "videos": [],
+  "starting_frame": null,
+  "actual_gpu_hours_including_initialization": 0.6300286575,
+  "scope": "Fixed-data development ablation, not fresh collection or confirmation. Attribute the original 620 collection controls and 4,152,587 teacher tokens; no new collection actions or Astra calls. Evaluation controls are additional.",
+  "source_artifact_sha256": {
+    "runtime.json": "47ce493ba30dd32b811891d5ee87ef5024be839ba813a8685019f70e12dcd4a9",
+    "protocol.json": "8cc43caa994d97291f62b203a9a4543cd8409219f0941d2529f6c92135b7874f",
+    "learning_curve.json": "6df2459cfbe2dc9f928321b03e1d923eabc4aadf2cbc04866864eb8acd7250ec",
+    "collection.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "updates.json": "b43d1871b69a55760e6379a70f46813528bc8ee85d610209fbf14023a183dfe0",
+    "completion.json": "6844222a2b434cf3b83335fdd714ef674df6fb31ac226c0fd9c1b00f371a3d1c"
+  }
+}

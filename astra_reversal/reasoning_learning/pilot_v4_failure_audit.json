@@ -1,0 +1,75 @@
+{
+  "schema_version": "reasoning-learning-semantic-failure-audit-1",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-5",
+  "source_revision": "77b727e2131837f841bdc941c469e1745f6f74e7",
+  "status": "provider_failed_in_first_partial_collection",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "native_successes": 5,
+  "native_rollouts": 10,
+  "native_evaluation_shared": true,
+  "new_evaluation_controls": 0,
+  "collection_controls_retained": 165,
+  "complete_collection_rollouts": 0,
+  "policy_updates": 0,
+  "updated_autonomous_success": null,
+  "completed_comparisons": 9,
+  "selected_counts": {
+    "native": 9
+  },
+  "candidate_preferences": {
+    "uncertain": 21,
+    "tie": 4,
+    "loss": 2
+  },
+  "teacher_usage": {
+    "completed_calls": 61,
+    "input_tokens": 1144193,
+    "cached_input_tokens": 507392,
+    "output_tokens": 9205,
+    "total_tokens": 1153398,
+    "latency_seconds": 768.0028583798266,
+    "incomplete_usage_receipts": 1,
+    "uncached_input_tokens": 636801
+  },
+  "failure": {
+    "request_index": 60,
+    "step": 155,
+    "role": "compare",
+    "http_status": 400,
+    "message": "The 'gpt-6-astra' model is not supported when using Codex with a ChatGPT account.",
+    "cli_version": "codex-cli 0.159.3",
+    "proposal_received": false
+  },
+  "offline_connectivity_probe": {
+    "same_request_new_diagnostic_job": true,
+    "new_environment_actions": 0,
+    "used_in_collection_or_training": false,
+    "requested_model": "gpt-6-astra",
+    "effort": "medium",
+    "status": "accepted",
+    "latency_seconds": 15.38822020898806,
+    "raw_usage": {
+      "cache_write_input_tokens": 0,
+      "cached_input_tokens": 0,
+      "input_tokens": 20005,
+      "output_tokens": 266,
+      "reasoning_output_tokens": 64
+    },
+    "total_tokens": 20271
+  },
+  "findings": [
+    "All nine completed comparisons kept the fixed native proposal; 27 semantic candidates received no win.",
+    "Several comparisons could not map horizontal command changes to bowl alignment from the real images.",
+    "Some comparisons cited opening/descent in the unexecuted tail, motivating the explicit-prefix revision.",
+    "A subsequent offline request succeeded without a model/account/config change; this suggests an intermittent provider error, not a verified persistent lack of account access."
+  ],
+  "claims": {
+    "semantic_candidates_changed_policy_outputs": true,
+    "semantic_candidates_improved_task_success": false,
+    "sample_efficiency_advantage_established": false
+  }
+}

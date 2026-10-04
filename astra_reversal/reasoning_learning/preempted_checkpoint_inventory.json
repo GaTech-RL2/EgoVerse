@@ -1,0 +1,47 @@
+{
+  "scope": "Original student and optimizer state from externally preempted workers. Evaluation status is independent of checkpoint existence. Not included in the shareable dashboard ZIP.",
+  "checkpoints": [
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+      "artifact": "worker_0/checkpoints/policy_1/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "1589b496e1f8f707eb061008529d67b1a170090977962a5bddd1e4c768b312eb"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+      "artifact": "worker_0/checkpoints/policy_2/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "8bf18a317390d6b3c2989a1089a1486081ec5d4b529603e04368b36ec41f67a4"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+      "artifact": "worker_0/checkpoints/policy_3/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "c596f66e09cdb5041b2b47427d845f40cd30ca34b16add70879b88bc89e115d6"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "artifact": "worker_0/checkpoints/policy_1/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "c05edf2f6adceb073770ceec583e3f0551130d62bb134a8408a6a448f0216044"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "artifact": "worker_0/checkpoints/policy_2/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "7f3359c1848807809d2741fd78f7504a311a1360c0939f0b7ab7cff5530fa09e"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "artifact": "worker_0/checkpoints/policy_3/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "987c5e6fc89c6235dfb01558e93bb630324e5ddcd379fd3d38f2f5fdc11be0e7"
+    },
+    {
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "artifact": "worker_0/checkpoints/policy_4/action_expert_adapters.pt",
+      "bytes": 41903121,
+      "sha256": "50c2d134c877843f9c7784b72097ec156a21858cd98f56f5fff0ac11c3d2b753"
+    }
+  ]
+}

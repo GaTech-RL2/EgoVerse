@@ -1,0 +1,83 @@
+{
+  "scope": "Qualitative audit from recorded evaluation videos. No additional environment actions or teacher calls.",
+  "rows": [
+    {
+      "label": "Native policy",
+      "source": "pilot-v1-results/worker_0/evaluation_0/reset_28",
+      "source_video_sha256": "c7872388b13e303f73a81e78bdab30d5d235b2a6e262a370e817612c7a135ce2",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        86
+      ],
+      "video_frames": 87,
+      "success": true,
+      "actions_executed": 87,
+      "reset_identity": {
+        "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+        "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Local labels \u00b7 100 updates",
+      "source": "credit-v5-results/worker_0/online_gate/evaluation_100/reset_28",
+      "source_video_sha256": "a212b2df87cae16af373205860dd70e8fc5da91d8508e509061f752215167a42",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        86
+      ],
+      "video_frames": 87,
+      "success": true,
+      "actions_executed": 87,
+      "reset_identity": {
+        "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+        "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Hindsight \u00b7 100 updates",
+      "source": "credit-v5-results/worker_0/hindsight_gate/evaluation_100/reset_28",
+      "source_video_sha256": "4196915d1bbeba5f33499aec1d718481bcb99a684b3f755d64738a8340809173",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        299
+      ],
+      "video_frames": 300,
+      "success": false,
+      "actions_executed": 300,
+      "reset_identity": {
+        "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+        "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    },
+    {
+      "label": "Whole success \u00b7 100 updates",
+      "source": "credit-v5-results/worker_0/successful_episode/evaluation_100/reset_28",
+      "source_video_sha256": "7e9996977d0d6493509eb535fa0e7bde8856925cb17596f909c91ce95b295e8c",
+      "frame_indices": [
+        0,
+        40,
+        80,
+        83
+      ],
+      "video_frames": 84,
+      "success": true,
+      "actions_executed": 84,
+      "reset_identity": {
+        "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+        "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+      }
+    }
+  ],
+  "selection": "Post hoc: the sole reset lost by the hindsight branch. This is a qualitative example, not an independent evaluation sample.",
+  "caption": "On the same reset28, native, local-label and whole-success students place the bottle in the bowl. The hindsight student grasps the bottle but carries it rightward toward the rack and cabinet, leaving the bowl empty. This identifies a post-grasp task-direction error rather than an inability to grasp; it does not prove which training window caused the regression. Hindsight labels had excluded the failed collection\u2019s later rack transport, so the regression cannot be explained simply as direct imitation of those excluded actions."
+}

@@ -1,0 +1,2966 @@
+{
+  "workflow": "astra-pi05-reasoning-learning-20261003-replay-masked-1",
+  "environment_actions": 0,
+  "optimizer_updates": 0,
+  "teacher_calls": 0,
+  "checkpoint_steps": [
+    0,
+    40,
+    100,
+    200
+  ],
+  "fixed_flow_times": [
+    0.2,
+    0.5,
+    0.8
+  ],
+  "prior_setup_failure": "An initial strict probe used the newer optional step_mask keyword on the older pinned worker. It produced no metric and changed no host weights or environment state. The log is retained; this run omits that argument when no mask is present.",
+  "probe_seed": 9821,
+  "scope": "Fit diagnostic on the training windows, not held-out generalization. Fixed noise and times across checkpoints; controller sampling uses the same Gaussian seed at each window. No labels, actions or host model parameters change.",
+  "host_source_revision": "c9f69fb78db48b7d73331c21bb6bc4cec5c86c9b",
+  "summary": [
+    {
+      "optimizer_steps": 0,
+      "group": "all",
+      "windows": 47,
+      "flow_loss_mean": 0.24344201306011592,
+      "controller_mse_useful_steps": 0.10751429246523757,
+      "controller_motion_mse_useful_steps": 0.045202700584399756,
+      "controller_gripper_mse_useful_steps": 0.4813838437502647
+    },
+    {
+      "optimizer_steps": 0,
+      "group": "correction_containing",
+      "windows": 8,
+      "flow_loss_mean": 1.0251657714446385,
+      "controller_mse_useful_steps": 0.5474511269316007,
+      "controller_motion_mse_useful_steps": 0.20840378363918238,
+      "controller_gripper_mse_useful_steps": 2.581735186686111
+    },
+    {
+      "optimizer_steps": 0,
+      "group": "native_only",
+      "windows": 39,
+      "flow_loss_mean": 0.0830884215966241,
+      "controller_mse_useful_steps": 0.01727083924136825,
+      "controller_motion_mse_useful_steps": 0.011725555342393064,
+      "controller_gripper_mse_useful_steps": 0.050542542635219366
+    },
+    {
+      "optimizer_steps": 40,
+      "group": "all",
+      "windows": 47,
+      "flow_loss_mean": 0.22737035960213334,
+      "controller_mse_useful_steps": 0.10644362438310098,
+      "controller_motion_mse_useful_steps": 0.04405794091943202,
+      "controller_gripper_mse_useful_steps": 0.4807577251651148
+    },
+    {
+      "optimizer_steps": 40,
+      "group": "correction_containing",
+      "windows": 8,
+      "flow_loss_mean": 0.9283722465236982,
+      "controller_mse_useful_steps": 0.539702606828059,
+      "controller_motion_mse_useful_steps": 0.19937901428886756,
+      "controller_gripper_mse_useful_steps": 2.581644162063208
+    },
+    {
+      "optimizer_steps": 40,
+      "group": "native_only",
+      "windows": 39,
+      "flow_loss_mean": 0.08357510074642767,
+      "controller_mse_useful_steps": 0.01756998695849418,
+      "controller_motion_mse_useful_steps": 0.012197207920573442,
+      "controller_gripper_mse_useful_steps": 0.049806661186018605
+    },
+    {
+      "optimizer_steps": 100,
+      "group": "all",
+      "windows": 47,
+      "flow_loss_mean": 0.1736863668849494,
+      "controller_mse_useful_steps": 0.08849050840119119,
+      "controller_motion_mse_useful_steps": 0.040413164433483695,
+      "controller_gripper_mse_useful_steps": 0.376954572207436
+    },
+    {
+      "optimizer_steps": 100,
+      "group": "correction_containing",
+      "windows": 8,
+      "flow_loss_mean": 0.5250208101545771,
+      "controller_mse_useful_steps": 0.4154198149436322,
+      "controller_motion_mse_useful_steps": 0.14047101373296644,
+      "controller_gripper_mse_useful_steps": 2.0651126222076273
+    },
+    {
+      "optimizer_steps": 100,
+      "group": "native_only",
+      "windows": 39,
+      "flow_loss_mean": 0.10161776313733341,
+      "controller_mse_useful_steps": 0.02142808654633145,
+      "controller_motion_mse_useful_steps": 0.019888477397692367,
+      "controller_gripper_mse_useful_steps": 0.03066574143816599
+    },
+    {
+      "optimizer_steps": 200,
+      "group": "all",
+      "windows": 47,
+      "flow_loss_mean": 0.1606393807323267,
+      "controller_mse_useful_steps": 0.07282494808974559,
+      "controller_motion_mse_useful_steps": 0.051210282896237906,
+      "controller_gripper_mse_useful_steps": 0.2025129392507917
+    },
+    {
+      "optimizer_steps": 200,
+      "group": "correction_containing",
+      "windows": 8,
+      "flow_loss_mean": 0.21752664322654408,
+      "controller_mse_useful_steps": 0.19397597757598717,
+      "controller_motion_mse_useful_steps": 0.06187033734211214,
+      "controller_gripper_mse_useful_steps": 0.9866098189792374
+    },
+    {
+      "optimizer_steps": 200,
+      "group": "native_only",
+      "windows": 39,
+      "flow_loss_mean": 0.1489701986822308,
+      "controller_mse_useful_steps": 0.04797345486179859,
+      "controller_motion_mse_useful_steps": 0.04902360506118679,
+      "controller_gripper_mse_useful_steps": 0.04167255366546945
+    }
+  ],
+  "windows": [
+    {
+      "optimizer_steps": 0,
+      "window_id": "39fe61d6bca7926957fda285385608f14c16557afa297d6adc11196a3c800491",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.19386827945709229,
+        0.23140285909175873,
+        0.14022773504257202
+      ],
+      "flow_loss_mean": 0.18849962453047434,
+      "controller_mse_useful_steps": 0.019473866649501594,
+      "controller_motion_mse_useful_steps": 0.022718964540419443,
+      "controller_gripper_mse_useful_steps": 3.2793039944858873e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "2a29eea61ee63a668c2c51058bbd89397d86cf3fd670384381f24a450bbe56de",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.16585412621498108,
+        0.02245519869029522,
+        0.0045198737643659115
+      ],
+      "flow_loss_mean": 0.0642763995565474,
+      "controller_mse_useful_steps": 0.0009045803085621626,
+      "controller_motion_mse_useful_steps": 0.0010552050873204797,
+      "controller_gripper_mse_useful_steps": 8.316360122610627e-07
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "548ca3515e6e5392ec112dfe89808365a9e54ee50fa7a2c4e86c93f715920453",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.07379115372896194,
+        0.01600928045809269,
+        0.008842092007398605
+      ],
+      "flow_loss_mean": 0.03288084206481775,
+      "controller_mse_useful_steps": 0.0018412313268262371,
+      "controller_motion_mse_useful_steps": 0.0021473737989559085,
+      "controller_gripper_mse_useful_steps": 4.376494048211001e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "e4eabc1297d5effaa1000e32143000587d0da6a408cebf0b289c45f76afe5a36",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.17837755382061005,
+        0.08022592961788177,
+        0.03521617874503136
+      ],
+      "flow_loss_mean": 0.09793988739450772,
+      "controller_mse_useful_steps": 0.004740899190539822,
+      "controller_motion_mse_useful_steps": 0.005530188256275573,
+      "controller_gripper_mse_useful_steps": 5.164796125312923e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "eeee2663e359c679a5dcfb307f8bfbb44c29ac2162562c18a714784fb6304f18",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.06433097273111343,
+        0.0078765032812953,
+        0.002452838933095336
+      ],
+      "flow_loss_mean": 0.024886771648501355,
+      "controller_mse_useful_steps": 0.0004948416930921231,
+      "controller_motion_mse_useful_steps": 0.0005764239493740518,
+      "controller_gripper_mse_useful_steps": 5.34815540055015e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "66a119fb169f3a7822acabef6ef651c1764f8d5e6b1cd6197c93869fdd6bea13",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2457474023103714,
+        0.056083884090185165,
+        0.02228408120572567
+      ],
+      "flow_loss_mean": 0.10803845586876075,
+      "controller_mse_useful_steps": 0.0062929507564405615,
+      "controller_motion_mse_useful_steps": 0.0073408858968016825,
+      "controller_gripper_mse_useful_steps": 5.339914273841133e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "e54896f821e960c359ac5141c0266790982ab6fd2ac30d0894232ca647a60908",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.02497290074825287,
+        0.006824745796620846,
+        0.003122735535725951
+      ],
+      "flow_loss_mean": 0.011640127360199889,
+      "controller_mse_useful_steps": 0.0005522543216919626,
+      "controller_motion_mse_useful_steps": 0.0006441177066342893,
+      "controller_gripper_mse_useful_steps": 1.074012038000851e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "48d867ac4c1b9493e8f93b86c4f38300e4723166fc290884f0481ee97cfb913a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.15337775647640228,
+        0.05165141448378563,
+        0.025502782315015793
+      ],
+      "flow_loss_mean": 0.0768439844250679,
+      "controller_mse_useful_steps": 0.0021863629937635765,
+      "controller_motion_mse_useful_steps": 0.0025495130077701745,
+      "controller_gripper_mse_useful_steps": 7.462909723986774e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "71dfc97ff266d52636f0e09806816335b883344164378ea33570343069172aee",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.16732199490070343,
+        0.026535024866461754,
+        0.008278418332338333
+      ],
+      "flow_loss_mean": 0.06737847936650117,
+      "controller_mse_useful_steps": 0.0033700641464262274,
+      "controller_motion_mse_useful_steps": 0.003930870564093211,
+      "controller_gripper_mse_useful_steps": 5.225640424330136e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "032109dac9fc16c3681bcf057da61dcf89a510baeb156125113b1deb9d30ee37",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.23113849759101868,
+        0.2618735730648041,
+        0.10347601771354675
+      ],
+      "flow_loss_mean": 0.19882936278978983,
+      "controller_mse_useful_steps": 0.07343493963447782,
+      "controller_motion_mse_useful_steps": 0.08567312453577916,
+      "controller_gripper_mse_useful_steps": 5.830226669740051e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "6a6568010780f65666a397acb34d5bc9938b6e30bccdb3d0c3287560f35c781b",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.26696357131004333,
+        0.12123553454875946,
+        0.11203888058662415
+      ],
+      "flow_loss_mean": 0.166745995481809,
+      "controller_mse_useful_steps": 0.023314695312045768,
+      "controller_motion_mse_useful_steps": 0.027199263863033854,
+      "controller_gripper_mse_useful_steps": 7.284006117252895e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "41eb50576d4580f938ade91423b86970974912f5298abad1dc03242c594fa983",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.04538523033261299,
+        0.04306931793689728,
+        0.02532326802611351
+      ],
+      "flow_loss_mean": 0.037925938765207924,
+      "controller_mse_useful_steps": 0.004189110595967283,
+      "controller_motion_mse_useful_steps": 0.00488653736634542,
+      "controller_gripper_mse_useful_steps": 4.549973698458906e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "d37e1e0c911c7e5a39e0913341f3efaa995ab6d908dbfd447aab42eb92382aac",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.06889580935239792,
+        0.018906481564044952,
+        0.006770982872694731
+      ],
+      "flow_loss_mean": 0.0315244245963792,
+      "controller_mse_useful_steps": 0.0014251652396811661,
+      "controller_motion_mse_useful_steps": 0.0016576606039704269,
+      "controller_gripper_mse_useful_steps": 3.0193053945600547e-05
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "874da81b2e0632deaf9cbab25e700c71b5f97e43e700ec5807ea1ee0d1c4ea26",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.07739768922328949,
+        0.009996990673244,
+        0.003132133511826396
+      ],
+      "flow_loss_mean": 0.030175604469453294,
+      "controller_mse_useful_steps": 0.0005727264373281174,
+      "controller_motion_mse_useful_steps": 0.0006649766788261999,
+      "controller_gripper_mse_useful_steps": 1.9224988339622716e-05
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "1a563f33eb60a83795170a0d51999c3f86be850a26fa28a0dd4bc14b787a069a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.04318486154079437,
+        0.011556816287338734,
+        0.004582628607749939
+      ],
+      "flow_loss_mean": 0.019774768811961014,
+      "controller_mse_useful_steps": 0.0019026493623262902,
+      "controller_motion_mse_useful_steps": 0.002219689988866466,
+      "controller_gripper_mse_useful_steps": 4.0560308523557966e-07
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "fdfd8c80d60e5af63338eb37953e010ec911ea17fd0ce5aab875c6c49cbff903",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        3.181570053100586,
+        2.424724578857422,
+        1.2197691202163696
+      ],
+      "flow_loss_mean": 2.275354584058126,
+      "controller_mse_useful_steps": 0.7683639356284778,
+      "controller_motion_mse_useful_steps": 0.23101934903776197,
+      "controller_gripper_mse_useful_steps": 3.9924314551727726
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "a8ff5fd0d382ff6342502f8d248ae6ed2ee6bcbb93cd7e615df73257a182e6cd",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.9033973217010498,
+        0.7419074773788452,
+        0.5577471852302551
+      ],
+      "flow_loss_mean": 0.7343506614367167,
+      "controller_mse_useful_steps": 0.5445085066503202,
+      "controller_motion_mse_useful_steps": 0.2356296368907089,
+      "controller_gripper_mse_useful_steps": 2.3977817252079876
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "1ea3abf2b82ef10cc25afabda31f0e35d7beb6587e89978df7ed2390c958a71e",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.13447518646717072,
+        0.03612514212727547,
+        0.01395914051681757
+      ],
+      "flow_loss_mean": 0.06151982303708792,
+      "controller_mse_useful_steps": 0.00646885136094547,
+      "controller_motion_mse_useful_steps": 0.00754658529293819,
+      "controller_gripper_mse_useful_steps": 2.447768989155786e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "783b347d32abd22bae7abb6133f917fbbcdd7f5fbfb3c26af86816d8aa47dae9",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.12681514024734497,
+        0.03023967705667019,
+        0.011205138638615608
+      ],
+      "flow_loss_mean": 0.05608665198087692,
+      "controller_mse_useful_steps": 0.002056914187388946,
+      "controller_motion_mse_useful_steps": 0.002399146638315613,
+      "controller_gripper_mse_useful_steps": 3.519481828942079e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "422890fc6e74710d3be2d36607935f2aa8719c3906b6d43af61d777d91fb8eb3",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.033478934317827225,
+        0.008786207996308804,
+        0.003569812048226595
+      ],
+      "flow_loss_mean": 0.01527831812078754,
+      "controller_mse_useful_steps": 0.0004716064672540299,
+      "controller_motion_mse_useful_steps": 0.0005500077585757199,
+      "controller_gripper_mse_useful_steps": 1.198719323890646e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "93ecab0bd8c28c4dd0efdd717b930a0a289d9b090405c01ffb09a2c0aa13d072",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.0130807189270854,
+        0.0023391484282910824,
+        0.0009466269402764738
+      ],
+      "flow_loss_mean": 0.0054554980985509855,
+      "controller_mse_useful_steps": 0.00037687520056450965,
+      "controller_motion_mse_useful_steps": 0.0004380193755858947,
+      "controller_gripper_mse_useful_steps": 1.0010150436198792e-05
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "e4ed15705c03478eac4ab1301d0a5e5acc5c5047dd3c54eb66719d4f7f33a261",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.025001775473356247,
+        0.010720538906753063,
+        0.04447127506136894
+      ],
+      "flow_loss_mean": 0.026731196480492752,
+      "controller_mse_useful_steps": 0.05758516961493596,
+      "controller_motion_mse_useful_steps": 0.0005151199379203581,
+      "controller_gripper_mse_useful_steps": 0.40000546767702955
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "777dd25d2287a418ad50575b74bd452b240f8ea4080cb707da7dfcec83564c30",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.004277764819562435,
+        0.010413859970867634,
+        0.04919828847050667
+      ],
+      "flow_loss_mean": 0.02129663775364558,
+      "controller_mse_useful_steps": 0.11149695755361043,
+      "controller_motion_mse_useful_steps": 0.00046021028478153707,
+      "controller_gripper_mse_useful_steps": 0.7777174411665839
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "1be1b33706d18fb81fe45e894b336a46d8c12ad0cd6a867a4ea9ba87ccad8f02",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2733725607395172,
+        0.08149027079343796,
+        0.03355558589100838
+      ],
+      "flow_loss_mean": 0.12947280580798784,
+      "controller_mse_useful_steps": 0.012556246596073897,
+      "controller_motion_mse_useful_steps": 0.014648879300994903,
+      "controller_gripper_mse_useful_steps": 4.503665478575092e-07
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "d1162666bafe07065c6397db1b3bb91d367818aeadafe047064b5623b13fb6ce",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.056460000574588776,
+        0.009990230202674866,
+        0.0042981649748981
+      ],
+      "flow_loss_mean": 0.023582798584053915,
+      "controller_mse_useful_steps": 0.0005541160078334438,
+      "controller_motion_mse_useful_steps": 0.0006458427332645492,
+      "controller_gripper_mse_useful_steps": 3.755655246810338e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "3dd88fe97ba48316e9edcec0200e14fb4276028f8823efba467f0b2076f1a84f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.04542679712176323,
+        0.0058966646902263165,
+        0.0024190712720155716
+      ],
+      "flow_loss_mean": 0.01791417769466837,
+      "controller_mse_useful_steps": 0.001232470579685134,
+      "controller_motion_mse_useful_steps": 0.0014375607203288034,
+      "controller_gripper_mse_useful_steps": 1.929735823119087e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "1f99232aeabaa475ed74745dc86311373e62130122be090078e60ea87a065c19",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1680845469236374,
+        0.039899151772260666,
+        0.016445409506559372
+      ],
+      "flow_loss_mean": 0.07480970273415248,
+      "controller_mse_useful_steps": 0.009927436074438268,
+      "controller_motion_mse_useful_steps": 0.011581192323278889,
+      "controller_gripper_mse_useful_steps": 4.898581394545396e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "9c21b90a4f667ceccb1415bf05c60bd53fbb6ffab7d65262f2da5336c4ab9aa6",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.2641388475894928,
+        0.11243361234664917,
+        0.045901406556367874
+      ],
+      "flow_loss_mean": 0.14082462216416994,
+      "controller_mse_useful_steps": 0.03725833647938877,
+      "controller_motion_mse_useful_steps": 0.04346788355525935,
+      "controller_gripper_mse_useful_steps": 1.0540241652187394e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "a8a1a79c68bc2090a2742dbab103abe2ab161f2d95f6bc86edea79d5aa953460",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.13483913242816925,
+        0.0718877986073494,
+        0.12497851252555847
+      ],
+      "flow_loss_mean": 0.11056848118702571,
+      "controller_mse_useful_steps": 0.02336487312292562,
+      "controller_motion_mse_useful_steps": 0.027258554644067647,
+      "controller_gripper_mse_useful_steps": 2.7839960734460298e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "b311eb7bd827dae439d90d64634d26bfee8c382088eb302febc6b72025d9628d",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.06454239040613174,
+        0.030540360137820244,
+        0.038292545825242996
+      ],
+      "flow_loss_mean": 0.044458432123064995,
+      "controller_mse_useful_steps": 0.0016908062737611515,
+      "controller_motion_mse_useful_steps": 0.001971224372783992,
+      "controller_gripper_mse_useful_steps": 8.297679624106694e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "ee45a681b1463be6d7dfb44e3d25836082fc7a3978eb09e991ede5bb45a8a483",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.13285554945468903,
+        0.0305020809173584,
+        0.012388676404953003
+      ],
+      "flow_loss_mean": 0.058582102259000145,
+      "controller_mse_useful_steps": 0.00457638531557233,
+      "controller_motion_mse_useful_steps": 0.005338030353034551,
+      "controller_gripper_mse_useful_steps": 6.5150907990127325e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "725990253b2a92c0ddd2de0292543bfed63ff4b0c91fbd12ef8267845e7bb9f1",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.06099742650985718,
+        0.015937212854623795,
+        0.006587088108062744
+      ],
+      "flow_loss_mean": 0.02784057582418124,
+      "controller_mse_useful_steps": 0.00032651100304129755,
+      "controller_motion_mse_useful_steps": 0.00038042208840781725,
+      "controller_gripper_mse_useful_steps": 3.044490842179348e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "6277ffe871d0be3b1eba4b29a3bd858cc2f9f6ba7f4b27ea90b41bb97cfc5ddf",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.026226405054330826,
+        0.007257429417222738,
+        0.00277704163454473
+      ],
+      "flow_loss_mean": 0.012086958702032765,
+      "controller_mse_useful_steps": 8.823312751145e-05,
+      "controller_motion_mse_useful_steps": 0.00010082328423694219,
+      "controller_gripper_mse_useful_steps": 1.2692187158496945e-05
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "63f7938f76fa0b57bf328fc997f42d0e732d700f64026c661e9e79e6ed3e8f7b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.1004422903060913,
+        1.7937982082366943,
+        0.9506992697715759
+      ],
+      "flow_loss_mean": 1.2816465894381206,
+      "controller_mse_useful_steps": 0.6299245451029569,
+      "controller_motion_mse_useful_steps": 0.20702253564449757,
+      "controller_gripper_mse_useful_steps": 3.167336601853713
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "e28371d9c62e4b60fc6c2a3d5cdfb52a10eae900e2b1e7e6a678af544871a39b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.6869770288467407,
+        1.3235623836517334,
+        0.7627250552177429
+      ],
+      "flow_loss_mean": 1.2577548225720723,
+      "controller_mse_useful_steps": 0.5512770144677381,
+      "controller_motion_mse_useful_steps": 0.24876471403798422,
+      "controller_gripper_mse_useful_steps": 2.366350817046262
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "83f126ff315b335a89cd517a638d3f2bd2549b5bf64240ebfddd782e142a8ea8",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.7370438575744629,
+        0.9888761043548584,
+        0.8180793523788452
+      ],
+      "flow_loss_mean": 0.8479997714360555,
+      "controller_mse_useful_steps": 0.5174426722588323,
+      "controller_motion_mse_useful_steps": 0.20543980889081412,
+      "controller_gripper_mse_useful_steps": 2.389459852466942
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "7aaae47659789092d2ac966ddcb237b6d1182a0cc1459f8d1e7a0aee9bcd269d",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5592132806777954,
+        0.2885185182094574,
+        0.672724723815918
+      ],
+      "flow_loss_mean": 0.5068188409010569,
+      "controller_mse_useful_steps": 0.5902347409241789,
+      "controller_motion_mse_useful_steps": 0.15601520520100515,
+      "controller_gripper_mse_useful_steps": 3.195551955263222
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "5f777d1ea221c788a120575240af50f3a3add627c632b05e403473e718e4c798",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.5506951808929443,
+        0.36202719807624817,
+        0.1447973996400833
+      ],
+      "flow_loss_mean": 0.685839926203092,
+      "controller_mse_useful_steps": 0.07806860703326238,
+      "controller_motion_mse_useful_steps": 0.09107915959687306,
+      "controller_gripper_mse_useful_steps": 5.291651598229422e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "ea3af594a7cce0838ab5675b47aba6a271dfbb38d03d65e8989d116e0a1fea11",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.19418519735336304,
+        0.028359070420265198,
+        0.007088542450219393
+      ],
+      "flow_loss_mean": 0.07654427007461588,
+      "controller_mse_useful_steps": 0.004364023017407827,
+      "controller_motion_mse_useful_steps": 0.005091360186975798,
+      "controller_gripper_mse_useful_steps": 0.0
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "7f7f721560705157c9fdc8709b7a70e9813c3a6c9a93f5256b467e6f21d0ac21",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2754747271537781,
+        0.39781567454338074,
+        0.1093214750289917
+      ],
+      "flow_loss_mean": 0.2608706255753835,
+      "controller_mse_useful_steps": 0.1308423778510301,
+      "controller_motion_mse_useful_steps": 0.02043961564063559,
+      "controller_gripper_mse_useful_steps": 0.7932589511133971
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "c8b1eb45df6d4e7d138168476a158542f3b9678eaf7042f7aff403459f3d5c1f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.031430043280124664,
+        0.023602111265063286,
+        0.006853087805211544
+      ],
+      "flow_loss_mean": 0.02062841411679983,
+      "controller_mse_useful_steps": 0.017715095319032013,
+      "controller_motion_mse_useful_steps": 0.020667611205537343,
+      "controller_gripper_mse_useful_steps": 0.0
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "e03df96c7a85964dff06a2bf368161910f615641514b04e357ad3a5675460724",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.1098174974322319,
+        0.06453479081392288,
+        0.032321780920028687
+      ],
+      "flow_loss_mean": 0.06889135638872783,
+      "controller_mse_useful_steps": 0.016893602901497638,
+      "controller_motion_mse_useful_steps": 0.01970888762398613,
+      "controller_gripper_mse_useful_steps": 1.8945665666695684e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "ed40510f3bc8e0e4a46262b8cffc8104cdbe2401ac9ebaeb4d5d90abf8746734",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.15419594943523407,
+        0.04407205432653427,
+        0.01985008269548416
+      ],
+      "flow_loss_mean": 0.07270602881908417,
+      "controller_mse_useful_steps": 0.0058345922343454575,
+      "controller_motion_mse_useful_steps": 0.006806718190273298,
+      "controller_gripper_mse_useful_steps": 1.8364987784113356e-06
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "d2bdbebeeac585ab54885487fe7bf26bf388ad9c5eadaad41f82a64227077894",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.9161934852600098,
+        0.5985450148582458,
+        0.7502221465110779
+      ],
+      "flow_loss_mean": 0.7549868822097778,
+      "controller_mse_useful_steps": 0.6672561166028638,
+      "controller_motion_mse_useful_steps": 0.2543584296383028,
+      "controller_gripper_mse_useful_steps": 3.144642238390231
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "c886ed67e2258eddd07ff68255e67031b968e8783b075e64ff2f0332112c6616",
+      "contains_supervised_correction": true,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.802047610282898,
+        0.40165600180625916,
+        0.4235384464263916
+      ],
+      "flow_loss_mean": 0.5424140195051829,
+      "controller_mse_useful_steps": 0.11060148381743769,
+      "controller_motion_mse_useful_steps": 0.1289805897723843,
+      "controller_gripper_mse_useful_steps": 0.0003268480877579805
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "d50c98ddad453d5d35c0371f553a9552a7b34952c55877eff4a0ae7889859abb",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09409146755933762,
+        0.0203592199832201,
+        0.007302425801753998
+      ],
+      "flow_loss_mean": 0.04058437111477057,
+      "controller_mse_useful_steps": 0.002378600372907975,
+      "controller_motion_mse_useful_steps": 0.002775033768392638,
+      "controller_gripper_mse_useful_steps": 0.0
+    },
+    {
+      "optimizer_steps": 0,
+      "window_id": "4d489ce242f424e6a26e71d87f88cf788ce017d6d2577e9cd1232dc1692978fe",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.07138732075691223,
+        0.014119979925453663,
+        0.006034700199961662
+      ],
+      "flow_loss_mean": 0.030514000294109184,
+      "controller_mse_useful_steps": 0.0027377047502769336,
+      "controller_motion_mse_useful_steps": 0.003193973632414525,
+      "controller_gripper_mse_useful_steps": 9.145745138994243e-08
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "39fe61d6bca7926957fda285385608f14c16557afa297d6adc11196a3c800491",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.1923740953207016,
+        0.22897812724113464,
+        0.13987208902835846
+      ],
+      "flow_loss_mean": 0.1870747705300649,
+      "controller_mse_useful_steps": 0.01987757980141243,
+      "controller_motion_mse_useful_steps": 0.023189619748686385,
+      "controller_gripper_mse_useful_steps": 5.340117768709598e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "2a29eea61ee63a668c2c51058bbd89397d86cf3fd670384381f24a450bbe56de",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.16402819752693176,
+        0.02214585430920124,
+        0.004425644874572754
+      ],
+      "flow_loss_mean": 0.06353323223690192,
+      "controller_mse_useful_steps": 0.0008742138878639011,
+      "controller_motion_mse_useful_steps": 0.001019732709856176,
+      "controller_gripper_mse_useful_steps": 1.1009559102527638e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "548ca3515e6e5392ec112dfe89808365a9e54ee50fa7a2c4e86c93f715920453",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.07543914020061493,
+        0.016857154667377472,
+        0.009234234690666199
+      ],
+      "flow_loss_mean": 0.0338435098528862,
+      "controller_mse_useful_steps": 0.001990915262400665,
+      "controller_motion_mse_useful_steps": 0.002321695812268759,
+      "controller_gripper_mse_useful_steps": 6.23196319209844e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "e4eabc1297d5effaa1000e32143000587d0da6a408cebf0b289c45f76afe5a36",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.17809303104877472,
+        0.08071644604206085,
+        0.03585369139909744
+      ],
+      "flow_loss_mean": 0.098221056163311,
+      "controller_mse_useful_steps": 0.004981500294516272,
+      "controller_motion_mse_useful_steps": 0.005811124408587413,
+      "controller_gripper_mse_useful_steps": 3.7556100894294077e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "eeee2663e359c679a5dcfb307f8bfbb44c29ac2162562c18a714784fb6304f18",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.06758784502744675,
+        0.00912826880812645,
+        0.003139581298455596
+      ],
+      "flow_loss_mean": 0.026618565044676263,
+      "controller_mse_useful_steps": 0.0006195889446133804,
+      "controller_motion_mse_useful_steps": 0.0007224096717163319,
+      "controller_gripper_mse_useful_steps": 2.6645819956710414e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "66a119fb169f3a7822acabef6ef651c1764f8d5e6b1cd6197c93869fdd6bea13",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2235039323568344,
+        0.04916085675358772,
+        0.018828870728611946
+      ],
+      "flow_loss_mean": 0.09716455327967803,
+      "controller_mse_useful_steps": 0.005571678793279692,
+      "controller_motion_mse_useful_steps": 0.006499456294854547,
+      "controller_gripper_mse_useful_steps": 5.013783830559051e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "e54896f821e960c359ac5141c0266790982ab6fd2ac30d0894232ca647a60908",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.02558698132634163,
+        0.006248588673770428,
+        0.0027517415583133698
+      ],
+      "flow_loss_mean": 0.011529103852808475,
+      "controller_mse_useful_steps": 0.0005739470837154329,
+      "controller_motion_mse_useful_steps": 0.0006695197651402995,
+      "controller_gripper_mse_useful_steps": 5.109951662339701e-07
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "48d867ac4c1b9493e8f93b86c4f38300e4723166fc290884f0481ee97cfb913a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.15041089057922363,
+        0.047465741634368896,
+        0.023220453411340714
+      ],
+      "flow_loss_mean": 0.07369902854164441,
+      "controller_mse_useful_steps": 0.0016044717644674107,
+      "controller_motion_mse_useful_steps": 0.0018698775268932094,
+      "controller_gripper_mse_useful_steps": 1.2037189912618533e-05
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "71dfc97ff266d52636f0e09806816335b883344164378ea33570343069172aee",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.16449086368083954,
+        0.026102418079972267,
+        0.00838114507496357
+      ],
+      "flow_loss_mean": 0.06632480894525845,
+      "controller_mse_useful_steps": 0.0030510222240220206,
+      "controller_motion_mse_useful_steps": 0.0035588626226490264,
+      "controller_gripper_mse_useful_steps": 3.979832259985651e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "032109dac9fc16c3681bcf057da61dcf89a510baeb156125113b1deb9d30ee37",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.2278033345937729,
+        0.2514786720275879,
+        0.09839622676372528
+      ],
+      "flow_loss_mean": 0.19255941112836203,
+      "controller_mse_useful_steps": 0.06954182550810731,
+      "controller_motion_mse_useful_steps": 0.0811313546098983,
+      "controller_gripper_mse_useful_steps": 4.650897361400058e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "6a6568010780f65666a397acb34d5bc9938b6e30bccdb3d0c3287560f35c781b",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.2698453962802887,
+        0.10787743330001831,
+        0.10062505304813385
+      ],
+      "flow_loss_mean": 0.15944929420948029,
+      "controller_mse_useful_steps": 0.018897953584437126,
+      "controller_motion_mse_useful_steps": 0.02204683280559149,
+      "controller_gripper_mse_useful_steps": 4.678257510947383e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "41eb50576d4580f938ade91423b86970974912f5298abad1dc03242c594fa983",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.036890964955091476,
+        0.035386379808187485,
+        0.020918771624565125
+      ],
+      "flow_loss_mean": 0.03106537212928136,
+      "controller_mse_useful_steps": 0.002892531792276798,
+      "controller_motion_mse_useful_steps": 0.0033741566799595237,
+      "controller_gripper_mse_useful_steps": 2.782466180444297e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "d37e1e0c911c7e5a39e0913341f3efaa995ab6d908dbfd447aab42eb92382aac",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.07419779896736145,
+        0.020029786974191666,
+        0.007086613681167364
+      ],
+      "flow_loss_mean": 0.03377139987424016,
+      "controller_mse_useful_steps": 0.001891515724717976,
+      "controller_motion_mse_useful_steps": 0.0022009226369361467,
+      "controller_gripper_mse_useful_steps": 3.50742514089547e-05
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "874da81b2e0632deaf9cbab25e700c71b5f97e43e700ec5807ea1ee0d1c4ea26",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.08300025016069412,
+        0.011677274480462074,
+        0.0039259567856788635
+      ],
+      "flow_loss_mean": 0.03286782714227835,
+      "controller_mse_useful_steps": 0.0007895845380740768,
+      "controller_motion_mse_useful_steps": 0.0009174510867330064,
+      "controller_gripper_mse_useful_steps": 2.2385246120499046e-05
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "1a563f33eb60a83795170a0d51999c3f86be850a26fa28a0dd4bc14b787a069a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.05229175090789795,
+        0.012424753047525883,
+        0.0042991661466658115
+      ],
+      "flow_loss_mean": 0.023005223367363214,
+      "controller_mse_useful_steps": 0.002865644111596818,
+      "controller_motion_mse_useful_steps": 0.0033432262203203925,
+      "controller_gripper_mse_useful_steps": 1.5145925536968915e-07
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "fdfd8c80d60e5af63338eb37953e010ec911ea17fd0ce5aab875c6c49cbff903",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        2.8898568153381348,
+        2.018214464187622,
+        1.1756640672683716
+      ],
+      "flow_loss_mean": 2.0279117822647095,
+      "controller_mse_useful_steps": 0.7625826505314235,
+      "controller_motion_mse_useful_steps": 0.2239350864200204,
+      "controller_gripper_mse_useful_steps": 3.994468035199842
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "a8ff5fd0d382ff6342502f8d248ae6ed2ee6bcbb93cd7e615df73257a182e6cd",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.8329482078552246,
+        0.6695328950881958,
+        0.5188738107681274
+      ],
+      "flow_loss_mean": 0.6737849712371826,
+      "controller_mse_useful_steps": 0.5361245380009422,
+      "controller_motion_mse_useful_steps": 0.22573003246889525,
+      "controller_gripper_mse_useful_steps": 2.3984915711932233
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "1ea3abf2b82ef10cc25afabda31f0e35d7beb6587e89978df7ed2390c958a71e",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.14159685373306274,
+        0.03661526367068291,
+        0.014403281733393669
+      ],
+      "flow_loss_mean": 0.06420513304571311,
+      "controller_mse_useful_steps": 0.0068068967301918625,
+      "controller_motion_mse_useful_steps": 0.007940865541755427,
+      "controller_gripper_mse_useful_steps": 3.0838608104673616e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "783b347d32abd22bae7abb6133f917fbbcdd7f5fbfb3c26af86816d8aa47dae9",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.12606389820575714,
+        0.02909853868186474,
+        0.01075784396380186
+      ],
+      "flow_loss_mean": 0.05530676028380791,
+      "controller_mse_useful_steps": 0.001901244650281414,
+      "controller_motion_mse_useful_steps": 0.0022177468968052295,
+      "controller_gripper_mse_useful_steps": 2.2311711385214725e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "422890fc6e74710d3be2d36607935f2aa8719c3906b6d43af61d777d91fb8eb3",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.03482131287455559,
+        0.008644219487905502,
+        0.0034390101209282875
+      ],
+      "flow_loss_mean": 0.015634847494463127,
+      "controller_mse_useful_steps": 0.00053653725137043,
+      "controller_motion_mse_useful_steps": 0.0006258436707940559,
+      "controller_gripper_mse_useful_steps": 6.987348286760958e-07
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "93ecab0bd8c28c4dd0efdd717b930a0a289d9b090405c01ffb09a2c0aa13d072",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.014065796509385109,
+        0.0030096136033535004,
+        0.0012943997280672193
+      ],
+      "flow_loss_mean": 0.0061232699469352765,
+      "controller_mse_useful_steps": 0.000426618422869155,
+      "controller_motion_mse_useful_steps": 0.0004957343451104802,
+      "controller_gripper_mse_useful_steps": 1.1922889421203768e-05
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "e4ed15705c03478eac4ab1301d0a5e5acc5c5047dd3c54eb66719d4f7f33a261",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.027746735140681267,
+        0.012118584476411343,
+        0.04402332752943039
+      ],
+      "flow_loss_mean": 0.027962882382174332,
+      "controller_mse_useful_steps": 0.05773268401676708,
+      "controller_motion_mse_useful_steps": 0.000687260575305735,
+      "controller_gripper_mse_useful_steps": 0.4000052246655351
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "777dd25d2287a418ad50575b74bd452b240f8ea4080cb707da7dfcec83564c30",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.003230468602851033,
+        0.010231484659016132,
+        0.04835929349064827
+      ],
+      "flow_loss_mean": 0.020607082250838477,
+      "controller_mse_useful_steps": 0.10698848449529919,
+      "controller_motion_mse_useful_steps": 0.0004221588642142693,
+      "controller_gripper_mse_useful_steps": 0.7463864382818086
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "1be1b33706d18fb81fe45e894b336a46d8c12ad0cd6a867a4ea9ba87ccad8f02",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.28712695837020874,
+        0.0889347493648529,
+        0.03735584393143654
+      ],
+      "flow_loss_mean": 0.1378058505554994,
+      "controller_mse_useful_steps": 0.01410075011305483,
+      "controller_motion_mse_useful_steps": 0.016450772477627624,
+      "controller_gripper_mse_useful_steps": 6.15925618063784e-07
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "d1162666bafe07065c6397db1b3bb91d367818aeadafe047064b5623b13fb6ce",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.05878450348973274,
+        0.01111737359315157,
+        0.005054890178143978
+      ],
+      "flow_loss_mean": 0.02498558908700943,
+      "controller_mse_useful_steps": 0.0006175716310082507,
+      "controller_motion_mse_useful_steps": 0.0007201006133246238,
+      "controller_gripper_mse_useful_steps": 2.397737110011719e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "3dd88fe97ba48316e9edcec0200e14fb4276028f8823efba467f0b2076f1a84f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.0491718128323555,
+        0.0066283270716667175,
+        0.002775379456579685
+      ],
+      "flow_loss_mean": 0.019525173120200634,
+      "controller_mse_useful_steps": 0.0013048082798210645,
+      "controller_motion_mse_useful_steps": 0.0015217548450196373,
+      "controller_gripper_mse_useful_steps": 3.1288886296274684e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "1f99232aeabaa475ed74745dc86311373e62130122be090078e60ea87a065c19",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.17274387180805206,
+        0.042751699686050415,
+        0.018128439784049988
+      ],
+      "flow_loss_mean": 0.07787467042605083,
+      "controller_mse_useful_steps": 0.010842028863079223,
+      "controller_motion_mse_useful_steps": 0.012648569445877543,
+      "controller_gripper_mse_useful_steps": 2.7853662893178504e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "9c21b90a4f667ceccb1415bf05c60bd53fbb6ffab7d65262f2da5336c4ab9aa6",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.2599417567253113,
+        0.11574903130531311,
+        0.04764588177204132
+      ],
+      "flow_loss_mean": 0.14111222326755524,
+      "controller_mse_useful_steps": 0.040036212865703746,
+      "controller_motion_mse_useful_steps": 0.04670848573764051,
+      "controller_gripper_mse_useful_steps": 2.5756340831848014e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "a8a1a79c68bc2090a2742dbab103abe2ab161f2d95f6bc86edea79d5aa953460",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1290334165096283,
+        0.06537259370088577,
+        0.1136927455663681
+      ],
+      "flow_loss_mean": 0.10269958525896072,
+      "controller_mse_useful_steps": 0.019672161322436904,
+      "controller_motion_mse_useful_steps": 0.022949732689697976,
+      "controller_gripper_mse_useful_steps": 6.7331188704734194e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "b311eb7bd827dae439d90d64634d26bfee8c382088eb302febc6b72025d9628d",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.06261686980724335,
+        0.027592908591032028,
+        0.03433877229690552
+      ],
+      "flow_loss_mean": 0.041516183565060295,
+      "controller_mse_useful_steps": 0.001581322291996619,
+      "controller_motion_mse_useful_steps": 0.0018443658612775791,
+      "controller_gripper_mse_useful_steps": 3.060876310858896e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "ee45a681b1463be6d7dfb44e3d25836082fc7a3978eb09e991ede5bb45a8a483",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.13006888329982758,
+        0.029946455731987953,
+        0.012347870506346226
+      ],
+      "flow_loss_mean": 0.05745440317938725,
+      "controller_mse_useful_steps": 0.004449631363585261,
+      "controller_motion_mse_useful_steps": 0.005190561035327093,
+      "controller_gripper_mse_useful_steps": 4.053333134279237e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "725990253b2a92c0ddd2de0292543bfed63ff4b0c91fbd12ef8267845e7bb9f1",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.05751218646764755,
+        0.015213511884212494,
+        0.006445939652621746
+      ],
+      "flow_loss_mean": 0.02639054600149393,
+      "controller_mse_useful_steps": 0.00028752217837211457,
+      "controller_motion_mse_useful_steps": 0.0003352258123676736,
+      "controller_gripper_mse_useful_steps": 1.300374398760754e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "6277ffe871d0be3b1eba4b29a3bd858cc2f9f6ba7f4b27ea90b41bb97cfc5ddf",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.02545061521232128,
+        0.0060338182374835014,
+        0.0023150076158344746
+      ],
+      "flow_loss_mean": 0.011266480355213085,
+      "controller_mse_useful_steps": 0.00021401828646660574,
+      "controller_motion_mse_useful_steps": 0.000248189185183623,
+      "controller_gripper_mse_useful_steps": 8.992894164502242e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "63f7938f76fa0b57bf328fc997f42d0e732d700f64026c661e9e79e6ed3e8f7b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.0209306478500366,
+        1.5107887983322144,
+        0.8971586227416992
+      ],
+      "flow_loss_mean": 1.1429593563079834,
+      "controller_mse_useful_steps": 0.6224018482754802,
+      "controller_motion_mse_useful_steps": 0.1985591333962363,
+      "controller_gripper_mse_useful_steps": 3.165458137550944
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "e28371d9c62e4b60fc6c2a3d5cdfb52a10eae900e2b1e7e6a678af544871a39b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.5341415405273438,
+        1.199844241142273,
+        0.7222194671630859
+      ],
+      "flow_loss_mean": 1.1520684162775676,
+      "controller_mse_useful_steps": 0.544367837861143,
+      "controller_motion_mse_useful_steps": 0.24066747788807194,
+      "controller_gripper_mse_useful_steps": 2.3665699976995684
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "83f126ff315b335a89cd517a638d3f2bd2549b5bf64240ebfddd782e142a8ea8",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.6585828065872192,
+        0.8423292636871338,
+        0.7668192982673645
+      ],
+      "flow_loss_mean": 0.7559104561805725,
+      "controller_mse_useful_steps": 0.5105030648199472,
+      "controller_motion_mse_useful_steps": 0.1972398672675707,
+      "controller_gripper_mse_useful_steps": 2.3900822501342063
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "7aaae47659789092d2ac966ddcb237b6d1182a0cc1459f8d1e7a0aee9bcd269d",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.513595700263977,
+        0.2553609013557434,
+        0.6287522315979004
+      ],
+      "flow_loss_mean": 0.4659029444058736,
+      "controller_mse_useful_steps": 0.5824162089064131,
+      "controller_motion_mse_useful_steps": 0.14690772103094948,
+      "controller_gripper_mse_useful_steps": 3.1954671361591953
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "5f777d1ea221c788a120575240af50f3a3add627c632b05e403473e718e4c798",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.5682697296142578,
+        0.3790324330329895,
+        0.15492241084575653
+      ],
+      "flow_loss_mean": 0.7007415244976679,
+      "controller_mse_useful_steps": 0.08235250877199767,
+      "controller_motion_mse_useful_steps": 0.09607704273031793,
+      "controller_gripper_mse_useful_steps": 5.305022076045729e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "ea3af594a7cce0838ab5675b47aba6a271dfbb38d03d65e8989d116e0a1fea11",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.1993793249130249,
+        0.03248848766088486,
+        0.007559968624264002
+      ],
+      "flow_loss_mean": 0.07980926039939125,
+      "controller_mse_useful_steps": 0.006185048942640907,
+      "controller_motion_mse_useful_steps": 0.007215890433081059,
+      "controller_gripper_mse_useful_steps": 0.0
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "7f7f721560705157c9fdc8709b7a70e9813c3a6c9a93f5256b467e6f21d0ac21",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.26380452513694763,
+        0.41647616028785706,
+        0.12291403859853745
+      ],
+      "flow_loss_mean": 0.26773157467444736,
+      "controller_mse_useful_steps": 0.1344947647733264,
+      "controller_motion_mse_useful_steps": 0.024261846631140383,
+      "controller_gripper_mse_useful_steps": 0.7958922736264424
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "c8b1eb45df6d4e7d138168476a158542f3b9678eaf7042f7aff403459f3d5c1f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.031779944896698,
+        0.02897571213543415,
+        0.009811178781092167
+      ],
+      "flow_loss_mean": 0.023522278604408104,
+      "controller_mse_useful_steps": 0.02355238458511953,
+      "controller_motion_mse_useful_steps": 0.027477781757730916,
+      "controller_gripper_mse_useful_steps": 1.5494511677301398e-09
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "e03df96c7a85964dff06a2bf368161910f615641514b04e357ad3a5675460724",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.11376272141933441,
+        0.0737021267414093,
+        0.03901005536317825
+      ],
+      "flow_loss_mean": 0.07549163450797398,
+      "controller_mse_useful_steps": 0.022366870141337123,
+      "controller_motion_mse_useful_steps": 0.026094102668833063,
+      "controller_gripper_mse_useful_steps": 3.4749763614982014e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "ed40510f3bc8e0e4a46262b8cffc8104cdbe2401ac9ebaeb4d5d90abf8746734",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.16210618615150452,
+        0.05077642574906349,
+        0.02440081536769867
+      ],
+      "flow_loss_mean": 0.0790944757560889,
+      "controller_mse_useful_steps": 0.007266138489000339,
+      "controller_motion_mse_useful_steps": 0.008476655193362381,
+      "controller_gripper_mse_useful_steps": 3.0382628280844158e-06
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "d2bdbebeeac585ab54885487fe7bf26bf388ad9c5eadaad41f82a64227077894",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.8405786752700806,
+        0.5418077707290649,
+        0.6966188549995422
+      ],
+      "flow_loss_mean": 0.6930017669995626,
+      "controller_mse_useful_steps": 0.6596309387908245,
+      "controller_motion_mse_useful_steps": 0.24585454198066545,
+      "controller_gripper_mse_useful_steps": 3.142289319651778
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "c886ed67e2258eddd07ff68255e67031b968e8783b075e64ff2f0332112c6616",
+      "contains_supervised_correction": true,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.7693274617195129,
+        0.3816784918308258,
+        0.39530888199806213
+      ],
+      "flow_loss_mean": 0.5154382785161337,
+      "controller_mse_useful_steps": 0.09959376743829924,
+      "controller_motion_mse_useful_steps": 0.11613825385853094,
+      "controller_gripper_mse_useful_steps": 0.0003268489169089556
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "d50c98ddad453d5d35c0371f553a9552a7b34952c55877eff4a0ae7889859abb",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09649697691202164,
+        0.020459899678826332,
+        0.007306331302970648
+      ],
+      "flow_loss_mean": 0.04142106929793954,
+      "controller_mse_useful_steps": 0.002516548554112993,
+      "controller_motion_mse_useful_steps": 0.002935973313131825,
+      "controller_gripper_mse_useful_steps": 0.0
+    },
+    {
+      "optimizer_steps": 40,
+      "window_id": "4d489ce242f424e6a26e71d87f88cf788ce017d6d2577e9cd1232dc1692978fe",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.07050083577632904,
+        0.014463192783296108,
+        0.006293796002864838
+      ],
+      "flow_loss_mean": 0.03041927485416333,
+      "controller_mse_useful_steps": 0.002972761045932992,
+      "controller_motion_mse_useful_steps": 0.003468205977346593,
+      "controller_gripper_mse_useful_steps": 9.145745138994243e-08
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "39fe61d6bca7926957fda285385608f14c16557afa297d6adc11196a3c800491",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2077666074037552,
+        0.21153423190116882,
+        0.1359829157590866
+      ],
+      "flow_loss_mean": 0.18509458502133688,
+      "controller_mse_useful_steps": 0.021932018602155916,
+      "controller_motion_mse_useful_steps": 0.025569444790798233,
+      "controller_gripper_mse_useful_steps": 0.00010746147030204882
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "2a29eea61ee63a668c2c51058bbd89397d86cf3fd670384381f24a450bbe56de",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.1740213930606842,
+        0.030293000862002373,
+        0.0109223872423172
+      ],
+      "flow_loss_mean": 0.07174559372166793,
+      "controller_mse_useful_steps": 0.0013166407079741162,
+      "controller_motion_mse_useful_steps": 0.0015289916153670554,
+      "controller_gripper_mse_useful_steps": 4.2535263616479827e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "548ca3515e6e5392ec112dfe89808365a9e54ee50fa7a2c4e86c93f715920453",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.10023923218250275,
+        0.030663203448057175,
+        0.018211791291832924
+      ],
+      "flow_loss_mean": 0.04970474230746428,
+      "controller_mse_useful_steps": 0.003649938251099463,
+      "controller_motion_mse_useful_steps": 0.00425515354192671,
+      "controller_gripper_mse_useful_steps": 1.8646506135983105e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "e4eabc1297d5effaa1000e32143000587d0da6a408cebf0b289c45f76afe5a36",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.18063296377658844,
+        0.08907561749219894,
+        0.043751832097768784
+      ],
+      "flow_loss_mean": 0.10448680445551872,
+      "controller_mse_useful_steps": 0.006478211752531623,
+      "controller_motion_mse_useful_steps": 0.007547747510281397,
+      "controller_gripper_mse_useful_steps": 6.099720603297596e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "eeee2663e359c679a5dcfb307f8bfbb44c29ac2162562c18a714784fb6304f18",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.09541872888803482,
+        0.024103621020913124,
+        0.01380073931068182
+      ],
+      "flow_loss_mean": 0.04444102973987659,
+      "controller_mse_useful_steps": 0.0018413699223692817,
+      "controller_motion_mse_useful_steps": 0.0021467586495432208,
+      "controller_gripper_mse_useful_steps": 9.037559325649907e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "66a119fb169f3a7822acabef6ef651c1764f8d5e6b1cd6197c93869fdd6bea13",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.17823150753974915,
+        0.03779307007789612,
+        0.014697047881782055
+      ],
+      "flow_loss_mean": 0.0769072084998091,
+      "controller_mse_useful_steps": 0.0038595643778522987,
+      "controller_motion_mse_useful_steps": 0.004491930492975513,
+      "controller_gripper_mse_useful_steps": 6.536768711301744e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "e54896f821e960c359ac5141c0266790982ab6fd2ac30d0894232ca647a60908",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.046767834573984146,
+        0.014493666589260101,
+        0.008574685081839561
+      ],
+      "flow_loss_mean": 0.02327872874836127,
+      "controller_mse_useful_steps": 0.0016382316351120617,
+      "controller_motion_mse_useful_steps": 0.0019079505469515442,
+      "controller_gripper_mse_useful_steps": 1.9918164075168672e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "48d867ac4c1b9493e8f93b86c4f38300e4723166fc290884f0481ee97cfb913a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.1524810791015625,
+        0.040541063994169235,
+        0.020305998623371124
+      ],
+      "flow_loss_mean": 0.07110938057303429,
+      "controller_mse_useful_steps": 0.0013135363830587973,
+      "controller_motion_mse_useful_steps": 0.001530866220437048,
+      "controller_gripper_mse_useful_steps": 9.557358789291199e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "71dfc97ff266d52636f0e09806816335b883344164378ea33570343069172aee",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.18722830712795258,
+        0.03586467355489731,
+        0.015295621007680893
+      ],
+      "flow_loss_mean": 0.07946286723017693,
+      "controller_mse_useful_steps": 0.002589914035946633,
+      "controller_motion_mse_useful_steps": 0.0030192661407971695,
+      "controller_gripper_mse_useful_steps": 1.3801406843417153e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "032109dac9fc16c3681bcf057da61dcf89a510baeb156125113b1deb9d30ee37",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.21264787018299103,
+        0.21349987387657166,
+        0.08297368139028549
+      ],
+      "flow_loss_mean": 0.16970714181661606,
+      "controller_mse_useful_steps": 0.04940239458360289,
+      "controller_motion_mse_useful_steps": 0.05763289312799415,
+      "controller_gripper_mse_useful_steps": 1.940331725533627e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "6a6568010780f65666a397acb34d5bc9938b6e30bccdb3d0c3287560f35c781b",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.33017992973327637,
+        0.0690799281001091,
+        0.0610760822892189
+      ],
+      "flow_loss_mean": 0.15344531337420145,
+      "controller_mse_useful_steps": 0.009015556806703271,
+      "controller_motion_mse_useful_steps": 0.010516527516586455,
+      "controller_gripper_mse_useful_steps": 9.73254740416706e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "41eb50576d4580f938ade91423b86970974912f5298abad1dc03242c594fa983",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.03839359059929848,
+        0.01669195666909218,
+        0.009388155303895473
+      ],
+      "flow_loss_mean": 0.021491234190762043,
+      "controller_mse_useful_steps": 0.0006031953579959551,
+      "controller_motion_mse_useful_steps": 0.0007033340028648799,
+      "controller_gripper_mse_useful_steps": 2.363488782406939e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "d37e1e0c911c7e5a39e0913341f3efaa995ab6d908dbfd447aab42eb92382aac",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.13190102577209473,
+        0.040702562779188156,
+        0.01873736083507538
+      ],
+      "flow_loss_mean": 0.06378031646211942,
+      "controller_mse_useful_steps": 0.005721234383582066,
+      "controller_motion_mse_useful_steps": 0.006672196442798607,
+      "controller_gripper_mse_useful_steps": 1.5462028282820132e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "874da81b2e0632deaf9cbab25e700c71b5f97e43e700ec5807ea1ee0d1c4ea26",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.13480167090892792,
+        0.031400736421346664,
+        0.014715608209371567
+      ],
+      "flow_loss_mean": 0.06030600517988205,
+      "controller_mse_useful_steps": 0.003548043163985619,
+      "controller_motion_mse_useful_steps": 0.0041352274662809435,
+      "controller_gripper_mse_useful_steps": 2.493735021367016e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "1a563f33eb60a83795170a0d51999c3f86be850a26fa28a0dd4bc14b787a069a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.12301647663116455,
+        0.034674230962991714,
+        0.014661463908851147
+      ],
+      "flow_loss_mean": 0.057450723834335804,
+      "controller_mse_useful_steps": 0.010608973658512726,
+      "controller_motion_mse_useful_steps": 0.012374997175132806,
+      "controller_gripper_mse_useful_steps": 1.2832558792240102e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "fdfd8c80d60e5af63338eb37953e010ec911ea17fd0ce5aab875c6c49cbff903",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.3644936084747314,
+        1.0764073133468628,
+        1.0052539110183716
+      ],
+      "flow_loss_mean": 1.148718277613322,
+      "controller_mse_useful_steps": 0.7348216655871208,
+      "controller_motion_mse_useful_steps": 0.19636536450118655,
+      "controller_gripper_mse_useful_steps": 3.9655594721027265
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "a8ff5fd0d382ff6342502f8d248ae6ed2ee6bcbb93cd7e615df73257a182e6cd",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5619578957557678,
+        0.38648271560668945,
+        0.38001298904418945
+      ],
+      "flow_loss_mean": 0.4428178668022156,
+      "controller_mse_useful_steps": 0.49781022643656864,
+      "controller_motion_mse_useful_steps": 0.1842595603998461,
+      "controller_gripper_mse_useful_steps": 2.3791142226569035
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "1ea3abf2b82ef10cc25afabda31f0e35d7beb6587e89978df7ed2390c958a71e",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.19231705367565155,
+        0.05306711792945862,
+        0.027235908433794975
+      ],
+      "flow_loss_mean": 0.09087336001296838,
+      "controller_mse_useful_steps": 0.010486546927650393,
+      "controller_motion_mse_useful_steps": 0.012214797227619421,
+      "controller_gripper_mse_useful_steps": 0.00011704512783622795
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "783b347d32abd22bae7abb6133f917fbbcdd7f5fbfb3c26af86816d8aa47dae9",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1356036365032196,
+        0.03229369595646858,
+        0.015523486770689487
+      ],
+      "flow_loss_mean": 0.06114027307679256,
+      "controller_mse_useful_steps": 0.002323947216765568,
+      "controller_motion_mse_useful_steps": 0.0027015562274754442,
+      "controller_gripper_mse_useful_steps": 5.829315250631047e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "422890fc6e74710d3be2d36607935f2aa8719c3906b6d43af61d777d91fb8eb3",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.0521746501326561,
+        0.016584087163209915,
+        0.009661110118031502
+      ],
+      "flow_loss_mean": 0.02613994913796584,
+      "controller_mse_useful_steps": 0.0016919628591002185,
+      "controller_motion_mse_useful_steps": 0.0019646265019948282,
+      "controller_gripper_mse_useful_steps": 5.5981001732559854e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "93ecab0bd8c28c4dd0efdd717b930a0a289d9b090405c01ffb09a2c0aa13d072",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.030927732586860657,
+        0.015446897596120834,
+        0.010561705566942692
+      ],
+      "flow_loss_mean": 0.01897877858330806,
+      "controller_mse_useful_steps": 0.0012488839032828208,
+      "controller_motion_mse_useful_steps": 0.001432441255639589,
+      "controller_gripper_mse_useful_steps": 0.0001475397891422126
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "e4ed15705c03478eac4ab1301d0a5e5acc5c5047dd3c54eb66719d4f7f33a261",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.055065035820007324,
+        0.03145741671323776,
+        0.046335961669683456
+      ],
+      "flow_loss_mean": 0.044286138067642845,
+      "controller_mse_useful_steps": 0.05846171033674776,
+      "controller_motion_mse_useful_steps": 0.002182095410972069,
+      "controller_gripper_mse_useful_steps": 0.39613939989140184
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "777dd25d2287a418ad50575b74bd452b240f8ea4080cb707da7dfcec83564c30",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.010760722681879997,
+        0.0182594433426857,
+        0.04974206164479256
+      ],
+      "flow_loss_mean": 0.026254075889786083,
+      "controller_mse_useful_steps": 0.00036196321055086394,
+      "controller_motion_mse_useful_steps": 0.0004218160455058859,
+      "controller_gripper_mse_useful_steps": 2.8462008207325285e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "1be1b33706d18fb81fe45e894b336a46d8c12ad0cd6a867a4ea9ba87ccad8f02",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.38292041420936584,
+        0.13685274124145508,
+        0.06292291730642319
+      ],
+      "flow_loss_mean": 0.1942320242524147,
+      "controller_mse_useful_steps": 0.023782908557027214,
+      "controller_motion_mse_useful_steps": 0.02774566751348956,
+      "controller_gripper_mse_useful_steps": 6.354818253123437e-06
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "d1162666bafe07065c6397db1b3bb91d367818aeadafe047064b5623b13fb6ce",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.08701352775096893,
+        0.02405744604766369,
+        0.013246401213109493
+      ],
+      "flow_loss_mean": 0.041439125003914036,
+      "controller_mse_useful_steps": 0.0023957365751709468,
+      "controller_motion_mse_useful_steps": 0.002789959356762968,
+      "controller_gripper_mse_useful_steps": 3.039988561882082e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "3dd88fe97ba48316e9edcec0200e14fb4276028f8823efba467f0b2076f1a84f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09449983388185501,
+        0.020955754444003105,
+        0.01033712923526764
+      ],
+      "flow_loss_mean": 0.04193090585370859,
+      "controller_mse_useful_steps": 0.003049924280300833,
+      "controller_motion_mse_useful_steps": 0.0035509547977160935,
+      "controller_gripper_mse_useful_steps": 4.3741175809271106e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "1f99232aeabaa475ed74745dc86311373e62130122be090078e60ea87a065c19",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.23302577435970306,
+        0.06977207958698273,
+        0.033604759722948074
+      ],
+      "flow_loss_mean": 0.11213420455654462,
+      "controller_mse_useful_steps": 0.01717064930631607,
+      "controller_motion_mse_useful_steps": 0.020026008886084627,
+      "controller_gripper_mse_useful_steps": 3.8491827704700834e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "9c21b90a4f667ceccb1415bf05c60bd53fbb6ffab7d65262f2da5336c4ab9aa6",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.29776591062545776,
+        0.15732097625732422,
+        0.07019690424203873
+      ],
+      "flow_loss_mean": 0.1750945970416069,
+      "controller_mse_useful_steps": 0.05674163286887665,
+      "controller_motion_mse_useful_steps": 0.06619650276923977,
+      "controller_gripper_mse_useful_steps": 1.241346669796876e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "a8a1a79c68bc2090a2742dbab103abe2ab161f2d95f6bc86edea79d5aa953460",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.14452910423278809,
+        0.04202229529619217,
+        0.056306418031454086
+      ],
+      "flow_loss_mean": 0.08095260585347812,
+      "controller_mse_useful_steps": 0.005043187608680447,
+      "controller_motion_mse_useful_steps": 0.005877694023944123,
+      "controller_gripper_mse_useful_steps": 3.6149117098397184e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "b311eb7bd827dae439d90d64634d26bfee8c382088eb302febc6b72025d9628d",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09190859645605087,
+        0.024021649733185768,
+        0.019708245992660522
+      ],
+      "flow_loss_mean": 0.04521283072729906,
+      "controller_mse_useful_steps": 0.003105759468070068,
+      "controller_motion_mse_useful_steps": 0.0036200520329979593,
+      "controller_gripper_mse_useful_steps": 2.0004078502720614e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "ee45a681b1463be6d7dfb44e3d25836082fc7a3978eb09e991ede5bb45a8a483",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1449129432439804,
+        0.035151317715644836,
+        0.016158444806933403
+      ],
+      "flow_loss_mean": 0.06540756858885288,
+      "controller_mse_useful_steps": 0.0052818139033959976,
+      "controller_motion_mse_useful_steps": 0.006156185235014068,
+      "controller_gripper_mse_useful_steps": 3.558591368757028e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "725990253b2a92c0ddd2de0292543bfed63ff4b0c91fbd12ef8267845e7bb9f1",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.07845806330442429,
+        0.025274667888879776,
+        0.012927439995110035
+      ],
+      "flow_loss_mean": 0.03888672372947136,
+      "controller_mse_useful_steps": 0.0023365974694798835,
+      "controller_motion_mse_useful_steps": 0.0027241490199827597,
+      "controller_gripper_mse_useful_steps": 1.1288166462627517e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "6277ffe871d0be3b1eba4b29a3bd858cc2f9f6ba7f4b27ea90b41bb97cfc5ddf",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.06492625921964645,
+        0.018688585609197617,
+        0.010450698435306549
+      ],
+      "flow_loss_mean": 0.03135518108805021,
+      "controller_mse_useful_steps": 0.003626802582101194,
+      "controller_motion_mse_useful_steps": 0.004221553067799217,
+      "controller_gripper_mse_useful_steps": 5.829966791305298e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "63f7938f76fa0b57bf328fc997f42d0e732d700f64026c661e9e79e6ed3e8f7b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.6567105054855347,
+        0.6070770025253296,
+        0.6345269083976746
+      ],
+      "flow_loss_mean": 0.6327714721361796,
+      "controller_mse_useful_steps": 0.5734375044355658,
+      "controller_motion_mse_useful_steps": 0.15101854113987884,
+      "controller_gripper_mse_useful_steps": 3.1079512842096886
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "e28371d9c62e4b60fc6c2a3d5cdfb52a10eae900e2b1e7e6a678af544871a39b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.9638586640357971,
+        0.5326360464096069,
+        0.5241239070892334
+      ],
+      "flow_loss_mean": 0.6735395391782125,
+      "controller_mse_useful_steps": 0.5034828997168713,
+      "controller_motion_mse_useful_steps": 0.19673705168448616,
+      "controller_gripper_mse_useful_steps": 2.343957987911183
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "83f126ff315b335a89cd517a638d3f2bd2549b5bf64240ebfddd782e142a8ea8",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.26606321334838867,
+        0.30973169207572937,
+        0.5009945631027222
+      ],
+      "flow_loss_mean": 0.3589298228422801,
+      "controller_mse_useful_steps": 0.36919651363790246,
+      "controller_motion_mse_useful_steps": 0.16717818548808366,
+      "controller_gripper_mse_useful_steps": 1.5813064825368155
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "7aaae47659789092d2ac966ddcb237b6d1182a0cc1459f8d1e7a0aee9bcd269d",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.3200782239437103,
+        0.10693860799074173,
+        0.37678444385528564
+      ],
+      "flow_loss_mean": 0.26793375859657925,
+      "controller_mse_useful_steps": 0.5191521733038171,
+      "controller_motion_mse_useful_steps": 0.08199070219056229,
+      "controller_gripper_mse_useful_steps": 3.1421209999833453
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "5f777d1ea221c788a120575240af50f3a3add627c632b05e403473e718e4c798",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.5936139822006226,
+        0.4835558235645294,
+        0.21811175346374512
+      ],
+      "flow_loss_mean": 0.7650938530762991,
+      "controller_mse_useful_steps": 0.11139037101527839,
+      "controller_motion_mse_useful_steps": 0.1299129250606013,
+      "controller_gripper_mse_useful_steps": 0.0002550467433410297
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "ea3af594a7cce0838ab5675b47aba6a271dfbb38d03d65e8989d116e0a1fea11",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.30040252208709717,
+        0.0831092968583107,
+        0.026758061721920967
+      ],
+      "flow_loss_mean": 0.1367566268891096,
+      "controller_mse_useful_steps": 0.03340447354986485,
+      "controller_motion_mse_useful_steps": 0.03896100828857248,
+      "controller_gripper_mse_useful_steps": 6.526511761918358e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "7f7f721560705157c9fdc8709b7a70e9813c3a6c9a93f5256b467e6f21d0ac21",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.22113345563411713,
+        0.45786553621292114,
+        0.2205187976360321
+      ],
+      "flow_loss_mean": 0.29983926316102344,
+      "controller_mse_useful_steps": 0.19102097503204502,
+      "controller_motion_mse_useful_steps": 0.08990874909171093,
+      "controller_gripper_mse_useful_steps": 0.7976943306740497
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "c8b1eb45df6d4e7d138168476a158542f3b9678eaf7042f7aff403459f3d5c1f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.061344146728515625,
+        0.09656611829996109,
+        0.054985981434583664
+      ],
+      "flow_loss_mean": 0.0709654154876868,
+      "controller_mse_useful_steps": 0.08447991768150136,
+      "controller_motion_mse_useful_steps": 0.0985390544386361,
+      "controller_gripper_mse_useful_steps": 0.00012509713869310205
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "e03df96c7a85964dff06a2bf368161910f615641514b04e357ad3a5675460724",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.13781076669692993,
+        0.14570306241512299,
+        0.09259819239377975
+      ],
+      "flow_loss_mean": 0.12537067383527756,
+      "controller_mse_useful_steps": 0.057704937914633256,
+      "controller_motion_mse_useful_steps": 0.06727867001368255,
+      "controller_gripper_mse_useful_steps": 0.0002625453203374315
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "ed40510f3bc8e0e4a46262b8cffc8104cdbe2401ac9ebaeb4d5d90abf8746734",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.21389158070087433,
+        0.10143683850765228,
+        0.06127109006047249
+      ],
+      "flow_loss_mean": 0.12553316975633302,
+      "controller_mse_useful_steps": 0.019409114382670487,
+      "controller_motion_mse_useful_steps": 0.022599776778503146,
+      "controller_gripper_mse_useful_steps": 0.0002651400076745379
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "d2bdbebeeac585ab54885487fe7bf26bf388ad9c5eadaad41f82a64227077894",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.4063536822795868,
+        0.2549141049385071,
+        0.2931256890296936
+      ],
+      "flow_loss_mean": 0.3181311587492625,
+      "controller_mse_useful_steps": 0.057530079872022695,
+      "controller_motion_mse_useful_steps": 0.06702866363329472,
+      "controller_gripper_mse_useful_steps": 0.000538577304390497
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "c886ed67e2258eddd07ff68255e67031b968e8783b075e64ff2f0332112c6616",
+      "contains_supervised_correction": true,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.5538007616996765,
+        0.30975112318992615,
+        0.20842187106609344
+      ],
+      "flow_loss_mean": 0.35732458531856537,
+      "controller_mse_useful_steps": 0.0679274565591893,
+      "controller_motion_mse_useful_steps": 0.07919004082639329,
+      "controller_gripper_mse_useful_steps": 0.0003519509559653564
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "d50c98ddad453d5d35c0371f553a9552a7b34952c55877eff4a0ae7889859abb",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.12737131118774414,
+        0.03852573037147522,
+        0.020920386537909508
+      ],
+      "flow_loss_mean": 0.06227247603237629,
+      "controller_mse_useful_steps": 0.009440765009105246,
+      "controller_motion_mse_useful_steps": 0.011010042046458167,
+      "controller_gripper_mse_useful_steps": 2.5102784987719332e-05
+    },
+    {
+      "optimizer_steps": 100,
+      "window_id": "4d489ce242f424e6a26e71d87f88cf788ce017d6d2577e9cd1232dc1692978fe",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09373407065868378,
+        0.036140307784080505,
+        0.021719424054026604
+      ],
+      "flow_loss_mean": 0.0505312674989303,
+      "controller_mse_useful_steps": 0.008215970025828417,
+      "controller_motion_mse_useful_steps": 0.009581048178863471,
+      "controller_gripper_mse_useful_steps": 2.5501107618073915e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "39fe61d6bca7926957fda285385608f14c16557afa297d6adc11196a3c800491",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2645128071308136,
+        0.21400369703769684,
+        0.14845992624759674
+      ],
+      "flow_loss_mean": 0.20899214347203574,
+      "controller_mse_useful_steps": 0.0271220833333744,
+      "controller_motion_mse_useful_steps": 0.031620871049681955,
+      "controller_gripper_mse_useful_steps": 0.0001293570355290609
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "2a29eea61ee63a668c2c51058bbd89397d86cf3fd670384381f24a450bbe56de",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.22427470982074738,
+        0.0531456284224987,
+        0.025005990639328957
+      ],
+      "flow_loss_mean": 0.10080877629419167,
+      "controller_mse_useful_steps": 0.003087127708027853,
+      "controller_motion_mse_useful_steps": 0.00359924447011245,
+      "controller_gripper_mse_useful_steps": 1.4427135520279354e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "548ca3515e6e5392ec112dfe89808365a9e54ee50fa7a2c4e86c93f715920453",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.12866218388080597,
+        0.047060586512088776,
+        0.028706250712275505
+      ],
+      "flow_loss_mean": 0.06814300703505675,
+      "controller_mse_useful_steps": 0.006003561826873599,
+      "controller_motion_mse_useful_steps": 0.0070033898087097325,
+      "controller_gripper_mse_useful_steps": 4.5939358568031336e-06
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "e4eabc1297d5effaa1000e32143000587d0da6a408cebf0b289c45f76afe5a36",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1782168745994568,
+        0.09596212953329086,
+        0.051150523126125336
+      ],
+      "flow_loss_mean": 0.10844317575295766,
+      "controller_mse_useful_steps": 0.008057685302596684,
+      "controller_motion_mse_useful_steps": 0.009398218169373335,
+      "controller_gripper_mse_useful_steps": 1.4488101936788113e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "eeee2663e359c679a5dcfb307f8bfbb44c29ac2162562c18a714784fb6304f18",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.11554483324289322,
+        0.037100158631801605,
+        0.02420339174568653
+      ],
+      "flow_loss_mean": 0.058949461206793785,
+      "controller_mse_useful_steps": 0.0031487931107512033,
+      "controller_motion_mse_useful_steps": 0.0036734771728567568,
+      "controller_gripper_mse_useful_steps": 6.887381178826982e-07
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "66a119fb169f3a7822acabef6ef651c1764f8d5e6b1cd6197c93869fdd6bea13",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.16384877264499664,
+        0.0404336042702198,
+        0.018521584570407867
+      ],
+      "flow_loss_mean": 0.07426798716187477,
+      "controller_mse_useful_steps": 0.003162870168050087,
+      "controller_motion_mse_useful_steps": 0.0036883683177746937,
+      "controller_gripper_mse_useful_steps": 9.881269702442844e-06
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "e54896f821e960c359ac5141c0266790982ab6fd2ac30d0894232ca647a60908",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.08891817182302475,
+        0.03197222948074341,
+        0.019421501085162163
+      ],
+      "flow_loss_mean": 0.04677063412964344,
+      "controller_mse_useful_steps": 0.003994348582783663,
+      "controller_motion_mse_useful_steps": 0.0046597223131606145,
+      "controller_gripper_mse_useful_steps": 2.1062005219607153e-06
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "48d867ac4c1b9493e8f93b86c4f38300e4723166fc290884f0481ee97cfb913a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.20697538554668427,
+        0.053554315119981766,
+        0.02696234919130802
+      ],
+      "flow_loss_mean": 0.09583068328599136,
+      "controller_mse_useful_steps": 0.008052996461341364,
+      "controller_motion_mse_useful_steps": 0.009386780840320467,
+      "controller_gripper_mse_useful_steps": 5.029018746674392e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "71dfc97ff266d52636f0e09806816335b883344164378ea33570343069172aee",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.26867926120758057,
+        0.0631696805357933,
+        0.03111460618674755
+      ],
+      "flow_loss_mean": 0.12098784931004047,
+      "controller_mse_useful_steps": 0.003858901246770484,
+      "controller_motion_mse_useful_steps": 0.004487906194291399,
+      "controller_gripper_mse_useful_steps": 8.487156164499654e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "032109dac9fc16c3681bcf057da61dcf89a510baeb156125113b1deb9d30ee37",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.2420158088207245,
+        0.18552793562412262,
+        0.08066651225090027
+      ],
+      "flow_loss_mean": 0.16940341889858246,
+      "controller_mse_useful_steps": 0.017695879949266455,
+      "controller_motion_mse_useful_steps": 0.020625351055440614,
+      "controller_gripper_mse_useful_steps": 0.00011905331222149956
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "6a6568010780f65666a397acb34d5bc9938b6e30bccdb3d0c3287560f35c781b",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.46744805574417114,
+        0.08965522050857544,
+        0.047464706003665924
+      ],
+      "flow_loss_mean": 0.2015226607521375,
+      "controller_mse_useful_steps": 0.010470742209818569,
+      "controller_motion_mse_useful_steps": 0.012207660542189124,
+      "controller_gripper_mse_useful_steps": 4.9232215595237733e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "41eb50576d4580f938ade91423b86970974912f5298abad1dc03242c594fa983",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.08373083174228668,
+        0.021662920713424683,
+        0.01230950839817524
+      ],
+      "flow_loss_mean": 0.03923442028462887,
+      "controller_mse_useful_steps": 0.002278709358119212,
+      "controller_motion_mse_useful_steps": 0.002652928077758614,
+      "controller_gripper_mse_useful_steps": 3.339704028280477e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "d37e1e0c911c7e5a39e0913341f3efaa995ab6d908dbfd447aab42eb92382aac",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.19830943644046783,
+        0.06777741760015488,
+        0.03625309839844704
+      ],
+      "flow_loss_mean": 0.10077998414635658,
+      "controller_mse_useful_steps": 0.010147677855521885,
+      "controller_motion_mse_useful_steps": 0.011830143227431865,
+      "controller_gripper_mse_useful_steps": 5.288562406199351e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "874da81b2e0632deaf9cbab25e700c71b5f97e43e700ec5807ea1ee0d1c4ea26",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.19429686665534973,
+        0.05576612055301666,
+        0.02914358861744404
+      ],
+      "flow_loss_mean": 0.09306885860860348,
+      "controller_mse_useful_steps": 0.007910616006621737,
+      "controller_motion_mse_useful_steps": 0.009218279256288549,
+      "controller_gripper_mse_useful_steps": 6.463650862087003e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "1a563f33eb60a83795170a0d51999c3f86be850a26fa28a0dd4bc14b787a069a",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.22282330691814423,
+        0.07267413288354874,
+        0.035204190760850906
+      ],
+      "flow_loss_mean": 0.11023387685418129,
+      "controller_mse_useful_steps": 0.02261000080485517,
+      "controller_motion_mse_useful_steps": 0.02636777089371391,
+      "controller_gripper_mse_useful_steps": 6.338027170272666e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "fdfd8c80d60e5af63338eb37953e010ec911ea17fd0ce5aab875c6c49cbff903",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2583324611186981,
+        0.19171205163002014,
+        0.5822030305862427
+      ],
+      "flow_loss_mean": 0.344082514444987,
+      "controller_mse_useful_steps": 0.5802082327903315,
+      "controller_motion_mse_useful_steps": 0.14771372834793256,
+      "controller_gripper_mse_useful_steps": 3.175175259444725
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "a8ff5fd0d382ff6342502f8d248ae6ed2ee6bcbb93cd7e615df73257a182e6cd",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.44462716579437256,
+        0.08452560752630234,
+        0.18075451254844666
+      ],
+      "flow_loss_mean": 0.23663576195637384,
+      "controller_mse_useful_steps": 0.4273818742079473,
+      "controller_motion_mse_useful_steps": 0.10380728695710152,
+      "controller_gripper_mse_useful_steps": 2.3688293977130224
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "1ea3abf2b82ef10cc25afabda31f0e35d7beb6587e89978df7ed2390c958a71e",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.2945496141910553,
+        0.09572071582078934,
+        0.05485051870346069
+      ],
+      "flow_loss_mean": 0.14837361623843512,
+      "controller_mse_useful_steps": 0.020989168160800126,
+      "controller_motion_mse_useful_steps": 0.02447032409688506,
+      "controller_gripper_mse_useful_steps": 0.00010223254429053798
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "783b347d32abd22bae7abb6133f917fbbcdd7f5fbfb3c26af86816d8aa47dae9",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.17433640360832214,
+        0.04993990436196327,
+        0.029163841158151627
+      ],
+      "flow_loss_mean": 0.08448004970947902,
+      "controller_mse_useful_steps": 0.006218316361512859,
+      "controller_motion_mse_useful_steps": 0.007246993088706874,
+      "controller_gripper_mse_useful_steps": 4.625599834877152e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "422890fc6e74710d3be2d36607935f2aa8719c3906b6d43af61d777d91fb8eb3",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.08470163494348526,
+        0.0320197232067585,
+        0.020849891006946564
+      ],
+      "flow_loss_mean": 0.045857083052396774,
+      "controller_mse_useful_steps": 0.005096688262481256,
+      "controller_motion_mse_useful_steps": 0.005936478770989003,
+      "controller_gripper_mse_useful_steps": 5.794521143477894e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "93ecab0bd8c28c4dd0efdd717b930a0a289d9b090405c01ffb09a2c0aa13d072",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.050032902508974075,
+        0.029894722625613213,
+        0.021637240424752235
+      ],
+      "flow_loss_mean": 0.03385495518644651,
+      "controller_mse_useful_steps": 0.002683932829604973,
+      "controller_motion_mse_useful_steps": 0.0031068821399050897,
+      "controller_gripper_mse_useful_steps": 0.0001462369678042695
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "e4ed15705c03478eac4ab1301d0a5e5acc5c5047dd3c54eb66719d4f7f33a261",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.09501800686120987,
+        0.07376077026128769,
+        0.050722017884254456
+      ],
+      "flow_loss_mean": 0.07316693166891734,
+      "controller_mse_useful_steps": 0.06169936725503392,
+      "controller_motion_mse_useful_steps": 0.00632619773937085,
+      "controller_gripper_mse_useful_steps": 0.3939383843490124
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "777dd25d2287a418ad50575b74bd452b240f8ea4080cb707da7dfcec83564c30",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.029399694874882698,
+        0.03246358782052994,
+        0.05640021711587906
+      ],
+      "flow_loss_mean": 0.0394211666037639,
+      "controller_mse_useful_steps": 0.00145470387034927,
+      "controller_motion_mse_useful_steps": 0.001695535282171965,
+      "controller_gripper_mse_useful_steps": 9.715399413098694e-06
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "1be1b33706d18fb81fe45e894b336a46d8c12ad0cd6a867a4ea9ba87ccad8f02",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5431891083717346,
+        0.2070949226617813,
+        0.09840063005685806
+      ],
+      "flow_loss_mean": 0.28289488703012466,
+      "controller_mse_useful_steps": 0.03759898685571856,
+      "controller_motion_mse_useful_steps": 0.04385356507903197,
+      "controller_gripper_mse_useful_steps": 7.151751583812451e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "d1162666bafe07065c6397db1b3bb91d367818aeadafe047064b5623b13fb6ce",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.15839707851409912,
+        0.05361390486359596,
+        0.02936418354511261
+      ],
+      "flow_loss_mean": 0.08045838897426923,
+      "controller_mse_useful_steps": 0.007258407586373656,
+      "controller_motion_mse_useful_steps": 0.008448584597138535,
+      "controller_gripper_mse_useful_steps": 0.00011734552178437731
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "3dd88fe97ba48316e9edcec0200e14fb4276028f8823efba467f0b2076f1a84f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.1980695277452469,
+        0.05508274585008621,
+        0.026236500591039658
+      ],
+      "flow_loss_mean": 0.09312959139545758,
+      "controller_mse_useful_steps": 0.005357292633361746,
+      "controller_motion_mse_useful_steps": 0.006227363332263974,
+      "controller_gripper_mse_useful_steps": 0.00013686843994837938
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "1f99232aeabaa475ed74745dc86311373e62130122be090078e60ea87a065c19",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.38162386417388916,
+        0.12428406625986099,
+        0.060198210179805756
+      ],
+      "flow_loss_mean": 0.1887020468711853,
+      "controller_mse_useful_steps": 0.025287762909280587,
+      "controller_motion_mse_useful_steps": 0.029484070623411587,
+      "controller_gripper_mse_useful_steps": 0.00010991662449454735
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "9c21b90a4f667ceccb1415bf05c60bd53fbb6ffab7d65262f2da5336c4ab9aa6",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.4638081192970276,
+        0.26801207661628723,
+        0.12701383233070374
+      ],
+      "flow_loss_mean": 0.28627800941467285,
+      "controller_mse_useful_steps": 0.07359517189267333,
+      "controller_motion_mse_useful_steps": 0.08585379228163031,
+      "controller_gripper_mse_useful_steps": 4.3449558931303235e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "a8a1a79c68bc2090a2742dbab103abe2ab161f2d95f6bc86edea79d5aa953460",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.27035489678382874,
+        0.09957582503557205,
+        0.0426618717610836
+      ],
+      "flow_loss_mean": 0.13753086452682814,
+      "controller_mse_useful_steps": 0.04326512428670166,
+      "controller_motion_mse_useful_steps": 0.05046047538131624,
+      "controller_gripper_mse_useful_steps": 9.301771901417592e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "b311eb7bd827dae439d90d64634d26bfee8c382088eb302febc6b72025d9628d",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.19241704046726227,
+        0.055164095014333725,
+        0.027628259733319283
+      ],
+      "flow_loss_mean": 0.09173646507163842,
+      "controller_mse_useful_steps": 0.00734631519290077,
+      "controller_motion_mse_useful_steps": 0.008558893685962228,
+      "controller_gripper_mse_useful_steps": 7.084423453201375e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "ee45a681b1463be6d7dfb44e3d25836082fc7a3978eb09e991ede5bb45a8a483",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.20980475842952728,
+        0.05428316071629524,
+        0.026156552135944366
+      ],
+      "flow_loss_mean": 0.0967481570939223,
+      "controller_mse_useful_steps": 0.008939175164453734,
+      "controller_motion_mse_useful_steps": 0.010408431541649396,
+      "controller_gripper_mse_useful_steps": 0.0001236369012797521
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "725990253b2a92c0ddd2de0292543bfed63ff4b0c91fbd12ef8267845e7bb9f1",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.15730397403240204,
+        0.05579612776637077,
+        0.028885886073112488
+      ],
+      "flow_loss_mean": 0.0806619959572951,
+      "controller_mse_useful_steps": 0.008331407627992124,
+      "controller_motion_mse_useful_steps": 0.009711311598755313,
+      "controller_gripper_mse_useful_steps": 5.198380341299081e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "6277ffe871d0be3b1eba4b29a3bd858cc2f9f6ba7f4b27ea90b41bb97cfc5ddf",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.16064561903476715,
+        0.053198255598545074,
+        0.029894229024648666
+      ],
+      "flow_loss_mean": 0.08124603455265363,
+      "controller_mse_useful_steps": 0.01132559504341794,
+      "controller_motion_mse_useful_steps": 0.013191204512907579,
+      "controller_gripper_mse_useful_steps": 0.00013193822648011486
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "63f7938f76fa0b57bf328fc997f42d0e732d700f64026c661e9e79e6ed3e8f7b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5406343936920166,
+        0.12900885939598083,
+        0.1430237591266632
+      ],
+      "flow_loss_mean": 0.27088900407155353,
+      "controller_mse_useful_steps": 0.01346749334517135,
+      "controller_motion_mse_useful_steps": 0.015659862508767147,
+      "controller_gripper_mse_useful_steps": 0.0003132783635965552
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "e28371d9c62e4b60fc6c2a3d5cdfb52a10eae900e2b1e7e6a678af544871a39b",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5103920698165894,
+        0.13587480783462524,
+        0.22960321605205536
+      ],
+      "flow_loss_mean": 0.29195669790108997,
+      "controller_mse_useful_steps": 0.4044773407894196,
+      "controller_motion_mse_useful_steps": 0.0806001466958993,
+      "controller_gripper_mse_useful_steps": 2.3477405053505414
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "83f126ff315b335a89cd517a638d3f2bd2549b5bf64240ebfddd782e142a8ea8",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.19787679612636566,
+        0.05690717697143555,
+        0.0919036865234375
+      ],
+      "flow_loss_mean": 0.11556255320707957,
+      "controller_mse_useful_steps": 0.0033502584255173744,
+      "controller_motion_mse_useful_steps": 0.0039057946192968484,
+      "controller_gripper_mse_useful_steps": 1.7041262840530545e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "7aaae47659789092d2ac966ddcb237b6d1182a0cc1459f8d1e7a0aee9bcd269d",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.30589810013771057,
+        0.10077644139528275,
+        0.046719688922166824
+      ],
+      "flow_loss_mean": 0.15113141015172005,
+      "controller_mse_useful_steps": 0.006722399157323359,
+      "controller_motion_mse_useful_steps": 0.007835588027655178,
+      "controller_gripper_mse_useful_steps": 4.326593533243572e-05
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "5f777d1ea221c788a120575240af50f3a3add627c632b05e403473e718e4c798",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        1.4031609296798706,
+        0.6693099141120911,
+        0.3285984992980957
+      ],
+      "flow_loss_mean": 0.8003564476966858,
+      "controller_mse_useful_steps": 0.19386797090809751,
+      "controller_motion_mse_useful_steps": 0.22607503261016249,
+      "controller_gripper_mse_useful_steps": 0.0006256006957075559
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "ea3af594a7cce0838ab5675b47aba6a271dfbb38d03d65e8989d116e0a1fea11",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.5214497447013855,
+        0.249301478266716,
+        0.09317024797201157
+      ],
+      "flow_loss_mean": 0.2879738236467044,
+      "controller_mse_useful_steps": 0.16356431519528894,
+      "controller_motion_mse_useful_steps": 0.19079435493554722,
+      "controller_gripper_mse_useful_steps": 0.00018407675373898584
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "7f7f721560705157c9fdc8709b7a70e9813c3a6c9a93f5256b467e6f21d0ac21",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.22255420684814453,
+        0.6658067107200623,
+        0.39619964361190796
+      ],
+      "flow_loss_mean": 0.4281868537267049,
+      "controller_mse_useful_steps": 0.455538134226646,
+      "controller_motion_mse_useful_steps": 0.32726391126897597,
+      "controller_gripper_mse_useful_steps": 1.225183471972666
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "c8b1eb45df6d4e7d138168476a158542f3b9678eaf7042f7aff403459f3d5c1f",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.13700862228870392,
+        0.29385268688201904,
+        0.20000845193862915
+      ],
+      "flow_loss_mean": 0.21028992036978403,
+      "controller_mse_useful_steps": 0.25404772882713383,
+      "controller_motion_mse_useful_steps": 0.29629569597635297,
+      "controller_gripper_mse_useful_steps": 0.0005599259318185281
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "e03df96c7a85964dff06a2bf368161910f615641514b04e357ad3a5675460724",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.17931360006332397,
+        0.27540332078933716,
+        0.18213903903961182
+      ],
+      "flow_loss_mean": 0.21228531996409097,
+      "controller_mse_useful_steps": 0.14651349264992727,
+      "controller_motion_mse_useful_steps": 0.17072088429391846,
+      "controller_gripper_mse_useful_steps": 0.0012691427859803071
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "ed40510f3bc8e0e4a46262b8cffc8104cdbe2401ac9ebaeb4d5d90abf8746734",
+      "contains_supervised_correction": false,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.22870643436908722,
+        0.20590467751026154,
+        0.13631266355514526
+      ],
+      "flow_loss_mean": 0.19030792514483133,
+      "controller_mse_useful_steps": 0.08771135308273201,
+      "controller_motion_mse_useful_steps": 0.10211486863918211,
+      "controller_gripper_mse_useful_steps": 0.0012902597440314345
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "d2bdbebeeac585ab54885487fe7bf26bf388ad9c5eadaad41f82a64227077894",
+      "contains_supervised_correction": true,
+      "supervised_steps": 5,
+      "flow_loss_by_time": [
+        0.06357554346323013,
+        0.02471821755170822,
+        0.03162982687354088
+      ],
+      "flow_loss_mean": 0.039974529296159744,
+      "controller_mse_useful_steps": 0.00041537322193224203,
+      "controller_motion_mse_useful_steps": 0.0004106030037975281,
+      "controller_gripper_mse_useful_steps": 0.00044399453074052555
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "c886ed67e2258eddd07ff68255e67031b968e8783b075e64ff2f0332112c6616",
+      "contains_supervised_correction": true,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.3683594763278961,
+        0.32452452182769775,
+        0.17705802619457245
+      ],
+      "flow_loss_mean": 0.2899806747833888,
+      "controller_mse_useful_steps": 0.11578484867025468,
+      "controller_motion_mse_useful_steps": 0.13502968857644707,
+      "controller_gripper_mse_useful_steps": 0.000315809233100346
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "d50c98ddad453d5d35c0371f553a9552a7b34952c55877eff4a0ae7889859abb",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.21701346337795258,
+        0.11933048814535141,
+        0.06830233335494995
+      ],
+      "flow_loss_mean": 0.13488209495941797,
+      "controller_mse_useful_steps": 0.06536643376106832,
+      "controller_motion_mse_useful_steps": 0.07624322244556041,
+      "controller_gripper_mse_useful_steps": 0.00010570165411578288
+    },
+    {
+      "optimizer_steps": 200,
+      "window_id": "4d489ce242f424e6a26e71d87f88cf788ce017d6d2577e9cd1232dc1692978fe",
+      "contains_supervised_correction": false,
+      "supervised_steps": 10,
+      "flow_loss_by_time": [
+        0.15571489930152893,
+        0.0960816890001297,
+        0.058937959372997284
+      ],
+      "flow_loss_mean": 0.10357818255821864,
+      "controller_mse_useful_steps": 0.04030590110182242,
+      "controller_motion_mse_useful_steps": 0.04701241207538475,
+      "controller_gripper_mse_useful_steps": 6.683526044841439e-05
+    }
+  ],
+  "checkpoint_sha256": {
+    "40": "994551994bcfd8bc514dea0cbff3430c7899c76004562db1d5ecfbded8d70f8b",
+    "100": "ff2dce1096aa371e40e4f405fb69ae728b2dd84ebcfb519736c453c8f7a05e8e",
+    "200": "78837c609305d0ad90075451c2222d08c81c6b9b610aa68ccb0a71a9bc4c8c11"
+  },
+  "source_manifest_sha256": "12df65efece3e4cea844960718a260e31187c71d1c440a2de6c1b6ed39194ba5",
+  "diagnostic_start_unix": 1791091401.3393724,
+  "diagnostic_end_unix": 1791092388.6903765,
+  "free_gpu_bytes_before": 34586165248,
+  "peak_diagnostic_gpu_bytes": 14889164800,
+  "shares_existing_gpu_allocation": true,
+  "mutates_host_policy": false,
+  "timing_note": "A separate frozen model ran during evaluation; wall time can be affected, but weights and evaluation action seeds are unchanged."
+}

@@ -1,0 +1,1013 @@
+Reasoning-guided policy learning — implementation and study plan
+
+CURRENT DEVELOPMENT RESULTS — 2026-10-04
+
+The research objective remains unmet. No completed checkpoint reaches the
+preregistered 8/10 autonomous target, and no fresh-task or untouched-reset
+confirmation was performed. These are two development tasks: Goal OOD6 at
+seed173, and Spatial OOD2 at seeds173 and179. They are separate from the earlier
+20-task intervention campaign. Each reported SR uses ten declared reset states.
+
+Condition                               Native    Learned     Source controls
+Goal6 / seed173 / V8 after 4 collections   5/10       5/10          815
+Spatial2 / seed173 / V7 after 2            3/10       5/10          620
+Spatial2 / seed179 / V7 after 2            2/10       2/10          416
+Spatial2 / seed179 / local labels         2/10       3/10          106 reused
+Spatial2 / seed179 / whole-success BC     2/10       2/10          106 reused
+
+These rows have different collection budgets and are not pooled. The first
+Spatial V7 gain has not repeated. Its later policy3 was saved but not evaluated
+after external quota preemption. V8's exact saved policy4 has now completed all
+ten original resets; all native binary outcomes are preserved. The restart adds
+1,951 evaluation controls and no training or teacher calls. Original retained
+partial-evaluation costs remain charged, with unknown tails marked as lower
+bounds rather than invented or assumed zero.
+
+The final native-success control is the narrowest positive signal: 14 locally
+useful windows beat 18 whole-success windows by one reset under identical fresh
+initial parameters, 40 uniform updates, sampled flow-time sequences and seven-
+channel loss. Only the local-label student gains reset20; neither branch loses
+a native win. The source is one unassisted native success, with 106 controls,
+24 monitoring calls and 455,499 reported tokens attributed to each branch.
+It adds no collection or teacher calls; the two evaluations add 5,168 controls.
+This is not the original online two-collection learning trajectory, a measured
+teacher-free collection, or a confirmed sample-efficiency advantage.
+
+The tuned RL comparisons remain visible at every scheduled checkpoint. On Goal6,
+DSRL finishes at 6/10 after 1,455 controls and PPO at 4/10 after 1,686, versus
+native 5/10. On Spatial seed173, their final scores are 3/10 and 2/10 after
+2,299 and 2,480 controls, versus native 3/10. Matched seed179 DSRL stays at 2/10
+after 411 controls. These are pinned RLinf components with serial overrides and
+limited tuning, not stock SOTA benchmark reproductions.
+
+Why the recipe falls short: useful five-action corrections often fail the
+complete ten-action window gate. The seed179 teacher executes ten locally
+useful assisted commands but trains on none. Relaxing credit is insufficient:
+evidence-masked replay falls from native 5/10 to 0/10 after 200 updates; the
+Goal hindsight selector scores 4/10 versus 5/10 for local labels and whole-
+success BC. The new success-only control suggests local filtering can sometimes
+help, but one extra win requires repetition. A better next teaching mechanism
+should first obtain coherent task-correct trajectories, for example through
+phase-dependent input skills, then test original-input distillation against
+success-only BC and matched RL on fresh cases. That recipe remains untested here.
+
+Actual use: 22.055960 of 24 authorized L40S GPU-hours, including
+initialization and failed workers; 26 allocations closed; peak concurrency two;
+no GPU jobs remain active. Retained interaction totals are at least
+18,101 collection and 115,777 evaluation controls. Reported teacher use is at
+least 38,616,918 tokens including cached input and offline diagnostics, not an API
+bill. Reused source costs count once globally. Repeated reset evaluations are
+not independent samples. All 64 completed scheduled curve points and incomplete work are retained.
+
+Open index.html for diagrams, prompts, all scores, source camera examples,
+plots and rollout videos. results.json and learning_curves.csv contain the
+compiled data. The evidence/ directory contains checksummed execution,
+judgment, admission and optimizer records; private provider streams and signed
+catalogs are excluded. study_accounting.json, native_success_spatial179_results.json
+and v8_frozen_restart_audit.json supply the final accounting and paired audits.
+Source and linear PR chain: https://github.com/GaTech-RL2/EgoVerse/pull/705
+Branch: astra/reasoning-policy-learning-20261003, based on PR704.
+
+CHRONOLOGICAL IMPLEMENTATION AND EVIDENCE
+The remaining entries preserve the plan and observations at each revision;
+prospective or interim statements are superseded by the current results above.
+
+
+Source: ../proposals/reasoning_guided_policy_learning_20261003.md
+Protocol: ../configs/reasoning_policy_learning_v1.json
+Base branch: astra/demo-skill-library-20260930, commit d4b2b690, PR 704.
+
+Objective
+Better autonomous success per new environment interaction than strong RL, from
+the same pi0.5 checkpoint. Assisted success or CPU checks alone are insufficient.
+FRS action steering is excluded. No action inversion is used in this package.
+
+Plan
+1. Pin the checkpoint, deployment interfaces, baseline sources, autonomous
+   threshold, reset schedules, and compute budget before experiments.
+2. Implement/test normal-direction guidance, fixed-reference candidate judgments,
+   single execution, evidence admission, and actual policy parameter updates.
+3. Run an OSMO L40S preflight with the full weights. Verify zero-guidance native
+   parity, action gradients, zero-adapter parity, training gradients and memory.
+4. Pilot on Goal OOD task 6 and Spatial OOD task 2, three seeds, eight collection
+   rollouts per task/seed. Evaluate autonomously at 0/2/4/8 collection rollouts,
+   on ten separate reset states. The preregistered threshold is 80% success.
+5. Compare tuned DSRL and PPO using the same checkpoint, observations, tasks,
+   budgets and evaluation schedule. Diagnose losses, revise on development data,
+   and confirm a frozen recipe on all 20 tasks with fresh seeds/resets if budget
+   permits. Report uncertainty, censored threshold crossings, costs and failures.
+
+Implementation
+LeRobot uses t=1 for noise, t=0 for actions. The estimated endpoint is x-t*v.
+Guided native velocity is v + lambda(t)*grad_x E; negative integration time steps
+make this gradient descent. The schedule strength*t, projection of direct edits
+onto mask support, and gradient-norm clipping are explicit experimental choices.
+This is RTC-inspired, not an exact reproduction of RTC's weighting. Coupling in
+the model can still alter unselected endpoint components.
+
+Astra (gpt-6-astra, medium, Codex CLI through the authenticated local relay) sees
+both real cameras, state8, instruction, controller semantics, native/candidate
+commands, and recent real feedback. Its roles are diagnose, compare and assess.
+It cannot execute candidates or query privileged simulator object coordinates.
+Each comparison freezes the observation, policy version, rule and native sample.
+An exclusive durable claim permits only one execution. Rejected proposals count
+as search, not correction episodes. Episodes, chunks and assisted simulated
+seconds are counted separately. The simulator pauses during reasoning; this is
+not a real-time controller. Initial autonomous evaluation is for the common
+learning-curve schedule, not a required failure demonstration to trigger Astra.
+
+Native flow-matching loss updates rank-8 LoRA parameters inside the action
+transformer's attention/MLP layers. These are actual policy parameters, not the
+previous external residual action head. Zero output adapters preserve the initial
+policy; float32 adapters and optimizer state retain small updates. The VLM stays
+frozen. Targets are fixed real commands, with fresh noise and native Beta times.
+Original-demo replay beta and synthetic candidate training weight both start at 0.
+
+Full ten-step executed action windows are paired with their own pre-action
+observations. Every step must have observed-useful evidence, and correction steps
+also need a pre-execution predicted win. Include useful setup and continuation;
+exclude ambiguous/failed segments and unexecuted tails. Low admission is a failure
+mode to measure before adding synthetic targets or partial-label objectives.
+
+Baseline audit
+Official RLinf revision c70606f08cdca259b8dec03d4430926b5b8fac9d supplies:
+  examples/embodiment/config/libero_spatial_dsrl_openpi_pi05.yaml
+  examples/embodiment/config/libero_spatial_ppo_openpi_pi05.yaml
+The example checkpoint RLinf/RLinf-Pi05-LIBERO-SFT differs from the selected
+lerobot/pi05_libero_base. Never silently substitute it. RLinf's OpenPI loader
+does not establish parity with the LeRobot export. Key conversion, strict tensor
+loading, processor/velocity/action parity and OOD reset integration remain to do.
+The implementations were initially inspected and pinned; the current results below supersede that initial status.
+
+Primary sources
+RTC: https://arxiv.org/html/2506.07339v1 (equations 2–4)
+DSRL authors' code: https://github.com/nakamotoo/dsrl_pi0
+RLinf: https://github.com/RLinf/RLinf/tree/c70606f08cdca259b8dec03d4430926b5b8fac9d
+
+Historical status at initial implementation
+First implementation was present. Local checks: 38 new CPU tests passed; full
+repository unit suite: 1700 passed, 6 optional skips. The new opt-in action-VJP
+integration test passed in the pinned LeRobot runtime. These are synthetic/small
+model checks, not full-checkpoint GPU or robot success results.
+
+At that initial checkpoint, no new robot SR result existed. The user authorized a
+total of 24 L40S GPU-hours on 2026-10-03, including setup, failures and all methods.
+The config now has launch_allowed=true. Strong-baseline parity, data collection, learning curves and confirmation remain outstanding.
+
+Launching after the budget is resolved
+Use the existing immutable payload/source_identity.json/bootstrap.sh bundle
+format, with ASTRA_ENTRY_MODULE=astra_reversal.osmo.reasoning_policy_learning.
+Prepare one time-limited L40S worker:
+  python -m astra_reversal.osmo.prepare_learning_launch BUNDLE OUTPUT \
+      --phase preflight --gpu-hours HOURS
+The preparer verifies committed source and bundle hashes; it does not submit.
+Use phase=pilot only after weighted preflight succeeds. A pilot worker handles
+one task and seed. Sum all worker allocations against the study budget. OSMO task
+start/end times count bootstrap cost; the internal cost file labels its exclusion.
+
+2026-10-03 full-weight preflight
+One OSMO L40S completed the native parity and gradient gates. Zero guidance and
+zero adapters both have max absolute error 0. Input gradient norm 0.01508;
+adapter-loss gradient norm 0.0009536; peak allocation 14.92 GB; guided sampling
+0.476 seconds. Total allocation including bootstrap: 0.1586 GPU-hours. See
+full_checkpoint_preflight.json. No environment actions or optimizer updates
+were performed by this diagnostic. Strength-1 guidance reduced this particular
+probe target error by only 0.076%, so an effect-size sweep is the next check.
+
+RLinf compatibility audit
+The official converter maps 812 source tensors to all 667 expected tensors with
+matching shapes. Weighted parity is pending. The standalone core loader bypasses
+Ray/robot factory initializers but does not alter the pinned math modules. The
+audit compares unmodified RLinf, then explicitly changes Gemma and SigLIP GELU
+approximations to match the source checkpoint, restoring them afterward. Shared
+native preprocessing avoids attributing processor changes to checkpoint errors.
+Neither shape parity nor activation harmonization alone qualifies an RL result.
+
+2026-10-03 RLinf weighted parity
+Activation matching reduced maximum velocity error from 0.00268 to 2.39e-6,
+and maximum normalized/controller action error from 0.00162 to 4.18e-7.
+This passes the declared tolerances on one real observation and two noise draws;
+it is not exhaustive task equivalence. Source weights load strictly. The explicit
+activation compatibility change is necessary before PPO uses this checkpoint.
+
+DSRL integration
+The new serial harness reuses RLinf's released DSRL actor, encoders and ten-Q-head
+network/methods directly, with the exact frozen native LeRobot decoder. It uses
+SAC with mean Q aggregation, gamma=.999 per control step, tau=.005, no backup
+entropy, softplus temperature initialized to 1 with target entropy -16, actor
+lr1e-4, critic/temperature lr3e-4, 200 updates per collected rollout, and a
+10-update critic warmup. Float32 master parameters use bf16 autocast. Serial
+collection, batch64, and duration-discounted -1+success over each actual prefix
+are explicit integration choices. No demonstrations are supplied to the baseline.
+The 300-action finite horizon is terminal. DSRL's released noise actor repeats
+one 32-D tanh-Gaussian sample across the horizon; evaluation uses its mean.
+Consequently its pre-update policy has the same decoder weights but a different
+noise distribution from the native sampler. Report both initial scores; do not
+call these identical initial action distributions. OOD resets/evaluation cadence
+and counted physical control steps match the teacher study.
+
+Guidance revision under test
+The v1 sweep (guidance_v1_effect_size.json) reduced a normalized +0.1 z target
+error by only 0.019%, 0.076%, 0.379%, 0.758% at strengths .25/1/5/10. This is
+insufficient evidence of a usable intervention. Two implementation choices are
+now separate ablations: (1) tapering the coefficient to zero near the action
+endpoint, and (2) projecting the already-masked loss gradient onto the same
+latent coordinates, which discards coupling directions. The optional RTC
+coefficient is min(100, strength*((1-t)^2+t^2)/(t*(1-t))) in native noise=1 time;
+the full VJP option masks the endpoint error without a second latent projection.
+The original settings remain defaults for reproducibility. A zero-action GPU
+probe will compare these choices before changing the collection recipe.
+Source: https://arxiv.org/html/2506.07339v1#S4.SS1, equations 2--4. Binary masks
+make our squared-mask energy match RTC's weighted correction; soft masks differ.
+No FRS, physical candidate retry, or unexecuted synthetic training is added.
+
+PPO integration (GPU backward/recompute check now passed)
+The second baseline uses RLinf's released Pi0RL stochastic flow sampler and
+log-probability recomputation on the strict converted checkpoint. Its flow-SDE
+noise level is .5, with one selected stochastic denoising step and native ODE
+elsewhere, as in the released configuration. The full action expert (including
+AdaRMS and action/time projections) and the upstream VLM-pooled value head train;
+the VLM stays frozen. Serial PPO uses chunk-summed log probabilities, GAE .99/.95,
+clip .2, value clip .2, Huber delta10, AdamW actor lr5e-6/value lr1e-4, betas .9/.95,
+weight decay .01, grad clip1, one epoch per rollout, microbatch1 accumulated over
+8 transitions. These serial batch/horizon/float32 choices are explicit overrides
+of the released distributed configuration. Only the executed prefix enters its
+log-probability objective. Full action-expert parameters are saved at evaluation
+milestones; these deployment checkpoints omit optimizer state. Each GPU job must
+pass initial native parity and rollout-versus-recompute log-probability agreement
+and backward checks before collecting any environment data.
+
+2026-10-03 guidance probe and collection v2
+The 13-configuration zero-action probe completed in 0.1059 L40S GPU-hours
+including setup (workflow astra-pi05-reasoning-learning-20261003-guidance-probe-1).
+At strength10, RTC weighting with the extra latent projection reduced the masked
+target error 68.10%, versus 0.758% for the original taper. Removing the projection
+raised this to 71.51%, but the maximum unmasked output change grew from 0.000071
+to 0.08544. These are diagnostics on one archived real observation, not robot SR.
+Full records: guidance_v2_effect_size.json.
+
+The v2 protocol retains v1 source/results and offers three computational candidates:
+RTC strength5 projected, RTC strength10 projected, RTC strength10 full gradient.
+All share the fixed native proposal's observation/noise and still need Astra's
+clear predicted win before any execution. Bounds and evidence gates are unchanged.
+Diagnosis now receives the preceding actual monitor images and the current images,
+short observed-outcome evidence, and summaries of up to three previous collection
+attempts. Autonomous evaluation results are never supplied to Astra. The teacher
+system prompt/schema is unchanged; the additional context is explicitly labeled.
+Use prepare_learning_launch --protocol-version v2 --phase pilot to select this
+recipe. A /tmp/astra-stop-after-rollout marker ends new workers only after the
+current collection and update are saved, with an explicit completion status.
+
+The initial v1 Goal OOD6 / seed173 autonomous evaluation scored 5/10. During its
+first collection Astra rejected very weak lift candidates as ties. This motivates
+the weighting revision; it is not evidence that learning has improved autonomy.
+At the v2 launch, DSRL was running and PPO still required its GPU preflight. Current measurements are below. Research objective unmet.
+
+Prospective v3: express a gripper correction
+The saved v1 trajectory reveals a second limitation. At step175 Astra tried
+three overlapping +0.5 gripper edits, which the cumulative bound rejected. At
+step210 it explicitly reported that +0.5 could not change the native opening
+commands (approximately -1) into closing. The v3 protocol keeps six motion
+channels at a maximum additive change of 0.5, but permits up to 2 on the gripper.
+Final teacher targets must still satisfy exactly the original controller bounds;
+invalid targets are rejected, not clipped. This makes an ordinary grasp/hold
+request expressible without increasing motion bounds. Its rollout effect remains
+untested. The system prompt and all v1/v2 response schemas remain unchanged.
+
+V3 autonomous evaluation records videos, every actual command/reset audit and
+the initial observation, avoiding redundant per-step image uploads when no
+training data is collected. Collection still retains all pre-action observations.
+This affects artifact I/O only, not observations supplied to the policy or actions.
+
+Shared native evaluation and reporting
+Repeated revisions of the same unmodified native policy can reuse the measured
+Goal6/seed173 initial evaluation. The guard requires matching weight, tokenizer,
+processor, model/adapter source, runtime, protocol, task, seed, reset-state,
+reset-model and BDDL identities, plus exactly zero adapter/guidance parity error.
+It records the original workflow and checksum and counts zero new interactions
+or independent evaluation replicates. Updated policy checkpoints always run fresh
+autonomous evaluation. Other task/seed combinations still run their initial
+evaluation. A requested early stop now finishes any due scheduled evaluation
+before starting another collection rollout.
+
+study_report.py builds a local HTML dashboard with a method diagram, completed
+autonomous curves, Wilson intervals, token accounting, retained partial samples,
+videos, the teacher prompt, CSV and JSON. Missing evaluations never become zero
+success. Local completed CLI calls count even if the worker was cancelled before
+receiving the response. The report deliberately does not declare the research
+objective met; that requires a separate supported comparative conclusion.
+
+2026-10-04 00:25 UTC development evidence
+DSRL completed Goal OOD6 / seed173: autonomous success 4/10 initially, then
+5/10 at 2, 4 and 8 collected rollouts. Final collection cost 2,057 controls;
+evaluation cost 8,455 controls; eight policy updates; two collection successes.
+Total OSMO allocation including bootstrap was 0.8088 L40S GPU-hours. Its final
+score ties the separately measured native Gaussian baseline (5/10). The 8/10
+threshold was not reached. Full per-reset summary: dsrl_goal6_seed173_result.json.
+This is one development task/seed and one serial RLinf-based configuration,
+not a tuned multi-seed state-of-the-art reproduction or a superiority claim.
+
+The v2 teacher's one diagnostic rollout failed after 250 actions plus ten
+stabilization controls, using three correction episodes, eight assisted chunks
+(two simulator seconds), and 80 Astra calls. CLI usage: 1,493,455 total tokens,
+including 772,096 cached input tokens. Nine full windows were admitted: eight
+native setup/continuation windows and one correction window at steps 150--160.
+One 20-step native LoRA update was saved, but no updated autonomous evaluation
+was due before the planned stop. Its learned SR is unknown, not 5/10 or zero.
+Actual allocation: 0.7491 GPU-hours. See pilot_v2_failure_audit.json.
+
+PPO passed native weighted parity (controller error <=4.18e-7), exact rollout
+versus recomputed log probabilities, and nonzero actor backward gradients.
+It has completed two collection rollouts and its first updated autonomous score:
+5/10 initially and 5/10 after 620 collection controls. The full eight-rollout
+experiment is still running; these interim numbers are not its final result.
+
+The first v3 worker passed the exact native-reference reuse checks but its local
+tunnel started before OSMO marked the worker ready (HTTP 425). No Astra response
+arrived; the worker timed out after initialization, consuming 0.1471 GPU-hours.
+The explicit infrastructure retry keeps the same immutable worker payload and
+protocol. The launcher now uploads first, then opens the tunnel, and terminates
+its local relay if that tunnel exits. The retry is receiving real Astra calls.
+No failed startup is silently removed from the compute/interaction accounting.
+
+Standalone PNG/PDF plots now accompany the interactive offline dashboard.
+Latest updates without a subsequent scheduled autonomous evaluation are labeled
+unevaluated, so initial native scores cannot be mistaken for learned outcomes.
+The study remains in development; repeated seeds, Spatial OOD2, baseline tuning
+and any fresh confirmation remain outstanding within the authorized budget.
+
+Prospective v4: language subgoal candidates
+The v2 videos/reviews show repeated lift attempts at the rack while the external
+objective remains putting the bottle in the bowl. A version-gated extension lets
+Astra choose either the existing bounded motor-target guidance or a concrete
+current-phase subgoal instruction. The latter creates three computational
+candidates with the same policy, real observation and native noise: full prompt
+conditioning, or TEI between original/subgoal instructions at alpha .33 and .67.
+There are no new demonstrations, altered images, simulated candidate outcomes,
+physical retries or FRS. Every alternative still needs a predicted clear win
+against the saved original-instruction native proposal. Only one prefix executes.
+Executed useful windows retain their ORIGINAL task instruction for native LoRA
+training and later autonomous inference. The subgoal is a teacher input only.
+
+The extension changes the teacher schema/prompt only when explicitly enabled in
+protocol v4. All 51 current v3 requests were compared with source 3439d378 and
+retain identical schemas and complete payloads. Full-weight launch preflight will
+exercise all three new conditioning paths and require exact native restoration
+afterward. V4 is prepared for testing, not a demonstrated improvement. It keeps
+the same eight-rollout collection and 0/2/4/8 autonomous evaluation schedule.
+
+Baseline development tuning
+The standard baseline setting is retained. A separately named more_reuse recipe
+raises DSRL replay updates from 200 to 600 per collected rollout, with the same
+batch64 and other SAC settings. PPO gathers two complete episodes from one fixed
+policy version before an update, then trains for four epochs with optimizer
+batch8. Terminal masks prevent GAE from leaking a following episode's reward
+into the preceding episode. The original recipe uses one episode and one epoch.
+Every scheduled evaluation still follows completed batches at 0/2/4/8 collected
+episodes. This is additional development tuning, not a demonstrated advantage.
+
+RL evaluations can use the same reduced artifact recording as teacher v3/v4:
+all commands/reset audits and video, plus the initial raw observation. Collection
+always retains every raw pre-action observation and exact PPO training records.
+This changes artifact I/O only. Older immutable workers retain their original
+recording behavior. All allocated wall time, including uploads, counts in the
+compute ledger.
+
+2026-10-04 completed standard PPO development run
+Goal OOD6 / seed173 autonomous SR was 5/10 at collection0, 5/10 at2, 4/10 at4,
+and 3/10 at8. The eight real collection rollouts used 1,864 controls including
+stabilization, with three successes (resets4,6,7). Evaluation used 8,685 controls.
+Eight policy updates completed; allocated runtime including bootstrap was
+0.9251 L40S GPU-hours. The 8/10 threshold was not reached. This setting degraded
+autonomous performance on the measured resets; it supplies no advantage claim.
+See ppo_goal6_seed173_result.json and ppo_weighted_preflight.json. The development
+tuning recipe was prepared before its first rollout and remains a separate run.
+
+Prospective v5: tell the teacher what will actually execute
+The driver has always executed five actions before replanning, but older teacher
+requests exposed the ten-action proposal horizon without explicitly stating that
+cutoff. Some saved comparisons penalized the unexecuted tail, and some target
+edits constrained it. V5 states that only actions0--4 execute and restricts the
+motor-edit schema to that prefix. Candidate judgments must still preserve necessary
+subgoals, but an unexecuted bad tail alone is not evidence against the real prefix.
+The complete ten-step training window requirement remains: those targets come
+from two actually executed prefixes, never from a predicted tail. V1--V4 payloads
+are preserved exactly. This revised interface is not yet a robot success result.
+
+Training loss audit and v5 correction
+The selected checkpoint declares output_features.action.shape=[7], while its
+internal action dimension is32. The pinned LeRobot PI05Policy.forward truncates
+per-dimension losses to7 before averaging (modeling_pi05.py lines1255--1257).
+V1--V4 used the native flow-matching residual but averaged all32 channels. Those
+runs therefore did not exactly match the LeRobot policy-level loss. Their results
+and source are preserved as the padded-loss variant; they are not silently relabeled.
+V5 excludes the25 padding outputs and adds a full-weight comparison between the
+cached-prefix learner loss and LeRobot's direct training forward at identical noise,
+time, observation and target. The native 32-dimensional sampling interface remains
+unchanged. Whether the corrected objective improves autonomous SR remains untested.
+
+V3 completed development result (OSMO pilot-4)
+Two collection attempts failed after 620 total control steps, with seven assisted
+five-action prefixes. Two LoRA updates trained 40 optimizer steps on 7 and 15
+admitted windows. The updated autonomous policy scored 5/10, equal to native 5/10:
+exactly the same five reset states succeeded, with no gained or regressed reset.
+Teacher usage was 4,152,587 reported tokens (2,353,152 cached input), 216 calls,
+and 2,681.80 seconds of CLI latency. Fresh evaluation used 1,952 controls.
+Conservative allocation including worker initialization was 1.36369 L40S-hours.
+The run stopped under a two-collection screening decision made before updated
+evaluation outcomes were known. It used the historical 32-channel padded loss;
+this is a measured tie, not a sample-efficiency advantage. Full evidence is in
+pilot_v3_goal6_seed173_result.json.
+
+Saved-data checks of verifier grounding
+Four new comparisons on two archived V4 states tested explicit prefix timing
+with and without the preceding real motion. Every selection remained native;
+all twelve judgments were uncertain. The diagnostic executes no environment
+actions and supplies no training labels. See comparison_history_probe.json.
+
+visual_grounding.py introduces an OFFLINE feasibility check, not a deployed
+intervention. Astra labels the visible grasp-center pixels in unaltered recorded
+images without receiving robot poses. A separate local affine fit pairs those
+labels with recorded XYZ proprioception and checks leave-one-out pixel error and
+motion excitation. A good fit only measures consistency with VLM labels, not
+independent camera accuracy or predicted action outcomes. No depth or object
+poses are supplied. Any later live variant must derive its fit from its own
+counted collection data, not import a calibration from these development runs.
+
+Related primary sources: HAMSTER (https://arxiv.org/abs/2502.05485) uses coarse
+2D paths with a trained downstream controller; RoboPoint
+(https://arxiv.org/abs/2406.10721) trains image affordance prediction. Neither
+establishes that unfinetuned Astra pixel labels will work here. 3D HAMSTER
+(https://arxiv.org/abs/2606.31329) highlights the missing-depth problem in 2D
+guidance. A projected point alone is therefore not a valid 3D placement target.
+
+Deployment scope: the published checkpoint config specifies chunk_size=50 and
+n_action_steps=10. This development study consistently generates ten actions
+and executes five before replanning. Native/zero-guidance parity and all paired
+comparisons refer to this shared runtime, not the publisher's stock rollout
+settings. Both the runtime override and the serial RL integration must be
+considered before claiming a strong published-baseline reproduction.
+
+V6 prospective revision: TLI and computational rejection feedback
+V4 and early V5 semantic proposals often differed too little or had uncertain
+destination effects. V6 adds two TLI candidates alongside prompt and TEI: keep
+the original task input and add 0.5 or 1.0 times the current-observation subgoal
+text latent minus the original-instruction latent, after VLM blocks 0–16. Both
+source banks are freshly captured from the same actual observation; no training
+demonstrations are supplied. Fixed noise, frozen policy/rule/reference and the
+clear-win gate remain in force. Zero-factor TLI and native restoration must
+match exactly before collection.
+
+Diagnosis previously received real outcome reviews but not the verifier's
+reasons for declining its proposals. V6 includes the last three comparison
+records, explicitly identified as past computational judgments. They may
+inform the next diagnosis but cannot authorize its new candidate batch.
+V1–V5 prompts and candidate pools remain unchanged.
+
+The separate visible-pixel geometry probe produced only 3/8 labels above its
+predeclared 0.6 confidence threshold. The minimum was six, so no projection
+was fitted and no geometry intervention was deployed. The retained negative
+result is visual_grounding_probe.json.
+
+DSRL tuning result (Goal OOD 6, seed 173)
+Increasing SAC replay updates from 200 to 600 per collected episode yielded
+4/10, 4/10, 5/10 and 6/10 autonomous successes at 0, 2, 4 and 8 collection
+rollouts (0, 422, 1042 and 1455 collection control steps). Native pi0.5 scored
+5/10. The final model gained reset 21 and retained all five native successes;
+exact reset-state/model/task hashes agree. The intermediate 5/10 is not the
+same set of successful resets. Five of eight collection episodes succeeded.
+This is one development seed, not confirmation. No method has reached the
+predeclared 8/10 threshold. See dsrl_more_goal6_seed173_result.json.
+
+V5 two-rollout screen completed without an intervention
+The updated policy scored 5/10 on exactly the same five reset scenes as native.
+Collection consumed 426 controls, including stabilization, and succeeded on
+one of two episodes. Astra requested 37 language-subgoal interventions, but its
+111 candidate judgments contained 82 uncertain, 14 tie and 15 loss judgments,
+with no wins. No assisted action executed. Twelve useful windows from the
+successful native episode produced one policy update. Therefore this result
+tests filtered native self-imitation, not successful corrective teaching.
+The run used 172 calls and 3,380,126 tokens including cached input. Its stop
+after two collections and the scheduled evaluation was fixed before that score.
+The complete receipt is pilot_v5_goal6_seed173_result.json. The dashboard now
+separates intervention requests, computational preferences, selected proposals,
+executed assistance, outcome reviews and admitted windows.
+
+Offline diagnosis feedback ablation
+At one saved V5 observation (Goal6/reset0, step150), fresh V6 diagnosis calls
+used the same images, history and native proposal. Without rejected-candidate
+feedback, Astra repeated the language subgoal. With the three previous
+comparisons, it chose a +1.99 gripper delta on actions3–4 to prevent premature
+opening. This target passed the original controller bounds. No policy candidate
+was generated or physically executed, and nothing was added to training. The
+two calls support testing the feedback path, not a physical-success claim;
+see diagnosis_feedback_probe.json for their exact outputs and token receipts.
+
+Tuned PPO result (Goal OOD 6, seed 173)
+Two frozen-actor collection episodes per batch and four optimization epochs
+yielded 5/10, 4/10, 5/10 and 4/10 at 0, 2, 4 and 8 collected episodes. The final
+checkpoint used 1,686 collection controls and regressed on reset20 relative to
+native, with no gained resets. The paired scenes were verified. This is a
+development tuning result; ppo_more_goal6_seed173_result.json retains the data.
+
+Prospective fixed-data learner ablation
+The V3 collector admitted 22 complete real action windows, but only one contains
+a correction; 21 contain native setup or continuation alone. The replay input
+loader checks each labeled command against the independent execution ledger,
+recomputes admission, verifies original observation hashes and refuses any FRS
+steering data. It never fills an unexecuted action tail.
+
+reasoning_replay_v3.json pins the 2.66 MB observation subset by manifest hash.
+The ablation starts from the original model, replays the original 20+20 update
+order with the corrected seven-channel loss, and then tests 100 and 200 total
+optimizer steps using the same real windows. Every measured checkpoint receives
+fresh autonomous evaluation; no new collection or Astra calls are made. This
+tests the learner under fixed data and does not supply the missing transport
+examples. The source 620 collection controls and 4,152,587 teacher tokens remain
+attributed to its curves and count only once in the global study totals.
+
+Package this ablation with --reasoning-replay-cache <audited-input-directory>.
+Prepare --phase replay-learning --protocol-version v5. The worker checks the
+same checkpoint/input/control identity, native-loss parity and reset identity
+before training. This phase is not a new independent collection replicate.
+
+V6 weighted TLI and offline geometry checks
+Full-checkpoint TLI preflight restored native actions exactly after removing
+hooks, and zero-factor TLI matched native exactly. The two nonzero TLI edits
+changed controller outputs by up to 0.529 and 0.676 on the archived diagnostic
+observation. See tli_weighted_preflight.json. These are effect-size checks, not
+rollout success. The live V6 rollout initially executed useful retention/lift
+corrections but later lost its grasp; a useful local prefix is not task completion.
+
+The original eight-frame pixel probe remains a negative result. A second probe
+sampled twelve earlier actual V5 images while retaining the same confidence,
+conditioning and cross-validation thresholds. It admitted six labels and fitted
+a local affine map with condition 17.01 and 1.92-pixel leave-one-out RMS error.
+This is consistency with VLM labels, not independent camera calibration. No
+depth, destination waypoint or controller was inferred or deployed; see
+early_visual_grounding_probe.json.
+
+V7 prospective revision: exact bounded correction candidate
+At V6's saved collection steps240 and245, RTC candidates overshot Astra's modest
+downward target. Two offline comparison calls added the exact bounded target to
+the existing candidate pools, preserving each original observation, reference
+and rule. Astra selected it in both cases; bounded_target_probe.json retains the
+outputs and usage. The cases were selected for observed guidance overshoot, so
+they do not estimate general verifier reliability or physical success.
+
+V7 offers this alternative alongside the RTC candidates. It preserves every
+unedited native component and checks the same cumulative delta limits and
+controller bounds, without clipping. It is an expert controller proposal, not a
+sample from the policy or a claim about policy support. The proposal permits a
+bounded controller alternative when guidance fails; FRS remains excluded.
+The same clear-win comparison authorizes at most one executed five-action
+prefix. Complete observed-useful windows alone train the native policy using
+the original instruction. V1–V6 candidate pools/prompts remain unchanged. GPU
+rollout and autonomous-learning results for V7 are pending.
+
+Prospective evidence-masked replay ablation
+The original V3 admission retained five unique useful correction actions, even
+though its real outcome reviews marked twenty correction actions useful. The
+strict requirement that all ten steps be useful discarded isolated corrections
+beside ambiguous or failed continuation. reasoning_replay_v3_masked.json tests
+loss masking over the same two recorded episodes: 47 complete real windows,
+eight containing supervised corrections, covering 175 unique useful actions
+and all twenty useful correction actions. No new collection or teacher calls
+are added. The original 620 controls and 4,152,587 tokens remain attributed.
+
+All ten target actions really executed, and the window retains its own actual
+pre-action observation. A binary mask applies supervised flow loss only to
+observed-useful steps; corrected steps also need their recorded pre-execution
+win. Failed, ambiguous and unapproved steps receive zero loss. No missing tail
+is fabricated. The known, unsupervised actions still enter the noised action
+sequence seen by the denoising transformer; that cross-step context is a stated
+limitation of this objective, not a claim that those actions are useful.
+
+Compare the same 40/100/200 optimizer checkpoints with the strict-data ablation.
+The first forty updates preserve the original twenty-per-episode order; later
+updates use the union and the existing event/stage sampling. This is a changed
+admission/objective ablation on fixed development experience. It does not yet
+establish autonomous improvement. Package the masked input directory using
+--reasoning-replay-cache and prepare --phase replay-masked --protocol-version v5.
+
+Deployment provenance clarification
+The pinned OpenPI source, 981483dca0fd9acba698fea00aa6e52d56a66c58, explicitly
+sets pi05_libero action_horizon=10 and discrete_state_input=False. The common
+study input profile follows that source configuration. The LeRobot export's
+config declares chunk_size=50 and n_action_steps=10; these are different public
+deployment configurations. Executing five of the ten generated actions remains
+a study choice. This source check does not claim either publisher's stock SR.
+See deployment_configuration_provenance.json for the source path and hashes.
+
+Spatial baseline transfer (OOD task 2, seed 173)
+The tuned DSRL configuration completed eight collection episodes and 2,299
+collection controls. Autonomous scores at 0/2/4/8 episodes were 2/10, 2/10,
+2/10 and 3/10. Relative to its initial noise-policy evaluation, the final
+checkpoint gained resets23 and25 and lost reset21. This initial DSRL score is
+not a native-pi0.5 score: its noise distribution differs. The native Spatial
+comparison is pending. Evaluation used 10,716 additional controls, separately
+accounted; see dsrl_more_spatial2_seed173_result.json. One development seed
+does not establish a generalization or sample-efficiency advantage.
+
+V6 interim checkpoint after two collection episodes
+Autonomous success remains 5/10 on exactly the same five reset scenes as native.
+Both collection episodes failed, using 620 controls including stabilization.
+Seven assisted prefixes executed (35 actions); all came from RTC candidates,
+and none came from prompt, TEI or TLI candidates. Ten admitted windows produced
+40 optimizer steps across two policy updates. The two collections used 223
+Astra calls and 4,596,685 reported tokens, including 2,393,344 cached input
+tokens. Local useful retention, lift and drift-arrest did not complete placement.
+The workflow continues; pilot_v6_goal6_seed173_after2.json is a fixed milestone
+receipt excluding subsequent collection and its costs. It is not a final result.
+
+Frozen projection check on separate frames
+The earlier six-label visual projection was frozen before a new Astra call
+labeled twelve interleaved frames at steps5,15,...115 of the same V5 trajectory.
+None was used in the original fit or label request. Seven labels met the same
+confidence threshold; projection error was 4.31 pixels RMS, below the declared
+eight-pixel threshold. No refit, action, policy update or controller deployment
+occurred. The reference labels still come from the VLM, so this is held-out
+frame consistency, not independent calibration or evidence of task success.
+See heldout_visual_grounding_probe.json.
+
+Strict replay completed: fitting a correction was not enough
+With the same 22 source windows and corrected seven-channel loss, autonomous
+scores after40/100/200 optimizer steps were5/10,5/10,4/10, versus native5/10.
+The final model lost reset29 and gained none. This added zero collection controls
+or teacher calls, while retaining the source620-control/4,152,587-token cost;
+new evaluation consumed6,360 controls. See replay_strict_goal6_seed173_result.json.
+
+A separate frozen-model diagnostic used the same fixed noise and times across
+checkpoints on all22 training windows. The single correction-containing window's
+controller MSE was0.4385 initially,0.4366 at40,0.2437 at100, and0.01893 at200.
+Its fixed-noise flow loss fell0.7836 to0.1165. These are training-set fit metrics,
+not validation or physical improvement. The learner can reproduce this correction,
+but stronger fitting alone worsened autonomy. Probe setup failures, the complete
+structured receipt and shared-allocation timing are retained in
+replay_strict_fit_probe.json. No probe changed the host learner or executed actions.
+
+Candidate diversity and camera-axis grounding diagnostics
+At saved V6 reset0 steps125 and135, four independent original-policy Gaussian
+samples were added to each fixed candidate pool. Astra selected native in both
+cases; all eight new samples were uncertain. The recorded judgments specifically
+could not map world-axis motion to the visible destination. These targeted cases
+do not estimate policy support or general verifier reliability. The 35.5-second
+sampling probe shared the running V6 allocation and executed no environment action;
+its earlier filename setup error is retained. See independent_native_candidates_probe.json.
+
+Adding the frozen camera-axis projection to exactly those pools left step125
+unchanged but selected the stronger TLI candidate at135. The predicted advantage
+was positive-world-y transport toward the visible bowl, with less descent and
+continued closing. All24 geometry input frames and robot states matched this
+V6 episode's earlier prefix exactly, despite having been labeled from the V5
+archive. Thus no future view or privileged object pose was introduced. The
+candidate remains unexecuted; this is a context diagnostic, not success evidence.
+See grounded_comparison_probe.json.
+
+V8 prospective revision: estimate a projection within each rollout
+At action120, label twelve earlier external-camera frames at0,10,...110 while
+withholding proprioception from the labeler. Fit a local affine camera projection
+afterward, then label/check separate frames at5,15,...115. Require six labels
+with confidence>=0.6 in each split, fit condition<=100, leave-one-out RMS<=8px,
+and separate-frame RMS<=8px. Failed checks supply no numeric hint. Reuse nothing
+from previous rollouts; all source actions already count in this rollout.
+
+An accepted projection is supplied only to later diagnosis and comparison, with
+its pose range, error and current extrapolation. It supplies approximate axes,
+not destination depth, object coordinates, collision clearance or future images.
+Actual-outcome assessment and autonomous policy inputs remain unchanged. The
+same clear-win gate, bounded target/RTC/text candidate pool and strict executed
+window admission apply. Keep20 optimizer steps per collection because stronger
+fixed-data fitting did not improve success. This tests better grounded collection,
+not a larger optimization budget. Geometry calls are bound to their rollout and
+included in its teacher-token accounting. GPU rollout results remain pending.
+
+V6 completed four-collection development screen
+The final autonomous score remained 5/10 after four collections and 80 optimizer
+steps, identical to the native policy on the same five successful reset states.
+All four assisted collections failed. They consumed 1,240 controls, 412 Astra
+calls and 8,606,675 reported tokens (4,679,936 cached input); new evaluation used
+3,970 controls. Eleven assisted five-action prefixes executed, all from RTC.
+No prompt, TEI or TLI candidate was selected. Fifteen strict useful windows were
+admitted across the four collections. See pilot_v6_goal6_seed173_after4.json.
+The stop at four was requested after seeing the two-collection result, to finish
+the next scheduled evaluation within the execution cap. It is development
+evidence, not a preregistered independent confirmation. The after-two receipt
+remains a separate historical milestone.
+
+Evidence-masked replay completed: more fitting harmed autonomy
+Reusing 47 real windows, with loss on the useful steps covering 20 corrected
+actions, scored 5/10, 3/10 and 0/10 at 40, 100 and 200 optimizer steps. Native
+scored 5/10. At 200, all five native successes were lost and none was gained;
+exact reset identities match. The experiment added no collection actions or
+teacher calls. Its source cost remains 620 controls and 4,152,587 teacher tokens;
+new evaluation consumed 7,576 controls. See replay_masked_goal6_seed173_result.json.
+
+On those same training windows, correction-group controller MSE fell from 0.5475
+to 0.1940 at 200 updates, while native-only MSE rose from 0.01727 to 0.04797.
+These fixed-noise measurements explain fit and interference on the training
+data; they are not validation metrics or proof of a particular failure cause.
+The separate diagnostic changed no host policy and executed no actions. Its
+wall interval includes waiting for checkpoints; the existing GPU allocation
+already accounts for that time. See replay_masked_fit_probe.json.
+
+The matched reset20 video shows successful initial pickup followed by placement
+on the right-hand cabinet after 200 masked updates, while native places the
+bottle in the bowl. This one example motivates better task-directed collection
+and preservation checks, rather than treating all losses as grasp failures.
+The contact sheet retains original frames and matching reset/source hashes;
+it introduces no new environment trial. A video frame is the pre-action view,
+including its last recorded frame. Full simulator outcomes remain authoritative.
+
+Prospective hindsight-credit diagnostic
+The completed V5 collections contain one failed 300-action attempt and one
+successful 106-action attempt, with no assisted commands or update before the
+successful collection. Review both complete trajectories using original images,
+robot state, actual actions and final collection outcome. No autonomous
+evaluation data is supplied. Ten-action segments receive retrospective credit;
+only observed_useful with confidence >=0.8 can enter the proposed data selection.
+Later observations may resolve an earlier ambiguous grasp, but they never replace
+the student's own pre-action input. Whole-episode success is not blanket credit.
+The closed request/response contract is in hindsight.py; it supplies no actions,
+policy update or GPU launch. Compare any later training against the same source
+data's original online gate before attributing an effect to hindsight selection.
+
+Three-way retrospective-credit screen (prepared 2026-10-04)
+---------------------------------------------------------
+The completed V7 bounded-target Goal screen remains 5/10, versus native 5/10,
+after 422 collection controls. The unchanged Spatial baseline is 3/10; tuned
+Spatial DSRL ends at 3/10, gaining reset23 and losing reset21. Its earlier 2/10
+was its own initial noise-policy result, not the native baseline.
+
+The V5 online gate retained only12 complete windows from426 controls (one
+failed300-action collection and one successful106-action collection, plus20
+stabilization controls). Both collections used policy version0 and contained no
+executed intervention. This motivates a data-selection test before spending
+more physical interactions. Hindsight reviewed ALL TWO completed collections;
+no autonomous-evaluation frames or outcomes were supplied. The two medium-effort
+Astra calls cost83,532 additional tokens and136.621 seconds. They retained34
+complete windows, including useful approach in the failed attempt, and rejected
+its wrong-rack transport. This is teacher judgment, not ground-truth local credit.
+
+configs/reasoning_credit_v5.json fixes three branches before GPU evaluation:
+  online_gate:12 original locally approved windows;
+  hindsight_gate:34 retrospectively approved windows;
+  successful_episode:20 windows from the unassisted successful episode.
+All receive100 optimizer steps with uniform window sampling, fresh original
+pi0.5 weights, identical seeded zero LoRA initialization, fresh optimizer/RNG,
+the corrected seven-channel native flow loss, and the same ten autonomous
+reset20..29 evaluations. Original demonstration replay and synthetic labels are
+zero. Binary episode success is a separate opt-in BC evidence type: it does not
+assert that every copied action was useful. Hindsight cannot override an actual
+correction's original pre-execution preference gate. Full ten-command labels
+and original pre-action observations are verified independently against actual
+execution ledgers; later observations inform credit only, never student inputs.
+
+credit_data.load verifies credit_v5_manifest.json, review/request binding, every
+reviewed RGB/state frame, commands and final outcome, all source hashes, exact
+file inventory, observation digests and total interaction accounting. Use the
+package_payload --reasoning-credit-cache flag and prepare_learning_launch
+--phase replay-credit --protocol-version v5. One worker loads a new student for
+each branch and retains separate checkpoints, videos, update records and curves.
+The source426 controls and3,380,126 online-teacher tokens are attributed to each
+branch without counting them again in the global study ledger; only hindsight
+adds83,532 review tokens. Thirty new evaluation episodes have separate costs.
+The100-update endpoint and branch order are fixed before results, with no best
+checkpoint selection. Uniform sampling and100 updates differ from original V5,
+so this tests selectors against one another, not an exact V5 training rerun.
+A development improvement still requires fresh confirmation and repeated RL
+comparisons; neither more admitted windows nor a single improved SR meets the
+research objective by itself.
+
+Spatial V7 scheduled two-collection checkpoint (2026-10-04)
+---------------------------------------------------------
+On "put the milk on the plate", seed173, native scores3/10 and the updated
+student scores5/10 after620 collection controls. Exact reset identities verify
+new successes on reset23 and24, with no lost native successes. Both collection
+rollouts failed. Their190 Astra calls cost3,867,629 tokens. Seven bounded-target
+prefixes and one TLI prefix executed (40 assisted commands);15 assisted commands
+were locally judged useful, but ZERO entered complete training windows. The
+student's40 optimizer steps used11 useful native windows from the assisted
+trajectories. Thus this result is not evidence that it imitated a correction.
+The interventions may have affected visited states; their causal contribution
+relative to unassisted collection has not been established.
+
+Tuned Spatial DSRL scores2/10 after439 controls (two collections) and3/10 after
+2,299 controls (eight). The promising V7 checkpoint still misses the preregistered
+8/10 threshold, follows multiple development revisions, and uses only one seed.
+The four-collection screen continues according to its predeclared limit. Preserve
+this interim receipt without replacing a later negative score or labeling it a
+confirmed sample-efficiency win. A second seed and matched RL comparison are the
+next priority if the remaining24-hour study budget permits.
+
+intervention_credit_audit.json and audit_intervention_credit.py distinguish
+actual non-native execution from a reviewer's "correction" phase label. The
+immutable preference and execution batch identify assistance. Native recovery
+can be called a correction phase without an external action edit; phase labels
+alone must never inflate intervention counts. Unique action coverage, actual
+preference gates, source hashes and full-window admission are all checked.
+
+Prospective Spatial repeat, fixed before seed179 results
+------------------------------------------------------
+Repeat V7 unchanged on Spatial OOD2, seed179, and compare with tuned DSRL
+(600 updates per collection), both ending after two collection rollouts. Keep
+collection resets0,1 and autonomous evaluation resets20..29; do not choose a
+checkpoint based on its measured success. This repeats the promising seed173
+checkpoint, not the entire eight-collection learning curve. It remains a
+development comparison, not confirmation on fresh tasks or reset indices.
+
+prepare_learning_launch --collection-limit 2 freezes the stopping point in the
+hashed workflow before submission. The worker finishes its due evaluation and
+records a shortened-screen completion status. Validation permits only scheduled
+evaluation boundaries and complete PPO collection/update batches; default full
+protocol runs are unchanged. Use task-index1, seed-index1, protocol-version v7
+for the teacher and v3/more_reuse for DSRL. Intended execution ceilings are
+1.75 and0.5 GPU-hours, respectively, subject to the remaining study ceiling;
+startup, all failed work and both methods still count against24 GPU-hours.
+Preparation does not imply submission or a result. The existing queued credit
+and Spatial PPO tests are preserved; these repeats launch only if their actual
+budget reservations fit. Compare each updated score to the corresponding
+seed179 native evaluation and disclose DSRL's distinct initial noise policy.
+
+External quota preemption, 2026-10-04 08:27 UTC
+--------------------------------------------
+The shared-pool quota service canceled both V7 Spatial and V8 Goal workers to
+reclaim lower-priority capacity for another workload. Neither was a model error
+or a completed four-collection screen. Their retained evidence and actual GPU
+time remain in the study accounting; the interrupted runs are not retried.
+
+Spatial retained three completed collections plus 205 controls of the fourth:
+at least 1,145 collection controls including stabilization, 366 completed Astra
+calls, 7,744,743 tokens and 2.5566 GPU-hours including initialization. The last
+complete autonomous checkpoint is still 5/10 after two collections, versus
+native 3/10. Policy version3 was saved but not autonomously evaluated. Across
+the three completed collections, 60 assisted commands executed, 20 were locally
+judged useful and none entered the 15 admitted complete training windows.
+
+Goal V8 saved four failed collections, 815 controls, 250 calls, 5,191,153 tokens
+and 1.7008 GPU-hours. Its fourth calibration passed with eight confident labels
+on each split and separate-frame RMS error 3.958 pixels. Actual diagnosis and
+comparison requests received this hint; assessment and the student did not.
+Across all four collections, 80 assisted commands executed and 55 received
+useful reviews, but none entered the 12 complete training windows. All selected
+interventions were the bounded controller target. The final autonomous
+evaluation stopped after seven completed episodes; no final SR is assigned.
+The last complete score remains 5/10 after two collections, versus native 5/10.
+
+pilot_v7_spatial2_seed173_preempted.json and
+pilot_v8_goal6_seed173_preempted.json preserve complete checkpoint scores,
+partial-work costs, cancellation provenance and unevaluated-policy status.
+Seven original student/optimizer checkpoints are locally preserved with byte
+hashes in preempted_checkpoint_inventory.json. Their existence is not an
+evaluation result. The already-prepared credit comparison and Spatial PPO
+workers subsequently obtained capacity; neither is scored before completion.
+
+spatial_video_audit.json/png show original matched reset23 frames. Native moves
+a bowl while leaving the milk in place; the two-collection V7 checkpoint moves
+the milk and satisfies the simulator predicate after 178 controls. This example
+was selected after observing a gained success. It illustrates object selection
+without establishing the cause of learning or adding confirmation samples.
+
+Prospective frozen V8 checkpoint evaluation
+------------------------------------------
+If the remaining budget permits after the matched seed179 screens, evaluate the
+saved V8 policy version4 on all ten original reset20..29 states. This is an
+evaluation restart only: no collection, Astra call, optimizer update, checkpoint
+selection or candidate retry. The earlier seven completed evaluation episodes
+and interrupted work remain charged; they are not independent extra samples.
+The new run's evaluation-control column counts its own ten episodes, while the
+source's 3,463 retained evaluation controls stay in the original worker ledger.
+
+reasoning_checkpoint_evaluation_v8.json pins the original artifacts and tensor
+hash. The loader checks deployment, checkpoint version, source costs and fixed
+reset schedule. Before any rollout, the worker verifies the original evaluation
+driver's source hashes, restored adapter tensors, and exact regenerated reset
+state/model/BDDL identities. Use package_payload --reasoning-evaluation-cache
+CACHE, followed by prepare_learning_launch --phase checkpoint-evaluation
+--protocol-version v8 --gpu-hours 0.5. Preparation is not a result or allocation.
+
+Completed fixed-data credit comparison (Goal OOD6, seed173)
+----------------------------------------------------------
+All three students start from the exact same zero-adapter parameters and use
+100 updates with uniform sampling. The original local gate admits 12 windows
+and scores 5/10; Astra hindsight admits 34 and scores 4/10; whole successful-
+episode imitation admits 20 and scores 5/10. Native is 5/10. Matching scene
+hashes verify that hindsight loses reset28 and gains none; both other branches
+preserve the exact native wins. No branch reaches 8/10 or shows an autonomous
+benefit. This is one fixed development screen, not a universal rejection of
+hindsight labels or successful-episode learning.
+
+All branches retain attribution to the two original V5 collections: 426 total
+controls and 3,380,126 teacher tokens, including the failed attempt. Hindsight
+adds two offline reviews and 83,532 tokens. The screen adds no collection
+actions or live teacher calls; its 30 autonomous evaluations cost 6,345 controls
+and the worker uses 0.503822 L40S hours including initialization. Source data
+and teacher costs count once in study totals. See credit_v5_results.json.
+
+Completed tuned PPO transfer to Spatial OOD2, seed173
+----------------------------------------------------
+Native pi0.5 scores 3/10. PPO scores 3/10 initially, 1/10 after two
+collections (620 controls), 1/10 after four (1,240 controls), and 2/10
+after eight (2,480 controls). All eight exploratory collections fail.
+The final checkpoint preserves two native wins and loses reset25, with no
+newly successful reset. Exact scene hashes support this paired comparison.
+Forty autonomous evaluations cost 10,923 controls; total allocated-worker
+usage including startup is 0.922187 L40S hours. See
+ppo_more_spatial2_seed173_result.json.
+
+At the common two-collection boundary, V7 teacher learning is 5/10 and PPO
+is 1/10, both after 620 controls. Tuned DSRL is 2/10 after 439 controls
+and ends its eight-collection run at 3/10 after 2,299 controls. The teacher
+point is promising but is one development seed below the 8/10 criterion;
+it is not a confirmed sample-efficiency advantage over strong RL.
+
+Best-supported next comparisons (proposed, not measured)
+-------------------------------------------------------
+If the seed179 Spatial gain repeats, freeze the two-collection V7 recipe and
+compare its saved checkpoint with native and the final tuned RL checkpoints
+on untouched reset indices. This separates development selection from a
+fresh evaluation; the 8/10 criterion and interaction accounting must stay fixed.
+
+The hindsight ablation changes both the successful episode's admitted windows
+and the inclusion of useful-looking setup from the failed episode. A success-
+episode-only hindsight branch would separate those effects under the same
+100-update budget. The observed regression does not establish that all useful
+segments from failed rollouts should be discarded.
+
+A larger method revision should first obtain coherent, task-correct behavior
+that the native policy is missing. Phase-dependent text/input skills are one
+candidate teaching mechanism already implemented elsewhere in this project.
+Their successful use as teachers for this learning protocol remains untested.
+Any such collection must preserve the current original observation for each
+actually executed target, disclose access to prior demonstration-derived
+skills, retain relative comparisons and actual outcome checks, and evaluate
+the student without the teacher settings. Cloning more isolated prefixes or
+simply increasing gradient steps is not supported by the current results.
+
+Prospective native-success credit control, Spatial seed179
+---------------------------------------------------------
+The first collection succeeds in 96 native actions with no intervention and
+24 Astra calls (455,499 reported tokens). The source is frozen before paired
+student evaluation: 14 windows under its original local useful labels versus
+18 complete windows from the successful episode. Two fresh students each
+receive 40 uniform seven-channel updates. No new data collection, hindsight
+review or teacher call is permitted. Original source cost is 106 controls
+including stabilization, and remains attributed to both branches.
+
+The exact seed179 native score (2/10) is reused after full deployment/reset
+identity checks; each new student receives ten autonomous evaluations. This
+is a fixed-data diagnostic, not the original online two-collection teacher
+trajectory or an independent collection replicate. The whole-success branch
+does not assert that every copied action was locally useful. There is no
+claim of an actually teacher-free source collection. Its 0.75-hour worker
+can be submitted only if the unchanged 24-hour ledger admits it after the
+previously planned comparisons. Configuration and source hashes are in
+reasoning_credit_spatial179_native_plan.json and
+reasoning_credit_spatial179_native.json under ../configs/.
+
+Completed matched DSRL repeat, Spatial seed179
+---------------------------------------------
+Native and DSRL's initial noise policy each score 2/10. After the fixed two
+collections (411 controls; one success, one failure), tuned DSRL remains
+2/10 and preserves the exact native binary outcomes. Its two evaluations
+cost 5,382 controls, and total worker usage including initialization is
+0.369170 L40S hours. See dsrl_more_spatial2_seed179_result.json.
+
+Completed matched teacher repeat, Spatial seed179
+------------------------------------------------
+The fixed two-collection V7 repeat scores 2/10 before and after learning,
+matching native and tuned DSRL 2/10 on the exact same reset identities. No
+native outcome changes. Collection uses 416 controls, including stabilization,
+with one native success and one failed assisted rollout. Its 113 Astra calls
+cost 2,245,393 reported tokens (1,329,024 cached input, 899,501 uncached input,
+16,868 output); recorded teacher latency is 19.33 minutes. Completed
+collection wall time is 30.44 minutes, and total worker usage is 0.964659
+L40S hours. Twenty autonomous evaluations use 5,382 controls.
+
+Two bounded-target prefixes execute ten assisted commands, all locally judged
+useful, but none enters the strict complete-window training data. Twenty
+admitted windows contain native behavior; the student receives 40 optimizer
+steps. The earlier Spatial seed173 improvement (3/10 to 5/10 after 620
+controls) has not repeated. This does not meet the 8/10 criterion or establish
+a sample-efficiency advantage over strong RL. See
+pilot_v7_spatial2_seed179_after2.json and intervention_credit_audit.json.
+
+Completed frozen V8 evaluation after external quota preemption
+--------------------------------------------------------------
+The exact saved policy4 is restored with matching parameter and checkpoint
+hashes. All ten declared Goal OOD6 / seed173 reset states are evaluated:
+5/10, versus native 5/10, with identical binary outcomes. Original source
+cost remains 815 collection controls and 5,191,153 teacher tokens. The
+restart adds zero collection controls, teacher calls or optimizer updates;
+its ten evaluations add 1,951 controls and 0.204234 L40S hours including
+initialization. The interrupted source retained 3,463 evaluation controls,
+which remain charged separately. See pilot_v8_goal6_seed173_after4_restored.json.
+
+The seven previously completed reset cases reproduce all seven binary
+outcomes; six reproduce every command exactly. On failed reset24, observation
+hashes first differ after action128 despite identical commands, followed by
+a 1.88e-5 action difference at action130 and later trajectory divergence.
+The numerical subsystem responsible was not isolated. Checkpoint identity
+therefore does not assert bitwise simulator reproducibility. These are ten
+fixed reset cases evaluated again, never a seventeen-trial denominator or
+fresh confirmation. See v8_frozen_restart_audit.json.

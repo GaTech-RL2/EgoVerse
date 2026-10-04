@@ -67,6 +67,9 @@ if [[ "${ASTRA_INCLUDE_OOD:-0}" == "1" ]]; then
     clone_revision https://github.com/QuanyiLi/pi0-text-latent.git 587a6cbf64f16c7b87fa5805dc0ed934192239a4 astra_reversal/.deps/libero-ood
 fi
 clone_revision https://github.com/Physical-Intelligence/openpi.git 981483dca0fd9acba698fea00aa6e52d56a66c58 external/openpi
+if [[ "${ASTRA_INCLUDE_RLINF:-0}" == "1" ]]; then
+    clone_revision https://github.com/RLinf/RLinf.git c70606f08cdca259b8dec03d4430926b5b8fac9d astra_reversal/.deps/RLinf
+fi
 
 # Give source snapshots a real, local revision for the existing run manifests.
 git init -q

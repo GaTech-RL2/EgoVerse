@@ -1,0 +1,137 @@
+{
+  "schema": "reasoning-native-success-selection-audit-1",
+  "recorded_utc": "2026-10-04T10:18:12.867847+00:00",
+  "scope": "Fixed source-data analysis before either paired student result; no new model calls or environment actions. Evidence is the original teacher assessment, not independent grasp annotation.",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-11",
+  "episode_id": "libero_spatial_ood:seed179:task2:state0",
+  "local_window_starts": [
+    5,
+    10,
+    15,
+    20,
+    25,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85
+  ],
+  "whole_success_window_starts": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35,
+    40,
+    45,
+    50,
+    55,
+    60,
+    65,
+    70,
+    75,
+    80,
+    85
+  ],
+  "added_window_starts": [
+    0,
+    30,
+    35,
+    40
+  ],
+  "excluded_prefix_reviews": [
+    {
+      "end_step": 5,
+      "review": {
+        "attempt_id": "libero_spatial_ood:seed179:task2:state0",
+        "decision_id": "libero_spatial_ood:seed179:task2:state0:5:assess:1",
+        "episode_id": "libero_spatial_ood:seed179:task2:state0",
+        "evidence": "The executed prefix produced only a small end-effector displacement, with the gripper remaining open. The paired images show no clear grasp, milk displacement, or placement on the plate. Useful approach progress is not established by the slight motion alone.",
+        "observation_step": 5,
+        "outcome": "ambiguous",
+        "plan_complete": false,
+        "request_fingerprint": "df05caaef49937546effc3f2f6c08fb0a9c5fe4c5690adf5b5b5421e52ce77df",
+        "request_index": 1,
+        "role": "assess",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "stage": "setup"
+      },
+      "start_step": 0
+    },
+    {
+      "end_step": 40,
+      "review": {
+        "attempt_id": "libero_spatial_ood:seed179:task2:state0",
+        "decision_id": "libero_spatial_ood:seed179:task2:state0:40:assess:9",
+        "episode_id": "libero_spatial_ood:seed179:task2:state0",
+        "evidence": "The gripper narrowed after the closing commands, but the overhead images show no clear milk displacement or lift. End-effector height remained nearly unchanged, and the wrist-view change alone does not establish a secure grasp. The milk remains away from the plate. Useful grasp setup is possible but unconfirmed by this executed prefix.",
+        "observation_step": 40,
+        "outcome": "ambiguous",
+        "plan_complete": false,
+        "request_fingerprint": "f3474c9fc645ec041b24e055f1e994d95a9393e4f3c64d5cc69f401a4bd05c0a",
+        "request_index": 9,
+        "role": "assess",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "stage": "setup"
+      },
+      "start_step": 35
+    },
+    {
+      "end_step": 45,
+      "review": {
+        "attempt_id": "libero_spatial_ood:seed179:task2:state0",
+        "decision_id": "libero_spatial_ood:seed179:task2:state0:45:assess:10",
+        "episode_id": "libero_spatial_ood:seed179:task2:state0",
+        "evidence": "The fingers narrowed around the milk while the end effector rose only about 0.003 m. Both camera pairs show little change in the milk's position and no clear transport toward the plate. Closing is consistent with grasp setup, but these observations do not establish a secure grasp or useful lift. The milk is not on the plate.",
+        "observation_step": 45,
+        "outcome": "ambiguous",
+        "plan_complete": false,
+        "request_fingerprint": "72d2dd97a7a552f1e06474841c660b0d7f5b93b47141b77a8b4d070833c8659a",
+        "request_index": 10,
+        "role": "assess",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "stage": "setup"
+      },
+      "start_step": 40
+    }
+  ],
+  "source_sha256": {
+    "outcomes.jsonl": "a3c5f676ab50f8dbb1eca7f08e4cd06d417447676421f8be713cf22922d9f05b",
+    "manifest.json": "29077bb5c1ea8c52d4e903aee7181309b0253224164b6d0bd14cdc52f52d34fc"
+  },
+  "hypothesis": "The local reviewer marks initial approach and gripper-closing prefixes as ambiguous until a secure grasp becomes visible. Whole-success selection restores those complete windows; the paired test asks whether their inclusion helps autonomous learning. It does not assume they will help.",
+  "visualized_pre_action_observations": [
+    {
+      "pre_action_step": 0,
+      "observation_id": "53568c0fe50c98a5b7601df5c9d71b5f5a2a274a804833c001dd776f68a9eef5",
+      "npz_sha256": "3c20419ee250d891d7f030e72bded0a536024afa24ac7ab1d895c5ae8f74c8a7",
+      "training_window_selection": "Whole-success only"
+    },
+    {
+      "pre_action_step": 35,
+      "observation_id": "436718daa558b62b3f8a3d8e2b294a4a3efc9d8d5223b8879904c7c0a0b640d2",
+      "npz_sha256": "6cb81c75b056518fe692225076458825df301226d3c54ae43056d1d91b14ff6d",
+      "training_window_selection": "Whole-success only"
+    },
+    {
+      "pre_action_step": 45,
+      "observation_id": "2e9e98a5442062b2fa0ec80e18a4ba3a26dd1e20cb70bc66c6c395a7c6c2cc74",
+      "npz_sha256": "a5737f45fa525f0e7880ff9cb68fbcf6546abef292ccf8a6e49ebf774262ef57",
+      "training_window_selection": "Included in both"
+    },
+    {
+      "pre_action_step": 85,
+      "observation_id": "97bd490daa6aae9a8eb767a47c17c05ec42f505cb0f3e1aa7aed15f5ed93260d",
+      "npz_sha256": "9a60210cec56d6d2c280ca41d795e12dd891c10b2220068c845c75e5d445cfc6",
+      "training_window_selection": "Included in both"
+    }
+  ],
+  "image_caption": "Original external and wrist inputs before the named executed action. Whole-success imitation restores windows around approach and gripper closing that local assessment marked ambiguous. These source examples precede paired learner outcomes; they do not establish an advantage for either selector."
+}

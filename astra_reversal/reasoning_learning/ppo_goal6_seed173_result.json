@@ -1,0 +1,345 @@
+{
+  "label": "PPO \u00b7 flow-SDE",
+  "method": "ppo",
+  "workflow": "astra-pi05-reasoning-learning-20261003-ppo-1",
+  "status": "baseline_complete",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "source_revision": "e5bdcf39e4f2de60e57ae3ed9579e271a67b8a3b",
+  "protocol_version": "reasoning-policy-learning-1",
+  "points": [
+    {
+      "collection_rollouts": 0,
+      "collection_steps": 0,
+      "evaluation_steps_cumulative": 1952,
+      "policy_version": 0,
+      "successes": 5,
+      "rollouts": 10,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 82,
+          "total_control_steps": 92
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 54,
+          "total_control_steps": 64
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 87,
+          "total_control_steps": 97
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 58,
+          "total_control_steps": 68
+        }
+      ]
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 620,
+      "evaluation_steps_cumulative": 3948,
+      "policy_version": 2,
+      "successes": 5,
+      "rollouts": 10,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 90,
+          "total_control_steps": 100
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 70,
+          "total_control_steps": 80
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 93,
+          "total_control_steps": 103
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 55,
+          "total_control_steps": 65
+        }
+      ]
+    },
+    {
+      "collection_rollouts": 4,
+      "collection_steps": 1240,
+      "evaluation_steps_cumulative": 6271,
+      "policy_version": 4,
+      "successes": 4,
+      "rollouts": 10,
+      "success_rate": 0.4,
+      "wilson_95": [
+        0.16818032970623614,
+        0.6873262302663417
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 89,
+          "total_control_steps": 99
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 208,
+          "total_control_steps": 218
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 55,
+          "total_control_steps": 65
+        }
+      ]
+    },
+    {
+      "collection_rollouts": 8,
+      "collection_steps": 1864,
+      "evaluation_steps_cumulative": 8685,
+      "policy_version": 8,
+      "successes": 3,
+      "rollouts": 10,
+      "success_rate": 0.3,
+      "wilson_95": [
+        0.10779126740630099,
+        0.6032218525388546
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 89,
+          "total_control_steps": 99
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 54,
+          "total_control_steps": 64
+        }
+      ]
+    }
+  ],
+  "partial_collection": [],
+  "collection_steps_retained": 1864,
+  "collection_steps_may_be_lower_bound": false,
+  "evaluation_steps_retained": 8685,
+  "evaluation_steps_may_be_lower_bound": false,
+  "completed_collection_rollouts": 8,
+  "collected_successes": 3,
+  "policy_updates": 8,
+  "latest_evaluated_policy_version": 8,
+  "latest_updated_policy_version": 8,
+  "latest_update_has_autonomous_evaluation": true,
+  "teacher_usage": {
+    "completed_calls": 0,
+    "input_tokens": 0,
+    "cached_input_tokens": 0,
+    "output_tokens": 0,
+    "total_tokens": 0,
+    "latency_seconds": 0,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 0
+  },
+  "usage_by_episode": {},
+  "threshold_crossing": null,
+  "threshold_status": "not_reached_in_completed_evaluations",
+  "scope": "One development task/seed and standard serial PPO setting; no tuned state-of-the-art reproduction claim.",
+  "actual_gpu_hours_including_bootstrap": 0.925132793611111
+}

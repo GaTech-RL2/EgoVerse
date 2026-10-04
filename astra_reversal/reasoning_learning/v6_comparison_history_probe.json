@@ -1,0 +1,113 @@
+{
+  "environment_actions": 0,
+  "used_for_training": false,
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "comparisons": [
+    {
+      "step": 175,
+      "mode": "prefix_only",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 keep the gripper open and command even more upward motion than native. They provide no supported bottle alignment or grasp opportunity; the behavior remains an open retreat.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix closely matches native: positive x, upward motion, and an open gripper throughout. Small translation and rotation differences do not establish improved acquisition.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix slightly reduces positive x motion and increases upward motion while keeping the fingers open. There is no visibly grounded improvement in straddling the bottle versus native.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix reverses x motion and substantially reduces upward retreat, keeping the fingers open. This could support alignment, but the supplied views do not establish that negative world x brings the fingers around the bottle with cabinet clearance.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "Actions 0\u20134 command negative x and downward motion with open fingers. Descent could aid acquisition, but alignment and clearance beside the cabinet are not established. Reduced retreat alone does not demonstrate a supported grasp opportunity.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state1:175:compare:10063",
+        "request_fingerprint": "729f8965bbeec1268670879a193fc0133906d287c3f677535a77cae335188a28",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state1",
+        "attempt_id": "libero_goal_ood:seed173:task6:state1",
+        "request_index": 10063,
+        "observation_step": 175
+      },
+      "usage": {
+        "input_tokens": 21882,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 340,
+        "reasoning_output_tokens": 44
+      },
+      "latency_seconds": 18.925945208000485,
+      "request_sha256": "51ac94e3d88baedab2d55e1d46dad8a14cc5532b3d31aa213cb5d58b5255d6fb"
+    },
+    {
+      "step": 175,
+      "mode": "prefix_with_real_history",
+      "status": "accepted",
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "subgoal_prompt",
+            "evidence": "Actions 0\u20134 keep the gripper open and command more upward motion than native (z approximately 0.40\u20130.41 versus 0.35\u20130.36). The preceding real prefix raised the gripper without establishing acquisition. This strengthens the same retreat without a supported alignment benefit.",
+            "preference": "loss"
+          },
+          {
+            "candidate_id": "subgoal_tei_1",
+            "evidence": "The executed prefix would remain very close to native: open gripper, positive x, and upward z approximately 0.35\u20130.37. These small changes provide no distinguishable grasp-recovery advantage.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tei_2",
+            "evidence": "The prefix preserves native's open upward motion, with smaller positive x and slightly greater z. No visible evidence establishes that these changes improve bottle alignment; the same acquisition problem remains.",
+            "preference": "tie"
+          },
+          {
+            "candidate_id": "subgoal_tli_1",
+            "evidence": "The prefix substantially reduces upward retreat and reverses x while keeping the fingers open. Reduced retreat could help, but the images and preceding motion do not establish that negative x brings the fingers around the bottle while maintaining cabinet clearance.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "subgoal_tli_2",
+            "evidence": "The prefix commands downward motion and substantial negative x with open fingers. This could approach bottle height, but lateral alignment and cabinet clearance are unresolved. Descent alone does not establish a supported grasp opportunity or a clear improvement over native.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native",
+        "decision_id": "libero_goal_ood:seed173:task6:state1:175:compare:20063",
+        "request_fingerprint": "c24db37ed28eb2407a6de2f648a096bff97e5fec574593d95f9ff018da9c4466",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state1",
+        "attempt_id": "libero_goal_ood:seed173:task6:state1",
+        "request_index": 20063,
+        "observation_step": 175
+      },
+      "usage": {
+        "input_tokens": 22969,
+        "cached_input_tokens": 12416,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 377,
+        "reasoning_output_tokens": 39
+      },
+      "latency_seconds": 21.803555417020107,
+      "request_sha256": "5632aa55be093e7a8b55a868688a3fd20953ad65975fcf19eb732016e370eeeb"
+    }
+  ],
+  "source_episode": "libero_goal_ood:seed173:task6:state1",
+  "interpretation": "One saved V6 state with prompt/TEI/TLI candidates. Both fresh contexts selected native; additional preceding real motion did not produce a clear win in this case. No execution or training occurred."
+}

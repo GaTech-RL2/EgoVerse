@@ -1,0 +1,786 @@
+{
+  "label": "Teacher v6 \u00b7 TLI + rejection feedback",
+  "method": "teacher_v6",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "status": "interim_after_two_collections",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+  "protocol_version": "reasoning-policy-learning-6",
+  "checkpoint_configuration": {
+    "repo_id": "lerobot/pi05_libero_base",
+    "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "input_profile": "openpi_libero",
+    "runtime_action_horizon": 10,
+    "internal_action_dim": 32,
+    "controller_action_dim": 7,
+    "native_flow_direction": "noise_1_to_action_0",
+    "generation_steps": 10,
+    "execute_steps": 5
+  },
+  "environment_configuration": {
+    "suites": [
+      "libero_goal_ood",
+      "libero_spatial_ood"
+    ],
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "tasks_per_suite": 10,
+    "control_frequency_hz": 20,
+    "actions_per_rollout": 300,
+    "stabilization_steps_counted_separately": 10,
+    "observations": [
+      "external_camera",
+      "wrist_camera",
+      "robot_state8",
+      "original_instruction"
+    ],
+    "training_feedback": [
+      "binary_environment_success",
+      "real_observation_history"
+    ],
+    "privileged_object_poses": false,
+    "physical_candidate_retries": false
+  },
+  "learner_configuration": {
+    "objective": "native_flow_matching",
+    "parameters": "action_expert_attention_and_mlp_lora",
+    "rank": 8,
+    "learning_rate": 0.0001,
+    "update_steps_per_collection_rollout": 20,
+    "fresh_native_beta_distributed_times": true,
+    "fresh_noise": true,
+    "original_demonstration_replay_beta": 0,
+    "synthetic_candidate_training_weight": 0,
+    "complete_executed_action_windows_only": true,
+    "update_boundary": "end_of_collection_rollout",
+    "sampling": "event_and_stage_balanced_with_2x_correction_group_weight",
+    "loss_action_dimensions": 7,
+    "padding_loss_excluded": true
+  },
+  "learner_configuration_source": "protocol.json:learner",
+  "runtime_configuration": {
+    "phase": "pilot",
+    "task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "seed": 173,
+    "gpu": "NVIDIA L40S",
+    "workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+    "source_revision": "fcc061aa09bdbdd8d311fc7edc778ebdfd0bba69",
+    "payload_sha256": "9e6fd8bc2045cce608ca4f5e57f3a98a81f897c30d33994c273e8bcc3bf651e4"
+  },
+  "task_instruction": "put the wine bottle in the bowl",
+  "points": [
+    {
+      "collection_rollouts": 0,
+      "collection_steps": 0,
+      "evaluation_steps_cumulative": 0,
+      "policy_version": 0,
+      "successes": 5,
+      "rollouts": 10,
+      "reference_evaluation_steps": 1989,
+      "reused_from_workflow": "astra-pi05-reasoning-learning-20261003-pilot-1",
+      "reference_sha256": "924d0c3325458fc8c77e9360e10397105a78bb306b0cb1cdf1de6191f60c04b5",
+      "new_evaluation_interactions": 0,
+      "independent_new_evaluation_replicate": false,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 83,
+          "total_control_steps": 93,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 91,
+          "total_control_steps": 101,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 87,
+          "total_control_steps": 97,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 57,
+          "total_control_steps": 67,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 620,
+      "evaluation_steps_cumulative": 1986,
+      "policy_version": 2,
+      "successes": 5,
+      "rollouts": 10,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 4596685,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 83,
+          "total_control_steps": 93,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 86,
+          "total_control_steps": 96,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 75,
+          "total_control_steps": 85,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 54,
+          "total_control_steps": 64,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    }
+  ],
+  "collection": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 2286.827521147905,
+      "reset_seconds": 4.1593110309913754,
+      "policy_seconds": 2091.400991920382,
+      "environment_seconds": 7.931726573267952,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "seed": 173,
+        "reset_state_sha256": "1726071371e821e5ef5625814d77d7266ad3df876d86d59d6dff9c06adb69518",
+        "reset_model_sha256": "e4986658be5fdb9ab99d458921469c78d5cfd374d2bfa7a14c9154fdae87c48b",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+        "post_stabilization_state_sha256": "f9a6669832dc4d0ad557944477b0d295dacbc823a6690fc28e9718898c5d26c4",
+        "post_stabilization_model_sha256": "e4986658be5fdb9ab99d458921469c78d5cfd374d2bfa7a14c9154fdae87c48b",
+        "post_stabilization_observation_sha256": "1cf543804dfa3be3eb4244df76fb33f2c51d704c3378916ca21a42a6beac2fee",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "80bf94c84cd57b851d2a1e5b9f82e60bfffafb149b0ef26ad1d0efd2812f586c"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_0/rollout.mp4",
+      "correction_episodes": 2,
+      "assisted_chunks": 5,
+      "assisted_simulator_seconds": 1.2500000000000004,
+      "teacher_requests": 121,
+      "admitted_windows": 4,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "success": false,
+        "actions_executed": 300,
+        "correction_episodes": 2,
+        "assisted_chunks": 5,
+        "correction_reviews": [
+          {
+            "start_step": 145,
+            "end_step": 150,
+            "selected": "guided0",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For this five-action correction prefix, add 0.31 to delta_z to replace descent with near-zero to slight upward commands. Preserve native lateral, rotational and closing commands. Reobserve after action 4 to verify retention and clearance, then resolve transport toward the bowl; clearance alone does not establish placement progress. Do not lower until the bottle base is visibly above the bowl opening.",
+              "completion": "The bottle remains retained with clearance preserved and its base visibly above the small bowl opening before lowering. Final completion requires release with the bottle supported inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:145:diagnose:50"
+            },
+            "evidence": "The executed prefix raised end-effector height from 1.2072 to 1.2249. The bottle moved upward with the gripper in the external view and stayed similarly positioned in the wrist view, supporting retention and preserved clearance. This supports the local anti-descent correction only: the bottle remains beside the cabinet, with its base not visibly above the bowl opening. Transport and placement remain unachieved.",
+            "outcome": "observed_useful",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:150:assess:52",
+            "request_fingerprint": "93b977062eb0ed3c6dc3c9baa7e276e23e6a2773fdeeb711da7f8f26fe3ffcde",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 52,
+            "observation_step": 150
+          },
+          {
+            "start_step": 150,
+            "end_step": 155,
+            "selected": "guided0",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, add 0.19 to delta_z to approximately arrest descent. Add 1.99 to gripper commands at actions 3\u20134 to preserve closure instead of releasing outside the bowl. Preserve other commands. Reobserve after action 4 to verify retention and clearance, then pursue transport above the bowl; do not repeat lifting as a substitute for transport.",
+              "completion": "After this five-action correction, the bottle remains retained without losing clearance. Bowl alignment remains required before lowering; task completion requires the bottle visibly supported inside the bowl after release.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:150:diagnose:53"
+            },
+            "evidence": "The end effector rose about 0.012 m, arresting descent. The bottle remains similarly positioned relative to the gripper in both camera pairs, supporting retention with maintained clearance during this prefix. This satisfies the local retention correction, but the bottle is still outside the bowl; transport, alignment and release inside the bowl remain uncompleted.",
+            "outcome": "observed_useful",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:155:assess:55",
+            "request_fingerprint": "dd7b4b709fc96426d011eb7e551cbcbb81c8711136caaf846667748934881e0b",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 55,
+            "observation_step": 155
+          },
+          {
+            "start_step": 160,
+            "end_step": 165,
+            "selected": "guided0",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, add 0.276 to delta_z to arrest descent with only slight upward commands. At action 4, add 2.0 to the gripper command to preserve closure. Preserve other channels. Reobserve after this single correction prefix to check retention and clearance, then resolve transport to the gray bowl; do not treat repeated lifting in place as task progress. Lower and release only after visible bowl alignment.",
+              "completion": "After the five-action prefix, the bottle remains with the gripper without further visible descent or loss of clearance. This is only a retention correction; placement requires transport above the gray bowl and eventual visible support inside it after release.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:160:diagnose:59"
+            },
+            "evidence": "The end effector rose from z=1.2273 to 1.2399, and the bottle remains in a similar position relative to the gripper in the wrist view. The external view shows no visible bottle descent or clearance loss. This supports the finite retention correction's completion, but the bottle remains away from the gray bowl; transport and placement are still outstanding.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:165:assess:61",
+            "request_fingerprint": "2d064faa90227b3037137c0f2d6eb8779341f25a5fdf176330ffcca74ca55e45",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 61,
+            "observation_step": 165
+          },
+          {
+            "start_step": 200,
+            "end_step": 205,
+            "selected": "guided0",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For this five-action setup prefix only, add -0.20 to world-z input, producing a modest downward command of approximately -0.10 while preserving the open gripper and other native channels. Reobserve after action 4 for reduced finger-to-bottle separation and clearance; do not repeat descent without checking alignment. Close only after visible straddling, then verify retention before carrying to the gray bowl.",
+              "completion": "After action 4, the open fingers are visibly closer to straddling the supported bottle without displacing it or contacting the rack. Reobserve before closure; grasp requires visible contact and subsequent bottle motion with the gripper. Final completion requires the bottle supported inside the gray bowl after release.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:200:diagnose:79"
+            },
+            "evidence": "Proprioception confirms a small descent (z 1.2393 to 1.2314) with the gripper remaining open. The bottle remains supported on the rack, but the paired images do not clearly establish reduced finger-to-bottle separation or safe straddling. This verifies downward motion, but leaves the intended grasp setup improvement uncertain; no grasp or placement in the bowl is observed.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "setup",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:205:assess:81",
+            "request_fingerprint": "33c160796db62d1cd38c71ee4f9cbb3829da4561e1c2a8569fbbedb5e3ba6311",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 81,
+            "observation_step": 205
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 285,
+            "end_step": 290,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state0",
+              "step": 285
+            },
+            "evidence": "The bottle remains on the wooden surface outside the bowl, with no visible lift or transport during the executed prefix. The gripper stayed open, and proprioception shows only about 1 mm of horizontal displacement with essentially unchanged height. No useful progress toward placing the bottle in the bowl is observed.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:290:assess:118",
+            "request_fingerprint": "4e50a4426f8b58336dfee9c24ed44be87f5797564f01a57f9936d32307c545e5",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 118,
+            "observation_step": 290
+          },
+          {
+            "start_step": 290,
+            "end_step": 295,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state0",
+              "step": 290
+            },
+            "evidence": "The bottle remains on the wooden surface outside the bowl, with no visible grasp or bottle displacement. The executed prefix kept the gripper open and lowered the end effector about 2.8 mm. This small motion does not establish useful progress toward grasping or placing the bottle; its setup value remains unclear.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "setup",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:295:assess:119",
+            "request_fingerprint": "9c691d0e9424786bcd0d903f6003b8d1f25614d2bf2e1948162eca5872b06a35",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 119,
+            "observation_step": 295
+          },
+          {
+            "start_step": 295,
+            "end_step": 300,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state0",
+              "step": 295
+            },
+            "evidence": "The bottle remains on the wooden surface outside the bowl, with no visible grasp, lift, or transport during the executed prefix. The gripper stays open and the end-effector position changes by less than 1 mm. These observations show no useful progress toward placing the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:300:assess:120",
+            "request_fingerprint": "7123ef5aa9066a76aee3a9dab4fe1e473c816bfa377f67b6ec63dceca4cf74a2",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 120,
+            "observation_step": 300
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 2025.9544415299315,
+      "reset_seconds": 1.1988774759229273,
+      "policy_seconds": 1817.9681239826605,
+      "environment_seconds": 8.336966438451782,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_goal_ood:seed173:task6:state1",
+        "seed": 173,
+        "reset_state_sha256": "c6cf920156bd384ed342da24f26062236ed312c75caa343de2afc8aa11f2f4a6",
+        "reset_model_sha256": "15008e5d9b8f4cfc91e20353ea6f1b124a63661b0a8e5a4f6a4edff5dc1b00c2",
+        "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9",
+        "post_stabilization_state_sha256": "dff550d465682ff3338bdf594b9dd883848ebeeb8286f3dac402481a0dbd95a5",
+        "post_stabilization_model_sha256": "15008e5d9b8f4cfc91e20353ea6f1b124a63661b0a8e5a4f6a4edff5dc1b00c2",
+        "post_stabilization_observation_sha256": "1da7caa700e1a96712fe6bcb03ab14174d40e6521046899c0d77b610c8b450a4",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "15ba3553c17c75940b7e0eeea243237a0ca3dbed44eeeba84f35a1f17052465a"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_1/rollout.mp4",
+      "correction_episodes": 2,
+      "assisted_chunks": 2,
+      "assisted_simulator_seconds": 0.49999999999999994,
+      "teacher_requests": 102,
+      "admitted_windows": 6,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state1",
+        "success": false,
+        "actions_executed": 300,
+        "correction_episodes": 2,
+        "assisted_chunks": 2,
+        "correction_reviews": [
+          {
+            "start_step": 90,
+            "end_step": 95,
+            "selected": "guided0",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For this five-action prefix only, add 0.5 to world-y input to reduce the transport associated with observed outward drift. Cancel the negative world-z commands at actions 1\u20134 using the listed additive deltas. Preserve closing and other native channels. Reobserve after action 4 for retained clearance and arrested lateral drift. This is a finite stabilization correction, not demonstrated transport toward the bowl; do not repeat stabilization as a substitute for alignment.",
+              "completion": "After action 4, the bottle remains retained with clearance and no further visible increase in lateral offset from the gray bowl. This completes only the drift-arrest correction; placement still requires alignment, lowering, and release with the bottle supported inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:90:diagnose:27"
+            },
+            "evidence": "The bottle remains visibly held and elevated after the prefix. In the fixed camera view, its lateral offset from the gray bowl decreases rather than increasing, supporting arrested outward drift. Proprioception shows a small height decrease, but visible clearance remains. The finite stabilization condition is met; the bottle is still outside the bowl, so placement remains unfinished.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:95:assess:29",
+            "request_fingerprint": "1519885b0621fd0faf780a76ca17013e4af7e1ec21813468eab3df20dc572079",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 29,
+            "observation_step": 95
+          },
+          {
+            "start_step": 135,
+            "end_step": 140,
+            "selected": "guided1",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For this five-action prefix only, add 0.5 to world-z on actions 0\u20134 and 1.99 to gripper on actions 3\u20134; preserve other channels. Corrected z starts at approximately -0.033, then becomes positive; gripper stays closing. Compare actual candidates for reduced descent, subsequent lift and preserved retention without adverse clearance changes. Reobserve after action 4 to verify bottle motion with the gripper. Do not repeat lifting as a substitute for transport toward the bowl.",
+              "completion": "After action 4, the bottle visibly rises with the gripper and gains clearance from the cabinet edge without slipping. This completes only the clearance correction; transport over the gray bowl and release leaving the bottle supported inside it remain required.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:135:diagnose:51"
+            },
+            "evidence": "The bottle visibly rises with the gripper, increasing clearance above the cabinet edge, and remains held in both camera views without visible slipping. Proprioception also shows the gripper height increasing from 1.211 to 1.263. This completes the local clearance correction; the bottle remains beside the cabinet and still requires transport to and placement inside the gray bowl.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:140:assess:53",
+            "request_fingerprint": "9faf9372183bb7b3d83ba4a1e7f0b1893b0b1caad6845b892ffd1016024dade6",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 53,
+            "observation_step": 140
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 285,
+            "end_step": 290,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state1",
+              "step": 285
+            },
+            "evidence": "The executed prefix commanded upward motion with the gripper open; end-effector height increased by about 0.021 m. The bottle remains upright beside the cabinet, separate from the bowl, with no visible bottle transport or established grasp. This retreat does not demonstrate useful progress toward placing the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:290:assess:99",
+            "request_fingerprint": "6dfcec784cc7ba3e56be55da51f150fb3ae68a0100d942dfdbfadf0988922316",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 99,
+            "observation_step": 290
+          },
+          {
+            "start_step": 290,
+            "end_step": 295,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state1",
+              "step": 290
+            },
+            "evidence": "The executed prefix commanded upward motion with an open gripper; end-effector height increased from 1.287 to 1.301. The bottle remains upright on the cabinet, separate from the bowl, with no visible lift or transport of the bottle. This prefix shows no useful progress toward putting it in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:295:assess:100",
+            "request_fingerprint": "2f9dd4dbe0cc65eb85d1ea5e42e1d22ff638ae25c54956447d1706d4e1d33a6f",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 100,
+            "observation_step": 295
+          },
+          {
+            "start_step": 295,
+            "end_step": 300,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state1",
+              "step": 295
+            },
+            "evidence": "The end effector rose from z=1.3009 to 1.3182 while the commands kept the gripper open. The bottle remains upright beside the cabinet, separate from the bowl, with no visible transport. This prefix shows retreat without an established grasp or observable progress toward placing the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:300:assess:101",
+            "request_fingerprint": "776294db9018ab79da88175dfea1d19d11749e8df35760c1632d5e1688cf9665",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 101,
+            "observation_step": 300
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    }
+  ],
+  "replayed_training_data": null,
+  "teacher_usage": {
+    "completed_calls": 223,
+    "failed_provider_calls": 0,
+    "input_tokens": 4555920,
+    "cached_input_tokens": 2393344,
+    "output_tokens": 40765,
+    "total_tokens": 4596685,
+    "latency_seconds": 2844.4369525001384,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 2162576
+  },
+  "usage_by_episode": {
+    "libero_goal_ood:seed173:task6:state1": {
+      "completed_calls": 102,
+      "failed_provider_calls": 0,
+      "input_tokens": 2112304,
+      "cached_input_tokens": 1171840,
+      "output_tokens": 18590,
+      "total_tokens": 2130894,
+      "latency_seconds": 1293.4270426670846,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_goal_ood:seed173:task6:state0": {
+      "completed_calls": 121,
+      "failed_provider_calls": 0,
+      "input_tokens": 2443616,
+      "cached_input_tokens": 1221504,
+      "output_tokens": 22175,
+      "total_tokens": 2465791,
+      "latency_seconds": 1551.0099098330538,
+      "incomplete_usage_receipts": 0
+    }
+  },
+  "threshold_crossing": null,
+  "threshold_status": "not_reached_in_completed_evaluations",
+  "videos": [],
+  "starting_frame": null,
+  "scope": "Fixed snapshot after two completed collection episodes. The same workflow continues; later episodes and their costs are excluded from this milestone receipt.",
+  "collection_steps_at_checkpoint": 620,
+  "completed_collection_rollouts_at_checkpoint": 2,
+  "policy_optimizer_steps_at_checkpoint": 40,
+  "teacher_decisions_at_checkpoint": {
+    "roles": {
+      "diagnose": 71,
+      "assess": 120,
+      "compare": 32
+    },
+    "selected_candidates": {
+      "native": 25,
+      "guided0": 6,
+      "guided1": 1
+    },
+    "candidate_judgments": {
+      "uncertain": 79,
+      "tie": 20,
+      "win": 7,
+      "loss": 24
+    }
+  }
+}

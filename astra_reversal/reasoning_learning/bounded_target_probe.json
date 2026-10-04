@@ -1,0 +1,272 @@
+{
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-7",
+  "source_revision": "7b47ed361bbb5071e528b55e936ff672d6c66938",
+  "environment_actions": 0,
+  "used_for_training": false,
+  "selection": "Steps 240 and 245 were selected for rejected descent proposals with documented RTC overshoot. This is a targeted development diagnostic, not random sampling.",
+  "scope": "Keep the actual observation, native proposal and correction rule fixed. Add the existing teacher bounded additive target as one computational candidate. All alternatives remain unexecuted; this does not measure task success.",
+  "cases": [
+    {
+      "step": 240,
+      "original_judgment": {
+        "judgments": [
+          {
+            "candidate_id": "guided0",
+            "evidence": "The prefix preserves opening and broadly similar lateral motion, but z starts at -0.212 and -0.154, substantially beyond the rule's modest -0.080 to -0.053 approach. The bottle remains on the wooden support; visible clearance does not establish that this stronger descent is safe. Improvement over native's upward prefix is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided1",
+            "evidence": "Opening is preserved, but initial z inputs of -0.388 and -0.287 greatly exceed the prescribed modest descent. The images do not establish clearance for this approach near the bottle and wooden support, so a clear improvement over native is unsupported.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided2",
+            "evidence": "Initial z inputs of -0.401 and -0.265 exceed the modest approach rule, while x reverses native's direction during the first three actions. Opening is preserved, but neither improved alignment nor sufficient support clearance is established by the supplied views.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native"
+      },
+      "teacher_edits": [
+        {
+          "channel": 2,
+          "delta": -0.18,
+          "end": 5,
+          "start": 0
+        }
+      ],
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "guided0",
+            "evidence": "The open gripper descends toward the supported bottle, but initial z inputs of -0.212 and -0.154 exceed the rule's modest approach. Clearance from the wooden support is insufficiently clear to establish improvement over native for this prefix.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided1",
+            "evidence": "Opening is preserved, but the prefix begins with substantially stronger descent (-0.388, -0.287) than the fixed rule specifies. The images do not establish clearance for that approach, so a clear win over native is unsupported.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided2",
+            "evidence": "Strong initial descent (-0.401, -0.265) is accompanied by changes in lateral motion and rotation. With finger alignment and support clearance unclear, these commands do not establish a better setup than native.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "bounded_target",
+            "evidence": "The bottle remains on the wooden support beneath the open gripper. Actions 0\u20134 replace native upward motion with modest downward inputs (-0.053 to -0.080), preserving opening and every other channel. This predicts a closer approach under the fixed rule with less clearance demand than the other candidates. Actual clearance and completion require reobservation.",
+            "preference": "win"
+          }
+        ],
+        "selected": "bounded_target",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:240:compare:50099",
+        "request_fingerprint": "2ab4b5f1f57e3deeb291e102af909a433bd386d440aefa6102b3736e1ab07165",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 50099,
+        "observation_step": 240
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "2ab4b5f1f57e3deeb291e102af909a433bd386d440aefa6102b3736e1ab07165",
+        "request_sha256": "989fa13aaf8137abc6dd62fc6f4c20c918ec2a02c01f4276c94b3c9d2022dd63",
+        "request_time": 1791085710.60991,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 21098,
+          "output_tokens": 289,
+          "reasoning_tokens": 0,
+          "total_tokens": 21387
+        },
+        "raw_usage": {
+          "input_tokens": 21098,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 289,
+          "reasoning_output_tokens": 0
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "c688cfc4e788e35d911a3ca3f725b0b9649fb5fb7e74309a8fdbe8427ea4d029",
+        "original_schema_sha256": "c688cfc4e788e35d911a3ca3f725b0b9649fb5fb7e74309a8fdbe8427ea4d029",
+        "prompt_template_version": "reasoning-policy-learning-1",
+        "prompt_sha256": "360a4ab70c4e744e99fd2e4f6ad47d2dd160d82373cea8828403ef694c09e215",
+        "system_prompt_sha256": "cc402a414bf0bc778056740f1c4ac113b8fb669398bef9c74a9ed8bdc057d9d0",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "REAL observation; real step 240; camera 0",
+            "sha256": "83bce3db58f0b98905668a5446641adb6e46acbeda0c065d78605293f1b52c64"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "REAL observation; real step 240; camera 1",
+            "sha256": "7c486dfe0e3f58c692dc9473db55a507dadf311818b22d1be253349bbb238c1b"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 21098,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 289,
+            "reasoning_output_tokens": 0
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "669d8acce50706366730315796c1e3fcaaf817a438f3958dfd984a62f4f87b87",
+        "response_time": 1791085721.6957152,
+        "latency_seconds": 11.085819917003391
+      }
+    },
+    {
+      "step": 245,
+      "original_judgment": {
+        "judgments": [
+          {
+            "candidate_id": "guided0",
+            "evidence": "Actions 0\u20134 preserve the open gripper and nearly preserve lateral and rotational commands while changing upward motion to modest descent (-0.071 to -0.036). This could approach the bottle, but the images do not clearly establish finger clearance from the wooden support throughout that descent. The fixed rule's supported-clearance requirement prevents a clear win.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided1",
+            "evidence": "The executed prefix keeps the gripper open but descends at -0.185 to -0.135, substantially beyond the rule's modest approach. Clearance near the supported bottle is unclear, so stronger descent does not establish improvement over native.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided2",
+            "evidence": "Actions 0\u20134 combine substantially stronger descent (-0.201 to -0.157) with changed world-x and rotational commands. The images do not establish that these additional shifts improve alignment or avoid the wooden support. No clear improvement over native is supported.",
+            "preference": "uncertain"
+          }
+        ],
+        "selected": "native"
+      },
+      "teacher_edits": [
+        {
+          "channel": 2,
+          "delta": -0.1,
+          "end": 5,
+          "start": 0
+        }
+      ],
+      "proposal": {
+        "judgments": [
+          {
+            "candidate_id": "guided0",
+            "evidence": "The first five actions keep the fingers open and replace native upward motion with modest descent, likely approaching the visibly supported bottle. Other channels remain close to native. This supports a setup improvement, although clearance must be checked after action 4.",
+            "preference": "win"
+          },
+          {
+            "candidate_id": "guided1",
+            "evidence": "The open gripper is preserved, but downward inputs of -0.135 to -0.185 substantially exceed the fixed rule's modest approach. The images do not establish enough clearance from the wooden support to confidently prefer this stronger descent over native.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "guided2",
+            "evidence": "The prefix combines substantially stronger descent with changed lateral and rotational commands. Visible evidence does not establish that this altered approach maintains bottle alignment and wooden-support clearance, so improvement over native is uncertain.",
+            "preference": "uncertain"
+          },
+          {
+            "candidate_id": "bounded_target",
+            "evidence": "The prefix makes exactly the prescribed modest downward correction while preserving native lateral motion, rotation, and open fingers. With the bottle still supported below the approaching gripper, this is a clearer setup approach than native upward motion. Actual clearance and completion require reobservation.",
+            "preference": "win"
+          }
+        ],
+        "selected": "bounded_target",
+        "decision_id": "libero_goal_ood:seed173:task6:state0:245:compare:50102",
+        "request_fingerprint": "6f18435e0bac7589ab7ff54bbe369b01097c86a4a1cd211b1bc9bc9a85b87590",
+        "schema_version": "reasoning-policy-learning-teacher-1",
+        "role": "compare",
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "attempt_id": "libero_goal_ood:seed173:task6:state0",
+        "request_index": 50102,
+        "observation_step": 245
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "6f18435e0bac7589ab7ff54bbe369b01097c86a4a1cd211b1bc9bc9a85b87590",
+        "request_sha256": "9b18133fc8ec6034eb54b363683abf30e426ba84d7d06ad27e11719195f42ead",
+        "request_time": 1791085721.699531,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 21023,
+          "output_tokens": 319,
+          "reasoning_tokens": 53,
+          "total_tokens": 21342
+        },
+        "raw_usage": {
+          "input_tokens": 21023,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 319,
+          "reasoning_output_tokens": 53
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "c688cfc4e788e35d911a3ca3f725b0b9649fb5fb7e74309a8fdbe8427ea4d029",
+        "original_schema_sha256": "c688cfc4e788e35d911a3ca3f725b0b9649fb5fb7e74309a8fdbe8427ea4d029",
+        "prompt_template_version": "reasoning-policy-learning-1",
+        "prompt_sha256": "a83ab0baaaac66bb7550c63a5895898ce1335b5212c8adf6c90ee5886dd2cd08",
+        "system_prompt_sha256": "cc402a414bf0bc778056740f1c4ac113b8fb669398bef9c74a9ed8bdc057d9d0",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "REAL observation; real step 245; camera 0",
+            "sha256": "a098d5483a0c57a0c8187bc15131f66072ba0e2208482658c48315f8fe9059a8"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "REAL observation; real step 245; camera 1",
+            "sha256": "c4d1968b33c846fbc2ba8b200a6981a2afd663db61d12aa4ce0914d6f20ef5f4"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 21023,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 319,
+            "reasoning_output_tokens": 53
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "f37e14f06952e59d60d2c09d953cdfb160bd665a94f1a0a972c01fc06ac089cc",
+        "response_time": 1791085740.869077,
+        "latency_seconds": 19.169606290990487
+      }
+    }
+  ]
+}

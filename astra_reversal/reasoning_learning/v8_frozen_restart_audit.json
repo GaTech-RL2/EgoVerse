@@ -1,0 +1,91 @@
+{
+  "schema": "reasoning-frozen-restart-audit-1",
+  "original_workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+  "restart_workflow": "astra-pi05-reasoning-learning-20261003-checkpoint-evaluation-1",
+  "original_complete_evaluation_episodes": 7,
+  "restart_scheduled_evaluation_episodes": 10,
+  "independent_combined_denominator": false,
+  "scope": "Audit the seven completed original reset cases against the unconditional full ten-reset restart. Both physical executions are charged, but these are repeated reset cases, never a 17-trial denominator or independent confirmation. Only seven original completed episode records were recovered; any unarchived tail is unknown and is not assumed to be zero. Retained original controls remain charged separately.",
+  "episodes": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state20",
+      "original_success": true,
+      "restart_success": true,
+      "original_actions": 84,
+      "restart_actions": 84,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state21",
+      "original_success": false,
+      "restart_success": false,
+      "original_actions": 300,
+      "restart_actions": 300,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state22",
+      "original_success": false,
+      "restart_success": false,
+      "original_actions": 300,
+      "restart_actions": 300,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state23",
+      "original_success": true,
+      "restart_success": true,
+      "original_actions": 55,
+      "restart_actions": 55,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state24",
+      "original_success": false,
+      "restart_success": false,
+      "original_actions": 300,
+      "restart_actions": 300,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 1.995213806629181,
+      "exact_action_equality": false,
+      "first_different_action_index": 130,
+      "first_action_max_absolute_difference": 1.8835067749023438e-05,
+      "first_different_post_action_observation_index": 128
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state25",
+      "original_success": true,
+      "restart_success": true,
+      "original_actions": 71,
+      "restart_actions": 71,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state26",
+      "original_success": false,
+      "restart_success": false,
+      "original_actions": 300,
+      "restart_actions": 300,
+      "matching_reset_identity": true,
+      "equal_action_shape": true,
+      "maximum_absolute_action_difference": 0.0,
+      "exact_action_equality": true
+    }
+  ]
+}

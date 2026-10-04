@@ -1,0 +1,130 @@
+{
+  "scope": "Only the completed unchanged native baseline from an ongoing V7 development worker. Ten resets are reused as the same reference, never counted as independent replicates.",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+  "point": {
+    "collection_rollouts": 0,
+    "collection_steps": 0,
+    "evaluation_steps_cumulative": 2465,
+    "policy_version": 0,
+    "successes": 3,
+    "rollouts": 10,
+    "success_rate": 0.3,
+    "wilson_95": [
+      0.10779126740630099,
+      0.6032218525388546
+    ],
+    "teacher_total_tokens": 0,
+    "episode_results": [
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state20",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+          "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state21",
+        "success": true,
+        "actions_executed": 84,
+        "total_control_steps": 94,
+        "reset_identity": {
+          "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+          "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state22",
+        "success": true,
+        "actions_executed": 89,
+        "total_control_steps": 99,
+        "reset_identity": {
+          "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+          "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state23",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+          "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state24",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+          "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state25",
+        "success": true,
+        "actions_executed": 92,
+        "total_control_steps": 102,
+        "reset_identity": {
+          "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+          "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state26",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+          "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state27",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+          "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state28",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+          "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state29",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+          "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      }
+    ]
+  }
+}

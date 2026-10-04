@@ -1,0 +1,1146 @@
+"""Build an offline development report from retained experiment evidence.
+
+The input manifest contains local artifact directories, never presigned URLs.
+Missing checkpoints remain missing; partial trajectories count as retained
+interaction lower bounds, not completed rollouts or evaluation failures.
+"""
+
+import argparse
+import csv
+import hashlib
+import io
+import json
+import math
+import shutil
+import subprocess
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+from .hindsight import SYSTEM_PROMPT as HINDSIGHT_SYSTEM_PROMPT
+from .teacher import (
+    BOUNDED_TARGET_EXTENSION,
+    COMPARISON_FEEDBACK_EXTENSION,
+    GROUNDING_EXTENSION,
+    PREFIX_EXTENSION,
+    SEMANTIC_EXTENSION,
+    SYSTEM_PROMPT,
+    TLI_EXTENSION,
+)
+
+
+def read_json(path, default=None):
+    return json.loads(Path(path).read_text()) if Path(path).exists() else default
+
+
+def wilson(successes, count):
+    if not count or not 0 <= successes <= count:
+        raise ValueError("A completed nonempty evaluation is required")
+    z, p = 1.959963984540054, successes / count
+    denominator = 1 + z * z / count
+    center = (p + z * z / (2 * count)) / denominator
+    radius = (
+        z * math.sqrt(p * (1 - p) / count + z * z / (4 * count * count)) / denominator
+    )
+    return [max(0, center - radius), min(1, center + radius)]
+
+
+def paired_native_comparison(point, reference):
+    """Compare actual binary outcomes only when the exact reset scenes agree."""
+    native = {row["episode_id"]: row for row in reference["episode_results"]}
+    current = {row["episode_id"]: row for row in point["episode_results"]}
+    if current.keys() != native.keys():
+        raise ValueError("Native comparison requires the same reset episode IDs")
+    for key in native:
+        audit = native[key].get("reset_identity")
+        if not audit or current[key].get("reset_identity") != audit:
+            raise ValueError(
+                "Native comparison requires verified matching reset scenes"
+            )
+    return {
+        "native_successes": reference["successes"],
+        "rollouts": reference["rollouts"],
+        "delta_success_rate": point["success_rate"] - reference["success_rate"],
+        "gained_episode_ids": [
+            key
+            for key in native
+            if current[key]["success"] and not native[key]["success"]
+        ],
+        "regressed_episode_ids": [
+            key
+            for key in native
+            if native[key]["success"] and not current[key]["success"]
+        ],
+        "paired_reset_identities_verified": True,
+    }
+
+
+def usage_by_episode(directory, jobs=None, *, receipt_files=()):
+    records = []
+    if jobs and Path(jobs).exists():
+        for path in sorted(Path(jobs).glob("*/completed.json")):
+            request = read_json(path.parent / "request.json")
+            receipt = read_json(path)["result"]["receipt"]
+            records.append((request["episode_id"], receipt))
+    else:
+        provider = Path(directory) / "provider.jsonl"
+        if provider.exists():
+            for line in provider.read_text().splitlines():
+                row = json.loads(line)
+                if row.get("codex_receipt"):
+                    records.append((row["episode_id"], row["codex_receipt"]))
+    for path in receipt_files:
+        records.append(("offline_diagnostic", read_json(path)["result"]["receipt"]))
+    result = {}
+    for episode, receipt in records:
+        row = result.setdefault(
+            episode,
+            {
+                "completed_calls": 0,
+                "failed_provider_calls": 0,
+                "input_tokens": 0,
+                "cached_input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "latency_seconds": 0,
+                "incomplete_usage_receipts": 0,
+            },
+        )
+        row["completed_calls"] += 1
+        row["failed_provider_calls"] += int(receipt.get("provider_unavailable", False))
+        usage = receipt.get("token_usage") or {}
+        for key in ("input_tokens", "output_tokens", "total_tokens"):
+            row[key] += usage.get(key) or 0
+        raw = receipt.get("raw_usage") or {}
+        row["cached_input_tokens"] += raw.get("cached_input_tokens") or 0
+        row["latency_seconds"] += receipt.get("latency_seconds") or 0
+        row["incomplete_usage_receipts"] += int(
+            receipt.get("token_usage_is_lower_bound", False)
+            or any(
+                usage.get(k) is None
+                for k in ("input_tokens", "output_tokens", "total_tokens")
+            )
+        )
+    return result
+
+
+def teacher_decisions(directory):
+    """Count retained judgments separately from execution and training evidence."""
+    roles, preferences, outcomes, methods = Counter(), Counter(), Counter(), Counter()
+    selected_candidates = Counter()
+    seen = {}
+    requested, selected = 0, 0
+    for path in sorted(Path(directory).glob("collection/*/teacher_responses.jsonl")):
+        for line in path.read_text().splitlines():
+            row = json.loads(line)
+            identity = row["decision_id"]
+            if identity in seen:
+                if seen[identity] != row:
+                    raise ValueError("Conflicting retained teacher decisions")
+                continue
+            seen[identity] = row
+            role = row["role"]
+            roles[role] += 1
+            if role == "diagnose" and row["intervene"]:
+                requested += 1
+                methods[row.get("method", "target_guidance")] += 1
+            elif role == "compare":
+                preferences.update(j["preference"] for j in row["judgments"])
+                selected += row["selected"] != "native"
+                if row["selected"] != "native":
+                    selected_candidates[row["selected"]] += 1
+            elif role == "assess":
+                outcomes[row["outcome"]] += 1
+    return {
+        "roles": dict(roles),
+        "requested_interventions": requested,
+        "requested_methods": dict(methods),
+        "candidate_preferences": dict(preferences),
+        "selected_non_native_proposals": selected,
+        "selected_candidates": dict(selected_candidates),
+        "observed_prefix_outcomes": dict(outcomes),
+        "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts.",
+    }
+
+
+def visual_grounding_audit(directory):
+    """Expose rejected calibrations without implying that a hint was deployed."""
+    rows = []
+    for path in sorted(Path(directory).glob("collection/*/visual_projection.json")):
+        value = read_json(path)
+        rows.append(
+            {
+                "episode_id": value["episode_id"],
+                "available_at_step": value["available_at_step"],
+                "accepted": value["accepted"],
+                "reason": value["reason"],
+                "confident_fit_labels": len(value.get("fit_label_steps", [])),
+                "confident_validation_labels": len(value["validation_label_steps"])
+                if "validation_label_steps" in value
+                else None,
+                "validation_rms_pixels": value.get("validation_rms_pixels"),
+                "source": value["source"],
+                "used_for_policy_training": value["used_for_policy_training"],
+                "environment_actions_added": value["environment_actions_added"],
+            }
+        )
+    return rows
+
+
+def summarize_run(spec):
+    directory = Path(spec["directory"])
+    runtime = read_json(directory / "runtime.json", {})
+    protocol = read_json(directory / "protocol.json", {})
+    collection = read_json(directory / "collection.json", [])
+    replay = read_json(directory / "replayed_training_data.json")
+    if replay and collection:
+        raise ValueError("Fixed-data ablation cannot claim new collection episodes")
+    curve = read_json(directory / "learning_curve.json", [])
+    usage = usage_by_episode(directory, spec.get("teacher_jobs"))
+    updates = read_json(directory / "updates.json", [])
+    restored = read_json(directory / "restored_checkpoint.json")
+    completion = read_json(directory / "completion.json", {})
+    points = []
+    for point in curve:
+        reused_tokens = point.get("teacher_tokens_from_reused_data", 0)
+        expected_reused_tokens = (
+            replay["source_teacher_total_tokens"]
+            if replay and point["policy_version"] > 0
+            else 0
+        )
+        if reused_tokens != expected_reused_tokens or (
+            expected_reused_tokens
+            and point["collection_steps"] != replay["source_collection_control_steps"]
+        ):
+            raise ValueError("Reused-data checkpoint costs differ from the source")
+        episodes = point["episodes"]
+        count, wins = len(episodes), sum(bool(x["success"]) for x in episodes)
+        if (count, wins) != (point["rollouts"], point["successes"]):
+            raise ValueError("Evaluation aggregate differs from retained episodes")
+        expected_count = len(
+            protocol.get("pilot", {}).get("autonomous_evaluation_reset_indices", [])
+        )
+        if expected_count and count != expected_count:
+            raise ValueError(
+                "Incomplete scheduled evaluation cannot produce a curve point"
+            )
+        if len({r["episode_id"] for r in episodes}) != count:
+            raise ValueError("Repeated episode IDs in evaluation")
+        episode_ids = [
+            r["episode_id"] for r in collection[: point["collection_rollouts"]]
+        ]
+        points.append(
+            {
+                **{k: v for k, v in point.items() if k != "episodes"},
+                "success_rate": wins / count,
+                "wilson_95": wilson(wins, count),
+                "teacher_total_tokens": sum(
+                    usage.get(e, {}).get("total_tokens", 0) for e in episode_ids
+                )
+                + reused_tokens,
+                "episode_results": [
+                    {
+                        **{
+                            k: r[k]
+                            for k in (
+                                "episode_id",
+                                "success",
+                                "actions_executed",
+                                "total_control_steps",
+                            )
+                        },
+                        "reset_identity": {
+                            k: r["reset_audit"][k]
+                            for k in (
+                                "reset_state_sha256",
+                                "reset_model_sha256",
+                                "bddl_sha256",
+                            )
+                        }
+                        if "reset_audit" in r
+                        else None,
+                    }
+                    for r in episodes
+                ],
+            }
+        )
+    partial = []
+    completed_ids = {r["episode_id"] for r in collection}
+    for path in sorted((directory / "collection").glob("rollout_*")):
+        result = read_json(path / "result.json")
+        if result and result["episode_id"] in completed_ids:
+            continue
+        if result:
+            # A saved rollout may precede the top-level aggregate if training
+            # was interrupted; its interactions still count.
+            partial.append(
+                {
+                    "directory": path.name,
+                    "executed_steps_retained": result["actions_executed"],
+                    "initialization_steps": result["initialization_steps"],
+                    "rollout_complete_update_unconfirmed": True,
+                }
+            )
+            continue
+        steps = path / "executed_steps.jsonl"
+        count = len(steps.read_text().splitlines()) if steps.exists() else 0
+        initialized = bool(
+            count
+            or (path / "teacher_requests.jsonl").exists()
+            or (path / "observation_0.npz").exists()
+        )
+        partial.append(
+            {
+                "directory": path.name,
+                "executed_steps_retained": count,
+                "initialization_steps": protocol.get("environment", {}).get(
+                    "stabilization_steps_counted_separately", 10
+                )
+                if initialized
+                else 0,
+                "rollout_complete_update_unconfirmed": False,
+            }
+        )
+    totals = {
+        key: sum(row[key] for row in usage.values())
+        for key in (
+            "completed_calls",
+            "failed_provider_calls",
+            "input_tokens",
+            "cached_input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "latency_seconds",
+            "incomplete_usage_receipts",
+        )
+    }
+    totals["uncached_input_tokens"] = (
+        totals["input_tokens"] - totals["cached_input_tokens"]
+    )
+    evaluation_steps, partial_evaluation = 0, False
+    scheduled_evaluations = len(
+        protocol.get("pilot", {}).get("autonomous_evaluation_reset_indices", [])
+    )
+    if scheduled_evaluations:
+        partial_evaluation = any(
+            len(list(batch.glob("*/result.json"))) < scheduled_evaluations
+            for batch in directory.glob("evaluation_*")
+            if batch.is_dir()
+        )
+    for path in sorted(directory.glob("evaluation_*/*")):
+        result = read_json(path / "result.json")
+        if result:
+            evaluation_steps += result["total_control_steps"]
+        elif (path / "executed_steps.jsonl").exists():
+            evaluation_steps += len(
+                (path / "executed_steps.jsonl").read_text().splitlines()
+            ) + protocol.get("environment", {}).get(
+                "stabilization_steps_counted_separately", 10
+            )
+            partial_evaluation = True
+    latest_evaluated = max((p["policy_version"] for p in points), default=None)
+    latest_updated = max(
+        [r.get("policy_version", 0) for r in updates]
+        + [restored["policy_version"] if restored else 0]
+    )
+    reset_entries = read_json(directory / "resets.json", {}).get("episodes", [])
+    learner_configuration = protocol.get("learner")
+    configuration_source = "protocol.json:learner"
+    if spec["method"] in ("dsrl", "ppo"):
+        # Baseline workers share the task/evaluation protocol, whose learner
+        # section describes the teacher's LoRA learner, not the RL algorithm.
+        learner_configuration = {
+            key: runtime[key]
+            for key in ("method", "tuning_recipe", "tuning_settings", "overrides")
+            if key in runtime
+        }
+        configuration_source = "runtime.json:recorded_baseline_settings"
+    elif replay:
+        learner_configuration = {
+            "base_native_learner": learner_configuration,
+            "fixed_data_recipe": read_json(directory / "replay_recipe.json"),
+        }
+        configuration_source = "protocol.json:learner + replay_recipe.json"
+    return {
+        "label": spec["label"],
+        "method": spec["method"],
+        "workflow": spec["workflow"],
+        "status": completion.get("status", spec.get("status", "incomplete")),
+        "task": runtime.get("task", spec.get("task")),
+        "seed": runtime.get("seed", spec.get("seed")),
+        "source_revision": runtime.get("source_revision"),
+        "protocol_version": protocol.get("schema_version"),
+        "checkpoint_configuration": protocol.get("checkpoint"),
+        "environment_configuration": protocol.get("environment"),
+        "learner_configuration": learner_configuration,
+        "learner_configuration_source": configuration_source,
+        "runtime_configuration": runtime,
+        "task_instruction": reset_entries[0].get("instruction")
+        if reset_entries
+        else None,
+        "points": points,
+        "collection": collection,
+        "replayed_training_data": replay,
+        "partial_collection": partial,
+        "collection_steps_retained": sum(r["total_control_steps"] for r in collection)
+        + sum(
+            r["executed_steps_retained"] + r["initialization_steps"] for r in partial
+        ),
+        "collection_steps_may_be_lower_bound": bool(partial),
+        "evaluation_steps_retained": evaluation_steps,
+        "evaluation_steps_may_be_lower_bound": partial_evaluation,
+        "completed_collection_rollouts": len(collection),
+        "collected_successes": sum(bool(r["success"]) for r in collection),
+        "policy_updates": sum(bool(r.get("updated", True)) for r in updates),
+        "restored_checkpoint": restored,
+        "latest_evaluated_policy_version": latest_evaluated,
+        "latest_updated_policy_version": latest_updated,
+        "latest_update_has_autonomous_evaluation": bool(
+            latest_evaluated is not None and latest_evaluated >= latest_updated
+        ),
+        "teacher_usage": totals,
+        "teacher_decisions": teacher_decisions(directory),
+        "visual_grounding_audit": visual_grounding_audit(directory),
+        "usage_by_episode": usage,
+        "threshold_crossing": next(
+            (
+                {
+                    "collection_rollouts": p["collection_rollouts"],
+                    "collection_steps": p["collection_steps"],
+                }
+                for p in points
+                if p["success_rate"] >= 0.8
+            ),
+            None,
+        ),
+        "threshold_status": "observed"
+        if any(p["success_rate"] >= 0.8 for p in points)
+        else "not_reached_in_completed_evaluations",
+        "videos": [],
+        "starting_frame": None,
+    }
+
+
+def export_figures(data, output):
+    """Standalone research figures; each task and random seed stays separate."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter, PercentFormatter
+
+    colors = {
+        "teacher_v1": "#bf571d",
+        "teacher_v2": "#d89122",
+        "teacher_v3": "#83432a",
+        "teacher_v4": "#75639c",
+        "teacher_v5": "#aa3f57",
+        "teacher_v6": "#914ea1",
+        "teacher_v7": "#365843",
+        "teacher_v8": "#327a93",
+        "teacher_v8_resume": "#327a93",
+        "teacher_replay": "#245941",
+        "teacher_replay_masked": "#aa783d",
+        "credit_online": "#6e8293",
+        "credit_hindsight": "#177e5b",
+        "credit_success": "#ad5670",
+        "native_credit_local": "#6e8293",
+        "native_credit_success": "#ad5670",
+        "dsrl": "#057a76",
+        "ppo": "#4566ba",
+    }
+    groups = {}
+    for run in data["runs"]:
+        if run["task"] and run["points"]:
+            task = run["task"]
+            groups.setdefault((task["suite"], task["task_id"], run["seed"]), []).append(
+                run
+            )
+    paths = []
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    for (suite, task_id, seed), runs in groups.items():
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        for ax, key, title in zip(
+            axes,
+            ("collection_steps", "teacher_total_tokens"),
+            ("Collection control steps", "Cumulative teacher tokens (including cache)"),
+            strict=True,
+        ):
+            baseline = next(
+                (
+                    p["native_comparison"]
+                    for r in runs
+                    for p in r["points"]
+                    if p.get("native_comparison")
+                ),
+                None,
+            )
+            if baseline:
+                ax.axhline(
+                    baseline["native_successes"] / baseline["rollouts"],
+                    color="#879494",
+                    linestyle=":",
+                    linewidth=1,
+                    label=f"Native π0.5 ({baseline['native_successes']}/{baseline['rollouts']})",
+                )
+            for i, run in enumerate(runs):
+                points = run["points"]
+                label = run["label"]
+                if all(p["policy_version"] == 0 for p in points):
+                    label += " (initial policy only)"
+                x, y = [p[key] for p in points], [p["success_rate"] for p in points]
+                errors = [
+                    [p["success_rate"] - p["wilson_95"][0] for p in points],
+                    [p["wilson_95"][1] - p["success_rate"] for p in points],
+                ]
+                color = colors.get(run["method"], "#778084")
+                ax.errorbar(
+                    x, y, yerr=errors, color=color, alpha=0.25, fmt="none", capsize=3
+                )
+                ax.plot(
+                    x,
+                    y,
+                    marker=("o", "s", "^", "D", "v", "P")[i % 6],
+                    color=color,
+                    label=label,
+                    linewidth=1.8,
+                    markersize=6,
+                )
+            ax.axhline(0.8, color="#a89173", linestyle="--", linewidth=1)
+            ax.set_ylim(-0.04, 1.04)
+            max_x = max(p[key] for run in runs for p in run["points"])
+            ax.set_xlim(-0.04 * max(1, max_x), 1.06 * max(1, max_x))
+            if max_x == 0:
+                ax.set_xticks([0])
+                ax.text(
+                    0.52,
+                    0.12,
+                    "No completed evaluation follows\nteacher spending yet",
+                    ha="center",
+                    transform=ax.transAxes,
+                    fontsize=9,
+                    color="#617378",
+                )
+            ax.set_xlabel(title, fontsize=10)
+            ax.set_ylabel("Autonomous success rate")
+            ax.yaxis.set_major_formatter(PercentFormatter(1))
+            ax.xaxis.set_major_formatter(
+                FuncFormatter(lambda value, _: f"{value:,.0f}")
+            )
+            ax.grid(axis="y", alpha=0.15)
+            ax.spines[["top", "right"]].set_visible(False)
+        fig.suptitle(f"{suite} / task {task_id} / seed {seed}", fontsize=14, y=0.98)
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=2,
+            fontsize=8,
+            bbox_to_anchor=(0.5, 0.045),
+            frameon=False,
+        )
+        fig.text(
+            0.5,
+            0.02,
+            "10 reset states per point · 95% Wilson intervals · Evaluation samples accounted separately · Development evidence",
+            ha="center",
+            fontsize=8,
+            color="#617378",
+        )
+        fig.subplots_adjust(left=0.075, right=0.975, top=0.90, bottom=0.29, wspace=0.3)
+        stem = f"{suite}_task{task_id}_seed{seed}"
+        for extension in ("png", "pdf"):
+            path = output / f"{stem}.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    spatial_repeats = [
+        groups.get(("libero_spatial_ood", 2, seed), []) for seed in (173, 179)
+    ]
+    if all(
+        any(
+            run["method"] == "teacher_v7"
+            and any(p["collection_rollouts"] == 2 for p in run["points"])
+            for run in runs
+        )
+        for runs in spatial_repeats
+    ):
+        fig, axes = plt.subplots(1, 2, figsize=(11, 5.6), sharey=True)
+        for ax, seed, runs in zip(axes, (173, 179), spatial_repeats, strict=True):
+            teacher = next(r for r in runs if r["method"] == "teacher_v7")
+            native = next(p for p in teacher["points"] if p["policy_version"] == 0)
+            selected = [("Native", native, "#879494")]
+            for method, label in (
+                ("teacher_v7", "Astra learner"),
+                ("dsrl", "DSRL"),
+                ("ppo", "PPO"),
+            ):
+                point = next(
+                    (
+                        p
+                        for r in runs
+                        if r["method"] == method
+                        for p in r["points"]
+                        if p["collection_rollouts"] == 2
+                    ),
+                    None,
+                )
+                if point is not None:
+                    selected.append((label, point, colors[method]))
+            labels = []
+            for i, (label, point, color) in enumerate(selected):
+                score, (low, high) = point["success_rate"], point["wilson_95"]
+                ax.errorbar(
+                    i,
+                    score,
+                    yerr=[[score - low], [high - score]],
+                    fmt="o",
+                    color=color,
+                    capsize=5,
+                )
+                ax.annotate(
+                    f"{point['successes']}/{point['rollouts']}",
+                    (i, score),
+                    xytext=(8, 6),
+                    textcoords="offset points",
+                )
+                labels.append(f"{label}\n{point['collection_steps']:,} controls")
+            ax.set_xticks(range(len(selected)), labels, fontsize=9)
+            ax.set_xlim(-0.5, len(selected) - 0.45)
+            ax.set_ylim(0, 1)
+            ax.axhline(0.8, color="#a89173", linestyle="--", linewidth=1)
+            ax.yaxis.set_major_formatter(PercentFormatter(1))
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.13)
+            teacher_point = next(
+                p for p in teacher["points"] if p["collection_rollouts"] == 2
+            )
+            ax.set_title(
+                f"Seed {seed}\nAstra: {teacher_point['teacher_total_tokens']:,} reported tokens",
+                fontsize=11,
+            )
+        axes[0].set_ylabel("Autonomous success · 95% Wilson interval")
+        fig.suptitle("Spatial OOD2: fixed two-collection comparison")
+        fig.text(
+            0.5,
+            0.02,
+            "10 matched resets per seed · Different collection lengths are shown · PPO seed179 not run · Development evidence",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.06, 1, 0.95))
+        for extension in ("png", "pdf"):
+            path = output / f"spatial_two_collection_repeat.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    credit = [
+        run
+        for method in ("credit_online", "credit_hindsight", "credit_success")
+        for run in data["runs"]
+        if run["method"] == method
+        and run["points"]
+        and run["points"][-1]["policy_version"] > 0
+    ]
+    if len(credit) == 3:
+        labels = ["Local labels", "Astra hindsight", "Whole successful episode"]
+        fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.8))
+        for i, run in enumerate(credit):
+            point = run["points"][-1]
+            score = point["success_rate"]
+            low, high = point["wilson_95"]
+            axes[0].errorbar(
+                i,
+                score,
+                yerr=[[score - low], [high - score]],
+                fmt="o",
+                capsize=5,
+                color=colors[run["method"]],
+            )
+            axes[0].annotate(
+                f"{point['successes']}/{point['rollouts']}",
+                (i, score),
+                xytext=(9, 8),
+                textcoords="offset points",
+            )
+            count = run["replayed_training_data"]["admitted_windows"]
+            axes[1].bar(i, count, color=colors[run["method"]], width=0.5)
+            axes[1].text(i, count + 0.5, str(count), ha="center")
+        native = credit[0]["points"][-1]["native_comparison"]
+        axes[0].axhline(
+            native["native_successes"] / native["rollouts"],
+            color="#607477",
+            linestyle=":",
+            label="Native 5/10",
+        )
+        axes[0].set_ylim(0, 1)
+        axes[0].yaxis.set_major_formatter(PercentFormatter(1))
+        axes[0].set_ylabel("Autonomous success · 95% Wilson interval")
+        axes[0].legend(frameon=False, fontsize=9)
+        axes[1].set_ylabel("Admitted complete ten-action windows")
+        axes[1].set_ylim(0, 40)
+        for ax in axes:
+            ax.set_xticks(range(3), labels, rotation=15, ha="right", fontsize=9)
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.13)
+            ax.set_axisbelow(True)
+        fig.suptitle("Same recorded experience, three data-selection rules")
+        fig.text(
+            0.5,
+            0.018,
+            "426 source controls · 100 updates each · Goal OOD6, seed173 · Hindsight adds 83,532 teacher tokens",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.055, 1, 0.96))
+        for extension in ("png", "pdf"):
+            path = output / f"credit_selection.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    # A training-fit diagnostic explains a mechanism, not a held-out success gain.
+    for variant in ("strict", "masked"):
+        receipt = read_json(
+            Path(__file__).with_name(f"replay_{variant}_fit_probe.json")
+        )
+        if not receipt:
+            continue
+        run = next(
+            (r for r in data["runs"] if r["workflow"] == receipt["workflow"]), None
+        )
+        if not run or not run["points"]:
+            continue
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+        for group, label, color in (
+            ("correction_containing", "Correction-containing windows", "#bf571d"),
+            ("native_only", "Native-only windows", "#057a76"),
+        ):
+            rows = [r for r in receipt["summary"] if r["group"] == group]
+            axes[0].plot(
+                [r["optimizer_steps"] for r in rows],
+                [r["controller_mse_useful_steps"] for r in rows],
+                "o-",
+                color=color,
+                label=label,
+            )
+        axes[0].set_yscale("log")
+        axes[0].set_ylabel("Controller MSE on supervised training steps")
+        axes[0].set_title("Fit to recorded behavior")
+        axes[0].legend(fontsize=8, frameon=False)
+        points = run["points"]
+        axes[1].plot(
+            [p.get("optimizer_steps_cumulative", 0) for p in points],
+            [p["success_rate"] for p in points],
+            "o-",
+            color="#4566ba",
+        )
+        axes[1].axhline(points[0]["success_rate"], color="#879494", linestyle=":")
+        axes[1].set_ylim(0, 1)
+        axes[1].yaxis.set_major_formatter(PercentFormatter(1))
+        axes[1].set_ylabel("Autonomous task success")
+        axes[1].set_title("Ten separate reset states per point")
+        for ax in axes:
+            ax.set_xlabel("Optimizer steps on the same recorded dataset")
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.15)
+        fig.suptitle(
+            f"{variant.capitalize()} replay: training fit and autonomous success"
+        )
+        fig.text(
+            0.5,
+            0.015,
+            "Fixed probe noise · Training-set error, not validation · No new collection data · Development evidence",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.04, 1, 0.94))
+        for extension in ("png", "pdf"):
+            path = output / f"replay_{variant}_fit.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    audit = data.get("intervention_credit_audit") or {}
+    rows = audit.get("runs", [])
+    if rows:
+        fig, ax = plt.subplots(figsize=(11, max(4.5, 0.52 * len(rows) + 2)))
+        columns = (
+            ("assisted_actions_executed", "Assisted commands executed", "#cfdbde"),
+            ("assisted_actions_locally_useful", "Locally judged useful", "#cf9c59"),
+            (
+                "assisted_actions_in_complete_training_windows",
+                "Retained in complete training windows",
+                "#177e5b",
+            ),
+        )
+        for key, label, color in columns:
+            values = [r["total"][key] for r in rows]
+            ax.barh(range(len(rows)), values, label=label, color=color, height=0.64)
+        labels = [
+            f"{r['method'].removeprefix('teacher_').upper()} · "
+            f"{'Spatial' if 'spatial' in r['task']['suite'] else 'Goal'} {r['task']['task_id']}"
+            f" · seed{r['seed']} · {r['total']['collection_controls']} controls"
+            for r in rows
+        ]
+        ax.set_yticks(range(len(rows)), labels, fontsize=9)
+        ax.invert_yaxis()
+        for i, row in enumerate(rows):
+            total = row["total"]
+            ax.text(
+                total["assisted_actions_executed"] + 0.8,
+                i,
+                " / ".join(str(total[key]) for key, _, _ in columns),
+                va="center",
+                fontsize=9,
+            )
+        maximum = max(r["total"]["assisted_actions_executed"] for r in rows)
+        ax.set_xlim(0, max(10, maximum * 1.38))
+        ax.set_xlabel("Unique actual assisted controller commands")
+        ax.set_title(
+            "How much of the intervention reaches training?", loc="left", pad=14
+        )
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", alpha=0.12)
+        ax.set_axisbelow(True)
+        fig.legend(
+            loc="lower center",
+            ncol=1,
+            frameon=False,
+            fontsize=9,
+            bbox_to_anchor=(0.65, 0.035),
+        )
+        fig.text(
+            0.5,
+            0.012,
+            "Completed retained collections · Useful = Astra judgment · Nested counts; overlapping windows counted once",
+            ha="center",
+            fontsize=8,
+            color="#617378",
+        )
+        fig.tight_layout(rect=(0, 0.16, 1, 1))
+        for extension in ("png", "pdf"):
+            path = output / f"intervention_training_coverage.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    return paths
+
+
+def export_evidence(directory, output, index, run):
+    """Copy only named study records; provider logs and signed catalogs stay private."""
+    directory, output = Path(directory), Path(output)
+    evidence = []
+    evidence_paths = [
+        directory / name for name in ("updates.json", "restored_checkpoint.json")
+    ]
+    for collection_directory in sorted((directory / "collection").glob("rollout_*")):
+        evidence_paths.extend(
+            collection_directory / name
+            for name in (
+                "result.json",
+                "executed_steps.jsonl",
+                "decisions.jsonl",
+                "outcomes.jsonl",
+                "admission.jsonl",
+                "teacher_responses.jsonl",
+            )
+        )
+    for path in evidence_paths:
+        if not path.is_file():
+            continue
+        relative = path.relative_to(directory)
+        target = Path("evidence") / str(index) / relative
+        (output / target).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, output / target)
+        evidence.append(
+            {
+                "path": str(target),
+                "source_relative_path": str(relative),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+        )
+    if evidence:
+        target = Path("evidence") / str(index) / "manifest.json"
+        (output / target).write_text(
+            json.dumps(
+                {
+                    "workflow": run["workflow"],
+                    "method": run["method"],
+                    "source_revision": run["source_revision"],
+                    "files": evidence,
+                    "path_base": "dashboard_root",
+                    "scope": "Recorded selected commands, structured teacher decisions, actual outcome assessments and training admissions. Partial collections remain partial. Observation IDs refer to their own pre-action inputs; source costs and completeness are in results.json. Private provider events, credentials and signed URLs are excluded.",
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+        run["evidence_manifest"] = str(target)
+        run["evidence_record_files"] = len(evidence)
+
+
+def build(manifest, budget, output):
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    configuration = read_json(manifest)
+    specs = configuration["runs"]
+    runs = [summarize_run(spec) for spec in specs]
+    native_runs = {}
+    for run in runs:
+        if (
+            run["method"].startswith("teacher")
+            and run["points"]
+            and run["points"][0]["policy_version"] == 0
+        ):
+            task = run["task"]
+            native_runs.setdefault((task["suite"], task["task_id"], run["seed"]), run)
+    for run in runs:
+        task = run["task"]
+        if not task:
+            continue
+        native_run = native_runs.get((task["suite"], task["task_id"], run["seed"]))
+        if native_run:
+            for key in ("checkpoint_configuration", "environment_configuration"):
+                if run[key] != native_run[key] and run["points"]:
+                    raise ValueError("Native comparison deployment protocol differs")
+            for point in run["points"]:
+                point["native_comparison"] = {
+                    **paired_native_comparison(point, native_run["points"][0]),
+                    "native_workflow": native_run["workflow"],
+                }
+    for i, (spec, run) in enumerate(zip(specs, runs, strict=True)):
+        directory = Path(spec["directory"])
+        export_evidence(directory, output, i, run)
+        for path in sorted(directory.glob("**/rollout.mp4")):
+            relative = path.relative_to(directory)
+            if relative.parts[0] != "collection" and not relative.parts[0].startswith(
+                "evaluation_"
+            ):
+                continue
+            result = read_json(path.parent / "result.json")
+            if not result:
+                continue
+            target = Path("videos") / str(i) / relative
+            (output / target).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, output / target)
+            run["videos"].append(
+                {
+                    "path": str(target),
+                    "episode_id": result["episode_id"],
+                    "success": result["success"],
+                    "phase": relative.parts[0],
+                    "actions": result["actions_executed"],
+                }
+            )
+            if run["starting_frame"] is None and shutil.which("ffmpeg"):
+                still = Path("images") / f"run_{i}_start.png"
+                (output / still).parent.mkdir(exist_ok=True)
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-v",
+                        "error",
+                        "-i",
+                        str(path),
+                        "-frames:v",
+                        "1",
+                        "-y",
+                        str(output / still),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                )
+                run["starting_frame"] = {
+                    "path": str(still),
+                    "episode_id": result["episode_id"],
+                    "source_video": str(target),
+                    "timing": "After stabilization, before the first policy action; decoded from the recorded external-camera video.",
+                }
+    diagnostics = []
+    for spec in configuration.get("offline_teacher_diagnostics", []):
+        usage = usage_by_episode("", receipt_files=[spec["receipt_file"]])[
+            "offline_diagnostic"
+        ]
+        diagnostics.append(
+            {
+                "label": spec["label"],
+                "environment_actions": 0,
+                "used_for_training": spec.get("used_for_training", False),
+                "teacher_usage": usage,
+            }
+        )
+    replay_video_audit = read_json(Path(__file__).with_name("replay_video_audit.json"))
+    audit_image = Path(__file__).with_name("replay_video_audit.png")
+    if replay_video_audit and audit_image.exists():
+        target = Path("images") / audit_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(audit_image, output / target)
+        replay_video_audit = {**replay_video_audit, "image": str(target)}
+    else:
+        replay_video_audit = None
+    spatial_video_audit = read_json(
+        Path(__file__).with_name("spatial_video_audit.json")
+    )
+    spatial_image = Path(__file__).with_name("spatial_video_audit.png")
+    if spatial_video_audit and spatial_image.exists():
+        target = Path("images") / spatial_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(spatial_image, output / target)
+        spatial_video_audit = {**spatial_video_audit, "image": str(target)}
+    else:
+        spatial_video_audit = None
+    credit_video_audit = read_json(Path(__file__).with_name("credit_video_audit.json"))
+    credit_image = Path(__file__).with_name("credit_video_audit.png")
+    if credit_video_audit and credit_image.exists():
+        target = Path("images") / credit_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(credit_image, output / target)
+        credit_video_audit = {**credit_video_audit, "image": str(target)}
+    else:
+        credit_video_audit = None
+    native_success_audit = read_json(
+        Path(__file__).with_name("native_success_spatial179_selection_audit.json")
+    )
+    native_success_image = Path(__file__).with_name(
+        "native_success_spatial179_windows.png"
+    )
+    if native_success_audit and native_success_image.exists():
+        target = Path("images") / native_success_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(native_success_image, output / target)
+        native_success_audit = {**native_success_audit, "image": str(target)}
+    ledger = read_json(budget)
+    data = {
+        "title": "Reasoning-guided policy learning",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "research_objective_met": False,
+        "scope": "Development experiments; no confirmed sample-efficiency advantage over strong RL.",
+        "checkpoint": "lerobot/pi05_libero_base@a217bfd3b14673cf2ce597e69997ab21866438dd",
+        "budget": ledger,
+        "accounting_audit": read_json(
+            Path(__file__).with_name("study_accounting.json")
+        ),
+        "runs": runs,
+        "offline_teacher_diagnostics": diagnostics,
+        "replay_video_audit": replay_video_audit,
+        "spatial_video_audit": spatial_video_audit,
+        "credit_video_audit": credit_video_audit,
+        "native_success_selection_audit": native_success_audit,
+        "frozen_v8_restart_audit": read_json(
+            Path(__file__).with_name("v8_frozen_restart_audit.json")
+        ),
+        "intervention_credit_audit": read_json(
+            Path(__file__).with_name("intervention_credit_audit.json")
+        ),
+        "related_research": read_json(
+            Path(__file__).with_name("related_research.json")
+        ),
+        "teacher_system_prompt": SYSTEM_PROMPT,
+        "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
+        "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,
+        "teacher_tli_prompt_extension": TLI_EXTENSION,
+        "teacher_comparison_feedback_prompt_extension": COMPARISON_FEEDBACK_EXTENSION,
+        "teacher_bounded_target_prompt_extension": BOUNDED_TARGET_EXTENSION,
+        "teacher_grounding_prompt_extension": GROUNDING_EXTENSION,
+        "teacher_hindsight_system_prompt": HINDSIGHT_SYSTEM_PROMPT,
+        "hindsight_credit_recipe": read_json(
+            Path(__file__).parents[1] / "configs/reasoning_credit_v5.json"
+        ),
+        "notes": [
+            "Success is the simulator's binary task predicate. Each scheduled autonomous score uses ten separate reset states; Astra supplies no inference input in these evaluations.",
+            "The 80% threshold means at least 8/10 at a scheduled checkpoint. Wilson intervals are descriptive; a single crossing on development data does not prove superiority.",
+            "Collection x-values include all executed collection control steps and stabilization. Evaluation interactions are disclosed separately. Partial archived trajectories are retained lower bounds.",
+            "DSRL uses the same frozen decoder weights with a learned noise policy whose initial distribution differs from the native Gaussian. PPO uses strict converted weights with verified GELU compatibility.",
+            "The RL baselines use pinned RLinf components in a serial OOD harness with documented overrides. This is not a reproduction claim for the stock distributed RLinf benchmarks.",
+            "Token counts are CLI-reported usage, including cached input; they are not an API dollar bill. Local completed calls count even if cancellation prevented the worker from receiving them.",
+            "Failed provider jobs count as calls. Missing usage makes their token total a lower bound. Offline connectivity probes are accounted separately and never count as training or new environment interactions.",
+            "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
+            "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
+            "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
+            "V7 also offers the exact bounded additive target as a controller candidate, alongside RTC candidates. It is not a policy sample or evidence of policy support. The same fixed-reference clear-win and observed-useful training gates apply; it must be reported separately from flow guidance.",
+            "This study generates ten actions, matching action_horizon=10 in the pinned upstream OpenPI pi05_libero configuration, and executes five before replanning. The LeRobot export config declares chunk_size=50 and n_action_steps=10. These public deployment configurations differ; native parity here refers to the common study runtime, not a stock success-rate reproduction.",
+            "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
+            "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",
+            "The evidence-masked replay variant uses complete real ten-action windows but applies loss only to useful steps; corrections also require their original predicted win. It fabricates no tails. Known unsupervised actions still enter the noised denoising input, an explicit modeling limitation. The 40/100/200-update checkpoints reuse one development dataset.",
+            "The three-way credit screen compares original local labels, completed-trajectory hindsight labels, and binary-success episode BC on the same two V5 collections. Each fresh student gets 100 uniformly sampled updates and ten autonomous resets. Hindsight's two reviews add 83,532 tokens, counted once globally and attributed to that branch; no evaluation data is reviewed. A successful episode is explicitly weaker than per-action observed-useful credit. Development selection differences are not a confirmed sample-efficiency result.",
+            "The native-success paired control freezes the first Spatial seed179 collection: 96 unassisted policy0 actions, 106 controls including stabilization, and 24 recorded Astra calls. Its fresh students compare 14 locally useful windows with 18 full-success windows under 40 uniform updates. It reuses the exact native baseline and adds ten autonomous evaluations per student. This is a fixed-data diagnostic with one source episode, not the original online teacher trajectory or an independent collection replicate. Both branches retain the source teacher cost; no claim of a measured teacher-free collection is made.",
+        ],
+    }
+    data["figures"] = export_figures(data, output / "figures")
+    (output / "results.json").write_text(
+        json.dumps(data, indent=2, allow_nan=False) + "\n"
+    )
+    stream = io.StringIO()
+    fields = [
+        "method",
+        "workflow",
+        "suite",
+        "task_id",
+        "seed",
+        "collection_rollouts",
+        "collection_steps",
+        "optimizer_steps_cumulative",
+        "successes",
+        "rollouts",
+        "success_rate",
+        "teacher_total_tokens",
+        "evaluation_steps_cumulative",
+        "reused_from_workflow",
+        "native_successes",
+        "native_rollouts",
+        "delta_vs_native",
+        "gained_resets",
+        "regressed_resets",
+    ]
+    writer = csv.DictWriter(stream, fieldnames=fields)
+    writer.writeheader()
+    for run in runs:
+        for point in run["points"]:
+            comparison = point.get("native_comparison", {})
+            writer.writerow(
+                {
+                    "method": run["label"],
+                    "workflow": run["workflow"],
+                    **(run["task"] or {}),
+                    "seed": run["seed"],
+                    **{k: point[k] for k in fields if k in point},
+                    "native_successes": comparison.get("native_successes"),
+                    "native_rollouts": comparison.get("rollouts"),
+                    "delta_vs_native": comparison.get("delta_success_rate"),
+                    "gained_resets": len(comparison["gained_episode_ids"])
+                    if comparison
+                    else None,
+                    "regressed_resets": len(comparison["regressed_episode_ids"])
+                    if comparison
+                    else None,
+                }
+            )
+    (output / "learning_curves.csv").write_text(stream.getvalue())
+    template = Path(__file__).with_name("study_dashboard.html").read_text()
+    payload = json.dumps(data, allow_nan=False).replace("<", "\\u003c")
+    (output / "index.html").write_text(template.replace("__STUDY_DATA__", payload))
+    (output / "README.txt").write_text(
+        "Open index.html in a browser. All assets are local.\nThe JSON and CSV contain retained results, not projected outcomes.\n"
+        + "\n".join(data["notes"])
+        + "\n"
+    )
+    return {
+        "runs": len(runs),
+        "points": sum(len(r["points"]) for r in runs),
+        "output": str(output),
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("manifest", type=Path)
+    parser.add_argument("budget", type=Path)
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    print(json.dumps(build(args.manifest, args.budget, args.output)))
+
+
+if __name__ == "__main__":
+    main()

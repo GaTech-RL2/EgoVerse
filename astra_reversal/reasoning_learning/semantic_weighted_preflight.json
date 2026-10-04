@@ -1,0 +1,634 @@
+{
+  "native_restoration_max_abs": 0.0,
+  "environment_actions": 0,
+  "policy_updates": 0,
+  "synthetic_diagnostic_not_training_data": true,
+  "candidates": [
+    {
+      "candidate_id": "subgoal_prompt",
+      "max_controller_difference": 0.24660739302635193,
+      "generation": {
+        "candidate_id": "subgoal_prompt",
+        "condition_id": "4ae327737c85daa31efc38c82ed310f453968abbaf65c4fdc67936d47b4aaab4",
+        "observation_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+        "noise_sha256": "8dc989427507bcb39bb2c9cd1a43486e9f2b8ae41cf31feca04f39cfce66bcc3",
+        "conditioning": {
+          "operator": "prompt",
+          "source_prompt": "lift the object while keeping the gripper closed"
+        },
+        "clipping": {
+          "count": 0,
+          "max_abs": 0.0
+        },
+        "source": "current_policy_same_real_observation_and_noise",
+        "unexecuted": true
+      }
+    },
+    {
+      "candidate_id": "subgoal_tei_1",
+      "max_controller_difference": 0.027174025774002075,
+      "generation": {
+        "candidate_id": "subgoal_tei_1",
+        "condition_id": "b87abf970f086f239ed5465f26f96e4d6092b9b3b745d0a171ce8a457163a2f5",
+        "observation_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+        "noise_sha256": "8dc989427507bcb39bb2c9cd1a43486e9f2b8ae41cf31feca04f39cfce66bcc3",
+        "conditioning": {
+          "operator": "tei",
+          "operator_version": 1,
+          "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+          "alpha": 0.33,
+          "tei_orientation": "A_at_0_B_at_1",
+          "tei_formula": "(1-alpha)*E_A+alpha*E_B",
+          "tli_formula": "(1-2*alpha)*(T_A-T_B)",
+          "alignment": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+          "target_prompt": "put both the alphabet soup and the tomato sauce in the basket",
+          "source_prompts": [
+            "put both the alphabet soup and the tomato sauce in the basket",
+            "lift the object while keeping the gripper closed"
+          ],
+          "raw_condition_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+          "observation_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+          "compatibility": {
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "adapter_source_sha256": "9700beba45fe9b740d04e3cf428479bbd5e899447eb395762cedf750833aba51",
+            "processor_source_sha256": {
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "input_profile_assets": {
+              "tokenizer": {
+                "url": "https://storage.googleapis.com/big_vision/paligemma_tokenizer.model?generation=1711547605575873",
+                "bytes": 4264023,
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g=="
+              },
+              "norm_stats": {
+                "url": "https://storage.googleapis.com/openpi-assets/checkpoints/pi05_libero/assets/physical-intelligence/libero/norm_stats.json?generation=1757354341826612",
+                "bytes": 1914,
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug=="
+              }
+            },
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "layer_count": 18,
+            "width": 2048,
+            "text_slots": 200,
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ]
+          },
+          "target_token_sha256": "4043be8fe9f1c1b8a07bca314edde53eee82791b6a367ee1077968b3b139f7b4",
+          "target_token_mask_sha256": "f2b9bd0dc21bd7df94323c3345b444b3cee79cda2f4214029efab396485112e2",
+          "target_instruction_mask_sha256": "9a64203988df8b86b39ea534ed43a9f3e5dd8038cbeae399343363bd17c599e9",
+          "target_instruction_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "source_tokens": [
+            {
+              "token_sha256": "4043be8fe9f1c1b8a07bca314edde53eee82791b6a367ee1077968b3b139f7b4",
+              "token_mask_sha256": "f2b9bd0dc21bd7df94323c3345b444b3cee79cda2f4214029efab396485112e2",
+              "instruction_mask_sha256": "9a64203988df8b86b39ea534ed43a9f3e5dd8038cbeae399343363bd17c599e9"
+            },
+            {
+              "token_sha256": "58c0855e4c1f1a77e3ab5320f50c2ef1c226a9dc9afed972b366a3144934c703",
+              "token_mask_sha256": "25880d102b05b87c06dea97d7a8f8b788ad69567184c0f21319ef12d5d8a2ac8",
+              "instruction_mask_sha256": "66134985aa393852ef7c2b26b47ab6b8f857e97d434eb22596acb41fb4549a27"
+            }
+          ],
+          "banks": null,
+          "tli_active": false,
+          "tli_layer_indices": [],
+          "tli_boundary": "post_decoder_block_before_final_norm",
+          "tli_layers": [],
+          "text_mask_fixed": true,
+          "direct_writes_instruction_only": true,
+          "later_vision_hidden_states_may_change": true,
+          "cache_rebuilt": true,
+          "source_scaled_embedding_sha256": [
+            "1ed71b1d926d17d048565b4ec3a3f721632af111a9355895d8d2e1864cd5c373",
+            "7b9c952da5332128277c6b4fba3bfdbe7114b76d06652fa12190aad829f91450"
+          ],
+          "tei": {
+            "text_before_sha256": "1ed71b1d926d17d048565b4ec3a3f721632af111a9355895d8d2e1864cd5c373",
+            "text_after_sha256": "7caf08891ec7b6823ba1fbf504abe63b8fdfea4e995448cd62352b76a0f5e8a5",
+            "delta_frobenius": 185.30861363830502,
+            "delta_rms": 1.1820613238447895,
+            "relative_rms": 0.21688413483554514,
+            "base_frobenius": 854.4129508542309,
+            "has_effect": true,
+            "protected_text_unchanged": true,
+            "mapping_a": {
+              "rule": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+              "source_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "target_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "mapped_positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  4
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  7,
+                  7
+                ],
+                [
+                  8,
+                  8
+                ],
+                [
+                  9,
+                  9
+                ],
+                [
+                  10,
+                  10
+                ],
+                [
+                  11,
+                  11
+                ],
+                [
+                  12,
+                  12
+                ]
+              ],
+              "source_instruction_tokens": 12,
+              "target_instruction_tokens": 12,
+              "zero_padded_tokens": 0,
+              "truncated_tokens": 0
+            },
+            "mapping_b": {
+              "rule": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+              "source_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9
+              ],
+              "target_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "mapped_positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  4
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  7,
+                  7
+                ],
+                [
+                  8,
+                  8
+                ],
+                [
+                  9,
+                  9
+                ]
+              ],
+              "source_instruction_tokens": 9,
+              "target_instruction_tokens": 12,
+              "zero_padded_tokens": 3,
+              "truncated_tokens": 0
+            },
+            "factor": null
+          },
+          "text_start": 768,
+          "text_slots": 200,
+          "prefix_before_sha256": "ab8ac91938fa2488d04f4cccff70150b9fa480ff66db9ad822c211cbe2a95080",
+          "prefix_after_sha256": "e828cf7509058c27005b7b53a520cd709990a563b8b4228600a2973898f5de54",
+          "prefix_padding_sha256": "dfb3da7db15f509e52bd69e22a2a37a71aa0b20a2ba5125c0b495a3356766129",
+          "prefix_attention_sha256": "646315aa8095c4fa23af2c9776710e7b4fa86255c44064e4a3fbc1e5bc5d13ca",
+          "prefix_positions_sha256": "83b27322f84dfa9fa077cb1955dd382ef96a8b8cc2883792b8a8e64ee7f1a359",
+          "vision_prefix_unchanged": true,
+          "protected_embedding_slots_unchanged": true,
+          "embedding_dtype": "torch.float32",
+          "has_effect": true,
+          "native_target_equivalent": false,
+          "hooks_removed": true,
+          "condition_id": "b87abf970f086f239ed5465f26f96e4d6092b9b3b745d0a171ce8a457163a2f5"
+        },
+        "clipping": {
+          "count": 0,
+          "max_abs": 0.0
+        },
+        "source": "current_policy_same_real_observation_and_noise",
+        "unexecuted": true
+      }
+    },
+    {
+      "candidate_id": "subgoal_tei_2",
+      "max_controller_difference": 0.11591836810112,
+      "generation": {
+        "candidate_id": "subgoal_tei_2",
+        "condition_id": "cb66dc06007638e1b62a27ae8800d200ccbb0cc6558d7389efac8a6125c281e1",
+        "observation_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+        "noise_sha256": "8dc989427507bcb39bb2c9cd1a43486e9f2b8ae41cf31feca04f39cfce66bcc3",
+        "conditioning": {
+          "operator": "tei",
+          "operator_version": 1,
+          "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+          "alpha": 0.67,
+          "tei_orientation": "A_at_0_B_at_1",
+          "tei_formula": "(1-alpha)*E_A+alpha*E_B",
+          "tli_formula": "(1-2*alpha)*(T_A-T_B)",
+          "alignment": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+          "target_prompt": "put both the alphabet soup and the tomato sauce in the basket",
+          "source_prompts": [
+            "put both the alphabet soup and the tomato sauce in the basket",
+            "lift the object while keeping the gripper closed"
+          ],
+          "raw_condition_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+          "observation_id": "524792792d30632853817858f82e6b269c85b6eda2c00854bb20a0f564fd5b24",
+          "compatibility": {
+            "artifact_sha256": {
+              "config.json": "4d59e79adda2b1467e00f4c76390d95bfe05e9f1eff5f4da08aa493d6fe08651",
+              "model.safetensors": "21b8711787c4a75861b02cff6aa81675a3a943d32b435a68262ac4461e476ba4",
+              "policy_postprocessor.json": "eab7a5deb97c59e7224da9247b4a4fe07371bcb5a4f41818e3881461fbaf0872",
+              "policy_preprocessor.json": "3b82ad181de39a25bab881b31d04f800c18ad629c894fcbe2f4d3699559a27db"
+            },
+            "model_source_sha256": "772b6f17a899b11285fde3f39a56a3be9c429bcb001941fac5bf5d7723a34413",
+            "adapter_source_sha256": "9700beba45fe9b740d04e3cf428479bbd5e899447eb395762cedf750833aba51",
+            "processor_source_sha256": {
+              "RenameObservationsProcessorStep": "11c4a25620260fc281cdeef50968280c7d4fcfe549cd272edf638763dcc4eca4",
+              "AddBatchDimensionProcessorStep": "305843a6bf98ddda243422b577ea10cbe105be71d08c5611a8aed3b2bb27d832",
+              "NormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e",
+              "Pi05PrepareStateTokenizerProcessorStep": "10bfff02bf4a7c1a219b01ccc4f2b9d50e0babdedbedbccaab19cc657045b815",
+              "TokenizerProcessorStep": "b3a235e3a5f9839dfff76d670bd9494e4c51ab6da2127cca172bd7ae404a95d5",
+              "DeviceProcessorStep": "be81c88d9e7ea304ec49a42ea80557feb08b252bec82eb3c9eb8faf148397d33",
+              "UnnormalizerProcessorStep": "5b610f5be7d3bcf371d52e3ccca433846c9ef49adca84ba5ef3c54ad8809338e"
+            },
+            "transformers_source_sha256": {
+              "transformers.models.gemma.modeling_gemma": "236196720ba5446704cc95a221aa43dd217e39afd72d92496f6307b1cd13a18a",
+              "transformers.models.paligemma.modeling_paligemma": "b72b421de47b58662f9fc3f663100a333d31913d2d55a0a93a26fb364cf0657b",
+              "transformers.models.siglip.modeling_siglip": "ef2e99500f263fdd78db9d4d9a255e29d844eb92f53c25ad640f8056700ef84b"
+            },
+            "input_profile": "openpi_libero",
+            "input_profile_source_sha256": "6d68cb13b70798b37b61529505cb9e7b6638922fe81781be4670eec44d7a44b2",
+            "input_profile_assets": {
+              "tokenizer": {
+                "url": "https://storage.googleapis.com/big_vision/paligemma_tokenizer.model?generation=1711547605575873",
+                "bytes": 4264023,
+                "sha256": "8986bb4f423f07f8c7f70d0dbe3526fb2316056c17bae71b1ea975e77a168fc6",
+                "generation": "1711547605575873",
+                "md5Hash": "FCCtyYVnIKVZ6KhyhLGV4g=="
+              },
+              "norm_stats": {
+                "url": "https://storage.googleapis.com/openpi-assets/checkpoints/pi05_libero/assets/physical-intelligence/libero/norm_stats.json?generation=1757354341826612",
+                "bytes": 1914,
+                "sha256": "b3a44bb2810436fb62917decaea58bd4d9110255df527dea21e8fd40c960bd84",
+                "md5Hash": "A9ECp3wKo0Ovv3VpyXu8ug=="
+              }
+            },
+            "operator_source_sha256": "86d0cfe0832d90b3d6938fb2192555e0b6e032f03c2d0a20f964be679b39b74d",
+            "layer_count": 18,
+            "width": 2048,
+            "text_slots": 200,
+            "native_parameter_dtypes": [
+              "torch.float32"
+            ]
+          },
+          "target_token_sha256": "4043be8fe9f1c1b8a07bca314edde53eee82791b6a367ee1077968b3b139f7b4",
+          "target_token_mask_sha256": "f2b9bd0dc21bd7df94323c3345b444b3cee79cda2f4214029efab396485112e2",
+          "target_instruction_mask_sha256": "9a64203988df8b86b39ea534ed43a9f3e5dd8038cbeae399343363bd17c599e9",
+          "target_instruction_positions": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12
+          ],
+          "source_tokens": [
+            {
+              "token_sha256": "4043be8fe9f1c1b8a07bca314edde53eee82791b6a367ee1077968b3b139f7b4",
+              "token_mask_sha256": "f2b9bd0dc21bd7df94323c3345b444b3cee79cda2f4214029efab396485112e2",
+              "instruction_mask_sha256": "9a64203988df8b86b39ea534ed43a9f3e5dd8038cbeae399343363bd17c599e9"
+            },
+            {
+              "token_sha256": "58c0855e4c1f1a77e3ab5320f50c2ef1c226a9dc9afed972b366a3144934c703",
+              "token_mask_sha256": "25880d102b05b87c06dea97d7a8f8b788ad69567184c0f21319ef12d5d8a2ac8",
+              "instruction_mask_sha256": "66134985aa393852ef7c2b26b47ab6b8f857e97d434eb22596acb41fb4549a27"
+            }
+          ],
+          "banks": null,
+          "tli_active": false,
+          "tli_layer_indices": [],
+          "tli_boundary": "post_decoder_block_before_final_norm",
+          "tli_layers": [],
+          "text_mask_fixed": true,
+          "direct_writes_instruction_only": true,
+          "later_vision_hidden_states_may_change": true,
+          "cache_rebuilt": true,
+          "source_scaled_embedding_sha256": [
+            "1ed71b1d926d17d048565b4ec3a3f721632af111a9355895d8d2e1864cd5c373",
+            "7b9c952da5332128277c6b4fba3bfdbe7114b76d06652fa12190aad829f91450"
+          ],
+          "tei": {
+            "text_before_sha256": "1ed71b1d926d17d048565b4ec3a3f721632af111a9355895d8d2e1864cd5c373",
+            "text_after_sha256": "f66879efccd7fb994ae89d25b65af31765f668bb0c89a48ccb9fa7bf36bdd851",
+            "delta_frobenius": 376.2326463304208,
+            "delta_rms": 2.399942729392023,
+            "relative_rms": 0.440340523811429,
+            "base_frobenius": 854.4129508542309,
+            "has_effect": true,
+            "protected_text_unchanged": true,
+            "mapping_a": {
+              "rule": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+              "source_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "target_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "mapped_positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  4
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  7,
+                  7
+                ],
+                [
+                  8,
+                  8
+                ],
+                [
+                  9,
+                  9
+                ],
+                [
+                  10,
+                  10
+                ],
+                [
+                  11,
+                  11
+                ],
+                [
+                  12,
+                  12
+                ]
+              ],
+              "source_instruction_tokens": 12,
+              "target_instruction_tokens": 12,
+              "zero_padded_tokens": 0,
+              "truncated_tokens": 0
+            },
+            "mapping_b": {
+              "rule": "valid_instruction_tokens_left_aligned_zero_pad_or_truncate",
+              "source_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9
+              ],
+              "target_positions": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "mapped_positions": [
+                [
+                  1,
+                  1
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  4
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  6
+                ],
+                [
+                  7,
+                  7
+                ],
+                [
+                  8,
+                  8
+                ],
+                [
+                  9,
+                  9
+                ]
+              ],
+              "source_instruction_tokens": 9,
+              "target_instruction_tokens": 12,
+              "zero_padded_tokens": 3,
+              "truncated_tokens": 0
+            },
+            "factor": null
+          },
+          "text_start": 768,
+          "text_slots": 200,
+          "prefix_before_sha256": "ab8ac91938fa2488d04f4cccff70150b9fa480ff66db9ad822c211cbe2a95080",
+          "prefix_after_sha256": "9f29d1899c5deef22b2a2d8749fd91c0d67a6b264fc40ad8891221fc35e70ad9",
+          "prefix_padding_sha256": "dfb3da7db15f509e52bd69e22a2a37a71aa0b20a2ba5125c0b495a3356766129",
+          "prefix_attention_sha256": "646315aa8095c4fa23af2c9776710e7b4fa86255c44064e4a3fbc1e5bc5d13ca",
+          "prefix_positions_sha256": "83b27322f84dfa9fa077cb1955dd382ef96a8b8cc2883792b8a8e64ee7f1a359",
+          "vision_prefix_unchanged": true,
+          "protected_embedding_slots_unchanged": true,
+          "embedding_dtype": "torch.float32",
+          "has_effect": true,
+          "native_target_equivalent": false,
+          "hooks_removed": true,
+          "condition_id": "cb66dc06007638e1b62a27ae8800d200ccbb0cc6558d7389efac8a6125c281e1"
+        },
+        "clipping": {
+          "count": 0,
+          "max_abs": 0.0
+        },
+        "source": "current_policy_same_real_observation_and_noise",
+        "unexecuted": true
+      }
+    }
+  ]
+}

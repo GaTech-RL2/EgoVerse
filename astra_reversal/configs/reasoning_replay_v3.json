@@ -1,0 +1,22 @@
+{
+  "schema": "reasoning-executed-replay-ablation-1",
+  "status": "prepared_for_development_test",
+  "manifest_sha256": "9a14ebd41ae96057206226103412d4b5ac62eedbcaa727992e3db1de2201ea8b",
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+  "source_collection_control_steps": 620,
+  "source_teacher_total_tokens": 4152587,
+  "source_collection_episodes": 2,
+  "admitted_windows": 22,
+  "correction_containing_windows": 1,
+  "native_only_windows": 21,
+  "initial_updates_per_source_episode": 20,
+  "optimizer_step_checkpoints": [40, 100, 200],
+  "loss_action_dimensions": 7,
+  "first_checkpoint": "Replay the original 20+20 update order over the same two recorded episodes with the corrected native seven-channel loss. Source observations remain those actually produced by the historical collector.",
+  "later_checkpoints": "Continue from that student using the union of the 22 real windows, with the unchanged event/stage balancing and 2x correction-group weight.",
+  "original_demonstration_replay_beta": 0,
+  "synthetic_training_windows": 0,
+  "new_collection_actions": 0,
+  "new_teacher_calls": 0,
+  "interpretation": "Learner ablation on reused development data, not an independent collection run. Attribute the original 620 controls and 4,152,587 teacher tokens to learned checkpoints without charging them twice in study totals. One correction-containing window limits what this ablation can establish."
+}

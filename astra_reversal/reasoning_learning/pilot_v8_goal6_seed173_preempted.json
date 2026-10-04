@@ -1,0 +1,1239 @@
+{
+  "label": "Teacher v8 \u00b7 online visual grounding",
+  "method": "teacher_v8",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+  "status": "Externally canceled for shared-pool GPU quota; later evaluation incomplete",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "source_revision": "3c3eb27faa7cb9b465c5bd01e172004bc5ee8e0b",
+  "protocol_version": "reasoning-policy-learning-8",
+  "checkpoint_configuration": {
+    "repo_id": "lerobot/pi05_libero_base",
+    "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "input_profile": "openpi_libero",
+    "runtime_action_horizon": 10,
+    "internal_action_dim": 32,
+    "controller_action_dim": 7,
+    "native_flow_direction": "noise_1_to_action_0",
+    "generation_steps": 10,
+    "execute_steps": 5
+  },
+  "environment_configuration": {
+    "suites": [
+      "libero_goal_ood",
+      "libero_spatial_ood"
+    ],
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "tasks_per_suite": 10,
+    "control_frequency_hz": 20,
+    "actions_per_rollout": 300,
+    "stabilization_steps_counted_separately": 10,
+    "observations": [
+      "external_camera",
+      "wrist_camera",
+      "robot_state8",
+      "original_instruction"
+    ],
+    "training_feedback": [
+      "binary_environment_success",
+      "real_observation_history"
+    ],
+    "privileged_object_poses": false,
+    "physical_candidate_retries": false
+  },
+  "learner_configuration": {
+    "objective": "native_flow_matching",
+    "parameters": "action_expert_attention_and_mlp_lora",
+    "rank": 8,
+    "learning_rate": 0.0001,
+    "update_steps_per_collection_rollout": 20,
+    "fresh_native_beta_distributed_times": true,
+    "fresh_noise": true,
+    "original_demonstration_replay_beta": 0,
+    "synthetic_candidate_training_weight": 0,
+    "complete_executed_action_windows_only": true,
+    "update_boundary": "end_of_collection_rollout",
+    "sampling": "event_and_stage_balanced_with_2x_correction_group_weight",
+    "loss_action_dimensions": 7,
+    "padding_loss_excluded": true
+  },
+  "learner_configuration_source": "protocol.json:learner",
+  "runtime_configuration": {
+    "phase": "pilot",
+    "task": {
+      "suite": "libero_goal_ood",
+      "task_id": 6
+    },
+    "seed": 173,
+    "gpu": "NVIDIA L40S",
+    "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+    "source_revision": "3c3eb27faa7cb9b465c5bd01e172004bc5ee8e0b",
+    "payload_sha256": "16a5c29592f355c60f94e5ee4857ac1a4cf32fecdffc76a5d9f8a61958a19fdb"
+  },
+  "task_instruction": "put the wine bottle in the bowl",
+  "points": [
+    {
+      "collection_rollouts": 0,
+      "collection_steps": 0,
+      "evaluation_steps_cumulative": 0,
+      "policy_version": 0,
+      "successes": 5,
+      "rollouts": 10,
+      "reference_evaluation_steps": 1989,
+      "reused_from_workflow": "astra-pi05-reasoning-learning-20261003-pilot-1",
+      "reference_sha256": "924d0c3325458fc8c77e9360e10397105a78bb306b0cb1cdf1de6191f60c04b5",
+      "new_evaluation_interactions": 0,
+      "independent_new_evaluation_replicate": false,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 0,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 83,
+          "total_control_steps": 93,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 91,
+          "total_control_steps": 101,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 87,
+          "total_control_steps": 97,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 57,
+          "total_control_steps": 67,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    },
+    {
+      "collection_rollouts": 2,
+      "collection_steps": 370,
+      "evaluation_steps_cumulative": 1983,
+      "policy_version": 2,
+      "successes": 5,
+      "rollouts": 10,
+      "success_rate": 0.5,
+      "wilson_95": [
+        0.236593090512564,
+        0.7634069094874361
+      ],
+      "teacher_total_tokens": 2457969,
+      "episode_results": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state20",
+          "success": true,
+          "actions_executed": 83,
+          "total_control_steps": 93,
+          "reset_identity": {
+            "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+            "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state21",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+            "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state22",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+            "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state23",
+          "success": true,
+          "actions_executed": 86,
+          "total_control_steps": 96,
+          "reset_identity": {
+            "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+            "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state24",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+            "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state25",
+          "success": true,
+          "actions_executed": 71,
+          "total_control_steps": 81,
+          "reset_identity": {
+            "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+            "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state26",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+            "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state27",
+          "success": false,
+          "actions_executed": 300,
+          "total_control_steps": 310,
+          "reset_identity": {
+            "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+            "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state28",
+          "success": true,
+          "actions_executed": 88,
+          "total_control_steps": 98,
+          "reset_identity": {
+            "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+            "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state29",
+          "success": true,
+          "actions_executed": 55,
+          "total_control_steps": 65,
+          "reset_identity": {
+            "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+            "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+            "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+          }
+        }
+      ],
+      "versus_native": {
+        "native_successes": 5,
+        "rollouts": 10,
+        "delta_success_rate": 0.0,
+        "gained_episode_ids": [],
+        "regressed_episode_ids": [],
+        "paired_reset_identities_verified": true
+      }
+    }
+  ],
+  "collection": [
+    {
+      "success": false,
+      "actions_executed": 200,
+      "early_stop": "correction_episode_budget_exhausted",
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "wall_seconds": 1271.1533927349374,
+      "correction_episodes": 3,
+      "assisted_chunks": 3,
+      "assisted_simulator_seconds": 0.7500000000000001,
+      "teacher_requests": 71,
+      "admitted_windows": 1,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 210,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state0",
+        "success": false,
+        "actions_executed": 200,
+        "correction_episodes": 3,
+        "assisted_chunks": 3,
+        "correction_reviews": [
+          {
+            "start_step": 140,
+            "end_step": 145,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, add 0.31 to delta_z, changing downward commands into small upward commands while preserving native closing, horizontal and rotational commands. Judge this as one clearance setup correction that prevents further premature descent, not as bowl-directed transport. Reobserve after five actions and reassess destination transfer rather than repeating lifts beside the rack.",
+              "completion": "End this single-prefix clearance correction when real observations show arrested descent beside the rack with the bottle retained. Then reassess transport toward the gray bowl; clearance alone does not complete transport. The original task completes only when the released bottle visibly rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:140:diagnose:48"
+            },
+            "evidence": "End-effector height increased from 1.20505 to 1.20717, supporting arrested descent. Both camera pairs show the bottle remaining aligned with the gripper beside the rack, with no visible release or slip. This supports the single-prefix clearance setup completion; transport to the gray bowl and release inside it remain unachieved.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "setup",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:145:assess:50",
+            "request_fingerprint": "6c958692d6113095f0524ac9e8dbf93826c82c7fc2420c56d2f2311e6f26aa61",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 50,
+            "observation_step": 145
+          },
+          {
+            "start_step": 150,
+            "end_step": 155,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 3\u20134 only, add 1.99 to the gripper input, changing opening to positive closing within controller bounds. Preserve all other commands. Compare this finite correction for preventing premature release beside the rack, not for establishing transport or grasp success. Reobserve after action 4 and reassess destination transfer; do not treat retention alone as task completion.",
+              "completion": "End this single-prefix retention correction after reobservation shows no opening or bottle separation during actions 0\u20134. Then reassess transport to the gray bowl. The original task completes only when the released bottle visibly rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:150:diagnose:52"
+            },
+            "evidence": "After the five-action correction, gripper configuration and bottle position appear unchanged, with no visible opening or bottle separation. This satisfies the finite correction's reobservation check, but the bottle remains beside the rack; these views do not establish a secure grasp or useful transport toward the gray bowl. The original task remains incomplete.",
+            "outcome": "ambiguous",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:155:assess:54",
+            "request_fingerprint": "550b4f85c8d91ef6610fa081e378749b1365245a74a41ae9d5cd840a5d2bf70d",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 54,
+            "observation_step": 155
+          },
+          {
+            "start_step": 185,
+            "end_step": 190,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, subtract 0.12 from delta_z, leaving all other commands unchanged. This reduces upward inputs to approximately 0.0005\u20130.0085 to arrest withdrawal before acquisition. Compare for reduced retreat without disturbing the supported bottle, not for demonstrated grasp or transport. Reobserve after this prefix and reassess finger alignment; do not repeat holding as presumed task progress.",
+              "completion": "End this single-prefix correction after real observations confirm upward withdrawal has stopped without displacing the bottle. Grasp acquisition still requires observed bottle motion with closed fingers; the original task completes only when the released bottle rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:185:diagnose:65"
+            },
+            "evidence": "The end effector rose only about 0.48 mm during the executed prefix, consistent with arresting appreciable upward withdrawal. Both camera pairs show the bottle remaining supported in the same location without visible displacement. This satisfies the single-prefix correction's local completion check. The fingers remain open; grasp acquisition and placement in the gray bowl are not established.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:190:assess:67",
+            "request_fingerprint": "aca19030b25151a747f3c12cdee100ef1ed2290a55bcc77bc95b536d581c37fd",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 67,
+            "observation_step": 190
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 185,
+            "end_step": 190,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, subtract 0.12 from delta_z, leaving all other commands unchanged. This reduces upward inputs to approximately 0.0005\u20130.0085 to arrest withdrawal before acquisition. Compare for reduced retreat without disturbing the supported bottle, not for demonstrated grasp or transport. Reobserve after this prefix and reassess finger alignment; do not repeat holding as presumed task progress.",
+              "completion": "End this single-prefix correction after real observations confirm upward withdrawal has stopped without displacing the bottle. Grasp acquisition still requires observed bottle motion with closed fingers; the original task completes only when the released bottle rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state0:185:diagnose:65"
+            },
+            "evidence": "The end effector rose only about 0.48 mm during the executed prefix, consistent with arresting appreciable upward withdrawal. Both camera pairs show the bottle remaining supported in the same location without visible displacement. This satisfies the single-prefix correction's local completion check. The fingers remain open; grasp acquisition and placement in the gray bowl are not established.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:190:assess:67",
+            "request_fingerprint": "aca19030b25151a747f3c12cdee100ef1ed2290a55bcc77bc95b536d581c37fd",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 67,
+            "observation_step": 190
+          },
+          {
+            "start_step": 190,
+            "end_step": 195,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state0",
+              "step": 190
+            },
+            "evidence": "The gripper remained open while the end effector rose approximately 0.006 m. The bottle remains on the wooden surface, separate from the bowl, with no visible grasp, bottle lift, or transport toward the bowl. The executed prefix shows no useful progress toward placing the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:195:assess:68",
+            "request_fingerprint": "8f1622d981601d574c1f3b5a25e679cbc5b6ded918748506596d6ee990553f64",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 68,
+            "observation_step": 195
+          },
+          {
+            "start_step": 195,
+            "end_step": 200,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state0",
+              "step": 195
+            },
+            "evidence": "The gripper stayed open while the end effector rose about 0.0074 m. The bottle remains on the wooden surface, separate from the bowl, with no visible pickup or transport. This executed prefix shows no useful progress toward putting the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state0:200:assess:69",
+            "request_fingerprint": "38d4911671b42ec35d55515b3d408a653426d21c8671991e795929d135da0412",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state0",
+            "attempt_id": "libero_goal_ood:seed173:task6:state0",
+            "request_index": 69,
+            "observation_step": 200
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    },
+    {
+      "success": false,
+      "actions_executed": 150,
+      "early_stop": "correction_episode_budget_exhausted",
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "wall_seconds": 1012.8096487759613,
+      "correction_episodes": 3,
+      "assisted_chunks": 4,
+      "assisted_simulator_seconds": 1.0000000000000002,
+      "teacher_requests": 50,
+      "admitted_windows": 6,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 160,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state1",
+        "success": false,
+        "actions_executed": 150,
+        "correction_episodes": 3,
+        "assisted_chunks": 4,
+        "correction_reviews": [
+          {
+            "start_step": 80,
+            "end_step": 85,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, subtract 0.45 from delta_z, leaving all other channels unchanged. This reduces upward inputs to approximately 0.017\u20130.260 without commanding descent. Compare for reduced unnecessary upward departure while preserving bottle retention, not for established bowl-directed transport. Reobserve after this single prefix and reassess alignment; do not repeat reduced lifting as presumed task progress.",
+              "completion": "After this five-action prefix, real observations must show reduced upward departure with the bottle retained to complete this local correction. Bowl alignment remains a separate requirement; the original task completes only when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:80:diagnose:21"
+            },
+            "evidence": "End-effector height decreased from 1.2961 to 1.2921, showing no further upward departure during this prefix. The bottle remains visible beneath the gripper and stable relative to it in the wrist views, supporting retention. This satisfies the local correction's completion condition; bowl alignment and release into the gray bowl remain unachieved.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:85:assess:23",
+            "request_fingerprint": "5e6a6c2c2f5113fe448b550e3a945257d271c33b42a68af90d8aed8511e8e984",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 23,
+            "observation_step": 85
+          },
+          {
+            "start_step": 100,
+            "end_step": 105,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For action 4 only, add 1.99 to the gripper channel, yielding approximately +0.9983 closing; preserve all other commands. Compare for preventing premature release of the retained bottle outside the bowl. This is a single-prefix retention correction, not demonstrated bowl-directed progress. Reobserve after action 4 and reassess destination transfer rather than repeatedly treating retention as transport.",
+              "completion": "After this five-action prefix, real views show the bottle retained without finger opening or bottle separation. Then reassess transport toward the gray bowl. The original task completes only when the released bottle visibly rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:100:diagnose:27"
+            },
+            "evidence": "The bottle remains visibly at the gripper in both after views, with no visible finger opening or bottle separation during the executed closing prefix. This supports the finite retention correction's completion. The bottle remains outside the gray bowl; bowl-directed transfer and placement are not demonstrated.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:105:assess:29",
+            "request_fingerprint": "9fb62949560efa4f63edd19a444ffab48b36b0ea0fecbc0ec8a32a9a55d8f9b2",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 29,
+            "observation_step": 105
+          },
+          {
+            "start_step": 140,
+            "end_step": 145,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.25 from delta_z, preserving all other commands. This produces small downward inputs of approximately -0.039 to -0.078 for one bounded approach prefix. Prefer a clear reduction of the acquisition gap without pushing or tipping the supported bottle. Reobserve after five actions; do not repeat descent without checking alignment, and do not count approach alone as grasp or transport.",
+              "completion": "After this five-action prefix, real views show a smaller finger-to-neck gap with the bottle still upright and undisturbed. Reassess alignment before closure or further descent. The original task completes only when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:140:diagnose:43"
+            },
+            "evidence": "The end effector descended about 0.0081 m while the gripper remained open. The bottle appears upright and undisturbed, but the paired views do not clearly establish a smaller finger-to-neck gap or acquisition alignment. Descent occurred; useful approach completion remains unverified. No grasp or placement in the gray bowl is visible.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:145:assess:45",
+            "request_fingerprint": "f118d7de98fe506fa64b80d50086d6b3dcd7e484467e4dbdf4e4caba1f219ff7",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 45,
+            "observation_step": 145
+          },
+          {
+            "start_step": 145,
+            "end_step": 150,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.31 from delta_z, preserving every other command. The resulting upward inputs are approximately 0.001\u20130.028. Compare for arresting renewed withdrawal without disturbing the supported bottle. End this correction after one prefix and reobserve alignment; do not repeat holding as presumed progress toward the bowl.",
+              "completion": "After five actions, real observations show negligible upward withdrawal with the bottle upright and undisturbed. Then reassess neck alignment before closure or descent; holding alone does not establish acquisition. The original task completes when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:145:diagnose:46"
+            },
+            "evidence": "The five-action correction arrested upward withdrawal: end-effector height decreased by approximately 0.00063 m, and both camera pairs show the bottle remaining upright and undisturbed. This satisfies the finite correction's completion check. The gripper remains open; acquisition and placement in the gray bowl are not established. Neck alignment must be reassessed before further action.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:150:assess:48",
+            "request_fingerprint": "487a4ac0d9bc4c3c5cc0daccf9a83934f00c12a6da650152ff2f4b53d36a8f60",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 48,
+            "observation_step": 150
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 135,
+            "end_step": 140,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state1",
+              "step": 135
+            },
+            "evidence": "The open gripper descended about 2.2 cm, and the wrist view shows the bottle neck closer to the gripper, supporting useful approach setup. The bottle remains outside the bowl; no grasp or transport is established by this prefix.",
+            "outcome": "observed_useful",
+            "plan_complete": false,
+            "stage": "setup",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:140:assess:42",
+            "request_fingerprint": "61bc993417556d2c3f2480c5058d721b73b2f7ea4505ea59240a14af4de72ac2",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 42,
+            "observation_step": 140
+          },
+          {
+            "start_step": 140,
+            "end_step": 145,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.25 from delta_z, preserving all other commands. This produces small downward inputs of approximately -0.039 to -0.078 for one bounded approach prefix. Prefer a clear reduction of the acquisition gap without pushing or tipping the supported bottle. Reobserve after five actions; do not repeat descent without checking alignment, and do not count approach alone as grasp or transport.",
+              "completion": "After this five-action prefix, real views show a smaller finger-to-neck gap with the bottle still upright and undisturbed. Reassess alignment before closure or further descent. The original task completes only when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:140:diagnose:43"
+            },
+            "evidence": "The end effector descended about 0.0081 m while the gripper remained open. The bottle appears upright and undisturbed, but the paired views do not clearly establish a smaller finger-to-neck gap or acquisition alignment. Descent occurred; useful approach completion remains unverified. No grasp or placement in the gray bowl is visible.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:145:assess:45",
+            "request_fingerprint": "f118d7de98fe506fa64b80d50086d6b3dcd7e484467e4dbdf4e4caba1f219ff7",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 45,
+            "observation_step": 145
+          },
+          {
+            "start_step": 145,
+            "end_step": 150,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.31 from delta_z, preserving every other command. The resulting upward inputs are approximately 0.001\u20130.028. Compare for arresting renewed withdrawal without disturbing the supported bottle. End this correction after one prefix and reobserve alignment; do not repeat holding as presumed progress toward the bowl.",
+              "completion": "After five actions, real observations show negligible upward withdrawal with the bottle upright and undisturbed. Then reassess neck alignment before closure or descent; holding alone does not establish acquisition. The original task completes when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state1:145:diagnose:46"
+            },
+            "evidence": "The five-action correction arrested upward withdrawal: end-effector height decreased by approximately 0.00063 m, and both camera pairs show the bottle remaining upright and undisturbed. This satisfies the finite correction's completion check. The gripper remains open; acquisition and placement in the gray bowl are not established. Neck alignment must be reassessed before further action.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state1:150:assess:48",
+            "request_fingerprint": "487a4ac0d9bc4c3c5cc0daccf9a83934f00c12a6da650152ff2f4b53d36a8f60",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state1",
+            "attempt_id": "libero_goal_ood:seed173:task6:state1",
+            "request_index": 48,
+            "observation_step": 150
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    },
+    {
+      "success": false,
+      "actions_executed": 200,
+      "early_stop": "correction_episode_budget_exhausted",
+      "episode_id": "libero_goal_ood:seed173:task6:state2",
+      "wall_seconds": 1231.062801354099,
+      "correction_episodes": 3,
+      "assisted_chunks": 4,
+      "assisted_simulator_seconds": 1.0000000000000002,
+      "teacher_requests": 61,
+      "admitted_windows": 2,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 210,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state2",
+        "success": false,
+        "actions_executed": 200,
+        "correction_episodes": 3,
+        "assisted_chunks": 4,
+        "correction_reviews": [
+          {
+            "start_step": 130,
+            "end_step": 135,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, cancel each native delta_z input with its equal positive additive correction, yielding zero commanded vertical translation. Preserve horizontal, rotational and closing commands. Compare for arresting premature descent while preserving retention and clearance, without claiming bowl-directed progress. End this correction after one prefix and reobserve; do not repeat holding or lifting beside the rack as presumed transfer.",
+              "completion": "After this single five-action prefix, real observations show arrested descent with the bottle retained and no new rack interference. Then reassess transfer toward the gray bowl; holding beside the rack does not complete transfer. The original task completes only when the released bottle rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state2:130:diagnose:34"
+            },
+            "evidence": "The executed prefix commanded zero vertical translation, but measured end-effector height decreased from 1.2448 to 1.2380. The bottle remains similarly positioned relative to the gripper beside the rack, with no obvious new interference. These observations suggest retention but do not establish arrested descent or secure clearance. No placement in the gray bowl occurred.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:135:assess:36",
+            "request_fingerprint": "ba4927502d40cff2e32e0054516993fe9dd2be4ac3125cef29f8675954d529a3",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 36,
+            "observation_step": 135
+          },
+          {
+            "start_step": 140,
+            "end_step": 145,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For action 4 only, add 1.99 to the gripper input, yielding approximately +0.9946 closing. Preserve every other command. Compare for preventing premature release outside the bowl while preserving apparent retention. This is a finite retention correction, not a claim of clearance or bowl-directed progress. End after this prefix and reobserve before choosing further transfer commands.",
+              "completion": "After this single five-action prefix, paired real views show apparent bottle retention without finger opening or bottle separation. Reassess transfer toward the gray bowl immediately afterward; retention alone does not establish useful transport. The original task completes only when the released bottle rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state2:140:diagnose:40"
+            },
+            "evidence": "Across the paired real views, the bottle remains in approximately the same relation to the gripper, with no visible finger opening or bottle separation. Finger positions also remain nearly unchanged. This supports apparent retention through the executed prefix and completes the finite retention check, but does not establish secure grasping or useful transport toward the gray bowl. The bottle remains outside the bowl; the original task is incomplete.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:145:assess:42",
+            "request_fingerprint": "04a42aaf81d441ebb07eb55dc3cb8adcfc502ef51e8fc213394c695fdc21db21",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 42,
+            "observation_step": 145
+          },
+          {
+            "start_step": 150,
+            "end_step": 155,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, add 1.99 to the gripper channel, yielding closing inputs near +0.99 within bounds. Preserve all other commands. Compare for preventing further opening outside the bowl while preserving apparent bottle contact. End after one prefix and reobserve; this correction does not resolve descent, prove a grasp, or establish bowl-directed progress. Do not repeat retention as presumed transport.",
+              "completion": "After this single five-action prefix, real paired views must show no finger opening or bottle separation to complete the local retention check. Reassess grasp and bowl-directed transfer immediately afterward. The original task completes only when the released bottle rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state2:150:diagnose:44"
+            },
+            "evidence": "The paired views show no visible finger opening or bottle separation during the five closing commands; the bottle remains aligned with the fingers. This satisfies the single-prefix retention check, but does not prove a secure grasp or useful transport toward the gray bowl. The bottle remains outside the bowl, so the original task is unfinished.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:155:assess:46",
+            "request_fingerprint": "9f63fbf02ff75821a6badc44cce2135111be934220ce321d6927859969999e65",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 46,
+            "observation_step": 155
+          },
+          {
+            "start_step": 180,
+            "end_step": 185,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.068 from delta_z, preserving every other command. Resulting z inputs are approximately 0.0006\u20130.0094, reducing open-handed withdrawal without commanding descent. Compare for arrested retreat without disturbing the supported bottle. End after this single prefix and reobserve alignment; do not repeat holding as presumed acquisition or bowl-directed progress.",
+              "completion": "After five actions, real observations show negligible upward withdrawal with the bottle undisturbed on its support. Then reassess finger alignment; this does not establish acquisition. The original task completes only when the released bottle rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state2:180:diagnose:54"
+            },
+            "evidence": "The executed prefix produced only about 0.002 m upward displacement and 0.001 m horizontal displacement. Paired images show the bottle undisturbed on its wooden support, with the gripper still open. This satisfies the finite arrest-withdrawal correction; it does not establish a grasp or progress into the gray bowl. Reassess finger alignment now; the original task remains incomplete.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:185:assess:56",
+            "request_fingerprint": "076f172362777f5c843df13ff785e5f47e26787f9464d5c9bfc30353db73cf05",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 56,
+            "observation_step": 185
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 185,
+            "end_step": 190,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state2",
+              "step": 185
+            },
+            "evidence": "The end effector rose about 0.0095 m while the gripper remained open. The bottle remains on the wooden surface, separate from the bowl, with no visible grasp or transport. This prefix shows upward motion but does not establish useful progress toward placing the bottle in the bowl.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:190:assess:57",
+            "request_fingerprint": "707320bdb97edde7b03f39142eb7d2982fa374e08be6b40908a1ee39ea17ee12",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 57,
+            "observation_step": 190
+          },
+          {
+            "start_step": 190,
+            "end_step": 195,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state2",
+              "step": 190
+            },
+            "evidence": "The end effector rose about 1.4 cm while the gripper remained open, consistent with the upward and opening commands. The bottle remains on the wooden surface, separate from the bowl, with no visible grasp or transport. This prefix shows no useful progress toward putting the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:195:assess:58",
+            "request_fingerprint": "b44a255629e2f45fb4aecf5c33d9ec7645ad395d5e034464eaaf39f1023520b2",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 58,
+            "observation_step": 195
+          },
+          {
+            "start_step": 195,
+            "end_step": 200,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state2",
+              "step": 195
+            },
+            "evidence": "The end effector rose about 0.010 m while all five commands kept the gripper open. The bottle remains lying in the wooden tray, separate from the bowl, with no visible grasp or transport. This prefix shows no useful progress toward putting the bottle in the bowl.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state2:200:assess:59",
+            "request_fingerprint": "c910a49375d994845932ca03df625c6685a913d8df6f6f2fb4aabb57b4e7607f",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state2",
+            "attempt_id": "libero_goal_ood:seed173:task6:state2",
+            "request_index": 59,
+            "observation_step": 200
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    },
+    {
+      "success": false,
+      "actions_executed": 225,
+      "early_stop": "correction_episode_budget_exhausted",
+      "episode_id": "libero_goal_ood:seed173:task6:state3",
+      "wall_seconds": 1331.6022607928608,
+      "correction_episodes": 3,
+      "assisted_chunks": 5,
+      "assisted_simulator_seconds": 1.2500000000000004,
+      "teacher_requests": 68,
+      "admitted_windows": 3,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 235,
+      "collection_summary": {
+        "episode_id": "libero_goal_ood:seed173:task6:state3",
+        "success": false,
+        "actions_executed": 225,
+        "correction_episodes": 3,
+        "assisted_chunks": 5,
+        "correction_reviews": [
+          {
+            "start_step": 135,
+            "end_step": 140,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, add 0.40 to delta_y and 0.20 to delta_z, preserving other channels. This changes Y to positive inputs and Z to small positive inputs, requesting a leftward transfer toward the bowl while reducing premature descent. Compare for clear directional improvement with apparent retention and clearance preserved; projected error alone is insufficient. End after this prefix and reobserve rather than repeating lifts beside the rack.",
+              "completion": "After one five-action prefix, paired real views show the bottle moving with the gripper away from the rack toward the gray bowl, without separation or new interference. Reassess alignment and clearance then. The original task completes only when the released bottle visibly rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state3:135:diagnose:38"
+            },
+            "evidence": "The bottle remains similarly positioned relative to the gripper in both wrist views, with no visible separation. Proprioception shows small positive Y and Z motion, but the external views show little displacement and the bottle remains beside the rack. Clear transfer away from the rack toward the gray bowl is not established by this prefix; the bottle is not resting inside the bowl.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:140:assess:40",
+            "request_fingerprint": "bd594977b43e0547b501f3645b411d3abdeab2ec258c151285a5d660e806996d",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 40,
+            "observation_step": 140
+          },
+          {
+            "start_step": 140,
+            "end_step": 145,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, add 1.99 to the gripper channel, changing -1 opening to +0.99 closing. Preserve every other command. Compare for preventing premature release outside the bowl while preserving apparent bottle contact. End after one prefix and reobserve; do not repeat retention as presumed progress toward placement.",
+              "completion": "After this single five-action prefix, paired real views show no finger opening or bottle separation, preserving apparent retention. Then reassess grasp and transport toward the gray bowl; retention alone is not transport. The original task completes only when the released bottle visibly rests inside the bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state3:140:diagnose:41"
+            },
+            "evidence": "Across the paired real views, the bottle remains at the fingers with no visible separation or finger opening. Finger positions narrow from approximately \u00b10.0187 to \u00b10.0155, consistent with the executed closing commands. This satisfies the single-prefix apparent-retention check, but does not establish a secure grasp or transport toward the gray bowl. The bottle remains outside the bowl; the original task is incomplete.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:145:assess:43",
+            "request_fingerprint": "a37d7bdf9486ff6084637072afed7f0f58a923666a7058533f4484896f3b094b",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 43,
+            "observation_step": 145
+          },
+          {
+            "start_step": 150,
+            "end_step": 155,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, add 1.99 to the gripper input, yielding approximately +0.990 to +0.993 closing. Preserve all arm commands. Compare for preventing premature opening outside the bowl while preserving apparent bottle contact. End after this prefix and reobserve grasp and destination alignment. Treat this strictly as retention protection, not transport or evidence that repeated closure advances placement.",
+              "completion": "After this single five-action prefix, paired real views show preserved bottle contact without finger opening or separation. Then reassess acquisition and bowl-directed transport; this check does not prove a secure grasp. The original task completes only when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state3:150:diagnose:45"
+            },
+            "evidence": "Paired real views show preserved apparent finger\u2013bottle contact without visible opening or separation after the five closing commands. Finger positions remain nearly unchanged. This satisfies the finite retention check, but does not establish a secure grasp or bowl-directed transport; the bottle remains outside the gray bowl.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:155:assess:47",
+            "request_fingerprint": "046b8b800df6c49a84900dbede877ed933c98ea140e691d1bb65e4faff320e62",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 47,
+            "observation_step": 155
+          },
+          {
+            "start_step": 180,
+            "end_step": 185,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134 only, subtract 0.07 from delta_z, preserving every other command. Resulting z inputs are approximately 0.0003\u20130.0148, reducing upward withdrawal without commanding descent. Compare for arresting retreat while leaving the supported bottle undisturbed. End after one prefix and reobserve alignment; do not repeat holding as presumed acquisition or progress toward the bowl.",
+              "completion": "After this five-action prefix, real observations show negligible upward withdrawal with the bottle undisturbed on its wooden support. Reassess finger alignment before further approach or closure. This does not establish acquisition; the original task completes only when the released bottle visibly rests inside the gray bowl.",
+              "request_id": "libero_goal_ood:seed173:task6:state3:180:diagnose:55"
+            },
+            "evidence": "The executed prefix produced only about 2.1 mm upward displacement, with little visible change in either camera. The bottle remains undisturbed on its wooden support and the gripper remains open. This satisfies the active rule's one-prefix retreat-arrest check; it does not establish acquisition or placement in the gray bowl. Finger alignment still needs reassessment.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:185:assess:57",
+            "request_fingerprint": "a994c3ad2b5b8e688b8686934c1c27003c1d9fb25a995c21ad4bef7aa1d5f304",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 57,
+            "observation_step": 185
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 210,
+            "end_step": 215,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state3",
+              "step": 210
+            },
+            "evidence": "The bottle remains on the wooden surface, separate from the bowl, with no visible transport. The executed prefix commands opening throughout; proprioception shows only a small end-effector rise (about 0.0055 m). No grasp, bottle lift, or progress toward placement is observed.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:215:assess:64",
+            "request_fingerprint": "4648da99b74d9fb3b0f9517c85624e9c7933ffa13c01e663d9971fcaca7ca593",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 64,
+            "observation_step": 215
+          },
+          {
+            "start_step": 215,
+            "end_step": 220,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state3",
+              "step": 215
+            },
+            "evidence": "The bottle remains on the wooden support, separate from the bowl, with no visible grasp or transport. The executed prefix maintained an open gripper while the measured end-effector height increased only about 2 mm. This provides no observable useful progress toward putting the bottle in the bowl; any benefit of the small adjustment is unclear.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:220:assess:65",
+            "request_fingerprint": "c48bb147901ad7ec9d2d0168c11000e9e3f139af1a951e8e6a23db42d058960b",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 65,
+            "observation_step": 220
+          },
+          {
+            "start_step": 220,
+            "end_step": 225,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_goal_ood:seed173:task6:state3",
+              "step": 220
+            },
+            "evidence": "The executed prefix lowered the end effector about 0.0063 m while commanding the gripper open. Both camera pairs show the bottle remaining on the wooden support, separate from the bowl, with no clear object movement. This could be approach motion, but the observations do not establish improved grasp readiness or useful progress toward placing the bottle in the bowl.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "setup",
+            "decision_id": "libero_goal_ood:seed173:task6:state3:225:assess:66",
+            "request_fingerprint": "cdeb72b01813e5f5872f06933c12842aa418a7697eca0741c6debf413d2ae3b1",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_goal_ood:seed173:task6:state3",
+            "attempt_id": "libero_goal_ood:seed173:task6:state3",
+            "request_index": 66,
+            "observation_step": 225
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    }
+  ],
+  "replayed_training_data": null,
+  "partial_collection": [],
+  "collection_steps_retained": 815,
+  "collection_steps_may_be_lower_bound": false,
+  "evaluation_steps_retained": 3463,
+  "evaluation_steps_may_be_lower_bound": true,
+  "completed_collection_rollouts": 4,
+  "collected_successes": 0,
+  "policy_updates": 4,
+  "latest_evaluated_policy_version": 2,
+  "latest_updated_policy_version": 4,
+  "latest_update_has_autonomous_evaluation": false,
+  "teacher_usage": {
+    "completed_calls": 250,
+    "failed_provider_calls": 0,
+    "input_tokens": 5144415,
+    "cached_input_tokens": 2867968,
+    "output_tokens": 46738,
+    "total_tokens": 5191153,
+    "latency_seconds": 3196.7650303848495,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 2276447
+  },
+  "teacher_decisions": {
+    "roles": {
+      "diagnose": 61,
+      "assess": 155,
+      "compare": 29,
+      "localize_visible_points": 5
+    },
+    "requested_interventions": 33,
+    "requested_methods": {
+      "language_subgoal": 16,
+      "target_guidance": 17
+    },
+    "candidate_preferences": {
+      "uncertain": 71,
+      "tie": 15,
+      "win": 17,
+      "loss": 26
+    },
+    "selected_non_native_proposals": 16,
+    "selected_candidates": {
+      "bounded_target": 16
+    },
+    "observed_prefix_outcomes": {
+      "ambiguous": 99,
+      "observed_useful": 32,
+      "failed": 24
+    },
+    "scope": "Retained parsed responses, including partial attempts. A requested intervention, predicted win, selected proposal, executed prefix and admitted training window are distinct counts."
+  },
+  "visual_grounding_audit": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "available_at_step": 120,
+      "accepted": false,
+      "reason": "insufficient_fit_labels",
+      "confident_fit_labels": 4,
+      "confident_validation_labels": null,
+      "validation_rms_pixels": null,
+      "source": "current_collection_episode_only",
+      "used_for_policy_training": false,
+      "environment_actions_added": 0
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "available_at_step": 120,
+      "accepted": false,
+      "reason": "insufficient_fit_labels",
+      "confident_fit_labels": 2,
+      "confident_validation_labels": null,
+      "validation_rms_pixels": null,
+      "source": "current_collection_episode_only",
+      "used_for_policy_training": false,
+      "environment_actions_added": 0
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state2",
+      "available_at_step": 120,
+      "accepted": false,
+      "reason": "insufficient_fit_labels",
+      "confident_fit_labels": 4,
+      "confident_validation_labels": null,
+      "validation_rms_pixels": null,
+      "source": "current_collection_episode_only",
+      "used_for_policy_training": false,
+      "environment_actions_added": 0
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state3",
+      "available_at_step": 120,
+      "accepted": true,
+      "reason": "passed",
+      "confident_fit_labels": 8,
+      "confident_validation_labels": 8,
+      "validation_rms_pixels": 3.9580868497107047,
+      "source": "current_collection_episode_only",
+      "used_for_policy_training": false,
+      "environment_actions_added": 0
+    }
+  ],
+  "usage_by_episode": {
+    "libero_goal_ood:seed173:task6:state0": {
+      "completed_calls": 71,
+      "failed_provider_calls": 0,
+      "input_tokens": 1414058,
+      "cached_input_tokens": 849280,
+      "output_tokens": 12852,
+      "total_tokens": 1426910,
+      "latency_seconds": 884.0609845438448,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_goal_ood:seed173:task6:state2": {
+      "completed_calls": 61,
+      "failed_provider_calls": 0,
+      "input_tokens": 1266027,
+      "cached_input_tokens": 675200,
+      "output_tokens": 10757,
+      "total_tokens": 1276784,
+      "latency_seconds": 770.8947875810845,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_goal_ood:seed173:task6:state1": {
+      "completed_calls": 50,
+      "failed_provider_calls": 0,
+      "input_tokens": 1021265,
+      "cached_input_tokens": 577152,
+      "output_tokens": 9794,
+      "total_tokens": 1031059,
+      "latency_seconds": 661.0353265439335,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_goal_ood:seed173:task6:state3": {
+      "completed_calls": 68,
+      "failed_provider_calls": 0,
+      "input_tokens": 1443065,
+      "cached_input_tokens": 766336,
+      "output_tokens": 13335,
+      "total_tokens": 1456400,
+      "latency_seconds": 880.7739317159867,
+      "incomplete_usage_receipts": 0
+    }
+  },
+  "threshold_crossing": null,
+  "threshold_status": "not_reached_in_completed_evaluations",
+  "videos": [],
+  "starting_frame": null,
+  "termination": {
+    "status": "FAILED_CANCELED",
+    "cancelled_by": "groot-idle-job-shutdown",
+    "end_time": "2026-10-04T08:27:23.959753",
+    "reason": "Shared-pool quota enforcement reclaimed lower-priority capacity for another workload. Not a model failure or an experiment completion."
+  },
+  "actual_gpu_hours_including_initialization": 1.7008030808333334,
+  "research_objective_met": false,
+  "source_artifact_sha256": {
+    "runtime.json": "46c4a339acc9a1bcb256888e2e779b21c88b9e5ccd597a58b241ba895483a4cb",
+    "protocol.json": "c03ec18adf1bc35fab6969ff01af91bb643702264b3ed7d9031fc39e6a5b56bf",
+    "learning_curve.json": "df8d8937a6613f5ba290b41176ad44485d34fd89316e8d9b4d8129561f9706cf",
+    "collection.json": "d32b0c907a4e34cf1dafb5a9ee3cc866e724747591c17a7376438f3463b98c1d",
+    "updates.json": "8a86a30bd12002ae6338b79dfafb596c502ec8c4b84716355608a8a86b91d467"
+  },
+  "scope": "Development run externally preempted. Only complete scheduled evaluations are SR points; partial evaluations and the latest unevaluated checkpoint are not scored. All retained collection actions, reasoning and allocation costs remain counted.",
+  "evaluation_accounting_note": "Seven of ten final episode records were recovered. Any unarchived tail is unknown; retained controls are a lower bound, with no invented extra actions."
+}

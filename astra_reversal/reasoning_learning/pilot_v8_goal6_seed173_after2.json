@@ -1,0 +1,312 @@
+{
+  "schema": "reasoning-scheduled-development-checkpoint-1",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+  "source_revision": "3c3eb27faa7cb9b465c5bd01e172004bc5ee8e0b",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "scope": "Scheduled two-collection checkpoint of the fixed four-collection V8 development screen. Later costs stay in the whole-run ledger. No accepted projection during these collections; not a test of accepted projection effectiveness.",
+  "point": {
+    "collection_rollouts": 2,
+    "collection_steps": 370,
+    "evaluation_steps_cumulative": 1983,
+    "policy_version": 2,
+    "successes": 5,
+    "rollouts": 10,
+    "success_rate": 0.5,
+    "wilson_95": [
+      0.236593090512564,
+      0.7634069094874361
+    ],
+    "teacher_total_tokens": 2457969,
+    "episode_results": [
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state20",
+        "success": true,
+        "actions_executed": 83,
+        "total_control_steps": 93,
+        "reset_identity": {
+          "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+          "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state21",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+          "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state22",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+          "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state23",
+        "success": true,
+        "actions_executed": 86,
+        "total_control_steps": 96,
+        "reset_identity": {
+          "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+          "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state24",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+          "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state25",
+        "success": true,
+        "actions_executed": 71,
+        "total_control_steps": 81,
+        "reset_identity": {
+          "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+          "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state26",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+          "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state27",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+          "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state28",
+        "success": true,
+        "actions_executed": 88,
+        "total_control_steps": 98,
+        "reset_identity": {
+          "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+          "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state29",
+        "success": true,
+        "actions_executed": 55,
+        "total_control_steps": 65,
+        "reset_identity": {
+          "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+          "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      }
+    ]
+  },
+  "versus_native": {
+    "native_successes": 5,
+    "rollouts": 10,
+    "delta_success_rate": 0.0,
+    "gained_episode_ids": [],
+    "regressed_episode_ids": [],
+    "paired_reset_identities_verified": true
+  },
+  "intervention_credit": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "success": false,
+      "collection_controls": 210,
+      "assisted_prefixes_executed": 3,
+      "assisted_prefixes_reviewed": 3,
+      "selected_methods_reviewed": {
+        "bounded_target": 3
+      },
+      "assisted_prefix_teacher_outcomes": {
+        "observed_useful": 2,
+        "ambiguous": 1
+      },
+      "assisted_actions_executed": 15,
+      "assisted_actions_locally_useful": 10,
+      "assisted_actions_in_complete_training_windows": 0,
+      "all_admitted_windows": 1,
+      "correction_containing_windows": 0,
+      "source_sha256": {
+        "outcomes.jsonl": "5903499d3563923ad201fa89336365984024d0b00b1d1a3f735fd4db5e2ffaf5",
+        "decisions.jsonl": "cca424ed383d9fdd5523be973342d1a4d08549e699567034f607d7430f9b3b6c",
+        "admission.jsonl": "ab58b042ba9ee8e23c69f8d4ea710b0686a63533743d4084e749a86830174246",
+        "executed_steps.jsonl": "4caa82c9b93fb8901012e20027628b9e1061d024bbad5be5ad498f842df45bef",
+        "result.json": "a817f8ff30d01b851d38fb5c2122b373f1e699feea978cdc4d5bc17375e9432b"
+      }
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "success": false,
+      "collection_controls": 160,
+      "assisted_prefixes_executed": 4,
+      "assisted_prefixes_reviewed": 4,
+      "selected_methods_reviewed": {
+        "bounded_target": 4
+      },
+      "assisted_prefix_teacher_outcomes": {
+        "observed_useful": 3,
+        "ambiguous": 1
+      },
+      "assisted_actions_executed": 20,
+      "assisted_actions_locally_useful": 15,
+      "assisted_actions_in_complete_training_windows": 0,
+      "all_admitted_windows": 6,
+      "correction_containing_windows": 0,
+      "source_sha256": {
+        "outcomes.jsonl": "3ed82eb6c48448f97163e144f06bbfa3646fc9546a475d83f1400ef869357250",
+        "decisions.jsonl": "0990f84a764df961c2dcbbad783b37baec5bd7ceecb53b3a58f7c019aa7037eb",
+        "admission.jsonl": "1fffb443f8d8bb733ab6a5530f1cb4d80a29413c8f1f34d00aec2b5837845e55",
+        "executed_steps.jsonl": "bcdb18450ef812e979167534a7a28def26013f62aa87b68b0cfb468ce1d565f3",
+        "result.json": "44b1f7687ebf0d72c7c2995a3eff0dee804e9c2127a78033523d699627e59650"
+      }
+    }
+  ],
+  "research_objective_met": false,
+  "teacher_usage_by_collection": {
+    "libero_goal_ood:seed173:task6:state0": {
+      "completed_calls": 71,
+      "failed_provider_calls": 0,
+      "input_tokens": 1414058,
+      "cached_input_tokens": 849280,
+      "output_tokens": 12852,
+      "total_tokens": 1426910,
+      "latency_seconds": 884.0609845438448,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_goal_ood:seed173:task6:state1": {
+      "completed_calls": 50,
+      "failed_provider_calls": 0,
+      "input_tokens": 1021265,
+      "cached_input_tokens": 577152,
+      "output_tokens": 9794,
+      "total_tokens": 1031059,
+      "latency_seconds": 661.0353265439335,
+      "incomplete_usage_receipts": 0
+    }
+  },
+  "calibrations": [
+    {
+      "source": "current_collection_episode_only",
+      "source_observation_sha256": {
+        "0": "5aed75c3fbb80da84f5dc7f306d52da94ca726234df3c78b02f1c42a49bb0386",
+        "10": "bbb3a002c2705abe9d2fe044c9c1fe5cb5f6cb8eb2a2091632b3dce21bd26b9b",
+        "20": "6ec4699eeb387b57541c54f542abe0cab214412f458179e7f1d361330fd902e4",
+        "30": "38afa82eb3c0652a62d7d733c10d579735c8d87686909c27447121f87fa06c14",
+        "40": "4f2f16d5cc7100e5c4af2518a84e970b97e6662eb1101044af3db13f33e6dd96",
+        "50": "6237d71b9b489173132d7c249fcae6f89a0a97d30b99f17c39dc23202d97f808",
+        "60": "aa5560334db5a134b6df872cd591aed84eb896ed65033e5bc77f4319bd3bcdeb",
+        "70": "d698aef0a77b227b228245ccccda6f4474ca2718e45b44d8acdecc8807abc24c",
+        "80": "b6de7b600907ea48a684acc480e8bf04278b7e2e5196e4978c85abeb4f694186",
+        "90": "9d63257bbfe169c6e780100e0ae9c004ecb7a05ff800a92bdd2609a1264ebcd8",
+        "100": "e380fec81e87f531445f18c797fd7458bdc3a03980d9ba3de7ab578939432b1a",
+        "110": "0214ea1367d0fc7a1c963d76091f9888822adf553d1fdfcd996e5e978a02f3ae",
+        "5": "4de0955fe7ff11633fb06437ff53d61d2a121472f6cca87c492877fbfc8c379a",
+        "15": "d50960b5b14f4deb4647455d45bbcc48466fa866b1498d0be3171bde7b46d71f",
+        "25": "0b762b952ced14b5a5767f5699574010504bc2da5093698d22681d877bcc096b",
+        "35": "b7cca368cc3b714ad9978ece5c7d9be0fb8065d430fcf1457e3b92ced44d8137",
+        "45": "85121e8fe0a6178d08167f2e4550b4b882266e793a050908a4761bc9ad44e2ac",
+        "55": "dfe5d130505e226889bf7574cf20cbe4ca13e6f1cce62c11d3863ab1dbfd72bc",
+        "65": "89cb23a1fc4a472771f7e1c682b3945ba5882a0d78427f9a085dab0671a00694",
+        "75": "0568350303c6795f5b58ff7cacebcdc86cfa46678e818ab28e6cd2905fd676d6",
+        "85": "e4b1719952634918bb2fb46822f817709d5f0be4e50a0f1b7fbf56f8cc9e284c",
+        "95": "84dc3cf593b6f5131ad6d7136110b5344297624f31a48691e1d861a2c8885abe",
+        "105": "75df775ed0da85d973ee71182a3c02e60cdc7dd7e91dfe94cce83fe506b56d0d",
+        "115": "13b50692c0d1b4454301c0562eb8b03d6a219548cde9a5b5bd8684df7cee2da5"
+      },
+      "environment_actions_added": 0,
+      "used_for_policy_training": false,
+      "fit_label_steps": [
+        50,
+        60,
+        70,
+        80
+      ],
+      "accepted": false,
+      "reason": "insufficient_fit_labels",
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "available_at_step": 120,
+      "policy_version": 0
+    },
+    {
+      "source": "current_collection_episode_only",
+      "source_observation_sha256": {
+        "0": "86eb79684a295cb8d1aabffba537675dbbaa27ac90d00b1426bfb6574b7f0a1c",
+        "10": "7d9252daafac087374c3ec34f3fbcfdae0e9afe90dee97bf025210c999d83222",
+        "20": "553381a47c7e202fedfeaa51a300d9e3e5a34bf6796f17ab6cabea0103b0ce71",
+        "30": "eb72ce4e708468b732970ebfe6f2dee2ca7f9a4d52f8397943964f8993dd30fc",
+        "40": "b926896daad2f581edf1def639d4195428e02f66562f6561e7ab4d40fea01a6b",
+        "50": "2dcd141a7d93c409838270dd3234a3bf13dd51fc27818ea24ebec7aa7bd5b20a",
+        "60": "f8ccf8c3302c87de91644b0cae38c9ae76f52db6e6b8c926b2ac2d19fe68d614",
+        "70": "d64d7a22620c45d351e8c660a8c113bcb4845618827fe797b0e9eb30d46023e9",
+        "80": "c31b710768789847964db1c60b437ce27c221d476193e0e7afed7e440995eef2",
+        "90": "8ef400eb796bd58b488e80307fc6ef248c8ae6a7af816086ef847ac31a767156",
+        "100": "221199f40c2c60b6a0dcfc60d275e62690afad6a2dc4404c029204046da3092f",
+        "110": "949af5b488d43c0b5ad76494f1bf72706536903f01f4d58157406e1006377648",
+        "5": "d6cf86c2b470d9927ed518c5529adba486c98ece002b8f926d8761d78f7a84ff",
+        "15": "98a3f4bf2ee2ba09317ab67f88b788f1c4d6bb161abbad008c2b434a45214b90",
+        "25": "d77236f6de3491249885776d89310bb56ff6423eba499966567a4ea9e72bc7b0",
+        "35": "1ff6a13cf57f79679eac640596125724862db28ed4e9d9d03641dc29ee4f6596",
+        "45": "9e233ee7ab2e398b6ead323f89b969b31cd7fec4945b3096bc4e7b2a0202eb1a",
+        "55": "4b7eed2afcf542ac8e2a08e5621c578a17e227927b6f9ba0fb7ca1546552e3e3",
+        "65": "685004612a48eae8789af54e082bfda7e40de46e5299337e467ea3b064e3049b",
+        "75": "ef8fa59bcb4f0ce828dc2d73ef63a41a5b42e8f43dd06c32604152884d3c7183",
+        "85": "225fe21eef0ce60b72c643c7b5b02268b6a038fde8696d1ed2c19b1ae1bca93b",
+        "95": "6f0acc1db9f3dd707e481d849989889a3fd3f21a5a8d2c5e829baf4b1b076f18",
+        "105": "dd13cac54b4aeecd678185c0c7c21e4da62f9dbeb57ec4d3bb6905b21a6e6850",
+        "115": "7d8dfc227537b01e6fb34e08a633a943647b51af07a43e42ff393bae60471b5d"
+      },
+      "environment_actions_added": 0,
+      "used_for_policy_training": false,
+      "fit_label_steps": [
+        0,
+        10
+      ],
+      "accepted": false,
+      "reason": "insufficient_fit_labels",
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "available_at_step": 120,
+      "policy_version": 1
+    }
+  ],
+  "source_artifact_sha256": {
+    "runtime.json": "46c4a339acc9a1bcb256888e2e779b21c88b9e5ccd597a58b241ba895483a4cb",
+    "learning_curve.json": "df8d8937a6613f5ba290b41176ad44485d34fd89316e8d9b4d8129561f9706cf",
+    "collection.json": "6eb55f845b2e5167104709e05b4b416c361ae208b0b438ff974eba76bf4f1e2d",
+    "updates.json": "d0e09029c70fa2ad060c1fdbf4b3d894c71355da63bc0c2e05c773fbd44abadc"
+  }
+}

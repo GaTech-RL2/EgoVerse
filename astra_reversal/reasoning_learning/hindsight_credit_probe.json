@@ -1,0 +1,973 @@
+{
+  "schema": "reasoning-hindsight-credit-probe-1",
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+  "source_collection_control_steps": 426,
+  "source_teacher_total_tokens": 3380126,
+  "environment_actions": 0,
+  "policy_updates": 0,
+  "minimum_confidence": 0.8,
+  "review_segment_max_actions": 10,
+  "source_selection": "All two completed V5 collections, including the failure. The successful attempt is reviewed first. No autonomous evaluation images or outcomes reach the reviewer.",
+  "scope": "Retrospective training-credit diagnostic. Future real observations may inform labels but are never substituted for a student pre-action observation. No GPU training authorized by the labels alone; prepare and evaluate a separate recorded-data ablation.",
+  "teacher_module_sha256": "475d4414b7c94a8127634b0874457b8c1a28ef08b1914c2d1aeae526cb487f3f",
+  "cases": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "source_success": true,
+      "source_actions": 106,
+      "source_admitted_windows": 12,
+      "request_fingerprint": "39f6b0d0632b5d6855f1d76f75a0d57a02edb62a19ce30768c5e058713860611",
+      "request_file": "request_rollout_1.json",
+      "source_sha256": {
+        "executed_steps.jsonl": "88ffa8bbda57b4b5c8dc6a5aee5f02efcd0806dec45acf93aae97dd5a1ce8e97",
+        "admission.jsonl": "8f67fcc80dfcfad77d940d97fca6615e3b0dc609cbf049b9ce84535bbeac7e5c",
+        "result.json": "bafc723a0efbb3e6670effdd5d52ac264bea68d9c7b3b43c8bc8885f07b9f50c"
+      },
+      "request_file_sha256": "d94dcd76afc1d288d63cd48a988c16819f6eb87a7db5924eb318a1e814d004f6",
+      "proposal": {
+        "episode_assessment": "The bottle is approached, grasped, lifted, transported over the bowl, and lowered into it; the final environment outcome is successful. Later images support credit for the earlier grasp and transport. Segment 8 includes a downward approach followed by an upward reversal whose necessity is not established, so the whole window remains ambiguous. The final release command is observed, but a completed withdrawal is not.",
+        "segments": [
+          {
+            "confidence": 0.93,
+            "evidence": "The open gripper moves toward the bottle and changes orientation, beginning the approach that subsequently reaches and grasps it.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 0
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "The gripper descends toward the bottle while remaining open; the bottle becomes larger and more centered in the wrist view.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 1
+          },
+          {
+            "confidence": 0.97,
+            "evidence": "Continued descent brings the open fingers close to the bottle. The subsequent closure and retained lift confirm this approach reaches the required object.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 2
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "The gripper completes its approach and closes around the bottle. Later images show the bottle moving with the gripper, confirming a productive grasp.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 3
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "The fingers close further and the end effector begins rising with the bottle retained; subsequent transport confirms the lift is productive.",
+            "outcome": "observed_useful",
+            "phase": "transport",
+            "segment_id": 4
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "The bottle visibly rises with the closed gripper, clearing its original position while remaining securely carried.",
+            "outcome": "observed_useful",
+            "phase": "transport",
+            "segment_id": 5
+          },
+          {
+            "confidence": 0.97,
+            "evidence": "The held bottle moves toward the bowl; external and wrist views show reduced separation from the target without visible object loss.",
+            "outcome": "observed_useful",
+            "phase": "transport",
+            "segment_id": 6
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "The gripper carries the bottle over the bowl and lowers it, bringing the bottle's lower end within the bowl's visible opening.",
+            "outcome": "observed_useful",
+            "phase": "placement",
+            "segment_id": 7
+          },
+          {
+            "confidence": 0.95,
+            "evidence": "Five downward commands are followed by five strong upward commands while the bottle remains held. Endpoint height is nearly unchanged; the observations do not establish why this reversal was necessary.",
+            "outcome": "ambiguous",
+            "phase": "recovery",
+            "segment_id": 8
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "The held bottle descends farther into the bowl's opening as end-effector height decreases. Both camera views retain alignment with the bowl.",
+            "outcome": "observed_useful",
+            "phase": "placement",
+            "segment_id": 9
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "The six executed actions finish lowering the bottle into the bowl and issue an opening command. Final images show the bottle in the bowl, and the environment reports success.",
+            "outcome": "observed_useful",
+            "phase": "placement",
+            "segment_id": 10
+          }
+        ],
+        "request_fingerprint": "39f6b0d0632b5d6855f1d76f75a0d57a02edb62a19ce30768c5e058713860611"
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "39f6b0d0632b5d6855f1d76f75a0d57a02edb62a19ce30768c5e058713860611",
+        "request_sha256": "4ea348db515886a301eca2f25a48631800b84fb58de12322f6402c0804a2a677",
+        "request_time": 1791096044.0976481,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 28742,
+          "output_tokens": 912,
+          "reasoning_tokens": 28,
+          "total_tokens": 29654
+        },
+        "raw_usage": {
+          "input_tokens": 28742,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 912,
+          "reasoning_output_tokens": 28
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "9c7c419f14f5ada356b0b9a76edda65ebcda408a2b7a258583f9710d08885491",
+        "original_schema_sha256": "9c7c419f14f5ada356b0b9a76edda65ebcda408a2b7a258583f9710d08885491",
+        "prompt_template_version": "reasoning-completed-trajectory-credit-1",
+        "prompt_sha256": "8f6ec3388f9ac06173ea4ecd112f5d22eab28eff295a051dc74f5080e81ab4c4",
+        "system_prompt_sha256": "4d40f6e34af4937ce9bcede1dc43bae2e21b73801a9142f57c8a49fb22e97502",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "REAL external camera at control step 0",
+            "sha256": "9055ab580ae52408a14abb302cd9400d827aeb5d9ce5f4da58f23f8a283528e4"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "REAL wrist camera at control step 0",
+            "sha256": "3b863752ad06d8a4442b0bebad423d3b843aa7c4708b63c70ebab4986e045a7d"
+          },
+          {
+            "image_index": 2,
+            "file": "image_2.png",
+            "label": "REAL external camera at control step 10",
+            "sha256": "2411a443153f6fe24ce6ec773c1f3e6ff51dc38c9979410bd69884b51703af31"
+          },
+          {
+            "image_index": 3,
+            "file": "image_3.png",
+            "label": "REAL wrist camera at control step 10",
+            "sha256": "d8fa5ad52b022e06602a9cf3d71f226ea6348cce8e09dca6c6bc96bde677459a"
+          },
+          {
+            "image_index": 4,
+            "file": "image_4.png",
+            "label": "REAL external camera at control step 20",
+            "sha256": "0538ac1c8467f4f7b63254c5537d51f63a242881ec8800f1f046ce4c8c5bc7b1"
+          },
+          {
+            "image_index": 5,
+            "file": "image_5.png",
+            "label": "REAL wrist camera at control step 20",
+            "sha256": "ed59d83221bde73ef07ac717009e864609b4cd11fbc78b7ad26f048855f9ad2a"
+          },
+          {
+            "image_index": 6,
+            "file": "image_6.png",
+            "label": "REAL external camera at control step 30",
+            "sha256": "5e8c95c658168c1dacd640b04ff7f72050355f670d6aad37d09ee65d9b90b5a8"
+          },
+          {
+            "image_index": 7,
+            "file": "image_7.png",
+            "label": "REAL wrist camera at control step 30",
+            "sha256": "7c47fd30374ea1a6746c6693fb09a63afdde6b1de93c318320cd6db5c56adeb0"
+          },
+          {
+            "image_index": 8,
+            "file": "image_8.png",
+            "label": "REAL external camera at control step 40",
+            "sha256": "439fa3ce0fb0223a47ff8e86f02c4195c8647bdeec25d64ffd79812507f9c84f"
+          },
+          {
+            "image_index": 9,
+            "file": "image_9.png",
+            "label": "REAL wrist camera at control step 40",
+            "sha256": "c1343bcd3df79ae3a42fc2d522b7545816f76501de4c49b0db0993905ec21d95"
+          },
+          {
+            "image_index": 10,
+            "file": "image_10.png",
+            "label": "REAL external camera at control step 50",
+            "sha256": "7faff0f463b08b05699cd5d98752f216c25fd4aadeba5a68d93f8a209f9aa3ea"
+          },
+          {
+            "image_index": 11,
+            "file": "image_11.png",
+            "label": "REAL wrist camera at control step 50",
+            "sha256": "2eb7f60cd7c89f5ddb5d124443c67be38c8778992a213c62064ea5e838316636"
+          },
+          {
+            "image_index": 12,
+            "file": "image_12.png",
+            "label": "REAL external camera at control step 60",
+            "sha256": "b59b7b40e2ca4aac34c074fd9939663a0afc77b1a9b4ce30239bb671f3a3412e"
+          },
+          {
+            "image_index": 13,
+            "file": "image_13.png",
+            "label": "REAL wrist camera at control step 60",
+            "sha256": "852012b3713dcc0c02339e163408cd3d84bd0a0855afe8996df5a88d3ae7d94d"
+          },
+          {
+            "image_index": 14,
+            "file": "image_14.png",
+            "label": "REAL external camera at control step 70",
+            "sha256": "63553d509448772fa82cfcdc65cecbde4b7aa670a3908be2ea3bac668db8e727"
+          },
+          {
+            "image_index": 15,
+            "file": "image_15.png",
+            "label": "REAL wrist camera at control step 70",
+            "sha256": "f4f4ac529db17400ac10cc06b8e4e83019909aa8272ef1bc12c49e050a948063"
+          },
+          {
+            "image_index": 16,
+            "file": "image_16.png",
+            "label": "REAL external camera at control step 80",
+            "sha256": "0da867a2487c7f6b977a858624457a80fb85d455e5cdfcf83c82ecc85f46e556"
+          },
+          {
+            "image_index": 17,
+            "file": "image_17.png",
+            "label": "REAL wrist camera at control step 80",
+            "sha256": "8edf0a5f1cb48661c7c8b7f9d290d36734803c4ae6d03ee1491c9a009f193fa0"
+          },
+          {
+            "image_index": 18,
+            "file": "image_18.png",
+            "label": "REAL external camera at control step 90",
+            "sha256": "8d1ee68cf903ef71890f54a81e20711a7378446915eb30d52ab7f8920690d8f9"
+          },
+          {
+            "image_index": 19,
+            "file": "image_19.png",
+            "label": "REAL wrist camera at control step 90",
+            "sha256": "90dea6f1a3ce88a2afa5f8ab621bdb461dbf691fb4b0977893cedb72314625d5"
+          },
+          {
+            "image_index": 20,
+            "file": "image_20.png",
+            "label": "REAL external camera at control step 100",
+            "sha256": "e87b314b6876672715643ee25d636a7ce86373438c0ce4b5e1d476e1af5e957c"
+          },
+          {
+            "image_index": 21,
+            "file": "image_21.png",
+            "label": "REAL wrist camera at control step 100",
+            "sha256": "89e94a763ab6e92dde496e689d564078858167e2e602bf0395156a912e95eaaa"
+          },
+          {
+            "image_index": 22,
+            "file": "image_22.png",
+            "label": "REAL external camera at control step 106",
+            "sha256": "73f0465e16b9090ad00e3a423738e131465e499481d14d84d6bdd6ce34bd4006"
+          },
+          {
+            "image_index": 23,
+            "file": "image_23.png",
+            "label": "REAL wrist camera at control step 106",
+            "sha256": "6fc3c6392ce57d4241b45258287ee4fc3a891e94276e31b3dfcb6ee00adcbd0d"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 28742,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 912,
+            "reasoning_output_tokens": 28
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "319cc9c6a218b188cb26dd9a370143304fd61ccea1654fb28c1e76d64d36512c",
+        "response_time": 1791096087.998878,
+        "latency_seconds": 43.898128166998504
+      },
+      "hindsight_admitted_windows": 17,
+      "hindsight_useful_actions": 96
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "source_success": false,
+      "source_actions": 300,
+      "source_admitted_windows": 0,
+      "request_fingerprint": "073a102f38455ed92f3737707203c8b2a0c7966e6a3c0366a3d482daa4a8219d",
+      "request_file": "request_rollout_0.json",
+      "source_sha256": {
+        "executed_steps.jsonl": "9deead4eb7a4dcd6e2a1670f2d38769e088f51f6841e0d0f49c5bd7b710fd0ea",
+        "admission.jsonl": "0168f0bb661134c79377b584427bdcd710067c5d68e74baea176f93ca5e91e62",
+        "result.json": "7f748cb93fc501e52c76040fc15e44f0ac98948d12683ef4bfe2a8e1a035f927"
+      },
+      "request_file_sha256": "3318f29eb89fc47aa0ce0536a52094859b582bbad970144c691a6f8d1eb0b3ad",
+      "proposal": {
+        "episode_assessment": "The episode failed: the bottle was grasped, carried to the wooden rack, and left there rather than placed in the bowl. Initial approach and alignment provided useful setup. The grasp-to-lift window mixes object acquisition with the start of the unsuccessful transfer. Later transport, repeated adjustments at the rack, and release did not advance the instructed placement. Withdrawal does not establish necessary recovery. These retrospective labels do not establish any intervention's pre-execution relative improvement.",
+        "segments": [
+          {
+            "confidence": 0.88,
+            "evidence": "The open gripper begins approaching and orienting toward the bottle; subsequent observations show this approach reaches the required object.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 0
+          },
+          {
+            "confidence": 0.88,
+            "evidence": "Continued wrist rotation and approach bring the bottle closer to the gripper's approach axis, supporting the later confirmed grasp.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 1
+          },
+          {
+            "confidence": 0.88,
+            "evidence": "The open gripper continues orienting over the bottle; the wrist view increasingly centers the bottle.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 2
+          },
+          {
+            "confidence": 0.9,
+            "evidence": "Orientation adjustment transitions into descent toward the bottle, which remains visible beneath the approaching gripper.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 3
+          },
+          {
+            "confidence": 0.94,
+            "evidence": "The gripper descends substantially toward the bottle; the bottle grows larger in the wrist view without being displaced to another destination.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 4
+          },
+          {
+            "confidence": 0.93,
+            "evidence": "Descent and lateral alignment bring the open fingers closer to the bottle, continuing the approach that subsequently achieves a grasp.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 5
+          },
+          {
+            "confidence": 0.94,
+            "evidence": "The gripper moves into close alignment with the bottle; the bottle fills more of the wrist view and remains at its initial location.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 6
+          },
+          {
+            "confidence": 0.92,
+            "evidence": "Small descending and lateral adjustments position the open gripper at the bottle before closure.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 7
+          },
+          {
+            "confidence": 0.94,
+            "evidence": "Final approach ends with closing commands. Later images showing the bottle moving with the gripper confirm useful grasp preparation.",
+            "outcome": "observed_useful",
+            "phase": "setup",
+            "segment_id": 8
+          },
+          {
+            "confidence": 0.9,
+            "evidence": "Fingers close around the bottle and upward motion begins. Acquisition is confirmed later, but this window also starts the lift preceding transport to the wrong destination.",
+            "outcome": "ambiguous",
+            "phase": "setup",
+            "segment_id": 9
+          },
+          {
+            "confidence": 0.91,
+            "evidence": "The held bottle rises from the table and starts moving toward the rack. Later frames resolve this lift as part of the rack transfer, not bowl placement.",
+            "outcome": "failed",
+            "phase": "transport",
+            "segment_id": 10
+          },
+          {
+            "confidence": 0.97,
+            "evidence": "The robot carries the bottle upward and toward the wooden rack while the bowl remains below on the table.",
+            "outcome": "failed",
+            "phase": "transport",
+            "segment_id": 11
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "The held bottle moves farther toward the rack and away from the bowl, reaching the rack area by step 130.",
+            "outcome": "failed",
+            "phase": "transport",
+            "segment_id": 12
+          },
+          {
+            "confidence": 0.99,
+            "evidence": "The bottle is lowered and rotated onto the wooden rack, visibly separate from the required bowl.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 13
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Adjustment and opening commands occur with the bottle across the rack; no movement into the bowl occurs.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 14
+          },
+          {
+            "confidence": 0.97,
+            "evidence": "Repeated closing and opening commands accompany small adjustments at the rack. The bottle stays at the wrong destination.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 15
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Gripper cycling repeats while the end-effector position and bottle location barely change; the bowl remains empty.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 16
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Further opening and closing produces no visible transfer from the rack toward the bowl.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 17
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Repeated adjustment and gripper commands leave the bottle in essentially the same rack location, without task progress.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 18
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Another cycle of closing and opening occurs at nearly unchanged end-effector position; the bottle remains outside the bowl.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 19
+          },
+          {
+            "confidence": 0.98,
+            "evidence": "Commands transition to sustained opening while the bottle stays on the rack, completing release at the wrong destination.",
+            "outcome": "failed",
+            "phase": "placement",
+            "segment_id": 20
+          },
+          {
+            "confidence": 0.92,
+            "evidence": "The fingers open wider and the gripper begins withdrawing from the bottle on the rack. No subsequent task-directed recovery establishes this withdrawal as useful.",
+            "outcome": "ambiguous",
+            "phase": "recovery",
+            "segment_id": 21
+          },
+          {
+            "confidence": 0.93,
+            "evidence": "The open gripper rises away while the bottle remains on the rack. Clearance is visible, but its necessity for the original task is unsupported.",
+            "outcome": "ambiguous",
+            "phase": "recovery",
+            "segment_id": 22
+          },
+          {
+            "confidence": 0.93,
+            "evidence": "Further withdrawal increases separation from the bottle without reacquiring it or approaching the bowl; no useful recovery follows.",
+            "outcome": "ambiguous",
+            "phase": "recovery",
+            "segment_id": 23
+          },
+          {
+            "confidence": 0.92,
+            "evidence": "The empty, open gripper continues rising near the rack. The bottle remains misplaced, and the movement's contribution is unsupported.",
+            "outcome": "ambiguous",
+            "phase": "recovery",
+            "segment_id": 24
+          },
+          {
+            "confidence": 0.95,
+            "evidence": "Small commands leave the open gripper nearly stationary above the rack; neither bottle recovery nor bowl placement occurs.",
+            "outcome": "failed",
+            "phase": "recovery",
+            "segment_id": 25
+          },
+          {
+            "confidence": 0.95,
+            "evidence": "Additional small upward motions repeat the withdrawal pattern, leaving the bottle untouched on the rack.",
+            "outcome": "failed",
+            "phase": "recovery",
+            "segment_id": 26
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "The open gripper makes further small motions above the rack without contacting or relocating the misplaced bottle.",
+            "outcome": "failed",
+            "phase": "recovery",
+            "segment_id": 27
+          },
+          {
+            "confidence": 0.96,
+            "evidence": "Continued upward drift of the empty gripper produces no change in the bottle's rack placement or the empty bowl.",
+            "outcome": "failed",
+            "phase": "recovery",
+            "segment_id": 28
+          },
+          {
+            "confidence": 0.97,
+            "evidence": "Final small lateral adjustments occur with the gripper open. The bottle remains on the rack, the bowl remains empty, and the final environment outcome is false.",
+            "outcome": "failed",
+            "phase": "recovery",
+            "segment_id": 29
+          }
+        ],
+        "request_fingerprint": "073a102f38455ed92f3737707203c8b2a0c7966e6a3c0366a3d482daa4a8219d"
+      },
+      "receipt": {
+        "backend": "codex_exec",
+        "requested_model": "gpt-6-astra",
+        "configured_model": "gpt-6-astra",
+        "returned_model": null,
+        "reasoning_effort": "medium",
+        "request_fingerprint": "073a102f38455ed92f3737707203c8b2a0c7966e6a3c0366a3d482daa4a8219d",
+        "request_sha256": "6cb32ca0568b427ec3ce9393784b4958b32276a6ae4f73bd0a79ee2009fb4be7",
+        "request_time": 1791096088.0100029,
+        "provider_call": true,
+        "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+        "internal_retry_count": null,
+        "internal_turn_count": null,
+        "accepted": true,
+        "provider_unavailable": false,
+        "status": "accepted",
+        "token_usage": {
+          "input_tokens": 51704,
+          "output_tokens": 2174,
+          "reasoning_tokens": 87,
+          "total_tokens": 53878
+        },
+        "raw_usage": {
+          "input_tokens": 51704,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2174,
+          "reasoning_output_tokens": 87
+        },
+        "tool_items": [],
+        "cli_version": "codex-cli 0.159.3",
+        "schema_sha256": "ac071967d3e712d2e8d6ee165b5ba426b916193b9128778b498fdf97db7b7acf",
+        "original_schema_sha256": "ac071967d3e712d2e8d6ee165b5ba426b916193b9128778b498fdf97db7b7acf",
+        "prompt_template_version": "reasoning-completed-trajectory-credit-1",
+        "prompt_sha256": "d737de2165b442fa14f47ba1072cefbad55516e43b5650fb394e059f3186b5a4",
+        "system_prompt_sha256": "4d40f6e34af4937ce9bcede1dc43bae2e21b73801a9142f57c8a49fb22e97502",
+        "image_hashes": [
+          {
+            "image_index": 0,
+            "file": "image_0.png",
+            "label": "REAL external camera at control step 0",
+            "sha256": "ddc1002e8eb49997357c9b45b8f0952e076dabffed4815e9a56b6e977155ad45"
+          },
+          {
+            "image_index": 1,
+            "file": "image_1.png",
+            "label": "REAL wrist camera at control step 0",
+            "sha256": "30b7f0f866e028a38a05632145c7ad6ea21ca19756ebfb49804bf753f210c1fa"
+          },
+          {
+            "image_index": 2,
+            "file": "image_2.png",
+            "label": "REAL external camera at control step 10",
+            "sha256": "a10d10194dcf36a14798256ce0a0ce23eab3419e79b9b2a5c2e7d3f92d00f35b"
+          },
+          {
+            "image_index": 3,
+            "file": "image_3.png",
+            "label": "REAL wrist camera at control step 10",
+            "sha256": "4d2c6f4343b21508aaa18333ae1f8337e69aeb8c83d5dfdf03865dd3e4b66792"
+          },
+          {
+            "image_index": 4,
+            "file": "image_4.png",
+            "label": "REAL external camera at control step 20",
+            "sha256": "3eb50a1eb3d75eed5dc43dca187e93ef3b313c6836f92fcb522b7c7e2c9f5648"
+          },
+          {
+            "image_index": 5,
+            "file": "image_5.png",
+            "label": "REAL wrist camera at control step 20",
+            "sha256": "976f90b73b7f3c7b5c797dc1cd9b568b0db362cac369eb9fb1a04b0bd5e94cd4"
+          },
+          {
+            "image_index": 6,
+            "file": "image_6.png",
+            "label": "REAL external camera at control step 30",
+            "sha256": "5bd26a0e252f2fbc0b66b99818890d9b5a47c559b3a7353f52a4c20fa4bd3ba0"
+          },
+          {
+            "image_index": 7,
+            "file": "image_7.png",
+            "label": "REAL wrist camera at control step 30",
+            "sha256": "af9312aba438cfed1c03c867a5a644042717d87d2ae8545e3ae99556ba59511d"
+          },
+          {
+            "image_index": 8,
+            "file": "image_8.png",
+            "label": "REAL external camera at control step 40",
+            "sha256": "e4939f452285e3c5b9b10ea7b9fb9400536bea5f786cfb4a538836575c7c48ac"
+          },
+          {
+            "image_index": 9,
+            "file": "image_9.png",
+            "label": "REAL wrist camera at control step 40",
+            "sha256": "ec98dedb05c52d817339195b54892e5836b1811067cf8d4bd6091196d2edc89f"
+          },
+          {
+            "image_index": 10,
+            "file": "image_10.png",
+            "label": "REAL external camera at control step 50",
+            "sha256": "5fda5442aeb1ecc79f9923e54ca69b5bbecc8d5385e4306b97a446b586d4c3af"
+          },
+          {
+            "image_index": 11,
+            "file": "image_11.png",
+            "label": "REAL wrist camera at control step 50",
+            "sha256": "9c23c56197c7e0ff00b172cff272652398b3c3bda23f2242ef33f6bf42e3e20a"
+          },
+          {
+            "image_index": 12,
+            "file": "image_12.png",
+            "label": "REAL external camera at control step 60",
+            "sha256": "93adb34ff4a104d1894bb5a7b209f0605a711cb608f0e2e513ffe235e74e0326"
+          },
+          {
+            "image_index": 13,
+            "file": "image_13.png",
+            "label": "REAL wrist camera at control step 60",
+            "sha256": "16c29b7fb7139a768d068adcda05dac956d673329f23db091932c2972379ee8d"
+          },
+          {
+            "image_index": 14,
+            "file": "image_14.png",
+            "label": "REAL external camera at control step 70",
+            "sha256": "1168bcd523d032860ffd927b1a1463ffd5a917ce90d49378cf75590941182b8e"
+          },
+          {
+            "image_index": 15,
+            "file": "image_15.png",
+            "label": "REAL wrist camera at control step 70",
+            "sha256": "ce3e0adb0a70148317f54bd4a6486ee6dd753d7ba61a2dc439809a3b1261cf83"
+          },
+          {
+            "image_index": 16,
+            "file": "image_16.png",
+            "label": "REAL external camera at control step 80",
+            "sha256": "6734ac5f858fe72af530d641f0f0d046e08a08acbb2d70af50feffa8456c63f2"
+          },
+          {
+            "image_index": 17,
+            "file": "image_17.png",
+            "label": "REAL wrist camera at control step 80",
+            "sha256": "d14e025c37a7fe23a035be992e085d300badd52e6ae8749f597cf8886f928e89"
+          },
+          {
+            "image_index": 18,
+            "file": "image_18.png",
+            "label": "REAL external camera at control step 90",
+            "sha256": "4d7a2b51a53f3ae646509986593dd96ac3e1cbe208aa6db88137fe7f6686dec1"
+          },
+          {
+            "image_index": 19,
+            "file": "image_19.png",
+            "label": "REAL wrist camera at control step 90",
+            "sha256": "04008e8846b599b31f4468cc1a6a806477449724ad0269aa6ac1a9193010d8c9"
+          },
+          {
+            "image_index": 20,
+            "file": "image_20.png",
+            "label": "REAL external camera at control step 100",
+            "sha256": "eb751dc2e021fb581232344fdf6d1a298b94419fe9b96cdb6eda67277d2e6c38"
+          },
+          {
+            "image_index": 21,
+            "file": "image_21.png",
+            "label": "REAL wrist camera at control step 100",
+            "sha256": "f23048bde26f75129b73413062e38c61b5bf9e7df421ce65e52966a7d46778ef"
+          },
+          {
+            "image_index": 22,
+            "file": "image_22.png",
+            "label": "REAL external camera at control step 110",
+            "sha256": "5481c04a768c4338de135625c8228f4d49e9108d8f3c2121ebdb32afb5250e33"
+          },
+          {
+            "image_index": 23,
+            "file": "image_23.png",
+            "label": "REAL wrist camera at control step 110",
+            "sha256": "7dfa75e02a23255dccd49f21b5b3560b9f12768e2c13411fadcd711c459ef5d6"
+          },
+          {
+            "image_index": 24,
+            "file": "image_24.png",
+            "label": "REAL external camera at control step 120",
+            "sha256": "5b589cc80bdf67b278cdb3803e9ca91b5d4997e6f6520b3f47a719013e5b0dcd"
+          },
+          {
+            "image_index": 25,
+            "file": "image_25.png",
+            "label": "REAL wrist camera at control step 120",
+            "sha256": "c35bcb1e40a0da8ad6741b214172c1272b72ac63d3c057e6f1571cf2f4968481"
+          },
+          {
+            "image_index": 26,
+            "file": "image_26.png",
+            "label": "REAL external camera at control step 130",
+            "sha256": "afb92d069bb00ce58986a74cb5d0a24b44dfd93e5e551026b5295882c92a7525"
+          },
+          {
+            "image_index": 27,
+            "file": "image_27.png",
+            "label": "REAL wrist camera at control step 130",
+            "sha256": "c1a94a129b1302a847f970e115cee756f105c5124514654f797a7273c71f5808"
+          },
+          {
+            "image_index": 28,
+            "file": "image_28.png",
+            "label": "REAL external camera at control step 140",
+            "sha256": "2be5f046a2636b570433da69d41b48f670ac0c0bda8be33695ab2b190a167001"
+          },
+          {
+            "image_index": 29,
+            "file": "image_29.png",
+            "label": "REAL wrist camera at control step 140",
+            "sha256": "27676ab22c86e39bd21022fa0bee4d70b07b16eaa4ec17080e1559b095f02d3a"
+          },
+          {
+            "image_index": 30,
+            "file": "image_30.png",
+            "label": "REAL external camera at control step 150",
+            "sha256": "069caf6a85c5fe56f8d4d300223298be5b8d6f07139a4539fd6b57e622aaadfb"
+          },
+          {
+            "image_index": 31,
+            "file": "image_31.png",
+            "label": "REAL wrist camera at control step 150",
+            "sha256": "37350f7ae3f8053dd96e7f9006481f9ee8dd22290b49367ecf508a3ef13b6888"
+          },
+          {
+            "image_index": 32,
+            "file": "image_32.png",
+            "label": "REAL external camera at control step 160",
+            "sha256": "f3ab78a27e30fd2cb23ee61d816b256380d76639f12387aae984d7562290c7f2"
+          },
+          {
+            "image_index": 33,
+            "file": "image_33.png",
+            "label": "REAL wrist camera at control step 160",
+            "sha256": "c41cb9f9f72368fa5cd0b1d22e89cb29e0eafdab319e1e6c660bb2006964342c"
+          },
+          {
+            "image_index": 34,
+            "file": "image_34.png",
+            "label": "REAL external camera at control step 170",
+            "sha256": "ccb563e201d614254818625f5eb748ec0d10867f17e16127b36357358465dc5b"
+          },
+          {
+            "image_index": 35,
+            "file": "image_35.png",
+            "label": "REAL wrist camera at control step 170",
+            "sha256": "eb17f1171f3a259602c33db942e76f08c6d643a668cccde97a0098930e39ec46"
+          },
+          {
+            "image_index": 36,
+            "file": "image_36.png",
+            "label": "REAL external camera at control step 180",
+            "sha256": "1e4ce7fcb63650421220593f97173c1613bf531a229b1299257a3f4aa2caed32"
+          },
+          {
+            "image_index": 37,
+            "file": "image_37.png",
+            "label": "REAL wrist camera at control step 180",
+            "sha256": "dff258fd5784e068b9e1f8edd67c70166ccda0195ef72004930c07e49b15216d"
+          },
+          {
+            "image_index": 38,
+            "file": "image_38.png",
+            "label": "REAL external camera at control step 190",
+            "sha256": "1fe99e41bf8b030fcb3e55d91f39411c05d6b7a09e733bf916bacc319bce4a94"
+          },
+          {
+            "image_index": 39,
+            "file": "image_39.png",
+            "label": "REAL wrist camera at control step 190",
+            "sha256": "1c54042984bbb6509de4565c9760486443d823609f1f5feca6bd2c753849342e"
+          },
+          {
+            "image_index": 40,
+            "file": "image_40.png",
+            "label": "REAL external camera at control step 200",
+            "sha256": "264ca194af829d2ed7ca2916e33f75c09590c8a150db914c24d1de7f451b37fa"
+          },
+          {
+            "image_index": 41,
+            "file": "image_41.png",
+            "label": "REAL wrist camera at control step 200",
+            "sha256": "5131c6ff630624dc536b3ebac1f48a7aa9b7951eedcb9705bd36783530e3b69e"
+          },
+          {
+            "image_index": 42,
+            "file": "image_42.png",
+            "label": "REAL external camera at control step 210",
+            "sha256": "b81dfde6bc9081200ea37f654776d7fa8b28bec9bdd60864cdcdf8a9740ace58"
+          },
+          {
+            "image_index": 43,
+            "file": "image_43.png",
+            "label": "REAL wrist camera at control step 210",
+            "sha256": "e32a0f3b9c32da045bf5474f18b711838e991fb733359c7687e45716e6a0852c"
+          },
+          {
+            "image_index": 44,
+            "file": "image_44.png",
+            "label": "REAL external camera at control step 220",
+            "sha256": "d6d5932543583747e08c22e9aa4653ff65c6961c8535be818a5b6aaa4e13c8fa"
+          },
+          {
+            "image_index": 45,
+            "file": "image_45.png",
+            "label": "REAL wrist camera at control step 220",
+            "sha256": "659d4203015eb43ddd6106347304061d3a568e0a12c635c305a15d52609f605f"
+          },
+          {
+            "image_index": 46,
+            "file": "image_46.png",
+            "label": "REAL external camera at control step 230",
+            "sha256": "69bc5ab1ee7e1111711d56a8320af9c7db76203f70338547146b2d6eca32808c"
+          },
+          {
+            "image_index": 47,
+            "file": "image_47.png",
+            "label": "REAL wrist camera at control step 230",
+            "sha256": "9ccb0770ca2ac3d1588cf5b19f40c924d184f00303776d2ec6083f607a6259c8"
+          },
+          {
+            "image_index": 48,
+            "file": "image_48.png",
+            "label": "REAL external camera at control step 240",
+            "sha256": "566c0d19b251e5460d27db53acedabde4225357abd24fd5838a89cd4aff44ab2"
+          },
+          {
+            "image_index": 49,
+            "file": "image_49.png",
+            "label": "REAL wrist camera at control step 240",
+            "sha256": "2b42c20a61055da36ef7f08371af571a443afad874fa5faaf21cbd7a6b22ae40"
+          },
+          {
+            "image_index": 50,
+            "file": "image_50.png",
+            "label": "REAL external camera at control step 250",
+            "sha256": "49457416566969f64ee2855ff59b199a1d01692cb1af9d045ee591c8fdff70e6"
+          },
+          {
+            "image_index": 51,
+            "file": "image_51.png",
+            "label": "REAL wrist camera at control step 250",
+            "sha256": "22e7be023d4972065e52d1220c88ce411784aa37b424db5e48ccc8d2d6ea898a"
+          },
+          {
+            "image_index": 52,
+            "file": "image_52.png",
+            "label": "REAL external camera at control step 260",
+            "sha256": "d6a530667f759a962356e2cbf0feeadc64687acf72854795c97451d31c1e7f15"
+          },
+          {
+            "image_index": 53,
+            "file": "image_53.png",
+            "label": "REAL wrist camera at control step 260",
+            "sha256": "4944f9603a5adcb9576fd1552902aec70a0cd0a16c0882824aaf1774adf63ea2"
+          },
+          {
+            "image_index": 54,
+            "file": "image_54.png",
+            "label": "REAL external camera at control step 270",
+            "sha256": "2e96c95030dae35ba308e5cae4ad4f181650f032fd69e2e485f6e956c8a90b5a"
+          },
+          {
+            "image_index": 55,
+            "file": "image_55.png",
+            "label": "REAL wrist camera at control step 270",
+            "sha256": "6a51dc4c247308008b769f237bb07f25093498f3e6e0ca38d77af30ee77064d3"
+          },
+          {
+            "image_index": 56,
+            "file": "image_56.png",
+            "label": "REAL external camera at control step 280",
+            "sha256": "c706da559392faae972718adb1f478deeeea0574b900b294ae46d1d79169fc84"
+          },
+          {
+            "image_index": 57,
+            "file": "image_57.png",
+            "label": "REAL wrist camera at control step 280",
+            "sha256": "0a9a199f5c0819801dd68f7266aa83ed712c5a82ae2842ca681ad72c6cdb0d55"
+          },
+          {
+            "image_index": 58,
+            "file": "image_58.png",
+            "label": "REAL external camera at control step 290",
+            "sha256": "09e72001cff1f76961bafe9c94abe808fd7cb26cdc37aacb1995833a46dae256"
+          },
+          {
+            "image_index": 59,
+            "file": "image_59.png",
+            "label": "REAL wrist camera at control step 290",
+            "sha256": "e8e87d007d6209b7970c4047a5a736b2d5e8ae24b7e4ae0422ec46684da4a21c"
+          },
+          {
+            "image_index": 60,
+            "file": "image_60.png",
+            "label": "REAL external camera at control step 300",
+            "sha256": "e1178816bb858f6e79717f71ab6df427e5592d1e441a4c88c93a1966aeb78463"
+          },
+          {
+            "image_index": 61,
+            "file": "image_61.png",
+            "label": "REAL wrist camera at control step 300",
+            "sha256": "fd824b076e6d9bc80d2544214ef77e86a5ceec04d2fb191a474c65c3d6eeffd2"
+          }
+        ],
+        "exit_code": 0,
+        "observed_completed_turns": 1,
+        "raw_usage_events": [
+          {
+            "input_tokens": 51704,
+            "cached_input_tokens": 0,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2174,
+            "reasoning_output_tokens": 87
+          }
+        ],
+        "total_tokens_derived": true,
+        "token_usage_is_lower_bound": false,
+        "final_sha256": "247042f61710830940e8b7b509fb26678f4bf3562a8ce1ee40aae33491a2a569",
+        "response_time": 1791096180.732974,
+        "latency_seconds": 92.72298095902079
+      },
+      "hindsight_admitted_windows": 17,
+      "hindsight_useful_actions": 90
+    }
+  ],
+  "source_revision": "50db3ec91fb8b633fe5fac68bc06b538edcff8cd"
+}

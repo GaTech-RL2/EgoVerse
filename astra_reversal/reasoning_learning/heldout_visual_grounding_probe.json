@@ -1,0 +1,359 @@
+{
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+  "source_episode": "libero_goal_ood:seed173:task6:state0",
+  "frozen_fit_sha256": "4bcdafe92494c26e7e363ae0e418edc9a6295eb0462dab61ae58fd42646da686",
+  "selected_steps": [
+    5,
+    15,
+    25,
+    35,
+    45,
+    55,
+    65,
+    75,
+    85,
+    95,
+    105,
+    115
+  ],
+  "environment_actions": 0,
+  "used_for_training": false,
+  "thresholds": {
+    "minimum_confidence": 0.6,
+    "minimum_labels": 6,
+    "maximum_heldout_rms_pixels": 8.0
+  },
+  "scope": "Independent frame labels under a frozen projection, from the same recorded trajectory. Labels are VLM estimates, not independent camera-calibration ground truth. No refit, depth estimate or control deployment.",
+  "proposal": {
+    "destination": {
+      "confidence": 0.95,
+      "evidence": "The bowl's circular rim and interior are visible near the center of the table.",
+      "uv": [
+        0.517,
+        0.571
+      ],
+      "visible": true
+    },
+    "frames": [
+      {
+        "confidence": 0,
+        "evidence": "The gripper body obscures the fingertip contact surfaces; their midpoint is not clearly visible.",
+        "step": 5,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "The fingertip contact surfaces are obscured by the gripper body.",
+        "step": 15,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "The angled gripper overlaps the robot base, preventing reliable identification of both fingertip surfaces.",
+        "step": 25,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0,
+        "evidence": "Both fingertip contact surfaces cannot be distinguished clearly against the robot base.",
+        "step": 35,
+        "uv": [
+          0,
+          0
+        ],
+        "visible": false
+      },
+      {
+        "confidence": 0.57,
+        "evidence": "Two short finger ends are discernible along the right edge of the angled gripper; the point lies between them.",
+        "step": 45,
+        "uv": [
+          0.453,
+          0.407
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.8,
+        "evidence": "Two dark fingertip ends project rightward from the gripper, above and below the indicated midpoint.",
+        "step": 55,
+        "uv": [
+          0.473,
+          0.411
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.8,
+        "evidence": "The upper and lower finger ends are visible on the gripper's right side, defining the gap midpoint.",
+        "step": 65,
+        "uv": [
+          0.518,
+          0.402
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.74,
+        "evidence": "The finger ends bracket a small gap immediately beside the bottle.",
+        "step": 75,
+        "uv": [
+          0.543,
+          0.42
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.67,
+        "evidence": "The visible finger ends bracket the bottle near its upper body; the midpoint is between those ends.",
+        "step": 85,
+        "uv": [
+          0.556,
+          0.436
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.63,
+        "evidence": "Short finger ends are visible beside the bottle, though contact details partially overlap it.",
+        "step": 95,
+        "uv": [
+          0.565,
+          0.442
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.66,
+        "evidence": "The finger ends are visible on the gripper's right edge around the bottle, above its body center.",
+        "step": 105,
+        "uv": [
+          0.558,
+          0.353
+        ],
+        "visible": true
+      },
+      {
+        "confidence": 0.65,
+        "evidence": "The upper and lower finger ends flank the bottle beside the gripper; their midpoint lies near the bottle's shoulder.",
+        "step": 115,
+        "uv": [
+          0.627,
+          0.268
+        ],
+        "visible": true
+      }
+    ],
+    "request_fingerprint": "2ca62388ef28a38486496ea4fec1da0a13eafd0a5ae45b7ee70d1709a854b488"
+  },
+  "receipt": {
+    "status": "accepted",
+    "reasoning_effort": "medium",
+    "prompt_template_version": "reasoning-visible-pixel-labels-1",
+    "request_sha256": "d8befb27545f3d17cabf96ba3a353a4a1563e3cd4662c199b70c40c75cac5475",
+    "token_usage": {
+      "input_tokens": 17738,
+      "output_tokens": 1094,
+      "reasoning_tokens": 516,
+      "total_tokens": 18832
+    },
+    "raw_usage": {
+      "input_tokens": 17738,
+      "cached_input_tokens": 0,
+      "cache_write_input_tokens": 0,
+      "output_tokens": 1094,
+      "reasoning_output_tokens": 516
+    },
+    "latency_seconds": 49.260574042011285,
+    "cli_version": "codex-cli 0.159.3",
+    "requested_model": "gpt-6-astra",
+    "configured_model": "gpt-6-astra",
+    "returned_model": null,
+    "final_sha256": "30c8ba97b92b60cc9f32df1657aee9cef028bd7f2c20cbc5c796df506b5f8399",
+    "prompt_sha256": "60cbe8bdb872f70612316b12d3d96358a1ab848dec454350b40b82184c6c8750",
+    "schema_sha256": "a08d5d5759fd5f02f17e1bbb094977bbaf71677f8f35cc65eb92f580396dcf3c",
+    "system_prompt_sha256": "5bed26577f660e5d31ac9b246ba658025299f2ff55f9ec523b3c040f9f4a72b6",
+    "image_hashes": [
+      {
+        "image_index": 0,
+        "file": "image_0.png",
+        "label": "REAL external-camera frame at control step 5",
+        "sha256": "cfef8d2e8dd56241fe0bf692dc0c443aab39470a4bf5e4c915fc9040f851a0f8"
+      },
+      {
+        "image_index": 1,
+        "file": "image_1.png",
+        "label": "REAL external-camera frame at control step 15",
+        "sha256": "0e42030e82c5c38c75852c3fd4af03ad24e06cf6bc3215d0564dcd4f5bbd7b3f"
+      },
+      {
+        "image_index": 2,
+        "file": "image_2.png",
+        "label": "REAL external-camera frame at control step 25",
+        "sha256": "899fdc2834e75c8ceb7f03e4f9946bd0ca3d2ffb89333150891daba73624564e"
+      },
+      {
+        "image_index": 3,
+        "file": "image_3.png",
+        "label": "REAL external-camera frame at control step 35",
+        "sha256": "ae1feb6a3faf91aeca6ad39a47e38249d1db1c934e8567314532dfa40b47aee0"
+      },
+      {
+        "image_index": 4,
+        "file": "image_4.png",
+        "label": "REAL external-camera frame at control step 45",
+        "sha256": "cc5d3d4beeba2fd4c3323525b9d7cf3c4b73cb36197ff3a4d1ed73e3d426de7b"
+      },
+      {
+        "image_index": 5,
+        "file": "image_5.png",
+        "label": "REAL external-camera frame at control step 55",
+        "sha256": "d0f618beea1d85f4e44e9b707b070f0b01d14abc71f58ed63b1649e1d41edb76"
+      },
+      {
+        "image_index": 6,
+        "file": "image_6.png",
+        "label": "REAL external-camera frame at control step 65",
+        "sha256": "e35bf522bc21f7632aeb5c71e5bd58f49ba396e42bc45a81b128ce9e1b61c9d7"
+      },
+      {
+        "image_index": 7,
+        "file": "image_7.png",
+        "label": "REAL external-camera frame at control step 75",
+        "sha256": "9c7f7cc63d0f3ddca290693cc75c171971537dd14e14972bf1cbd4ae41300f38"
+      },
+      {
+        "image_index": 8,
+        "file": "image_8.png",
+        "label": "REAL external-camera frame at control step 85",
+        "sha256": "fc97272a0a70958595dae09d416a3be2786cd4268c59bce3a5c1f29767949f1f"
+      },
+      {
+        "image_index": 9,
+        "file": "image_9.png",
+        "label": "REAL external-camera frame at control step 95",
+        "sha256": "a5f35fdb8f34354a98d130ad1a450af6da2073b36fa2f706f27e4aa1d26f7acc"
+      },
+      {
+        "image_index": 10,
+        "file": "image_10.png",
+        "label": "REAL external-camera frame at control step 105",
+        "sha256": "92672da8ac3f889b9678d2d13bd6e63b16207ff736bc139576c2cab62c481996"
+      },
+      {
+        "image_index": 11,
+        "file": "image_11.png",
+        "label": "REAL external-camera frame at control step 115",
+        "sha256": "6d1626f78bbb125ff2a98e9863774b977e27ab4de8536465e7b8c64a38369b12"
+      }
+    ],
+    "token_usage_is_lower_bound": false
+  },
+  "heldout_labels": [
+    {
+      "step": 55,
+      "confidence": 0.8,
+      "predicted_pixels": [
+        108.18546080646705,
+        89.42896544074415
+      ],
+      "labeled_pixels": [
+        105.479,
+        91.65299999999999
+      ],
+      "error_pixels": 3.5030358002319355
+    },
+    {
+      "step": 65,
+      "confidence": 0.8,
+      "predicted_pixels": [
+        114.88799953114348,
+        92.70440773403146
+      ],
+      "labeled_pixels": [
+        115.51400000000001,
+        89.646
+      ],
+      "error_pixels": 3.121815890566268
+    },
+    {
+      "step": 75,
+      "confidence": 0.74,
+      "predicted_pixels": [
+        119.65070787729128,
+        96.56823204670127
+      ],
+      "labeled_pixels": [
+        121.08900000000001,
+        93.66
+      ],
+      "error_pixels": 3.2444564826340727
+    },
+    {
+      "step": 85,
+      "confidence": 0.67,
+      "predicted_pixels": [
+        122.39775735152266,
+        97.72889621342628
+      ],
+      "labeled_pixels": [
+        123.98800000000001,
+        97.228
+      ],
+      "error_pixels": 1.667263835648417
+    },
+    {
+      "step": 95,
+      "confidence": 0.63,
+      "predicted_pixels": [
+        124.96889138994547,
+        98.99651126631088
+      ],
+      "labeled_pixels": [
+        125.99499999999999,
+        98.566
+      ],
+      "error_pixels": 1.1127618029248727
+    },
+    {
+      "step": 105,
+      "confidence": 0.66,
+      "predicted_pixels": [
+        124.70397635771164,
+        81.08289301003742
+      ],
+      "labeled_pixels": [
+        124.43400000000001,
+        78.719
+      ],
+      "error_pixels": 2.3792598421835005
+    },
+    {
+      "step": 115,
+      "confidence": 0.65,
+      "predicted_pixels": [
+        137.84853995309805,
+        50.60625408879554
+      ],
+      "labeled_pixels": [
+        139.821,
+        59.764
+      ],
+      "error_pixels": 9.367759006870667
+    }
+  ],
+  "heldout_rms_pixels": 4.309081537456647,
+  "passed": true
+}
