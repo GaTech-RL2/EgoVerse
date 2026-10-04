@@ -11,6 +11,7 @@ import io
 import json
 import math
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -63,7 +64,7 @@ def paired_native_comparison(point, reference):
     }
 
 
-def usage_by_episode(directory, jobs=None):
+def usage_by_episode(directory, jobs=None, *, receipt_files=()):
     records = []
     if jobs and Path(jobs).exists():
         for path in sorted(Path(jobs).glob("*/completed.json")):
@@ -77,12 +78,15 @@ def usage_by_episode(directory, jobs=None):
                 row = json.loads(line)
                 if row.get("codex_receipt"):
                     records.append((row["episode_id"], row["codex_receipt"]))
+    for path in receipt_files:
+        records.append(("offline_diagnostic", read_json(path)["result"]["receipt"]))
     result = {}
     for episode, receipt in records:
         row = result.setdefault(
             episode,
             {
                 "completed_calls": 0,
+                "failed_provider_calls": 0,
                 "input_tokens": 0,
                 "cached_input_tokens": 0,
                 "output_tokens": 0,
@@ -92,6 +96,7 @@ def usage_by_episode(directory, jobs=None):
             },
         )
         row["completed_calls"] += 1
+        row["failed_provider_calls"] += int(receipt.get("provider_unavailable", False))
         usage = receipt.get("token_usage") or {}
         for key in ("input_tokens", "output_tokens", "total_tokens"):
             row[key] += usage.get(key) or 0
@@ -210,6 +215,7 @@ def summarize_run(spec):
         key: sum(row[key] for row in usage.values())
         for key in (
             "completed_calls",
+            "failed_provider_calls",
             "input_tokens",
             "cached_input_tokens",
             "output_tokens",
@@ -235,6 +241,7 @@ def summarize_run(spec):
             partial_evaluation = True
     latest_evaluated = max((p["policy_version"] for p in points), default=None)
     latest_updated = max((r.get("policy_version", 0) for r in updates), default=0)
+    reset_entries = read_json(directory / "resets.json", {}).get("episodes", [])
     return {
         "label": spec["label"],
         "method": spec["method"],
@@ -247,6 +254,9 @@ def summarize_run(spec):
         "checkpoint_configuration": protocol.get("checkpoint"),
         "environment_configuration": protocol.get("environment"),
         "learner_configuration": protocol.get("learner"),
+        "task_instruction": reset_entries[0].get("instruction")
+        if reset_entries
+        else None,
         "points": points,
         "collection": collection,
         "partial_collection": partial,
@@ -282,6 +292,7 @@ def summarize_run(spec):
         if any(p["success_rate"] >= 0.8 for p in points)
         else "not_reached_in_completed_evaluations",
         "videos": [],
+        "starting_frame": None,
     }
 
 
@@ -414,7 +425,8 @@ def export_figures(data, output):
 def build(manifest, budget, output):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
-    specs = read_json(manifest)["runs"]
+    configuration = read_json(manifest)
+    specs = configuration["runs"]
     runs = [summarize_run(spec) for spec in specs]
     native_runs = {}
     for run in runs:
@@ -462,6 +474,44 @@ def build(manifest, budget, output):
                     "actions": result["actions_executed"],
                 }
             )
+            if run["starting_frame"] is None and shutil.which("ffmpeg"):
+                still = Path("images") / f"run_{i}_start.png"
+                (output / still).parent.mkdir(exist_ok=True)
+                subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-v",
+                        "error",
+                        "-i",
+                        str(path),
+                        "-frames:v",
+                        "1",
+                        "-y",
+                        str(output / still),
+                    ],
+                    check=True,
+                    capture_output=True,
+                    timeout=30,
+                )
+                run["starting_frame"] = {
+                    "path": str(still),
+                    "episode_id": result["episode_id"],
+                    "source_video": str(target),
+                    "timing": "After stabilization, before the first policy action; decoded from the recorded external-camera video.",
+                }
+    diagnostics = []
+    for spec in configuration.get("offline_teacher_diagnostics", []):
+        usage = usage_by_episode("", receipt_files=[spec["receipt_file"]])[
+            "offline_diagnostic"
+        ]
+        diagnostics.append(
+            {
+                "label": spec["label"],
+                "environment_actions": 0,
+                "used_for_training": False,
+                "teacher_usage": usage,
+            }
+        )
     ledger = read_json(budget)
     data = {
         "title": "Reasoning-guided policy learning",
@@ -471,6 +521,7 @@ def build(manifest, budget, output):
         "checkpoint": "lerobot/pi05_libero_base@a217bfd3b14673cf2ce597e69997ab21866438dd",
         "budget": ledger,
         "runs": runs,
+        "offline_teacher_diagnostics": diagnostics,
         "teacher_system_prompt": SYSTEM_PROMPT,
         "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
         "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,
@@ -481,6 +532,7 @@ def build(manifest, budget, output):
             "DSRL uses the same frozen decoder weights with a learned noise policy whose initial distribution differs from the native Gaussian. PPO uses strict converted weights with verified GELU compatibility.",
             "The RL baselines use pinned RLinf components in a serial OOD harness with documented overrides. This is not a reproduction claim for the stock distributed RLinf benchmarks.",
             "Token counts are CLI-reported usage, including cached input; they are not an API dollar bill. Local completed calls count even if cancellation prevented the worker from receiving them.",
+            "Failed provider jobs count as calls. Missing usage makes their token total a lower bound. Offline connectivity probes are accounted separately and never count as training or new environment interactions.",
             "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
             "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",

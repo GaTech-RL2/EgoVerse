@@ -332,3 +332,16 @@ V5 excludes the25 padding outputs and adds a full-weight comparison between the
 cached-prefix learner loss and LeRobot's direct training forward at identical noise,
 time, observation and target. The native 32-dimensional sampling interface remains
 unchanged. Whether the corrected objective improves autonomous SR remains untested.
+
+V3 completed development result (OSMO pilot-4)
+Two collection attempts failed after 620 total control steps, with seven assisted
+five-action prefixes. Two LoRA updates trained 40 optimizer steps on 7 and 15
+admitted windows. The updated autonomous policy scored 5/10, equal to native 5/10:
+exactly the same five reset states succeeded, with no gained or regressed reset.
+Teacher usage was 4,152,587 reported tokens (2,353,152 cached input), 216 calls,
+and 2,681.80 seconds of CLI latency. Fresh evaluation used 1,952 controls.
+Conservative allocation including worker initialization was 1.36369 L40S-hours.
+The run stopped under a two-collection screening decision made before updated
+evaluation outcomes were known. It used the historical 32-channel padded loss;
+this is a measured tie, not a sample-efficiency advantage. Full evidence is in
+pilot_v3_goal6_seed173_result.json.

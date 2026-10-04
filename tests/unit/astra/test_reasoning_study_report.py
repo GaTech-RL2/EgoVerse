@@ -5,6 +5,7 @@ import pytest
 from astra_reversal.reasoning_learning.study_report import (
     paired_native_comparison,
     summarize_run,
+    usage_by_episode,
     wilson,
 )
 
@@ -98,6 +99,18 @@ def test_wilson_interval_is_not_an_evaluation_denominator_or_certification():
     assert wilson(10, 10)[0] < 0.8
     with pytest.raises(ValueError):
         wilson(0, 0)
+
+
+def test_failed_offline_provider_call_keeps_unknown_usage_explicit(tmp_path):
+    receipt = tmp_path / "failed.json"
+    write(
+        receipt,
+        {"result": {"receipt": {"provider_unavailable": True, "token_usage": None}}},
+    )
+    result = usage_by_episode(tmp_path, receipt_files=[receipt])["offline_diagnostic"]
+    assert result["completed_calls"] == result["failed_provider_calls"] == 1
+    assert result["incomplete_usage_receipts"] == 1
+    assert result["total_tokens"] == 0  # Known lower bound, never a known zero bill.
 
 
 def test_initial_score_does_not_evaluate_a_later_update(tmp_path):

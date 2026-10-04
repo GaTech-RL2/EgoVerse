@@ -1,0 +1,27 @@
+{
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-6",
+  "source_revision": "6911f2404cdbd760f5bf75b99bd42cd6aafde7a0",
+  "receipt": {
+    "native_zero_guidance_max_abs": 0.0,
+    "zero_adapter_max_abs": 0.0,
+    "weighted_input_gradient_norm": 0.01508293580263853,
+    "native_adapter_gradient_norm": 0.004362060516790918,
+    "guidance_latency_seconds": 0.4796493260655552,
+    "guided_endpoint_masked_error": 0.22343729436397552,
+    "native_endpoint_masked_error": 0.22360680997371674,
+    "peak_gpu_bytes": 14999892480,
+    "environment_actions": 0,
+    "policy_updates": 0,
+    "synthetic_diagnostic_not_training_data": true,
+    "training_loss_parity": {
+      "action_dimensions": 7,
+      "learner_loss": 0.002162001561373472,
+      "native_loss": 0.002162002492696047,
+      "absolute_difference": 9.313225746154785e-10,
+      "atol": 0.0001,
+      "rtol": 0.0001,
+      "passed": true
+    },
+    "claim": "numerical and backward-path diagnostic only; not task success"
+  }
+}
