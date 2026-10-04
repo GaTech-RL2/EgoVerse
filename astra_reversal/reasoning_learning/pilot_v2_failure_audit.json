@@ -1,0 +1,144 @@
+{
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-2",
+  "source_revision": "00b7345fce2a0d8d3edec18ee2044d63f41de163",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "status": "stopped_after_saved_rollout",
+  "native_autonomous_successes": 5,
+  "native_autonomous_rollouts": 10,
+  "updated_autonomous_evaluation": null,
+  "collection": {
+    "success": false,
+    "actions_executed": 250,
+    "early_stop": "correction_episode_budget_exhausted",
+    "episode_id": "libero_goal_ood:seed173:task6:state0",
+    "wall_seconds": 1446.5607500229962,
+    "correction_episodes": 3,
+    "assisted_chunks": 8,
+    "assisted_simulator_seconds": 2.000000000000001,
+    "teacher_requests": 80,
+    "admitted_windows": 9,
+    "autonomous": false,
+    "initialization_steps": 10,
+    "total_control_steps": 260
+  },
+  "teacher_usage": {
+    "completed_calls": 80,
+    "input_tokens": 1480641,
+    "cached_input_tokens": 772096,
+    "output_tokens": 12814,
+    "total_tokens": 1493455,
+    "latency_seconds": 957.8429787532368,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 708545
+  },
+  "roles": {
+    "diagnose": 19,
+    "assess": 50,
+    "compare": 11
+  },
+  "outcomes": {
+    "ambiguous": 27,
+    "observed_useful": 18,
+    "failed": 5
+  },
+  "admitted_windows": [
+    {
+      "window_id": "4e140fc61779b97ff962262caffd8809b9fc1caf4cdb8b809592464b8429a815",
+      "start_step": 40,
+      "end_step_exclusive": 50,
+      "stages": [
+        "setup"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "1eed8d1099b94a9d5109e0239aa830b533eae20d7353240913107c579feb37b1",
+      "start_step": 45,
+      "end_step_exclusive": 55,
+      "stages": [
+        "setup"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "c5cbdbc3cd5dcd79a1d1bb310f7e33d33c7ac8f591763bbea76a3df11aa1cc55",
+      "start_step": 95,
+      "end_step_exclusive": 105,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "972337468a03a5798bab71dbbeb0854db7d58a1c3497a4af51378679708000c7",
+      "start_step": 100,
+      "end_step_exclusive": 110,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "321a5b5c50cd02979eb1d1f3d3f0c1cbbc4d135622ea114198133b2c4765f45b",
+      "start_step": 105,
+      "end_step_exclusive": 115,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "91c7a1f828a973f4ead349ddc7342bfe5fe0e1d1f1b563f550f169c21c183ca5",
+      "start_step": 110,
+      "end_step_exclusive": 120,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "01ee8b63773e71c991bc2cc51311b05e83d5126345f03ae25f3e5f923d894b1f",
+      "start_step": 115,
+      "end_step_exclusive": 125,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "6d6c79682b4b3d3d46594c390fbc2da782be77f2cdda1e808419747b8e298967",
+      "start_step": 120,
+      "end_step_exclusive": 130,
+      "stages": [
+        "continuation"
+      ],
+      "event_ids": []
+    },
+    {
+      "window_id": "65f9f07be57c76ffe72e622102bb686f3aca171f819a8afda9a5533631d6e64d",
+      "start_step": 150,
+      "end_step_exclusive": 160,
+      "stages": [
+        "correction"
+      ],
+      "event_ids": [
+        "libero_goal_ood:seed173:task6:state0:plan37"
+      ]
+    }
+  ],
+  "optimizer_steps": 20,
+  "correction_window_optimizer_samples": 11,
+  "actual_gpu_hours_including_bootstrap": 0.74911164,
+  "findings": [
+    "RTC guidance caused visible lift and received clear candidate preferences, unlike the v1 taper. This does not establish task success.",
+    "The bottle was repeatedly lifted near the rack; placement in the bowl was not achieved. Several active rules only reduced opening rather than sustaining closure.",
+    "The only admitted correction window spans steps 150\u2013160. Its first five actions include two opening commands; locally useful hand clearance did not establish sustained object retention.",
+    "Only one rollout and one update completed before the planned stop. Its updated autonomous success rate was not evaluated and remains unknown."
+  ],
+  "revision": "V3 permits a gripper delta up to 2 within unchanged final controller limits, while keeping motion deltas at 0.5. Retention and transport still require observed verification.",
+  "research_objective_met": false
+}

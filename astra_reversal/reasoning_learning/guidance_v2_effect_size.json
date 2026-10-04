@@ -1,0 +1,1488 @@
+{
+  "environment_actions": 0,
+  "target": "native normalized z + 0.1 on first five actions",
+  "cases": [
+    {
+      "strength": 0.25,
+      "schedule": "taper_to_zero",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22356441617012024,
+      "fraction_error_reduction": 0.00018959084296887863,
+      "max_action_change": 2.1159648895263672e-05,
+      "off_mask_change": 1.4901161193847656e-07,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 0.25,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4430843289010227,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.25
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029946086928248405,
+            "gradient_norm": [
+              0.0007224167347885668
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.225
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969997748732567,
+            "gradient_norm": [
+              0.0004540113441180438
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.2
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644176363945007,
+            "gradient_norm": [
+              0.00039283870137296617
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.175
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462320566177368,
+            "gradient_norm": [
+              0.0004111154703423381
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.15
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325805440545082,
+            "gradient_norm": [
+              0.0006630876450799406
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.125
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268566355109215,
+            "gradient_norm": [
+              0.0005841574165970087
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.1
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02706853300333023,
+            "gradient_norm": [
+              0.0013892021961510181
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.07500000000000001
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02611960470676422,
+            "gradient_norm": [
+              0.0011760278139263391
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.04999999999999999
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02500002458691597,
+            "gradient_norm": [
+              0.01713220588862896
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.024999999999999994
+          }
+        ]
+      }
+    },
+    {
+      "strength": 1,
+      "schedule": "taper_to_zero",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22343729436397552,
+      "fraction_error_reduction": 0.0007580968118150455,
+      "max_action_change": 8.460879325866699e-05,
+      "off_mask_change": 5.140900611877441e-07,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 1,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.3975602211430669,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.02994600683450699,
+            "gradient_norm": [
+              0.0007224077708087862
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029700011014938354,
+            "gradient_norm": [
+              0.00045404277625493705
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.8
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644154012203217,
+            "gradient_norm": [
+              0.00039283157093450427
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.7
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462322428822517,
+            "gradient_norm": [
+              0.0004111319431103766
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.6
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325816616415977,
+            "gradient_norm": [
+              0.0006630995194427669
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.5
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268547728657722,
+            "gradient_norm": [
+              0.0005841718520969152
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.4
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02706851065158844,
+            "gradient_norm": [
+              0.0013891676208004355
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.30000000000000004
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119623333215714,
+            "gradient_norm": [
+              0.001176012447103858
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.19999999999999996
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.025000102818012238,
+            "gradient_norm": [
+              0.017132196575403214
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.09999999999999998
+          }
+        ]
+      }
+    },
+    {
+      "strength": 5,
+      "schedule": "taper_to_zero",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.2227594405412674,
+      "fraction_error_reduction": 0.003789551098863808,
+      "max_action_change": 0.0004232078790664673,
+      "off_mask_change": 2.5704503059387207e-06,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 5,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4589356950018555,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 5.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029945818707346916,
+            "gradient_norm": [
+              0.0007224356522783637
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.5
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029699789360165596,
+            "gradient_norm": [
+              0.0004540093650575727
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.0
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644040390849113,
+            "gradient_norm": [
+              0.00039284792728722095
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.5
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462212532758713,
+            "gradient_norm": [
+              0.0004112308961339295
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.0
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325825929641724,
+            "gradient_norm": [
+              0.0006631838041357696
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.5
+          },
+          {
+            "t": 0.4,
+            "energy": 0.02826852537691593,
+            "gradient_norm": [
+              0.0005842734244652092
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.0
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027068423107266426,
+            "gradient_norm": [
+              0.0013891938142478466
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.5000000000000002
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119748130440712,
+            "gradient_norm": [
+              0.0011759890476241708
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9999999999999998
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.025000544264912605,
+            "gradient_norm": [
+              0.017132235690951347
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.4999999999999999
+          }
+        ]
+      }
+    },
+    {
+      "strength": 10,
+      "schedule": "taper_to_zero",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22191214561462402,
+      "fraction_error_reduction": 0.007578768997652197,
+      "max_action_change": 0.0008464455604553223,
+      "off_mask_change": 5.103647708892822e-06,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 10,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.45007265405729413,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.02994554489850998,
+            "gradient_norm": [
+              0.0007224016590043902
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.0
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969956398010254,
+            "gradient_norm": [
+              0.00045402764226309955
+            ],
+            "clipped": false,
+            "guidance_coefficient": 8.0
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029643887653946877,
+            "gradient_norm": [
+              0.0003928830265067518
+            ],
+            "clipped": false,
+            "guidance_coefficient": 7.0
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462132439017296,
+            "gradient_norm": [
+              0.000411301531130448
+            ],
+            "clipped": false,
+            "guidance_coefficient": 6.0
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02832580916583538,
+            "gradient_norm": [
+              0.0006633182638324797
+            ],
+            "clipped": false,
+            "guidance_coefficient": 5.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268415480852127,
+            "gradient_norm": [
+              0.0005844131228514016
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.0
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027068328112363815,
+            "gradient_norm": [
+              0.001389209064655006
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.0000000000000004
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119882240891457,
+            "gradient_norm": [
+              0.001175956567749381
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.9999999999999996
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02500109001994133,
+            "gradient_norm": [
+              0.017132269218564034
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9999999999999998
+          }
+        ]
+      }
+    },
+    {
+      "strength": 1,
+      "schedule": "taper_to_zero",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22340627014636993,
+      "fraction_error_reduction": 0.0008968413232600669,
+      "max_action_change": 0.0001719743013381958,
+      "off_mask_change": 0.0001719743013381958,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 1,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4485516648273915,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029945891350507736,
+            "gradient_norm": [
+              0.0014824894024059176
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029699668288230896,
+            "gradient_norm": [
+              0.001449424191378057
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.8
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029643699526786804,
+            "gradient_norm": [
+              0.0015749267768114805
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.7
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028461771085858345,
+            "gradient_norm": [
+              0.0018267971463501453
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.6
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325064107775688,
+            "gradient_norm": [
+              0.002481861738488078
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.5
+          },
+          {
+            "t": 0.4,
+            "energy": 0.02826741337776184,
+            "gradient_norm": [
+              0.003580998396500945
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.4
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02706652693450451,
+            "gradient_norm": [
+              0.0055638449266552925
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.30000000000000004
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02611611969769001,
+            "gradient_norm": [
+              0.009376158006489277
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.19999999999999996
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02499316819012165,
+            "gradient_norm": [
+              0.02758064866065979
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.09999999999999998
+          }
+        ]
+      }
+    },
+    {
+      "strength": 5,
+      "schedule": "taper_to_zero",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22260376811027527,
+      "fraction_error_reduction": 0.004485739336647976,
+      "max_action_change": 0.0008592680096626282,
+      "off_mask_change": 0.0008592680096626282,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 5,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4958953079767525,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 5.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.0299450121819973,
+            "gradient_norm": [
+              0.0014824940590187907
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.5
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029698345810174942,
+            "gradient_norm": [
+              0.0014493978815153241
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.0
+          },
+          {
+            "t": 0.7,
+            "energy": 0.02964203804731369,
+            "gradient_norm": [
+              0.0015748501755297184
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.5
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028459586203098297,
+            "gradient_norm": [
+              0.0018266831757500768
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.0
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02832210436463356,
+            "gradient_norm": [
+              0.0024816892109811306
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.5
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028262710198760033,
+            "gradient_norm": [
+              0.0035806125961244106
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.0
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02705848030745983,
+            "gradient_norm": [
+              0.005562863778322935
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.5000000000000002
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02610224299132824,
+            "gradient_norm": [
+              0.00937250629067421
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9999999999999998
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.024965863674879074,
+            "gradient_norm": [
+              0.02757962793111801
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.4999999999999999
+          }
+        ]
+      }
+    },
+    {
+      "strength": 10,
+      "schedule": "taper_to_zero",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22159987688064575,
+      "fraction_error_reduction": 0.008975277154156802,
+      "max_action_change": 0.00171719491481781,
+      "off_mask_change": 0.00171719491481781,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "taper_to_zero",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 10,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.5588663520757109,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.02994396910071373,
+            "gradient_norm": [
+              0.0014825004618614912
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.0
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029696688055992126,
+            "gradient_norm": [
+              0.0014493813505396247
+            ],
+            "clipped": false,
+            "guidance_coefficient": 8.0
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029639968648552895,
+            "gradient_norm": [
+              0.0015747618163004518
+            ],
+            "clipped": false,
+            "guidance_coefficient": 7.0
+          },
+          {
+            "t": 0.6,
+            "energy": 0.02845689281821251,
+            "gradient_norm": [
+              0.0018265299731865525
+            ],
+            "clipped": false,
+            "guidance_coefficient": 6.0
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02831842564046383,
+            "gradient_norm": [
+              0.002481481758877635
+            ],
+            "clipped": false,
+            "guidance_coefficient": 5.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.02825682982802391,
+            "gradient_norm": [
+              0.0035801278427243233
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.0
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027048436924815178,
+            "gradient_norm": [
+              0.0055616251192986965
+            ],
+            "clipped": false,
+            "guidance_coefficient": 3.0000000000000004
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026084885001182556,
+            "gradient_norm": [
+              0.009367922320961952
+            ],
+            "clipped": false,
+            "guidance_coefficient": 1.9999999999999996
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02493177354335785,
+            "gradient_norm": [
+              0.027578558772802353
+            ],
+            "clipped": false,
+            "guidance_coefficient": 0.9999999999999998
+          }
+        ]
+      }
+    },
+    {
+      "strength": 1,
+      "schedule": "rtc_pigdm",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.2080681174993515,
+      "fraction_error_reduction": 0.06949114150947233,
+      "max_action_change": 0.007777869701385498,
+      "off_mask_change": 2.9012560844421387e-05,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 1,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.554454174824059,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029941098764538765,
+            "gradient_norm": [
+              0.0007221100968308747
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.111111111111114
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969769388437271,
+            "gradient_norm": [
+              0.0004539964138530195
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.250000000000002
+          },
+          {
+            "t": 0.7,
+            "energy": 0.02964366041123867,
+            "gradient_norm": [
+              0.00039307394763454795
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.7619047619047614
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462335467338562,
+            "gradient_norm": [
+              0.00041163121932186186
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.166666666666667
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02832730859518051,
+            "gradient_norm": [
+              0.0006638546474277973
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028269631788134575,
+            "gradient_norm": [
+              0.0005848429282195866
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.166666666666667
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027071133255958557,
+            "gradient_norm": [
+              0.001389864832162857
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.7619047619047614
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119213551282883,
+            "gradient_norm": [
+              0.0011758219916373491
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.250000000000002
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.024986334145069122,
+            "gradient_norm": [
+              0.017133604735136032
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.111111111111114
+          }
+        ]
+      }
+    },
+    {
+      "strength": 5,
+      "schedule": "rtc_pigdm",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.14638377726078033,
+      "fraction_error_reduction": 0.3453518822705506,
+      "max_action_change": 0.03881286084651947,
+      "off_mask_change": 4.775542765855789e-05,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 5,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.5404384529683739,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029941098764538765,
+            "gradient_norm": [
+              0.0007221100968308747
+            ],
+            "clipped": false,
+            "guidance_coefficient": 45.55555555555557
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029696626588702202,
+            "gradient_norm": [
+              0.00045399772352539003
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.250000000000007
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029643211513757706,
+            "gradient_norm": [
+              0.00039326652768068016
+            ],
+            "clipped": false,
+            "guidance_coefficient": 13.809523809523807
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028461989015340805,
+            "gradient_norm": [
+              0.0004120532830711454
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.833333333333336
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028327468782663345,
+            "gradient_norm": [
+              0.0006643630331382155
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028269462287425995,
+            "gradient_norm": [
+              0.0005853341426700354
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.833333333333336
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02707080915570259,
+            "gradient_norm": [
+              0.001389968441799283
+            ],
+            "clipped": false,
+            "guidance_coefficient": 13.809523809523807
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02611996978521347,
+            "gradient_norm": [
+              0.0011757268803194165
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.250000000000007
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02497454173862934,
+            "gradient_norm": [
+              0.017135746777057648
+            ],
+            "clipped": false,
+            "guidance_coefficient": 45.55555555555557
+          }
+        ]
+      }
+    },
+    {
+      "strength": 10,
+      "schedule": "rtc_pigdm",
+      "project_gradient": true,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.07132013887166977,
+      "fraction_error_reduction": 0.681046660072415,
+      "max_action_change": 0.07764223217964172,
+      "off_mask_change": 7.122475653886795e-05,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": true,
+        "max_guidance_weight": 100.0,
+        "strength": 10,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4501667458098382,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029941098764538765,
+            "gradient_norm": [
+              0.0007221100968308747
+            ],
+            "clipped": false,
+            "guidance_coefficient": 91.11111111111114
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969546802341938,
+            "gradient_norm": [
+              0.0004540044174063951
+            ],
+            "clipped": false,
+            "guidance_coefficient": 42.500000000000014
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029642611742019653,
+            "gradient_norm": [
+              0.0003934963315259665
+            ],
+            "clipped": false,
+            "guidance_coefficient": 27.619047619047613
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028461484238505363,
+            "gradient_norm": [
+              0.00041253824019804597
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.66666666666667
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02832762897014618,
+            "gradient_norm": [
+              0.0006649281131103635
+            ],
+            "clipped": false,
+            "guidance_coefficient": 20.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028269261121749878,
+            "gradient_norm": [
+              0.0005859340890310705
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.66666666666667
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02707042172551155,
+            "gradient_norm": [
+              0.0013900810154154897
+            ],
+            "clipped": false,
+            "guidance_coefficient": 27.619047619047613
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026120897382497787,
+            "gradient_norm": [
+              0.0011756891617551446
+            ],
+            "clipped": false,
+            "guidance_coefficient": 42.500000000000014
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.024959849193692207,
+            "gradient_norm": [
+              0.01713850535452366
+            ],
+            "clipped": false,
+            "guidance_coefficient": 91.11111111111114
+          }
+        ]
+      }
+    },
+    {
+      "strength": 1,
+      "schedule": "rtc_pigdm",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.20757420361042023,
+      "fraction_error_reduction": 0.0716999914500861,
+      "max_action_change": 0.008547820150852203,
+      "off_mask_change": 0.008547820150852203,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 1,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.39463876700028777,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029925070703029633,
+            "gradient_norm": [
+              0.001482524792663753
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.111111111111114
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029682869091629982,
+            "gradient_norm": [
+              0.0014492253540083766
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.250000000000002
+          },
+          {
+            "t": 0.7,
+            "energy": 0.02963060885667801,
+            "gradient_norm": [
+              0.0015743485419079661
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.7619047619047614
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028450753539800644,
+            "gradient_norm": [
+              0.0018260946962982416
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.166666666666667
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028316326439380646,
+            "gradient_norm": [
+              0.0024812454357743263
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028256788849830627,
+            "gradient_norm": [
+              0.003580170450732112
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.166666666666667
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02705371379852295,
+            "gradient_norm": [
+              0.005562903359532356
+            ],
+            "clipped": false,
+            "guidance_coefficient": 2.7619047619047614
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026087921112775803,
+            "gradient_norm": [
+              0.0093718022108078
+            ],
+            "clipped": false,
+            "guidance_coefficient": 4.250000000000002
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02488180436193943,
+            "gradient_norm": [
+              0.027586115524172783
+            ],
+            "clipped": false,
+            "guidance_coefficient": 9.111111111111114
+          }
+        ]
+      }
+    },
+    {
+      "strength": 5,
+      "schedule": "rtc_pigdm",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.14345821738243103,
+      "fraction_error_reduction": 0.35843538307579526,
+      "max_action_change": 0.04262010008096695,
+      "off_mask_change": 0.04262010008096695,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 5,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.39200905291363597,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029925070703029633,
+            "gradient_norm": [
+              0.001482524792663753
+            ],
+            "clipped": false,
+            "guidance_coefficient": 45.55555555555557
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029675735160708427,
+            "gradient_norm": [
+              0.0014491337351500988
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.250000000000007
+          },
+          {
+            "t": 0.7,
+            "energy": 0.02962149679660797,
+            "gradient_norm": [
+              0.0015739623922854662
+            ],
+            "clipped": false,
+            "guidance_coefficient": 13.809523809523807
+          },
+          {
+            "t": 0.6,
+            "energy": 0.02844000607728958,
+            "gradient_norm": [
+              0.0018254932947456837
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.833333333333336
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028303133323788643,
+            "gradient_norm": [
+              0.0024804493878036737
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.02823670208454132,
+            "gradient_norm": [
+              0.003578547853976488
+            ],
+            "clipped": false,
+            "guidance_coefficient": 10.833333333333336
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027016153559088707,
+            "gradient_norm": [
+              0.005558284465223551
+            ],
+            "clipped": false,
+            "guidance_coefficient": 13.809523809523807
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.025997981429100037,
+            "gradient_norm": [
+              0.009347900748252869
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.250000000000007
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.024489717558026314,
+            "gradient_norm": [
+              0.027621060609817505
+            ],
+            "clipped": false,
+            "guidance_coefficient": 45.55555555555557
+          }
+        ]
+      }
+    },
+    {
+      "strength": 10,
+      "schedule": "rtc_pigdm",
+      "project_gradient": false,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.06370128691196442,
+      "fraction_error_reduction": 0.7151191999946155,
+      "max_action_change": 0.08544446527957916,
+      "off_mask_change": 0.08544446527957916,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "rtc_pigdm",
+        "project_gradient": false,
+        "max_guidance_weight": 100.0,
+        "strength": 10,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.45623046485707164,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0015272988239303231
+            ],
+            "clipped": false,
+            "guidance_coefficient": 100.0
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029925070703029633,
+            "gradient_norm": [
+              0.001482524792663753
+            ],
+            "clipped": false,
+            "guidance_coefficient": 91.11111111111114
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029666842892766,
+            "gradient_norm": [
+              0.0014490275643765926
+            ],
+            "clipped": false,
+            "guidance_coefficient": 42.500000000000014
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029610056430101395,
+            "gradient_norm": [
+              0.0015734805492684245
+            ],
+            "clipped": false,
+            "guidance_coefficient": 27.619047619047613
+          },
+          {
+            "t": 0.6,
+            "energy": 0.02842649817466736,
+            "gradient_norm": [
+              0.0018247344996780157
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.66666666666667
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028286654502153397,
+            "gradient_norm": [
+              0.0024794612545520067
+            ],
+            "clipped": false,
+            "guidance_coefficient": 20.0
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028211643919348717,
+            "gradient_norm": [
+              0.003576499642804265
+            ],
+            "clipped": false,
+            "guidance_coefficient": 21.66666666666667
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02696925960481167,
+            "gradient_norm": [
+              0.005552370101213455
+            ],
+            "clipped": false,
+            "guidance_coefficient": 27.619047619047613
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02588614821434021,
+            "gradient_norm": [
+              0.009317527525126934
+            ],
+            "clipped": false,
+            "guidance_coefficient": 42.500000000000014
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.024004360660910606,
+            "gradient_norm": [
+              0.027705883607268333
+            ],
+            "clipped": false,
+            "guidance_coefficient": 91.11111111111114
+          }
+        ]
+      }
+    }
+  ]
+}

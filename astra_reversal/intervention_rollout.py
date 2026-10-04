@@ -300,6 +300,7 @@ def run_rollout(
     expected_reset=None,
     policy_image_size=None,
     video_path=None,
+    step_observer=None,
 ):
     """Run one attempt and always close its environment, including on errors.
 
@@ -390,12 +391,26 @@ def run_rollout(
             )
             replans += 1
             for action in chunk[:needed]:
+                before_action = (
+                    _policy_view(episode.observe())
+                    if step_observer is not None
+                    else None
+                )
                 start = time.perf_counter()
                 episode.step(np.asarray(action, dtype=np.float32))
                 environment_seconds += time.perf_counter() - start
                 actions += 1
                 current = _policy_view(episode.observe())
                 frames.append({key: current[key].copy() for key in POLICY_KEYS})
+                if step_observer is not None:
+                    step_observer(
+                        before_action,
+                        np.asarray(action, dtype=np.float32).copy(),
+                        actions - 1,
+                        current,
+                        bool(episode.success),
+                        bool(episode.terminated),
+                    )
                 if episode.success or episode.terminated:
                     break
         result = {

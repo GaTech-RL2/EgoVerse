@@ -1,0 +1,204 @@
+{
+  "schema_version": "reasoning-learning-gripper-result-1",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-4",
+  "source_revision": "3439d378fec15e8c85d380cd8b30bd58cb05145d",
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6
+  },
+  "seed": 173,
+  "status": "stopped_after_predeclared_two_rollout_screen",
+  "stop_rule": "Finish second collection, update, and scheduled autonomous evaluation; stop marker requested before updated-policy outcomes were available.",
+  "native": {
+    "successes": 5,
+    "rollouts": 10,
+    "shared_evaluation": true
+  },
+  "autonomous_after_two_collections": {
+    "collection_rollouts": 2,
+    "collection_steps": 620,
+    "evaluation_steps_cumulative": 1952,
+    "policy_version": 2,
+    "successes": 5,
+    "rollouts": 10,
+    "success_rate": 0.5,
+    "wilson_95": [
+      0.236593090512564,
+      0.7634069094874361
+    ],
+    "teacher_total_tokens": 4152587,
+    "episode_results": [
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state20",
+        "success": true,
+        "actions_executed": 83,
+        "total_control_steps": 93,
+        "reset_identity": {
+          "reset_state_sha256": "d0ece57bc0005020cbfa4245d51168a80d27daa376d6a8e78db4d3a462bbb31f",
+          "reset_model_sha256": "3f56d817d32bbd5f0d6b9e2b66807f9feccdd3646cce2c240080773128f8cbdd",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state21",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "0a7f30ad298f9737e96d76c8a20ad9172fa92d944545ce4fa938793a845cb3fc",
+          "reset_model_sha256": "7a594d2ed870f2a92382336c18b20d9bf1e6b3d260cdd69b061943afcfe60d35",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state22",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "14d6f524dc034999804c31ff07ad1fe79fd98f3102d152aa23fee510300c482b",
+          "reset_model_sha256": "240a29e02029c11a3de15f97fe0619301399c776084e2f024f264821edd762d8",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state23",
+        "success": true,
+        "actions_executed": 55,
+        "total_control_steps": 65,
+        "reset_identity": {
+          "reset_state_sha256": "7e6f7da14c48cea2252588911ca558ad9ff30f652c8b3fab9399491f25a35867",
+          "reset_model_sha256": "0bf67e916e2255b45afd7e8a2984dd6b6817de49b2c9383b28595c79d7170173",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state24",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "1b0655e00031cc28d5ba30ff0246aec79cf6c604271700d3b1a026dcf8ffa15e",
+          "reset_model_sha256": "9b00a86c2b1c240af750c24459407a4198e512da925ed8cf0b4f1dc947760b9b",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state25",
+        "success": true,
+        "actions_executed": 71,
+        "total_control_steps": 81,
+        "reset_identity": {
+          "reset_state_sha256": "0e9415a68681b9f03a7a40a37ba8cea7af4ffebb92042dc8b98635d53150fd07",
+          "reset_model_sha256": "be40ab19e96b0fbf7401dd1d1e9f2457289cc2f60d87310d4896f8b854e0d65d",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state26",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "00dc402c72fc5ff81998b4671dda70193c21909aa9fa69ed7141a42379147f65",
+          "reset_model_sha256": "9d2fe9eb2324cc6e43968cba442a75584a6a257c77cbe31496b175b34d647b65",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state27",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "d77be8230692b46153da66beb49155a13c9c336c362a3061ca60dd7b4a9ce863",
+          "reset_model_sha256": "014e4088ab86b86f5a41db545c0992912619dc3eab89c21d899960d3a935afec",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state28",
+        "success": true,
+        "actions_executed": 88,
+        "total_control_steps": 98,
+        "reset_identity": {
+          "reset_state_sha256": "19467b92ad6007298dea27ae74e3816bbf7ec9e9f9ced3cbbefa210bbe0765be",
+          "reset_model_sha256": "a3e6f128a524f2b4b874f9e0ad43c9f547796506f111556c405290df15470d58",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      },
+      {
+        "episode_id": "libero_goal_ood:seed173:task6:state29",
+        "success": true,
+        "actions_executed": 55,
+        "total_control_steps": 65,
+        "reset_identity": {
+          "reset_state_sha256": "3738124ebcbab051785c4ea63e7e012e327689202118f79197604fb4272e91d9",
+          "reset_model_sha256": "644841dce9c2939fc333956269039784a172b66cf39b310e42b0dea996ce1df5",
+          "bddl_sha256": "2e65ef9f2a2c3976463016b1180266fb2aeff6148cae34486168cd8d80b135f9"
+        }
+      }
+    ],
+    "native_comparison": {
+      "native_successes": 5,
+      "rollouts": 10,
+      "delta_success_rate": 0.0,
+      "gained_episode_ids": [],
+      "regressed_episode_ids": [],
+      "paired_reset_identities_verified": true,
+      "native_workflow": "astra-pi05-reasoning-learning-20261003-pilot-1"
+    }
+  },
+  "collected_successes": 0,
+  "collection_rollouts": 2,
+  "collection_controls": 620,
+  "new_evaluation_controls": 1952,
+  "teacher_usage": {
+    "completed_calls": 216,
+    "failed_provider_calls": 0,
+    "input_tokens": 4118177,
+    "cached_input_tokens": 2353152,
+    "output_tokens": 34410,
+    "total_tokens": 4152587,
+    "latency_seconds": 2681.8002973743132,
+    "incomplete_usage_receipts": 0,
+    "uncached_input_tokens": 1765025
+  },
+  "actual_allocated_gpu_hours": 1.3636874038888889,
+  "policy_updates": 2,
+  "optimizer_steps": 40,
+  "trainable_parameters": 3465216,
+  "supervised_dimensions": 32,
+  "padding_included_in_loss": true,
+  "collection_summary": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state0",
+      "success": false,
+      "actions_executed": 300,
+      "correction_episodes": 2,
+      "assisted_chunks": 3,
+      "assisted_simulator_seconds": 0.7500000000000001,
+      "teacher_requests": 110,
+      "admitted_windows": 7,
+      "wall_seconds": 2035.9627006221563
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state1",
+      "success": false,
+      "actions_executed": 300,
+      "correction_episodes": 3,
+      "assisted_chunks": 4,
+      "assisted_simulator_seconds": 1.0000000000000002,
+      "teacher_requests": 106,
+      "admitted_windows": 15,
+      "wall_seconds": 2034.713811818976
+    }
+  ],
+  "failure_evidence": [
+    "The updated policy wins exactly the same five held-out resets as native; zero gained and zero regressed resets.",
+    "Seven selected correction prefixes executed (35 control actions); the two collection rollouts still failed the task.",
+    "The teacher repeatedly generated upward/closing corrections without establishing transfer into the requested bowl.",
+    "V3 used a 32-channel padded loss; V5 corrects the policy-level objective and exposes actual prefix timing."
+  ],
+  "research_objective_met": false
+}

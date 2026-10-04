@@ -1,0 +1,15 @@
+{
+  "schema": "reasoning-learning-engineering-checks-1",
+  "date": "2026-10-03",
+  "new_cpu_tests": {"passed": 38, "failed": 0},
+  "repository_unit_suite": {"passed": 1700, "skipped": 6, "failed": 0, "seconds": 163.31},
+  "pinned_lerobot_runtime_integration": {"passed": 1, "scope": "prepare_velocity action-VJP opt-in with synthetic affine denoiser; not weighted-model backward validation"},
+  "focused_shared_path_tests": {"passed": 113, "scope": "new loop, simulator callback regressions, Codex relay and accounting"},
+  "numerical_checks": ["zero-guidance native Euler equality", "coupled-denoiser finite-difference VJP", "native-time guidance sign", "bounded direct edit support", "no sampling-time weight updates"],
+  "evidence_checks": ["fixed native reference binding", "single persisted execution claim", "reject ties and uncertainty for replacement", "complete real action windows", "exclude unexecuted and failed segments", "correct pre-action observation pairing"],
+  "learning_checks": ["zero-LoRA native equality on small network", "actual trainable parameter changes", "fresh native times", "frozen weights between updates", "exclude synthetic labels by default"],
+  "full_checkpoint_gpu_preflight": "not_run",
+  "robot_rollouts": 0,
+  "strong_rl_baseline_rollouts": 0,
+  "research_objective_met": false
+}

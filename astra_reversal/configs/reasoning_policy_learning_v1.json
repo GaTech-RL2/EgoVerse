@@ -1,0 +1,79 @@
+{
+  "schema_version": "reasoning-policy-learning-1",
+  "status": "implementation_and_preflight_pending",
+  "proposal_sha256": "da0631966e942858cad08653509fb644f134dcec53ac0cdcdda30fee6ebe96c5",
+  "checkpoint": {
+    "repo_id": "lerobot/pi05_libero_base",
+    "revision": "a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "input_profile": "openpi_libero",
+    "runtime_action_horizon": 10,
+    "internal_action_dim": 32,
+    "controller_action_dim": 7,
+    "native_flow_direction": "noise_1_to_action_0",
+    "generation_steps": 10,
+    "execute_steps": 5
+  },
+  "environment": {
+    "suites": ["libero_goal_ood", "libero_spatial_ood"],
+    "revision": "587a6cbf64f16c7b87fa5805dc0ed934192239a4",
+    "tasks_per_suite": 10,
+    "control_frequency_hz": 20,
+    "actions_per_rollout": 300,
+    "stabilization_steps_counted_separately": 10,
+    "observations": ["external_camera", "wrist_camera", "robot_state8", "original_instruction"],
+    "training_feedback": ["binary_environment_success", "real_observation_history"],
+    "privileged_object_poses": false,
+    "physical_candidate_retries": false
+  },
+  "teacher": {
+    "model": "gpt-6-astra", "reasoning_effort": "medium", "harness": "codex_exec_via_authenticated_relay",
+    "roles": ["diagnose", "compare", "assess"], "timeout_seconds_per_call": 240,
+    "monitor_every_actions": 25, "active_replan_actions": 5, "soft_correction_episodes": 3,
+    "max_actions_per_active_plan": 50, "independent_candidate_strengths": [0.25, 1.0],
+    "candidate_noise": "common independent Gaussian draw, also used for the fixed native proposal",
+    "guidance_schedule": "strength*t_native", "max_gradient_norm": 5.0,
+    "max_controller_target_delta": 0.5, "frs_action_steering": false,
+    "simulator_paused_during_reasoning": true
+  },
+  "learner": {
+    "objective": "native_flow_matching", "parameters": "action_expert_attention_and_mlp_lora",
+    "rank": 8, "learning_rate": 0.0001, "update_steps_per_collection_rollout": 20,
+    "fresh_native_beta_distributed_times": true, "fresh_noise": true,
+    "original_demonstration_replay_beta": 0, "synthetic_candidate_training_weight": 0,
+    "complete_executed_action_windows_only": true, "update_boundary": "end_of_collection_rollout",
+    "sampling": "event_and_stage_balanced_with_2x_correction_group_weight"
+  },
+  "pilot": {
+    "scope": "engineering and mechanism screening; not evidence of superiority over strong RL",
+    "development_tasks": [{"suite": "libero_goal_ood", "task_id": 6}, {"suite": "libero_spatial_ood", "task_id": 2}],
+    "seeds": [173, 179, 181],
+    "collection_reset_indices": [0, 1, 2, 3, 4, 5, 6, 7],
+    "autonomous_evaluation_reset_indices": [20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+    "evaluation_after_collection_rollouts": [0, 2, 4, 8],
+    "autonomous_success_threshold": 0.8,
+    "threshold_rule": "At least 8/10 successes at a scheduled checkpoint; report Wilson intervals and seed-level variation, not a win from one crossing.",
+    "learning_curve_x": "all new collection control steps including failed and assisted actions; stabilization separately disclosed and included in total",
+    "evaluation_interactions": "separate ledger; identical schedule and resets for every compared method",
+    "confirmation": "Freeze recipe/tuning, then preregister fresh seeds and resets across all 20 tasks; no confirmation claim from pilot tasks."
+  },
+  "baselines": [
+    {"name": "RLinf DSRL pi0.5 SAC", "repository": "https://github.com/RLinf/RLinf", "revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+     "configuration": "examples/embodiment/config/libero_spatial_dsrl_openpi_pi05.yaml",
+     "status": "source_pinned_checkpoint_and_ood_integration_pending"},
+    {"name": "RLinf pi0.5 PPO", "repository": "https://github.com/RLinf/RLinf", "revision": "c70606f08cdca259b8dec03d4430926b5b8fac9d",
+     "configuration": "examples/embodiment/config/libero_spatial_ppo_openpi_pi05.yaml",
+     "status": "source_pinned_checkpoint_and_ood_integration_pending"}
+  ],
+  "comparison_gates": [
+    "Strictly load the SAME selected LeRobot checkpoint; never substitute RLinf's differently trained default checkpoint.",
+    "Verify normalization, tokenizer, camera orientation, horizon, velocity and native-action numerical parity after any checkpoint conversion.",
+    "Adapt the released OOD task/reset protocol and common action accounting to each baseline.",
+    "Equal development tuning budget, repeated seeds, same autonomous evaluation schedule.",
+    "Report threshold crossings as right-censored if not reached; no sample-efficiency win from assisted success alone."
+  ],
+  "compute": {"platform": "OSMO L40S", "maximum_simultaneous_gpus": 2, "authorized_gpu_hours": 24,
+              "status": "authorized_by_user_20261003", "authorization": "yes take 24 if you want",
+              "accounting": "Sum allocated GPU task durations including bootstrap, failures and all compared methods; never exceed 24 GPU-hours.",
+              "launch_allowed": true},
+  "research_objective_met": false
+}

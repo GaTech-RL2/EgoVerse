@@ -1,0 +1,19 @@
+{
+  "native_zero_guidance_max_abs": 0.0,
+  "zero_adapter_max_abs": 0.0,
+  "weighted_input_gradient_norm": 0.01508293580263853,
+  "native_adapter_gradient_norm": 0.000953639065877161,
+  "guidance_latency_seconds": 0.4758872480597347,
+  "guided_endpoint_masked_error": 0.22343729436397552,
+  "native_endpoint_masked_error": 0.22360680997371674,
+  "peak_gpu_bytes": 14918045696,
+  "environment_actions": 0,
+  "policy_updates": 0,
+  "synthetic_diagnostic_not_training_data": true,
+  "claim": "numerical and backward-path diagnostic only; not task success",
+  "workflow": "astra-pi05-reasoning-learning-20261003-preflight-1",
+  "source_revision": "1f7d7e15a20835cf1f071604a8ee371c85a29dd1",
+  "gpu": "NVIDIA L40S",
+  "gpu_hours_including_bootstrap": 0.15859742777777777,
+  "autonomous_success_rate": null
+}

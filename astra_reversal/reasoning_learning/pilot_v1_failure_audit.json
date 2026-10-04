@@ -1,0 +1,162 @@
+{
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-1",
+  "source_revision": "1f7d7e15a20835cf1f071604a8ee371c85a29dd1",
+  "status": "deliberately_stopped_after_failed_guidance_recipe",
+  "research_objective_met": false,
+  "task": {
+    "suite": "libero_goal_ood",
+    "task_id": 6,
+    "seed": 173
+  },
+  "native_evaluation": {
+    "collection_rollouts": 0,
+    "collection_steps": 0,
+    "evaluation_steps_cumulative": 1989,
+    "policy_version": 0,
+    "successes": 5,
+    "rollouts": 10
+  },
+  "native_episode_results": [
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state20",
+      "success": true,
+      "actions_executed": 83,
+      "total_control_steps": 93
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state21",
+      "success": false,
+      "actions_executed": 300,
+      "total_control_steps": 310
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state22",
+      "success": false,
+      "actions_executed": 300,
+      "total_control_steps": 310
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state23",
+      "success": true,
+      "actions_executed": 91,
+      "total_control_steps": 101
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state24",
+      "success": false,
+      "actions_executed": 300,
+      "total_control_steps": 310
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state25",
+      "success": true,
+      "actions_executed": 71,
+      "total_control_steps": 81
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state26",
+      "success": false,
+      "actions_executed": 300,
+      "total_control_steps": 310
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state27",
+      "success": false,
+      "actions_executed": 300,
+      "total_control_steps": 310
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state28",
+      "success": true,
+      "actions_executed": 87,
+      "total_control_steps": 97
+    },
+    {
+      "episode_id": "libero_goal_ood:seed173:task6:state29",
+      "success": true,
+      "actions_executed": 57,
+      "total_control_steps": 67
+    }
+  ],
+  "completed_collection": {
+    "success": false,
+    "actions_executed": 300,
+    "total_control_steps": 310,
+    "teacher_requests": 85,
+    "admitted_windows": 8,
+    "correction_episodes": 0,
+    "assisted_chunks": 0,
+    "wall_seconds": 1727.8369638978038
+  },
+  "partial_next_collection": {
+    "executed_steps": 10,
+    "initialization_steps": 10,
+    "teacher_calls_started": 3,
+    "complete": false,
+    "admitted_for_training": false
+  },
+  "all_collection_control_steps": 330,
+  "observed_evidence_counts": {
+    "ambiguous": 37,
+    "observed_useful": 12,
+    "failed": 11
+  },
+  "candidate_preference_counts": {
+    "tie": 10
+  },
+  "policy_updates": [
+    {
+      "policy_version": 1,
+      "optimizer_steps": 20,
+      "unique_sampled_windows": 7,
+      "before_sha256": "ee9c706550a9978660f3b6bb44c7b9686df502d605b9fb0c431aa0e9d11560da",
+      "after_sha256": "aa462c5b2607eac39d0991a8468d6a1c2f194ce25638003d6765db6038fc8ce0",
+      "trainable_parameters": 3465216
+    }
+  ],
+  "updated_autonomous_evaluation": null,
+  "token_accounting": {
+    "libero_goal_ood:seed173:task6:state0": {
+      "completed_cli_calls": 85,
+      "roles": {
+        "assess": 60,
+        "diagnose": 20,
+        "compare": 5
+      },
+      "reported_input_tokens": 1508283,
+      "reported_cached_input_tokens": 540672,
+      "reported_uncached_input_tokens": 967611,
+      "reported_output_tokens": 10892,
+      "reported_total_tokens": 1519175,
+      "cli_latency_seconds_sum": 893.2025832440995
+    },
+    "libero_goal_ood:seed173:task6:state1": {
+      "completed_cli_calls": 3,
+      "roles": {
+        "assess": 2,
+        "diagnose": 1
+      },
+      "reported_input_tokens": 53506,
+      "reported_cached_input_tokens": 36864,
+      "reported_uncached_input_tokens": 16642,
+      "reported_output_tokens": 367,
+      "reported_total_tokens": 53873,
+      "cli_latency_seconds_sum": 31.91322253999533
+    }
+  },
+  "local_completed_receipts": 88,
+  "remote_received_provider_receipts": 87,
+  "receipt_note": "One final local completion from the partial cancelled attempt was not received by the worker; count its measured token usage anyway. CLI usage includes cached input; no standalone API dollar charge measured.",
+  "actual_gpu_hours_including_bootstrap": 0.8931525994444445,
+  "failed_hypotheses": [
+    {
+      "finding": "The initial target weighting produced negligible changes; all ten compared candidates were ties.",
+      "revision": "v2 RTC weighting selected from zero-action probe; outcome pending."
+    },
+    {
+      "finding": "The +/-0.5 gripper edit cannot turn approximately -1 opening into positive closure. Repeated +0.5 edits at step175 correctly failed the cumulative bound.",
+      "revision": "v3 permits gripper deltas up to2, retaining +/-0.5 on six motion channels and original controller bounds; outcome pending."
+    }
+  ],
+  "artifact_prefix": "experiments/astra-reversal-20260924/astra-pi05-reasoning-learning-20261003-pilot-1/worker_0/"
+}

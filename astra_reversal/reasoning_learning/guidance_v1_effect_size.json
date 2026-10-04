@@ -1,0 +1,407 @@
+{
+  "environment_actions": 0,
+  "target": "native normalized z + 0.1 on first five actions",
+  "cases": [
+    {
+      "strength": 0.25,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22356441617012024,
+      "fraction_error_reduction": 0.00018959084296887863,
+      "max_action_change": 2.1159648895263672e-05,
+      "off_mask_change": 1.4901161193847656e-07,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "strength*t",
+        "strength": 0.25,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.45299544697627425,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029946086928248405,
+            "gradient_norm": [
+              0.0007224167347885668
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969997748732567,
+            "gradient_norm": [
+              0.0004540113441180438
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644176363945007,
+            "gradient_norm": [
+              0.00039283870137296617
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462320566177368,
+            "gradient_norm": [
+              0.0004111154703423381
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325805440545082,
+            "gradient_norm": [
+              0.0006630876450799406
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268566355109215,
+            "gradient_norm": [
+              0.0005841574165970087
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02706853300333023,
+            "gradient_norm": [
+              0.0013892021961510181
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.02611960470676422,
+            "gradient_norm": [
+              0.0011760278139263391
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02500002458691597,
+            "gradient_norm": [
+              0.01713220588862896
+            ],
+            "clipped": false
+          }
+        ]
+      }
+    },
+    {
+      "strength": 1,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22343729436397552,
+      "fraction_error_reduction": 0.0007580968118150455,
+      "max_action_change": 8.460879325866699e-05,
+      "off_mask_change": 5.140900611877441e-07,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "strength*t",
+        "strength": 1,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.4364023129455745,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.9,
+            "energy": 0.02994600683450699,
+            "gradient_norm": [
+              0.0007224077708087862
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029700011014938354,
+            "gradient_norm": [
+              0.00045404277625493705
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644154012203217,
+            "gradient_norm": [
+              0.00039283157093450427
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462322428822517,
+            "gradient_norm": [
+              0.0004111319431103766
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325816616415977,
+            "gradient_norm": [
+              0.0006630995194427669
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268547728657722,
+            "gradient_norm": [
+              0.0005841718520969152
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.02706851065158844,
+            "gradient_norm": [
+              0.0013891676208004355
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119623333215714,
+            "gradient_norm": [
+              0.001176012447103858
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.025000102818012238,
+            "gradient_norm": [
+              0.017132196575403214
+            ],
+            "clipped": false
+          }
+        ]
+      }
+    },
+    {
+      "strength": 5,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.2227594405412674,
+      "fraction_error_reduction": 0.003789551098863808,
+      "max_action_change": 0.0004232078790664673,
+      "off_mask_change": 2.5704503059387207e-06,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "strength*t",
+        "strength": 5,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.43894436582922935,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.9,
+            "energy": 0.029945818707346916,
+            "gradient_norm": [
+              0.0007224356522783637
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.8,
+            "energy": 0.029699789360165596,
+            "gradient_norm": [
+              0.0004540093650575727
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029644040390849113,
+            "gradient_norm": [
+              0.00039284792728722095
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462212532758713,
+            "gradient_norm": [
+              0.0004112308961339295
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.5,
+            "energy": 0.028325825929641724,
+            "gradient_norm": [
+              0.0006631838041357696
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.4,
+            "energy": 0.02826852537691593,
+            "gradient_norm": [
+              0.0005842734244652092
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027068423107266426,
+            "gradient_norm": [
+              0.0013891938142478466
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119748130440712,
+            "gradient_norm": [
+              0.0011759890476241708
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.025000544264912605,
+            "gradient_norm": [
+              0.017132235690951347
+            ],
+            "clipped": false
+          }
+        ]
+      }
+    },
+    {
+      "strength": 10,
+      "initial_error": 0.22360680997371674,
+      "endpoint_error": 0.22191214561462402,
+      "fraction_error_reduction": 0.007578768997652197,
+      "max_action_change": 0.0008464455604553223,
+      "off_mask_change": 5.103647708892822e-06,
+      "trace": {
+        "operator": "masked_endpoint_gradient",
+        "sampling_direction": "1_to_0",
+        "schedule": "strength*t",
+        "strength": 10,
+        "steps": 10,
+        "velocity_evaluations": 10,
+        "gradient_evaluations": 10,
+        "latency_seconds": 0.3721681898459792,
+        "trace": [
+          {
+            "t": 1.0,
+            "energy": 0.030823536217212677,
+            "gradient_norm": [
+              0.0007157883374020457
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.9,
+            "energy": 0.02994554489850998,
+            "gradient_norm": [
+              0.0007224016590043902
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.8,
+            "energy": 0.02969956398010254,
+            "gradient_norm": [
+              0.00045402764226309955
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.7,
+            "energy": 0.029643887653946877,
+            "gradient_norm": [
+              0.0003928830265067518
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.6,
+            "energy": 0.028462132439017296,
+            "gradient_norm": [
+              0.000411301531130448
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.5,
+            "energy": 0.02832580916583538,
+            "gradient_norm": [
+              0.0006633182638324797
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.4,
+            "energy": 0.028268415480852127,
+            "gradient_norm": [
+              0.0005844131228514016
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.30000000000000004,
+            "energy": 0.027068328112363815,
+            "gradient_norm": [
+              0.001389209064655006
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.19999999999999996,
+            "energy": 0.026119882240891457,
+            "gradient_norm": [
+              0.001175956567749381
+            ],
+            "clipped": false
+          },
+          {
+            "t": 0.09999999999999998,
+            "energy": 0.02500109001994133,
+            "gradient_norm": [
+              0.017132269218564034
+            ],
+            "clipped": false
+          }
+        ]
+      }
+    }
+  ],
+  "workflow": "astra-pi05-reasoning-learning-20261003-baseline-preflight-1"
+}
