@@ -107,6 +107,25 @@ def test_missing_evaluation_and_partial_collection_are_not_scored_as_failures(tm
     assert result["threshold_crossing"] is None
 
 
+def test_restored_student_preserves_its_version_without_claiming_new_updates(tmp_path):
+    restored = {"policy_version": 4, "optimizer_updates": 0}
+    write(tmp_path / "restored_checkpoint.json", restored)
+    write(tmp_path / "updates.json", [])
+    result = summarize_run(
+        {
+            "directory": str(tmp_path),
+            "label": "Frozen student evaluation",
+            "method": "teacher_v8_resume",
+            "workflow": "test",
+        }
+    )
+    assert result["policy_updates"] == 0
+    assert result["restored_checkpoint"] == restored
+    assert result["latest_updated_policy_version"] == 4
+    assert result["latest_evaluated_policy_version"] is None
+    assert not result["latest_update_has_autonomous_evaluation"]
+
+
 def test_report_rejects_incomplete_scheduled_evaluation(tmp_path):
     write(
         tmp_path / "protocol.json",

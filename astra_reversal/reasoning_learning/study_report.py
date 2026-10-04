@@ -197,6 +197,7 @@ def summarize_run(spec):
     curve = read_json(directory / "learning_curve.json", [])
     usage = usage_by_episode(directory, spec.get("teacher_jobs"))
     updates = read_json(directory / "updates.json", [])
+    restored = read_json(directory / "restored_checkpoint.json")
     completion = read_json(directory / "completion.json", {})
     points = []
     for point in curve:
@@ -328,7 +329,10 @@ def summarize_run(spec):
             )
             partial_evaluation = True
     latest_evaluated = max((p["policy_version"] for p in points), default=None)
-    latest_updated = max((r.get("policy_version", 0) for r in updates), default=0)
+    latest_updated = max(
+        [r.get("policy_version", 0) for r in updates]
+        + [restored["policy_version"] if restored else 0]
+    )
     reset_entries = read_json(directory / "resets.json", {}).get("episodes", [])
     learner_configuration = protocol.get("learner")
     configuration_source = "protocol.json:learner"
@@ -378,6 +382,7 @@ def summarize_run(spec):
         "completed_collection_rollouts": len(collection),
         "collected_successes": sum(bool(r["success"]) for r in collection),
         "policy_updates": sum(bool(r.get("updated", True)) for r in updates),
+        "restored_checkpoint": restored,
         "latest_evaluated_policy_version": latest_evaluated,
         "latest_updated_policy_version": latest_updated,
         "latest_update_has_autonomous_evaluation": bool(
@@ -423,6 +428,7 @@ def export_figures(data, output):
         "teacher_v6": "#914ea1",
         "teacher_v7": "#365843",
         "teacher_v8": "#327a93",
+        "teacher_v8_resume": "#327a93",
         "teacher_replay": "#245941",
         "teacher_replay_masked": "#aa783d",
         "credit_online": "#6e8293",
@@ -537,6 +543,86 @@ def export_figures(data, output):
         stem = f"{suite}_task{task_id}_seed{seed}"
         for extension in ("png", "pdf"):
             path = output / f"{stem}.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    spatial_repeats = [
+        groups.get(("libero_spatial_ood", 2, seed), []) for seed in (173, 179)
+    ]
+    if all(
+        any(
+            run["method"] == "teacher_v7"
+            and any(p["collection_rollouts"] == 2 for p in run["points"])
+            for run in runs
+        )
+        for runs in spatial_repeats
+    ):
+        fig, axes = plt.subplots(1, 2, figsize=(11, 5.6), sharey=True)
+        for ax, seed, runs in zip(axes, (173, 179), spatial_repeats, strict=True):
+            teacher = next(r for r in runs if r["method"] == "teacher_v7")
+            native = next(p for p in teacher["points"] if p["policy_version"] == 0)
+            selected = [("Native", native, "#879494")]
+            for method, label in (
+                ("teacher_v7", "Astra learner"),
+                ("dsrl", "DSRL"),
+                ("ppo", "PPO"),
+            ):
+                point = next(
+                    (
+                        p
+                        for r in runs
+                        if r["method"] == method
+                        for p in r["points"]
+                        if p["collection_rollouts"] == 2
+                    ),
+                    None,
+                )
+                if point is not None:
+                    selected.append((label, point, colors[method]))
+            labels = []
+            for i, (label, point, color) in enumerate(selected):
+                score, (low, high) = point["success_rate"], point["wilson_95"]
+                ax.errorbar(
+                    i,
+                    score,
+                    yerr=[[score - low], [high - score]],
+                    fmt="o",
+                    color=color,
+                    capsize=5,
+                )
+                ax.annotate(
+                    f"{point['successes']}/{point['rollouts']}",
+                    (i, score),
+                    xytext=(8, 6),
+                    textcoords="offset points",
+                )
+                labels.append(f"{label}\n{point['collection_steps']:,} controls")
+            ax.set_xticks(range(len(selected)), labels, fontsize=9)
+            ax.set_xlim(-0.5, len(selected) - 0.45)
+            ax.set_ylim(0, 1)
+            ax.axhline(0.8, color="#a89173", linestyle="--", linewidth=1)
+            ax.yaxis.set_major_formatter(PercentFormatter(1))
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.13)
+            teacher_point = next(
+                p for p in teacher["points"] if p["collection_rollouts"] == 2
+            )
+            ax.set_title(
+                f"Seed {seed}\nAstra: {teacher_point['teacher_total_tokens']:,} reported tokens",
+                fontsize=11,
+            )
+        axes[0].set_ylabel("Autonomous success · 95% Wilson interval")
+        fig.suptitle("Spatial OOD2: fixed two-collection comparison")
+        fig.text(
+            0.5,
+            0.02,
+            "10 matched resets per seed · Different collection lengths are shown · PPO seed179 not run · Development evidence",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.06, 1, 0.95))
+        for extension in ("png", "pdf"):
+            path = output / f"spatial_two_collection_repeat.{extension}"
             fig.savefig(path, dpi=180)
             paths.append(str(Path(output.name) / path.name))
         plt.close(fig)
@@ -863,6 +949,9 @@ def build(manifest, budget, output):
         "replay_video_audit": replay_video_audit,
         "spatial_video_audit": spatial_video_audit,
         "credit_video_audit": credit_video_audit,
+        "native_success_selection_audit": read_json(
+            Path(__file__).with_name("native_success_spatial179_selection_audit.json")
+        ),
         "intervention_credit_audit": read_json(
             Path(__file__).with_name("intervention_credit_audit.json")
         ),

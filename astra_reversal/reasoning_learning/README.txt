@@ -899,3 +899,22 @@ collections (411 controls; one success, one failure), tuned DSRL remains
 2/10 and preserves the exact native binary outcomes. Its two evaluations
 cost 5,382 controls, and total worker usage including initialization is
 0.369170 L40S hours. See dsrl_more_spatial2_seed179_result.json.
+
+Completed matched teacher repeat, Spatial seed179
+------------------------------------------------
+The fixed two-collection V7 repeat scores 2/10 before and after learning,
+matching native and tuned DSRL 2/10 on the exact same reset identities. No
+native outcome changes. Collection uses 416 controls, including stabilization,
+with one native success and one failed assisted rollout. Its 113 Astra calls
+cost 2,245,393 reported tokens (1,329,024 cached input, 899,501 uncached input,
+16,868 output); recorded teacher latency is 19.33 minutes. Completed
+collection wall time is 30.44 minutes, and total worker usage is 0.964659
+L40S hours. Twenty autonomous evaluations use 5,382 controls.
+
+Two bounded-target prefixes execute ten assisted commands, all locally judged
+useful, but none enters the strict complete-window training data. Twenty
+admitted windows contain native behavior; the student receives 40 optimizer
+steps. The earlier Spatial seed173 improvement (3/10 to 5/10 after 620
+controls) has not repeated. This does not meet the 8/10 criterion or establish
+a sample-efficiency advantage over strong RL. See
+pilot_v7_spatial2_seed179_after2.json and intervention_credit_audit.json.

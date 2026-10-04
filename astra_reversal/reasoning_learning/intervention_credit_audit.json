@@ -706,6 +706,79 @@
           "ambiguous": 5
         }
       }
+    },
+    {
+      "method": "teacher_v7",
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-11",
+      "task": {
+        "suite": "libero_spatial_ood",
+        "task_id": 2
+      },
+      "seed": 179,
+      "collections": [
+        {
+          "episode_id": "libero_spatial_ood:seed179:task2:state0",
+          "success": true,
+          "collection_controls": 106,
+          "assisted_prefixes_executed": 0,
+          "assisted_prefixes_reviewed": 0,
+          "selected_methods_reviewed": {},
+          "assisted_prefix_teacher_outcomes": {},
+          "assisted_actions_executed": 0,
+          "assisted_actions_locally_useful": 0,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 14,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "a3c5f676ab50f8dbb1eca7f08e4cd06d417447676421f8be713cf22922d9f05b",
+            "decisions.jsonl": "0e569b897d0a4e754192bbcac265636671f79c24e5aafaffb4230afdf0447ad8",
+            "admission.jsonl": "a39d923239828333e0da86d26fdf7227f7bbd3524dadffc6c93900d101f7f86a",
+            "executed_steps.jsonl": "e88c2221d7f98dd23f8eb1e61c6adea6083498384d8c7f71c92f71ed5664a37b",
+            "result.json": "07a34b39509a9e4fc157c663d08166387e59a05ec1cd9c1219406d5726ea61bb"
+          }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed179:task2:state1",
+          "success": false,
+          "collection_controls": 310,
+          "assisted_prefixes_executed": 2,
+          "assisted_prefixes_reviewed": 2,
+          "selected_methods_reviewed": {
+            "bounded_target": 2
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "observed_useful": 2
+          },
+          "assisted_actions_executed": 10,
+          "assisted_actions_locally_useful": 10,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 6,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "3ed83156b0234037e9633c6b19642e67a4023a2a377dbe213dfc0196a161c2b4",
+            "decisions.jsonl": "9204ca4cda03c2e42e57f9669ceda977010651475b3199e1a0334b8990f790c5",
+            "admission.jsonl": "a2cb32a6d074a44ad6dbd6d25dc20aaeacb6e3392a662be1fb46c2ec8c577e72",
+            "executed_steps.jsonl": "56dd3141e67bf8ec40a8691f54df13d4dcabf7e99896f80992fcf7dc51407c5e",
+            "result.json": "6a7e96f30a276f84d454b7ab7385a60fb89b23c99ce617c5bafc36fb70876d68"
+          }
+        }
+      ],
+      "total": {
+        "collection_controls": 416,
+        "assisted_prefixes_executed": 2,
+        "assisted_prefixes_reviewed": 2,
+        "assisted_actions_executed": 10,
+        "assisted_actions_locally_useful": 10,
+        "assisted_actions_in_complete_training_windows": 0,
+        "all_admitted_windows": 20,
+        "correction_containing_windows": 0,
+        "selected_methods_reviewed": {
+          "bounded_target": 2
+        },
+        "assisted_prefix_teacher_outcomes": {
+          "observed_useful": 2
+        }
+      }
     }
   ]
 }
