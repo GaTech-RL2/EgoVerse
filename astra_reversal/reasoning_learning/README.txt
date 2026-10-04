@@ -645,3 +645,16 @@ and preservation checks, rather than treating all losses as grasp failures.
 The contact sheet retains original frames and matching reset/source hashes;
 it introduces no new environment trial. A video frame is the pre-action view,
 including its last recorded frame. Full simulator outcomes remain authoritative.
+
+Prospective hindsight-credit diagnostic
+The completed V5 collections contain one failed 300-action attempt and one
+successful 106-action attempt, with no assisted commands or update before the
+successful collection. Review both complete trajectories using original images,
+robot state, actual actions and final collection outcome. No autonomous
+evaluation data is supplied. Ten-action segments receive retrospective credit;
+only observed_useful with confidence >=0.8 can enter the proposed data selection.
+Later observations may resolve an earlier ambiguous grasp, but they never replace
+the student's own pre-action input. Whole-episode success is not blanket credit.
+The closed request/response contract is in hindsight.py; it supplies no actions,
+policy update or GPU launch. Compare any later training against the same source
+data's original online gate before attributing an effect to hindsight selection.
