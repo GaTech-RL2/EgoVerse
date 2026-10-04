@@ -60,6 +60,30 @@ does not invalidate other independently supported useful segments.
 Return only the requested JSON. Keep the original task as the external objective.
 """
 
+SEMANTIC_EXTENSION = """
+This protocol additionally permits a language_subgoal intervention instead of an
+additive motor target. The method field selects native, target_guidance, or
+language_subgoal. For native, return intervene=false, edits=[] and an empty
+subgoal_instruction. For target_guidance, return nonempty edits and an empty
+subgoal_instruction. For language_subgoal, return edits=[] and a short concrete
+instruction for the current execution phase that serves the ORIGINAL task.
+The executor proposes three alternatives: normal sampling under that instruction,
+and TEI mixes with the original instruction at alpha 0.33 and 0.67. All use the
+same real observation, current policy and fixed native noise draw. They are
+computational proposals only, and must pass the same clear-win comparison gate.
+No demonstration, altered image, hidden object pose, or hypothetical outcome is
+supplied. You may choose language when the desired object/destination behavior
+is clear but a reliable numeric world-coordinate correction is not.
+Keep existing grasps and achieved subgoals while advancing to the correct
+destination. Repeated lifting beside the wrong receptacle is not sufficient;
+use a finite correction and its observable completion check. Judge actual motor
+commands, not the attractiveness of a candidate instruction. Local observed
+motion alone does not establish useful progress toward the original task.
+The student later learns only executed useful commands from its ORIGINAL task
+instruction and real pre-action observations. It will not receive your subgoal
+instruction during autonomous evaluation.
+"""
+
 
 def _object(properties):
     return {
@@ -77,7 +101,7 @@ def response_schema(request):
         maximum_delta = max(
             controller_delta_limits(request["context"].get("controller_delta_limits"))
         )
-        return _object(
+        schema = _object(
             {
                 "intervene": {"type": "boolean"},
                 "plan_complete": {"type": "boolean"},
@@ -110,6 +134,16 @@ def response_schema(request):
                 },
             }
         )
+        if request["context"].get("semantic_interventions", False):
+            schema["properties"].update(
+                method={
+                    "type": "string",
+                    "enum": ["native", "target_guidance", "language_subgoal"],
+                },
+                subgoal_instruction={"type": "string", "maxLength": 160},
+            )
+            schema["required"] = list(schema["properties"])
+        return schema
     if request["role"] == "compare":
         ids = list(request["context"]["candidates"])
         return _object(
@@ -226,7 +260,18 @@ def parse_proposal(raw, request):
     value = json.loads(raw) if isinstance(raw, str) else copy.deepcopy(raw)
     _check(value, response_schema(request))
     if request["role"] == "diagnose":
-        if value["intervene"] != bool(value["edits"]):
+        if request["context"].get("semantic_interventions", False):
+            method = value["method"]
+            if (
+                value["intervene"] != (method != "native")
+                or bool(value["edits"]) != (method == "target_guidance")
+                or bool(value["subgoal_instruction"].strip())
+                != (method == "language_subgoal")
+            ):
+                raise ValueError(
+                    "Selected intervention and its correction fields differ"
+                )
+        elif value["intervene"] != bool(value["edits"]):
             raise ValueError(
                 "An intervention must have an explicit nonempty correction"
             )
@@ -312,7 +357,15 @@ def build_payload(request, model, *, sampling=None):
     return {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "system",
+                "content": SYSTEM_PROMPT
+                + (
+                    SEMANTIC_EXTENSION
+                    if request["context"].get("semantic_interventions", False)
+                    else ""
+                ),
+            },
             {
                 "role": "user",
                 "content": [

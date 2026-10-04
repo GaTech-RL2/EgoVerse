@@ -19,6 +19,7 @@ from astra_reversal.records import digest, to_numpy
 from . import teacher
 from .evidence import CandidateBatch, append_record, training_windows
 from .guidance import GuidanceConfig, generate
+from .semantic import candidates as semantic_candidates
 
 
 class LearningRollout:
@@ -37,6 +38,7 @@ class LearningRollout:
         candidate_configurations=None,
         collection_history=None,
         temporal_diagnosis=False,
+        semantic_interventions=False,
         controller_delta_limits=None,
         retain_step_observations=True,
         max_episodes=3,
@@ -64,6 +66,7 @@ class LearningRollout:
         )
         self.collection_history = copy.deepcopy(collection_history or [])
         self.temporal_diagnosis = temporal_diagnosis
+        self.semantic_interventions = semantic_interventions
         self.delta_limits = controller_delta_limits
         self.retain_step_observations = retain_step_observations
         if client is not None and not retain_step_observations:
@@ -95,6 +98,11 @@ class LearningRollout:
                 **(
                     {"controller_delta_limits": self.delta_limits}
                     if self.delta_limits is not None
+                    else {}
+                ),
+                **(
+                    {"semantic_interventions": True}
+                    if self.semantic_interventions
                     else {}
                 ),
                 **context,
@@ -259,10 +267,15 @@ class LearningRollout:
                         "intervention_started": False,
                     }
                 rule = {
-                    "kind": "target_guidance",
+                    "kind": diagnosis.get("method", "target_guidance"),
                     "rule": diagnosis["rule"],
                     "completion": diagnosis["completion"],
                     "request_id": diagnosis["decision_id"],
+                    **(
+                        {"subgoal_instruction": diagnosis["subgoal_instruction"]}
+                        if diagnosis.get("method") == "language_subgoal"
+                        else {}
+                    ),
                 }
                 self.active.update(rule=rule)
                 append_record(
@@ -281,6 +294,31 @@ class LearningRollout:
             reference=reference,
         )
         generation = []
+        if rule["kind"] == "language_subgoal":
+            try:
+                proposals = semantic_candidates(
+                    self.policy,
+                    self.adapter,
+                    observation,
+                    oid,
+                    self.instruction,
+                    rule["subgoal_instruction"],
+                    noise,
+                )
+                self.active.pop("last_target_error", None)
+                for name, commands, receipt in proposals:
+                    batch.add(name, commands)
+                    generation.append(receipt)
+            except ValueError as exc:
+                self.active["last_target_error"] = str(exc)
+                append_record(
+                    self.directory / "rejected_targets.jsonl",
+                    {
+                        "batch_id": batch.batch_id,
+                        "reason": str(exc),
+                        "diagnosis": diagnosis,
+                    },
+                )
         if rule["kind"] == "target_guidance":
             try:
                 target, mask = teacher.controller_target(

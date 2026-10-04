@@ -262,3 +262,23 @@ Latest updates without a subsequent scheduled autonomous evaluation are labeled
 unevaluated, so initial native scores cannot be mistaken for learned outcomes.
 The study remains in development; repeated seeds, Spatial OOD2, baseline tuning
 and any fresh confirmation remain outstanding within the authorized budget.
+
+Prospective v4: language subgoal candidates
+The v2 videos/reviews show repeated lift attempts at the rack while the external
+objective remains putting the bottle in the bowl. A version-gated extension lets
+Astra choose either the existing bounded motor-target guidance or a concrete
+current-phase subgoal instruction. The latter creates three computational
+candidates with the same policy, real observation and native noise: full prompt
+conditioning, or TEI between original/subgoal instructions at alpha .33 and .67.
+There are no new demonstrations, altered images, simulated candidate outcomes,
+physical retries or FRS. Every alternative still needs a predicted clear win
+against the saved original-instruction native proposal. Only one prefix executes.
+Executed useful windows retain their ORIGINAL task instruction for native LoRA
+training and later autonomous inference. The subgoal is a teacher input only.
+
+The extension changes the teacher schema/prompt only when explicitly enabled in
+protocol v4. All 51 current v3 requests were compared with source 3439d378 and
+retain identical schemas and complete payloads. Full-weight launch preflight will
+exercise all three new conditioning paths and require exact native restoration
+afterward. V4 is prepared for testing, not a demonstrated improvement. It keeps
+the same eight-rollout collection and 0/2/4/8 autonomous evaluation schedule.
