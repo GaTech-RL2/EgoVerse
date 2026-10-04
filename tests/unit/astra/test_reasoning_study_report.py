@@ -7,6 +7,7 @@ from astra_reversal.reasoning_learning.study_report import (
     summarize_run,
     teacher_decisions,
     usage_by_episode,
+    visual_grounding_audit,
     wilson,
 )
 
@@ -14,6 +15,27 @@ from astra_reversal.reasoning_learning.study_report import (
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value))
+
+
+def test_rejected_projection_does_not_imply_a_validation_or_deployed_hint(tmp_path):
+    write(
+        tmp_path / "collection/rollout_0/visual_projection.json",
+        {
+            "episode_id": "actual-collection",
+            "available_at_step": 120,
+            "accepted": False,
+            "reason": "insufficient_fit_labels",
+            "fit_label_steps": [0, 10],
+            "source": "current_collection_episode_only",
+            "used_for_policy_training": False,
+            "environment_actions_added": 0,
+        },
+    )
+    row = visual_grounding_audit(tmp_path)[0]
+    assert row["accepted"] is False
+    assert row["confident_fit_labels"] == 2
+    assert row["confident_validation_labels"] is None
+    assert row["validation_rms_pixels"] is None
 
 
 def test_shared_teacher_protocol_cannot_mislabel_the_actual_rl_learner(tmp_path):

@@ -162,6 +162,30 @@ def teacher_decisions(directory):
     }
 
 
+def visual_grounding_audit(directory):
+    """Expose rejected calibrations without implying that a hint was deployed."""
+    rows = []
+    for path in sorted(Path(directory).glob("collection/*/visual_projection.json")):
+        value = read_json(path)
+        rows.append(
+            {
+                "episode_id": value["episode_id"],
+                "available_at_step": value["available_at_step"],
+                "accepted": value["accepted"],
+                "reason": value["reason"],
+                "confident_fit_labels": len(value.get("fit_label_steps", [])),
+                "confident_validation_labels": len(value["validation_label_steps"])
+                if "validation_label_steps" in value
+                else None,
+                "validation_rms_pixels": value.get("validation_rms_pixels"),
+                "source": value["source"],
+                "used_for_policy_training": value["used_for_policy_training"],
+                "environment_actions_added": value["environment_actions_added"],
+            }
+        )
+    return rows
+
+
 def summarize_run(spec):
     directory = Path(spec["directory"])
     runtime = read_json(directory / "runtime.json", {})
@@ -361,6 +385,7 @@ def summarize_run(spec):
         ),
         "teacher_usage": totals,
         "teacher_decisions": teacher_decisions(directory),
+        "visual_grounding_audit": visual_grounding_audit(directory),
         "usage_by_episode": usage,
         "threshold_crossing": next(
             (

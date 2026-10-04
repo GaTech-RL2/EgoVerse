@@ -546,6 +546,112 @@
           "failed": 1
         }
       }
+    },
+    {
+      "method": "teacher_v8",
+      "workflow": "astra-pi05-reasoning-learning-20261003-pilot-10",
+      "task": {
+        "suite": "libero_goal_ood",
+        "task_id": 6
+      },
+      "seed": 173,
+      "collections": [
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state0",
+          "success": false,
+          "collection_controls": 210,
+          "assisted_prefixes_executed": 3,
+          "assisted_prefixes_reviewed": 3,
+          "selected_methods_reviewed": {
+            "bounded_target": 3
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "observed_useful": 2,
+            "ambiguous": 1
+          },
+          "assisted_actions_executed": 15,
+          "assisted_actions_locally_useful": 10,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 1,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "5903499d3563923ad201fa89336365984024d0b00b1d1a3f735fd4db5e2ffaf5",
+            "decisions.jsonl": "cca424ed383d9fdd5523be973342d1a4d08549e699567034f607d7430f9b3b6c",
+            "admission.jsonl": "ab58b042ba9ee8e23c69f8d4ea710b0686a63533743d4084e749a86830174246",
+            "executed_steps.jsonl": "4caa82c9b93fb8901012e20027628b9e1061d024bbad5be5ad498f842df45bef",
+            "result.json": "a817f8ff30d01b851d38fb5c2122b373f1e699feea978cdc4d5bc17375e9432b"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state1",
+          "success": false,
+          "collection_controls": 160,
+          "assisted_prefixes_executed": 4,
+          "assisted_prefixes_reviewed": 4,
+          "selected_methods_reviewed": {
+            "bounded_target": 4
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "observed_useful": 3,
+            "ambiguous": 1
+          },
+          "assisted_actions_executed": 20,
+          "assisted_actions_locally_useful": 15,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 6,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "3ed82eb6c48448f97163e144f06bbfa3646fc9546a475d83f1400ef869357250",
+            "decisions.jsonl": "0990f84a764df961c2dcbbad783b37baec5bd7ceecb53b3a58f7c019aa7037eb",
+            "admission.jsonl": "1fffb443f8d8bb733ab6a5530f1cb4d80a29413c8f1f34d00aec2b5837845e55",
+            "executed_steps.jsonl": "bcdb18450ef812e979167534a7a28def26013f62aa87b68b0cfb468ce1d565f3",
+            "result.json": "44b1f7687ebf0d72c7c2995a3eff0dee804e9c2127a78033523d699627e59650"
+          }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state2",
+          "success": false,
+          "collection_controls": 210,
+          "assisted_prefixes_executed": 4,
+          "assisted_prefixes_reviewed": 4,
+          "selected_methods_reviewed": {
+            "bounded_target": 4
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "ambiguous": 1,
+            "observed_useful": 3
+          },
+          "assisted_actions_executed": 20,
+          "assisted_actions_locally_useful": 15,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 2,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "d813aa5e7186b7676b5a6aeb47098dfa8a426ab06f4d9dc2ab23f8a4bb09bf4e",
+            "decisions.jsonl": "761eb9a2c0c59c437bf484b6768a97a553f871d85ea9219d218f0bf66c52178c",
+            "admission.jsonl": "53891b0b8e06ceecabd7f5182d536eb2053b5636e85078cf6f5306f333f4f44e",
+            "executed_steps.jsonl": "694d0aa8d4f7e077e8a70b583d961a107d3afed0ef9d811dd59f697d17303de8",
+            "result.json": "dbdeae98803c6649f6174b8ecef4b1a5ebf2b7a3b7d688ad742a4d08f75a242b"
+          }
+        }
+      ],
+      "total": {
+        "collection_controls": 580,
+        "assisted_prefixes_executed": 11,
+        "assisted_prefixes_reviewed": 11,
+        "assisted_actions_executed": 55,
+        "assisted_actions_locally_useful": 40,
+        "assisted_actions_in_complete_training_windows": 0,
+        "all_admitted_windows": 9,
+        "correction_containing_windows": 0,
+        "selected_methods_reviewed": {
+          "bounded_target": 11
+        },
+        "assisted_prefix_teacher_outcomes": {
+          "observed_useful": 8,
+          "ambiguous": 3
+        }
+      }
     }
   ]
 }
