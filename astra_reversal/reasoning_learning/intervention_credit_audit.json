@@ -525,25 +525,53 @@
             "executed_steps.jsonl": "d608c78474a00d1c294b726e336c6034f768d5a34cfecf5cbcaed7d90b9ab6a8",
             "result.json": "3d86d06c877944bfd8c2e1e865a50bc51f11f4b0f5fc8b25d689169b3bbf4758"
           }
+        },
+        {
+          "episode_id": "libero_spatial_ood:seed173:task2:state2",
+          "success": false,
+          "collection_controls": 310,
+          "assisted_prefixes_executed": 4,
+          "assisted_prefixes_reviewed": 4,
+          "selected_methods_reviewed": {
+            "bounded_target": 3,
+            "subgoal_tli_2": 1
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "ambiguous": 2,
+            "observed_useful": 1,
+            "failed": 1
+          },
+          "assisted_actions_executed": 20,
+          "assisted_actions_locally_useful": 5,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 4,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "64a22bf0f9eaba702beb471c0666ae9607cd7d90ca45e1342e41d72d57309010",
+            "decisions.jsonl": "3adc2c105af8ec7efbbec33cb71d4dca4c5fea82d3e1905a0161b02dbacdb399",
+            "admission.jsonl": "192bacd1ade64df46e40110b572a2fe1f3920b0d0595d2a28874a06c63f6787b",
+            "executed_steps.jsonl": "9359e05c509be84b25582aa8a90c2f710c8feb72da951a993a3bfea20e2fbdd5",
+            "result.json": "41e24652dec17d9957bb9a003b2cf9e5827bf747c3d9b1eff02dc48338108542"
+          }
         }
       ],
       "total": {
-        "collection_controls": 620,
-        "assisted_prefixes_executed": 8,
-        "assisted_prefixes_reviewed": 8,
-        "assisted_actions_executed": 40,
-        "assisted_actions_locally_useful": 15,
+        "collection_controls": 930,
+        "assisted_prefixes_executed": 12,
+        "assisted_prefixes_reviewed": 12,
+        "assisted_actions_executed": 60,
+        "assisted_actions_locally_useful": 20,
         "assisted_actions_in_complete_training_windows": 0,
-        "all_admitted_windows": 11,
+        "all_admitted_windows": 15,
         "correction_containing_windows": 0,
         "selected_methods_reviewed": {
-          "bounded_target": 7,
-          "subgoal_tli_2": 1
+          "bounded_target": 10,
+          "subgoal_tli_2": 2
         },
         "assisted_prefix_teacher_outcomes": {
-          "observed_useful": 3,
-          "ambiguous": 4,
-          "failed": 1
+          "observed_useful": 4,
+          "ambiguous": 6,
+          "failed": 2
         }
       }
     },
@@ -633,23 +661,49 @@
             "executed_steps.jsonl": "694d0aa8d4f7e077e8a70b583d961a107d3afed0ef9d811dd59f697d17303de8",
             "result.json": "dbdeae98803c6649f6174b8ecef4b1a5ebf2b7a3b7d688ad742a4d08f75a242b"
           }
+        },
+        {
+          "episode_id": "libero_goal_ood:seed173:task6:state3",
+          "success": false,
+          "collection_controls": 235,
+          "assisted_prefixes_executed": 5,
+          "assisted_prefixes_reviewed": 5,
+          "selected_methods_reviewed": {
+            "bounded_target": 5
+          },
+          "assisted_prefix_teacher_outcomes": {
+            "ambiguous": 2,
+            "observed_useful": 3
+          },
+          "assisted_actions_executed": 25,
+          "assisted_actions_locally_useful": 15,
+          "assisted_actions_in_complete_training_windows": 0,
+          "all_admitted_windows": 3,
+          "correction_containing_windows": 0,
+          "source_sha256": {
+            "outcomes.jsonl": "3d5c0026f3b311b5c49f9ccdbbc799aa0e76eda15ee59c21f31468a186fb86d1",
+            "decisions.jsonl": "e5d6476d736483943c74d55b19d53421f2d0a7d1b3f47b1f2a1c5c40b97f59df",
+            "admission.jsonl": "799a2a8cd72d7775e7d363bbf5d46b1b076289dd667e00c19a4a504ceb0e85bd",
+            "executed_steps.jsonl": "d5a9ac06f860b4a7a65b2d6b5b6894696d3b95bd4b367deb5e368deaf338a941",
+            "result.json": "c311025ae3536725e9fd8846b91592138caee865a0a678aebe7584d72db3ccfa"
+          }
         }
       ],
       "total": {
-        "collection_controls": 580,
-        "assisted_prefixes_executed": 11,
-        "assisted_prefixes_reviewed": 11,
-        "assisted_actions_executed": 55,
-        "assisted_actions_locally_useful": 40,
+        "collection_controls": 815,
+        "assisted_prefixes_executed": 16,
+        "assisted_prefixes_reviewed": 16,
+        "assisted_actions_executed": 80,
+        "assisted_actions_locally_useful": 55,
         "assisted_actions_in_complete_training_windows": 0,
-        "all_admitted_windows": 9,
+        "all_admitted_windows": 12,
         "correction_containing_windows": 0,
         "selected_methods_reviewed": {
-          "bounded_target": 11
+          "bounded_target": 16
         },
         "assisted_prefix_teacher_outcomes": {
-          "observed_useful": 8,
-          "ambiguous": 3
+          "observed_useful": 11,
+          "ambiguous": 5
         }
       }
     }

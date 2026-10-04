@@ -755,3 +755,42 @@ Preparation does not imply submission or a result. The existing queued credit
 and Spatial PPO tests are preserved; these repeats launch only if their actual
 budget reservations fit. Compare each updated score to the corresponding
 seed179 native evaluation and disclose DSRL's distinct initial noise policy.
+
+External quota preemption, 2026-10-04 08:27 UTC
+--------------------------------------------
+The shared-pool quota service canceled both V7 Spatial and V8 Goal workers to
+reclaim lower-priority capacity for another workload. Neither was a model error
+or a completed four-collection screen. Their retained evidence and actual GPU
+time remain in the study accounting; the interrupted runs are not retried.
+
+Spatial retained three completed collections plus 205 controls of the fourth:
+at least 1,145 collection controls including stabilization, 366 completed Astra
+calls, 7,744,743 tokens and 2.5566 GPU-hours including initialization. The last
+complete autonomous checkpoint is still 5/10 after two collections, versus
+native 3/10. Policy version3 was saved but not autonomously evaluated. Across
+the three completed collections, 60 assisted commands executed, 20 were locally
+judged useful and none entered the 15 admitted complete training windows.
+
+Goal V8 saved four failed collections, 815 controls, 250 calls, 5,191,153 tokens
+and 1.7008 GPU-hours. Its fourth calibration passed with eight confident labels
+on each split and separate-frame RMS error 3.958 pixels. Actual diagnosis and
+comparison requests received this hint; assessment and the student did not.
+Across all four collections, 80 assisted commands executed and 55 received
+useful reviews, but none entered the 12 complete training windows. All selected
+interventions were the bounded controller target. The final autonomous
+evaluation stopped after seven completed episodes; no final SR is assigned.
+The last complete score remains 5/10 after two collections, versus native 5/10.
+
+pilot_v7_spatial2_seed173_preempted.json and
+pilot_v8_goal6_seed173_preempted.json preserve complete checkpoint scores,
+partial-work costs, cancellation provenance and unevaluated-policy status.
+Seven original student/optimizer checkpoints are locally preserved with byte
+hashes in preempted_checkpoint_inventory.json. Their existence is not an
+evaluation result. The already-prepared credit comparison and Spatial PPO
+workers subsequently obtained capacity; neither is scored before completion.
+
+spatial_video_audit.json/png show original matched reset23 frames. Native moves
+a bowl while leaving the milk in place; the two-collection V7 checkpoint moves
+the milk and satisfies the simulator predicate after 178 controls. This example
+was selected after observing a gained success. It illustrates object selection
+without establishing the cause of learning or adding confirmation samples.
