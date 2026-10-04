@@ -687,6 +687,12 @@ def build(manifest, budget, output):
         "runs": runs,
         "offline_teacher_diagnostics": diagnostics,
         "replay_video_audit": replay_video_audit,
+        "intervention_credit_audit": read_json(
+            Path(__file__).with_name("intervention_credit_audit.json")
+        ),
+        "related_research": read_json(
+            Path(__file__).with_name("related_research.json")
+        ),
         "teacher_system_prompt": SYSTEM_PROMPT,
         "teacher_semantic_prompt_extension": SEMANTIC_EXTENSION,
         "teacher_execution_prefix_prompt_extension": PREFIX_EXTENSION,

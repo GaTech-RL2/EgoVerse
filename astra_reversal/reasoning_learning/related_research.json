@@ -1,0 +1,28 @@
+{
+  "reviewed_utc": "2026-10-04",
+  "scope": "Primary-source context and proposed follow-ups; these papers' published scores are not results on this study's checkpoint or benchmark.",
+  "papers": [
+    {
+      "title": "Learning More from Less: Reinforcement Learning from Hindsight",
+      "url": "https://arxiv.org/html/2607.09042v1",
+      "published_method": "LfH relabels failed rollout groups with achieved instructions and VLM rewards, then combines original and hindsight GRPO updates with importance correction. Its LIBERO-PRO experiments use a different RLinf checkpoint and four seeds.",
+      "relationship": "Our current screen keeps the original instruction and selects complete action windows for supervised flow training. It does not implement LfH or justify transferring its gains to our benchmark.",
+      "proposed_test": "If retrospective credit helps, compare it against joint achieved-goal and original-goal learning. Keep the wrong-destination behavior labeled with its actual destination, never as success for the requested bowl task. This is a hypothesis, not a measured result.",
+      "code_check": "The inspected author project page's Code link returned to the project page; no callable implementation was established by that check."
+    },
+    {
+      "title": "Prompt-Driven Exploration: Language as an Exploration Space for VLA Reinforcement Learning",
+      "url": "https://arxiv.org/abs/2607.08837v4",
+      "published_method": "PDE uses VLM review of rollout video to revise prompts for exploration, then uses discovered prompts during policy improvement. The paper treats prompts as a way to change behavior beyond local action noise.",
+      "relationship": "Our V4–V8 candidates change phase instructions, TEI or TLI within one frozen comparison batch. A single five-action prefix may not reveal a longer semantic change, and our required pre-execution gate often rejects it.",
+      "proposed_test": "Compare temporally extended semantic candidates with the current short-prefix decision, retaining the fixed native reference and counting every actually executed control. Do not introduce physical alternative retries or substitute prompted success for autonomous learning. This remains untested."
+    },
+    {
+      "title": "Finetuning with Sampling: SFT Learns Better Than You Think",
+      "url": "https://arxiv.org/html/2610.02140v1",
+      "published_method": "The paper transforms expert language traces toward a reference model's distribution using projection sampling, then performs supervised finetuning. Its experiments concern language-model post-training, not continuous robot dynamics.",
+      "relationship": "Executed corrections, clipping, outcome gates and fitted robot-policy adapters do not automatically inherit an ideal conditional distribution's minimum-KL guarantee.",
+      "proposed_test": "Before a noise-space MCMC study, establish that a fixed, reliable verifier can identify useful candidates and that accepted samples supply useful real execution. Our current grounding and intervention-credit failures are unresolved prerequisites; action inversion remains excluded."
+    }
+  ]
+}

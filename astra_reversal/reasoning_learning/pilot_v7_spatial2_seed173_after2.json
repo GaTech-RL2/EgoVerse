@@ -1,0 +1,608 @@
+{
+  "schema": "reasoning-scheduled-development-checkpoint-1",
+  "workflow": "astra-pi05-reasoning-learning-20261003-pilot-9",
+  "source_revision": "44e8cb7c1e89e14fd60274f81b3c23da9270e4de",
+  "task": {
+    "suite": "libero_spatial_ood",
+    "task_id": 2
+  },
+  "task_instruction": "put the milk on the plate",
+  "seed": 173,
+  "scope": "The completed scheduled two-collection checkpoint from an ongoing predeclared four-collection screen. Later collection/evaluation costs are excluded from this checkpoint receipt and retained separately in the live dashboard. Not fresh confirmation or a repeated seed.",
+  "point": {
+    "collection_rollouts": 2,
+    "collection_steps": 620,
+    "evaluation_steps_cumulative": 4613,
+    "policy_version": 2,
+    "successes": 5,
+    "rollouts": 10,
+    "success_rate": 0.5,
+    "wilson_95": [
+      0.236593090512564,
+      0.7634069094874361
+    ],
+    "teacher_total_tokens": 3867629,
+    "episode_results": [
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state20",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "faa4871374a2743603e5fc1f004079bb49602b584499cacb245e9e8043035f96",
+          "reset_model_sha256": "8dde04153fa5f08c620ed328fa6e800731d719561d7da46a8944350505566f58",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state21",
+        "success": true,
+        "actions_executed": 83,
+        "total_control_steps": 93,
+        "reset_identity": {
+          "reset_state_sha256": "f691e9e6ca6280023b6800aa9525689356a97a86494323d16180f01c1155b6da",
+          "reset_model_sha256": "1fe6e23dc77b50c34c1f29bfb5524dcf3957f4bd9993fd118b28da716e2bdd53",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state22",
+        "success": true,
+        "actions_executed": 88,
+        "total_control_steps": 98,
+        "reset_identity": {
+          "reset_state_sha256": "4074d376dc05401606c698dd7cc8c47c97d40a474fc60a8dc49f08b2c5a0978e",
+          "reset_model_sha256": "94b574803c6bd840447187807786287aa611cc33a650ae7477fb18cc3c1d2663",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state23",
+        "success": true,
+        "actions_executed": 178,
+        "total_control_steps": 188,
+        "reset_identity": {
+          "reset_state_sha256": "e66588ee68d1d738fa0d56e8463b2c21784a5f510d03eb3b106298db08701d06",
+          "reset_model_sha256": "d21dff2fc4b8287b9c29ec8a0f32ed0229ba61a1c85aac777a0c561b40599d2b",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state24",
+        "success": true,
+        "actions_executed": 109,
+        "total_control_steps": 119,
+        "reset_identity": {
+          "reset_state_sha256": "abc106cb3b9d1f925456226a58288110b200cb4c52b98b602853a0fb10301765",
+          "reset_model_sha256": "2686907504386f2a8c2a350e03c42a5190ca65922271d9f05603bf2039d10b51",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state25",
+        "success": true,
+        "actions_executed": 90,
+        "total_control_steps": 100,
+        "reset_identity": {
+          "reset_state_sha256": "02ada5bfa9d73cd39de1eed6d84639d2ff19e9be9be090295856341265b593aa",
+          "reset_model_sha256": "e52b031e9a0c5ca6c28f88a737517426a8243334ba5681ab42f572296f88b8af",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state26",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "4a733254eb5d6beea73d35ec6b7d2f74129690addd28c8f5f98715f5d1c8fccf",
+          "reset_model_sha256": "2e45c8ac41986658a8bc334fc38fe185516e2fa8d7b63c6a30821bf842e62592",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state27",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "01772c9fe13db05b7ad98da1d58f1561ecbe5bf85fc3be12cd58acf9714a92e4",
+          "reset_model_sha256": "6bdc616ee17a6d261eafc8e36dbd3584180a74eab552408e0b08ce82ced05638",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state28",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "15ae1c385d03cf4314ac8b51dff23cc30f28a7521ac87b9671097686a47087e8",
+          "reset_model_sha256": "851e1d01ca7077aac799208392b39423102ab2d9039ada2be5adfe1af0b1652f",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      },
+      {
+        "episode_id": "libero_spatial_ood:seed173:task2:state29",
+        "success": false,
+        "actions_executed": 300,
+        "total_control_steps": 310,
+        "reset_identity": {
+          "reset_state_sha256": "58a5630e2af4cda49c40f889479d01080ab1c255804ae9689a7c0016ea63ae53",
+          "reset_model_sha256": "9bdc691043fadbc94e8d88f41430e60ee011fc7b746397c1a1aad2c39ff6be83",
+          "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58"
+        }
+      }
+    ],
+    "versus_native": {
+      "native_successes": 3,
+      "rollouts": 10,
+      "delta_success_rate": 0.2,
+      "gained_episode_ids": [
+        "libero_spatial_ood:seed173:task2:state23",
+        "libero_spatial_ood:seed173:task2:state24"
+      ],
+      "regressed_episode_ids": [],
+      "paired_reset_identities_verified": true
+    }
+  },
+  "collections": [
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state0",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 1545.9218831958715,
+      "reset_seconds": 1.9983317928854376,
+      "policy_seconds": 1388.351311382139,
+      "environment_seconds": 12.006906972033903,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state0",
+        "seed": 173,
+        "reset_state_sha256": "ae6f623e62fa5a59156ec0598750f34792803b228ebf7557fabd9fccd94a3153",
+        "reset_model_sha256": "5f6a4cf1d8c5cc517948291b980ce9bb81421a36b831bf784233b60320fe80f7",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "046245d5202bed769b80bca0b7b9c73e3baef1879ebda4ba4ab4369442905885",
+        "post_stabilization_model_sha256": "5f6a4cf1d8c5cc517948291b980ce9bb81421a36b831bf784233b60320fe80f7",
+        "post_stabilization_observation_sha256": "021bbb99ed67da9a6017c0c2bd3dab48f3c7e870d6c4604663cba54bbdd350a3",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "f38b06dde50329399ba28795bc14c7e107b640f34369796806d4e86e8a17a0bc"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_0/rollout.mp4",
+      "correction_episodes": 2,
+      "assisted_chunks": 2,
+      "assisted_simulator_seconds": 0.49999999999999994,
+      "teacher_requests": 87,
+      "admitted_windows": 6,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_summary": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state0",
+        "success": false,
+        "actions_executed": 300,
+        "correction_episodes": 2,
+        "assisted_chunks": 2,
+        "correction_reviews": [
+          {
+            "start_step": 80,
+            "end_step": 85,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, subtract 1.9 from the gripper command to open the empty fingers for grasp recovery. Preserve all other commands. Reobserve after this prefix and stop this opening correction once visible finger separation is established; determine carton alignment before attempting descent and closure.",
+              "completion": "Real observations show the fingers opened for a fresh approach while the milk remains on the tabletop. Then reassess alignment and grasp; the original task completes only when the milk rests on the plate after release.",
+              "request_id": "libero_spatial_ood:seed173:task2:state0:80:diagnose:21"
+            },
+            "evidence": "After the executed prefix, the fingers are visibly separated, consistent with gripper joint positions widening from approximately \u00b10.003 to \u00b10.015. The milk remains on the tabletop and the plate remains empty. This satisfies the local opening correction for grasp recovery; alignment and a successful grasp still need reassessment before placement.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state0:85:assess:23",
+            "request_fingerprint": "06b6c14733715094d9c1cefdeb2a4bd2fed1f927bbb51833238c74ba45e9a74f",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state0",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state0",
+            "request_index": 23,
+            "observation_step": 85
+          },
+          {
+            "start_step": 105,
+            "end_step": 110,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, subtract 1.9 from channel 6 to reopen the fingers for carton alignment; preserve all other commands. This finite correction addresses premature closure only. Reobserve after the prefix, stop once finger separation is visible, and require visible carton alignment before attempting another grasp.",
+              "completion": "After five actions, real observations show separated fingers with the milk remaining on the tabletop. Stop this opening correction and reassess carton alignment before closing. The original task completes only when the milk rests on the plate after release.",
+              "request_id": "libero_spatial_ood:seed173:task2:state0:105:diagnose:30"
+            },
+            "evidence": "The fingers are farther apart after the opening prefix, supported by gripper joint separation increasing from about 0.051 to 0.061. The milk remains on the tabletop. This satisfies the local opening correction; carton alignment still needs reassessment before closing, and placement on the plate is not complete.",
+            "outcome": "observed_useful",
+            "plan_complete": true,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state0:110:assess:32",
+            "request_fingerprint": "affd4edc169857cc260d99196cc24c1b663e99ed27a877f1d8916462493d2393",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state0",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state0",
+            "request_index": 32,
+            "observation_step": 110
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 285,
+            "end_step": 290,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state0",
+              "step": 285
+            },
+            "evidence": "Before and after images show no discernible object displacement or milk placement on the plate. The executed prefix kept the gripper open and changed end-effector position by less than 1 mm on each axis. No grasp, transport, or useful approach toward the milk is observed; environment success remains false.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state0:290:assess:84",
+            "request_fingerprint": "afeb2af8d538a1c3b54fa21705054af353987a660e93e4a9c8a445ec8bb4089c",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state0",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state0",
+            "request_index": 84,
+            "observation_step": 290
+          },
+          {
+            "start_step": 290,
+            "end_step": 295,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state0",
+              "step": 290
+            },
+            "evidence": "Before and after images show essentially unchanged objects, with no milk transfer onto the plate. The executed prefix keeps the gripper open, and proprioception shows less than 1 mm of end-effector translation. No grasp, transport, or placement progress is observed; environment success remains false.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state0:295:assess:85",
+            "request_fingerprint": "298161b053c01a09fe48d089d7ae4560148a773e40324980bbbc78b2e3368435",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state0",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state0",
+            "request_index": 85,
+            "observation_step": 295
+          },
+          {
+            "start_step": 295,
+            "end_step": 300,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state0",
+              "step": 295
+            },
+            "evidence": "The before/after views show no discernible movement of the milk toward the plate or acquisition of a grasp. End-effector position changed by less than 1 mm overall, and the gripper remained open throughout the five executed actions. This prefix shows no useful progress toward placing the milk on the plate; completion is unsupported.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state0:300:assess:86",
+            "request_fingerprint": "19c4fcd63fdf118fb6b5b2ebb9ad0d4780862d8b94ff1ad8b47f8965a9d3d6c3",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state0",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state0",
+            "request_index": 86,
+            "observation_step": 300
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state1",
+      "success": false,
+      "actions_executed": 300,
+      "policy_replans": 60,
+      "wall_seconds": 2004.5866092559882,
+      "reset_seconds": 2.2449970128946006,
+      "policy_seconds": 1817.3052352031227,
+      "environment_seconds": 12.423451805952936,
+      "initial_success": false,
+      "captured_initial_success": false,
+      "zero_action_success": false,
+      "terminated": false,
+      "action_budget": 300,
+      "execute_steps": 5,
+      "reset_audit": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state1",
+        "seed": 173,
+        "reset_state_sha256": "492239b6a52ee8dcb46b83eaac927dc6b36580e763c4257060498abede343c7e",
+        "reset_model_sha256": "59073341a51fb9f1ee5f4932da3ea816027af149a3b53c5cfae85ab760046dd5",
+        "bddl_sha256": "f374007cd240ca1a8069f51205e56d8c4fa8946df81c3a5f50a08e61297d9e58",
+        "post_stabilization_state_sha256": "a12657e0394ffc3591199c868cca69cbb63725ebf7e751ee5185e4c65f386a30",
+        "post_stabilization_model_sha256": "59073341a51fb9f1ee5f4932da3ea816027af149a3b53c5cfae85ab760046dd5",
+        "post_stabilization_observation_sha256": "d9ebcbf1408ad3d3ce2988166c541c84d96a0475c73b75d79e070aaf1a48b162",
+        "stabilization_steps": 10,
+        "initial_success": false,
+        "initial_terminated": false,
+        "sha256": "25ea549748a9f4d8a2af0f591437d17278fd6b6f8a8aeb97f2e3e707d8260572"
+      },
+      "video_path": "/workspace/astra-reversal/astra_reversal/artifacts/osmo/collection/rollout_1/rollout.mp4",
+      "correction_episodes": 2,
+      "assisted_chunks": 6,
+      "assisted_simulator_seconds": 1.5000000000000007,
+      "teacher_requests": 103,
+      "admitted_windows": 5,
+      "autonomous": false,
+      "initialization_steps": 10,
+      "total_control_steps": 310,
+      "collection_summary": {
+        "episode_id": "libero_spatial_ood:seed173:task2:state1",
+        "success": false,
+        "actions_executed": 300,
+        "correction_episodes": 2,
+        "assisted_chunks": 6,
+        "correction_reviews": [
+          {
+            "start_step": 115,
+            "end_step": 120,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, add 0.5 to delta_z, reducing downward commands to approximately -0.28 through -0.14. Preserve lateral, rotational and gripper commands to avoid disrupting any existing grasp. End the correction after this prefix and reassess rim clearance and support before further lowering or release. This is a finite contact-risk reduction while recovering to grasp the milk, not a claim of bowl clearance.",
+              "completion": "After action 4, reobserve for retained bowl position relative to the fingers and separation from the plate rim without visible displacement of the plate. If clearance remains absent, this recovery is incomplete and requires replanning. The original objective completes only when the released milk rests on the plate.",
+              "request_id": "libero_spatial_ood:seed173:task2:state1:115:diagnose:36"
+            },
+            "evidence": "The executed prefix lowered the end effector (z 0.9867 to 0.9727) while commanding closure. The bowl remains similarly positioned near the fingers, but no clear separation from the plate rim is visible. The plate rim shifts in the wrist view; camera motion prevents attributing this confidently to plate displacement. Reduced contact risk is not established by these observations, and the milk remains off the plate.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:120:assess:38",
+            "request_fingerprint": "3eae72d76cccc878de8765359b5c2c42cfc736207ad5454b44a4e3937a2ee162",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 38,
+            "observation_step": 120
+          },
+          {
+            "start_step": 125,
+            "end_step": 130,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20134, add 0.3 to channel 2, producing modest upward inputs of approximately 0.10\u20130.32. For actions 1\u20134, add 1.9 to channel 6 to preserve any existing grasp instead of opening. Preserve other commands. End this clearance correction after five actions and reobserve before choosing a supported bowl placement away from the plate, then recovering to grasp the milk.",
+              "completion": "After action 4, real images show bowl\u2013plate rim separation with any existing grasp retained and no visible plate displacement. If separation or retention is unclear, reassess rather than repeat lifting automatically. Milk placement completes only when the released milk rests on the plate.",
+              "request_id": "libero_spatial_ood:seed173:task2:state1:125:diagnose:42"
+            },
+            "evidence": "The end-effector height increased from 0.9375 to 0.9449 during the closing-gripper prefix. However, the real images still show overlapping bowl and plate rims without clear separation or confirmed bowl retention. No obvious plate displacement is visible. The milk remains off the plate, so neither clearance completion nor milk placement is established.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:130:assess:44",
+            "request_fingerprint": "ddfb0f96873b96c6e33b9e85f1737f53bfaaececf68e0f9320bbdf046b0c2d07",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 44,
+            "observation_step": 130
+          },
+          {
+            "start_step": 130,
+            "end_step": 135,
+            "selected": "bounded_target",
+            "rule": {
+              "kind": "target_guidance",
+              "rule": "For actions 0\u20132, add 0.5 to delta_z to moderate the renewed early descent; resulting inputs are approximately -0.115, 0.032 and 0.196. For actions 3\u20134, add 1.9 to gripper to retain any existing grasp. Preserve other commands. End after this prefix and reassess support and clearance before choosing bowl placement and returning to the milk. This correction addresses descent and premature release, without claiming clearance or useful transport.",
+              "completion": "After action 4, reobserve for visible bowl\u2013plate separation, retained bowl position relative to the fingers, and no plate displacement. If these remain unclear, the recovery is incomplete; do not automatically repeat the correction. The original task completes only when released milk rests on the plate.",
+              "request_id": "libero_spatial_ood:seed173:task2:state1:130:diagnose:45"
+            },
+            "evidence": "The end effector rose approximately 2 mm over the executed prefix, with closing commands throughout. The paired images show little change: the bowl still overlaps the plate, without clear bowl\u2013plate separation or confirmed retention by the fingers. No obvious plate displacement is visible. These observations do not establish useful clearance or progress toward placing the milk on the plate; the recovery completion condition remains unmet.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:135:assess:47",
+            "request_fingerprint": "3ae2c08a82b99de712b4357f0a36ef55db896080b17505b96733ef6eb53ab5f9",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 47,
+            "observation_step": 135
+          },
+          {
+            "start_step": 135,
+            "end_step": 140,
+            "selected": "subgoal_tli_2",
+            "rule": {
+              "kind": "language_subgoal",
+              "rule": "For this five-action prefix, recover toward setting the bowl on empty tabletop beside the plate so the gripper can return to the milk. Preserve any existing grasp, obtain rim clearance as needed, and prioritize moving clear of the plate toward that support area. Do not release during this prefix. Reobserve after action 4; another lift without separation does not satisfy this rule.",
+              "completion": "After action 4, real images show the bowl clear of the plate over adjacent empty tabletop, with any existing grasp retained and no visible plate displacement. Reassess support before release and then approach the milk. Original-task completion requires released milk resting on the plate.",
+              "request_id": "libero_spatial_ood:seed173:task2:state1:135:diagnose:48",
+              "subgoal_instruction": "Keep any bowl grasp closed. Clear the plate rim and move the bowl over empty tabletop beside the plate for set-down. Do not release yet; the milk is next."
+            },
+            "evidence": "After the executed prefix, the bowl still visibly overlaps the plate; neither camera shows clearance over adjacent empty tabletop. Proprioception shows the end effector moved mostly downward, with little lateral change. Closing commands persisted, but grasp retention is not established by the narrow gripper alone. The milk remains off the plate. The required separation was not achieved.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "correction",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:140:assess:50",
+            "request_fingerprint": "b355aefb2b918d209112b69bbe49b285585b0fc58eda3b6ff51a2f8543add60a",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 50,
+            "observation_step": 140
+          }
+        ],
+        "final_observed_reviews": [
+          {
+            "start_step": 285,
+            "end_step": 290,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state1",
+              "step": 285
+            },
+            "evidence": "The executed prefix kept the gripper open and raised the end effector slightly (z 0.9623 to 0.9712). The milk carton remains visibly separate from the gripper and plate, with no observed transport or placement. This motion alone does not establish useful progress toward putting the milk on the plate.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:290:assess:100",
+            "request_fingerprint": "97810adb0c196eef6b19abd09926074a652ed20be115f171af804cd45f575666",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 100,
+            "observation_step": 290
+          },
+          {
+            "start_step": 290,
+            "end_step": 295,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state1",
+              "step": 290
+            },
+            "evidence": "The executed prefix kept the gripper open and raised the end effector slightly (state z increased from 0.9712 to 0.9767). The paired images show no discernible milk displacement or new placement on the plate. This small motion alone does not establish useful progress toward the task; completion remains unsupported.",
+            "outcome": "ambiguous",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:295:assess:101",
+            "request_fingerprint": "42f1696f56ca740af14d0ccc8a5284180b28fc289dbd3fe104f2e4dd96526d29",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 101,
+            "observation_step": 295
+          },
+          {
+            "start_step": 295,
+            "end_step": 300,
+            "selected": "native",
+            "rule": {
+              "kind": "native",
+              "episode_id": "libero_spatial_ood:seed173:task2:state1",
+              "step": 295
+            },
+            "evidence": "The executed prefix raised the end effector by about 0.0104 m while keeping the gripper open. The milk remains upright on the table away from the plate in both observations; no grasp or transport is visible. The small lift does not establish useful progress toward putting the milk on the plate.",
+            "outcome": "failed",
+            "plan_complete": false,
+            "stage": "continuation",
+            "decision_id": "libero_spatial_ood:seed173:task2:state1:300:assess:102",
+            "request_fingerprint": "c89af2d467ecad91eb266e38f868d679af2351bbe14a33e6cdced6198ab108e4",
+            "schema_version": "reasoning-policy-learning-teacher-1",
+            "role": "assess",
+            "episode_id": "libero_spatial_ood:seed173:task2:state1",
+            "attempt_id": "libero_spatial_ood:seed173:task2:state1",
+            "request_index": 102,
+            "observation_step": 300
+          }
+        ],
+        "source": "Real collection trajectory; no autonomous evaluation results"
+      }
+    }
+  ],
+  "teacher_usage_by_collection": {
+    "libero_spatial_ood:seed173:task2:state0": {
+      "completed_calls": 87,
+      "failed_provider_calls": 0,
+      "input_tokens": 1706484,
+      "cached_input_tokens": 1045376,
+      "output_tokens": 13148,
+      "total_tokens": 1719632,
+      "latency_seconds": 1042.4768639610847,
+      "incomplete_usage_receipts": 0
+    },
+    "libero_spatial_ood:seed173:task2:state1": {
+      "completed_calls": 103,
+      "failed_provider_calls": 0,
+      "input_tokens": 2129135,
+      "cached_input_tokens": 1201408,
+      "output_tokens": 18862,
+      "total_tokens": 2147997,
+      "latency_seconds": 1326.1178379100165,
+      "incomplete_usage_receipts": 0
+    }
+  },
+  "intervention_credit": [
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state0",
+      "success": false,
+      "collection_controls": 310,
+      "assisted_prefixes_executed": 2,
+      "assisted_prefixes_reviewed": 2,
+      "selected_methods_reviewed": {
+        "bounded_target": 2
+      },
+      "assisted_prefix_teacher_outcomes": {
+        "observed_useful": 2
+      },
+      "assisted_actions_executed": 10,
+      "assisted_actions_locally_useful": 10,
+      "assisted_actions_in_complete_training_windows": 0,
+      "all_admitted_windows": 6,
+      "correction_containing_windows": 0,
+      "source_sha256": {
+        "outcomes.jsonl": "e298798e09caa996aa850f0d6e8589e68ed1ad8f9eb592ff9cd6c34cd62b0da3",
+        "decisions.jsonl": "6221242b0c1b12570aedb60489be1bbf1118f39b30a3fa07b1f6f184367b1e35",
+        "admission.jsonl": "7c232abf20afcb7f73fcdb818c9722730d253042a494395c453ae611121c461e",
+        "executed_steps.jsonl": "0f14d0801b319ccb98b34392ccda793974de4069f4d1767f3972cdecfee652a4",
+        "result.json": "ce01c183e7237a2ee4ff6345346ee695d66b934ac9c603095e752b0f27613fda"
+      }
+    },
+    {
+      "episode_id": "libero_spatial_ood:seed173:task2:state1",
+      "success": false,
+      "collection_controls": 310,
+      "assisted_prefixes_executed": 6,
+      "assisted_prefixes_reviewed": 6,
+      "selected_methods_reviewed": {
+        "bounded_target": 5,
+        "subgoal_tli_2": 1
+      },
+      "assisted_prefix_teacher_outcomes": {
+        "observed_useful": 1,
+        "ambiguous": 4,
+        "failed": 1
+      },
+      "assisted_actions_executed": 30,
+      "assisted_actions_locally_useful": 5,
+      "assisted_actions_in_complete_training_windows": 0,
+      "all_admitted_windows": 5,
+      "correction_containing_windows": 0,
+      "source_sha256": {
+        "outcomes.jsonl": "96fb16b1080a3ac4a2430d4109fd37cd0a6ee1b44a7ef16b0872b46c01f07ff5",
+        "decisions.jsonl": "7d6374802eed116ab3334a8990531948b42fe83b95a7ef26f63dfefe09554bc6",
+        "admission.jsonl": "44da91d995da7a55e1bb3b60daf81fcf396e0a5e2cdf24a8dc0f5ff621480a16",
+        "executed_steps.jsonl": "d608c78474a00d1c294b726e336c6034f768d5a34cfecf5cbcaed7d90b9ab6a8",
+        "result.json": "3d86d06c877944bfd8c2e1e865a50bc51f11f4b0f5fc8b25d689169b3bbf4758"
+      }
+    }
+  ],
+  "source_artifact_sha256": {
+    "runtime.json": "84f4a9e9597266e37d4ff500486855e86db26d2623c363a59798f5bd44e0f4c6",
+    "learning_curve.json": "411f462c9483a65e007e6899cc6d9409daee254baf5188f678f6149410afd2af",
+    "collection.json": "923a8fa29d3fe1da60245b390bdb50e806eaef9cd6d211630ff30a592a81c8ed",
+    "updates.json": "370638a2cf52505090f84f42dd5381bccda92d6dc6375646467c7730308c461e"
+  },
+  "research_objective_met": false
+}

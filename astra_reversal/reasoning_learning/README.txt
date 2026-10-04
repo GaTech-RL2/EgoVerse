@@ -694,7 +694,7 @@ credit_data.load verifies credit_v5_manifest.json, review/request binding, every
 reviewed RGB/state frame, commands and final outcome, all source hashes, exact
 file inventory, observation digests and total interaction accounting. Use the
 package_payload --reasoning-credit-cache flag and prepare_learning_launch
---phase replay-credit --protocol-version v3. One worker loads a new student for
+--phase replay-credit --protocol-version v5. One worker loads a new student for
 each branch and retains separate checkpoints, videos, update records and curves.
 The source426 controls and3,380,126 online-teacher tokens are attributed to each
 branch without counting them again in the global study ledger; only hindsight
@@ -705,3 +705,31 @@ so this tests selectors against one another, not an exact V5 training rerun.
 A development improvement still requires fresh confirmation and repeated RL
 comparisons; neither more admitted windows nor a single improved SR meets the
 research objective by itself.
+
+Spatial V7 scheduled two-collection checkpoint (2026-10-04)
+---------------------------------------------------------
+On "put the milk on the plate", seed173, native scores3/10 and the updated
+student scores5/10 after620 collection controls. Exact reset identities verify
+new successes on reset23 and24, with no lost native successes. Both collection
+rollouts failed. Their190 Astra calls cost3,867,629 tokens. Seven bounded-target
+prefixes and one TLI prefix executed (40 assisted commands);15 assisted commands
+were locally judged useful, but ZERO entered complete training windows. The
+student's40 optimizer steps used11 useful native windows from the assisted
+trajectories. Thus this result is not evidence that it imitated a correction.
+The interventions may have affected visited states; their causal contribution
+relative to unassisted collection has not been established.
+
+Tuned Spatial DSRL scores2/10 after439 controls (two collections) and3/10 after
+2,299 controls (eight). The promising V7 checkpoint still misses the preregistered
+8/10 threshold, follows multiple development revisions, and uses only one seed.
+The four-collection screen continues according to its predeclared limit. Preserve
+this interim receipt without replacing a later negative score or labeling it a
+confirmed sample-efficiency win. A second seed and matched RL comparison are the
+next priority if the remaining24-hour study budget permits.
+
+intervention_credit_audit.json and audit_intervention_credit.py distinguish
+actual non-native execution from a reviewer's "correction" phase label. The
+immutable preference and execution batch identify assistance. Native recovery
+can be called a correction phase without an external action edit; phase labels
+alone must never inflate intervention counts. Unique action coverage, actual
+preference gates, source hashes and full-window admission are all checked.
