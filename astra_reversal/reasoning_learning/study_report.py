@@ -160,12 +160,26 @@ def summarize_run(spec):
     runtime = read_json(directory / "runtime.json", {})
     protocol = read_json(directory / "protocol.json", {})
     collection = read_json(directory / "collection.json", [])
+    replay = read_json(directory / "replayed_training_data.json")
+    if replay and collection:
+        raise ValueError("Fixed-data ablation cannot claim new collection episodes")
     curve = read_json(directory / "learning_curve.json", [])
     usage = usage_by_episode(directory, spec.get("teacher_jobs"))
     updates = read_json(directory / "updates.json", [])
     completion = read_json(directory / "completion.json", {})
     points = []
     for point in curve:
+        reused_tokens = point.get("teacher_tokens_from_reused_data", 0)
+        expected_reused_tokens = (
+            replay["source_teacher_total_tokens"]
+            if replay and point["policy_version"] > 0
+            else 0
+        )
+        if reused_tokens != expected_reused_tokens or (
+            expected_reused_tokens
+            and point["collection_steps"] != replay["source_collection_control_steps"]
+        ):
+            raise ValueError("Reused-data checkpoint costs differ from the source")
         episodes = point["episodes"]
         count, wins = len(episodes), sum(bool(x["success"]) for x in episodes)
         if (count, wins) != (point["rollouts"], point["successes"]):
@@ -189,7 +203,8 @@ def summarize_run(spec):
                 "wilson_95": wilson(wins, count),
                 "teacher_total_tokens": sum(
                     usage.get(e, {}).get("total_tokens", 0) for e in episode_ids
-                ),
+                )
+                + reused_tokens,
                 "episode_results": [
                     {
                         **{
@@ -301,6 +316,7 @@ def summarize_run(spec):
         else None,
         "points": points,
         "collection": collection,
+        "replayed_training_data": replay,
         "partial_collection": partial,
         "collection_steps_retained": sum(r["total_control_steps"] for r in collection)
         + sum(
@@ -354,6 +370,7 @@ def export_figures(data, output):
         "teacher_v4": "#75639c",
         "teacher_v5": "#aa3f57",
         "teacher_v6": "#914ea1",
+        "teacher_replay": "#245941",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -585,6 +602,7 @@ def build(manifest, budget, output):
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
             "This study generates ten actions and executes five before replanning. The published checkpoint config specifies chunk_size=50 and n_action_steps=10; native parity here refers to the common study runtime, not stock deployment settings.",
             "Teacher V1–V4 averaged flow loss over all 32 internal channels, including padding. This differs from LeRobot's policy-level loss over seven actual action channels. V5 corrects this and requires a weighted native-loss parity check; earlier runs keep their original objective and results.",
+            "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",
         ],
     }
     data["figures"] = export_figures(data, output / "figures")

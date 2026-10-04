@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--include-image-donors", action="store_true")
     parser.add_argument("--include-recipe-corpus", action="store_true")
     parser.add_argument("--demo-source-cache", type=Path)
+    parser.add_argument("--reasoning-replay-cache", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = Path("astra_reversal")
@@ -109,6 +110,15 @@ def main():
             # Snapshot builders may link this immutable library from a cache.
             # Package its verified bytes, never a machine-local root symlink.
             archive.add(path.resolve(), arcname=str(path))
+        if args.reasoning_replay_cache:
+            from astra_reversal.reasoning_learning.replay_data import load
+
+            recipe = json.loads((root / "configs/reasoning_replay_v3.json").read_text())
+            cache = args.reasoning_replay_cache.resolve()
+            _, _, manifest = load(cache, recipe["manifest_sha256"])
+            destination = root / ".deps/reasoning-replay-inputs"
+            for relative in ("manifest.json", *manifest["files"]):
+                archive.add(cache / relative, arcname=str(destination / relative))
         if args.include_astra_proposal_replay:
             from astra_reversal.osmo.astra_proposal_replay import load_inputs
 

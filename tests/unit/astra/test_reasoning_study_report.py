@@ -130,6 +130,49 @@ def test_wilson_interval_is_not_an_evaluation_denominator_or_certification():
         wilson(0, 0)
 
 
+def test_reused_teacher_data_is_attributed_without_double_charging_new_usage(tmp_path):
+    source = {
+        "source_teacher_total_tokens": 100,
+        "source_collection_control_steps": 620,
+    }
+    write(tmp_path / "replayed_training_data.json", source)
+    point = {
+        "policy_version": 1,
+        "collection_rollouts": 2,
+        "collection_steps": 620,
+        "successes": 0,
+        "rollouts": 1,
+        "teacher_tokens_from_reused_data": 100,
+        "episodes": [
+            {
+                "episode_id": "evaluation",
+                "success": False,
+                "actions_executed": 300,
+                "total_control_steps": 310,
+            }
+        ],
+    }
+    write(tmp_path / "learning_curve.json", [point])
+    spec = {
+        "directory": str(tmp_path),
+        "label": "replay",
+        "method": "teacher_replay",
+        "workflow": "test",
+    }
+    result = summarize_run(spec)
+    assert (
+        result["collection_steps_retained"]
+        == result["teacher_usage"]["total_tokens"]
+        == 0
+    )
+    assert result["points"][0]["teacher_total_tokens"] == 100
+    assert result["points"][0]["collection_steps"] == 620
+    point["teacher_tokens_from_reused_data"] = 0
+    write(tmp_path / "learning_curve.json", [point])
+    with pytest.raises(ValueError, match="Reused-data checkpoint costs"):
+        summarize_run(spec)
+
+
 def test_failed_offline_provider_call_keeps_unknown_usage_explicit(tmp_path):
     receipt = tmp_path / "failed.json"
     write(

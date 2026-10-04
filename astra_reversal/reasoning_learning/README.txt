@@ -429,3 +429,31 @@ opening. This target passed the original controller bounds. No policy candidate
 was generated or physically executed, and nothing was added to training. The
 two calls support testing the feedback path, not a physical-success claim;
 see diagnosis_feedback_probe.json for their exact outputs and token receipts.
+
+Tuned PPO result (Goal OOD 6, seed 173)
+Two frozen-actor collection episodes per batch and four optimization epochs
+yielded 5/10, 4/10, 5/10 and 4/10 at 0, 2, 4 and 8 collected episodes. The final
+checkpoint used 1,686 collection controls and regressed on reset20 relative to
+native, with no gained resets. The paired scenes were verified. This is a
+development tuning result; ppo_more_goal6_seed173_result.json retains the data.
+
+Prospective fixed-data learner ablation
+The V3 collector admitted 22 complete real action windows, but only one contains
+a correction; 21 contain native setup or continuation alone. The replay input
+loader checks each labeled command against the independent execution ledger,
+recomputes admission, verifies original observation hashes and refuses any FRS
+steering data. It never fills an unexecuted action tail.
+
+reasoning_replay_v3.json pins the 2.66 MB observation subset by manifest hash.
+The ablation starts from the original model, replays the original 20+20 update
+order with the corrected seven-channel loss, and then tests 100 and 200 total
+optimizer steps using the same real windows. Every measured checkpoint receives
+fresh autonomous evaluation; no new collection or Astra calls are made. This
+tests the learner under fixed data and does not supply the missing transport
+examples. The source 620 collection controls and 4,152,587 teacher tokens remain
+attributed to its curves and count only once in the global study totals.
+
+Package this ablation with --reasoning-replay-cache <audited-input-directory>.
+Prepare --phase replay-learning --protocol-version v5. The worker checks the
+same checkpoint/input/control identity, native-loss parity and reset identity
+before training. This phase is not a new independent collection replicate.
