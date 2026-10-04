@@ -152,8 +152,14 @@ def test_success_bc_is_separate_evidence_and_requires_unassisted_success():
         credit_data.successful_windows(actual, {**result, "assisted_chunks": 1})
 
 
-def test_credit_loader_binds_all_files_and_all_source_controls(tmp_path):
+@pytest.mark.parametrize("native_success_only", [False, True])
+@pytest.mark.parametrize("source_version", [0, 1])
+def test_credit_loader_binds_all_files_and_all_source_controls(
+    tmp_path, native_success_only, source_version
+):
     raw, actual, request, proposal, result = source()
+    for row in actual:
+        row["policy_version"] = source_version
     folder = tmp_path / "rollout_0"
     folder.mkdir()
     online = copy.deepcopy(actual)
@@ -171,26 +177,51 @@ def test_credit_loader_binds_all_files_and_all_source_controls(tmp_path):
         ("credit_request", request),
         ("credit_proposal", proposal),
     ):
+        if native_success_only and name.startswith("credit_"):
+            continue
         (folder / (name + ".json")).write_text(json.dumps(value))
     np.savez_compressed(folder / (digest(raw) + ".npz"), **raw)
     manifest = {
-        "schema": "reasoning-credit-selection-data-1",
+        "schema": "reasoning-native-success-credit-data-1"
+        if native_success_only
+        else "reasoning-credit-selection-data-1",
+        "fixed_source_episode_id": "e",
         "source_workflow": "owned",
         "source_protocol": {"teacher": {"frs_action_steering": False}},
         "instruction": "test task",
         "episodes": [{"directory": "rollout_0", "episode_id": "e"}],
         "source_collection_control_steps": 26,
-        "variant_window_counts": {k: 2 for k in credit_data.VARIANTS},
+        "variant_window_counts": {
+            k: 2
+            for k in (
+                credit_data.LOCAL_SUCCESS_VARIANTS
+                if native_success_only
+                else credit_data.VARIANTS
+            )
+        },
         "files": {
             str(p.relative_to(tmp_path)): file_sha256(p) for p in folder.iterdir()
         },
     }
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest))
+    if native_success_only and source_version:
+        with pytest.raises(ValueError, match="initial-policy"):
+            credit_data.load(tmp_path, file_sha256(path))
+        return
     variants, observations, _ = credit_data.load(tmp_path, file_sha256(path))
-    assert set(variants) == set(credit_data.VARIANTS)
+    assert set(variants) == set(credit_data.variant_names(manifest))
     assert len(observations) == 1
     manifest["source_collection_control_steps"] = 16
     path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="interactions"):
         credit_data.load(tmp_path)
+    if native_success_only:
+        manifest["source_collection_control_steps"] = 26
+        manifest["fixed_source_episode_id"] = "another-episode"
+        path.write_text(json.dumps(manifest))
+        with pytest.raises(ValueError, match="declared successful"):
+            credit_data.load(tmp_path)
+        manifest["episodes"] *= 2
+        with pytest.raises(ValueError, match="one source episode"):
+            credit_data.variant_names(manifest)

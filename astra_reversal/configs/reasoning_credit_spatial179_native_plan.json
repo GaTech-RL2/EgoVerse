@@ -1,0 +1,35 @@
+{
+  "schema": "reasoning-native-success-credit-plan-1",
+  "declared_utc": "2026-10-04T09:41:15.326057+00:00",
+  "source_workflow": "astra-pi05-reasoning-learning-20261003-pilot-11",
+  "source_episode": "libero_spatial_ood:seed179:task2:state0",
+  "source_selection": "The first completed collection, a 96-action unassisted success under policy version0. Selected before its paired-credit student evaluations; no additional source episode may replace it.",
+  "variants": [
+    "online_gate",
+    "successful_episode"
+  ],
+  "optimizer_steps_per_variant": 40,
+  "window_sampling": "uniform",
+  "source_collection_control_steps": 106,
+  "native_baseline_successes": 2,
+  "autonomous_evaluation_resets": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "new_collection_actions": 0,
+  "new_teacher_calls": 0,
+  "original_demonstration_replay_beta": 0,
+  "synthetic_windows": 0,
+  "maximum_worker_gpu_hours": 0.75,
+  "submission": "Only after both matched repeats and frozen V8 evaluation finish, and only if the unchanged total-budget guard admits it.",
+  "hypothesis": "On the same unassisted success, local Astra usefulness labels improve the learned autonomous policy more than binary-success imitation under identical optimization.",
+  "interpretation": "Fixed-data development diagnostic, not an independent collection run or the original online teacher learning trajectory. Both branches attribute all106 original controls and24 original teacher calls. No claim of an actually teacher-free source collection or a confirmed sample-efficiency advantage over RL."
+}

@@ -17,7 +17,7 @@ from astra_reversal.osmo.experiment import RESULTS, ROOT
 from astra_reversal.osmo.interpolation import load_frozen_policy
 from astra_reversal.osmo.ood_distributed import WorkerArchive
 from astra_reversal.osmo.reasoning_policy_learning import load_protocol, preflight
-from astra_reversal.reasoning_learning.credit_data import VARIANTS, load
+from astra_reversal.reasoning_learning.credit_data import load, variant_names
 from astra_reversal.reasoning_learning.native_reference import (
     native_signature,
     reuse_native_evaluation,
@@ -57,7 +57,7 @@ def run_variant(
     write_json(
         output / "runtime.json",
         {
-            "phase": "replay-credit",
+            "phase": os.environ["ASTRA_LEARNING_PHASE"],
             "variant": variant,
             "task": task,
             "seed": seed,
@@ -99,9 +99,12 @@ def run_variant(
         output=output / "resets.json",
         split="development",
     )
-    reference = protocol["teacher_native_evaluation_references"][
-        f"{task['suite']}:{task['task_id']}:{seed}"
-    ]
+    reference = (
+        recipe.get("native_reference")
+        or protocol["teacher_native_evaluation_references"][
+            f"{task['suite']}:{task['task_id']}:{seed}"
+        ]
+    )
     if Path(reference["file"]).name != reference["file"]:
         raise ValueError("Shared native reference must be a bundled basename")
     initial = reuse_native_evaluation(
@@ -173,7 +176,10 @@ def run_variant(
             "evaluation_steps": evaluation_steps,
             "policy_updates": learner.version,
             "research_objective_met": False,
-            "scope": "Development selection ablation on the same two V5 collections; no fresh collection or confirmation. The binary-success control is not evidence that every copied action was useful.",
+            "scope": recipe.get(
+                "scope",
+                "Development selection ablation on the same two V5 collections; no fresh collection or confirmation. The binary-success control is not evidence that every copied action was useful.",
+            ),
         },
     )
     archive.sync()
@@ -188,11 +194,16 @@ def run_variant(
 
 def main():
     protocol = load_protocol()
-    recipe = json.loads(
-        (Path(__file__).parents[1] / "configs/reasoning_credit_v5.json").read_text()
-    )
-    if os.environ["ASTRA_LEARNING_PHASE"] != "replay-credit":
+    recipes = {
+        "replay-credit": "reasoning_credit_v5.json",
+        "replay-success-credit": "reasoning_credit_spatial179_native.json",
+    }
+    phase = os.environ["ASTRA_LEARNING_PHASE"]
+    if phase not in recipes:
         raise ValueError("Wrong credit ablation phase")
+    recipe = json.loads(
+        (Path(__file__).parents[1] / "configs" / recipes[phase]).read_text()
+    )
     if torch.cuda.device_count() != 1 or "L40S" not in torch.cuda.get_device_name(0):
         raise RuntimeError("Allocate exactly one OSMO L40S")
     allocation = float(os.environ["ASTRA_WORKER_GPU_HOURS"])
@@ -215,10 +226,10 @@ def main():
     ):
         raise ValueError("Source and learner environments differ")
     if (
-        tuple(recipe["variant_order"]) != VARIANTS
+        tuple(recipe["variant_order"]) != variant_names(source)
         or recipe["window_sampling"] != "uniform"
     ):
-        raise ValueError("All three preregistered selectors require uniform sampling")
+        raise ValueError("Preregistered selectors require uniform sampling")
     RESULTS.mkdir(parents=True, exist_ok=False)
     archive = WorkerArchive(0)
     torch.set_num_threads(2)
@@ -228,7 +239,7 @@ def main():
     summaries = []
     write_json(RESULTS / "replay_recipe.json", recipe)
     try:
-        for variant in VARIANTS:
+        for variant in recipe["variant_order"]:
             row = run_variant(
                 variant,
                 variants[variant],
@@ -258,7 +269,9 @@ def main():
         write_json(
             RESULTS / "completion.json",
             {
-                "status": "three_way_credit_ablation_complete",
+                "status": "three_way_credit_ablation_complete"
+                if phase == "replay-credit"
+                else "paired_credit_ablation_complete",
                 "research_objective_met": False,
                 "new_collection_steps": 0,
                 "new_teacher_calls": 0,
@@ -274,7 +287,7 @@ def main():
             {
                 "worker_gpu_hours": (time.monotonic() - started) / 3600,
                 "bootstrap_gpu_hours_excluded": True,
-                "note": "One allocation shared across all three branches; external ledger charges initialization once.",
+                "note": "One allocation shared across branches; external ledger charges initialization once.",
             },
         )
         archive.sync()

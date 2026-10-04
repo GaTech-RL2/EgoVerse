@@ -870,3 +870,32 @@ actually executed target, disclose access to prior demonstration-derived
 skills, retain relative comparisons and actual outcome checks, and evaluate
 the student without the teacher settings. Cloning more isolated prefixes or
 simply increasing gradient steps is not supported by the current results.
+
+Prospective native-success credit control, Spatial seed179
+---------------------------------------------------------
+The first collection succeeds in 96 native actions with no intervention and
+24 Astra calls (455,499 reported tokens). The source is frozen before paired
+student evaluation: 14 windows under its original local useful labels versus
+18 complete windows from the successful episode. Two fresh students each
+receive 40 uniform seven-channel updates. No new data collection, hindsight
+review or teacher call is permitted. Original source cost is 106 controls
+including stabilization, and remains attributed to both branches.
+
+The exact seed179 native score (2/10) is reused after full deployment/reset
+identity checks; each new student receives ten autonomous evaluations. This
+is a fixed-data diagnostic, not the original online two-collection teacher
+trajectory or an independent collection replicate. The whole-success branch
+does not assert that every copied action was locally useful. There is no
+claim of an actually teacher-free source collection. Its 0.75-hour worker
+can be submitted only if the unchanged 24-hour ledger admits it after the
+previously planned comparisons. Configuration and source hashes are in
+reasoning_credit_spatial179_native_plan.json and
+reasoning_credit_spatial179_native.json under ../configs/.
+
+Completed matched DSRL repeat, Spatial seed179
+---------------------------------------------
+Native and DSRL's initial noise policy each score 2/10. After the fixed two
+collections (411 controls; one success, one failure), tuned DSRL remains
+2/10 and preserves the exact native binary outcomes. Its two evaluations
+cost 5,382 controls, and total worker usage including initialization is
+0.369170 L40S hours. See dsrl_more_spatial2_seed179_result.json.

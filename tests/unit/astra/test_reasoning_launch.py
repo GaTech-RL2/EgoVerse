@@ -20,7 +20,14 @@ def test_unresolved_budget_prevents_gpu_experiment(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "phase", ["preflight", "replay-credit", "dsrl", "checkpoint-evaluation"]
+    "phase",
+    [
+        "preflight",
+        "replay-credit",
+        "replay-success-credit",
+        "dsrl",
+        "checkpoint-evaluation",
+    ],
 )
 def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     tmp_path, monkeypatch, phase
@@ -66,7 +73,7 @@ def test_prepared_worker_is_single_gpu_hard_capped_and_immutable(
     assert spec["timeout"]["exec_timeout"] == "30m"
     assert receipt["status"] == "prepared_not_submitted"
     assert "codex_relay" not in (output / "connect.sh").read_text()
-    if phase == "replay-credit":
+    if phase in ("replay-credit", "replay-success-credit"):
         assert spec["tasks"][0]["environment"]["ASTRA_ENTRY_MODULE"].endswith(
             "reasoning_credit_learning"
         )

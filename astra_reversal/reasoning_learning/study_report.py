@@ -428,6 +428,8 @@ def export_figures(data, output):
         "credit_online": "#6e8293",
         "credit_hindsight": "#177e5b",
         "credit_success": "#ad5670",
+        "native_credit_local": "#6e8293",
+        "native_credit_success": "#ad5670",
         "dsrl": "#057a76",
         "ppo": "#4566ba",
     }
@@ -895,6 +897,7 @@ def build(manifest, budget, output):
             "A fixed-data learner ablation adds no collection actions or teacher calls. Its trained checkpoints retain the original dataset's collection and teacher-token costs on the curves; global totals count those source costs only once. Reusing the same windows does not create independent experience or confirmation.",
             "The evidence-masked replay variant uses complete real ten-action windows but applies loss only to useful steps; corrections also require their original predicted win. It fabricates no tails. Known unsupervised actions still enter the noised denoising input, an explicit modeling limitation. The 40/100/200-update checkpoints reuse one development dataset.",
             "The three-way credit screen compares original local labels, completed-trajectory hindsight labels, and binary-success episode BC on the same two V5 collections. Each fresh student gets 100 uniformly sampled updates and ten autonomous resets. Hindsight's two reviews add 83,532 tokens, counted once globally and attributed to that branch; no evaluation data is reviewed. A successful episode is explicitly weaker than per-action observed-useful credit. Development selection differences are not a confirmed sample-efficiency result.",
+            "The native-success paired control freezes the first Spatial seed179 collection: 96 unassisted policy0 actions, 106 controls including stabilization, and 24 recorded Astra calls. Its fresh students compare 14 locally useful windows with 18 full-success windows under 40 uniform updates. It reuses the exact native baseline and adds ten autonomous evaluations per student. This is a fixed-data diagnostic with one source episode, not the original online teacher trajectory or an independent collection replicate. Both branches retain the source teacher cost; no claim of a measured teacher-free collection is made.",
         ],
     }
     data["figures"] = export_figures(data, output / "figures")

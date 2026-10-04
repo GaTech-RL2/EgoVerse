@@ -16,6 +16,18 @@ from .evidence import training_windows
 from .replay_data import json_lines, verify_episode
 
 VARIANTS = ("online_gate", "hindsight_gate", "successful_episode")
+LOCAL_SUCCESS_VARIANTS = ("online_gate", "successful_episode")
+
+
+def variant_names(manifest):
+    schema = manifest["schema"]
+    if schema == "reasoning-credit-selection-data-1":
+        return VARIANTS
+    if schema == "reasoning-native-success-credit-data-1":
+        if len(manifest["episodes"]) != 1:
+            raise ValueError("The native-success control freezes one source episode")
+        return LOCAL_SUCCESS_VARIANTS
+    raise ValueError("Unknown credit-selection source")
 
 
 def hindsight_labels(request, proposal, executed, result, *, instruction, workflow):
@@ -117,10 +129,8 @@ def load(directory, expected_manifest_sha256=None):
     if expected_manifest_sha256 and file_sha256(path) != expected_manifest_sha256:
         raise ValueError("Credit-selection manifest checksum differs")
     manifest = json.loads(path.read_text())
-    if (
-        manifest["schema"] != "reasoning-credit-selection-data-1"
-        or manifest["source_protocol"]["teacher"]["frs_action_steering"]
-    ):
+    names = variant_names(manifest)
+    if manifest["source_protocol"]["teacher"]["frs_action_steering"]:
         raise ValueError("Unknown or excluded credit-selection source")
     for relative, expected in manifest["files"].items():
         part = Path(relative)
@@ -130,7 +140,7 @@ def load(directory, expected_manifest_sha256=None):
             or file_sha256(directory / part) != expected
         ):
             raise ValueError("Credit source path or checksum differs")
-    variants, observations, results, used = {k: [] for k in VARIANTS}, {}, [], set()
+    variants, observations, results, used = {k: [] for k in names}, {}, [], set()
     for episode in manifest["episodes"]:
         folder = episode["directory"]
         if Path(folder).name != folder:
@@ -143,29 +153,38 @@ def load(directory, expected_manifest_sha256=None):
             raise ValueError("Credit source episodes differ or repeat")
         results.append(result)
         executed = json_lines(source / "executed_steps.jsonl")
-        request = json.loads((source / "credit_request.json").read_text())
-        proposal = json.loads((source / "credit_proposal.json").read_text())
-        labels = hindsight_labels(
-            request,
-            proposal,
-            executed,
-            result,
-            instruction=manifest["instruction"],
-            workflow=manifest["source_workflow"],
-        )
         current = {
             "online_gate": online,
-            "hindsight_gate": training_windows(labels, horizon=10),
             "successful_episode": successful_windows(executed, result),
         }
+        if "hindsight_gate" in names:
+            request = json.loads((source / "credit_request.json").read_text())
+            proposal = json.loads((source / "credit_proposal.json").read_text())
+            labels = hindsight_labels(
+                request,
+                proposal,
+                executed,
+                result,
+                instruction=manifest["instruction"],
+                workflow=manifest["source_workflow"],
+            )
+            current["hindsight_gate"] = training_windows(labels, horizon=10)
+            used.update(
+                str(Path(folder) / name)
+                for name in ("credit_request.json", "credit_proposal.json")
+            )
+        elif (
+            not result["success"]
+            or {r["policy_version"] for r in executed} != {0}
+            or result["episode_id"] != manifest["fixed_source_episode_id"]
+        ):
+            raise ValueError("Freeze the declared successful initial-policy episode")
         used.update(
             str(Path(folder) / name)
             for name in (
                 "admission.jsonl",
                 "executed_steps.jsonl",
                 "result.json",
-                "credit_request.json",
-                "credit_proposal.json",
             )
         )
         for variant, windows in current.items():
