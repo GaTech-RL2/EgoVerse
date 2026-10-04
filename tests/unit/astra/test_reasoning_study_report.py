@@ -94,3 +94,38 @@ def test_wilson_interval_is_not_an_evaluation_denominator_or_certification():
     assert wilson(10, 10)[0] < 0.8
     with pytest.raises(ValueError):
         wilson(0, 0)
+
+
+def test_initial_score_does_not_evaluate_a_later_update(tmp_path):
+    write(tmp_path / "updates.json", [{"policy_version": 1}])
+    write(
+        tmp_path / "learning_curve.json",
+        [
+            {
+                "policy_version": 0,
+                "collection_rollouts": 0,
+                "collection_steps": 0,
+                "rollouts": 1,
+                "successes": 1,
+                "episodes": [
+                    {
+                        "episode_id": "native",
+                        "success": True,
+                        "actions_executed": 5,
+                        "total_control_steps": 15,
+                    }
+                ],
+            }
+        ],
+    )
+    result = summarize_run(
+        {
+            "directory": str(tmp_path),
+            "label": "pilot",
+            "method": "teacher",
+            "workflow": "test",
+        }
+    )
+    assert result["latest_evaluated_policy_version"] == 0
+    assert result["latest_updated_policy_version"] == 1
+    assert not result["latest_update_has_autonomous_evaluation"]

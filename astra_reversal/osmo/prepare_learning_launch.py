@@ -14,6 +14,20 @@ from astra_reversal.osmo.reasoning_policy_learning import load_protocol
 from astra_reversal.records import file_sha256
 
 
+def connection_script(repo, bundle, destination, *, phase, gpu_hours, port):
+    """Upload before opening the tunnel: rsync waits for the worker to exist."""
+    token = destination / "relay.token"
+    script = '#!/usr/bin/env bash\nset -euo pipefail\ntest "$#" = 1\nworkflow="$1"\ncase "$workflow" in astra-pi05-reasoning-learning-20261003-*) ;; *) exit 2;; esac\n'
+    script += "cd " + shlex.quote(str(repo)) + "\n"
+    script += f'osmo workflow rsync "$workflow" worker0 {shlex.quote(str(bundle / "payload.tar.gz") + ":/osmo/run/workspace")} --once --timeout 180\n'
+    if phase == "pilot":
+        script += f'osmo workflow port-forward "$workflow" worker0 --port {port}:8769 --connect-timeout 60 > {shlex.quote(str(destination / "port-forward.log"))} 2>&1 &\nforward_pid=$!\n'
+        script += 'relay_pid=""\ntrap \'kill "$forward_pid" ${relay_pid:+"$relay_pid"} 2>/dev/null || true\' EXIT\n'
+        script += f"python -m astra_reversal.codex_relay --url http://127.0.0.1:{port} --token-file {shlex.quote(str(token))} --directory {shlex.quote(str(destination / 'jobs'))} --idle-timeout {math.ceil(gpu_hours * 3600)} &\nrelay_pid=$!\n"
+        script += 'while kill -0 "$relay_pid" 2>/dev/null; do\n  if ! kill -0 "$forward_pid" 2>/dev/null; then\n    echo "OSMO tunnel exited; stopping the local relay. Inspect port-forward.log." >&2\n    exit 1\n  fi\n  sleep 1\ndone\nwait "$relay_pid"\n'
+    return script
+
+
 def prepare(
     bundle,
     destination,
@@ -125,15 +139,11 @@ def prepare(
         "baselines_included": phase in ("dsrl", "ppo"),
     }
     (destination / "launch_plan.json").write_text(json.dumps(plan, indent=2) + "\n")
-    upload = f'osmo workflow rsync "$workflow" worker0 {shlex.quote(str(bundle / "payload.tar.gz") + ":/osmo/run/workspace")} --once --timeout 180\n'
-    script = '#!/usr/bin/env bash\nset -euo pipefail\ntest "$#" = 1\nworkflow="$1"\ncase "$workflow" in astra-pi05-reasoning-learning-20261003-*) ;; *) exit 2;; esac\n'
-    script += "cd " + shlex.quote(str(repo)) + "\n"
-    if phase == "pilot":
-        script += f'osmo workflow port-forward "$workflow" worker0 --port {port}:8769 --connect-timeout 60 > {shlex.quote(str(destination / "port-forward.log"))} 2>&1 &\nforward_pid=$!\ntrap \'kill "$forward_pid" 2>/dev/null || true\' EXIT\n'
-    script += upload
-    if phase == "pilot":
-        script += f"python -m astra_reversal.codex_relay --url http://127.0.0.1:{port} --token-file {shlex.quote(str(token))} --directory {shlex.quote(str(destination / 'jobs'))} --idle-timeout {math.ceil(gpu_hours * 3600)}\n"
-    (destination / "connect.sh").write_text(script)
+    (destination / "connect.sh").write_text(
+        connection_script(
+            repo, bundle, destination, phase=phase, gpu_hours=gpu_hours, port=port
+        )
+    )
     (destination / "connect.sh").chmod(0o700)
     return plan
 

@@ -191,6 +191,8 @@ def summarize_run(spec):
                 "stabilization_steps_counted_separately", 10
             )
             partial_evaluation = True
+    latest_evaluated = max((p["policy_version"] for p in points), default=None)
+    latest_updated = max((r.get("policy_version", 0) for r in updates), default=0)
     return {
         "label": spec["label"],
         "method": spec["method"],
@@ -213,6 +215,11 @@ def summarize_run(spec):
         "completed_collection_rollouts": len(collection),
         "collected_successes": sum(bool(r["success"]) for r in collection),
         "policy_updates": len(updates),
+        "latest_evaluated_policy_version": latest_evaluated,
+        "latest_updated_policy_version": latest_updated,
+        "latest_update_has_autonomous_evaluation": bool(
+            latest_evaluated is not None and latest_evaluated >= latest_updated
+        ),
         "teacher_usage": totals,
         "usage_by_episode": usage,
         "threshold_crossing": next(
@@ -231,6 +238,114 @@ def summarize_run(spec):
         else "not_reached_in_completed_evaluations",
         "videos": [],
     }
+
+
+def export_figures(data, output):
+    """Standalone research figures; each task and random seed stays separate."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter, PercentFormatter
+
+    colors = {
+        "teacher_v1": "#bf571d",
+        "teacher_v2": "#d89122",
+        "teacher_v3": "#83432a",
+        "dsrl": "#057a76",
+        "ppo": "#4566ba",
+    }
+    groups = {}
+    for run in data["runs"]:
+        if run["task"] and run["points"]:
+            task = run["task"]
+            groups.setdefault((task["suite"], task["task_id"], run["seed"]), []).append(
+                run
+            )
+    paths = []
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    for (suite, task_id, seed), runs in groups.items():
+        fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+        for ax, key, title in zip(
+            axes,
+            ("collection_steps", "teacher_total_tokens"),
+            ("Collection control steps", "Cumulative teacher tokens (including cache)"),
+            strict=True,
+        ):
+            for i, run in enumerate(runs):
+                points = run["points"]
+                label = run["label"]
+                if all(p["policy_version"] == 0 for p in points):
+                    label += " (initial policy only)"
+                x, y = [p[key] for p in points], [p["success_rate"] for p in points]
+                errors = [
+                    [p["success_rate"] - p["wilson_95"][0] for p in points],
+                    [p["wilson_95"][1] - p["success_rate"] for p in points],
+                ]
+                color = colors.get(run["method"], "#778084")
+                ax.errorbar(
+                    x, y, yerr=errors, color=color, alpha=0.25, fmt="none", capsize=3
+                )
+                ax.plot(
+                    x,
+                    y,
+                    marker=("o", "s", "^", "D", "v", "P")[i % 6],
+                    color=color,
+                    label=label,
+                    linewidth=1.8,
+                    markersize=6,
+                )
+            ax.axhline(0.8, color="#a89173", linestyle="--", linewidth=1)
+            ax.set_ylim(-0.04, 1.04)
+            max_x = max(p[key] for run in runs for p in run["points"])
+            ax.set_xlim(-0.04 * max(1, max_x), 1.06 * max(1, max_x))
+            if max_x == 0:
+                ax.set_xticks([0])
+                ax.text(
+                    0.52,
+                    0.12,
+                    "No completed evaluation follows\nteacher spending yet",
+                    ha="center",
+                    transform=ax.transAxes,
+                    fontsize=9,
+                    color="#617378",
+                )
+            ax.set_xlabel(title, fontsize=10)
+            ax.set_ylabel("Autonomous success rate")
+            ax.yaxis.set_major_formatter(PercentFormatter(1))
+            ax.xaxis.set_major_formatter(
+                FuncFormatter(lambda value, _: f"{value:,.0f}")
+            )
+            ax.grid(axis="y", alpha=0.15)
+            ax.spines[["top", "right"]].set_visible(False)
+        fig.suptitle(f"{suite} / task {task_id} / seed {seed}", fontsize=14, y=0.98)
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(
+            handles,
+            labels,
+            loc="lower center",
+            ncol=2,
+            fontsize=8,
+            bbox_to_anchor=(0.5, 0.045),
+            frameon=False,
+        )
+        fig.text(
+            0.5,
+            0.02,
+            "10 reset states per point · 95% Wilson intervals · Evaluation samples accounted separately · Development evidence",
+            ha="center",
+            fontsize=8,
+            color="#617378",
+        )
+        fig.subplots_adjust(left=0.075, right=0.975, top=0.90, bottom=0.29, wspace=0.3)
+        stem = f"{suite}_task{task_id}_seed{seed}"
+        for extension in ("png", "pdf"):
+            path = output / f"{stem}.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
+    return paths
 
 
 def build(manifest, budget, output):
@@ -279,9 +394,11 @@ def build(manifest, budget, output):
             "The RL baselines use pinned RLinf components in a serial OOD harness with documented overrides. This is not a reproduction claim for the stock distributed RLinf benchmarks.",
             "Token counts are CLI-reported usage, including cached input; they are not an API dollar bill. Local completed calls count even if cancellation prevented the worker from receiving them.",
             "A marked shared native baseline reuses the same previously measured episodes after deployment and reset identity checks. It contributes no new evaluation interactions or independent statistical replicate. Updated policies always receive fresh evaluations.",
+            "An initial-policy score does not evaluate a later update. Runs stopped between scheduled checkpoints explicitly mark their latest policy update as unevaluated.",
             "Candidate preference is predicted improvement. Only selected commands execute; full observed-useful action windows train. No FRS action steering, physical candidate retries, privileged object poses, or default synthetic training.",
         ],
     }
+    data["figures"] = export_figures(data, output / "figures")
     (output / "results.json").write_text(
         json.dumps(data, indent=2, allow_nan=False) + "\n"
     )

@@ -64,20 +64,20 @@ The example checkpoint RLinf/RLinf-Pi05-LIBERO-SFT differs from the selected
 lerobot/pi05_libero_base. Never silently substitute it. RLinf's OpenPI loader
 does not establish parity with the LeRobot export. Key conversion, strict tensor
 loading, processor/velocity/action parity and OOD reset integration remain to do.
-These baseline implementations have been inspected and pinned, not run here.
+The implementations were initially inspected and pinned; the current results below supersede that initial status.
 
 Primary sources
 RTC: https://arxiv.org/html/2506.07339v1 (equations 2–4)
 DSRL authors' code: https://github.com/nakamotoo/dsrl_pi0
 RLinf: https://github.com/RLinf/RLinf/tree/c70606f08cdca259b8dec03d4430926b5b8fac9d
 
-Status
-First implementation is present. Local checks: 38 new CPU tests passed; full
+Historical status at initial implementation
+First implementation was present. Local checks: 38 new CPU tests passed; full
 repository unit suite: 1700 passed, 6 optional skips. The new opt-in action-VJP
 integration test passed in the pinned LeRobot runtime. These are synthetic/small
 model checks, not full-checkpoint GPU or robot success results.
 
-No new robot SR or sample-efficiency result exists yet. The user authorized a
+At that initial checkpoint, no new robot SR result existed. The user authorized a
 total of 24 L40S GPU-hours on 2026-10-03, including setup, failures and all methods.
 The config now has launch_allowed=true. Strong-baseline parity, data collection, learning curves and confirmation remain outstanding.
 
@@ -148,7 +148,7 @@ Source: https://arxiv.org/html/2506.07339v1#S4.SS1, equations 2--4. Binary masks
 make our squared-mask energy match RTC's weighted correction; soft masks differ.
 No FRS, physical candidate retry, or unexecuted synthetic training is added.
 
-PPO integration (GPU backward/recompute check pending)
+PPO integration (GPU backward/recompute check now passed)
 The second baseline uses RLinf's released Pi0RL stochastic flow sampler and
 log-probability recomputation on the strict converted checkpoint. Its flow-SDE
 noise level is .5, with one selected stochastic denoising step and native ODE
@@ -188,7 +188,7 @@ current collection and update are saved, with an explicit completion status.
 The initial v1 Goal OOD6 / seed173 autonomous evaluation scored 5/10. During its
 first collection Astra rejected very weak lift candidates as ties. This motivates
 the weighting revision; it is not evidence that learning has improved autonomy.
-DSRL is running; PPO still requires its GPU preflight. Research objective unmet.
+At the v2 launch, DSRL was running and PPO still required its GPU preflight. Current measurements are below. Research objective unmet.
 
 Prospective v3: express a gripper correction
 The saved v1 trajectory reveals a second limitation. At step175 Astra tried
@@ -223,3 +223,42 @@ videos, the teacher prompt, CSV and JSON. Missing evaluations never become zero
 success. Local completed CLI calls count even if the worker was cancelled before
 receiving the response. The report deliberately does not declare the research
 objective met; that requires a separate supported comparative conclusion.
+
+2026-10-04 00:25 UTC development evidence
+DSRL completed Goal OOD6 / seed173: autonomous success 4/10 initially, then
+5/10 at 2, 4 and 8 collected rollouts. Final collection cost 2,057 controls;
+evaluation cost 8,455 controls; eight policy updates; two collection successes.
+Total OSMO allocation including bootstrap was 0.8088 L40S GPU-hours. Its final
+score ties the separately measured native Gaussian baseline (5/10). The 8/10
+threshold was not reached. Full per-reset summary: dsrl_goal6_seed173_result.json.
+This is one development task/seed and one serial RLinf-based configuration,
+not a tuned multi-seed state-of-the-art reproduction or a superiority claim.
+
+The v2 teacher's one diagnostic rollout failed after 250 actions plus ten
+stabilization controls, using three correction episodes, eight assisted chunks
+(two simulator seconds), and 80 Astra calls. CLI usage: 1,493,455 total tokens,
+including 772,096 cached input tokens. Nine full windows were admitted: eight
+native setup/continuation windows and one correction window at steps 150--160.
+One 20-step native LoRA update was saved, but no updated autonomous evaluation
+was due before the planned stop. Its learned SR is unknown, not 5/10 or zero.
+Actual allocation: 0.7491 GPU-hours. See pilot_v2_failure_audit.json.
+
+PPO passed native weighted parity (controller error <=4.18e-7), exact rollout
+versus recomputed log probabilities, and nonzero actor backward gradients.
+It has completed two collection rollouts and its first updated autonomous score:
+5/10 initially and 5/10 after 620 collection controls. The full eight-rollout
+experiment is still running; these interim numbers are not its final result.
+
+The first v3 worker passed the exact native-reference reuse checks but its local
+tunnel started before OSMO marked the worker ready (HTTP 425). No Astra response
+arrived; the worker timed out after initialization, consuming 0.1471 GPU-hours.
+The explicit infrastructure retry keeps the same immutable worker payload and
+protocol. The launcher now uploads first, then opens the tunnel, and terminates
+its local relay if that tunnel exits. The retry is receiving real Astra calls.
+No failed startup is silently removed from the compute/interaction accounting.
+
+Standalone PNG/PDF plots now accompany the interactive offline dashboard.
+Latest updates without a subsequent scheduled autonomous evaluation are labeled
+unevaluated, so initial native scores cannot be mistaken for learned outcomes.
+The study remains in development; repeated seeds, Spatial OOD2, baseline tuning
+and any fresh confirmation remain outstanding within the authorized budget.
