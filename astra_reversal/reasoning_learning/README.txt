@@ -812,3 +812,21 @@ driver's source hashes, restored adapter tensors, and exact regenerated reset
 state/model/BDDL identities. Use package_payload --reasoning-evaluation-cache
 CACHE, followed by prepare_learning_launch --phase checkpoint-evaluation
 --protocol-version v8 --gpu-hours 0.5. Preparation is not a result or allocation.
+
+Completed fixed-data credit comparison (Goal OOD6, seed173)
+----------------------------------------------------------
+All three students start from the exact same zero-adapter parameters and use
+100 updates with uniform sampling. The original local gate admits 12 windows
+and scores 5/10; Astra hindsight admits 34 and scores 4/10; whole successful-
+episode imitation admits 20 and scores 5/10. Native is 5/10. Matching scene
+hashes verify that hindsight loses reset28 and gains none; both other branches
+preserve the exact native wins. No branch reaches 8/10 or shows an autonomous
+benefit. This is one fixed development screen, not a universal rejection of
+hindsight labels or successful-episode learning.
+
+All branches retain attribution to the two original V5 collections: 426 total
+controls and 3,380,126 teacher tokens, including the failed attempt. Hindsight
+adds two offline reviews and 83,532 tokens. The screen adds no collection
+actions or live teacher calls; its 30 autonomous evaluations cost 6,345 controls
+and the worker uses 0.503822 L40S hours including initialization. Source data
+and teacher costs count once in study totals. See credit_v5_results.json.

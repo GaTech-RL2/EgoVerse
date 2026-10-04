@@ -538,6 +538,70 @@ def export_figures(data, output):
             fig.savefig(path, dpi=180)
             paths.append(str(Path(output.name) / path.name))
         plt.close(fig)
+    credit = [
+        run
+        for method in ("credit_online", "credit_hindsight", "credit_success")
+        for run in data["runs"]
+        if run["method"] == method
+        and run["points"]
+        and run["points"][-1]["policy_version"] > 0
+    ]
+    if len(credit) == 3:
+        labels = ["Local labels", "Astra hindsight", "Whole successful episode"]
+        fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.8))
+        for i, run in enumerate(credit):
+            point = run["points"][-1]
+            score = point["success_rate"]
+            low, high = point["wilson_95"]
+            axes[0].errorbar(
+                i,
+                score,
+                yerr=[[score - low], [high - score]],
+                fmt="o",
+                capsize=5,
+                color=colors[run["method"]],
+            )
+            axes[0].annotate(
+                f"{point['successes']}/{point['rollouts']}",
+                (i, score),
+                xytext=(9, 8),
+                textcoords="offset points",
+            )
+            count = run["replayed_training_data"]["admitted_windows"]
+            axes[1].bar(i, count, color=colors[run["method"]], width=0.5)
+            axes[1].text(i, count + 0.5, str(count), ha="center")
+        native = credit[0]["points"][-1]["native_comparison"]
+        axes[0].axhline(
+            native["native_successes"] / native["rollouts"],
+            color="#607477",
+            linestyle=":",
+            label="Native 5/10",
+        )
+        axes[0].set_ylim(0, 1)
+        axes[0].yaxis.set_major_formatter(PercentFormatter(1))
+        axes[0].set_ylabel("Autonomous success · 95% Wilson interval")
+        axes[0].legend(frameon=False, fontsize=9)
+        axes[1].set_ylabel("Admitted complete ten-action windows")
+        axes[1].set_ylim(0, 40)
+        for ax in axes:
+            ax.set_xticks(range(3), labels, rotation=15, ha="right", fontsize=9)
+            ax.spines[["top", "right"]].set_visible(False)
+            ax.grid(axis="y", alpha=0.13)
+            ax.set_axisbelow(True)
+        fig.suptitle("Same recorded experience, three data-selection rules")
+        fig.text(
+            0.5,
+            0.018,
+            "426 source controls · 100 updates each · Goal OOD6, seed173 · Hindsight adds 83,532 teacher tokens",
+            ha="center",
+            fontsize=8,
+        )
+        fig.tight_layout(rect=(0, 0.055, 1, 0.96))
+        for extension in ("png", "pdf"):
+            path = output / f"credit_selection.{extension}"
+            fig.savefig(path, dpi=180)
+            paths.append(str(Path(output.name) / path.name))
+        plt.close(fig)
     # A training-fit diagnostic explains a mechanism, not a held-out success gain.
     for variant in ("strict", "masked"):
         receipt = read_json(
@@ -775,6 +839,15 @@ def build(manifest, budget, output):
         spatial_video_audit = {**spatial_video_audit, "image": str(target)}
     else:
         spatial_video_audit = None
+    credit_video_audit = read_json(Path(__file__).with_name("credit_video_audit.json"))
+    credit_image = Path(__file__).with_name("credit_video_audit.png")
+    if credit_video_audit and credit_image.exists():
+        target = Path("images") / credit_image.name
+        (output / target).parent.mkdir(exist_ok=True)
+        shutil.copy2(credit_image, output / target)
+        credit_video_audit = {**credit_video_audit, "image": str(target)}
+    else:
+        credit_video_audit = None
     ledger = read_json(budget)
     data = {
         "title": "Reasoning-guided policy learning",
@@ -787,6 +860,7 @@ def build(manifest, budget, output):
         "offline_teacher_diagnostics": diagnostics,
         "replay_video_audit": replay_video_audit,
         "spatial_video_audit": spatial_video_audit,
+        "credit_video_audit": credit_video_audit,
         "intervention_credit_audit": read_json(
             Path(__file__).with_name("intervention_credit_audit.json")
         ),
