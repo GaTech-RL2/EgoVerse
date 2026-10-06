@@ -1,0 +1,16 @@
+Here are sim parallel gripper we could try
+**Yes. For parallel grippers, I’d shortlist RoboCasa365, BEHAVIOR-1K, and EmbodiedSWE.** For your setup, they offer different ways to get beyond LIBERO-10:
+
+| Option | Concrete tasks to try | Why Astra’s guidance could help | Main tradeoff |
+|---|---|---|---|
+| **RoboCasa365 — easiest transition** | **LoadPreparedFood:** rearrange a crowded fridge before inserting a container. **PackIdenticalLunches:** retrieve ingredients and distribute them correctly between containers. | Spatial planning, object selection, keeping track of completed work, and recovering without disturbing other objects. Uses a Panda parallel gripper and MuJoCo/robosuite. | The longest tasks often require a mobile base. [Task catalog](https://robocasa.ai/docs/build/html/tasks/composite_tasks.html), [paper](https://robocasa.ai/assets/robocasa365_iclr26.pdf) |
+| **BEHAVIOR-1K / OmniGibson — biggest household complexity jump** | **Make Pizza**, **Sorting Household Items**, **Clean Up Your Desk**. | Many simultaneous requirements, objects distributed across locations, tool use, and changes in object state. Much more opportunity for missed prerequisites and incomplete goals. | Default R1Pro has **two parallel-jaw grippers plus mobility**; substantial change from LIBERO’s embodiment. [Robots](https://behavior.stanford.edu/omnigibson/robots.html), [actual task instructions](https://github.com/StanfordVL/BEHAVIOR-1K/blob/main/docs/challenge/task_data.json) |
+| **EmbodiedSWE — my pick for a fixed-arm challenge** | **PC assembly:** fasten the motherboard, insert two RAM sticks, and install the GPU using a Franka Panda. **IKEA table assembly** also has a dual-Franka configuration. | Tool handling, part orientation, alignment, assembly sequencing, and diagnosing why an insertion or fastening attempt failed. | Designed around coding agents with simulator access; your policy-guidance interface needs integration. [Released task configurations](https://github.com/EmbodiedSWE/EmbodiedSWE/blob/main/robobench/suites/assembly/configs/envs.py) |
+
+**For a first experiment, I’d choose based on whether you want mobility:**
+
+- **Keep a fixed single arm:** EmbodiedSWE’s `assembly.pc_motherboard_gpu_ram.franka.osc`. This is my strongest candidate for a substantial increase in complexity without changing to a mobile robot.
+- **Stay close to the LIBERO software stack:** RoboCasa365, starting with **LoadPreparedFood** and **PackIdenticalLunches**. The latter is annotated with 15 subtasks, including navigation. [Task metadata](https://github.com/robocasa/robocasa/blob/main/docs/composite_tasks/task_attributes.json)
+- **Push semantic and long-horizon reasoning hardest:** BEHAVIOR’s **Make Pizza**—collect ingredients, chop ingredients, assemble the topping, and bake. It combines several kinds of manipulation with dependencies between them.
+
+My judgment is that **BEHAVIOR has the most room for high-level guidance**, while **EmbodiedSWE PC assembly is the cleaner fixed-arm test**. Neither is proven to resist your two-rollout setup; I’d pilot those two before committing to a larger suite.

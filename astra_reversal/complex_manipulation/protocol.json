@@ -1,0 +1,163 @@
+{
+  "schema": "astra-complex-study-1",
+  "status": "source_audit_and_preflight_preparation",
+  "source_proposals": {
+    "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
+    "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
+  },
+  "inherited_compute": {
+    "authorized_l40s_gpu_hours": 24,
+    "previous_study_gpu_hours": 22.055959544722224,
+    "remaining_l40s_gpu_hours": 1.944040455277776,
+    "additional_budget": "requested_not_yet_authorized",
+    "max_concurrent_gpus": 2
+  },
+  "initial_task_pairs": [
+    {
+      "benchmark": "robocasa365",
+      "task": "LoadPreparedFood",
+      "checkpoint": "robocasa_pi05",
+      "split": "pretrain",
+      "action_limit": 1500,
+      "execute_steps": 5
+    },
+    {
+      "benchmark": "robocasa365",
+      "task": "PackIdenticalLunches",
+      "checkpoint": "robocasa_pi05",
+      "split": "pretrain",
+      "action_limit": 3900,
+      "execute_steps": 5
+    },
+    {
+      "benchmark": "bench2dex",
+      "task": "73_jigsaw_puzzle_assembly",
+      "checkpoint": "bench2dex_jigsaw_pi05",
+      "robot": "multi_iiwa7_with_sharpa",
+      "model_horizon": 20,
+      "execute_steps": 20
+    },
+    {
+      "benchmark": "bench2dex",
+      "task": "34_fridge_wine_interhand_pour",
+      "checkpoint": "bench2dex_fridge_pi05",
+      "robot": "multi_ur5_rh5dg2_with_flange",
+      "model_horizon": 20,
+      "execute_steps": 20
+    }
+  ],
+  "additional_requested_tasks": [
+    {
+      "benchmark": "embodiedswe",
+      "tasks": [
+        "assembly.pc_motherboard_gpu_ram.franka.osc",
+        "assembly.ikea_table.bimanual_franka.osc",
+        "assembly.ikea_table.g1"
+      ],
+      "status": "environment_configs_found_compatible_trained_policy_not_verified"
+    },
+    {
+      "benchmark": "behavior1k",
+      "tasks": [
+        "make_pizza",
+        "sorting_household_items",
+        "clean_up_your_desk"
+      ],
+      "status": "task_and_checkpoint_identity_audit_pending"
+    },
+    {
+      "benchmark": "dexverse",
+      "tasks": [
+        "OvenBakeSalmon",
+        "CleanTable"
+      ],
+      "status": "assets_available_requested_long_horizon_demonstrations_or_policy_not_found_in_inspected_release"
+    }
+  ],
+  "planned_comparison": {
+    "status": "not_run",
+    "conditions": [
+      "native_frozen",
+      "astra_guidance_frozen",
+      "learning_without_astra",
+      "astra_guidance_and_learning"
+    ],
+    "collection_episode_checkpoints": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "collection_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "evaluation_seeds": [
+      1000,
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008,
+      1009
+    ],
+    "policy_updates": "between_reset_episodes_only",
+    "learning_rule": "to_be_frozen_after_native_adapter_and_support_validation",
+    "teacher_information": [
+      "actual_camera_images",
+      "robot_proprioception",
+      "original_instruction",
+      "previous_collection_execution_and_failure_history"
+    ],
+    "hidden_from_teacher": [
+      "privileged_object_pose",
+      "evaluation_trajectories",
+      "unexecuted_candidate_outcomes"
+    ],
+    "evaluation_modes": [
+      "with_guidance_when_condition_requires",
+      "autonomous_student_without_astra"
+    ],
+    "failure_accounting": "No best-of retry success. Interrupted work and all reset-free segments remain charged. Incomplete batches do not establish full SR.",
+    "metrics": [
+      "binary_environment_success",
+      "stage_progress_if_native_benchmark_exposes_it",
+      "reset_episodes_started",
+      "completed_episodes",
+      "reset_free_segments",
+      "assisted_segments",
+      "generated_candidates",
+      "teacher_tokens_including_cached_input",
+      "teacher_uncached_input_tokens",
+      "teacher_output_tokens",
+      "wall_seconds",
+      "policy_seconds",
+      "gpu_hours_including_initialization",
+      "rollout_video"
+    ]
+  },
+  "interpretation": [
+    "RoboCasa tasks use a mobile PandaOmron, not a fixed Panda.",
+    "The selected RoboCasa tasks are seen composite tasks; pretrain-scene scores are not novel-task OOD results.",
+    "The earlier LIBERO learning study did not solve the benchmark in two rollouts.",
+    "No simulation, policy inference, guidance, or learned-policy result is claimed by this protocol."
+  ]
+}
