@@ -109,6 +109,8 @@ def build_environment(root):
             "mujoco==3.3.1",
             "augmax>=0.3.4",
             "dm-tree>=0.1.8",
+            "chex==0.1.89",
+            "tqdm-loggable==0.2",
             "einops>=0.8",
             "equinox>=0.11.8",
             "jaxtyping==0.2.36",

@@ -10,6 +10,7 @@ import gzip
 import hashlib
 import importlib.metadata
 import json
+import os
 import time
 from pathlib import Path
 
@@ -92,9 +93,8 @@ def load_native_policy(checkpoint, seed):
     native = config.load(
         model.restore_params(checkpoint / "params", dtype=jnp.bfloat16)
     )
-    return policy.Policy(
+    loaded = policy.Policy(
         native,
-        rng=jax.random.key(seed),
         transforms=[
             transforms.InjectDefaultPrompt(None),
             robocasa_policy.RobocasaInputs(config.action_dim, config.model_type),
@@ -113,6 +113,10 @@ def load_native_policy(checkpoint, seed):
         ],
         sample_kwargs={"num_steps": 10},
     )
+    # The pinned upstream constructor uses `rng or ...`, which tries to coerce
+    # a typed JAX key to bool. Assign after construction to preserve native RNG.
+    loaded._rng = jax.random.key(seed)
+    return loaded
 
 
 def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=None):
@@ -121,7 +125,7 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    identity = f"robocasa:{task}:{split}:seed{seed}:native:attempt0"
+    identity = f"{os.environ.get('ASTRA_RUN_ID', output.parent.name)}:robocasa:{task}:{split}:seed{seed}:native:attempt0"
     counts = EpisodeCounts(identity, horizon, 5)
     write_json(output / "started.json", {"episode_id": identity, "seed": seed})
     obs, _ = env.reset(seed=seed)
@@ -247,8 +251,12 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
                     break
             if not success and stop == "horizon" and limit < horizon:
                 stop = "smoke_limit"
-        except Exception as exc:
-            stop = "infrastructure_or_policy_error"
+        except BaseException as exc:
+            stop = (
+                "interrupted"
+                if isinstance(exc, KeyboardInterrupt)
+                else "infrastructure_or_policy_error"
+            )
             write_json(
                 output / "error.json",
                 {"type": type(exc).__name__, "message": str(exc)[:1000]},
