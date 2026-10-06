@@ -1,0 +1,46 @@
+{
+  "schema_version": "astra-meta-harness-1",
+  "source_revision": "d4b2b690ac8992137f35af566429f6241c39afca",
+  "policy_weights_frozen": true,
+  "runtime_model": "gpt-6-astra",
+  "runtime_reasoning_effort": "medium",
+  "main_transport": "openai_responses",
+  "main_input_tokens": 8192,
+  "main_output_tokens_including_reasoning": 256,
+  "pilot_transport": "codex_relay_profile",
+  "pilot_is_main_result": false,
+  "main_launch_requires_pilot_gate": true,
+  "limits": {
+    "action_budget": 300,
+    "execute_steps": 5,
+    "prediction_horizon": 50,
+    "solver_steps": 10,
+    "calls": 8,
+    "max_age_actions": 20,
+    "max_age_seconds": 10.0,
+    "request_timeout": 240.0
+  },
+  "pilot": {
+    "tasks": [["libero_goal_ood", 6], ["libero_spatial_ood", 2]],
+    "resets": [0],
+    "seed": 137,
+    "arms": ["native", "synchronous_diagnostic", "async"],
+    "max_episodes": 6,
+    "max_actions": 1800,
+    "max_runtime_requests": 32,
+    "gpu_count": 1,
+    "gpu_type": "L40S",
+    "wall_limit_hours": 2
+  },
+  "search": {
+    "rounds": 4,
+    "candidates_per_round": 2,
+    "tasks": 4,
+    "resets_per_task": 5,
+    "max_candidate_episodes_per_search_arm": 160,
+    "max_runtime_calls_per_search_arm": 1280,
+    "matched_search_arms": ["prompt_only", "meta_harness"],
+    "status": "not_started"
+  },
+  "final_scope": "reset generalization on previously inspected compositions; no unseen-task claim"
+}

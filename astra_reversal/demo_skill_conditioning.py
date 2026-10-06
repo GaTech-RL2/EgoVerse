@@ -1,13 +1,14 @@
 """Compile a stored input-setting skill through existing frozen pi0.5 hooks."""
 
 from collections import OrderedDict
+from pathlib import Path
 
 import numpy as np
 
 from .demo_segments import CAMERAS
 from .demo_skill_program import has_effect, substituted_observation
 from .interpolation_catalog import DATASET_REPO, DATASET_REVISION
-from .records import digest
+from .records import digest, file_sha256
 
 
 class InputSkillConditioner:
@@ -15,6 +16,17 @@ class InputSkillConditioner:
         self.policy, self.bank, self.text_banks = policy, bank, text_banks
         self.vision_cache = OrderedDict()
         self.capture_count = 0
+        self.cache_identity = digest(
+            {
+                "policy": getattr(policy, "metadata", {}),
+                "bank_id": bank.bank_id,
+                "paired_cameras": CAMERAS,
+                "hooks": file_sha256(
+                    Path(__file__).with_name("vision_interpolation.py")
+                ),
+                "compiler": file_sha256(__file__),
+            }
+        )
 
     def _donor_pair(self, source_id, frame):
         from .image_donor_bank import DonorImage
@@ -103,7 +115,13 @@ class InputSkillConditioner:
 
             vision_bank = None
             if alpha:
-                key = (prompt, choice["source_id"], choice["frame"], visual)
+                key = (
+                    self.cache_identity,
+                    prompt,
+                    choice["source_id"],
+                    choice["frame"],
+                    visual,
+                )
                 if key not in self.vision_cache:
                     # At most two 18-layer visual tensors stay resident on CPU.
                     while len(self.vision_cache) >= 2:
