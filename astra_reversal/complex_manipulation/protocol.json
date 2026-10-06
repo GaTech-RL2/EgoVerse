@@ -1,6 +1,6 @@
 {
   "schema": "astra-complex-study-1",
-  "status": "source_audit_and_preflight_preparation",
+  "status": "robocasa_assets_staged_native_gpu_preflight_running",
   "source_proposals": {
     "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
     "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
@@ -34,6 +34,8 @@
       "task": "73_jigsaw_puzzle_assembly",
       "checkpoint": "bench2dex_jigsaw_pi05",
       "robot": "multi_iiwa7_with_sharpa",
+      "action_limit": 1213,
+      "physics_steps_per_action": 3,
       "model_horizon": 20,
       "execute_steps": 20
     },
@@ -42,6 +44,8 @@
       "task": "34_fridge_wine_interhand_pour",
       "checkpoint": "bench2dex_fridge_pi05",
       "robot": "multi_ur5_rh5dg2_with_flange",
+      "action_limit": 1080,
+      "physics_steps_per_action": 3,
       "model_horizon": 20,
       "execute_steps": 20
     }
@@ -63,7 +67,7 @@
         "sorting_household_items",
         "clean_up_your_desk"
       ],
-      "status": "task_and_checkpoint_identity_audit_pending"
+      "status": "specialized_released_checkpoints_mapped_to_all_three_tasks_native_runtime_not_validated"
     },
     {
       "benchmark": "dexverse",
@@ -158,6 +162,6 @@
     "RoboCasa tasks use a mobile PandaOmron, not a fixed Panda.",
     "The selected RoboCasa tasks are seen composite tasks; pretrain-scene scores are not novel-task OOD results.",
     "The earlier LIBERO learning study did not solve the benchmark in two rollouts.",
-    "No simulation, policy inference, guidance, or learned-policy result is claimed by this protocol."
+    "No full-episode success rate, guidance improvement, or learned-policy result is claimed by this protocol."
   ]
 }

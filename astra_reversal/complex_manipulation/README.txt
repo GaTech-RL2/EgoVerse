@@ -3,7 +3,7 @@ Complex manipulation pilots — 2026-10-06
 Implements the next-study request in complex_parallel_grippers_20261006.md and
 complex_dexterous_tasks_20261006.md. The previous learning study remains intact.
 
-Current phase: release verification and native-policy preflight preparation.
+Current phase: RoboCasa assets staged; bounded native GPU preflight running.
 No new success rate or guidance/learning result has been measured yet.
 
 Initial task/model pairs
@@ -40,9 +40,13 @@ Important distinctions from the proposal text
     assets and demonstrations, despite the older README. Its inspected demo
     manifest does not list OvenBakeSalmon or CleanTable. Matching long-horizon
     policies remain unverified.
-  - The current BEHAVIOR baseline documentation links a trained turning_on_radio
-    policy. Coverage for the three requested household tasks remains to be
-    established; task names alone do not establish policy support.
+  - Beyond the BEHAVIOR starter turning_on_radio model, the 2025 winning release
+    explicitly maps sorting_household_items (27) and make_pizza (49) to
+    checkpoint_3, and clean_up_your_desk (29) to checkpoint_1. These are modified
+    PiBehavior models with task-ID embeddings, stage prediction, correlated
+    noise and custom inference. They require a separate baseline label; stock
+    text TEI/TLI cannot simply be reused. The shared RLinf PT50 policy is another
+    candidate whose RPent interface remains to be validated. Neither was run.
 
 Sequence
   1. Verify released policy dimensions, normalization, source and asset identity.
@@ -72,8 +76,11 @@ Files
   protocol.json            Requested task inventory and proposed comparisons.
   release_manifest.json    Immutable source/checkpoint inventory.
   stage_robocasa.py        GPU-zero staging and checksummed inference assets.
+  stage_bench2dex.py       GPU-zero staging for the two dexterous task releases.
   robocasa_eval.py         Native simulator/model rollout runner with video.
   accounting.py           Distinct physical episode and reset-free segment counts.
+  worker.py               Checked restore, bounded execution and result archival.
+  additional_release_audit.json   BEHAVIOR model candidates and Bench native limits.
 
 Primary references
   https://robocasa.ai/docs/build/html/benchmarking/multitask_learning.html
@@ -83,4 +90,7 @@ Primary references
   https://huggingface.co/Bench2Dex/policy_ckpt
   https://github.com/EmbodiedSWE/EmbodiedSWE
   https://behavior.stanford.edu/challenge/baselines.html
+  https://huggingface.co/IliaLarchenko/behavior_submission
+  https://github.com/IliaLarchenko/behavior-1k-solution
+  https://huggingface.co/RLinf/RLinf-Pi05-BEHAVIOR-1K-PT50-CS32
   https://huggingface.co/datasets/dexverse/DexVerse_release
