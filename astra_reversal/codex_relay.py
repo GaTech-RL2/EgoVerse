@@ -404,6 +404,7 @@ def _receipt(value, envelope):
         or type(value.get("exit_code")) is not int
         or value["exit_code"] != 0
         or value.get("tool_items")
+        or value.get("error_items")
     ):
         raise ClientError("Codex receipt does not establish one completed job")
     if value.get("raw_usage") is not None and not isinstance(value["raw_usage"], dict):

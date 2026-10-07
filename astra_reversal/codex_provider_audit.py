@@ -313,21 +313,22 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
         [event.get("usage") for event in turns] == receipt.get("raw_usage_events"),
         "Codex raw event usage differs",
     )
-    tool_items = [
-        {"event_type": event.get("type"), "item_type": event["item"].get("type")}
-        for event in events
-        if isinstance(event.get("item"), dict)
-        and event["item"].get("type") not in ("agent_message", "reasoning")
-    ]
-    require(
-        tool_items == receipt.get("tool_items"),
-        "Codex tool audit differs from raw events",
-    )
+    from .codex_executor import classify_cli_items
+
+    classified = classify_cli_items(events)
+    tool_items = classified["tool_items"]
+    for kind, values in classified.items():
+        label = "tool" if kind == "tool_items" else "item"
+        require(
+            values == receipt.get(kind, []),
+            f"Codex {label} audit differs from raw events",
+        )
     raw = (directory / "final.json").read_bytes()
     require(_sha(raw) == receipt.get("final_sha256"), "Codex final bytes differ")
     if row["accepted"]:
         require(
             not tool_items
+            and not classified["error_items"]
             and not any(
                 event.get("type") in ("error", "turn.failed") for event in events
             ),

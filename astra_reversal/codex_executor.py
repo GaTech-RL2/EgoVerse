@@ -88,6 +88,34 @@ def _module(request):
     raise ValueError("Unsupported request schema_version")
 
 
+def classify_cli_items(events):
+    """Separate one known nonfatal CLI startup diagnostic from actual tool use."""
+    rows = {"tool_items": [], "diagnostic_items": [], "error_items": []}
+    for event in events:
+        item = event.get("item")
+        if not isinstance(item, dict) or item.get("type") in (
+            "agent_message",
+            "reasoning",
+        ):
+            continue
+        row = {"event_type": event.get("type"), "item_type": item.get("type")}
+        if item.get("type") != "error":
+            rows["tool_items"].append(row)
+        elif str(item.get("message", "")).startswith(
+            "Ignoring unknown `features` requirement `ultrafast_mode` from requirements layers: "
+        ):
+            rows["diagnostic_items"].append(
+                {
+                    **row,
+                    "kind": "ignored_unknown_managed_feature",
+                    "feature": "ultrafast_mode",
+                }
+            )
+        else:
+            rows["error_items"].append(row)
+    return rows
+
+
 def execute_request(
     request,
     directory,
@@ -133,6 +161,7 @@ def execute_request(
         "raw_usage": None,
         "tool_items": [],
         "cli_version": None,
+        "executor_source_sha256": _hash(Path(__file__).read_bytes()),
     }
     result = {
         "request_fingerprint": request.get("request_fingerprint"),
@@ -174,6 +203,9 @@ def execute_request(
         if model != "gpt-6-astra" or reasoning_effort != "medium":
             raise ValueError("Only gpt-6-astra with medium effort is authorized")
         module = _module(request)
+        receipt["domain_parser_source_sha256"] = _hash(
+            Path(module.__file__).read_bytes()
+        )
         payload = module.build_payload(
             request, model, sampling={"reasoning_effort": reasoning_effort}
         )
@@ -352,12 +384,7 @@ def _consume(run, directory, request, module, result):
             malformed_events = True
     completed = [event for event in events if event.get("type") == "turn.completed"]
     receipt["observed_completed_turns"] = len(completed)
-    receipt["tool_items"] = [
-        {"event_type": event.get("type"), "item_type": event["item"].get("type")}
-        for event in events
-        if isinstance(event.get("item"), dict)
-        and event["item"].get("type") not in ("agent_message", "reasoning")
-    ]
+    receipt.update(classify_cli_items(events))
     if completed:
         usages = [event.get("usage") for event in completed]
         receipt["raw_usage_events"] = usages
@@ -396,6 +423,8 @@ def _consume(run, directory, request, module, result):
         fail("cli_nonzero_exit")
     elif receipt["tool_items"]:
         fail("cli_tool_use")
+    elif receipt["error_items"]:
+        fail("cli_error_item")
     elif len(completed) != 1 or any(
         e.get("type") in ("turn.failed", "error") for e in events
     ):

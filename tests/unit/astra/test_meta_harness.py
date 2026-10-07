@@ -373,6 +373,9 @@ def test_relay_profile_has_the_same_typed_call_and_live_images():
         request,
     )
     assert parsed["decision_id"] == request["request_id"]
+    unbound = {key: parsed[key] for key in ("tool", "arguments")}
+    assert parse_proposal(json.dumps(unbound), request) == parsed
+    assert parse_proposal(json.dumps(unbound).encode(), request) == parsed
     from astra_reversal.codex_relay import _proposal
     from astra_reversal.meta_harness import relay_agent
 

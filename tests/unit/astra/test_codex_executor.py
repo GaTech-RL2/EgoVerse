@@ -54,6 +54,7 @@ def mock_cli(
     invalid=False,
     incomplete=False,
     timeout=False,
+    error_message=None,
 ):
     calls = []
 
@@ -73,6 +74,13 @@ def mock_cli(
         final = Path(args[args.index("--output-last-message") + 1])
         final.write_text("broken" if malformed else json.dumps(output))
         events = [{"type": "thread.started", "thread_id": "synthetic"}]
+        if error_message is not None:
+            events.append(
+                {
+                    "type": "item.completed",
+                    "item": {"type": "error", "message": error_message},
+                }
+            )
         if tool:
             events.append(
                 {
@@ -133,6 +141,7 @@ def test_success_usage_and_recovery(tmp_path, monkeypatch):
         ({"malformed": True}, "cli_final_malformed"),
         ({"incomplete": True}, "cli_incomplete_or_ambiguous_turn"),
         ({"timeout": True}, "cli_timeout"),
+        ({"error_message": "Unrecognized CLI failure"}, "cli_error_item"),
     ],
 )
 def test_unavailable(tmp_path, monkeypatch, options, reason):
@@ -143,6 +152,21 @@ def test_unavailable(tmp_path, monkeypatch, options, reason):
     assert result["receipt"]["provider_unavailable"]
     assert result["receipt"]["availability_reason"] == reason
     assert "PRIVATE" not in json.dumps(result)
+
+
+def test_known_ignored_cli_startup_warning_is_audited_without_becoming_tool_use(
+    tmp_path, monkeypatch
+):
+    req = request()
+    mock_cli(
+        monkeypatch,
+        req,
+        error_message="Ignoring unknown `features` requirement `ultrafast_mode` from requirements layers: managed fixture",
+    )
+    result = executor.execute_request(req, tmp_path / "job")
+    assert result["receipt"]["accepted"]
+    assert result["receipt"]["tool_items"] == result["receipt"]["error_items"] == []
+    assert result["receipt"]["diagnostic_items"][0]["feature"] == "ultrafast_mode"
 
 
 def test_schema_rejection_is_not_unavailable(tmp_path, monkeypatch):

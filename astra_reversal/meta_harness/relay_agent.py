@@ -79,7 +79,11 @@ def response_schema(request):
 
 
 def parse_proposal(value, request):
+    from astra_reversal.astra_client import _strict_json
+
     _validate_request(request)
+    if isinstance(value, (str, bytes)):
+        value = _strict_json(value)
     exact(value, ("tool", "arguments"))
     tools = {t["name"]: t for t in tool_schemas(request["context"]["cards"])}
     if value["tool"] not in tools:
