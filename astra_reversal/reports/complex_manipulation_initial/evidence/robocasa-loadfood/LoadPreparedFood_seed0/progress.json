@@ -1,0 +1,6 @@
+{
+  "episode_id": "astra-complex-20261006-robocasa-loadfood-1:robocasa:LoadPreparedFood:pretrain:seed0:native:attempt0",
+  "executed_actions": 705,
+  "reset_free_segments": 141,
+  "policy_seconds": 57.163531715516
+}

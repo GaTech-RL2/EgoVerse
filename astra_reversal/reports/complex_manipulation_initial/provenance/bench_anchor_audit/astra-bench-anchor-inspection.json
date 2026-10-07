@@ -1,0 +1,109 @@
+[
+  {
+    "file": "dataset/34_fridge_wine_interhand_pour/replay-generalization/episode_000000.hdf5",
+    "command_shape": [
+      816,
+      48
+    ],
+    "state_shape": [
+      816,
+      48
+    ],
+    "native_cameras": {
+      "cam_stereo_left": {
+        "frames": 816,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_stereo_right": {
+        "frames": 816,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_wrist_left": {
+        "frames": 816,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_wrist_right": {
+        "frames": 816,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      }
+    },
+    "object_asset_paths": {
+      "obj_030_fork_2": "/home/ubuntu/lab/dex2bench_dataset/Objects/030_fork/usd_decomposition_linux/textured.usd",
+      "obj_029_plate_2": "/home/ubuntu/lab/dex2bench_dataset/Objects/029_plate/usd_decomposition_linux/textured.usd",
+      "obj_194_wineglass_2": "/home/ubuntu/lab/dex2bench_dataset/Objects/194_wineglass/usd_decomposition_linux/base4.usd",
+      "obj_224_wine_bottle_1": "/home/ubuntu/lab/dex2bench_dataset/Objects/224_wine_bottle/usd_decomposition_linux/textured.usd",
+      "obj_111_refrigerator_1": "/home/ubuntu/lab/dex2bench_dataset/Objects/111_refrigerator/01_refrigerator/01/usd_decomposition_linux/mobility.usd",
+      "distractor_00_clutter_004_sugar_box": "/home/ubuntu/lab/dex2bench_dataset/Objects/004_sugar_box/usd_decomposition_linux/textured.usd"
+    }
+  },
+  {
+    "file": "dataset/73_jigsaw_puzzle_assembly/replay-generalization/episode_000000.hdf5",
+    "command_shape": [
+      815,
+      58
+    ],
+    "state_shape": [
+      815,
+      58
+    ],
+    "native_cameras": {
+      "cam_stereo_left": {
+        "frames": 815,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_stereo_right": {
+        "frames": 815,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_wrist_left": {
+        "frames": 815,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      },
+      "cam_wrist_right": {
+        "frames": 815,
+        "first_frame_shape": [
+          480,
+          640,
+          3
+        ]
+      }
+    },
+    "object_asset_paths": {
+      "obj_326_piece_0": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_1__0_sdf.usd",
+      "obj_326_piece_1": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_1__0_sdf.usd",
+      "obj_326_piece_2": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_2_008802_0_sdf.usd",
+      "obj_326_piece_3": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_3_D31E29_0_sdf.usd",
+      "obj_326_piece_4": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_4_1E5AD8_0_sdf.usd",
+      "obj_326_piece_5": "/home/ubuntu/lab/dex2bench_dataset/Objects/326_jigsaw_puzzle/01_jigsaw_puzzle/01/usd_sdf_linux/jigsaw_puzzle_fixed_Puzzle_Piece_5_FFC107_0_sdf.usd",
+      "distractor_00_clutter_025_mug": "/home/ubuntu/lab/dex2bench_dataset/Objects/025_mug/usd_decomposition_linux/textured.usd"
+    }
+  }
+]

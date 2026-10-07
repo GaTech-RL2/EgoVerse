@@ -1,0 +1,285 @@
+{
+  "repo_id": "Bench2Dex/Assets",
+  "repo_type": "dataset",
+  "revision": "bf65215f844d1fca30750e4cc70d7266650abf0a",
+  "gated": false,
+  "files": [
+    {
+      "path": "Objects/004_sugar_box/kinbody.xml",
+      "size": 202,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/nontextured.ply",
+      "size": 1009852,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/nontextured.stl",
+      "size": 819284,
+      "lfs": {
+        "size": 819284,
+        "sha256": "ab38a368a2de500f57b005ed6b2a8e0ef00193c70f1945638e68f46f8a96615c",
+        "pointer_size": 131
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/texture_map.png",
+      "size": 10941773,
+      "lfs": {
+        "size": 10941773,
+        "sha256": "c91695e7efdf219dbf6310f827a329bd2f1e0b15524fce82ca41f27394ae77d9",
+        "pointer_size": 133
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/textured.dae",
+      "size": 2842479,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/textured.mtl",
+      "size": 70,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/textured.obj",
+      "size": 1472363,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd/Props/instanceable_meshes.usd",
+      "size": 1142405,
+      "lfs": {
+        "size": 1142405,
+        "sha256": "28befa68fa8953da3aeab0e31d17416b817a3fbc1ea947990008409a09a71171",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd/config.yaml",
+      "size": 1472,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd/textured.usd",
+      "size": 1142316,
+      "lfs": {
+        "size": 1142316,
+        "sha256": "8c33b1da2a8237613fed2f96cb92686946eeee16949c7692786995504ea0927e",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd/textures/texture_map.png",
+      "size": 10941773,
+      "lfs": {
+        "size": 10941773,
+        "sha256": "c91695e7efdf219dbf6310f827a329bd2f1e0b15524fce82ca41f27394ae77d9",
+        "pointer_size": 133
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_decomposition_linux/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_decomposition_linux/config.yaml",
+      "size": 1421,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_decomposition_linux/textured.usd",
+      "size": 1143100,
+      "lfs": {
+        "size": 1143100,
+        "sha256": "9abe1d379fc2c54831fe67634e50531519342656012502e7ee51f5e2faaf0a3c",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_decomposition_linux/textures/texture_map.png",
+      "size": 10941773,
+      "lfs": {
+        "size": 10941773,
+        "sha256": "c91695e7efdf219dbf6310f827a329bd2f1e0b15524fce82ca41f27394ae77d9",
+        "pointer_size": 133
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_sdf_linux/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_sdf_linux/config.yaml",
+      "size": 1318,
+      "lfs": null
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_sdf_linux/textured.usd",
+      "size": 1143096,
+      "lfs": {
+        "size": 1143096,
+        "sha256": "fee6988db1e346e9df1555bda178a8e2a47996b0959086c09c4a98891e70b56a",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/004_sugar_box/usd_sdf_linux/textures/texture_map.png",
+      "size": 10941773,
+      "lfs": {
+        "size": 10941773,
+        "sha256": "c91695e7efdf219dbf6310f827a329bd2f1e0b15524fce82ca41f27394ae77d9",
+        "pointer_size": 133
+      }
+    },
+    {
+      "path": "Objects/025_mug/kinbody.xml",
+      "size": 190,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/nontextured.ply",
+      "size": 1013873,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/nontextured.stl",
+      "size": 819284,
+      "lfs": {
+        "size": 819284,
+        "sha256": "0372292ea626695a7a1cfe9b98ebd1fac89dc2ac8542eeb839d97d7e928a1082",
+        "pointer_size": 131
+      }
+    },
+    {
+      "path": "Objects/025_mug/texture_map.png",
+      "size": 5777448,
+      "lfs": {
+        "size": 5777448,
+        "sha256": "1131a0ee591d59e0a77e55ff9d72aeac07af76a0f9ed09cbd01489498649ef1f",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/textured.dae",
+      "size": 2827456,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/textured.mtl",
+      "size": 70,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/textured.obj",
+      "size": 1533228,
+      "lfs": {
+        "size": 1533228,
+        "sha256": "bd071d4eaa7bfbdee6a668793ae384c614decdbf21149303542ae54cb6a30f9d",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd/Props/instanceable_meshes.usd",
+      "size": 1156624,
+      "lfs": {
+        "size": 1156624,
+        "sha256": "13bf9966dca826b6404bfa043f97c757ae7988ee3224e8d65d81d24353d05594",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd/config.yaml",
+      "size": 1459,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd/textured.usd",
+      "size": 1156530,
+      "lfs": {
+        "size": 1156530,
+        "sha256": "c7bdfd945a600937e84919942603204a299a226878be311464e0069343c866a7",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd/textures/texture_map.png",
+      "size": 5777448,
+      "lfs": {
+        "size": 5777448,
+        "sha256": "1131a0ee591d59e0a77e55ff9d72aeac07af76a0f9ed09cbd01489498649ef1f",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd_decomposition_linux/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd_decomposition_linux/config.yaml",
+      "size": 1408,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd_decomposition_linux/textured.usd",
+      "size": 1157317,
+      "lfs": {
+        "size": 1157317,
+        "sha256": "4259ddd477face970f8e97acccc9f9d97b3dd219fff3ca7a45579641192a40b7",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd_decomposition_linux/textures/texture_map.png",
+      "size": 5777448,
+      "lfs": {
+        "size": 5777448,
+        "sha256": "1131a0ee591d59e0a77e55ff9d72aeac07af76a0f9ed09cbd01489498649ef1f",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd_sdf_linux/.asset_hash",
+      "size": 32,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd_sdf_linux/config.yaml",
+      "size": 1305,
+      "lfs": null
+    },
+    {
+      "path": "Objects/025_mug/usd_sdf_linux/textured.usd",
+      "size": 1157313,
+      "lfs": {
+        "size": 1157313,
+        "sha256": "fc07e748b5b6f41aaf872f5335d15e32fc24cfda807b0920d3e20ea97ffe3902",
+        "pointer_size": 132
+      }
+    },
+    {
+      "path": "Objects/025_mug/usd_sdf_linux/textures/texture_map.png",
+      "size": 5777448,
+      "lfs": {
+        "size": 5777448,
+        "sha256": "1131a0ee591d59e0a77e55ff9d72aeac07af76a0f9ed09cbd01489498649ef1f",
+        "pointer_size": 132
+      }
+    }
+  ],
+  "selection": "Distractors explicitly referenced by the two selected replay-generalization anchors; separate from the immutable primary stage."
+}
