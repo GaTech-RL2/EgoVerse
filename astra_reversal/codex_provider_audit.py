@@ -33,8 +33,11 @@ def _sha(raw):
 def reconstruct_inputs(request):
     """Reconstruct the exact executor projection from the original request."""
     from . import frs_agent, representation_agent
+    from .meta_harness import relay_agent
 
-    modules = {m.SCHEMA_VERSION: m for m in (frs_agent, representation_agent)}
+    modules = {
+        m.SCHEMA_VERSION: m for m in (frs_agent, representation_agent, relay_agent)
+    }
     module = modules.get(request.get("schema_version"))
     require(module is not None, "Unsupported Codex request schema")
     payload = module.build_payload(
@@ -104,6 +107,43 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
         and settings.get("max_completion_tokens") is None,
         "Codex audit requires the declared medium-effort harness",
     )
+    from .meta_harness import relay_agent
+
+    # Profile v1 serialized the context in insertion order, while request.json
+    # canonicalized keys. Recover only that order from the original prompt;
+    # every context/schema value must still equal the bound request exactly.
+    recovered_order = False
+    runtime_profile = request.get("schema_version") == relay_agent.SCHEMA_VERSION
+    directory = Path(job_directory).resolve() if job_directory is not None else None
+    if runtime_profile and directory is not None:
+        prompt_path = directory / "prompt.txt"
+        if prompt_path.is_file():
+            require(
+                not prompt_path.is_symlink()
+                and prompt_path.resolve().is_relative_to(directory),
+                "Codex job artifact escapes directory",
+            )
+            projections = [
+                _strict_json(line)
+                for line in prompt_path.read_text().splitlines()
+                if line.startswith('{"request":')
+            ]
+            require(
+                len(projections) == 1, "Missing or ambiguous runtime prompt projection"
+            )
+            projection = projections[0]
+            require(
+                digest(projection)
+                == digest(
+                    {
+                        "request": request["context"],
+                        "response_schema": relay_agent.response_schema(request),
+                    }
+                ),
+                "Runtime prompt context/schema differs from the bound request",
+            )
+            request = {**request, "context": projection["request"]}
+            recovered_order = True
     module, files, hashes = reconstruct_inputs(request)
     require(
         row.get("backend") == "codex_relay"
@@ -130,6 +170,10 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
         "Codex execution settings/request differ",
     )
     for key, value in hashes.items():
+        if key == "prompt_sha256" and runtime_profile and not recovered_order:
+            # No original prompt means ordering cannot be proven. The missing
+            # prompt artifact below must keep the result unverified.
+            continue
         require(receipt.get(key) == value, f"Codex reconstructed input differs: {key}")
     counts, lower_bound = normalize_receipt_usage(receipt)
     require(
@@ -164,6 +208,8 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
                 }
             )
             bound["decision_id"] = request["request_id"]
+        elif request["schema_version"] == relay_agent.SCHEMA_VERSION:
+            bound["decision_id"] = request["request_id"]
         require(
             all(proposal.get(key) == value for key, value in bound.items()),
             "Applied Codex proposal has incorrect local identity binding",
@@ -182,6 +228,10 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
         "request_sha256": hashes["request_sha256"],
         "ledger_binding_verified": True,
         "local_job_verified": False,
+        "prompt_key_order_recovered_from_original_artifact": recovered_order,
+        "unverified_input_hashes": (
+            ["prompt_sha256"] if runtime_profile and not recovered_order else []
+        ),
         "configured_model": settings["model"],
         "returned_model": receipt.get("returned_model"),
         "token_usage": counts,
@@ -206,7 +256,6 @@ def verify_codex_provider(request, row, proposal, settings, *, job_directory=Non
         "events.jsonl",
         "final.json",
     ]
-    directory = Path(job_directory).resolve() if job_directory is not None else None
     missing = [
         name
         for name in required

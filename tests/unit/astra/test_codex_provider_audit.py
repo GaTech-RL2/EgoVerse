@@ -1,4 +1,4 @@
-"""CPU-only audit corruption checks for both model request families."""
+"""CPU-only audit corruption checks for model request families."""
 
 import copy
 import json
@@ -10,9 +10,11 @@ import pytest
 from astra_reversal.codex_executor import execute_request
 from astra_reversal.codex_provider_audit import verify_codex_provider
 from astra_reversal.frs_audit import _physical_schedule
+from astra_reversal.meta_harness.relay_agent import wire_request
 
 from .test_codex_executor import proposal
 from .test_codex_executor import request as frs_request
+from .test_meta_harness import request_fixture
 from .test_representation_agent import proposal_for, request_for
 
 SETTINGS = {
@@ -25,18 +27,25 @@ SETTINGS = {
 }
 
 
-@pytest.fixture(params=["frs", "vei", "vli"])
+@pytest.fixture(params=["frs", "vei", "vli", "meta"])
 def job(tmp_path, monkeypatch, request):
-    req = (
-        frs_request()
-        if request.param == "frs"
-        else request_for(representation_mode=request.param)
-    )
+    if request.param == "frs":
+        req = frs_request()
+        response = proposal(req)
+    elif request.param == "meta":
+        req = wire_request(request_fixture())
+        response = {
+            "tool": "clear_policy_program",
+            "arguments": {"observation_id": req["binding"]["observation_id"]},
+        }
+    else:
+        req = request_for(representation_mode=request.param)
+        response = proposal_for(req)
 
     def run(args, **kwargs):
         if args[-1] == "--version":
             return subprocess.CompletedProcess(args, 0, "codex-cli 0.test", "")
-        raw = json.dumps(proposal(req) if request.param == "frs" else proposal_for(req))
+        raw = json.dumps(response)
         Path(args[args.index("--output-last-message") + 1]).write_text(raw)
         events = [
             {"type": "item.completed", "item": {"type": "agent_message", "text": raw}},
@@ -81,6 +90,43 @@ def test_missing_job_bytes_are_unverified(job):
     assert "events.jsonl" in result["missing_files"]
 
 
+@pytest.mark.parametrize("job", ["meta"], indirect=True)
+def test_reloaded_runtime_request_keeps_original_prompt_proof(job):
+    _, row, value, directory = job
+    req = json.loads((directory / "request.json").read_text())
+    result = verify_codex_provider(req, row, value, SETTINGS, job_directory=directory)
+    assert result["status"] == "passed"
+    assert not result["unverified_input_hashes"]
+    if req["schema_version"] == "meta-harness-runtime-profile-1":
+        assert result["prompt_key_order_recovered_from_original_artifact"]
+
+
+@pytest.mark.parametrize("job", ["meta"], indirect=True)
+def test_runtime_original_prompt_required_for_order_proof(job):
+    _, row, value, directory = job
+    req = json.loads((directory / "request.json").read_text())
+    (directory / "prompt.txt").unlink()
+    result = verify_codex_provider(req, row, value, SETTINGS, job_directory=directory)
+    assert result["status"] == "unverified"
+    assert result["missing_files"] == ["prompt.txt"]
+    assert result["unverified_input_hashes"] == ["prompt_sha256"]
+
+
+@pytest.mark.parametrize("job", ["meta"], indirect=True)
+@pytest.mark.parametrize("changed_action", [999, False])
+def test_runtime_prompt_order_recovery_cannot_change_context(job, changed_action):
+    req, row, value, directory = job
+    path = directory / "prompt.txt"
+    lines = path.read_text().splitlines(keepends=True)
+    index = next(i for i, line in enumerate(lines) if line.startswith('{"request":'))
+    projection = json.loads(lines[index])
+    projection["request"]["current"]["action"] = changed_action
+    lines[index] = json.dumps(projection) + "\n"
+    path.write_text("".join(lines))
+    with pytest.raises(ValueError, match="context/schema differs"):
+        verify_codex_provider(req, row, value, SETTINGS, job_directory=directory)
+
+
 @pytest.mark.parametrize(
     "filename",
     ["image_0.png", "prompt.txt", "schema.json", "request.json", "final.json"],
@@ -114,11 +160,18 @@ def test_accepted_tool_use_cannot_be_hidden(job):
 
 def test_wrong_applied_proposal_fails(job):
     req, row, value, directory = job
-    value = (
-        {**value, "justification": "Another valid observation."}
-        if "fine" in value
-        else {**value, "rationale": "Another valid observation."}
-    )
+    if "tool" in value:
+        value = {
+            **value,
+            "tool": "keep_policy_program",
+            "arguments": {**value["arguments"], "program_id": "another-program"},
+        }
+    else:
+        value = (
+            {**value, "justification": "Another valid observation."}
+            if "fine" in value
+            else {**value, "rationale": "Another valid observation."}
+        )
     with pytest.raises(ValueError, match="applied decision"):
         verify_codex_provider(req, row, value, SETTINGS, job_directory=directory)
 

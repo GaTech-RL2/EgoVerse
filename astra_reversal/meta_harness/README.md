@@ -10,17 +10,43 @@ experiment.
 
 ## Status and first experiment
 
-The controller and bounded search infrastructure are implemented and CPU tested.
-No new GPU rollout, Astra latency measurement, search improvement or held-out
-success result has been obtained. Passing synthetic tests is not M0 completion.
+The controller and bounded search infrastructure are implemented. The first
+six-episode pilot completed on one OSMO L40S on October 6, 2026 (Pacific time):
+[astra-meta-harness-20261006-pilot-3](https://us-west-2-aws.osmo.nvidia.com/workflows/astra-meta-harness-20261006-pilot-3).
+It used Goal-OOD task 6 and Spatial-OOD task 2, reset 0 and seed 137, with matched
+captured resets and deterministic policy noise. The GPU has been released.
 
-The prepared first experiment uses one OSMO L40S, at most two hours, Goal-OOD task
-6 and Spatial-OOD task 2, reset 0 and seed 137. It compares native, synchronous
-interface debugging, and actual asynchronous runtime Astra. This is at most six
-episodes, 1,800 primitive actions and 32 runtime Astra requests. The same captured
-reset and deterministic policy-noise schedule are used across arms. It saves
-three example videos and raw observation traces. There is no automatic larger
-launch after the pilot.
+| Arm | Task success | Astra requests | Applied calls | Latency p50 / p95 |
+| --- | --- | --- | --- | --- |
+| Native | 0/2 | 0 | 0 | — |
+| Synchronous diagnostic | 0/2 | 16 | 0 | 13.57 / 16.62 s |
+| Asynchronous | 0/2 | 4 | 0 | 13.83 / 15.13 s |
+
+All 20 replies passed the provider parser and offline request/artifact audit.
+The controller rejected 18 for `stale_wall_time`; two more arrived after episode
+termination. In the asynchronous episodes, the first replies were processed at
+actions 180 and 150, also beyond the 20-action freshness allowance. The three
+arms produced identical planned actions on each reset. The three saved Goal-6
+videos are byte-identical: the policy moves the wine bottle toward the rack
+despite the instruction to put it in the bowl. No intervention was exercised in
+these rollouts, so their scores do not measure steering effectiveness or harness
+improvement. No outer-loop search or final confirmation has run.
+
+The worker passed 1,381 standalone Astra unit tests (one skipped), 24 native
+integration tests, and all 16 weighted interface checks. Full parameter-byte
+hashes matched before and after the episodes. All arms missed the diagnostic
+20 Hz motor deadline at every replan; this pilot does not establish real-time
+operation. The retained [evidence summary](evidence/pilot_20261006.json) records
+source revisions, hashes, request timing, matched actions and the failed gates.
+The final local suite, including the new offline-audit regression tests, passed
+1,398 tests with one skip. Repository-wide unit collection was also attempted;
+it stops on the missing optional dependency `projectaria_tools`.
+
+Earlier commissioning attempts are retained. Pilot 1 exposed an incorrect TEI
+endpoint comparison across differing target layouts; pilot 2 exposed the
+loader's implicit 10-action horizon. Those checks and the explicit horizon were
+fixed before pilot 3. The local relay also needed a narrow CLI startup-diagnostic
+classification fix and JSON-text parsing support before the first runtime call.
 
 Before rollouts, the worker runs existing native integration tests and a
 weighted checkpoint gate: native sampler parity, neutral VEI/VLI, protected
@@ -66,7 +92,16 @@ never retry or substitute models. This limit includes reasoning tokens and may
 be too small for medium reasoning. The pilot must resolve that experimentally
 before freezing main-study settings. The transport requires an actual
 `OPENAI_API_KEY`; a Codex subscription/login is not silently reused as one.
-Neither live API availability nor the capped transport has been verified here.
+The pilot's 20 requests used 387,443 input tokens and 1,225 output tokens, with
+no unknown usage records. Every request exceeded the proposed input cap. The
+direct API key is absent in the local environment, and neither live API
+availability nor the capped transport has been verified here.
+
+The next experiment needs a declared timing protocol that allows useful
+interventions to arrive while preserving temporal validity. Merely increasing
+the wall-clock expiry would not address the asynchronous action-age failures.
+It also needs a verified capped transport/model identity and a frozen complete
+source pool before main search can proceed. `main_launch_allowed` remains false.
 
 Official interface references:
 [function calling](https://developers.openai.com/api/docs/guides/function-calling),
@@ -124,7 +159,7 @@ copies only explicitly allowed public tokenizer/reference/demo-cache assets.
 It creates an isolated private relay token outside the source payload. Existing
 checkouts, jobs and experiment archives are preserved.
 
-Once OSMO/network access is available:
+Submit a separately versioned pilot after resolving its protocol gates:
 
 ```bash
 osmo workflow submit /path/to/new/pilot-bundle/workflow.yaml \
