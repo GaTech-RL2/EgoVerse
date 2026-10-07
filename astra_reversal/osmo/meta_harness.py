@@ -78,7 +78,10 @@ def main():
         write_json(RESULTS / "weighted_interface_gate.json", gate)
         archive.sync()
         if gate["status"] != "passed":
-            raise ValueError("Frozen-checkpoint policy interface gate failed")
+            failed = sorted(key for key, passed in gate["checks"].items() if not passed)
+            raise ValueError(
+                f"Frozen-checkpoint policy interface gate failed: {failed}"
+            )
         initial = (ROOT / "astra_reversal/meta_harness/initial_harness.py").read_text()
         results = {arm: [] for arm in protocol["pilot"]["arms"]}
         libero_root = (

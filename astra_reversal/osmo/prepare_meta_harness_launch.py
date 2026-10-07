@@ -144,10 +144,46 @@ source {shlex.quote(str(activation))}
 workflow="${{1:?Pass the submitted workflow ID}}"
 case "$workflow" in astra-meta-harness-20261006-pilot-*) ;; *) exit 2;; esac
 cd {shlex.quote(str(root))}
-osmo workflow port-forward "$workflow" worker0 --port {port}:8769 --connect-timeout 60 > {shlex.quote(str(destination / 'port-forward.log'))} 2>&1 &
-forward_pid=$!
-trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
 osmo workflow rsync "$workflow" worker0 {shlex.quote(str(payload) + ':/osmo/run/workspace')} --once --timeout 180
+forward_pid=
+cleanup_forward() {{
+    if [[ -n "$forward_pid" ]]; then
+        kill "$forward_pid" 2>/dev/null || true
+        wait "$forward_pid" 2>/dev/null || true
+    fi
+}}
+trap cleanup_forward EXIT
+ready=0
+# A tunnel opened before the worker listens can remain unresponsive. Recreate
+# only our own tunnel until the authenticated service actually answers.
+for attempt in $(seq 1 45); do
+    osmo workflow port-forward "$workflow" worker0 --port {port}:8769 --connect-timeout 60 > {shlex.quote(str(destination))}/port-forward-"$attempt".log 2>&1 &
+    forward_pid=$!
+    if python - {shlex.quote(str(token))} {port} <<'READY'
+import sys
+import time
+from pathlib import Path
+from astra_reversal.osmo.relay_health import healthy_relay
+
+token = Path(sys.argv[1]).read_text().strip()
+deadline = time.monotonic() + 20
+while time.monotonic() < deadline:
+    if healthy_relay(int(sys.argv[2]), token):
+        sys.exit(0)
+    time.sleep(1)
+sys.exit(1)
+READY
+    then
+        ready=1
+        break
+    fi
+    cleanup_forward
+    forward_pid=
+done
+if [[ "$ready" != 1 ]]; then
+    echo "Worker relay did not become ready within the startup budget."
+    exit 1
+fi
 python -m astra_reversal.codex_relay --url http://127.0.0.1:{port} --token-file {shlex.quote(str(token))} --directory {shlex.quote(str(destination / 'jobs'))} --max-requests 32 --idle-timeout 7200
 """
     (destination / "connect.sh").write_text(connect)

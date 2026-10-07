@@ -424,3 +424,61 @@ def test_split_is_disjoint_and_does_not_claim_unseen_tasks():
     assert all(not a & b for i, a in enumerate(splits) for b in splits[i + 1 :])
     assert not set(plan["search_resets"]) & set(plan["final_resets"])
     assert "NOT unseen" in plan["generalization_claim"]
+
+
+@pytest.mark.parametrize("ignore_tei", [False, True])
+def test_weighted_gate_compares_tei_endpoints_with_the_target_layout(
+    monkeypatch, ignore_tei
+):
+    from types import SimpleNamespace
+
+    from astra_reversal.meta_harness import preflight
+
+    bank = Bank()
+    bank.observation = lambda *_: live()
+    monkeypatch.setattr(
+        preflight,
+        "InputSkillConditioner",
+        lambda *_: SimpleNamespace(_donor_pair=lambda *_: {}),
+    )
+    monkeypatch.setattr(
+        preflight,
+        "weighted_vision_probe",
+        lambda *_: {"checks": {"native": True}, "velocity_evaluations": 90},
+    )
+
+    class Policy:
+        def noise(self, _):
+            return None
+
+        def prepare(self, observation, identity, prompt):
+            return prompt, prompt
+
+        def prepare_interpolated(
+            self, observation, identity, target, *, source_prompts, alpha, operator
+        ):
+            selected = (
+                source_prompts[0] if operator == "tei" and not ignore_tei else target
+            )
+            return (target, selected), {
+                "has_effect": selected != target,
+                "text_mask_fixed": True,
+                "protected_embedding_slots_unchanged": True,
+                "vision_prefix_unchanged": True,
+            }
+
+        def sample(self, condition, noise, **kwargs):
+            # Actions depend on both the protected target layout and selected
+            # source. Equal A/B sources alone do not erase the target layout.
+            target, selected = condition
+            return SimpleNamespace(
+                value=np.array([len(target), sum(map(ord, selected))], dtype=float),
+                velocity_evaluations=10,
+            )
+
+    report = preflight.policy_gate(Policy(), bank)
+    assert report["checks"]["tei_zero_selects_source_a_matching_masks"]
+    assert report["tei_zero_endpoint"]["native_a_max_abs"] == 0
+    assert report["velocity_evaluations"] == 140
+    assert report["status"] == ("failed" if ignore_tei else "passed")
+    assert report["checks"]["tei_zero_original_target_modified"] is not ignore_tei
