@@ -1,6 +1,6 @@
 {
   "schema": "astra-complex-study-1",
-  "status": "native_development_pilots_complete_guidance_and_learning_pending",
+  "status": "native_pilots_complete_language_guidance_partial_continuation_registered",
   "source_proposals": {
     "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
     "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
@@ -331,13 +331,32 @@
   },
   "latest_closed_compute_snapshot": {
     "authorized_gpu_hours": 48,
-    "used_gpu_hours_including_previous_study": 23.286598217500003,
-    "all_jobs_closed": true
+    "used_gpu_hours_including_previous_study": 23.525230145555557,
+    "all_jobs_closed": true,
+    "scope": "After first guidance allocation; before its five-pair continuation. Live reservations are in the operational ledger."
   },
   "next_guidance_pilot": {
-    "status": "registered_not_run",
+    "status": "partially_run_continuation_registered",
     "protocol": "language_protocol.json",
     "method": "astra_phase_prompt_pi05",
     "scope": "Six new matched reset attempts with prior native failure evidence. Language prompt guidance only; no latent interpolation, flow reversal or learning."
+  },
+  "observed_language_first_allocation": {
+    "workflow": "astra-complex-20261006-robocasa-language-dev3-1",
+    "source_revision": "bc7e40ff16a4e11891a513101603d4c3e24f697d",
+    "completed_episodes": 1,
+    "completed_successes": 0,
+    "incomplete_reset_episodes": 1,
+    "incomplete_reset_controls": 0,
+    "not_started_pairs": 4,
+    "completed_task": "LoadPreparedFood",
+    "completed_seed": 0,
+    "executed_controls": 1500,
+    "reset_free_segments": 300,
+    "teacher_calls": 11,
+    "teacher_tokens": 216084,
+    "gpu_hours": 0.23863192805555555,
+    "interruption": "Seed1 wrist image differed by one uint8 color value of magnitude one; all physical state, XML, proprioception and other cameras exactly matched. No seed1 controls or teacher calls.",
+    "continuation": "Remaining five pairs only, with recorded bounded render-rounding validation per language_protocol.json v2."
   }
 }

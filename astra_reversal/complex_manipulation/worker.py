@@ -157,6 +157,7 @@ def restore_baselines(client, manifest_path, destination):
             "reset.json",
             "result.json",
             "rollout.mp4",
+            "initial_observation.npz",
         }:
             raise ValueError("Unexpected baseline evidence file")
         path = destination / str(relative)
@@ -175,6 +176,7 @@ def main():
     parser.add_argument("--smoke-actions", type=int, default=5)
     parser.add_argument("--full-episodes", action="store_true")
     parser.add_argument("--guidance-baseline-manifest", type=Path)
+    parser.add_argument("--episode-plan", type=Path)
     parser.add_argument(
         "--tasks", nargs="+", default=["LoadPreparedFood", "PackIdenticalLunches"]
     )
@@ -266,6 +268,12 @@ def main():
                 json.loads(args.guidance_baseline_manifest.read_text()),
             )
             command += ["--guidance-baselines", str(baselines)]
+        if args.episode_plan:
+            command += ["--episode-plan", str(args.episode_plan)]
+            write_json(
+                args.output / "episode_plan.json",
+                json.loads(args.episode_plan.read_text()),
+            )
         if not args.full_episodes:
             command += ["--smoke-actions", str(args.smoke_actions)]
         write_json(

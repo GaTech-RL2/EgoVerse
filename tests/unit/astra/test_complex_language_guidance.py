@@ -1,6 +1,7 @@
 """Guidance preserves sensors/reset identity and cannot hide failed teacher calls."""
 
 import copy
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -13,6 +14,8 @@ from astra_reversal.complex_manipulation.language_guidance import (
     LanguageGuide,
     check_reset,
 )
+from astra_reversal.complex_manipulation.robocasa_eval import episode_schedule
+from astra_reversal.records import digest
 
 
 def observation():
@@ -184,3 +187,50 @@ def test_history_must_not_claim_unrecorded_proprioception():
                 "remaining_calls_including_this": 16,
             },
         )
+
+
+def test_render_rounding_allowance_cannot_hide_state_or_meaningful_image_changes():
+    expected = observation()
+    for key in teacher.CAMERAS.values():
+        expected[key] = np.full((224, 224, 3), 100, np.uint8)
+    actual = copy.deepcopy(expected)
+    actual["observation/wrist_image"][0, 0, 0] += 1
+    reference = {
+        "observation_sha256": digest(expected),
+        "state_sha256": "same",
+        "model_sha256": "same",
+    }
+
+    def check():
+        reset = {**reference, "observation_sha256": digest(actual)}
+        return check_reset(reset, reference, actual, expected)
+
+    receipt = check()
+    assert receipt["observation_match"] == "bounded_uint8_render_rounding"
+    assert (
+        receipt["pixel_differences"]["observation/wrist_image"]["changed_color_values"]
+        == 1
+    )
+    actual["observation/wrist_image"][0, 0, 0] += 1
+    with pytest.raises(ValueError, match="render-rounding"):
+        check()
+    actual = copy.deepcopy(expected)
+    actual["observation/wrist_image"].reshape(-1)[:17] += 1
+    with pytest.raises(ValueError, match="render-rounding"):
+        check()
+    actual = copy.deepcopy(expected)
+    actual["observation/state"][0] = 0.001
+    with pytest.raises(ValueError, match="observation/state"):
+        check()
+
+
+def test_continuation_schedule_omits_completed_pair_and_rejects_duplicates(tmp_path):
+    tasks, seeds = ["LoadPreparedFood", "PackIdenticalLunches"], [0, 1, 2]
+    planned = episode_schedule(tasks, seeds)[1:]
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(planned))
+    assert episode_schedule(tasks, seeds, path) == planned
+    assert len(planned) == 5 and ["LoadPreparedFood", 0] not in planned
+    path.write_text(json.dumps(planned + planned[:1]))
+    with pytest.raises(ValueError, match="repeat reset"):
+        episode_schedule(tasks, seeds, path)

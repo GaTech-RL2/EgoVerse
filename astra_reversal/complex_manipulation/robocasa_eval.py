@@ -183,7 +183,9 @@ def rollout(
     ):
         try:
             if guide is not None:
-                guide.bind_reset(json.loads((output / "reset.json").read_text()))
+                guide.bind_reset(
+                    json.loads((output / "reset.json").read_text()), initial
+                )
             while counts.executed_actions < limit:
                 before = policy_observation(obs)
                 model_input, guidance = (before, {"assisted": False})
@@ -294,6 +296,30 @@ def rollout(
     return result
 
 
+def episode_schedule(tasks, seeds, plan=None):
+    pairs = (
+        json.loads(Path(plan).read_text())
+        if plan
+        else [[t, s] for t in tasks for s in seeds]
+    )
+    if (
+        not isinstance(pairs, list)
+        or not pairs
+        or any(
+            not isinstance(pair, list)
+            or len(pair) != 2
+            or pair[0] not in tasks
+            or type(pair[1]) is not int
+            or pair[1] not in seeds
+            for pair in pairs
+        )
+    ):
+        raise ValueError("Episode plan must contain declared task/seed pairs")
+    if len({tuple(p) for p in pairs}) != len(pairs):
+        raise ValueError("Episode plan must not repeat reset pairs")
+    return pairs
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -305,11 +331,13 @@ def main():
     parser.add_argument("--split", choices=["pretrain", "target"], default="pretrain")
     parser.add_argument("--smoke-actions", type=int)
     parser.add_argument("--guidance-baselines", type=Path)
+    parser.add_argument("--episode-plan", type=Path)
     args = parser.parse_args()
     if args.smoke_actions is not None and args.smoke_actions < 1:
         parser.error("Smoke probes must execute at least one action")
     if args.guidance_baselines and args.smoke_actions:
         parser.error("Guidance comparison uses full native horizons")
+    episode_pairs = episode_schedule(args.tasks, args.seeds, args.episode_plan)
     import gymnasium as gym
     import jax
     import robocasa  # noqa: F401
@@ -330,6 +358,7 @@ def main():
             ),
             "tasks": args.tasks,
             "seeds": args.seeds,
+            "episode_schedule": episode_pairs,
             "split": args.split,
             "model_horizon": 50,
             "internal_action_dim": 32,
@@ -365,56 +394,55 @@ def main():
         ensure_server()
     policy = load_native_policy(args.checkpoint, args.seeds[0])
     results = []
-    for task in args.tasks:
-        for seed in args.seeds:
-            # Recreate the env for each seed so simulator reset RNG history is explicit.
-            np.random.seed(seed)
-            env = gym.make(
-                f"robocasa/{task}",
-                split=args.split,
-                seed=seed,
-                disable_env_checker=True,
-            )
-            try:
-                policy._rng = jax.random.key(seed)
-                guide = None
-                if args.guidance_baselines:
-                    from astra_reversal.codex_relay import CodexRelayClient
-                    from astra_reversal.complex_manipulation.language_guidance import (
-                        LanguageGuide,
-                        prior_failure,
-                    )
-
-                    directory = args.output / f"{task}_seed{seed}"
-                    client = CodexRelayClient(
-                        model="gpt-6-astra",
-                        family="complex_language",
-                        response_log=str(directory / "guidance/provider.jsonl"),
-                        timeout=300,
-                    )
-                    guide = LanguageGuide(
-                        client=client,
-                        baseline=prior_failure(
-                            args.guidance_baselines / f"{task}_seed{seed}"
-                        ),
-                        output=directory / "guidance",
-                    )
-                results.append(
-                    rollout(
-                        env,
-                        policy,
-                        task=task,
-                        split=args.split,
-                        seed=seed,
-                        horizon=get_task_horizon(task),
-                        output=args.output / f"{task}_seed{seed}",
-                        smoke_actions=args.smoke_actions,
-                        guide=guide,
-                    )
+    for task, seed in episode_pairs:
+        # Recreate the env for each seed so simulator reset RNG history is explicit.
+        np.random.seed(seed)
+        env = gym.make(
+            f"robocasa/{task}",
+            split=args.split,
+            seed=seed,
+            disable_env_checker=True,
+        )
+        try:
+            policy._rng = jax.random.key(seed)
+            guide = None
+            if args.guidance_baselines:
+                from astra_reversal.codex_relay import CodexRelayClient
+                from astra_reversal.complex_manipulation.language_guidance import (
+                    LanguageGuide,
+                    prior_failure,
                 )
-                write_json(args.output / "summary.json", summarize_episodes(results))
-            finally:
-                env.close()
+
+                directory = args.output / f"{task}_seed{seed}"
+                client = CodexRelayClient(
+                    model="gpt-6-astra",
+                    family="complex_language",
+                    response_log=str(directory / "guidance/provider.jsonl"),
+                    timeout=300,
+                )
+                guide = LanguageGuide(
+                    client=client,
+                    baseline=prior_failure(
+                        args.guidance_baselines / f"{task}_seed{seed}"
+                    ),
+                    output=directory / "guidance",
+                )
+            results.append(
+                rollout(
+                    env,
+                    policy,
+                    task=task,
+                    split=args.split,
+                    seed=seed,
+                    horizon=get_task_horizon(task),
+                    output=args.output / f"{task}_seed{seed}",
+                    smoke_actions=args.smoke_actions,
+                    guide=guide,
+                )
+            )
+            write_json(args.output / "summary.json", summarize_episodes(results))
+        finally:
+            env.close()
 
 
 if __name__ == "__main__":

@@ -4,8 +4,10 @@ import copy
 import json
 from pathlib import Path
 
+import numpy as np
+
 from astra_reversal.complex_manipulation import language_teacher as teacher
-from astra_reversal.records import file_sha256
+from astra_reversal.records import digest, file_sha256
 
 METHOD = "astra_phase_prompt_pi05"
 MAX_CALLS = 16
@@ -18,6 +20,11 @@ def prior_failure(directory):
     directory = Path(directory)
     result = json.loads((directory / "result.json").read_text())
     reset = json.loads((directory / "reset.json").read_text())
+    with np.load(directory / "initial_observation.npz", allow_pickle=False) as arrays:
+        initial = {k: arrays[k] for k in arrays.files if k != "simulator_state"}
+    initial["prompt"] = str(initial["prompt"])
+    if digest(initial) != reset["observation_sha256"]:
+        raise ValueError("Baseline observation artifact differs from reset receipt")
     if (
         not result["episode_complete"]
         or result["success"]
@@ -44,6 +51,7 @@ def prior_failure(directory):
         ]
     return {
         "reset": reset,
+        "initial_observation": initial,
         "episode_id": result["episode_id"],
         "frames": frames,
         "video_sha256": file_sha256(video),
@@ -53,11 +61,10 @@ def prior_failure(directory):
     }
 
 
-def check_reset(actual, expected):
+def check_reset(actual, expected, actual_observation=None, expected_observation=None):
     fields = (
         "seed",
         "instruction",
-        "observation_sha256",
         "state_sha256",
         "model_sha256",
         "horizon",
@@ -67,7 +74,53 @@ def check_reset(actual, expected):
     mismatches = [key for key in fields if actual.get(key) != expected.get(key)]
     if mismatches:
         raise ValueError("Matched native reset differs: " + ", ".join(mismatches))
-    return {"matched": True, "checked_fields": list(fields)}
+    receipt = {
+        "matched": True,
+        "checked_fields": list(fields),
+        "observation_match": "exact",
+        "pixel_differences": {},
+    }
+    if actual.get("observation_sha256") == expected.get("observation_sha256"):
+        return receipt
+    if actual_observation is None or expected_observation is None:
+        raise ValueError("Matched native reset differs: observation_sha256")
+    keys = {"prompt", "observation/state", *teacher.CAMERAS.values()}
+    if (
+        set(actual_observation) != keys
+        or set(expected_observation) != keys
+        or digest(actual_observation) != actual["observation_sha256"]
+        or digest(expected_observation) != expected["observation_sha256"]
+    ):
+        raise ValueError("Reset observation evidence does not match its hashes")
+    for key in ("prompt", "observation/state"):
+        if not np.array_equal(actual_observation[key], expected_observation[key]):
+            raise ValueError("Matched native reset differs: " + key)
+    for key in teacher.CAMERAS.values():
+        a, b = (
+            np.asarray(actual_observation[key]),
+            np.asarray(expected_observation[key]),
+        )
+        if (
+            a.shape != (224, 224, 3)
+            or b.shape != a.shape
+            or a.dtype != np.uint8
+            or b.dtype != np.uint8
+        ):
+            raise ValueError("Unexpected reset camera shape or dtype")
+        delta = np.abs(a.astype(np.int16) - b.astype(np.int16))
+        count, magnitude = int(np.count_nonzero(delta)), int(delta.max())
+        receipt["pixel_differences"][key] = {
+            "changed_color_values": count,
+            "max_uint8_difference": magnitude,
+        }
+        if count > 16 or magnitude > 1:
+            raise ValueError("Reset camera difference exceeds render-rounding bound")
+    receipt["observation_match"] = "bounded_uint8_render_rounding"
+    receipt["render_rounding_bound"] = {
+        "max_changed_color_values_per_camera": 16,
+        "max_uint8_difference": 1,
+    }
+    return receipt
 
 
 class LanguageGuide:
@@ -85,8 +138,13 @@ class LanguageGuide:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
 
-    def bind_reset(self, actual):
-        result = check_reset(actual, self.baseline["reset"])
+    def bind_reset(self, actual, observation):
+        result = check_reset(
+            actual,
+            self.baseline["reset"],
+            observation,
+            self.baseline["initial_observation"],
+        )
         self._save(
             "paired_reset.json",
             {
