@@ -1,0 +1,12 @@
+# real_mug rig (Franka + ORCA, fixed overhead front cam). Projects the base-frame
+# EE trajectory with the mug_front calibration and appends a GT-vs-pred panel of
+# the 17 hand-joint targets.
+eve_right_arm:
+  _target_: egomimic.rldb.embodiment.eve.Eve.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+  joints_key: actions_joints
+  mode: traj
+  intrinsics_key: mug_front
+  extrinsics_key: mug_front

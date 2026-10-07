@@ -261,13 +261,40 @@ EXTRINSICS = {
                                [-0.07925749, -0.55401284, -0.82872675, 0.46895363],
                                [0.0, 0.0, 0.0, 1.0]]),
     },
+    # real_mug rig (single Franka Panda + ORCA right hand, fixed overhead
+    # front camera, 432x240). T_base_cam (camera pose in robot base frame),
+    # fitted 2026-10-07 from mug-in-hand 3D correspondences (RGB mask +
+    # aligned depth vs Panda-FK tool point), 24 mm RMS over 204 frames /
+    # 22 episodes. See eth_clariden/mug/calib/front_calib_mug.py. Single arm,
+    # so left_cam is a copy.
+    "mug_front": {
+        "left_cam": np.array([[0.33230112, -0.72057226, 0.60856518, 0.03649775],
+                              [-0.9401371, -0.30478785, 0.15246838, 0.164225],
+                              [0.07561879, -0.62280012, -0.77871806, 0.58941746],
+                              [0.0, 0.0, 0.0, 1.0]]),
+        "right_cam": np.array([[0.33230112, -0.72057226, 0.60856518, 0.03649775],
+                               [-0.9401371, -0.30478785, 0.15246838, 0.164225],
+                               [0.07561879, -0.62280012, -0.77871806, 0.58941746],
+                               [0.0, 0.0, 0.0, 1.0]]),
+    },
 }
+
+# real_mug front camera (from the recorder's camera/intrinsics/front, 432x240).
+# Rational distortion coefficients nearly cancel, so pinhole is fine for viz.
+MUG_FRONT_INTRINSICS = np.array(
+    [
+        [345.60421753, 0.0, 213.33850098, 0],
+        [0.0, 345.57580566, 120.38240051, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
 
 INTRINSICS = {
     "base": ARIA_INTRINSICS,
     "base_half": ARIA_INTRINSICS_HALF,
     "mecka": MECKA_INTRINSICS,
     "scale": SCALE_INTRINSICS,
+    "mug_front": MUG_FRONT_INTRINSICS,
 }
 
 ARIA_T_RGB_CPF = np.array(

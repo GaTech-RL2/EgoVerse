@@ -66,9 +66,9 @@ class Eve(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal["cartesian", "cartesian_wrist"],
+        mode: Literal["cartesian", "cartesian_wrist", "cartesian_right_wrist"],
     ) -> list[Transform]:
-        if mode in ("cartesian", "cartesian_wrist"):
+        if mode in ("cartesian", "cartesian_wrist", "cartesian_right_wrist"):
             return [
                 NumpyToTensor(
                     keys=[
@@ -83,7 +83,10 @@ class Eve(Embodiment):
         raise ValueError(f"Unsupported Eve transform mode: {mode}")
 
     @classmethod
-    def _get_keymap(cls, keymap_mode: Literal["cartesian", "cartesian_wrist"]):
+    def _get_keymap(
+        cls,
+        keymap_mode: Literal["cartesian", "cartesian_wrist", "cartesian_right_wrist"],
+    ):
         base = {
             cls.VIZ_IMAGE_KEY: {
                 "key_type": "camera_keys",
@@ -111,6 +114,13 @@ class Eve(Embodiment):
             },
         }
         if keymap_mode == "cartesian":
+            return base
+        if keymap_mode == "cartesian_right_wrist":
+            # Single-arm rig (Franka + ORCA right hand) with one wrist camera.
+            base["observations.images.right_wrist_img"] = {
+                "key_type": "camera_keys",
+                "zarr_key": "observations.images.right_wrist_img",
+            }
             return base
         if keymap_mode == "cartesian_wrist":
             base["observations.images.left_wrist_img"] = {
@@ -209,16 +219,28 @@ class Eve(Embodiment):
         mode: Literal["traj", "traj+rotation", "axes", "annotations"] = "traj",
         gt_alpha=1.0,
         pred_alpha=1.0,
+        joints_key: str | None = None,
         **kwargs,
     ):
         """Match OLD EgoVerse draw order: predictions first, ground truth on
         top. The opposite (GT first, pred on top — the base-class default)
         causes well-trained predictions to occlude GT, leaving the user with
-        a single-color overlay."""
+        a single-color overlay.
+
+        joints_key: optional auxiliary action key (e.g. ``actions_joints``).
+        When set, a panel with the GT (green) vs predicted (red) hand-joint
+        chunk is appended to the right of each frame so the future hand
+        trajectory is visible alongside the projected EE trajectory."""
         embodiment_id = batch["embodiment"][0].item()
         from egomimic.rldb.embodiment.embodiment import get_embodiment
         embodiment_name = get_embodiment(embodiment_id).lower()
         pred_actions = predictions[f"{embodiment_name}_{action_key}"]
+        gt_joints = pred_joints = None
+        if joints_key is not None:
+            pred_joints_key = f"{embodiment_name}_{joints_key}"
+            if joints_key in batch and pred_joints_key in predictions:
+                gt_joints = _to_numpy(batch[joints_key])
+                pred_joints = _to_numpy(predictions[pred_joints_key])
         if transform_list is not None:
             pred_batch = copy.deepcopy(batch)
             pred_batch[action_key] = pred_actions
@@ -246,5 +268,33 @@ class Eve(Embodiment):
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)
+            if gt_joints is not None:
+                ims = cls.joints_panel(ims, gt_joints[i], pred_joints[i])
             ims_list.append(ims)
         return np.stack(ims_list, axis=0)
+
+    @staticmethod
+    def joints_panel(image, gt, pred, panel_w=200, pad=4):
+        """Append a panel of per-joint sparklines (GT green, pred red) to the
+        right of ``image``. gt/pred: (T, J) chunks of joint targets. Each row
+        is scaled to the joint's GT range (+-10% margin) so small motions stay
+        visible; the current (t=0) value is the left edge of each row."""
+        base = _prepare_viz_image(image)
+        H = base.shape[0]
+        J = gt.shape[1]
+        panel = np.full((H, panel_w, 3), 24, dtype=np.uint8)
+        row_h = (H - 2 * pad) / J
+        xs = np.linspace(pad, panel_w - pad - 1, gt.shape[0])
+        for j in range(J):
+            y0 = pad + j * row_h
+            lo = min(gt[:, j].min(), pred[:, j].min())
+            hi = max(gt[:, j].max(), pred[:, j].max())
+            m = 0.1 * (hi - lo) + 1e-3
+            lo, hi = lo - m, hi + m
+            cv2.line(panel, (pad, int(y0 + row_h)), (panel_w - pad, int(y0 + row_h)), (60, 60, 60), 1)
+            for series, color in ((pred, (220, 40, 40)), (gt, (40, 220, 40))):  # RGB: pred red, GT green
+                ys = y0 + row_h - 1 - (series[:, j] - lo) / (hi - lo) * (row_h - 2)
+                pts = np.stack([xs, ys], 1).astype(np.int32).reshape(-1, 1, 2)
+                cv2.polylines(panel, [pts], False, color, 1, cv2.LINE_AA)
+        cv2.putText(panel, "hand joints: GT / pred", (pad, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.32, (200, 200, 200), 1)
+        return np.concatenate([base, panel], axis=1)
