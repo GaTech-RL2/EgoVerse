@@ -76,7 +76,7 @@ def native_preflight(archive):
             raise RuntimeError(f"Standalone {label} tests failed")
 
 
-def load_frozen_policy():
+def load_frozen_policy(*, prediction_horizon=None):
     from huggingface_hub import snapshot_download
 
     from astra_reversal.policy_adapter import load_policy
@@ -102,6 +102,7 @@ def load_frozen_policy():
         tokenizer_path=ROOT / "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224",
         input_profile="openpi_libero",
         reference_assets=ROOT / "astra_reversal/.deps/reference/pi05_libero",
+        prediction_horizon=prediction_horizon,
     )
     if any(parameter.requires_grad for parameter in policy.policy.parameters()):
         raise ValueError("Policy is not fully frozen")

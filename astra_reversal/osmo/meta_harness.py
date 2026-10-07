@@ -71,7 +71,7 @@ def main():
                 "complete_standard_catalog": bank.metadata["complete_standard_catalog"],
             },
         )
-        policy = load_frozen_policy()
+        policy = load_frozen_policy(prediction_horizon=limits.prediction_horizon)
         before = frozen_parameter_receipt(policy)
         write_json(RESULTS / "frozen_weights_before.json", before)
         gate = policy_gate(policy, bank)

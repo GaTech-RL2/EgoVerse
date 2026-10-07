@@ -31,6 +31,11 @@ the main study must freeze its complete eligible source pool separately.
 
 ## Timing and tool contract
 
+The recovered OpenPI input profile defaults to a 10-action prediction horizon,
+despite the checkpoint export having 50 rows. This experiment explicitly requests
+50 from the loader and checks both the resolved metadata and actual action shape.
+Existing callers keep the profile's 10-action default.
+
 - Prediction horizon 50; execute `[0, 5)` and replan; Euler 10; episode limit 300.
 - At most one pending Astra request and eight dispatches per episode. Failed
   requests consume the cap. No automatic retries or unbudgeted repair loop.

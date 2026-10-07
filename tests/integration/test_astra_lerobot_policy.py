@@ -204,8 +204,8 @@ def test_weight_loading_is_strict(tmp_path, monkeypatch):
         load_native_model(tmp_path)
 
 
-@pytest.fixture
-def openpi_inputs(adapter):
+@pytest.fixture(params=[None, 50], ids=["openpi_h10", "export_h50"])
+def openpi_inputs(adapter, request):
     from astra_reversal.__main__ import enable_local_openpi
     from astra_reversal.openpi_inputs import use_openpi_libero_inputs
 
@@ -218,7 +218,13 @@ def openpi_inputs(adapter):
     if not (assets / "paligemma_tokenizer.model").exists():
         pytest.skip("Optional pinned OpenPI input assets are not downloaded")
     enable_local_openpi()
-    return use_openpi_libero_inputs(adapter, assets)
+    options = {} if request.param is None else {"prediction_horizon": request.param}
+    policy = use_openpi_libero_inputs(adapter, assets, **options)
+    expected = 10 if request.param is None else 50
+    assert policy.horizon == policy.config.chunk_size == expected
+    assert policy.metadata["horizon"] == expected
+    assert policy.metadata["runtime_overrides"]["chunk_size"] == expected
+    return policy
 
 
 def upstream_definition(relative_file, class_name, method_name=None):
@@ -250,7 +256,9 @@ def test_openpi_profile_matches_upstream_tokenization_and_normalization(
     reference._tokenizer = openpi_inputs.sentencepiece
     reference._max_len = 200
     raw = {**observation, "prompt": "  put_the cup\non the plate  "}
-    raw["actions"] = np.linspace(-0.75, 0.75, 70, dtype=np.float32).reshape(10, 7)
+    raw["actions"] = np.linspace(
+        -0.75, 0.75, openpi_inputs.horizon * 7, dtype=np.float32
+    ).reshape(openpi_inputs.horizon, 7)
     batch = openpi_inputs._preprocess(raw)
     from lerobot.utils.constants import OBS_LANGUAGE_ATTENTION_MASK, OBS_LANGUAGE_TOKENS
 
@@ -288,12 +296,13 @@ def test_openpi_profile_uses_native_sampler_without_state_tokens(
 ):
     condition = openpi_inputs.prepare(observation, "obs", "move cup")
     noise = openpi_inputs.noise(np.random.default_rng(0))
-    assert noise.shape == (1, 10, 32)
+    assert noise.shape == (1, openpi_inputs.horizon, 32)
     sampled = openpi_inputs.sample(condition, noise, steps=5)
     decoded = openpi_inputs.output_transform({"actions": to_numpy(sampled.value)[0]})[
         "actions"
     ]
     upstream = openpi_inputs.reference_actions(condition, noise, steps=5)
+    assert decoded.shape == upstream.shape == (openpi_inputs.horizon, 7)
     np.testing.assert_allclose(decoded, upstream, atol=1e-6)
     changed = {**observation, "observation/state": np.ones(8, dtype=np.float32)}
     assert openpi_inputs.prompt_length(

@@ -40,8 +40,13 @@ def load_policy(
     tokenizer_path=None,
     input_profile="checkpoint",
     reference_assets=None,
+    prediction_horizon=None,
 ):
     """Select the implementation described by the checkpoint's own config."""
+    if prediction_horizon is not None and input_profile != "openpi_libero":
+        raise ValueError(
+            "Explicit prediction horizons require the OpenPI LIBERO profile"
+        )
     if checkpoint and Path(checkpoint).expanduser().is_dir():
         if inspect_checkpoint(checkpoint)["format"] == "lerobot_pi05":
             from .lerobot_policy import FrozenLeRobotPI05
@@ -56,7 +61,13 @@ def load_policy(
             if input_profile == "openpi_libero":
                 from .openpi_inputs import use_openpi_libero_inputs
 
-                return use_openpi_libero_inputs(policy, reference_assets)
+                return use_openpi_libero_inputs(
+                    policy,
+                    reference_assets,
+                    prediction_horizon=10
+                    if prediction_horizon is None
+                    else prediction_horizon,
+                )
             if input_profile != "checkpoint" or reference_assets is not None:
                 raise ValueError("Invalid LeRobot input profile/assets")
             return policy

@@ -3,7 +3,8 @@
 This is a separate experiment, not the artifact's saved processor behavior.
 Weights and native LeRobot flow velocity remain unchanged. The source settings
 are OpenPI's pi05_libero config: H=10, plain language, quantile normalization,
-and the example client's 224px PIL images.
+and the example client's 224px PIL images. Experiments may explicitly retain
+the export's H=50; the resolved horizon is recorded separately from file hashes.
 """
 
 import copy
@@ -90,9 +91,11 @@ class OpenPILiberoInputs(FrozenLeRobotPI05):
         return self.output_transform({"actions": to_numpy(values)[0]})["actions"]
 
 
-def use_openpi_libero_inputs(native, asset_directory):
+def use_openpi_libero_inputs(native, asset_directory, *, prediction_horizon=10):
     import sentencepiece
 
+    if type(prediction_horizon) is not int or prediction_horizon not in (10, 50):
+        raise ValueError("Choose the OpenPI horizon 10 or exported horizon 50")
     if native.horizon != 50 or native.action_dim != 32:
         raise ValueError(
             "This profile is specific to the selected 50 x 32 LeRobot export"
@@ -125,15 +128,15 @@ def use_openpi_libero_inputs(native, asset_directory):
     result.sentencepiece = sentencepiece.SentencePieceProcessor(
         model_proto=files["tokenizer"].read_bytes()
     )
-    result.config.chunk_size = result.horizon = 10
+    result.config.chunk_size = result.horizon = prediction_horizon
     result.metadata.update(
-        horizon=10,
+        horizon=prediction_horizon,
         input_profile="openpi_libero",
         input_profile_source_sha256=file_sha256(__file__),
         input_profile_assets=inventory,
         normalization={"type": "quantile", "sha256": inventory["norm_stats"]["sha256"]},
         runtime_overrides={
-            "chunk_size": 10,
+            "chunk_size": prediction_horizon,
             "discrete_state_input": False,
             "image_size": 224,
         },
