@@ -331,9 +331,9 @@
   },
   "latest_closed_compute_snapshot": {
     "authorized_gpu_hours": 48,
-    "used_gpu_hours_including_previous_study": 23.525230145555557,
+    "used_gpu_hours_including_previous_study": 23.625549818333337,
     "all_jobs_closed": true,
-    "scope": "After first guidance allocation; before its five-pair continuation. Live reservations are in the operational ledger."
+    "scope": "After two guidance allocations, before the next five-pair continuation."
   },
   "next_guidance_pilot": {
     "status": "partially_run_continuation_registered",
@@ -358,5 +358,13 @@
     "gpu_hours": 0.23863192805555555,
     "interruption": "Seed1 wrist image differed by one uint8 color value of magnitude one; all physical state, XML, proprioception and other cameras exactly matched. No seed1 controls or teacher calls.",
     "continuation": "Remaining five pairs only, with recorded bounded render-rounding validation per language_protocol.json v2."
+  },
+  "observed_language_xml_preflight": {
+    "workflow": "astra-complex-20261006-robocasa-language-resume-dev5-1",
+    "reset_episodes_started": 1,
+    "executed_controls": 0,
+    "teacher_calls": 0,
+    "gpu_hours": 0.10031967277777779,
+    "outcome": "Rejected equivalent XML export before any policy action. Preserved in full; validation amendment in language_protocol.json v3."
   }
 }

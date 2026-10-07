@@ -184,7 +184,7 @@ def rollout(
         try:
             if guide is not None:
                 guide.bind_reset(
-                    json.loads((output / "reset.json").read_text()), initial
+                    json.loads((output / "reset.json").read_text()), initial, xml
                 )
             while counts.executed_actions < limit:
                 before = policy_observation(obs)

@@ -158,6 +158,7 @@ def restore_baselines(client, manifest_path, destination):
             "result.json",
             "rollout.mp4",
             "initial_observation.npz",
+            "initial_model.xml.gz",
         }:
             raise ValueError("Unexpected baseline evidence file")
         path = destination / str(relative)

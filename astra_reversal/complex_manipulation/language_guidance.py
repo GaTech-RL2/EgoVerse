@@ -1,7 +1,10 @@
 """Bounded, auditable prompt scheduling; no policy or simulator implementation."""
 
 import copy
+import gzip
+import hashlib
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +28,9 @@ def prior_failure(directory):
     initial["prompt"] = str(initial["prompt"])
     if digest(initial) != reset["observation_sha256"]:
         raise ValueError("Baseline observation artifact differs from reset receipt")
+    model_xml = gzip.decompress((directory / "initial_model.xml.gz").read_bytes())
+    if hashlib.sha256(model_xml).hexdigest() != reset["model_sha256"]:
+        raise ValueError("Baseline XML artifact differs from reset receipt")
     if (
         not result["episode_complete"]
         or result["success"]
@@ -52,6 +58,7 @@ def prior_failure(directory):
     return {
         "reset": reset,
         "initial_observation": initial,
+        "initial_model_xml": model_xml,
         "episode_id": result["episode_id"],
         "frames": frames,
         "video_sha256": file_sha256(video),
@@ -61,12 +68,36 @@ def prior_failure(directory):
     }
 
 
-def check_reset(actual, expected, actual_observation=None, expected_observation=None):
+def model_fingerprint(xml):
+    """Retain MJCF values, normalizing only redundant OBJ media-type declarations.
+
+    MuJoCo selects OBJ from the .obj suffix when content_type is absent. Its
+    exporter sometimes retains the equivalent explicit declaration. Numeric
+    attributes, mesh paths, child order and all other settings remain compared.
+    """
+    root = ET.fromstring(xml)
+    normalized = []
+    for mesh in root.findall("./asset/mesh"):
+        if mesh.get("content_type") == "model/obj" and mesh.get(
+            "file", ""
+        ).lower().endswith(".obj"):
+            normalized.append(mesh.get("name"))
+            del mesh.attrib["content_type"]
+    return hashlib.sha256(ET.tostring(root, encoding="utf-8")).hexdigest(), normalized
+
+
+def check_reset(
+    actual,
+    expected,
+    actual_observation=None,
+    expected_observation=None,
+    actual_xml=None,
+    expected_xml=None,
+):
     fields = (
         "seed",
         "instruction",
         "state_sha256",
-        "model_sha256",
         "horizon",
         "execution_prefix",
         "initial_success",
@@ -79,7 +110,30 @@ def check_reset(actual, expected, actual_observation=None, expected_observation=
         "checked_fields": list(fields),
         "observation_match": "exact",
         "pixel_differences": {},
+        "model_match": "exact_raw_xml",
     }
+    if actual.get("model_sha256") != expected.get("model_sha256"):
+        if actual_xml is None or expected_xml is None:
+            raise ValueError("Matched native reset differs: model_sha256")
+        if (
+            hashlib.sha256(actual_xml).hexdigest() != actual["model_sha256"]
+            or hashlib.sha256(expected_xml).hexdigest() != expected["model_sha256"]
+        ):
+            raise ValueError("Reset XML evidence does not match its hashes")
+        actual_hash, actual_normalized = model_fingerprint(actual_xml)
+        expected_hash, expected_normalized = model_fingerprint(expected_xml)
+        if actual_hash != expected_hash:
+            raise ValueError(
+                "Matched native reset differs: model geometry or configuration"
+            )
+        receipt.update(
+            model_match="equivalent_obj_content_type",
+            model_comparison_sha256=actual_hash,
+            actual_normalized_obj_meshes=actual_normalized,
+            baseline_normalized_obj_meshes=expected_normalized,
+            actual_raw_model_sha256=actual["model_sha256"],
+            baseline_raw_model_sha256=expected["model_sha256"],
+        )
     if actual.get("observation_sha256") == expected.get("observation_sha256"):
         return receipt
     if actual_observation is None or expected_observation is None:
@@ -138,12 +192,14 @@ class LanguageGuide:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
 
-    def bind_reset(self, actual, observation):
+    def bind_reset(self, actual, observation, model_xml):
         result = check_reset(
             actual,
             self.baseline["reset"],
             observation,
             self.baseline["initial_observation"],
+            model_xml,
+            self.baseline["initial_model_xml"],
         )
         self._save(
             "paired_reset.json",

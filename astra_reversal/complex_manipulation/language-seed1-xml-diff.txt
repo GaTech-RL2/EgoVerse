@@ -1,0 +1,10 @@
+--- 
+
++++ 
+
+@@ -767,3 +767,3 @@
+
+     <mesh name="existing_item2_second_steak_collision_mesh_2" file="/opt/astra-complex/sources/robocasa/robocasa/models/assets/objects/objaverse/steak/steak_10/collision/collision_mesh_collision_2.obj" refquat="0 0 0.881921 0.471397" scale="0.115 0.115 0.23"/>
+-    <mesh name="target_rack_third_item_model_normalized_0_vis" content_type="model/obj" file="/opt/astra-complex/sources/robocasa/robocasa/models/assets/objects/objaverse/lime/lime_0/visual/model_normalized_0.obj" refquat="0.707107 0 0 0.707107" scale="0.075 0.075 0.075"/>
++    <mesh name="target_rack_third_item_model_normalized_0_vis" file="/opt/astra-complex/sources/robocasa/robocasa/models/assets/objects/objaverse/lime/lime_0/visual/model_normalized_0.obj" refquat="0.707107 0 0 0.707107" scale="0.075 0.075 0.075"/>
+     <mesh name="target_rack_third_item_lime_collision_mesh_0" file="/opt/astra-complex/sources/robocasa/robocasa/models/assets/objects/objaverse/lime/lime_0/collision/collision_mesh_collision_0.obj" refquat="0.707107 0 0 0.707107" scale="0.075 0.075 0.075"/>

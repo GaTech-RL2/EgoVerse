@@ -1,5 +1,5 @@
 {
-  "schema": "robocasa-language-guidance-pilot-3",
+  "schema": "robocasa-language-guidance-pilot-2",
   "method": "astra_phase_prompt_pi05",
   "status_at_registration": "not_run",
   "teacher": {
@@ -30,7 +30,7 @@
     "match_before_execution": [
       "seed",
       "instruction",
-      "model_xml_equivalence_with_recorded_redundant_obj_format_normalization",
+      "model_sha256",
       "state_sha256",
       "horizon",
       "execution_prefix",
@@ -50,7 +50,7 @@
       ],
       "all_differences_recorded": true,
       "observation_pixels_modified": false,
-      "physical_state_and_xml_hashes": "Physical state/proprioception exact; XML raw hashes preserved, equivalent redundant OBJ type declarations normalized only for comparison."
+      "physical_state_and_xml_hashes": "must match exactly"
     },
     "continuation_plan": [
       [
@@ -132,14 +132,5 @@
     "original_registration": "language_protocol_v1.json",
     "original_source_revision": "bc7e40ff16a4e11891a513101603d4c3e24f697d",
     "preservation": "Keep the completed seed0 attempt and the seed1 rejected reset; resume only five pairs without completed guided episodes. No best-of reroll of seed0."
-  },
-  "xml_export_amendment": {
-    "reason": "Second allocation stopped with zero controls because a single OBJ mesh content_type declaration was omitted in its XML export. Same asset path, reference pose, scale and all other XML values; simulator state and robot state exact. Wrist image still differed at one color value by one level.",
-    "previous_registration": "language_protocol_v2.json",
-    "previous_revision": "de4319ed49da37a053c219b2e015ec348977af2c",
-    "validation": "Compare parsed XML after removing only content_type=model/obj from asset/mesh elements whose filenames end in .obj. Retain every numeric attribute, mesh path, child order and other setting; retain raw XML hashes and normalized mesh names. No XML is changed in the simulator.",
-    "reference": "https://mujoco.readthedocs.io/en/3.3.1/XMLreference.html#asset-mesh",
-    "cpu_audit": "reset-comparison-v3-cpu-audit.json",
-    "accounting": "Both zero-control rejected resets remain charged. Resume the same five unfinished task/seed pairs; never rerun the completed seed0 policy episode."
   }
 }

@@ -1,6 +1,7 @@
 """Guidance preserves sensors/reset identity and cannot hide failed teacher calls."""
 
 import copy
+import hashlib
 import json
 from types import SimpleNamespace
 
@@ -234,3 +235,32 @@ def test_continuation_schedule_omits_completed_pair_and_rejects_duplicates(tmp_p
     path.write_text(json.dumps(planned + planned[:1]))
     with pytest.raises(ValueError, match="repeat reset"):
         episode_schedule(tasks, seeds, path)
+
+
+def test_redundant_obj_format_can_match_without_ignoring_geometry():
+    reference_xml = b'<mujoco><asset><mesh name="fruit" content_type="model/obj" file="fruit.obj" scale="1 1 1"/></asset></mujoco>'
+    actual_xml = reference_xml.replace(b' content_type="model/obj"', b"")
+    reference = {
+        "model_sha256": hashlib.sha256(reference_xml).hexdigest(),
+        "observation_sha256": "same",
+    }
+
+    def compare(xml):
+        return check_reset(
+            {**reference, "model_sha256": hashlib.sha256(xml).hexdigest()},
+            reference,
+            actual_xml=xml,
+            expected_xml=reference_xml,
+        )
+
+    result = compare(actual_xml)
+    assert result["model_match"] == "equivalent_obj_content_type"
+    assert result["baseline_normalized_obj_meshes"] == ["fruit"]
+    assert result["actual_normalized_obj_meshes"] == []
+    for changed in (
+        actual_xml.replace(b"1 1 1", b"1 1 2"),
+        actual_xml.replace(b"fruit.obj", b"other.obj"),
+        reference_xml.replace(b"model/obj", b"model/stl"),
+    ):
+        with pytest.raises(ValueError, match="geometry or configuration"):
+            compare(changed)
