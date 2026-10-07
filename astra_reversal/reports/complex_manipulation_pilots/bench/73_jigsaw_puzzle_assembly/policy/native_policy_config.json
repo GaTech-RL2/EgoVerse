@@ -1,0 +1,9 @@
+{
+  "policy_name": "pi05",
+  "train_config_name": "pi05_base_dex2bench_full",
+  "checkpoint_path": "/opt/astra-bench-data/policy_ckpt/73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000",
+  "robot_key": "multi_iiwa7_with_sharpa",
+  "use_active_dof": true,
+  "train_action_horizon": 20,
+  "eval_action_horizon": 20
+}

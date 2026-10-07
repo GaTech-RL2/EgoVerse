@@ -3,7 +3,7 @@ Complex manipulation pilots — 2026-10-06
 Implements the next-study request in complex_parallel_grippers_20261006.md and
 complex_dexterous_tasks_20261006.md. The previous learning study remains intact.
 
-Current phase: eight completed native development episodes across four tasks.
+Current phase: six complete native RoboCasa development episodes.
 LoadPreparedFood: 0/3 successes at the 1,500-control horizon.
 PackIdenticalLunches: 0/3 successes at the 3,900-control horizon.
 Seeds 0/1/2: 16,200 controls, 3,240 reset-free segments, six policy resets,
@@ -21,14 +21,8 @@ Bench2Dex weights, selected assets and replay anchors are archived (31.6 GB),
 with a 74.6 MB supplement for the two anchors' distractor objects. Both HDF5
 anchors decode all four native camera streams at 640x480. The frozen JAX
 policy runtime is archived (4.80 GB), and the official Isaac container passed
-CPU import checks. The two native GPU pilots are complete: jigsaw 0/1, fridge pouring 0/1.
-Jigsaw reached 2/4 stages (1/4 at end); fridge reached 2/5 (1/5 at end).
-These two episodes executed 2,293 controls in 115 reset-free segments and
-6,879 physics steps, excluding 120 homing steps. Allocation: 0.396296 hours.
-The native jigsaw runtime reordered 56/58 full joint positions relative to
-URDF indexing. Native active-joint selection and mimic expansion were retained.
-No guidance or learning comparison has run. The combined portable report is
-astra_reversal/reports/complex_manipulation_pilots/index.html.
+CPU import checks. The first native GPU pilot is running; no Bench score is
+claimed until the actual policy and simulator finish a complete episode.
 
 Initial task/model pairs
   RoboCasa365 / LoadPreparedFood / released pi05_pretrain_human300

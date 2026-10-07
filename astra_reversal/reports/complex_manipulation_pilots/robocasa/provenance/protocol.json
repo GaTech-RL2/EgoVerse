@@ -1,6 +1,6 @@
 {
   "schema": "astra-complex-study-1",
-  "status": "native_development_pilots_complete_guidance_and_learning_pending",
+  "status": "six_native_robocasa_development_episodes_complete_bench_native_pilot_running",
   "source_proposals": {
     "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
     "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
@@ -194,7 +194,7 @@
     "gpu_count": 0,
     "policy_rollouts": 0,
     "teacher_calls": 0,
-    "full_runtime_validated": true,
+    "full_runtime_validated": false,
     "anchor_distractor_supplement": "Two missing object trees staged separately; preserve the original release manifest.",
     "policy_runtime_stage": "astra-complex-20261006-bench-runtime-stage-1",
     "policy_runtime_imports_validated": true,
@@ -260,78 +260,11 @@
   },
   "active_bench_batch": {
     "workflow": "astra-complex-20261006-bench-native-dev1-1",
-    "status": "completed",
+    "status": "running",
     "planned_episodes": 2,
     "unique_reset_anchors_per_task": 1,
     "scope": "native_development_integration",
     "heldout_ood": false,
     "source_revision": "9afc95c5a4f5abd4055168b5bef08801c10634b7"
-  },
-  "observed_bench_native_results": {
-    "workflow": "astra-complex-20261006-bench-native-dev1-1",
-    "completed_episodes": 2,
-    "successes": 0,
-    "reset_free_segments": 115,
-    "controls": 2293,
-    "physics_steps": 6879,
-    "warmup_physics_steps": 120,
-    "teacher_calls": 0,
-    "teacher_tokens": 0,
-    "policy_updates": 0,
-    "scope": "one recorded anchor per task; native development integration, not held-out OOD",
-    "source_revision": "9afc95c5a4f5abd4055168b5bef08801c10634b7",
-    "tasks": [
-      {
-        "scene": "scenes/73_jigsaw_puzzle_assembly.yaml",
-        "seed": 107300000,
-        "success": false,
-        "steps": 3639,
-        "policy_query_count": 61,
-        "latched_stage_completion_rate": 0.5,
-        "current_stage_completion_rate": 0.25,
-        "stage_completion": {
-          "assemble_piece_2": false,
-          "assemble_piece_3": true,
-          "assemble_piece_4": true,
-          "assemble_piece_5": false
-        },
-        "current_stage_completion": {
-          "assemble_piece_2": false,
-          "assemble_piece_3": false,
-          "assemble_piece_4": true,
-          "assemble_piece_5": false
-        }
-      },
-      {
-        "scene": "scenes/34_fridge_wine_interhand_pour.yaml",
-        "seed": 103400000,
-        "success": false,
-        "steps": 3240,
-        "policy_query_count": 54,
-        "latched_stage_completion_rate": 0.4,
-        "current_stage_completion_rate": 0.2,
-        "stage_completion": {
-          "open_fridge": true,
-          "take_bottle": true,
-          "pour_wine": false,
-          "return_bottle": false,
-          "close_fridge": false
-        },
-        "current_stage_completion": {
-          "open_fridge": true,
-          "take_bottle": false,
-          "pour_wine": false,
-          "return_bottle": false,
-          "close_fridge": false
-        }
-      }
-    ],
-    "gpu_hours": 0.39629632333333337,
-    "report": "astra_reversal/reports/complex_manipulation_pilots/index.html"
-  },
-  "latest_closed_compute_snapshot": {
-    "authorized_gpu_hours": 48,
-    "used_gpu_hours_including_previous_study": 23.286598217500003,
-    "all_jobs_closed": true
   }
 }
