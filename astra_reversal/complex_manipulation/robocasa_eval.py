@@ -127,8 +127,8 @@ def rollout(
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    method = "native_pi05" if guide is None else "astra_phase_prompt_pi05"
-    identity_method = "native" if guide is None else "phase_prompt"
+    method = "native_pi05" if guide is None else guide.method_name
+    identity_method = "native" if guide is None else guide.identity_method
     identity = f"{os.environ.get('ASTRA_RUN_ID', output.parent.name)}:robocasa:{task}:{split}:seed{seed}:{identity_method}:attempt0"
     counts = EpisodeCounts(identity, horizon, 5)
     write_json(output / "started.json", {"episode_id": identity, "seed": seed})
@@ -194,8 +194,16 @@ def rollout(
                         before, step=counts.executed_actions, episode_id=identity
                     )
                 sample_started = time.perf_counter()
+                inference_kwargs = (
+                    {"intervention": guidance["intervention"]}
+                    if "intervention" in guidance
+                    else {}
+                )
+                prediction = policy.infer(model_input, **inference_kwargs)
+                if prediction.get("interpolation"):
+                    guidance["assisted"] = prediction["interpolation"]["has_effect"]
                 actions = checked_chunk(
-                    policy.infer(model_input)["actions"], horizon=50, action_dim=12
+                    prediction["actions"], horizon=50, action_dim=12
                 )
                 elapsed = time.perf_counter() - sample_started
                 total_policy_seconds += elapsed
@@ -208,6 +216,7 @@ def rollout(
                             "model_input_sha256": digest(model_input),
                             "model_prompt": model_input["prompt"],
                             "guidance": guidance,
+                            "interpolation": prediction.get("interpolation"),
                             "actions": actions.tolist(),
                             "policy_seconds": elapsed,
                         }
@@ -331,12 +340,15 @@ def main():
     parser.add_argument("--split", choices=["pretrain", "target"], default="pretrain")
     parser.add_argument("--smoke-actions", type=int)
     parser.add_argument("--guidance-baselines", type=Path)
+    parser.add_argument("--representation-method", choices=("tei", "tli"))
     parser.add_argument("--episode-plan", type=Path)
     args = parser.parse_args()
     if args.smoke_actions is not None and args.smoke_actions < 1:
         parser.error("Smoke probes must execute at least one action")
     if args.guidance_baselines and args.smoke_actions:
         parser.error("Guidance comparison uses full native horizons")
+    if args.representation_method and not args.guidance_baselines:
+        parser.error("Representation comparison requires paired native evidence")
     episode_pairs = episode_schedule(args.tasks, args.seeds, args.episode_plan)
     import gymnasium as gym
     import jax
@@ -379,7 +391,7 @@ def main():
                     "reasoning_effort": "medium",
                     "backend": "codex_relay",
                     "maximum_calls_per_episode": 16,
-                    "method": "language_phase_prompt",
+                    "method": args.representation_method or "language_phase_prompt",
                     "policy_updates": 0,
                 }
                 if args.guidance_baselines
@@ -393,6 +405,22 @@ def main():
 
         ensure_server()
     policy = load_native_policy(args.checkpoint, args.seeds[0])
+    if args.representation_method:
+        from astra_reversal.complex_manipulation.jax_text_interpolation import (
+            TextInterpolationPolicy,
+        )
+
+        policy = TextInterpolationPolicy(policy)
+        # Inference-only probe on a saved native reset: no simulator reset/actions.
+        task, seed = episode_pairs[0]
+        with np.load(
+            args.guidance_baselines / f"{task}_seed{seed}" / "initial_observation.npz"
+        ) as data:
+            probe = {key: data[key] for key in data.files if key != "simulator_state"}
+        probe["prompt"] = str(probe["prompt"])
+        write_json(
+            args.output / "interpolation_preflight.json", policy.preflight(probe)
+        )
     results = []
     for task, seed in episode_pairs:
         # Recreate the env for each seed so simulator reset RNG history is explicit.
@@ -416,16 +444,31 @@ def main():
                 directory = args.output / f"{task}_seed{seed}"
                 client = CodexRelayClient(
                     model="gpt-6-astra",
-                    family="complex_language",
+                    family=(
+                        "complex_representation"
+                        if args.representation_method
+                        else "complex_language"
+                    ),
                     response_log=str(directory / "guidance/provider.jsonl"),
                     timeout=300,
                 )
+                guide_kwargs = {}
+                if args.representation_method:
+                    from astra_reversal.complex_manipulation import (
+                        representation_teacher,
+                    )
+
+                    guide_kwargs = {
+                        "teacher_module": representation_teacher,
+                        "representation_method": args.representation_method,
+                    }
                 guide = LanguageGuide(
                     client=client,
                     baseline=prior_failure(
                         args.guidance_baselines / f"{task}_seed{seed}"
                     ),
                     output=directory / "guidance",
+                    **guide_kwargs,
                 )
             results.append(
                 rollout(

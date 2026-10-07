@@ -178,8 +178,22 @@ def check_reset(
 
 
 class LanguageGuide:
-    def __init__(self, *, client, baseline, output):
+    def __init__(
+        self,
+        *,
+        client,
+        baseline,
+        output,
+        teacher_module=teacher,
+        representation_method=None,
+    ):
         self.client, self.baseline, self.output = client, baseline, Path(output)
+        if representation_method not in (None, "tei", "tli"):
+            raise ValueError("Unknown representation method")
+        self.teacher = teacher_module
+        self.representation_method = representation_method
+        self.identity_method = representation_method or "phase_prompt"
+        self.method_name = f"astra_{self.identity_method}_pi05"
         self.next_review = 0
         self.calls = 0
         self.active = None
@@ -213,6 +227,7 @@ class LanguageGuide:
         )
 
     def prepare(self, observation, *, step, episode_id):
+        teacher = self.teacher
         if step >= self.next_review and not self.exhausted:
             if self.calls == MAX_CALLS:
                 self.active = None
@@ -240,6 +255,8 @@ class LanguageGuide:
                         "video_sha256": self.baseline["video_sha256"],
                     },
                 }
+                if self.representation_method:
+                    context["allowed_intervention"] = self.representation_method
                 request = teacher.build_request(
                     episode_id=episode_id,
                     request_index=self.calls,
@@ -271,17 +288,21 @@ class LanguageGuide:
                         )
                     }
                 )
+                if self.representation_method:
+                    self.decisions[-1]["alpha"] = proposal["alpha"]
         model_input = dict(observation)
         model_input["prompt"] = teacher.policy_prompt(
             observation["prompt"], self.active
         )
-        return model_input, {
-            "assisted": self.active is not None
-            and self.active["method"] == "phase_prompt",
+        metadata = {
+            "assisted": self.active is not None and self.active["method"] != "native",
             "decision_id": self.active["decision_id"] if self.active else None,
             "next_review_step": self.next_review,
             "budget_exhausted": self.exhausted,
         }
+        if self.representation_method:
+            metadata["intervention"] = self.active
+        return model_input, metadata
 
     def summary(self):
         from astra_reversal.codex_accounting import summarize_codex_calls

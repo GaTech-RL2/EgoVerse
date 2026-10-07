@@ -177,6 +177,7 @@ def main():
     parser.add_argument("--smoke-actions", type=int, default=5)
     parser.add_argument("--full-episodes", action="store_true")
     parser.add_argument("--guidance-baseline-manifest", type=Path)
+    parser.add_argument("--representation-method", choices=("tei", "tli"))
     parser.add_argument("--episode-plan", type=Path)
     parser.add_argument(
         "--tasks", nargs="+", default=["LoadPreparedFood", "PackIdenticalLunches"]
@@ -275,6 +276,10 @@ def main():
                 args.output / "episode_plan.json",
                 json.loads(args.episode_plan.read_text()),
             )
+        if args.representation_method:
+            if not args.guidance_baseline_manifest:
+                raise ValueError("Representation method requires paired baselines")
+            command += ["--representation-method", args.representation_method]
         if not args.full_episodes:
             command += ["--smoke-actions", str(args.smoke_actions)]
         write_json(

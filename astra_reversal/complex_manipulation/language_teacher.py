@@ -87,9 +87,17 @@ def live_snapshot(observation, step, *, origin="current"):
     }
 
 
-def build_request(*, episode_id, request_index, step, snapshots, context):
+def build_request(
+    *,
+    episode_id,
+    request_index,
+    step,
+    snapshots,
+    context,
+    schema_version=SCHEMA_VERSION,
+):
     value = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "role": "guide",
         "episode_id": episode_id,
         "attempt_id": episode_id,
@@ -100,16 +108,16 @@ def build_request(*, episode_id, request_index, step, snapshots, context):
         "snapshots": copy.deepcopy(snapshots),
     }
     value["request_fingerprint"] = digest(value)
-    _validate_request(value)
+    _validate_request(value, schema_version=schema_version)
     return value
 
 
-def _validate_request(request):
+def _validate_request(request, *, schema_version=SCHEMA_VERSION):
     value = copy.deepcopy(request)
     if value.pop("request_fingerprint", None) != digest(value):
         raise ValueError("Teacher request identity differs")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        value.get("schema_version") != schema_version
         or value.get("role") != "guide"
         or value.get("attempt_id") != value.get("episode_id")
     ):
@@ -242,8 +250,15 @@ def policy_prompt(original, proposal):
     return original + " Current phase: " + proposal["subgoal"].strip()
 
 
-def build_payload(request, model, *, sampling=None):
-    _validate_request(request)
+def build_payload(
+    request,
+    model,
+    *,
+    sampling=None,
+    system_prompt=SYSTEM_PROMPT,
+    schema_version=SCHEMA_VERSION,
+):
+    _validate_request(request, schema_version=schema_version)
     context = copy.deepcopy(request)
     parts = []
     index = 0
@@ -268,7 +283,7 @@ def build_payload(request, model, *, sampling=None):
     return {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": [{"type": "text", "text": json.dumps(context)}] + parts,
