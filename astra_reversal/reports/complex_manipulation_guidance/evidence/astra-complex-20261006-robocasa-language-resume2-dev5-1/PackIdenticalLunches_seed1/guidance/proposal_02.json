@@ -1,0 +1,15 @@
+{
+  "completion_signal": "One carrot rests inside the same tupperware as the red fish.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The red fish has moved from the refrigerator to inside the left tupperware and appears released with the fingers open. A carrot remains on the lower refrigerator shelf. Prior failure left food outside the containers.",
+  "subgoal": "Leave the red fish in its tupperware. Pick up the lower-shelf carrot and place it inside that same tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:500:guide:2",
+  "request_fingerprint": "dc04074aa2d5593df24853c6736758eda2a9959d1831d50adf7641898774a042",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 2,
+  "observation_step": 500
+}

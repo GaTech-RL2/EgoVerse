@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Second broccoli visibly held clear of the refrigerator shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Robot has returned to the open refrigerator. Broccoli is visible on an upper shelf; the gripper remains below it with no visible grasp. Previously placed broccoli was secure in its container. Prior failure dropped food during transport.",
+  "subgoal": "Raise the gripper to the broccoli on the refrigerator shelf, grasp it, and lift clear before backing away. Preserve the broccoli already packed.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:1200:guide:6",
+  "request_fingerprint": "d8e45d99a279d99c22bd8b4112be49e88638a8a0a97677410ad6eb459580dc52",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 6,
+  "observation_step": 1200
+}

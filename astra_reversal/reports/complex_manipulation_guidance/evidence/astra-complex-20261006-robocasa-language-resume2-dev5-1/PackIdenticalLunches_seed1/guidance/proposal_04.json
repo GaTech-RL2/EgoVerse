@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The carrot lifts clear of the shelf while the adjacent fish stays on the shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has turned from the counter toward the refrigerator. The lower-shelf carrot remains beside a dark fish; neither is visibly grasped. The red fish remains in its tupperware. The failed rollout showed carrot and fish moving together.",
+  "subgoal": "Grasp only the orange body of the lower-shelf carrot, avoiding the adjacent fish, and lift it clear. Leave the packed red fish undisturbed.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:1000:guide:4",
+  "request_fingerprint": "c7b3e71ed4435c133fd6a5caac77ab4c85b3a25e9a366c89d5c254d1858a0d39",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 4,
+  "observation_step": 1000
+}

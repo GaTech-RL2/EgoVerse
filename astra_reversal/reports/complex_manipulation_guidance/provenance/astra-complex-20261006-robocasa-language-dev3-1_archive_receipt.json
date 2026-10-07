@@ -1,0 +1,464 @@
+{
+  "files": {
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/worker_started.json",
+      "bytes": 232,
+      "sha256": "582fe60964fbbb7d8d803d4eb4fd6a92221aad13f4d8efb29824e2be30097e8a",
+      "stamp": [
+        232,
+        1791356072330622607
+      ]
+    },
+    "evaluation.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation.log",
+      "bytes": 12233,
+      "sha256": "6a5c9e26fa92766e6146907e957768c8cce59e6ef3b55c0bbc9d76422081f3ea",
+      "stamp": [
+        12233,
+        1791356892109450494
+      ]
+    },
+    "evaluation_command.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation_command.json",
+      "bytes": 519,
+      "sha256": "62e2bbafb6e37346927276b675912e3d3ab7bcf881953f7cd396d009c05215a2",
+      "stamp": [
+        519,
+        1791356340160561933
+      ]
+    },
+    "guidance_baseline_manifest.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/guidance_baseline_manifest.json",
+      "bytes": 3287,
+      "sha256": "bbd0cc153539f98b9155bd489a0b66f75636a8f4f8d344d6feb0e63891f16aa3",
+      "stamp": [
+        3287,
+        1791356340160561933
+      ]
+    },
+    "stage_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/stage_receipt.json",
+      "bytes": 17755,
+      "sha256": "ba0220758862f9d35f51031b2d05506705ded701e6e46de41677d56a0c2bf223",
+      "stamp": [
+        17755,
+        1791356335464562946
+      ]
+    },
+    "evaluation/runtime.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/runtime.json",
+      "bytes": 960,
+      "sha256": "981e50f75dca3346d843063a44bedaa5918e225126af23be9d08faaa7e985d6b",
+      "stamp": [
+        960,
+        1791356344859560921
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/started.json",
+      "bytes": 146,
+      "sha256": "5f5145fda857c7df0f2e6ebf8f241397b684dd5868390c97dec1a7516f865ff4",
+      "stamp": [
+        146,
+        1791356420011544929
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/executed_steps.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/executed_steps.jsonl",
+      "bytes": 541385,
+      "sha256": "1e6071e7e1c8a599195f5679590cd8b763e2284db0d151aff1b5ae6f286ee9a9",
+      "stamp": [
+        541385,
+        1791356865899455546
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/paired_reset.json",
+      "bytes": 508,
+      "sha256": "5608c9a1416435bcfb8c75cb402151497b1f39872c106affba49a348b954245e",
+      "stamp": [
+        508,
+        1791356459019536762
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_00.json",
+      "bytes": 1343246,
+      "sha256": "100893cb119671b942588cc011bf486f1ac61b5ab4f872615f2db7dd980a21fe",
+      "stamp": [
+        1343246,
+        1791356459068536752
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/initial_model.xml.gz",
+      "bytes": 43699,
+      "sha256": "f919948a2cb96429fc4319c4fbc1e6073cbd812f2a5dc30dd070006070cfee00",
+      "stamp": [
+        43699,
+        1791356458873536792
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/initial_observation.npz",
+      "bytes": 208448,
+      "sha256": "82f873dc2f3fe22f0d700230702c3113023075b005b5936bce3731d3d7400285",
+      "stamp": [
+        208448,
+        1791356458858536795
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/predictions.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/predictions.jsonl",
+      "bytes": 4357279,
+      "sha256": "24905f346402e54ca836774627e00368957a15e94f6e8ec40047d9a483909395",
+      "stamp": [
+        4357279,
+        1791356865405455642
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/reset.json",
+      "bytes": 604,
+      "sha256": "ef19c8450392eed8bb80fcf80352572472c147c7113ad4a402bff64956296218",
+      "stamp": [
+        604,
+        1791356458874536792
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/starting_image.png",
+      "bytes": 198359,
+      "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc",
+      "stamp": [
+        198359,
+        1791356459019536762
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_00.json",
+      "bytes": 1064,
+      "sha256": "faed78ef05441a14355d932865cad0f628caa9967365d8aacece87e14f6f73f6",
+      "stamp": [
+        1064,
+        1791356476825533062
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/provider.jsonl",
+      "bytes": 65088,
+      "sha256": "2607ba5dd15e62d3471cc14e8afd36e1a93b3dea01181611a89d545f0400b48e",
+      "stamp": [
+        65088,
+        1791356853576457927
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/rollout.mp4",
+      "bytes": 2386642,
+      "sha256": "6b42a4a388f00af2120e40fedcd29e1502964ab14e5aaf6999dc02d621e31e55",
+      "stamp": [
+        2386642,
+        1791356866051455517
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_01.json",
+      "bytes": 1559781,
+      "sha256": "a45c69bd78acf9082709390690dc91cfa20586d96aaee2375894ecbe6b4c2f47",
+      "stamp": [
+        1559781,
+        1791356547100518614
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/progress.json",
+      "bytes": 230,
+      "sha256": "b8e1101d5c2c4e6f8d9b32cd31534cbe4e09725860fe3165aa80ee59a6464847",
+      "stamp": [
+        230,
+        1791356865899455546
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_01.json",
+      "bytes": 1124,
+      "sha256": "904aa316f2261f71f445fbc3e9b2a6f01bcb6a8760efd2d4df2dcb5f7e8ec2fb",
+      "stamp": [
+        1124,
+        1791356564527515068
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_02.json",
+      "bytes": 1106,
+      "sha256": "c13338029d7af908f18a44cd61ca07fdfae4bfb6560913c574c340b378ee5bec",
+      "stamp": [
+        1106,
+        1791356590709509765
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_02.json",
+      "bytes": 1564206,
+      "sha256": "0c1965832653881515bf54c567cebe7805fd0869c7bc7a79208ddcd489066dc5",
+      "stamp": [
+        1564206,
+        1791356575250512892
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_03.json",
+      "bytes": 1120,
+      "sha256": "7d3ef327106a5dd2240d5b2d03a243fbb00b68f92cb527f864aa061069d974f3",
+      "stamp": [
+        1120,
+        1791356619147504037
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_03.json",
+      "bytes": 1561527,
+      "sha256": "a8612ecdf16e1a7441c7e8557f922fc62cea50ac6e5f262b5ca568b781ca690f",
+      "stamp": [
+        1561527,
+        1791356601525507582
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_04.json",
+      "bytes": 1104,
+      "sha256": "955a0442f1f26acd78e531e2869f05aea1da23784c594a1ad7c19ddc2c7bde08",
+      "stamp": [
+        1104,
+        1791356647821498294
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_04.json",
+      "bytes": 1558793,
+      "sha256": "fe6148f66e9d5d21753eb0574f12897d2d20905b88e50defb0495a7c8cb7dc54",
+      "stamp": [
+        1558793,
+        1791356630631501733
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_05.json",
+      "bytes": 1112,
+      "sha256": "2feabb2965b62fc2f62495a3d7ae5f4c2813f196b90a7a9429d98c32d6082023",
+      "stamp": [
+        1112,
+        1791356676374492607
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_05.json",
+      "bytes": 1570065,
+      "sha256": "6335aab71b4eda6011e336825a803c62e53f4ef7ade69836224ca2befe0c36f7",
+      "stamp": [
+        1570065,
+        1791356659122496040
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_06.json",
+      "bytes": 1576922,
+      "sha256": "6a588182a87c4354865e6e6ca19fdf33fa2e7a2e9d173a785a93e346d1e0e658",
+      "stamp": [
+        1576922,
+        1791356687482490402
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_06.json",
+      "bytes": 1089,
+      "sha256": "23c58b01c3a13173bf4b00cc6705dc27c3d7cd7eeae81bcc0590e613ee55a3e6",
+      "stamp": [
+        1089,
+        1791356705346486865
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_07.json",
+      "bytes": 1568996,
+      "sha256": "94a46e6d620312b73cae8ab8c5d392154f1e41a8c26f9292399a77e1999402ad",
+      "stamp": [
+        1568996,
+        1791356711305485687
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_07.json",
+      "bytes": 1111,
+      "sha256": "1351e1a335977f3fda2060cc494b3270ce915596e70298043be7a8760f5834c8",
+      "stamp": [
+        1111,
+        1791356727494482495
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_08.json",
+      "bytes": 1573393,
+      "sha256": "b8f1b87ab9affbc9081d8b1c21de8a93ca9dd53819201c32c244abdd2e2ac6bb",
+      "stamp": [
+        1573393,
+        1791356739780480078
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_08.json",
+      "bytes": 1170,
+      "sha256": "81b2b45794fd0c605ca2ecd836a52fcb19240bf083c77c3636bca7ac59da3791",
+      "stamp": [
+        1170,
+        1791356760889475935
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_09.json",
+      "bytes": 1179,
+      "sha256": "1eb9829e5a9890643fc55285a4b675069c8ae0600eddd0f9f61d22fabb1b4be1",
+      "stamp": [
+        1179,
+        1791356808102466718
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_09.json",
+      "bytes": 1571344,
+      "sha256": "3e9e667769beae680327559baa117a1494d0b98e4987374bf799b31f00899162",
+      "stamp": [
+        1571344,
+        1791356791538469945
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/proposal_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/proposal_10.json",
+      "bytes": 1184,
+      "sha256": "4cec24b265a1c014c1c593bbc16aede8bb88c29c2011445cdb7665ff5d98bfd3",
+      "stamp": [
+        1184,
+        1791356853576457927
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/guidance/request_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/guidance/request_10.json",
+      "bytes": 1572732,
+      "sha256": "e4f9a54e2f5f9f709c50d107dbf0e7830adbe6f5881dd8a52c9ac72d09b41f98",
+      "stamp": [
+        1572732,
+        1791356837388461038
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed0/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed0/result.json",
+      "bytes": 2653,
+      "sha256": "340f0634d24cefe234c63ef2d977af37687898cfb39110574d5814b5bd80a4b1",
+      "stamp": [
+        2653,
+        1791356865900455546
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/started.json",
+      "bytes": 146,
+      "sha256": "e8053c121ba803f1856a45d7630fa75f67662aa3fbc9d39b3717b2b2eb00192b",
+      "stamp": [
+        146,
+        1791356883407452170
+      ]
+    },
+    "evaluation/summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/summary.json",
+      "bytes": 349,
+      "sha256": "b5ba6f0177528ea177c9b1234cfcba55688898541acdb4e97edf305d1d22de05",
+      "stamp": [
+        349,
+        1791356866062455515
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/error.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/error.json",
+      "bytes": 92,
+      "sha256": "a15c16759b9437bc4e8d19f7150c4dfa874ddbe528e824aa35e9eddbb385ac0d",
+      "stamp": [
+        92,
+        1791356891680450577
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/executed_steps.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/executed_steps.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stamp": [
+        0,
+        1791356891679450577
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/initial_model.xml.gz",
+      "bytes": 44539,
+      "sha256": "e109fadfcd9ee6d92b81af1e6544133270c2253b29f5fa8cbcf7f598eb92b459",
+      "stamp": [
+        44539,
+        1791356891619450589
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/initial_observation.npz",
+      "bytes": 279979,
+      "sha256": "937ef8e9cd8f01953190baa53161e9414bd7acb8fe68275fbe55bd8ef69944f8",
+      "stamp": [
+        279979,
+        1791356891605450591
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/predictions.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/predictions.jsonl",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stamp": [
+        0,
+        1791356891679450577
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/reset.json",
+      "bytes": 615,
+      "sha256": "d2c3e9ee0d76f378e8c52a902395cec4788bf860590bc648a2c6891f3a379e0e",
+      "stamp": [
+        615,
+        1791356891620450588
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/result.json",
+      "bytes": 2565,
+      "sha256": "1c62571332758546d8457250b2d4093ce651a45daa241c5645d49c76e2d50094",
+      "stamp": [
+        2565,
+        1791356891680450577
+      ]
+    },
+    "evaluation/LoadPreparedFood_seed1/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/evaluation/LoadPreparedFood_seed1/starting_image.png",
+      "bytes": 259134,
+      "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c",
+      "stamp": [
+        259134,
+        1791356891679450577
+      ]
+    },
+    "worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-language-dev3-1/results/worker_finished.json",
+      "bytes": 61,
+      "sha256": "588a99fa1d7484df0d5a110726621eef55fcc6d94fe991cbc090435fd7431cd2",
+      "stamp": [
+        61,
+        1791356894977449942
+      ]
+    }
+  },
+  "updated_unix": 1791356897.508775
+}

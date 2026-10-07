@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The open gripper is visibly above and clear of the container rim.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1100, the arm has shifted slightly, but the tupperware still appears on the counter. No lift is confirmed; the prior failed rollout also never established shelf placement.",
+  "subgoal": "Open the gripper and withdraw it upward clear of the tupperware rim to reset the grasp, leaving the food inside.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:1200:guide:9",
+  "request_fingerprint": "5d794365eeea09f83962d4593ea2c8a5ea627e566085d7c5d554d293e52c1fb7",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 1200
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Steak remains held at the counter, positioned above a tupperware opening.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with the previous view, the robot has backed away from the refrigerator with the steak still visible between the fingers and close in the wrist camera. The prior rollout dropped steak during transport; the destination is not yet visible.",
+  "subgoal": "Carry the held steak to the nearby counter with the gripper closed, then position it above a tupperware that still needs a steak.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:2050:guide:10",
+  "request_fingerprint": "c43abf7b9d2a5dfee0326aa8f57c236f447e1a2622731bddff6140aee1a14c71",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 10,
+  "observation_step": 2050
+}

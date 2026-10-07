@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Robot reaches the open refrigerator and visibly grasps another corn.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm has shifted, but the base remains nearly unchanged and still faces the counter. Corn remains in the left tupperware; the right tupperware's contents are partly obscured. No new food grasp is confirmed. Previous retreat prompts have not produced refrigerator navigation.",
+  "subgoal": "Leave both tupperwares on the counter. Go to the open refrigerator and pick up another corn for the tupperware containing chicken.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:3250:guide:14",
+  "request_fingerprint": "b36062aa33b8961c2dc59f7fb63abaaac65eed19fc834c8d18a21cd920d95935",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 14,
+  "observation_step": 3250
+}

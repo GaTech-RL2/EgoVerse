@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Robot is positioned in front of the open refrigerator with its shelves within reach.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Only slight viewpoint change since the previous review; the robot still faces the counter and holds no visible carrot. Both fish remain in their containers. Carrots are visible in the refrigerator to the left; the failed rollout left them there.",
+  "subgoal": "Move the mobile base left to stand directly in front of the open refrigerator, facing its shelves. Leave the fish in their containers.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:2600:guide:11",
+  "request_fingerprint": "96541c716aa8fddc23700275942b88040c52136f6d805a7ec0c9ea1d621d3797",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 11,
+  "observation_step": 2600
+}

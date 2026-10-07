@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The counter is cleared and the fridge comes into view while the tupperware stays with the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The tupperware remains beside the gripper across live views, suggesting it is held, but the robot is still near the microwave counter. The fridge is not visible; the prior failure also stalled at this counter.",
+  "subgoal": "Keep the tupperware grasped and level. Back the mobile base away from the counter to clear it, then turn toward the fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:1150:guide:9",
+  "request_fingerprint": "73ede488d72cb4e164a637e9a04556edc82a1702672914a9295b4a5cb458517f",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 1150
+}

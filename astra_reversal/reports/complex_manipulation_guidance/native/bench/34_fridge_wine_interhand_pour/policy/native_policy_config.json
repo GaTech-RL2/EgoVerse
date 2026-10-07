@@ -1,0 +1,9 @@
+{
+  "policy_name": "pi05",
+  "train_config_name": "pi05_base_dex2bench_full",
+  "checkpoint_path": "/opt/astra-bench-data/policy_ckpt/34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000",
+  "robot_key": "multi_ur5_rh5dg2_with_flange",
+  "use_active_dof": true,
+  "train_action_horizon": 20,
+  "eval_action_horizon": 20
+}

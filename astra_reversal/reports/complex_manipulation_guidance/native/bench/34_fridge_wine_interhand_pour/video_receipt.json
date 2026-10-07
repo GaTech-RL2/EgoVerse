@@ -1,0 +1,14 @@
+{
+  "source_hdf5": "34_fridge_wine_interhand_pour/recordings/failure/episode_000001.hdf5",
+  "source_sha256": "ac1ca4f5898dd3ecc7d52c1f94d600516f6f44ef9d2810592e5c2775daf1c2cb",
+  "frames": 1080,
+  "fps": 20,
+  "camera_order_top_left_top_right_bottom_left_bottom_right": [
+    "cam_stereo_left",
+    "cam_stereo_right",
+    "cam_wrist_left",
+    "cam_wrist_right"
+  ],
+  "native_physics_steps_per_control": 3,
+  "meaning": "A mosaic of recorded live policy-camera JPEGs, with no observation intervention. Playback follows simulated control time. Native per_episode.jsonl defines success; video appearance does not score the episode."
+}

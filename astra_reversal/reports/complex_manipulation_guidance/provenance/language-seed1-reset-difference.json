@@ -1,0 +1,45 @@
+{
+  "observation/state": {
+    "same": true,
+    "dtype_a": "float32",
+    "dtype_b": "float32",
+    "count_different": 0,
+    "max_absolute_difference": 0.0,
+    "mean_absolute_difference": 0.0
+  },
+  "prompt": {
+    "same": true
+  },
+  "observation/image": {
+    "same": true,
+    "dtype_a": "uint8",
+    "dtype_b": "uint8",
+    "count_different": 0,
+    "max_absolute_difference": 0.0,
+    "mean_absolute_difference": 0.0
+  },
+  "observation/right_image": {
+    "same": true,
+    "dtype_a": "uint8",
+    "dtype_b": "uint8",
+    "count_different": 0,
+    "max_absolute_difference": 0.0,
+    "mean_absolute_difference": 0.0
+  },
+  "observation/wrist_image": {
+    "same": false,
+    "dtype_a": "uint8",
+    "dtype_b": "uint8",
+    "count_different": 1,
+    "max_absolute_difference": 1.0,
+    "mean_absolute_difference": 6.64328231292517e-06
+  },
+  "simulator_state": {
+    "same": true,
+    "dtype_a": "float64",
+    "dtype_b": "float64",
+    "count_different": 0,
+    "max_absolute_difference": 0.0,
+    "mean_absolute_difference": 0.0
+  }
+}

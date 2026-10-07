@@ -1,0 +1,10 @@
+{
+  "task": "73_jigsaw_puzzle_assembly",
+  "process_exit_code": 0,
+  "native_result_rows": 1,
+  "completed_episodes": 1,
+  "successes": 0,
+  "success_rate": 0.0,
+  "teacher_calls": 0,
+  "teacher_tokens": 0
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The refrigerator interior is visible and another broccoli is visibly lifted in the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has moved from the lunch counter to the tall cabinet area. No food is visible in the wrist view, and the refrigerator interior is not visible. Previously placed steak and broccoli are now out of view. The failed rollout showed a steak dropped during transport.",
+  "subgoal": "Face the refrigerator and open its door, then grasp and lift another broccoli securely for the tupperware containing steak. Preserve the placed food.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:3550:guide:14",
+  "request_fingerprint": "bc2d9ffa15e567883af437b1398fc55bc37adaae69352e50cbff9ba2ba581ab4",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 14,
+  "observation_step": 3550
+}

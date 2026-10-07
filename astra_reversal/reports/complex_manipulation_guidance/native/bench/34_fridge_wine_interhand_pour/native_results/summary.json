@@ -1,0 +1,216 @@
+{
+  "metric_schema_version": "core-v1.8-policy-step-query-split",
+  "metadata": {
+    "policy_name": "REMOTE",
+    "base_seed": 103400000,
+    "seed_policy": "episode_seed = base_seed + episode_index - 1",
+    "randomization_recorded": true,
+    "n_episodes": 1,
+    "successes": 0,
+    "error_count": 0,
+    "evaluation_protocol": "reach_and_stop",
+    "early_stop": true,
+    "success_definition": "terminal.raw_condition holds for dwell_time_s",
+    "measurement_window": "episode_start_to_stable_success_or_failure_budget",
+    "max_episode_steps": 3240,
+    "dwell_time_s": 0.5,
+    "field_semantics": {
+      "success_rate": "primary protocol success rate: stable_success for reach_and_stop; terminal at_end_success_budget for fixed_horizon",
+      "avg_time_to_success_s": "main efficiency metric: mean time_to_stable_success_s over reached-success episodes",
+      "task_efficiency": "benchmark-specific expert-normalized speed ratio: expert_time_s / time_to_stable_success_s over reached-success episodes",
+      "avg_steps_to_success": "diagnostic mean steps_to_stable_success over reached-success episodes, or None if no episode succeeds",
+      "avg_policy_steps_to_success": "diagnostic mean policy-rate control/action steps through stable success over reached-success episodes",
+      "avg_policy_queries_to_success": "diagnostic mean actual model inference queries through stable success over reached-success episodes; None when the first-success query count was not observed",
+      "safe_success_rate": "episode success rate with no task-level hard safety violation (drop or tracked-object high speed; joint limits are diagnostic by default)",
+      "hard_violation_rate": "episode rate with any task-level hard safety violation (drop or tracked-object high speed; joint limits are diagnostic by default)",
+      "drop_rate": "episode rate with drop_off_table or drop_to_table_after_lift violation",
+      "high_speed_violation_rate": "episode rate with any tracked object exceeding the configured speed threshold",
+      "excessive_impact_rate": "deprecated contact-force impact metric; no longer populated by core safety",
+      "robot_constraint_violation_rate": "diagnostic episode rate with any asset hard-joint-limit observation; excluded from safe_success_rate unless include_in_core_safety is explicitly enabled",
+      "finger_joint_limit_saturation_rate": "episode rate with dexterous finger joints saturated beyond finger joint-limit thresholds; diagnostic by default and not included in safe_success_rate",
+      "joint_limit_active_step_rate": "diagnostic mean fraction of steps with any joint exceeding the soft diagnostic margin",
+      "finger_joint_limit_saturation_step_rate": "diagnostic mean fraction of steps with finger joint-limit saturation",
+      "max_joint_limit_excess_rad": "diagnostic maximum operating/soft-limit excess observed in radians; hard-limit source and role validation are in robot_constraint_diagnostics",
+      "safety_violation_rate_time": "compatibility diagnostic; with fixed physics_dt this is equivalent to safety_violation_step_rate and is omitted from grouped summary output",
+      "safety_violation_step_rate": "core safety metric: fraction of executed steps with task-level safety violations; joint-limit observations are excluded by default",
+      "safety_violation_rate_event": "deprecated compatibility alias of safety_violation_events_per_step; omitted from grouped summary output",
+      "safety_violation_events_per_step": "diagnostic event density; may exceed 1 when multiple violations happen in one step",
+      "episode_violation_rate": "compatibility alias of hard_violation_rate; omitted from grouped core output",
+      "latched_stage_completion_rate": "main progress metric; ever-reached stage completion rate at episode end",
+      "current_stage_completion_rate": "diagnostic terminal-state stage completion rate at episode end",
+      "current_normalized_progress_score": "chain-depth diagnostic; normalized progress score at episode end",
+      "current_chain_depth_progress_score": "alias of current_normalized_progress_score for ordered dependency-depth diagnostics",
+      "latched_chain_depth_progress_score": "alias of latched_normalized_progress_score for ever-reached dependency-depth diagnostics",
+      "robustness": "success rates grouped by benchmark protocol category: cov, inv, and inv+cov"
+    }
+  },
+  "core_metrics": {
+    "completion": {
+      "success_rate": 0.0,
+      "success_rate_ci": {
+        "mean": 0.0,
+        "ci_low": 0.0,
+        "ci_high": 0.0
+      }
+    },
+    "progress": {
+      "latched_stage_completion_rate": 0.4
+    },
+    "efficiency": {
+      "avg_time_to_success_s": null
+    },
+    "safety": {
+      "safe_success_rate": 0.0,
+      "hard_violation_rate": 1.0,
+      "drop_rate": 1.0,
+      "high_speed_violation_rate": 0.0,
+      "safety_violation_step_rate": 0.00030864197530864197
+    },
+    "robustness": {}
+  },
+  "diagnostic_metrics": {
+    "completion": {
+      "ever_instant_success_rate": 0.0,
+      "at_end_success_rate": 0.0,
+      "task_family_success_rate": {
+        "articulation_pour": 0.0
+      }
+    },
+    "progress": {
+      "current_stage_completion_rate": 0.2,
+      "current_chain_depth_progress_score": 0.2,
+      "latched_chain_depth_progress_score": 0.4,
+      "avg_current_chain_depth": 1,
+      "avg_latched_chain_depth": 2
+    },
+    "efficiency": {
+      "task_efficiency": null,
+      "expert_time_s": 36.0,
+      "expert_time_step": 2160,
+      "avg_steps_to_success": null,
+      "avg_policy_steps_to_success": null,
+      "avg_policy_queries_to_success": null
+    },
+    "safety": {
+      "safety_violation_events_per_step": 0.00030864197530864197,
+      "violation_counts": {
+        "drop_to_table_obj_224_wine_bottle_1": 1
+      },
+      "robot_constraint_violation_rate": 1.0,
+      "finger_joint_limit_saturation_rate": 1.0,
+      "joint_limit_active_step_rate": 0.3228395061728395,
+      "finger_joint_limit_saturation_step_rate": 0.30030864197530865,
+      "max_joint_limit_excess_rad": 0.37378236651420593,
+      "robot_constraint_diagnostics": {
+        "joint_limit_soft_counts": {
+          "left_index_pip_joint": 43,
+          "left_middle_pip_joint": 59,
+          "left_thumb_mcp_joint": 434,
+          "right_thumb_mcp_joint": 583
+        },
+        "joint_limit_hard_counts": {
+          "left_index_pip_joint": 13,
+          "left_middle_pip_joint": 7,
+          "left_ring_pip_joint": 3,
+          "left_thumb_mcp_joint": 2,
+          "right_thumb_mcp_joint": 1
+        },
+        "joint_limit_hard_episode_events": 12,
+        "finger_joint_limit_saturation_counts": {
+          "left_index_pip_joint": 1,
+          "left_middle_pip_joint": 25,
+          "left_thumb_mcp_joint": 410,
+          "right_thumb_mcp_joint": 554
+        },
+        "joint_limit_max_excess_by_joint": {
+          "left_index_dip_joint": 1.6797011781477522e-08,
+          "left_index_pip_joint": 0.14962588250637054,
+          "left_index_pitch_joint": 9.449259232496843e-05,
+          "left_middle_dip_joint": 0.00034758963738568127,
+          "left_middle_pip_joint": 0.37378236651420593,
+          "left_middle_pitch_joint": 3.0875205993652344e-05,
+          "left_pinky_mcp_joint": 0.0008569955825805664,
+          "left_ring_dip_joint": 0.0009354775538668036,
+          "left_ring_mcp_joint": 7.176399230957031e-05,
+          "left_ring_pip_joint": 0.00853718165308237,
+          "left_thumb_dip_joint": 8.058452294790186e-06,
+          "left_thumb_mcp_joint": 0.35498955845832825,
+          "right_index_dip_joint": 1.6629292076686397e-05,
+          "right_index_pip_joint": 0.00014674890553578734,
+          "right_index_pitch_joint": 0.00013402561307884753,
+          "right_middle_dip_joint": 0.00030236461316235363,
+          "right_middle_mcp_joint": 0.0017818808555603027,
+          "right_middle_pip_joint": 0.0004935866454616189,
+          "right_middle_pitch_joint": 0.00013383851910475641,
+          "right_pinky_mcp_joint": 0.001412034034729004,
+          "right_ring_dip_joint": 0.0002872370823752135,
+          "right_ring_mcp_joint": 0.001213669776916504,
+          "right_ring_pip_joint": 0.00046555031440220773,
+          "right_thumb_dip_joint": 2.8353095331112854e-05,
+          "right_thumb_mcp_joint": 0.336670845746994
+        },
+        "coverage": {
+          "hard_limit_source": {
+            "available": 1,
+            "unavailable": 0,
+            "unknown": 0
+          },
+          "joint_role_manifest": {
+            "available": 1,
+            "unavailable": 0,
+            "unknown": 0
+          }
+        },
+        "hard_limit_sources": {
+          "runtime.joint_pos_limits": 1
+        },
+        "soft_limit_sources": {
+          "runtime.soft_joint_pos_limits": 1
+        },
+        "unknown_runtime_joint_names": [],
+        "baseline_checks": {
+          "post_home": {
+            "checked": 1,
+            "hard_violation_episodes": 0
+          },
+          "post_reset": {
+            "checked": 1,
+            "hard_violation_episodes": 0
+          }
+        }
+      }
+    },
+    "robot_motion": {
+      "joint_acceleration_rms": 24.78916993445404,
+      "joint_effort_rms": 26.36083907408078,
+      "joint_jerk_rms": 2488.357323290013,
+      "joint_velocity_rms": 0.5678027237222926
+    },
+    "grasp": {
+      "kinematic_grasp_stability_index": 0.7963310162644923,
+      "mean_kinematic_grasp_stability": 0.37226588969270413,
+      "per_object_best_kinematic_grasp_stability": {
+        "obj_224_wine_bottle_1": 0.7963310162644923
+      },
+      "grasp_gsi_diagnostics": {
+        "mean_anti_slip_score": 0.277880658436214,
+        "mean_duration_score": 0.7791975308641975,
+        "mean_hold_score": 0.1783641975308633,
+        "mean_kinematic_stability_score": 0.03010298243811373,
+        "mean_legacy_gsi": 0.32214688106901335,
+        "mean_lift_score": 0.3117283950617284,
+        "mean_motion_stability_score": 0.16014599603813795
+      }
+    },
+    "tool": {
+      "tool_selection_accuracy": null,
+      "tool_switch_success_rate": null,
+      "tool_switch_total": 0,
+      "tool_switch_successful": 0
+    },
+    "runtime": {
+      "avg_steps": 3240,
+      "error_count": 0
+    }
+  }
+}

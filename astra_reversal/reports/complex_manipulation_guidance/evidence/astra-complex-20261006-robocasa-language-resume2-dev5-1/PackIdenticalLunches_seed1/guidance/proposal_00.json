@@ -1,0 +1,15 @@
+{
+  "completion_signal": "One carrot rests inside a tupperware on the counter.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Current views show carrots and fish on the open refrigerator shelves; no grasp is established. The failed rollout shows food left on the counter outside the containers.",
+  "subgoal": "Pick up the carrot beside the fish on the lower refrigerator shelf, then place it inside one tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "73199b836989f3c8a3d6a6727e95f658a0b6301a5393a1a94e75b7c3b01c2e6d",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

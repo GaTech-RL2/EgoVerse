@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The whole container visibly clears the counter and moves with the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 50,
+  "observed_evidence": "Since step 650, the gripper has closed and the wrist view has shifted, but counter clearance remains unclear. The failed rollout stalled beside this container.",
+  "subgoal": "Keep the current grip and lift the tupperware vertically clear of the counter before moving toward the fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:750:guide:6",
+  "request_fingerprint": "3967049cd2e636c7f097bbf86c40fca10229d4e99d990552988a71850e6c96fa",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 6,
+  "observation_step": 750
+}

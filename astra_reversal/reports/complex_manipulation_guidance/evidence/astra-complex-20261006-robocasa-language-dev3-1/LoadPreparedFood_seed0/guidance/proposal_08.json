@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The robot reaches the fridge with the tupperware still held clear of the counter.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 800, the tupperware appears raised beside the gripper and remains visible in the wrist view. This suggests progress beyond the prior rollout's counter stall; the fridge is outside the current views.",
+  "subgoal": "Keep holding the tupperware level and move away from the counter toward the fridge, keeping the container clear of obstacles.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:900:guide:8",
+  "request_fingerprint": "29dc1406fca47ad42c8238f6d132763bb94d8a0fad8a3ad849283f1f4ebc081b",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 8,
+  "observation_step": 900
+}

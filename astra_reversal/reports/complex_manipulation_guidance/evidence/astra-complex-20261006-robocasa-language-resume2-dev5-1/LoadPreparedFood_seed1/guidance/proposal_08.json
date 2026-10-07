@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware visibly clears the counter and moves with the gripper.",
+  "method": "native",
+  "next_review_controls": 100,
+  "observed_evidence": "Current views and robot state are nearly unchanged from step 1000. The tupperware still appears supported by the counter; repeated regrasp prompts have produced no visible progress. Restore the original instruction and reassess before assuming transport is possible.",
+  "subgoal": "",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:1100:guide:8",
+  "request_fingerprint": "65bcf076c70a19871ca2fa6ba4b4245135d9deeb9720db67c916b298ea9eef0d",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 8,
+  "observation_step": 1100
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Gripper clears the tupperware rims and the robot turns toward the refrigerator.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Both foods remain separated in their tupperwares. Since the previous review, the arm has shifted slightly but the base has barely moved; no refrigerator approach or new grasp is visible. The failed rollout likewise left the lunches incomplete.",
+  "subgoal": "Leave the foods in place. Lift the empty gripper above the tupperware rims, retract the arm, then back away from the counter and turn toward the refrigerator.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:2750:guide:12",
+  "request_fingerprint": "75bb76e6951393564a426fdfe127e6a97ef46dcb144253fa66a7acda68cd1050",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 12,
+  "observation_step": 2750
+}

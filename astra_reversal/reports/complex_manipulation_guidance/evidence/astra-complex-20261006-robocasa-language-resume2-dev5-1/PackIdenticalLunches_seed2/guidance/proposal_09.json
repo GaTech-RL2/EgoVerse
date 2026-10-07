@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Drumstick rests beside the corn in the left tupperware with the gripper withdrawn.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The previously held drumstick now appears released into the right tupperware; corn remains in the left. This repeats the separated-food placement seen in the failed rollout.",
+  "subgoal": "Pick up the drumstick from the right tupperware and transfer it into the left tupperware beside the corn; leave the corn in place.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:1900:guide:9",
+  "request_fingerprint": "a8b96ff258201afc352def45345347fa42f0bbd2bc789d6da19e61a86eec9337",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 1900
+}

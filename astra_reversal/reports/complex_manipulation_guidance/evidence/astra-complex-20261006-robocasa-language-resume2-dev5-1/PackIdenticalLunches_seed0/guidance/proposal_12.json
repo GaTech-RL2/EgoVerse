@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware holding the steak also contains one broccoli.",
+  "method": "phase_prompt",
+  "next_review_controls": 500,
+  "observed_evidence": "Previously the steak was held during transport; now it appears inside the nearer tupperware. The broccoli remains in the separate tupperware by the sink. Release is not fully clear, but no floor drop is visible as in the failed rollout.",
+  "subgoal": "Leave the steak in the nearer tupperware and withdraw the gripper. Fetch another broccoli and place it beside that steak; preserve the other broccoli.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:2550:guide:12",
+  "request_fingerprint": "f6a1ffff7bdea3e99146997b9b5fead0c3254cbe4acc9a69229955467af74a4e",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 12,
+  "observation_step": 2550
+}

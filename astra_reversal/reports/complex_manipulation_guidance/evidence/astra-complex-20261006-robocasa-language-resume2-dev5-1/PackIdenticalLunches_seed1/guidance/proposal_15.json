@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The held carrot is released inside a tupperware containing a fish.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The lower carrot now appears held outside the refrigerator, visible close in the wrist camera, whereas previously it rested on the shelf. The upper carrot remains inside. The failed rollout left carrots behind.",
+  "subgoal": "Carry the held carrot to the nearby counter and release it inside a tupperware containing a fish. Preserve the fish and keep the carrot inside the container.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:3600:guide:15",
+  "request_fingerprint": "5a0d36c1ff5f03dd71df96f8267f009ee1d1fe5a86557c51ffcfcf3fb1bb7634",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 15,
+  "observation_step": 3600
+}

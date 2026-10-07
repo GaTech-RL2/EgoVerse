@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The carried broccoli is released inside one tupperware and remains there.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm has retracted from the shelf while broccoli remains at the gripper in the wrist view, supporting a successful grasp. The prior failed rollout left food on the floor.",
+  "subgoal": "Carry the held broccoli clear of the refrigerator to a tupperware on the nearby counter; lower it inside before releasing.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:350:guide:2",
+  "request_fingerprint": "e61e56399c712bf55c95dee7704176545820d05bfc4f421ee01090ef799275fa",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 2,
+  "observation_step": 350
+}

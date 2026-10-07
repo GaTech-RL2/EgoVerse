@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The container visibly lifts off the counter and moves with the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The wrist view is closer to the food, but the container still appears on the counter and the base is unchanged. The rim regrasp has not visibly succeeded.",
+  "subgoal": "Raise the gripper clear of the tupperware, open it fully, then grasp the near rim of the container and lift it off the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:1000:guide:7",
+  "request_fingerprint": "fdfd33db53d4fde535b8d59280b6b3ad3d6497bf96b38b112a511d30f291a5c6",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 7,
+  "observation_step": 1000
+}

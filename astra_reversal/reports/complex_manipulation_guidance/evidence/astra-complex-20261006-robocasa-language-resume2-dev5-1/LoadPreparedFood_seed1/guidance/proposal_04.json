@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The container lifts clear of the counter and stays with the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 450, the container still appears supported by the counter and the base has barely moved. A secure grasp remains unconfirmed; the failed rollout also delayed transport.",
+  "subgoal": "Grasp the outer rim of the fish-and-lime tupperware with the fingers straddling the rim, then lift it vertically clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:700:guide:4",
+  "request_fingerprint": "e80dd5faeabe47a49ab77a80bcdb2af89cc826cbe779d02b12a86feed753aa62",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 4,
+  "observation_step": 700
+}
