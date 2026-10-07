@@ -80,6 +80,7 @@ def generation_schema(value):
 
 def _module(request):
     from . import demo_skill_agent, frs_agent, representation_agent
+    from .complex_manipulation import language_teacher
     from .reasoning_learning import hindsight, teacher, visual_grounding
 
     for module in (
@@ -89,6 +90,7 @@ def _module(request):
         teacher,
         visual_grounding,
         hindsight,
+        language_teacher,
     ):
         if request.get("schema_version") == module.SCHEMA_VERSION:
             return module
@@ -359,9 +361,36 @@ def _consume(run, directory, request, module, result):
             malformed_events = True
     completed = [event for event in events if event.get("type") == "turn.completed"]
     receipt["observed_completed_turns"] = len(completed)
+    # CLI 0.159.3 emits this managed-feature compatibility warning as an
+    # item.error before turn.started. It is neither a tool call nor a failed
+    # inference. Retain its hash; all other error/tool items still fail closed.
+    # The private original event stream remains untouched.
+    notices, actionable, turn_started = [], [], False
+    for event in events:
+        turn_started = turn_started or event.get("type") == "turn.started"
+        item = event.get("item")
+        if (
+            not turn_started
+            and event.get("type") == "item.completed"
+            and isinstance(item, dict)
+            and item.get("type") == "error"
+            and isinstance(item.get("message"), str)
+            and item["message"].startswith(
+                "Ignoring unknown `features` requirement `ultrafast_mode` from requirements layers: "
+            )
+        ):
+            notices.append(
+                {
+                    "kind": "unknown_ultrafast_feature_requirement",
+                    "message_sha256": _hash(item["message"].encode()),
+                }
+            )
+        else:
+            actionable.append(event)
+    receipt["startup_notices"] = notices
     receipt["tool_items"] = [
         {"event_type": event.get("type"), "item_type": event["item"].get("type")}
-        for event in events
+        for event in actionable
         if isinstance(event.get("item"), dict)
         and event["item"].get("type") not in ("agent_message", "reasoning")
     ]

@@ -149,3 +149,7 @@ Primary references
   https://github.com/IliaLarchenko/behavior-1k-solution
   https://huggingface.co/RLinf/RLinf-Pi05-BEHAVIOR-1K-PT50-CS32
   https://huggingface.co/datasets/dexverse/DexVerse_release
+
+Matched Astra language pilot (registered; not yet evaluated)
+The exact initial pilot protocol is language_protocol.json. It uses GPT-6 Astra at medium effort through the local authenticated Codex relay, with all three real policy cameras, 16D state and four frames from the paired native failure. A maximum of 16 teacher calls choose short appended phase instructions and observation intervals. The original task and motor policy are retained. Reset XML, simulator state and policy-observation hashes must match before controls are executed. Provider failure stops the episode; all calls, usage, prompts, proposals, reset attempts and executed prefixes remain recorded. This is a prompt-guidance pilot, not TEI/TLI, FRS or a policy update.
+Codex CLI 0.159.3 emitted two pre-turn item.error notices for an unknown ultrafast_mode feature requirement. The harness now records hashes of that exact startup notice separately, while still rejecting tool use and all other error items. The first rejected CPU probe is preserved and charged; it is not a rollout. Event-format reference: https://learn.chatgpt.com/docs/non-interactive-mode (JSONL events and typed items).

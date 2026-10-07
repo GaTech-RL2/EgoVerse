@@ -51,6 +51,10 @@ def _copy(value):
 
 
 def _module(family):
+    if family == "complex_language":
+        from .complex_manipulation import language_teacher
+
+        return language_teacher
     if family == "frs":
         from . import frs_agent
 
@@ -426,6 +430,7 @@ def _proposal(value, request, module, family):
         "demo_skills",
         "reasoning_learning",
         "visual_grounding",
+        "complex_language",
     ):
         bound_fields.update(
             {

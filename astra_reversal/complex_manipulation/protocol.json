@@ -333,5 +333,11 @@
     "authorized_gpu_hours": 48,
     "used_gpu_hours_including_previous_study": 23.286598217500003,
     "all_jobs_closed": true
+  },
+  "next_guidance_pilot": {
+    "status": "registered_not_run",
+    "protocol": "language_protocol.json",
+    "method": "astra_phase_prompt_pi05",
+    "scope": "Six new matched reset attempts with prior native failure evidence. Language prompt guidance only; no latent interpolation, flow reversal or learning."
   }
 }

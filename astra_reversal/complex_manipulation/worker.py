@@ -144,6 +144,28 @@ class Publisher:
         )
 
 
+def restore_baselines(client, manifest_path, destination):
+    """Fetch only the already measured, immutable paired failure evidence."""
+    manifest = json.loads(manifest_path.read_text())
+    expected = "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-native-dev3-1/results/evaluation/"
+    if manifest.get("prefix") != expected:
+        raise ValueError("Unexpected baseline study")
+    destination.mkdir(parents=True, exist_ok=False)
+    for item in manifest["files"]:
+        relative = safe_relative(item["relative"])
+        if len(relative.parts) != 2 or relative.name not in {
+            "reset.json",
+            "result.json",
+            "rollout.mp4",
+        }:
+            raise ValueError("Unexpected baseline evidence file")
+        path = destination / str(relative)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        client.download_file("rldb", expected + str(relative), str(path))
+        if path.stat().st_size != item["bytes"] or sha256(path) != item["sha256"]:
+            raise ValueError("Baseline evidence checksum differs")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", required=True)
@@ -152,6 +174,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--smoke-actions", type=int, default=5)
     parser.add_argument("--full-episodes", action="store_true")
+    parser.add_argument("--guidance-baseline-manifest", type=Path)
     parser.add_argument(
         "--tasks", nargs="+", default=["LoadPreparedFood", "PackIdenticalLunches"]
     )
@@ -233,6 +256,16 @@ def main():
             "--seeds",
             *map(str, args.seeds),
         ]
+        if args.guidance_baseline_manifest:
+            if not args.full_episodes:
+                raise ValueError("Guidance requires full matched episodes")
+            baselines = root / "guidance-baselines"
+            restore_baselines(client, args.guidance_baseline_manifest, baselines)
+            write_json(
+                args.output / "guidance_baseline_manifest.json",
+                json.loads(args.guidance_baseline_manifest.read_text()),
+            )
+            command += ["--guidance-baselines", str(baselines)]
         if not args.full_episodes:
             command += ["--smoke-actions", str(args.smoke_actions)]
         write_json(

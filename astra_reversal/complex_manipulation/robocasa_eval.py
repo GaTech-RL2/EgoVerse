@@ -119,13 +119,17 @@ def load_native_policy(checkpoint, seed):
     return loaded
 
 
-def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=None):
+def rollout(
+    env, policy, *, task, split, seed, horizon, output, smoke_actions=None, guide=None
+):
     import imageio.v2 as imageio
     from robocasa.utils.env_utils import convert_action
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=False)
-    identity = f"{os.environ.get('ASTRA_RUN_ID', output.parent.name)}:robocasa:{task}:{split}:seed{seed}:native:attempt0"
+    method = "native_pi05" if guide is None else "astra_phase_prompt_pi05"
+    identity_method = "native" if guide is None else "phase_prompt"
+    identity = f"{os.environ.get('ASTRA_RUN_ID', output.parent.name)}:robocasa:{task}:{split}:seed{seed}:{identity_method}:attempt0"
     counts = EpisodeCounts(identity, horizon, 5)
     write_json(output / "started.json", {"episode_id": identity, "seed": seed})
     obs, _ = env.reset(seed=seed)
@@ -178,11 +182,18 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
         (output / "predictions.jsonl").open("w") as predictions,
     ):
         try:
+            if guide is not None:
+                guide.bind_reset(json.loads((output / "reset.json").read_text()))
             while counts.executed_actions < limit:
                 before = policy_observation(obs)
+                model_input, guidance = (before, {"assisted": False})
+                if guide is not None:
+                    model_input, guidance = guide.prepare(
+                        before, step=counts.executed_actions, episode_id=identity
+                    )
                 sample_started = time.perf_counter()
                 actions = checked_chunk(
-                    policy.infer(before)["actions"], horizon=50, action_dim=12
+                    policy.infer(model_input)["actions"], horizon=50, action_dim=12
                 )
                 elapsed = time.perf_counter() - sample_started
                 total_policy_seconds += elapsed
@@ -192,6 +203,9 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
                         {
                             "step": counts.executed_actions,
                             "observation_sha256": digest(before),
+                            "model_input_sha256": digest(model_input),
+                            "model_prompt": model_input["prompt"],
+                            "guidance": guidance,
                             "actions": actions.tolist(),
                             "policy_seconds": elapsed,
                         }
@@ -236,7 +250,7 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
                             break
                 finally:
                     if executed:
-                        counts.execute(executed)
+                        counts.execute(executed, assisted=guidance["assisted"])
                 steps.flush()
                 write_json(
                     output / "progress.json",
@@ -268,12 +282,14 @@ def rollout(env, policy, *, task, split, seed, horizon, output, smoke_actions=No
                 task=task,
                 split=split,
                 seed=seed,
-                method="native_pi05",
+                method=method,
                 wall_seconds=time.perf_counter() - started,
                 policy_seconds=total_policy_seconds,
                 teacher_calls=0,
                 teacher_tokens=0,
             )
+            if guide is not None:
+                result.update(guide.summary())
             write_json(output / "result.json", result)
     return result
 
@@ -288,9 +304,12 @@ def main():
     parser.add_argument("--seeds", nargs="+", type=int, default=[1000])
     parser.add_argument("--split", choices=["pretrain", "target"], default="pretrain")
     parser.add_argument("--smoke-actions", type=int)
+    parser.add_argument("--guidance-baselines", type=Path)
     args = parser.parse_args()
     if args.smoke_actions is not None and args.smoke_actions < 1:
         parser.error("Smoke probes must execute at least one action")
+    if args.guidance_baselines and args.smoke_actions:
+        parser.error("Guidance comparison uses full native horizons")
     import gymnasium as gym
     import jax
     import robocasa  # noqa: F401
@@ -318,10 +337,32 @@ def main():
             "normalization": "checkpoint_mean_std",
             "sample_steps": 10,
             "execution_prefix": 5,
-            "scope": "smoke_only" if args.smoke_actions else "development_baseline",
+            "scope": (
+                "development_guidance_comparison"
+                if args.guidance_baselines
+                else "smoke_only"
+                if args.smoke_actions
+                else "development_baseline"
+            ),
+            "guidance": (
+                {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "medium",
+                    "backend": "codex_relay",
+                    "maximum_calls_per_episode": 16,
+                    "method": "language_phase_prompt",
+                    "policy_updates": 0,
+                }
+                if args.guidance_baselines
+                else None
+            ),
             "constructor_resets": "The upstream gym wrapper performs one setup reset per environment construction; these are not policy rollouts.",
         },
     )
+    if args.guidance_baselines:
+        from astra_reversal.codex_relay import ensure_server
+
+        ensure_server()
     policy = load_native_policy(args.checkpoint, args.seeds[0])
     results = []
     for task in args.tasks:
@@ -336,6 +377,28 @@ def main():
             )
             try:
                 policy._rng = jax.random.key(seed)
+                guide = None
+                if args.guidance_baselines:
+                    from astra_reversal.codex_relay import CodexRelayClient
+                    from astra_reversal.complex_manipulation.language_guidance import (
+                        LanguageGuide,
+                        prior_failure,
+                    )
+
+                    directory = args.output / f"{task}_seed{seed}"
+                    client = CodexRelayClient(
+                        model="gpt-6-astra",
+                        family="complex_language",
+                        response_log=str(directory / "guidance/provider.jsonl"),
+                        timeout=300,
+                    )
+                    guide = LanguageGuide(
+                        client=client,
+                        baseline=prior_failure(
+                            args.guidance_baselines / f"{task}_seed{seed}"
+                        ),
+                        output=directory / "guidance",
+                    )
                 results.append(
                     rollout(
                         env,
@@ -346,6 +409,7 @@ def main():
                         horizon=get_task_horizon(task),
                         output=args.output / f"{task}_seed{seed}",
                         smoke_actions=args.smoke_actions,
+                        guide=guide,
                     )
                 )
                 write_json(args.output / "summary.json", summarize_episodes(results))
