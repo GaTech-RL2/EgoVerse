@@ -86,6 +86,10 @@ Files
   release_manifest.json    Immutable source/checkpoint inventory.
   stage_robocasa.py        GPU-zero staging and checksummed inference assets.
   stage_bench2dex.py       GPU-zero staging for the two dexterous task releases.
+  stage_bench_runtime.py   Frozen native policy environment built without a GPU.
+  bench_worker.py          Bounded native Isaac/Bench2Dex pilot and evidence archive.
+  bench_policy_server.py   Native policy session with prediction/latency records.
+  bench_simulator.py       Native evaluator with command and runtime joint journals.
   robocasa_eval.py         Native simulator/model rollout runner with video.
   accounting.py           Distinct physical episode and reset-free segment counts.
   worker.py               Checked restore, bounded execution and result archival.
@@ -100,6 +104,21 @@ Initial report
   Three separate upstream constructor resets are not policy evaluation trials.
   Predictions and physical commands are archived separately; incomplete
   episodes are excluded from a completed-episode success rate.
+
+Dexterous native integration
+  The simulator uses the official Isaac Lab 2.3.2 image and its rendering
+  experience for camera parity. The JAX policy runs in a separate frozen
+  Bench2Dex environment, calling its original trained-policy factory. CPU
+  imports do not validate GPU inference, robot dynamics or rendered images.
+  Pilot task limits are 1,213 and 1,080 policy control steps respectively,
+  with three physics steps per action and 20 predictions per chunk. Each task
+  currently has one recorded reset anchor; repeated policy seeds at that anchor
+  must not be described as independent randomized scene trials or held-out OOD.
+  Native success and completed physics steps come from per_episode.jsonl.
+  The supplemental command journal is recorded before physics; an interrupted
+  run's final journal entry is not proof that the command was applied.
+  The native Sharpa map has four inactive coordinates, not four mimic joints.
+  RH5DG2 has ten mimic coordinates and requires all ten native mimic rules.
 
 Primary references
   https://robocasa.ai/docs/build/html/benchmarking/multitask_learning.html
