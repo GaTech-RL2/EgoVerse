@@ -1,17 +1,25 @@
 {
   "schema": "astra-complex-study-1",
-  "status": "native_inference_validated_full_episode_evaluation_incomplete",
+  "status": "additional_compute_authorized_native_full_episode_batch_running",
   "source_proposals": {
     "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
     "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
   },
   "inherited_compute": {
-    "authorized_l40s_gpu_hours": 24,
+    "authorized_l40s_gpu_hours": 48,
     "previous_study_gpu_hours": 22.055959544722224,
-    "remaining_l40s_gpu_hours": 1.65412198833333,
-    "additional_budget": "requested_not_yet_authorized",
+    "remaining_l40s_gpu_hours": 25.65412198833333,
+    "additional_budget": {
+      "recorded_at_utc": "2026-10-07T05:14:03.039434+00:00",
+      "user_instruction": "go for another 24 l40s",
+      "additional_l40s_gpu_hours": 24,
+      "previous_total_gpu_hours": 24,
+      "new_total_gpu_hours": 48,
+      "prior_ledger_sha256": "464168dbd9d7cd42ab9510ab61f8d356a9cbb4aee72158c2827a7b0e0a6ffebb"
+    },
     "max_concurrent_gpus": 2,
-    "new_study_gpu_hours": 0.28991846694444445
+    "new_study_gpu_hours": 0.28991846694444445,
+    "remaining_hours_note": "At additional authorization, before the six-episode native development batch. Live allocation reservations are maintained in the operational ledger."
   },
   "initial_task_pairs": [
     {
@@ -188,5 +196,21 @@
     "teacher_calls": 0,
     "full_runtime_validated": false,
     "anchor_distractor_supplement": "Two missing object trees staged separately; preserve the original release manifest."
+  },
+  "active_native_batch": {
+    "workflow": "astra-complex-20261006-robocasa-native-dev3-1",
+    "planned_episodes": 6,
+    "tasks": [
+      "LoadPreparedFood",
+      "PackIdenticalLunches"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "scope": "development_baseline",
+    "heldout_ood": false,
+    "retry_accounting": "Earlier interrupted seed-0 attempt remains charged; this is a new physical reset."
   }
 }

@@ -74,11 +74,12 @@ Accounting
   allocation time. Incomplete batches do not establish a full-batch SR.
 
 Compute
-  The authorization is 24 total L40S-hours. The previous study spent
-  22.0559595447; these probes spent 0.2899184669, totaling 22.3458780117.
-  An additional budget has been requested, not assumed. GPU-zero staging can
-  proceed. GPU submissions must respect the remaining 1.6541219883 hours until
-  the user supplies another budget. At most two GPUs may run concurrently.
+  A further 24 L40S-hours was explicitly authorized on 2026-10-07 UTC:
+  "go for another 24 l40s". The total ceiling is now 48 L40S-hours.
+  Prior spending was 22.3458780117, leaving 25.6541219883 hours before
+  the newly launched six-episode native development batch (seeds 0/1/2).
+  GPU initialization and teardown remain charged; at most two GPUs may run.
+  The initial dashboard preserves its original 24-hour budget snapshot.
 
 Files
   protocol.json            Requested task inventory and proposed comparisons.
