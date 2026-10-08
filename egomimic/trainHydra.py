@@ -21,6 +21,7 @@ from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.resolve_memo import resolve_once
+from egomimic.rldb.zarr import history_stats
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     EvenStrideDataset,
@@ -173,6 +174,7 @@ def _log_dataset_frame_counts(
     train_datasets: dict,
     valid_datasets: dict,
     unseen_op_valid_datasets: dict | None = None,
+    extra_valid_datasets: dict | None = None,
 ) -> None:
     rows = []
     for name, ds in train_datasets.items():
@@ -189,6 +191,8 @@ def _log_dataset_frame_counts(
         )
     for name, ds in (unseen_op_valid_datasets or {}).items():
         rows.append(("unseen_op_valid", name, len(ds)))
+    for name, ds in (extra_valid_datasets or {}).items():
+        rows.append(("extra_valid", name, len(ds)))
     table = tabulate(
         rows,
         headers=["Split", "Dataset", "Frames"],
@@ -309,11 +313,11 @@ def _build_train_viz_evaluator(cfg: DictConfig):
     return TrainVizEvalVideo(hydra.utils.instantiate(cfg.evaluator))
 
 
-def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
-    """Datasets for the third (unseen_op_valid) val loader: a data config's own
-    ``unseen_op_valid_datasets``, in training runs with an evaluator only (eval
-    mode validates ``valid_datasets`` alone)."""
-    explicit = cfg.data.get("unseen_op_valid_datasets")
+def _config_val_datasets(cfg: DictConfig, head: str, instantiate) -> dict:
+    """Datasets for a config-only val head (unseen_op_valid, extra_valid): the
+    data config's own ``<head>_datasets``, in training runs with an evaluator
+    only (eval mode validates ``valid_datasets`` alone)."""
+    explicit = cfg.data.get(f"{head}_datasets")
     if (
         explicit is None
         or _resolve_mode(cfg) != "train"
@@ -510,14 +514,12 @@ def _require_capped_video_heads(model, datamodule) -> None:
             )
 
 
-def _build_unseen_op_valid_evaluator(cfg: DictConfig):
+def _build_prefixed_evaluator(cfg: DictConfig, prefix: str):
     """The canonical evaluator (fresh instance, own frame buffers) wrapped to
-    log ``unseen_op_valid/`` and write ``videos_unseen_op_valid/``."""
+    log ``<prefix>/`` and write ``videos_<prefix>/``."""
     from egomimic.eval.eval_train_viz import TrainVizEvalVideo
 
-    return TrainVizEvalVideo(
-        hydra.utils.instantiate(cfg.evaluator), prefix="unseen_op_valid"
-    )
+    return TrainVizEvalVideo(hydra.utils.instantiate(cfg.evaluator), prefix=prefix)
 
 
 @task_wrapper
@@ -560,8 +562,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         train_viz_datasets, train_viz_params = _train_viz_datasets(
             cfg, train_datasets, instantiate=_instantiate_dataset
         )
-        unseen_op_valid_datasets = _unseen_op_valid_datasets(
-            cfg, instantiate=_instantiate_dataset
+        unseen_op_valid_datasets = _config_val_datasets(
+            cfg, "unseen_op_valid", instantiate=_instantiate_dataset
+        )
+        extra_valid_datasets = _config_val_datasets(
+            cfg, "extra_valid", instantiate=_instantiate_dataset
         )
 
         # Split the val heads in two (lane A): a per-episode SUBSAMPLED metric
@@ -575,6 +580,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 "valid": valid_datasets,
                 "train_viz": train_viz_datasets,
                 "unseen_op_valid": unseen_op_valid_datasets,
+                "extra_valid": extra_valid_datasets,
             },
         )
         valid_datasets = _subsample_val_datasets(
@@ -597,6 +603,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             unseen_op_valid_datasets,
             cfg.data.get("unseen_op_valid_dataloader_params"),
         )
+        extra_valid_datasets = _subsample_val_datasets(
+            cfg,
+            "extra_valid",
+            extra_valid_datasets,
+            cfg.data.get("extra_valid_dataloader_params"),
+        )
 
         log.info(f"Instantiating datamodule <{cfg.data._target_}>")
         assert (
@@ -613,6 +625,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # Always passed too: hydra would otherwise instantiate the raw
         # config nodes itself (eval mode included).
         datamodule_kwargs["unseen_op_valid_datasets"] = unseen_op_valid_datasets
+        datamodule_kwargs["extra_valid_datasets"] = extra_valid_datasets
         # Built above; hydra has nothing to instantiate for these.
         datamodule_kwargs["video_datasets"] = video_datasets
         datamodule: LightningDataModule = hydra.utils.instantiate(
@@ -711,6 +724,25 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                         norm_stats.norm_stats[emb],
                         norm_stats._norm_run_metadata,
                     )
+            history_stats_path = OmegaConf.select(
+                cfg, "norm_stats.history_stats_path", default=None
+            )
+            full_km = OmegaConf.to_container(
+                cfg.data.train_datasets[dataset_name].resolver.key_map, resolve=True
+            )
+            history = int(full_km.get("proprio_history") or 1)
+            if history_stats_path and history > 1:
+                # After the content-keyed cache write, which holds current-step
+                # stats, and before save_cache_dir, so the run's own
+                # norm_stats.json carries the gathered (K, D) stats.
+                stride = history_stats.history_stride_frames(full_km, dataset)
+                changed = history_stats.apply(
+                    norm_stats, emb, history_stats_path, history, stride
+                )
+                log.info(
+                    f"history stats for <{dataset_name}>: {changed} at "
+                    f"K={history}, stride={stride} frames"
+                )
             # Cache norm stats if save_cache_dir is set
             save_cache_dir = OmegaConf.select(
                 cfg, "norm_stats.save_cache_dir", default=None
@@ -729,6 +761,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for ds in getattr(datamodule, "train_viz_datasets", {}).values():
         ds.set_norm_stats_from(norm_stats)
     for ds in getattr(datamodule, "unseen_op_valid_datasets", {}).values():
+        ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "extra_valid_datasets", {}).values():
         ds.set_norm_stats_from(norm_stats)
     # The video subsets share leaves with their head's split but are separate
     # MultiDatasets, so they need their own wiring (EvenStrideDataset forwards
@@ -751,6 +785,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         datamodule.train_datasets,
         datamodule.valid_datasets,
         datamodule.unseen_op_valid_datasets,
+        datamodule.extra_valid_datasets,
     )
 
     log.info("Instantiating callbacks...")
@@ -829,10 +864,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             train_viz_eval_obj.model = model.model
             model.train_viz_evaluator = train_viz_eval_obj
         if datamodule.unseen_op_valid_datasets:
-            unseen_eval_obj = _build_unseen_op_valid_evaluator(cfg)
+            unseen_eval_obj = _build_prefixed_evaluator(cfg, "unseen_op_valid")
             unseen_eval_obj.trainer = trainer
             unseen_eval_obj.model = model.model
             model.unseen_op_valid_evaluator = unseen_eval_obj
+        if datamodule.extra_valid_datasets:
+            extra_eval_obj = _build_prefixed_evaluator(
+                cfg, cfg.data.get("extra_valid_prefix") or "extra_valid"
+            )
+            extra_eval_obj.trainer = trainer
+            extra_eval_obj.model = model.model
+            model.extra_valid_evaluator = extra_eval_obj
         _require_capped_video_heads(model, datamodule)
         model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:

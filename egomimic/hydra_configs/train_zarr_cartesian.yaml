@@ -56,6 +56,10 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
+  # history_stats.json from precompute_norm_stats.py --history-max-lag: per-lag stats for
+  # the head-frame wrist translation of a proprio history (K > 1). Unset, every
+  # history step uses the current-step stats.
+  history_stats_path: null
   # Content-keyed cache shared across runs: one entry per split, plus per-episode
   # samples under episodes/ that any other split of the same recipe reuses.
   cache_dir: ${paths.cache_dir}/norm_stats

@@ -1,0 +1,148 @@
+# RDT_BC_MECKA_KP_DINOV3_VITB: rdt_bc_mecka_6d_dinov3_vitb (see it for the
+# architecture notes) on the 144-D wrist-frame hand-keypoint action with the
+# 144-D keypoint state at t-3 .. t, and RDT-1B's image pair: the current frame
+# and the one stored before it, so the data config must set
+# key_map.proprio_history: 4, history_stride: 1 and image_history_gap_s: 0.033
+# (t-1 at mecka's 30 fps). Pairs with evaluator=eval_hpt_keypoints_wrist.
+#
+# ~1B total: DiT 1280 x 18 (~295M) + DINOv3 ViT-B (86M) + frozen Qwen (596M).
+# Width and depth both ~0.63x RDT-1B's 2048 x 28 (head_dim 64), not width alone.
+# Standalone rather than a child of the 6d config: the state stem is renamed,
+# and an inherited, unused state_ee_pose stem would trip DDP.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.rdt.RDT
+  camera_transforms: {}
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  # DiT width; every stem / encoder output_dim and the head's hidden_dim.
+  width: 1280
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+
+  diffusion: true
+
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  annotation_modality: "annotation"
+  default_prompt: ""
+
+  use_pad_mask: false
+
+  trunk:
+    embed_dim: ${model.robomimic_model.width}
+    depth: 18
+    num_heads: 20
+    mlp_ratio: 1.0
+    # RDT's cond_mask_prob, per stream (train only). A dropped prompt becomes
+    # "", the no-prompt deployment condition; `img` is per camera and never
+    # blinds a sample, so it is inert with one camera.
+    cond_drop: {state: 0.1, lang: 0.1, img: 0.0}
+    # frames per camera (current last); 2 <-> key_map.image_history_gap_s set
+    image_history: 2
+    image_history_dropout: 0.0
+    # the prompt encoder's max_length: one language shape for torch.compile
+    lang_pad_to: 128
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: null
+  domains: ["human_bimanual"]
+  shared_obs_keys: ["front_img_1", "annotation"]
+
+  head_specs:
+    human_bimanual:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 10
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        human_bimanual: ${model.robomimic_model.dims.human_bimanual.action}
+      model:
+        _target_: egomimic.models.rdt_nets.RDTDenoiser
+        act_dim: ${model.robomimic_model.dims.human_bimanual.action}
+        act_seq: 100
+        hidden_dim: ${model.robomimic_model.width}
+        # proprio stems x history_len
+        n_state_tokens: 4
+        # FMPolicy's t in [0, 1] -> RDT's [0, 1000) timestep embedding
+        time_scale: 1000.0
+
+  shared_stem_specs:
+    # image adaptor (DINOv3Stem.proj + this MLP ~ RDT's mlp2x_gelu)
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: ${model.robomimic_model.width}
+      output_dim: ${model.robomimic_model.width}
+      widths: ["${model.robomimic_model.width}"]
+    # RDTModel adds the mlp2x_gelu language adaptor on top of these tokens.
+    annotation:
+      _target_: egomimic.models.hpt_nets.QwenPerTokenEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 128
+      freeze: true
+      dtype: "float16"
+      cache_text_features: true
+      text_cache_max_entries: 8192
+      output_dim: ${model.robomimic_model.width}
+
+  stem_specs:
+    human_bimanual:
+      # state adaptor (RDT's mlp3x_gelu); one token per proprio step
+      state_keypoints:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
+        output_dim: ${model.robomimic_model.width}
+        widths:
+          - ${model.robomimic_model.width}
+          - ${model.robomimic_model.width}
+        history_len: 4
+        history_dropout: 0.2
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.DINOv3Stem
+      model_name: "vit_base_patch16_dinov3.lvd1689m"
+      output_dim: ${model.robomimic_model.width}
+      freeze_backbone: false
+      # [H, W]; 360x640 frames at their native aspect
+      image_size: [224, 400]
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+  eval_image_augs: null
+
+# DINOv3 tower at 1e-5 against 1e-4 everywhere else (ABC-DiT's 0.1).
+backbone_lr_scale: 0.1
+
+# RDT and ABC-DiT agree: AdamW 1e-4, wd 1e-2, constant LR. ABC's 1k-step
+# warmup and (0.9, 0.95) betas; gradient clipping is in the train config.
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  _convert_: all
+  lr: 1e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.95]
+
+# LinearLR holds end_factor after total_iters: warmup, then constant.
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1.0e-3
+  end_factor: 1.0
+  total_iters: 1000
+scheduler_interval: step
+
+# RDT's EMA (pl_utils/ema.py); when on, validation and eval use the EMA weights.
+ema:
+  enabled: false
+  power: 0.75
+  max_decay: 0.9999

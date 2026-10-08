@@ -1,0 +1,11 @@
+# RDT_1B_BC_MECKA_KP_DINOV3_VITB: rdt_bc_mecka_kp_dinov3_vitb at the paper's
+# RDT-1B shape (width 2048 x 28 blocks x 32 heads, ~1.2B DiT).
+defaults:
+  - rdt_bc_mecka_kp_dinov3_vitb
+  - _self_
+
+robomimic_model:
+  width: 2048
+  trunk:
+    depth: 28
+    num_heads: 32
