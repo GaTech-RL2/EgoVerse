@@ -53,6 +53,9 @@ for otherwise unspecified dependencies, including robosuite 1.4.1 and MuJoCo
 assets, unlike the upstream CUDA policy-training recipe. Exact installed wheels,
 wheel hashes, Python/build-tool versions, editable-source SHA, OS packages,
 benchmark-asset hashes and controller configuration are archived.
+Debian packages use the signed 2024-09-01 snapshot after the live bullseye
+security mirror returned missing package URLs during commissioning. Only the
+snapshot's expired date check is disabled; package signature checks remain on.
 
 ## Isolation and interpretation
 

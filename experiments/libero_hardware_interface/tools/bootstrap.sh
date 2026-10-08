@@ -7,8 +7,13 @@ export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
 mkdir -p /workspace/hardware-study /osmo/run/workspace
 cd /workspace/hardware-study
 exec > >(tee bootstrap.log) 2>&1
-apt-get update -qq
-apt-get install -y -qq --no-install-recommends git libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg
+cat > /tmp/hardware-apt.list <<'APT'
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20240901T000000Z/ bullseye main
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20240901T000000Z/ bullseye-security main
+APT
+APT_OPTIONS=(-o Dir::Etc::sourcelist=/tmp/hardware-apt.list -o Dir::Etc::sourceparts=- -o Acquire::Retries=3)
+apt-get "${APT_OPTIONS[@]}" update -qq
+apt-get "${APT_OPTIONS[@]}" install -y -qq --no-install-recommends git libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg
 for attempt in $(seq 1 900); do
     if [[ -f /osmo/run/workspace/payload.tar.gz ]] && [[ "$(sha256sum /osmo/run/workspace/payload.tar.gz | cut -d' ' -f1)" == "$PAYLOAD_SHA256" ]]; then
         break
@@ -32,6 +37,7 @@ python -m pip install -c experiments/libero_hardware_interface/constraints.txt -
     torch==1.11.0+cpu torchvision==0.12.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 python -m pip install --no-deps -e upstream-libero
 mkdir -p artifacts/runtime
+cp /tmp/hardware-apt.list artifacts/runtime/apt-sources.list
 python -m pip freeze --all > artifacts/runtime/pip-freeze.txt
 python --version > artifacts/runtime/python.txt
 python -m pip --version >> artifacts/runtime/python.txt
