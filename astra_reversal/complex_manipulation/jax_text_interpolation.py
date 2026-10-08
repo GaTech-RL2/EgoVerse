@@ -163,7 +163,20 @@ class Interpolator(nnx.Module):
                 lambda: target_text,
                 lambda: jnp.where(instruction_mask[..., None], mixed, target_text),
             )
-            delta = edited.astype(jnp.float32) - target_text.astype(jnp.float32)
+            # The neutral branch above returns the unmodified input. Computing
+            # a subtraction across that branch can report bf16 rounding as an
+            # edit when XLA keeps excess precision in one operand. Record its
+            # known zero delta explicitly; measure active edits only at the
+            # instruction slots the intervention is allowed to write.
+            delta = jax.lax.cond(
+                alpha == 0,
+                lambda: jnp.zeros(target_text.shape, jnp.float32),
+                lambda: jnp.where(
+                    instruction_mask[..., None],
+                    edited.astype(jnp.float32) - target_text.astype(jnp.float32),
+                    0,
+                ),
+            )
             metrics = metrics.at[0].set(
                 jnp.stack([jnp.linalg.norm(delta), jnp.max(jnp.abs(delta))])
             )
