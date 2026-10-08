@@ -7,6 +7,7 @@ Reads pr_diff.txt, calls Claude API, writes review_output.md.
 """
 
 import os
+
 import anthropic
 
 SYSTEM_PROMPT = """You are a senior engineer and research collaborator reviewing pull requests for
@@ -57,7 +58,9 @@ def main():
     truncated = ""
     if len(diff) > max_diff:
         diff = diff[:max_diff]
-        truncated = "\n\n*[Diff truncated at 80k chars — review the full diff on GitHub.]*"
+        truncated = (
+            "\n\n*[Diff truncated at 80k chars — review the full diff on GitHub.]*"
+        )
 
     user_message = f"""**PR #{os.environ.get('GITHUB_PR_NUMBER', '?')}** by @{pr_author}
 **Title:** {pr_title}

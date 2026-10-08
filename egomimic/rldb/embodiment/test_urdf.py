@@ -93,14 +93,15 @@ def test_an_omitted_axis_uses_the_urdf_x_axis_default(tmp_path, joint_type):
 
     np.testing.assert_allclose(
         chain.link_positions({"shoulder": np.pi / 2}, ["tip"]),
-        [[0.0, -1.0, 1.0]], atol=1e-12,
+        [[0.0, -1.0, 1.0]],
+        atol=1e-12,
     )
 
 
 def test_a_single_link_model_does_not_need_its_mesh(tmp_path):
-    text = '''<robot name="palm"><link name="palm"><visual><geometry>
+    text = """<robot name="palm"><link name="palm"><visual><geometry>
       <mesh filename="unavailable/palm.stl"/>
-    </geometry></visual></link></robot>'''
+    </geometry></visual></link></robot>"""
     chain = load_urdf(_write(tmp_path, text))
 
     assert chain.actuated_joint_names == ()
@@ -120,7 +121,8 @@ def test_mimic_defaults_and_dependencies_do_not_depend_on_document_order(tmp_pat
     assert chain.actuated_joint_names == ("wrist",)
     np.testing.assert_allclose(
         chain.link_transforms({"wrist": np.pi / 2})["tip"][:3, :3],
-        np.diag([-1.0, 1.0, -1.0]), atol=1e-12,
+        np.diag([-1.0, 1.0, -1.0]),
+        atol=1e-12,
     )
 
 
@@ -142,7 +144,9 @@ def test_an_unsupported_joint_type_is_refused(tmp_path) -> None:
 
 
 def test_two_root_links_are_refused(tmp_path) -> None:
-    text = _TWO_LINK.replace("<link name=\"base\"/>", '<link name="base"/><link name="orphan"/>')
+    text = _TWO_LINK.replace(
+        '<link name="base"/>', '<link name="base"/><link name="orphan"/>'
+    )
 
     with pytest.raises(UrdfError, match="exactly one root link"):
         load_urdf(_write(tmp_path, text))
@@ -182,9 +186,7 @@ def test_a_rotated_joint_order_shows_up_as_a_residual(hand_spec, hand_track) -> 
 def test_degrees_stored_as_radians_show_up_as_a_residual(hand_spec, hand_track) -> None:
     joints, keypoints, poses = hand_track()
 
-    residuals = keypoint_residuals(
-        hand_spec, np.degrees(joints), keypoints, poses
-    )
+    residuals = keypoint_residuals(hand_spec, np.degrees(joints), keypoints, poses)
 
     assert residuals.max() > 1e-3
 

@@ -64,9 +64,7 @@ def test_eva_still_reads_the_shared_width() -> None:
 def test_eva_can_visualize_its_quaternion_wrist_frame_output() -> None:
     """All Cartesian visualizers accept EVA's 16-column quaternion layout."""
     for mode in ("traj", "traj+rotation", "axes"):
-        image = Eva.viz(
-            _image(), _quat_actions(), mode=mode, intrinsics=INTRINSICS
-        )
+        image = Eva.viz(_image(), _quat_actions(), mode=mode, intrinsics=INTRINSICS)
         assert image.shape == (80, 80, 3)
 
 

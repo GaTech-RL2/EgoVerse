@@ -167,8 +167,9 @@ Example minimal scene:
 Run the test script:
 
 ```bash
-cd egomimic/robot/eva
-python test_mink_solver.py
+pytest --integration tests/integration/test_mink_solver.py
+# or, for the full TracIK-vs-Mink comparison printout:
+python tests/integration/test_mink_solver.py
 ```
 
 ## Comparison: TracIK vs Mink

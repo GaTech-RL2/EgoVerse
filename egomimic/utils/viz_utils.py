@@ -353,7 +353,9 @@ def _viz_keypoints(
     """
     actions = np.asarray(actions)
     if actions.ndim not in (1, 2):
-        raise ValueError(f"keypoint rendering expects (D,) or (T, D), got {actions.shape}")
+        raise ValueError(
+            f"keypoint rendering expects (D,) or (T, D), got {actions.shape}"
+        )
     expected = [2 * (3 * int(n_kp) + pose) for pose in (0, 6, 7)]
     if actions.shape[-1] not in expected:
         raise ValueError(f"keypoint width {actions.shape[-1]} is not one of {expected}")
@@ -384,7 +386,9 @@ def _viz_keypoints(
     _default_dot_colors = {"left": (255, 120, 0), "right": (0, 80, 255)}
     for hand in ("left", "right"):
         owned = np.ones(n_kp, dtype=bool)
-        slots = valid_slots.get(hand, ()) if isinstance(valid_slots, dict) else valid_slots
+        slots = (
+            valid_slots.get(hand, ()) if isinstance(valid_slots, dict) else valid_slots
+        )
         if slots is not None:
             owned[:] = False
             owned[[s for s in slots if 0 <= s < n_kp]] = True
@@ -393,7 +397,9 @@ def _viz_keypoints(
         )
         for kps_cam in keypoints[hand]:
             # Project this side's ``(n_kp, 3)`` camera-frame points to pixels.
-            finite = np.isfinite(kps_cam).all(axis=-1) & (np.abs(kps_cam) < 1e8).all(axis=-1)
+            finite = np.isfinite(kps_cam).all(axis=-1) & (np.abs(kps_cam) < 1e8).all(
+                axis=-1
+            )
             # Invalid estimates must not create projections or incident edges.
             safe = np.where(finite[:, None], kps_cam, [0.0, 0.0, -1.0])
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -411,7 +417,12 @@ def _viz_keypoints(
                 color = colors[finger]
                 for edge_idx in range(start, min(end, len(edges))):
                     i, j = edges[edge_idx]
-                    if 0 <= i < len(valid) and 0 <= j < len(valid) and valid[i] and valid[j]:
+                    if (
+                        0 <= i < len(valid)
+                        and 0 <= j < len(valid)
+                        and valid[i]
+                        and valid[j]
+                    ):
                         p1 = (int(kps_px[i, 0]), int(kps_px[i, 1]))
                         p2 = (int(kps_px[j, 0]), int(kps_px[j, 1]))
                         cv2.line(vis, p1, p2, color, 2)
@@ -516,7 +527,9 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
+
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def draw_actions(
     im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
@@ -569,6 +582,7 @@ def draw_actions(
 
     return im
 
+
 def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
     """
     frame: (H, W, C) numpy array
@@ -601,6 +615,7 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
             plt.show()
 
     return frame
+
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, cam_T_cpf):
     """Return the gaze endpoint in camera-frame coordinates.

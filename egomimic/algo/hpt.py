@@ -995,9 +995,10 @@ class HPT(Algo):
             embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
-                if key is not None:
-                    processed_batch[embodiment_id][key_name] = value
+                key_name = (
+                    self.norm_stats.zarr_key_to_keyname(key, embodiment_id) or key
+                )
+                processed_batch[embodiment_id][key_name] = value
 
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:

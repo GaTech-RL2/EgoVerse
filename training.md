@@ -245,6 +245,8 @@ python trainHydra.py   --config-name=train_zarr_cartesian   data=aria   train.ba
 # Norm Stats
 By default in `train_zarr_cartesian.yaml` norm stats are computed over the whole dataset.  Decrease `norm_stat_fraction` in `train_zarr_cartesian.yaml` when training on large datasets.
 
+Computed norm stats are cached under `paths.cache_dir` (`$EGOVERSE_CACHE_DIR`) and reused by later runs with the same data config, so you only pay for the computation once. To use a specific stats file instead, set `norm_stats.precomputed_norm_path`.
+
 ------------------------------------------------------------------------
 
 # Tips

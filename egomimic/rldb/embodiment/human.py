@@ -4,7 +4,7 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -76,14 +76,32 @@ ARIA_RGB_T_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -99,11 +117,9 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
-    # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
-    # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
-    PI_FRONT_KEY = "base_0_rgb"
     RGB_T_CPF = ARIA_RGB_T_CPF  # `viz` uses this matrix for Aria gaze data.
 
     @classmethod
@@ -148,9 +164,14 @@ class Human(Embodiment):
                 **kwargs,
             )
         return super().viz(
-            image, viz_data, mode=mode, intrinsics=intrinsics,
-            finger_edges=finger_edges, finger_edge_ranges=finger_edge_ranges,
-            keypoint_spec=keypoint_spec, **kwargs,
+            image,
+            viz_data,
+            mode=mode,
+            intrinsics=intrinsics,
+            finger_edges=finger_edges,
+            finger_edge_ranges=finger_edge_ranges,
+            keypoint_spec=keypoint_spec,
+            **kwargs,
         )
 
     @classmethod
@@ -163,7 +184,8 @@ class Human(Embodiment):
         annotation_key: str = None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
-        config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
+        config: ``has_head_pose`` (False only for contributors that truly omit
+        ``obs_head_pose``; incompatible with cartesian modes, which pivot on it) and ``include_aria_keypoints``
         (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
         """
         key_map = cls._get_keymap(
@@ -193,13 +215,12 @@ class Human(Embodiment):
         has_head_pose: bool = True,
         include_aria_keypoints: bool = False,
     ):
-        """Canonical MANO keymap. A ``_pi`` suffix swaps the front image key to
-        ``PI_FRONT_KEY``; ``include_aria_keypoints`` additionally exposes the raw
-        Aria-layout proprio keypoints alongside the MANO ones.
+        """Canonical MANO keymap. ``include_aria_keypoints`` additionally exposes
+        the raw Aria-layout proprio keypoints alongside the MANO ones. The front
+        image is always ``VIZ_IMAGE_KEY``; Pi renames it onto its own slot.
         """
-        is_pi = keymap_mode.endswith("_pi")
-        base_mode = keymap_mode[: -len("_pi")] if is_pi else keymap_mode
-        front_key = cls.PI_FRONT_KEY if is_pi else cls.VIZ_IMAGE_KEY
+        base_mode = _strip_pi_keymap_mode(cls, keymap_mode)
+        front_key = cls.VIZ_IMAGE_KEY
         horizon = cls.ACTION_HORIZON
 
         if base_mode == "cartesian":
@@ -282,7 +303,7 @@ class Human(Embodiment):
         else:
             raise ValueError(
                 f"Unsupported keymap_mode '{keymap_mode}' for {cls.__name__}. "
-                "Expected 'cartesian' or 'keypoints' (optionally with a '_pi' suffix)."
+                "Expected 'cartesian' or 'keypoints'."
             )
 
         if has_head_pose:
@@ -312,9 +333,9 @@ class Human(Embodiment):
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
+                PadGripperZeros(action_key="actions_cartesian")
+            ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":

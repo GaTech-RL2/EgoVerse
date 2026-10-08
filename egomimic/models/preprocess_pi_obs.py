@@ -71,50 +71,51 @@ def _mask_from_batch(B: int, device: torch.device) -> torch.Tensor:
     return torch.ones(B, dtype=torch.bool, device=device)
 
 
-def _fill_missing_images(
-    inputs: dict, required_keys: list[str], device: torch.device, default_hw=(224, 224)
-):
+# openpi's fixed camera tuple -> the dataset key every embodiment's keymap
+# emits (Embodiment.VIZ_IMAGE_KEY for the front camera). Datasets use one
+# naming for every algo; the Pi wrapper does the renaming here.
+PI_CAMERA_SLOTS: dict[str, str] = {
+    "base_0_rgb": "observations.images.front_img_1",
+    "left_wrist_0_rgb": "observations.images.left_wrist_img",
+    "right_wrist_0_rgb": "observations.images.right_wrist_img",
+}
+
+
+def _image_or_none(batch: dict, key: str) -> torch.Tensor | None:
+    v = batch.get(key)
+    if isinstance(v, torch.Tensor) and v.ndim == 4:
+        return v
+    return None
+
+
+def gather_pi_images(
+    batch: dict, slot_map: dict[str, str], device: torch.device
+) -> tuple[dict[str, torch.Tensor], dict[str, bool]]:
+    """Pull openpi's camera slots out of a dataset batch.
+
+    For each slot the dataset key from ``slot_map`` is used; the slot name
+    itself is accepted as a fallback so robot rollout (which emits both names)
+    and checkpoints trained before the remap keep working. Slots with no source
+    image are filled with a copy of the first present one and reported absent in
+    the returned flags so the caller can mask them out.
+
+    Returns (images BCHW keyed by slot, present-flag keyed by slot).
     """
-    Ensures all required image keys exist in `inputs`.
-    - Duplicates an existing image tensor if a required key is missing.
-    - Infers shape (B, C, H, W) from the first present image; if none found, uses default_hw.
-
-    Args:
-        inputs (dict): Dictionary of available tensors (e.g., batch from dataloader).
-        required_keys (list[str]): Keys that must exist in the returned dict.
-        device (torch.device): Target device for all tensors.
-        default_hw (tuple[int, int], optional): (H, W) to use if no valid image found. Default = (224, 224).
-
-    Returns:
-        dict[str, torch.Tensor]: Dictionary containing all required keys,
-                                 duplicating existing images where inputs were missing.
-    """
-    images = {}
-    B = None
-    C = 3
-    H, W = default_hw
-
-    # Find the first valid image among the required keys to duplicate
-    seed_img = None
-    for k in required_keys:
-        if k in inputs:
-            img = inputs[k].to(device)
-            if img.ndim == 4:
-                seed_img = _ensure_bchw(img)
-                B, C, H, W = seed_img.shape
-                break
-
-    if seed_img is None:
+    images: dict[str, torch.Tensor] = {}
+    present: dict[str, bool] = {}
+    for slot, dataset_key in slot_map.items():
+        img = _image_or_none(batch, dataset_key)
+        if img is None:
+            img = _image_or_none(batch, slot)
+        present[slot] = img is not None
+        if img is not None:
+            images[slot] = _ensure_bchw(img.to(device))
+    if not images:
         raise ValueError(
-            "Cannot duplicate images; no valid image tensor found among required keys."
+            "No camera image in batch for any Pi slot; looked for "
+            + ", ".join(f"{s} <- {k}" for s, k in slot_map.items())
         )
-
-    # Fill or copy each key
-    for k in required_keys:
-        if k in inputs:
-            images[k] = _ensure_bchw(inputs[k].to(device))
-        else:
-            # Duplicate the seed image for missing keys
-            images[k] = seed_img.clone()
-
-    return images
+    seed = next(iter(images.values()))
+    return {
+        slot: images[slot] if slot in images else seed.clone() for slot in slot_map
+    }, present

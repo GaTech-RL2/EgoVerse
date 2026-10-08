@@ -15,12 +15,13 @@ from egomimic.rldb.zarr.overlay import (
     render_overlay,
 )
 from egomimic.rldb.zarr.render_check import main, render_episode
-from egomimic.rldb.zarr.test_render_check import overlay_episode as overlay_episode
 from egomimic.scripts.data_visualization.inspector_lib import dataset_view
 
 
 @pytest.mark.parametrize("mode", ["cartesian", "orientation", "keypoint"])
-def test_inspector_and_artifact_share_same_pixels_and_tail(overlay_episode, tmp_path, mode):
+def test_inspector_and_artifact_share_same_pixels_and_tail(
+    overlay_episode, tmp_path, mode
+):
     group = zarr.open_group(overlay_episode, mode="a")
     for side in ("left", "right"):
         group[f"{side}.obs_ee_pose"][:, 2] = 1
@@ -30,11 +31,15 @@ def test_inspector_and_artifact_share_same_pixels_and_tail(overlay_episode, tmp_
         actual, ok, _ = dataset_view._draw_overlay(image, group, frame, mode, horizon=3)
         assert ok
         np.testing.assert_array_equal(actual, expected)
-    report = render_episode(overlay_episode, tmp_path / f"{mode}.mp4", mode=mode, horizon=3)
+    report = render_episode(
+        overlay_episode, tmp_path / f"{mode}.mp4", mode=mode, horizon=3
+    )
     assert report["overlay_frames"] == 4 and report["mode"] == mode
 
 
-def test_pose_only_artifact_and_explicit_missing_keypoints(overlay_episode, tmp_path, capsys):
+def test_pose_only_artifact_and_explicit_missing_keypoints(
+    overlay_episode, tmp_path, capsys
+):
     group = zarr.open_group(overlay_episode, mode="a")
     for side in ("left", "right"):
         del group[f"{side}.obs_keypoints"]
@@ -47,7 +52,9 @@ def test_pose_only_artifact_and_explicit_missing_keypoints(overlay_episode, tmp_
     assert "supplied keypoints" in capsys.readouterr().out
 
 
-def test_raw_aria_alias_uses_aria_topology_without_reordering(overlay_episode, monkeypatch):
+def test_raw_aria_alias_uses_aria_topology_without_reordering(
+    overlay_episode, monkeypatch
+):
     from egomimic.rldb.embodiment.embodiment import ResolvedEmbodiment
     from egomimic.rldb.embodiment.human import ARIA_FINGER_EDGES
 
@@ -94,14 +101,21 @@ def test_http_routes_and_cache_include_image_camera_and_horizon(overlay_episode)
     layout = client.get("/_dash-layout")
     assert b"ds_horizon" in layout.data and b"ds_play" in layout.data
     for mode in ("none", "keypoint", "cartesian", "orientation"):
-        response = client.get(f"/dataset_frame/{overlay_episode.name}/1?overlay={mode}&horizon=3&annot=1")
+        response = client.get(
+            f"/dataset_frame/{overlay_episode.name}/1?overlay={mode}&horizon=3&annot=1"
+        )
         assert response.status_code == 200 and response.mimetype == "image/jpeg"
-    assert client.get(f"/dataset_frame/{overlay_episode.name}/1?horizon=bad").status_code == 400
+    assert (
+        client.get(f"/dataset_frame/{overlay_episode.name}/1?horizon=bad").status_code
+        == 400
+    )
     assert any(key[-1] == 3 for key in dataset_view._RENDER_CACHE)
 
 
-def test_missing_embodiment_dependency_keeps_rgb_available_in_fresh_process(overlay_episode):
-    script = '''
+def test_missing_embodiment_dependency_keeps_rgb_available_in_fresh_process(
+    overlay_episode,
+):
+    script = """
 import builtins, json, sys
 original = builtins.__import__
 def guarded(name, *args, **kwargs):
@@ -116,8 +130,13 @@ assert view.Embodiment is None
 image = view.render_frame_jpeg(str(path.parent), path.name, 0, overlay="keypoint", annotate=True, image_key="images.front_1")
 assert image.startswith(bytes([255, 216]))
 print(json.dumps({"rgb_available": True}))
-'''
-    result = subprocess.run([sys.executable, "-c", script, str(overlay_episode)], capture_output=True, text=True, timeout=30)
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(overlay_episode)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["rgb_available"]
 
@@ -131,10 +150,20 @@ def test_inspector_cache_does_not_reuse_pixels_from_another_camera(overlay_episo
     group.create_array("images.left_wrist", shape=(4,), dtype=VariableLengthBytes())
     group["images.left_wrist"][:] = np.array([jpeg] * 4, dtype=object)
     kw = dict(overlay="none", annotate=False)
-    front = dataset_view.render_frame_jpeg(str(overlay_episode.parent), overlay_episode.name, 0,
-                                           image_key="images.front_1", **kw)
-    wrist = dataset_view.render_frame_jpeg(str(overlay_episode.parent), overlay_episode.name, 0,
-                                           image_key="images.left_wrist", **kw)
+    front = dataset_view.render_frame_jpeg(
+        str(overlay_episode.parent),
+        overlay_episode.name,
+        0,
+        image_key="images.front_1",
+        **kw,
+    )
+    wrist = dataset_view.render_frame_jpeg(
+        str(overlay_episode.parent),
+        overlay_episode.name,
+        0,
+        image_key="images.left_wrist",
+        **kw,
+    )
     assert front != wrist
 
 

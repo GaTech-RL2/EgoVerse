@@ -37,9 +37,13 @@ class LocalS3:
 
     def list_objects_v2(self, *, Bucket, Prefix, **kwargs):
         root = self.root / Bucket / Prefix
-        return {"CommonPrefixes": [
-            {"Prefix": f"{Prefix}{p.name}/"} for p in sorted(root.iterdir()) if p.is_dir()
-        ]}
+        return {
+            "CommonPrefixes": [
+                {"Prefix": f"{Prefix}{p.name}/"}
+                for p in sorted(root.iterdir())
+                if p.is_dir()
+            ]
+        }
 
 
 @pytest.fixture
@@ -57,9 +61,13 @@ def _stage_and_load(path, storage, *, status=None):
     prefix = f"processed_v3/test_vendor/category/{path.name}"
     aws_data_utils.upload_dir_to_s3(str(path), "rldb", prefix)
     prefixes = list(staging.find_zarr_prefixes(storage, "processed_v3/test_vendor/"))
-    rows = staging.read_batch(prefixes, "test_vendor", {"endpoint": None, "key": None, "secret": None})
+    rows = staging.read_batch(
+        prefixes, "test_vendor", {"endpoint": None, "key": None, "secret": None}
+    )
     folder = storage.root / "rldb/processed_v3/test_vendor/category"
-    resolver = LocalEpisodeResolver(folder, key_map={"pose": {"zarr_key": "left.obs_ee_pose"}})
+    resolver = LocalEpisodeResolver(
+        folder, key_map={"pose": {"zarr_key": "left.obs_ee_pose"}}
+    )
     dataset = MultiDataset._from_resolver(resolver, mode="total")
     assert len(rows) == 1
     row = rows[0]
@@ -74,7 +82,9 @@ def _stage_and_load(path, storage, *, status=None):
 
 
 @pytest.mark.parametrize("kind", ["aria", "eva"])
-def test_raw_upload_metadata_conversion_staging_and_discovery(tmp_path, monkeypatch, storage, kind):
+def test_raw_upload_metadata_conversion_staging_and_discovery(
+    tmp_path, monkeypatch, storage, kind
+):
     from egomimic.scripts.data_upload.aria_uploader import aria_uploader
     from egomimic.scripts.data_upload.eva_uploader import eva_uploader
 
@@ -84,19 +94,30 @@ def test_raw_upload_metadata_conversion_staging_and_discovery(tmp_path, monkeypa
     if kind == "aria":
         source = raw / "recording.vrs"
         source.write_bytes(b"VRS extraction boundary fixture")
-        source.with_suffix(".vrs.json").write_text('{}')
+        source.with_suffix(".vrs.json").write_text("{}")
         uploader = aria_uploader()
     else:
         source = raw / "recording.hdf5"
         with h5py.File(source, "w") as h5:
-            h5["observations/images/front_img_1"] = np.full((3, 32, 32, 3), 40, np.uint8)
-            for key in ("observations/eepose", "actions/eepose", "observations/joints", "actions/joints"):
+            h5["observations/images/front_img_1"] = np.full(
+                (3, 32, 32, 3), 40, np.uint8
+            )
+            for key in (
+                "observations/eepose",
+                "actions/eepose",
+                "observations/joints",
+                "actions/joints",
+            ):
                 h5[key] = np.full((3, 14), 0.1)
         uploader = eva_uploader()
     uploader.local_dir = raw
     uploader.directory_prompted = True
     uploader.use_batch_metadata = uploader.batch_metadata_asked = True
-    uploader.batch_metadata = {"task": "packing", "task_description": "Pack the objects", "lab": "test_lab"}
+    uploader.batch_metadata = {
+        "task": "packing",
+        "task_description": "Pack the objects",
+        "lab": "test_lab",
+    }
     monkeypatch.setattr(uploader, "get_timestamp_name", lambda p: stamp)
     monkeypatch.setattr(uploader, "set_directory", lambda: None)
     monkeypatch.setattr(uploader, "delete_dir", lambda: None)
@@ -118,23 +139,47 @@ def test_raw_upload_metadata_conversion_staging_and_discovery(tmp_path, monkeypa
 
         pose = np.tile([0, 0, 1, 1, 0, 0, 0], (3, 1)).astype(float)
         extracted = {f"{side}.obs_ee_pose": pose for side in ("left", "right")}
-        extracted.update({"images.front_1": np.zeros((3, 240, 320, 3), np.uint8), "obs_head_pose": pose})
+        extracted.update(
+            {
+                "images.front_1": np.zeros((3, 240, 320, 3), np.uint8),
+                "obs_head_pose": pose,
+            }
+        )
         monkeypatch.setattr(AriaVRSExtractor, "process_episode", lambda **kw: extracted)
-        converter = DatasetConverter(uploaded, fps=30, arm="both", convert_mano=False, height=240, width=320)
-        path, _ = converter.extract_episode(uploaded / f"{stamp}.vrs", output_dir=output,
-                                            dataset_name=episode_hash, task_name=metadata["task"], chunk_timesteps=2)
+        converter = DatasetConverter(
+            uploaded, fps=30, arm="both", convert_mano=False, height=240, width=320
+        )
+        path, _ = converter.extract_episode(
+            uploaded / f"{stamp}.vrs",
+            output_dir=output,
+            dataset_name=episode_hash,
+            task_name=metadata["task"],
+            chunk_timesteps=2,
+        )
         from egomimic.rldb.embodiment.human import ARIA_INTRINSICS_HALF
 
-        np.testing.assert_allclose(zarr.open_group(path, mode="r").attrs["intrinsics"]["front_1"],
-                                   ARIA_INTRINSICS_HALF)
+        np.testing.assert_allclose(
+            zarr.open_group(path, mode="r").attrs["intrinsics"]["front_1"],
+            ARIA_INTRINSICS_HALF,
+        )
     else:
         from egomimic.scripts.eva_process.eva_to_zarr import convert_episode
 
-        path, _ = convert_episode(uploaded / f"{stamp}.hdf5", output, episode_hash,
-                                  "both", 30, task_name=metadata["task"], chunk_timesteps=2)
+        path, _ = convert_episode(
+            uploaded / f"{stamp}.hdf5",
+            output,
+            episode_hash,
+            "both",
+            30,
+            task_name=metadata["task"],
+            chunk_timesteps=2,
+        )
     # Existing annotation writer, including retained-frame intervals.
-    writer = ZarrWriter(path, embodiment="human_bimanual" if kind == "aria" else "eva_bimanual",
-                        intrinsics=zarr.open_group(path, mode="r").attrs["intrinsics"])
+    writer = ZarrWriter(
+        path,
+        embodiment="human_bimanual" if kind == "aria" else "eva_bimanual",
+        intrinsics=zarr.open_group(path, mode="r").attrs["intrinsics"],
+    )
     writer.append_annotations("annotations", [("Pack objects", 0, 3)], mode="w")
     group = zarr.open_group(path, mode="a")
     assert group.attrs["features"]["annotations"]["shape"] == [1]
@@ -146,10 +191,17 @@ def test_raw_upload_metadata_conversion_staging_and_discovery(tmp_path, monkeypa
 @pytest.mark.parametrize("status", [None, "complete", "structural_sample", "in_review"])
 def test_staging_and_resolver_agree_on_direct_vendor_status(tmp_path, storage, status):
     path = tmp_path / "2026-09-12-12-00-00-000000.zarr"
-    ZarrWriter.create_and_write(path, numeric_data={
-        "left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (3, 1)).astype(float),
-    }, embodiment="dexmate_bimanual", task_name="packing", chunk_timesteps=2,
-        annotations=[("Pack objects", 0, 3)], intrinsics={"front_1": np.eye(3, 4)})
+    ZarrWriter.create_and_write(
+        path,
+        numeric_data={
+            "left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (3, 1)).astype(float),
+        },
+        embodiment="dexmate_bimanual",
+        task_name="packing",
+        chunk_timesteps=2,
+        annotations=[("Pack objects", 0, 3)],
+        intrinsics={"front_1": np.eye(3, 4)},
+    )
     group = zarr.open_group(path, mode="a")
     if status is None:
         group.attrs.pop("data_status", None)
@@ -157,10 +209,16 @@ def test_staging_and_resolver_agree_on_direct_vendor_status(tmp_path, storage, s
         group.attrs["data_status"] = status
     prefix = f"processed_v3/test_vendor/{path.name}"
     aws_data_utils.upload_dir_to_s3(str(path), "rldb", prefix)
-    rows = staging.read_batch([prefix + "/"], "test_vendor", {"endpoint": None, "key": None, "secret": None})
-    resolver = LocalEpisodeResolver(storage.root / "rldb/processed_v3/test_vendor", key_map={})
+    rows = staging.read_batch(
+        [prefix + "/"], "test_vendor", {"endpoint": None, "key": None, "secret": None}
+    )
+    resolver = LocalEpisodeResolver(
+        storage.root / "rldb/processed_v3/test_vendor", key_map={}
+    )
     datasets = resolver._load_zarr_datasets(
-        search_path=storage.root / "rldb/processed_v3/test_vendor", valid_folder_names={path.stem})
+        search_path=storage.root / "rldb/processed_v3/test_vendor",
+        valid_folder_names={path.stem},
+    )
     eligible = status in (None, "complete")
     assert bool(rows) == bool(datasets) == eligible
     if eligible:
@@ -169,15 +227,26 @@ def test_staging_and_resolver_agree_on_direct_vendor_status(tmp_path, storage, s
         assert rows[0]["zarr_processed_path"] == f"s3://rldb/{prefix}"
 
 
-def test_staging_command_inserts_vendor_metadata_into_isolated_database(tmp_path, storage, monkeypatch):
+def test_staging_command_inserts_vendor_metadata_into_isolated_database(
+    tmp_path, storage, monkeypatch
+):
     from sqlalchemy import create_engine, event, text
 
     path = tmp_path / "2026-09-12-12-00-00-000000.zarr"
-    ZarrWriter.create_and_write(path, numeric_data={"left.obs_ee_pose": np.tile(
-        [0, 0, 1, 1, 0, 0, 0], (3, 1)).astype(float)}, embodiment="dexmate_bimanual",
-        intrinsics={"front_1": np.eye(3, 4)}, annotations=[("Pack objects", 0, 3)],
-        task_name="packing", chunk_timesteps=2)
-    aws_data_utils.upload_dir_to_s3(str(path), "rldb", f"processed_v3/test_vendor/{path.name}")
+    ZarrWriter.create_and_write(
+        path,
+        numeric_data={
+            "left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (3, 1)).astype(float)
+        },
+        embodiment="dexmate_bimanual",
+        intrinsics={"front_1": np.eye(3, 4)},
+        annotations=[("Pack objects", 0, 3)],
+        task_name="packing",
+        chunk_timesteps=2,
+    )
+    aws_data_utils.upload_dir_to_s3(
+        str(path), "rldb", f"processed_v3/test_vendor/{path.name}"
+    )
     engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
 
     @event.listens_for(engine, "connect")
@@ -185,13 +254,35 @@ def test_staging_command_inserts_vendor_metadata_into_isolated_database(tmp_path
         connection.execute("ATTACH DATABASE ? AS app", (str(tmp_path / "app.sqlite"),))
 
     # Only PostgreSQL-specific type/default syntax is adapted for SQLite.
-    monkeypatch.setattr(staging, "_CREATE_TABLE", staging._CREATE_TABLE.replace("now()", "CURRENT_TIMESTAMP"))
-    monkeypatch.setattr(staging, "_INSERT", staging._INSERT.replace("CAST(:raw_attrs AS JSONB)", ":raw_attrs"))
+    monkeypatch.setattr(
+        staging,
+        "_CREATE_TABLE",
+        staging._CREATE_TABLE.replace("now()", "CURRENT_TIMESTAMP"),
+    )
+    monkeypatch.setattr(
+        staging,
+        "_INSERT",
+        staging._INSERT.replace("CAST(:raw_attrs AS JSONB)", ":raw_attrs"),
+    )
     monkeypatch.setattr(staging, "create_default_engine", lambda: engine)
-    monkeypatch.setattr("sys.argv", ["stage_processed_folder", "--folder", "test_vendor", "--no-ray", "--workers", "1"])
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "stage_processed_folder",
+            "--folder",
+            "test_vendor",
+            "--no-ray",
+            "--workers",
+            "1",
+        ],
+    )
     assert staging.main() == 0
     with engine.connect() as connection:
-        row = connection.execute(text("SELECT * FROM app.staging_test_vendor")).mappings().one()
+        row = (
+            connection.execute(text("SELECT * FROM app.staging_test_vendor"))
+            .mappings()
+            .one()
+        )
     assert row["episode_hash"] == path.stem and row["embodiment"] == "dexmate_bimanual"
     assert row["num_frames"] == 3 and row["has_annotations"]
     assert json.loads(row["raw_attrs"])["data_status"] == "complete"

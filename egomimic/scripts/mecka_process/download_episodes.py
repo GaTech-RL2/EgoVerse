@@ -115,9 +115,12 @@ def main() -> int:
     try:
         cmd = [
             "s5cmd",
-            "--endpoint-url", endpoint_url,
-            "--numworkers", str(args.numworkers),
-            "run", batch_path,
+            "--endpoint-url",
+            endpoint_url,
+            "--numworkers",
+            str(args.numworkers),
+            "run",
+            batch_path,
         ]
         print(f"Running: {' '.join(cmd)}")
         result = subprocess.run(cmd)

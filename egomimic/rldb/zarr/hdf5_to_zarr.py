@@ -276,7 +276,11 @@ def convert_hdf5_to_zarr(
                 task_description="",
                 # intrinsics are mandatory; debug placeholder {camera_key: 3x4} dict
                 intrinsics={
-                    "front_1": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+                    "front_1": [
+                        [1.0, 0.0, 0.0, 0.0],
+                        [0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0],
+                    ]
                 },
             )
     except Exception as e:

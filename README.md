@@ -22,7 +22,7 @@ The Scale dataset was fully reprocessed on 05/03/2026. All active Scale episodes
 ## Structure
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP supported)
 - [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
-- [``egomimic/algo``](./egomimic/algo): Algorithm code: ACT, EgoMimic (HPT based), Pi
+- [``egomimic/algo``](./egomimic/algo): Algorithm code: EgoMimic (HPT based), Pi
 - [``egomimic/scripts/aloha_process``](./egomimic/scripts/aloha_process/): Process raw aloha hdf5 to zarr/lerobot
 - [``egomimic/scripts/aria_process``](./egomimic/scripts/aria_process/): Process aria vrs to zarr/lerobot
 
@@ -40,16 +40,32 @@ git clone git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
 uv venv emimic --python 3.11
 source emimic/bin/activate
-uv pip install -r requirements.txt
 uv pip install -e .
 uv run pre-commit install
 ```
+
+`pyproject.toml` (locked in `uv.lock`) is the dependency spec for the
+package. Three things live outside it: `requirements.txt` (used only by the
+Eva robot `Dockerfile`), `requirements-ray.txt` (the Ray data-processing
+image) and `scale_sensor_fusion_io`, needed only by the Scale converter under
+`external/scale/scripts` (`uv pip install scale-sensor-fusion-io`).
+
+For the Pi0.5 policy also install the `openpi` fork from the submodule. It is
+installed without its own dependencies (its `lerobot` pin needs `av>=14.2`,
+which conflicts with our `av==12.0.0`), then its `transformers` patch is copied in:
+```
+git submodule update --init external/openpi
+uv pip install --no-deps -e external/openpi
+cp -r external/openpi/src/openpi/models_pytorch/transformers_replace/* emimic/lib/python3.11/site-packages/transformers/
+```
+Re-run the `cp` after any `uv sync` or `transformers` reinstall, which silently
+undoes the patch. See `pi05.md` for details.
 
 ### Conda
 ```
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
-conda env create -f environment.yaml
+conda create -n emimic python=3.11
 conda activate emimic
 pip install -e .
 pre-commit install
@@ -74,6 +90,18 @@ Default output format:
 ```
 `setup_secret.sh` will allow your current env to download data from cloudflare.
 
+
+### Environment variables
+Every cluster-specific default in the configs can be overridden without editing yaml:
+
+| Variable | Overrides | Default |
+|---|---|---|
+| `EGOVERSE_DATASET_DIR` | `paths.dataset_dir`, the local zarr episode folder | `/coc/flash7/scratch/egoverseS3ZarrDataset` |
+| `EGOVERSE_LOG_DIR` | `paths.log_dir`, root of every run directory | `$EGOVERSE_ROOT/logs` |
+| `EGOVERSE_CACHE_DIR` | `paths.cache_dir`; norm stats cached by content under `<cache_dir>/norm_stats/` | `$EGOVERSE_LOG_DIR/cache` |
+| `EGOVERSE_ROOT` | `paths.root_dir` | the directory you launch from |
+| `EGOVERSE_PI05_WEIGHTS` | pi0.5 base weights directory (`model.robomimic_model.config.pytorch_weight_path`) | lab PACE path |
+| `WANDB_ENTITY`, `WANDB_PROJECT` | `logger.wandb.entity` / `.project` | `rl2-group` / `zarr_test` |
 
 ### Other Settings
 Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.

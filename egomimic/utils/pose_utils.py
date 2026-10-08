@@ -306,7 +306,9 @@ def _split_keypoints(
         right_keypoints = keypoints[..., kp_size:]
         return left_keypoints, right_keypoints
 
+
 # ---- moved from egomimicUtils.py (code unchanged) ----
+
 
 def ee_pose_to_cam_frame(ee_pose_base, base_T_cam):
     """Convert XYZ points from the robot base frame to the camera frame.
@@ -348,6 +350,7 @@ def base_frame_to_cam_frame(base_frame, base_T_cam):
     ypr = R.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
+
 def cam_frame_to_base_frame(cam_frame, base_T_cam):
     """Convert Cartesian poses from the camera frame to the robot base frame.
 
@@ -369,6 +372,7 @@ def cam_frame_to_base_frame(cam_frame, base_T_cam):
     xyz = base_frame[:, :3, 3]
     ypr = R.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def pose_to_transform(pose):
     """
@@ -423,6 +427,7 @@ def transform_to_pose(parent_T_child):
         roll = np.arctan2(-parent_R_child[0, 1], parent_R_child[1, 1])
     return np.array([x, y, z, yaw, pitch, roll])
 
+
 def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     """
     camera frame 3d coordinates to pixels in camera frame
@@ -439,6 +444,7 @@ def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     # print("2d pos cam frame: ", px_val)
 
     return px_val.T
+
 
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
@@ -499,6 +505,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
 
+
 def interpolate_arr(v, seq_length):
     """
     v: (B, T, D)
@@ -518,6 +525,7 @@ def interpolate_arr(v, seq_length):
         interpolated.append(interp(np.linspace(0, 1, seq_length)))
 
     return np.array(interpolated)
+
 
 def get_vector_from_yaw_pitch(
     yaw_rads: float,

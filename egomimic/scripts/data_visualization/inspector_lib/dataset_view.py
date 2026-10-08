@@ -86,6 +86,7 @@ def _embodiment_class(grp):
         emb = ""
     return get_embodiment_class(emb, default=Human)
 
+
 # ---- render cache + prefetch (so scrubbing/playback don't re-render) -------
 # Rendered JPEG bytes keyed by (root, ep, frame, overlay, annotate).
 # Bounded LRU; a couple of fully-warmed episodes fit comfortably.
@@ -108,6 +109,7 @@ OVERLAY_OPTIONS = [
     {"label": " Keypoints", "value": "keypoint"},
 ]
 
+
 # ====================================================================== #
 # Episode discovery + lightweight metadata
 # ====================================================================== #
@@ -127,16 +129,16 @@ def list_episodes(dataset_root: str) -> tuple[str, ...]:
     except OSError as e:
         logger.warning("Cannot list dataset_root %s: %s", dataset_root, e)
         return tuple()
-    return tuple(
-        e for e in entries if _is_zarr_dir(os.path.join(dataset_root, e))
-    )
+    return tuple(e for e in entries if _is_zarr_dir(os.path.join(dataset_root, e)))
 
 
 def _frame_count(grp, image_key: str) -> int:
     for key in _candidate_image_keys(grp, image_key):
         arr = _resolve_zarr_path(grp, key)
         if arr is not None and hasattr(arr, "shape") and len(arr.shape) >= 1:
-            return min(int(arr.shape[0]), int(grp.attrs.get("total_frames", arr.shape[0])))
+            return min(
+                int(arr.shape[0]), int(grp.attrs.get("total_frames", arr.shape[0]))
+            )
     return 0
 
 
@@ -282,8 +284,16 @@ def _badge(img_rgb, text: str):
         dy = cv2.getTextSize("Ag", font, fs, th)[0][1] + 10
         cv2.rectangle(img_rgb, (0, 0), (w, len(lines) * dy + 8), (0, 0, 0), -1)
         for index, line in enumerate(lines):
-            cv2.putText(img_rgb, line, (8, (index + 1) * dy), font, fs,
-                        (255, 210, 90), th, cv2.LINE_AA)
+            cv2.putText(
+                img_rgb,
+                line,
+                (8, (index + 1) * dy),
+                font,
+                fs,
+                (255, 210, 90),
+                th,
+                cv2.LINE_AA,
+            )
     except Exception:
         pass
     return img_rgb
@@ -344,7 +354,9 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
     want_kp = overlay == "keypoint"
     want_ee_marker = want_traj or want_axes  # context marker for ee overlays
     emb_cls = _embodiment_class(grp)
-    finger_colors = getattr(emb_cls, "FINGER_COLORS", Human.FINGER_COLORS if Human else {})
+    finger_colors = getattr(
+        emb_cls, "FINGER_COLORS", Human.FINGER_COLORS if Human else {}
+    )
 
     frame = int(frame)
     traces = []
@@ -363,7 +375,11 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
         spec = resolved.end_effectors[arm]
         a, key, arm_edges, ranges, root = keypoint_source(grp, arm, spec)
         sources[arm] = (arm_edges, ranges)
-        total = min(int(grp.attrs.get("total_frames", 0)), a.shape[0]) if a is not None else 0
+        total = (
+            min(int(grp.attrs.get("total_frames", 0)), a.shape[0])
+            if a is not None
+            else 0
+        )
         if not 0 <= frame < total:
             return None
         try:
@@ -387,12 +403,17 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
         # --- keypoint markers + skeleton edges ---
         pts = _arm_kp(arm) if want_kp else None
         if pts is not None and pts.shape[0] >= 1:
-            traces.append(go.Scatter3d(
-                x=pts[:, 0], y=pts[:, 1], z=pts[:, 2], mode="markers",
-                marker={"size": 3, "color": arm_css},
-                name=f"{arm} keypoints",
-                hovertext=[f"kp{i}" for i in range(pts.shape[0])],
-            ))
+            traces.append(
+                go.Scatter3d(
+                    x=pts[:, 0],
+                    y=pts[:, 1],
+                    z=pts[:, 2],
+                    mode="markers",
+                    marker={"size": 3, "color": arm_css},
+                    name=f"{arm} keypoints",
+                    hovertext=[f"kp{i}" for i in range(pts.shape[0])],
+                )
+            )
             # skeleton edges as one line trace with None breaks between segments.
             # Per-vertex RGB colors match the shared 2D skeleton.
             ex, ey, ez, ec = [], [], [], []
@@ -402,7 +423,11 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
                 for edge_i in range(start, min(end, len(arm_edges))):
                     arm_edge_colors[edge_i] = _rgb_tuple_to_css(finger_colors[finger])
             for ei, (a_idx, b_idx) in enumerate(arm_edges):
-                if a_idx >= pts.shape[0] or b_idx >= pts.shape[0] or not np.isfinite(pts[[a_idx, b_idx]]).all():
+                if (
+                    a_idx >= pts.shape[0]
+                    or b_idx >= pts.shape[0]
+                    or not np.isfinite(pts[[a_idx, b_idx]]).all()
+                ):
                     continue
                 ex += [pts[a_idx, 0], pts[b_idx, 0], None]
                 ey += [pts[a_idx, 1], pts[b_idx, 1], None]
@@ -410,11 +435,17 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
                 col = arm_edge_colors[ei]
                 ec += [col, col, col]
             if ex:
-                traces.append(go.Scatter3d(
-                    x=ex, y=ey, z=ez, mode="lines",
-                    line={"color": ec, "width": 4},
-                    name=f"{arm} skeleton", showlegend=True,
-                ))
+                traces.append(
+                    go.Scatter3d(
+                        x=ex,
+                        y=ey,
+                        z=ez,
+                        mode="lines",
+                        line={"color": ec, "width": 4},
+                        name=f"{arm} skeleton",
+                        showlegend=True,
+                    )
+                )
 
         # --- EE marker + orientation axes + trajectory ---
         ee = _arm_ee(arm) if (want_ee_marker or want_traj or want_axes) else None
@@ -424,45 +455,71 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
                 pose = np.asarray(ee[f], dtype=float).reshape(-1)
             except Exception:
                 pose = None
-            if pose is not None and pose.shape[0] >= 7 and np.all(np.isfinite(pose[:7])):
+            if (
+                pose is not None
+                and pose.shape[0] >= 7
+                and np.all(np.isfinite(pose[:7]))
+            ):
                 pos = pose[:3]
                 if want_ee_marker:
-                    traces.append(go.Scatter3d(
-                        x=[pos[0]], y=[pos[1]], z=[pos[2]], mode="markers",
-                        marker={"size": 6, "color": arm_css, "symbol": "diamond"},
-                        name=f"{arm} EE",
-                    ))
+                    traces.append(
+                        go.Scatter3d(
+                            x=[pos[0]],
+                            y=[pos[1]],
+                            z=[pos[2]],
+                            mode="markers",
+                            marker={"size": 6, "color": arm_css, "symbol": "diamond"},
+                            name=f"{arm} EE",
+                        )
+                    )
                 # orientation axes (quat wxyz -> xyzw)
                 if want_axes:
                     try:
                         from scipy.spatial.transform import Rotation as R
 
                         quat = pose[3:7]
-                        Rm = R.from_quat([quat[1], quat[2], quat[3], quat[0]]).as_matrix()
+                        Rm = R.from_quat(
+                            [quat[1], quat[2], quat[3], quat[0]]
+                        ).as_matrix()
                         for ai, axc in enumerate(("red", "green", "blue")):
                             end = pos + AXIS_LEN * Rm[:, ai]
-                            traces.append(go.Scatter3d(
-                                x=[pos[0], end[0]], y=[pos[1], end[1]],
-                                z=[pos[2], end[2]], mode="lines",
-                                line={"color": axc, "width": 5},
-                                name=f"{arm} {'xyz'[ai]}-axis", showlegend=False,
-                            ))
+                            traces.append(
+                                go.Scatter3d(
+                                    x=[pos[0], end[0]],
+                                    y=[pos[1], end[1]],
+                                    z=[pos[2], end[2]],
+                                    mode="lines",
+                                    line={"color": axc, "width": 5},
+                                    name=f"{arm} {'xyz'[ai]}-axis",
+                                    showlegend=False,
+                                )
+                            )
                     except Exception:
                         pass
             # trajectory over [frame, min(total_frames, frame+traj_window))
             if want_traj:
                 try:
                     lo = max(0, frame)
-                    hi = min(int(ee.shape[0]), int(grp.attrs["total_frames"]), frame + int(traj_window))
+                    hi = min(
+                        int(ee.shape[0]),
+                        int(grp.attrs["total_frames"]),
+                        frame + int(traj_window),
+                    )
                     if hi - lo >= 2:
                         seg = np.asarray(ee[lo:hi], dtype=float)[:, :3]
                         seg = seg[np.all(np.isfinite(seg), axis=1)]
                         if seg.shape[0] >= 2:
-                            traces.append(go.Scatter3d(
-                                x=seg[:, 0], y=seg[:, 1], z=seg[:, 2], mode="lines",
-                                line={"color": arm_css, "width": 2, "dash": "dot"},
-                                name=f"{arm} EE traj", opacity=0.6,
-                            ))
+                            traces.append(
+                                go.Scatter3d(
+                                    x=seg[:, 0],
+                                    y=seg[:, 1],
+                                    z=seg[:, 2],
+                                    mode="lines",
+                                    line={"color": arm_css, "width": 2, "dash": "dot"},
+                                    name=f"{arm} EE traj",
+                                    opacity=0.6,
+                                )
+                            )
                 except Exception:
                     pass
 
@@ -481,24 +538,36 @@ def build_3d_figure(grp, frame: int, overlay: str, traj_window: int = 60):
         plot_bgcolor=_FIG_BG,
         font={"color": "#cbd5e1", "size": 11},
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
-        legend={"x": 0, "y": 1, "bgcolor": "rgba(14,17,23,0.6)",
-                "font": {"size": 10}},
+        legend={"x": 0, "y": 1, "bgcolor": "rgba(14,17,23,0.6)", "font": {"size": 10}},
         uirevision=rev,
         scene={
             "aspectmode": "data",
-            "xaxis": {"title": "x", "backgroundcolor": _FIG_BG,
-                      "gridcolor": "#2a2f3a", "color": "#94a3b8"},
-            "yaxis": {"title": "y", "backgroundcolor": _FIG_BG,
-                      "gridcolor": "#2a2f3a", "color": "#94a3b8"},
-            "zaxis": {"title": "z", "backgroundcolor": _FIG_BG,
-                      "gridcolor": "#2a2f3a", "color": "#94a3b8"},
+            "xaxis": {
+                "title": "x",
+                "backgroundcolor": _FIG_BG,
+                "gridcolor": "#2a2f3a",
+                "color": "#94a3b8",
+            },
+            "yaxis": {
+                "title": "y",
+                "backgroundcolor": _FIG_BG,
+                "gridcolor": "#2a2f3a",
+                "color": "#94a3b8",
+            },
+            "zaxis": {
+                "title": "z",
+                "backgroundcolor": _FIG_BG,
+                "gridcolor": "#2a2f3a",
+                "color": "#94a3b8",
+            },
         },
     )
     return fig
 
 
-def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16,
-                  camera: str = "front_1"):
+def _draw_overlay(
+    img_rgb, grp, frame: int, overlay: str, horizon: int = 16, camera: str = "front_1"
+):
     """Best-effort overlay. Returns (rgb, ok, note). On any failure returns
     the clean frame with ok=False and a short note, never raises.
 
@@ -514,7 +583,9 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16,
 
     try:
         if Embodiment is None:
-            raise ImportError("embodiment dependencies unavailable; RGB browsing remains available")
+            raise ImportError(
+                "embodiment dependencies unavailable; RGB browsing remains available"
+            )
         from egomimic.rldb.zarr.overlay import render_overlay
 
         image, diagnostic = render_overlay(
@@ -528,7 +599,11 @@ def _draw_overlay(img_rgb, grp, frame: int, overlay: str, horizon: int = 16,
         return image, True, "; ".join(notes)
     except Exception as exc:
         logger.debug("overlay %s unavailable: %s", overlay, exc)
-        return _badge(img_rgb.copy(), f"{overlay} overlay unavailable: {exc}"), False, str(exc)
+        return (
+            _badge(img_rgb.copy(), f"{overlay} overlay unavailable: {exc}"),
+            False,
+            str(exc),
+        )
 
 
 def _annotate_frame(img_rgb, grp, dataset_root: str, episode: str, frame: int):
@@ -548,9 +623,25 @@ def _annotate_frame(img_rgb, grp, dataset_root: str, episode: str, frame: int):
         return img_rgb
 
 
-def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
-                      overlay: str, annotate: bool, image_key: str, horizon: int = 16) -> bytes | None:
-    key = (dataset_root, episode, int(frame), overlay, bool(annotate), image_key, int(horizon))
+def render_frame_jpeg(
+    dataset_root: str,
+    episode: str,
+    frame: int,
+    *,
+    overlay: str,
+    annotate: bool,
+    image_key: str,
+    horizon: int = 16,
+) -> bytes | None:
+    key = (
+        dataset_root,
+        episode,
+        int(frame),
+        overlay,
+        bool(annotate),
+        image_key,
+        int(horizon),
+    )
     with _RENDER_LOCK:
         hit = _RENDER_CACHE.get(key)
         if hit is not None:
@@ -566,7 +657,12 @@ def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
     if rgb is None:
         return None
     rgb, _ok, _note = _draw_overlay(
-        rgb, grp, int(frame), overlay, horizon=horizon, camera=camera_name(img_key) or img_key
+        rgb,
+        grp,
+        int(frame),
+        overlay,
+        horizon=horizon,
+        camera=camera_name(img_key) or img_key,
     )
     if annotate:
         rgb = _annotate_frame(rgb, grp, dataset_root, episode, int(frame))
@@ -589,8 +685,15 @@ def render_frame_jpeg(dataset_root: str, episode: str, frame: int, *,
     return data
 
 
-def warm_episode(dataset_root: str, episode: str, n_frames: int, *,
-                 overlay: str, annotate: bool, image_key: str) -> None:
+def warm_episode(
+    dataset_root: str,
+    episode: str,
+    n_frames: int,
+    *,
+    overlay: str,
+    annotate: bool,
+    image_key: str,
+) -> None:
     """Pre-render every frame of `episode` (this overlay/annot variant) into the
     cache on a background daemon thread, so subsequent scrub/playback are cache
     hits. One thread per (episode, overlay, annotate) variant."""
@@ -608,8 +711,13 @@ def warm_episode(dataset_root: str, episode: str, n_frames: int, *,
 
             def _one(f):
                 render_frame_jpeg(
-                    dataset_root, episode, f, overlay=overlay,
-                    annotate=annotate, image_key=image_key)
+                    dataset_root,
+                    episode,
+                    f,
+                    overlay=overlay,
+                    annotate=annotate,
+                    image_key=image_key,
+                )
 
             # parallel decode (JPEG decode releases the GIL) — warms a ~700-frame
             # episode in ~1 min instead of ~3.5 min single-threaded.
@@ -630,8 +738,9 @@ def warm_episode(dataset_root: str, episode: str, n_frames: int, *,
 class DatasetView:
     """Episode browser + player + action overlays + annotation toggle."""
 
-    def __init__(self, app, dataset_root: str, image_key: str,
-                 lang_key: str | None = None):
+    def __init__(
+        self, app, dataset_root: str, image_key: str, lang_key: str | None = None
+    ):
         self.app = app
         self.dataset_root = dataset_root
         self.image_key = image_key
@@ -648,46 +757,106 @@ class DatasetView:
             style={**CARD_STYLE, "display": ("block" if visible else "none")},
             children=[
                 html.Div("Dataset folder", style=LABEL_STYLE),
-                html.Div(self.dataset_root, title=self.dataset_root,
-                         style={"fontSize": "10px", "color": MUTED,
-                                "fontFamily": "ui-monospace, monospace",
-                                "wordBreak": "break-all", "marginBottom": "8px"}),
+                html.Div(
+                    self.dataset_root,
+                    title=self.dataset_root,
+                    style={
+                        "fontSize": "10px",
+                        "color": MUTED,
+                        "fontFamily": "ui-monospace, monospace",
+                        "wordBreak": "break-all",
+                        "marginBottom": "8px",
+                    },
+                ),
                 html.Div("Search (filename or annotation)", style=LABEL_STYLE),
-                dcc.Input(id="ds_search", type="text", value="", debounce=True,
-                          placeholder="e.g. pick, 2026-04, fold …",
-                          style={"width": "100%", "padding": "6px 8px",
-                                 "fontSize": "13px", "border": f"1px solid {BORDER}",
-                                 "borderRadius": "4px", "boxSizing": "border-box",
-                                 "marginBottom": "10px"}),
+                dcc.Input(
+                    id="ds_search",
+                    type="text",
+                    value="",
+                    debounce=True,
+                    placeholder="e.g. pick, 2026-04, fold …",
+                    style={
+                        "width": "100%",
+                        "padding": "6px 8px",
+                        "fontSize": "13px",
+                        "border": f"1px solid {BORDER}",
+                        "borderRadius": "4px",
+                        "boxSizing": "border-box",
+                        "marginBottom": "10px",
+                    },
+                ),
                 html.Div("Episode", style=LABEL_STYLE),
-                dcc.Dropdown(id="ds_episode", options=opts,
-                             value=(eps[0] if eps else None), clearable=False,
-                             style={"fontSize": "12px"}),
-                html.Div(f"{len(eps)} episodes", id="ds_episode_count",
-                         style={"fontSize": "10px", "color": MUTED,
-                                "marginTop": "4px", "marginBottom": "10px"}),
+                dcc.Dropdown(
+                    id="ds_episode",
+                    options=opts,
+                    value=(eps[0] if eps else None),
+                    clearable=False,
+                    style={"fontSize": "12px"},
+                ),
+                html.Div(
+                    f"{len(eps)} episodes",
+                    id="ds_episode_count",
+                    style={
+                        "fontSize": "10px",
+                        "color": MUTED,
+                        "marginTop": "4px",
+                        "marginBottom": "10px",
+                    },
+                ),
                 html.Div("Horizon (frames)", style=LABEL_STYLE),
-                dcc.Input(id="ds_horizon", type="number", value=16, min=1, max=1000, step=1, debounce=True),
+                dcc.Input(
+                    id="ds_horizon",
+                    type="number",
+                    value=16,
+                    min=1,
+                    max=1000,
+                    step=1,
+                    debounce=True,
+                ),
                 html.Div("Action overlay", style=LABEL_STYLE),
-                dcc.RadioItems(id="ds_overlay", options=OVERLAY_OPTIONS,
-                               value="cartesian",
-                               labelStyle={"display": "block", "fontSize": "13px",
-                                           "marginBottom": "3px", "cursor": "pointer"}),
-                html.Div(style={"marginTop": "10px"}, children=[
-                    dcc.Checklist(id="ds_annot",
-                                  options=[{"label": " Show annotations", "value": "on"}],
-                                  value=["on"],
-                                  labelStyle={"fontSize": "13px", "cursor": "pointer"}),
-                ]),
-                html.Div(style={"marginTop": "10px"}, children=[
-                    dcc.Checklist(id="ds_show3d",
-                                  options=[{"label": " 3D", "value": "on"}],
-                                  value=["on"], inline=True,
-                                  labelStyle={"fontSize": "13px", "cursor": "pointer"}),
-                ]),
+                dcc.RadioItems(
+                    id="ds_overlay",
+                    options=OVERLAY_OPTIONS,
+                    value="cartesian",
+                    labelStyle={
+                        "display": "block",
+                        "fontSize": "13px",
+                        "marginBottom": "3px",
+                        "cursor": "pointer",
+                    },
+                ),
+                html.Div(
+                    style={"marginTop": "10px"},
+                    children=[
+                        dcc.Checklist(
+                            id="ds_annot",
+                            options=[{"label": " Show annotations", "value": "on"}],
+                            value=["on"],
+                            labelStyle={"fontSize": "13px", "cursor": "pointer"},
+                        ),
+                    ],
+                ),
+                html.Div(
+                    style={"marginTop": "10px"},
+                    children=[
+                        dcc.Checklist(
+                            id="ds_show3d",
+                            options=[{"label": " 3D", "value": "on"}],
+                            value=["on"],
+                            inline=True,
+                            labelStyle={"fontSize": "13px", "cursor": "pointer"},
+                        ),
+                    ],
+                ),
                 html.Div("Playback fps", style={**LABEL_STYLE, "marginTop": "10px"}),
-                dcc.Slider(id="ds_fps", min=2, max=30, step=2, value=10,
-                           marks={2: "2", 10: "10", 30: "30"}),
+                dcc.Slider(
+                    id="ds_fps",
+                    min=2,
+                    max=30,
+                    step=2,
+                    value=10,
+                    marks={2: "2", 10: "10", 30: "30"},
+                ),
             ],
         )
 
@@ -697,77 +866,170 @@ class DatasetView:
 
         return html.Div(
             id="dataset_view",
-            style={"display": ("flex" if visible else "none"),
-                   "flexDirection": "row", "flex": "1", "minWidth": "0"},
+            style={
+                "display": ("flex" if visible else "none"),
+                "flexDirection": "row",
+                "flex": "1",
+                "minWidth": "0",
+            },
             children=[
                 # left: video + timeline. Scrollable so the 3D panel below the
                 # video is never clipped: the video + 420px graph + controls can
                 # exceed the viewport, so the column scrolls (minHeight:0 lets the
                 # flex children shrink; overflowY:auto + maxHeight:100vh give scroll).
-                html.Div(style={"flex": "1", "padding": "16px", "minWidth": "0",
-                                "display": "flex", "flexDirection": "column",
-                                "minHeight": "0", "overflowY": "auto",
-                                "maxHeight": "100vh", "maxWidth": "900px"},
-                         children=[
-                    html.Div(id="ds_title", style={"fontSize": "13px",
-                             "fontWeight": 600, "color": TEXT, "marginBottom": "8px"}),
-                    dcc.Loading(type="circle", color=ACCENT, children=html.Img(
-                        id="ds_frame_img",
-                        style={"width": "100%", "height": "auto",
-                               "borderRadius": "6px", "border": f"1px solid {BORDER}",
-                               "background": "#000"})),
-                    # interactive world-frame 3D scene, synced to the slider frame.
-                    # Wrapped so the callback can hide it (display:none) when the
-                    # overlay is "none" — no empty 420px gap. _DS_3D_WRAP_STYLE is
-                    # the visible style the callback restores for non-none overlays.
-                    html.Div(id="ds_3d_wrap", style=_DS_3D_WRAP_STYLE,
-                             children=[
-                        dcc.Graph(id="ds_3d",
-                                  style={"height": "420px", "width": "100%",
-                                         "background": _FIG_BG},
-                                  config={"displayModeBar": True}),
-                    ]),
-                    html.Div(style={"display": "flex", "alignItems": "center",
-                                    "gap": "12px", "marginTop": "12px"}, children=[
-                        html.Button("▶", id="ds_play", n_clicks=0,
-                                    style={"padding": "6px 14px", "fontSize": "14px",
-                                           "fontWeight": 600, "background": ACCENT,
-                                           "color": "white", "border": "none",
-                                           "borderRadius": "6px", "cursor": "pointer"}),
-                        html.Div(dcc.Slider(id="ds_frame", min=0, max=0, step=1, value=0,
-                                            marks=None, updatemode="drag",
-                                            tooltip={"placement": "bottom",
-                                                     "always_visible": False}),
-                                 style={"flex": "1"}),
-                        html.Div(id="ds_frame_label", style={"fontSize": "12px",
-                                 "color": MUTED, "minWidth": "92px",
-                                 "textAlign": "right",
-                                 "fontFamily": "ui-monospace, monospace"}),
-                    ]),
-                    dcc.Interval(id="ds_interval", interval=100, disabled=True),
-                    dcc.Store(id="ds_playing", data=False),
-                    dcc.Store(id="ds_nframes", data=0),
-                    dcc.Store(id="ds_ann_store", data=[]),
-                    dcc.Store(id="ds_warm_sink", data=0),
-                    dcc.Store(id="ds_preload_sink", data=0),
-                ]),
+                html.Div(
+                    style={
+                        "flex": "1",
+                        "padding": "16px",
+                        "minWidth": "0",
+                        "display": "flex",
+                        "flexDirection": "column",
+                        "minHeight": "0",
+                        "overflowY": "auto",
+                        "maxHeight": "100vh",
+                        "maxWidth": "900px",
+                    },
+                    children=[
+                        html.Div(
+                            id="ds_title",
+                            style={
+                                "fontSize": "13px",
+                                "fontWeight": 600,
+                                "color": TEXT,
+                                "marginBottom": "8px",
+                            },
+                        ),
+                        dcc.Loading(
+                            type="circle",
+                            color=ACCENT,
+                            children=html.Img(
+                                id="ds_frame_img",
+                                style={
+                                    "width": "100%",
+                                    "height": "auto",
+                                    "borderRadius": "6px",
+                                    "border": f"1px solid {BORDER}",
+                                    "background": "#000",
+                                },
+                            ),
+                        ),
+                        # interactive world-frame 3D scene, synced to the slider frame.
+                        # Wrapped so the callback can hide it (display:none) when the
+                        # overlay is "none" — no empty 420px gap. _DS_3D_WRAP_STYLE is
+                        # the visible style the callback restores for non-none overlays.
+                        html.Div(
+                            id="ds_3d_wrap",
+                            style=_DS_3D_WRAP_STYLE,
+                            children=[
+                                dcc.Graph(
+                                    id="ds_3d",
+                                    style={
+                                        "height": "420px",
+                                        "width": "100%",
+                                        "background": _FIG_BG,
+                                    },
+                                    config={"displayModeBar": True},
+                                ),
+                            ],
+                        ),
+                        html.Div(
+                            style={
+                                "display": "flex",
+                                "alignItems": "center",
+                                "gap": "12px",
+                                "marginTop": "12px",
+                            },
+                            children=[
+                                html.Button(
+                                    "▶",
+                                    id="ds_play",
+                                    n_clicks=0,
+                                    style={
+                                        "padding": "6px 14px",
+                                        "fontSize": "14px",
+                                        "fontWeight": 600,
+                                        "background": ACCENT,
+                                        "color": "white",
+                                        "border": "none",
+                                        "borderRadius": "6px",
+                                        "cursor": "pointer",
+                                    },
+                                ),
+                                html.Div(
+                                    dcc.Slider(
+                                        id="ds_frame",
+                                        min=0,
+                                        max=0,
+                                        step=1,
+                                        value=0,
+                                        marks=None,
+                                        updatemode="drag",
+                                        tooltip={
+                                            "placement": "bottom",
+                                            "always_visible": False,
+                                        },
+                                    ),
+                                    style={"flex": "1"},
+                                ),
+                                html.Div(
+                                    id="ds_frame_label",
+                                    style={
+                                        "fontSize": "12px",
+                                        "color": MUTED,
+                                        "minWidth": "92px",
+                                        "textAlign": "right",
+                                        "fontFamily": "ui-monospace, monospace",
+                                    },
+                                ),
+                            ],
+                        ),
+                        dcc.Interval(id="ds_interval", interval=100, disabled=True),
+                        dcc.Store(id="ds_playing", data=False),
+                        dcc.Store(id="ds_nframes", data=0),
+                        dcc.Store(id="ds_ann_store", data=[]),
+                        dcc.Store(id="ds_warm_sink", data=0),
+                        dcc.Store(id="ds_preload_sink", data=0),
+                    ],
+                ),
                 # right: annotation + metadata
-                html.Div(style={"width": "340px", "padding": "16px",
-                                "borderLeft": f"1px solid {BORDER}", "background": PANEL,
-                                "overflowY": "auto"}, children=[
-                    html.Div("Annotation", style=LABEL_STYLE),
-                    html.Pre(id="ds_annot_text", style={"whiteSpace": "pre-wrap",
-                             "background": "#f1f5f9", "padding": "10px",
-                             "fontSize": "12px", "borderRadius": "4px",
-                             "border": f"1px solid {BORDER}", "marginBottom": "16px",
-                             "minHeight": "44px"}),
-                    html.Div("Episode info", style=LABEL_STYLE),
-                    html.Pre(id="ds_meta", style={"background": "#f1f5f9",
-                             "padding": "10px", "fontSize": "12px",
-                             "borderRadius": "4px", "border": f"1px solid {BORDER}",
-                             "fontFamily": "ui-monospace, monospace",
-                             "whiteSpace": "pre-wrap"}),
-                ]),
+                html.Div(
+                    style={
+                        "width": "340px",
+                        "padding": "16px",
+                        "borderLeft": f"1px solid {BORDER}",
+                        "background": PANEL,
+                        "overflowY": "auto",
+                    },
+                    children=[
+                        html.Div("Annotation", style=LABEL_STYLE),
+                        html.Pre(
+                            id="ds_annot_text",
+                            style={
+                                "whiteSpace": "pre-wrap",
+                                "background": "#f1f5f9",
+                                "padding": "10px",
+                                "fontSize": "12px",
+                                "borderRadius": "4px",
+                                "border": f"1px solid {BORDER}",
+                                "marginBottom": "16px",
+                                "minHeight": "44px",
+                            },
+                        ),
+                        html.Div("Episode info", style=LABEL_STYLE),
+                        html.Pre(
+                            id="ds_meta",
+                            style={
+                                "background": "#f1f5f9",
+                                "padding": "10px",
+                                "fontSize": "12px",
+                                "borderRadius": "4px",
+                                "border": f"1px solid {BORDER}",
+                                "fontFamily": "ui-monospace, monospace",
+                                "whiteSpace": "pre-wrap",
+                            },
+                        ),
+                    ],
+                ),
             ],
         )
 
@@ -788,12 +1050,21 @@ class DatasetView:
                 return abort(400)
             annotate = request.args.get("annot", "0") == "1"
             data = render_frame_jpeg(
-                self.dataset_root, episode, frame_i, overlay=overlay,
-                annotate=annotate, image_key=self.image_key, horizon=horizon)
+                self.dataset_root,
+                episode,
+                frame_i,
+                overlay=overlay,
+                annotate=annotate,
+                image_key=self.image_key,
+                horizon=horizon,
+            )
             if data is None:
                 return abort(404)
-            return Response(data, mimetype="image/jpeg",
-                            headers={"Cache-Control": "public, max-age=3600"})
+            return Response(
+                data,
+                mimetype="image/jpeg",
+                headers={"Cache-Control": "public, max-age=3600"},
+            )
 
     def _src(self, episode, frame, overlay, annotate):
         if not episode:
@@ -840,12 +1111,16 @@ class DatasetView:
                 return 0, 0, 0, "", "", []
             m = episode_meta(self.dataset_root, episode, self.image_key)
             n = m["frames"]
-            meta = (f"frames     {n}\n"
-                    f"overlays   {', '.join(o for o in m['overlays'] if o != 'none') or '—'}\n"
-                    f"annots     {m['n_annot']} interval(s)\n"
-                    f"image_key  {m['img_key']}\n\n{m.get('validation', '')}")
-            intervals = [[iv[0], iv[1], iv[3]]
-                         for iv in annotation_intervals(self.dataset_root, episode)]
+            meta = (
+                f"frames     {n}\n"
+                f"overlays   {', '.join(o for o in m['overlays'] if o != 'none') or '—'}\n"
+                f"annots     {m['n_annot']} interval(s)\n"
+                f"image_key  {m['img_key']}\n\n{m.get('validation', '')}"
+            )
+            intervals = [
+                [iv[0], iv[1], iv[3]]
+                for iv in annotation_intervals(self.dataset_root, episode)
+            ]
             # NB: no server-side bulk warm here — the clientside preloader below
             # warms BOTH the server render-cache and the browser cache as it
             # fetches, and starts from the current frame. A separate server-side
@@ -1021,8 +1296,11 @@ class DatasetView:
             if grp is None:
                 return dash.no_update, _DS_3D_WRAP_STYLE
             try:
-                return build_3d_figure(grp, int(frame or 0), overlay, traj_window=int(horizon or 16)), _DS_3D_WRAP_STYLE
+                return build_3d_figure(
+                    grp, int(frame or 0), overlay, traj_window=int(horizon or 16)
+                ), _DS_3D_WRAP_STYLE
             except Exception as e:
-                logger.debug("build_3d_figure failed (%s,%s,%s): %s",
-                             episode, frame, overlay, e)
+                logger.debug(
+                    "build_3d_figure failed (%s,%s,%s): %s", episode, frame, overlay, e
+                )
                 return dash.no_update, _DS_3D_WRAP_STYLE

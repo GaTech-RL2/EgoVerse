@@ -63,9 +63,7 @@ for i, data in enumerate(data_loader):
         continue
     ims = (data[image_key].permute(0, 2, 3, 1).cpu().numpy() * 255.0).astype(np.uint8)
     actions = data[actions_key].cpu().numpy()
-    base_actions = cam_frame_to_base_frame(
-        actions.squeeze(), _extrinsics["left"]
-    )
+    base_actions = cam_frame_to_base_frame(actions.squeeze(), _extrinsics["left"])
     actions = actions[..., :3]
 
     ims_viz = visualize_actions(

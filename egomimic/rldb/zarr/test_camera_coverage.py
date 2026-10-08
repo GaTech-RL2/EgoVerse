@@ -5,7 +5,6 @@ import zarr
 
 from egomimic.rldb.zarr.camera_coverage import camera_coverage, camera_coverage_report
 from egomimic.rldb.zarr.overlay import keypoint_chunk
-from egomimic.rldb.zarr.test_render_check import overlay_episode as overlay_episode
 
 
 def test_moving_camera_is_used_once_for_the_entire_horizon(overlay_episode):
@@ -115,7 +114,9 @@ def test_legacy_aria_fallback_is_limited_to_known_rectified_image_sizes(
     assert not camera_coverage(group, image_shape=(480, 640, 3)).available
 
 
-def test_inspector_uses_displayed_camera_when_reference_and_ego_are_different(overlay_episode):
+def test_inspector_uses_displayed_camera_when_reference_and_ego_are_different(
+    overlay_episode,
+):
     from egomimic.rldb.zarr.overlay import decode_frame, render_keypoints
     from egomimic.scripts.data_visualization.inspector_lib.dataset_view import (
         _draw_overlay,
@@ -132,8 +133,14 @@ def test_inspector_uses_displayed_camera_when_reference_and_ego_are_different(ov
         },
     }
     group["obs_head_pose"][0, 0] = 0.2
-    expected, _ = render_keypoints(group, 0, image=image, camera="left_wrist", horizon=3)
-    actual, ok, _ = _draw_overlay(image, group, 0, "keypoint", horizon=3, camera="left_wrist")
+    expected, _ = render_keypoints(
+        group, 0, image=image, camera="left_wrist", horizon=3
+    )
+    actual, ok, _ = _draw_overlay(
+        image, group, 0, "keypoint", horizon=3, camera="left_wrist"
+    )
     assert ok
     np.testing.assert_array_equal(actual, expected)
-    assert not np.array_equal(actual, render_keypoints(group, 0, image=image, horizon=3)[0])
+    assert not np.array_equal(
+        actual, render_keypoints(group, 0, image=image, horizon=3)[0]
+    )

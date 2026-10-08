@@ -124,8 +124,12 @@ def camera_coverage(
         result.K = entry.K
         if result.K[0, 0] <= 0 or result.K[1, 1] <= 0:
             result.missing.append("camera focal lengths must be positive")
-        if not np.allclose(result.K[2], [0, 0, 1, 0]) or not np.allclose(result.K[:, 3], 0):
-            result.missing.append("camera K must be [K_3x3 | 0] with last row [0, 0, 1, 0]")
+        if not np.allclose(result.K[2], [0, 0, 1, 0]) or not np.allclose(
+            result.K[:, 3], 0
+        ):
+            result.missing.append(
+                "camera K must be [K_3x3 | 0] with last row [0, 0, 1, 0]"
+            )
         if not entry.rectified and (entry.model != "PINHOLE" or any(entry.distortion)):
             result.missing.append(
                 f"unrectified {entry.model} projection is not implemented"

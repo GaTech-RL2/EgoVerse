@@ -6,7 +6,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import hydra
 import lightning as L
 import torch
+from fsspec.implementations.local import LocalFileSystem
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
+from lightning.fabric.utilities.cloud_io import _load as pl_load
+from lightning.fabric.utilities.cloud_io import get_filesystem
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
@@ -15,9 +19,11 @@ from tabulate import tabulate
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.resolve_memo import resolve_once
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.utils.aws.aws_data_utils import load_env
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, PinError
+from egomimic.utils.env import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -62,6 +68,59 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
     log.info("Dataset frame counts:\n" + table)
 
 
+def _instantiate_dataset(*args, **kwargs):
+    """``hydra.utils.instantiate`` wraps any exception raised by the target in an
+    ``InstantiationException``. A bad pin must surface at launch as a bare
+    ``PinError`` (not a generic Hydra error the caller has to unwrap), so this
+    intercepts only that case and re-raises the original ``PinError`` -- keeping
+    the ``InstantiationException`` as its context (``from e``, not ``from None``)
+    so the Hydra target/config info isn't lost. Every other target exception is
+    re-raised exactly as Hydra raised it."""
+    try:
+        return hydra.utils.instantiate(*args, **kwargs)
+    except hydra.errors.InstantiationException as e:
+        if isinstance(e.__cause__, PinError):
+            raise e.__cause__ from e
+        raise
+
+
+class MmapCheckpointIO(TorchCheckpointIO):
+    """``TorchCheckpointIO`` that memory-maps tensor storages instead of reading them.
+
+    Every DDP rank loads the checkpoint independently and with no rank guard
+    (``checkpoint_connector.resume_start``), so a plain read holds N private
+    copies of the file in host RAM at once -- N x (weights + optimizer moments),
+    and the moments are 2x the weights for AdamW. Mapping the file instead lets
+    ranks on a node share page-cache pages, so one physical copy backs them all.
+
+    ``pl_load`` does not forward ``mmap``, hence the reimplementation. Falls back
+    to the normal read for checkpoints that predate torch's zipfile format (they
+    cannot be mapped).
+    """
+
+    def load_checkpoint(
+        self,
+        path: str,
+        map_location: Optional[Any] = lambda storage, loc: storage,
+        weights_only: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        fs = get_filesystem(path)
+        if not fs.exists(path):
+            raise FileNotFoundError(f"Checkpoint file not found: {path}")
+        if not isinstance(fs, LocalFileSystem):
+            # mmap needs a real local file; let pl_load handle fsspec/URL paths.
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
+        try:
+            return torch.load(
+                path, map_location=map_location, weights_only=weights_only, mmap=True
+            )
+        except (RuntimeError, ValueError, NotImplementedError) as e:
+            log.warning(
+                f"mmap load of {path} failed ({e}); falling back to a full read"
+            )
+            return pl_load(path, map_location=map_location, weights_only=weights_only)
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -83,62 +142,108 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     load_env()
 
-    train_datasets = {}
-    for dataset_name in cfg.data.train_datasets:
-        train_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.train_datasets[dataset_name]
+    # One SQL pull / path resolution per dataset spec across train, valid and
+    # the norm-stat copies; dropped on exit so nothing outlives this run.
+    with resolve_once():
+        train_datasets = {}
+        for dataset_name in cfg.data.train_datasets:
+            train_datasets[dataset_name] = _instantiate_dataset(
+                cfg.data.train_datasets[dataset_name], dataset_name=dataset_name
+            )
+
+        valid_datasets = {}
+        for dataset_name in cfg.data.valid_datasets:
+            valid_datasets[dataset_name] = _instantiate_dataset(
+                cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
+            )
+
+        log.info(f"Instantiating datamodule <{cfg.data._target_}>")
+        assert (
+            "MultiDataModuleWrapper" in cfg.data._target_
+        ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+        datamodule: LightningDataModule = hydra.utils.instantiate(
+            cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
         )
 
-    valid_datasets = {}
-    for dataset_name in cfg.data.valid_datasets:
-        valid_datasets[dataset_name] = hydra.utils.instantiate(
-            cfg.data.valid_datasets[dataset_name]
+        # Stats-only MultiDataset (no graph of its own; explicitly populated from
+        # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+        norm_stats = MultiDataset(
+            state={},
+            norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
         )
+        norm_stats.populate_from_datasets(datamodule.train_datasets)
 
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert (
-        "MultiDataModuleWrapper" in cfg.data._target_
-    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
-    datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
-    )
+        from egomimic.rldb.zarr import norm_cache
 
-    # Stats-only MultiDataset (no graph of its own; explicitly populated from
-    # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
-    norm_stats = MultiDataset(
-        state={},
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
-    )
-    norm_stats.populate_from_datasets(datamodule.train_datasets)
-
-    for dataset_name, dataset in datamodule.train_datasets.items():
-        log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        norm_stats.infer_shapes_from_batch(dataset[0])
-        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-        keymap_cfg = instantiate_copy.resolver.key_map
-        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
-
-        # this remove annotation and image keys from the keymap
-        km["norm_mode"] = True
-
-        instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
-        # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-        norm_stats.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
-            num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
-            precomputed_norm_path=OmegaConf.select(
-                cfg, "norm_stats.precomputed_norm_path", default=None
-            ),
+        sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        explicit_path = OmegaConf.select(
+            cfg, "norm_stats.precomputed_norm_path", default=None
         )
-        # Cache norm stats if save_cache_dir is set
-        save_cache_dir = OmegaConf.select(
-            cfg, "norm_stats.save_cache_dir", default=None
-        )
-        if save_cache_dir:
-            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
+        # Code default is False so configs without the key keep the old behaviour
+        # (always recompute); the shipped configs set norm_stats.use_cache=true.
+        use_cache = bool(OmegaConf.select(cfg, "norm_stats.use_cache", default=False))
+        cache_dir = OmegaConf.select(cfg, "norm_stats.cache_dir", default=None)
+
+        for dataset_name, dataset in datamodule.train_datasets.items():
+            log.info(f"Inferring shapes for dataset <{dataset_name}>")
+            norm_stats.infer_shapes_from_batch(dataset[0])
+            instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+            keymap_cfg = instantiate_copy.resolver.key_map
+            km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
+
+            # this remove annotation and image keys from the keymap
+            km["norm_mode"] = True
+
+            instantiate_copy.resolver.key_map = km
+            norm_dataset = _instantiate_dataset(
+                instantiate_copy, dataset_name=dataset_name
+            )
+
+            emb = get_embodiment_id(dataset_name)
+            key = inputs = cached = None
+            if explicit_path is None and use_cache and cache_dir:
+                episodes = {
+                    h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
+                    for h, ds in dataset.datasets.items()
+                }
+                inputs = norm_cache.cache_inputs(
+                    dataset_name,
+                    episodes,
+                    cfg.data.train_datasets[dataset_name],
+                    sample_frac,
+                )
+                key = norm_cache.norm_cache_key(inputs)
+                cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
+                if cached is not None:
+                    log.info(f"norm stats for <{dataset_name}>: cache hit {cached}")
+
+            # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
+            norm_stats.infer_norm_from_dataset(
+                norm_dataset,
+                dataset_name,
+                sample_frac=sample_frac,
+                num_workers=OmegaConf.select(cfg, "norm_stats.num_workers", default=4),
+                precomputed_norm_path=explicit_path
+                if explicit_path is not None
+                else cached,
+            )
+            if key is not None and cached is None:
+                if norm_stats.norm_stats.get(emb):
+                    norm_cache.write_cached(
+                        cache_dir,
+                        dataset_name,
+                        key,
+                        inputs,
+                        emb,
+                        norm_stats.norm_stats[emb],
+                        norm_stats._norm_run_metadata,
+                    )
+            # Cache norm stats if save_cache_dir is set
+            save_cache_dir = OmegaConf.select(
+                cfg, "norm_stats.save_cache_dir", default=None
+            )
+            if save_cache_dir:
+                norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in
@@ -190,13 +295,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
+    if cfg.get("mmap_checkpoint", True):
+        plugins.append(MmapCheckpointIO())
     if os.environ.get("SLURM_JOB_ID"):
-        plugins.append(
-            SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2])
-        )
+        # requeue_signal is a single signal, not a list -- SignalConnector passes
+        # it straight to signal.getsignal(), which raises TypeError on a list.
+        plugins.append(SLURMEnvironment(requeue_signal=signal.SIGUSR1))
         print("SLURM REQUEUE ENABLED")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger
+        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins or None
     )
 
     object_dict = {

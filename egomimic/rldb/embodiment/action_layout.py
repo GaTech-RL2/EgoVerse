@@ -60,7 +60,9 @@ def keypoint_action_mask(spec, action_dim: int) -> np.ndarray | None:
         ValueError: If ``spec`` cannot be resolved or its sides declare
             different keypoint topologies.
     """
-    resolved = spec if isinstance(spec, ResolvedEmbodiment) else Embodiment.resolve(spec)
+    resolved = (
+        spec if isinstance(spec, ResolvedEmbodiment) else Embodiment.resolve(spec)
+    )
     sides = [side for side in ("left", "right") if side in resolved.end_effectors]
     if not sides:
         return None

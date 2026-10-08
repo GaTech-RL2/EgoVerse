@@ -69,6 +69,26 @@ def test_the_resolver_refuses_a_structural_sample(tmp_path, caplog) -> None:
     assert "not 'complete'" in caplog.text
 
 
+def test_the_local_resolver_refuses_a_structural_sample_inside_resolve_once(
+    tmp_path,
+) -> None:
+    """The resolve-once memo caches paths only; loading still drops the sample."""
+    from egomimic.rldb.filters import DatasetFilter
+    from egomimic.rldb.resolve_memo import resolve_once
+    from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
+
+    _write(tmp_path / "complete.zarr")
+    _write(tmp_path / "sample.zarr", data_status=DATA_STATUS_STRUCTURAL_SAMPLE)
+    key_map = {"left.obs_gripper": {"zarr_key": "left.obs_gripper"}}
+
+    with resolve_once():
+        # The second resolver is served the memoized path list.
+        for _ in range(2):
+            resolver = LocalEpisodeResolver(tmp_path, key_map=key_map)
+            assert len(resolver.resolve_paths(DatasetFilter())) == 2
+            assert set(resolver.resolve(filters=DatasetFilter())) == {"complete"}
+
+
 def test_the_dataset_exposes_the_status(tmp_path) -> None:
     _write(tmp_path / "sample.zarr", data_status=DATA_STATUS_STRUCTURAL_SAMPLE)
 
@@ -80,14 +100,16 @@ def test_the_dataset_exposes_the_status(tmp_path) -> None:
 def test_the_validator_reads_and_checks_the_status(tmp_path) -> None:
     _write(tmp_path / "sample.zarr", data_status=DATA_STATUS_STRUCTURAL_SAMPLE)
     report = validate_episode(tmp_path / "sample.zarr")
-    assert next(
-        f.level for f in report.findings if f.check == "attrs.data_status"
-    ) == "ok"
+    assert (
+        next(f.level for f in report.findings if f.check == "attrs.data_status") == "ok"
+    )
 
     _write(tmp_path / "legacy.zarr")
     store = zarr.open_group(str(tmp_path / "legacy.zarr"), mode="a")
     del store.attrs["data_status"]
-    required = validate_episode(tmp_path / "legacy.zarr", requirements={"data_status": True})
+    required = validate_episode(
+        tmp_path / "legacy.zarr", requirements={"data_status": True}
+    )
     waived = validate_episode(
         tmp_path / "legacy.zarr", requirements={"data_status": False}
     )

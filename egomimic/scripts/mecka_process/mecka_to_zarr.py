@@ -619,9 +619,7 @@ class MeckaExtractor:
 
             # Output head pose as [x, y, z, qw, qx, qy, qz] (WXYZ)
             xyz_adj = world_T_adjusted_cam[:3, 3]
-            world_R_adjusted_cam = Rotation.from_matrix(
-                world_T_adjusted_cam[:3, :3]
-            )
+            world_R_adjusted_cam = Rotation.from_matrix(world_T_adjusted_cam[:3, :3])
             quat_xyzw = world_R_adjusted_cam.as_quat()  # SciPy returns (x, y, z, w)
             quat_wxyz = np.array(
                 [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]

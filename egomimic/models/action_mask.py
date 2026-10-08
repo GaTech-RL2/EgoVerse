@@ -113,7 +113,9 @@ class ActionMaskMixin:
 
         if len(unique) == 1:
             mask = self._mask_for_id(unique[0], width)
-            return None if mask is None else mask.view(*([1] * (target.ndim - 1)), width)
+            return (
+                None if mask is None else mask.view(*([1] * (target.ndim - 1)), width)
+            )
 
         ones = torch.ones(width, dtype=torch.bool, device=target.device)
         rows = torch.stack(

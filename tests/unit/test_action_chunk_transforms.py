@@ -43,9 +43,9 @@ def _assert_snapshot(
     expected_shapes: dict[str, tuple],
 ) -> None:
     name, keys, shapes = snapshots[idx]
-    assert name == expected_name, (
-        f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
-    )
+    assert (
+        name == expected_name
+    ), f"step {idx}: transform mismatch; expected {expected_name}, got {name}"
 
     missing = expected_keys - keys
     extra = keys - expected_keys
@@ -493,6 +493,16 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         snapshots,
         11,
         "DeleteKeys",
+        {"actions_cartesian", "observations.state.ee_pose"},
+        {
+            "actions_cartesian": (4, 14),
+            "observations.state.ee_pose": (14,),
+        },
+    )
+    _assert_snapshot(
+        snapshots,
+        12,
+        "NumpyToTensor",
         {"actions_cartesian", "observations.state.ee_pose"},
         {
             "actions_cartesian": (4, 14),

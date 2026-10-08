@@ -691,7 +691,7 @@ There is a **single concrete `Human` embodiment class** ([`egomimic/rldb/embodim
 Onboarding human data is just two steps:
 
 1. Write `embodiment="human_bimanual"` (or `human_left_arm` / `human_right_arm`) in the DB row and in `zarr.attrs`; record your lab/hardware in the `lab` field.
-2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria.yaml` (head-mounted, `stride: 3`) or `scale.yaml` (no head pose: `has_head_pose: false`, `stride: 1`).
+2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria.yaml` (head-mounted, `stride: 3`) or `scale.yaml` (`stride: 1`).
 
 Notes:
 - New exports supply camera intrinsics through the writer (§6.4). Existing episodes keep their established representations and source-specific fallbacks; absent calibration limits projection, not raw loading.
@@ -828,7 +828,10 @@ for index in range(len(dataset)):
 
 Select keys for the active sides. For Cartesian transformed batches, retain the
 existing `Human.get_keymap("cartesian", has_head_pose=...)` and corresponding
-`Human.get_transform_list(...)` configuration. For robot-hand data, select the
+`Human.get_transform_list(...)` configuration. Cartesian mode re-expresses every
+pose relative to `obs_head_pose`, which every current vendor export (Aria,
+Mecka, Scale) writes; only data without a head pose sets `has_head_pose=False`,
+and then loads with `transform_list=None`. For robot-hand data, select the
 arrays declared in the dexterous guide. Explicit structural samples are excluded by the resolver;
 use the local inspector/preview directly to review them.
 

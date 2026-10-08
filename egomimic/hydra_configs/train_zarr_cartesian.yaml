@@ -17,10 +17,10 @@ mode: train
 
 hydra:
   run:
-    # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    # <log_dir>/experiment_name/description_{timestamp}; log_dir defaults to ./logs
+    dir: ${paths.log_dir}/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: ${paths.log_dir}/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
   gpus_per_node: 1
@@ -35,4 +35,6 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
+  cache_dir: ${paths.cache_dir}/norm_stats   # content-keyed cache shared across runs
+  use_cache: true                            # false: always recompute, never write
 reject_outliers: true

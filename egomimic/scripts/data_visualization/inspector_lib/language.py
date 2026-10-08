@@ -34,7 +34,7 @@ def annotation_intervals(
     out: list[tuple[int, int, str, str]] = []
     for i in range(getattr(ann, "shape", (0,))[0]):
         raw = ann[i]
-        # Same unwrap dance as test_zarr.validate_episode.
+        # Unwrap 0-d / 1-element arrays and numpy bytes to a plain string.
         while isinstance(raw, np.ndarray):
             raw = raw.item() if raw.shape == () else raw.flat[0]
         if isinstance(raw, np.bytes_):

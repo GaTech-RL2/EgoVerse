@@ -1,4 +1,5 @@
 import importlib
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -208,7 +209,10 @@ class ResolvedEmbodiment:
         """Draw with the resolved per-side slot ownership, including robots."""
         cls = self.embodiment_class if self.platform.embodiment_class else Embodiment
         if mode == "keypoints":
-            kwargs.setdefault("keypoint_specs", {s: ee.keypoints for s, ee in self.end_effectors.items()})
+            kwargs.setdefault(
+                "keypoint_specs",
+                {s: ee.keypoints for s, ee in self.end_effectors.items()},
+            )
         return cls.viz(image, viz_data, mode=mode, **kwargs)
 
     def describe(self) -> str:
@@ -218,16 +222,49 @@ class ResolvedEmbodiment:
         return f"{self.embodiment_name or self.platform.name} ({sides})"
 
 
+def _strip_pi_keymap_mode(cls, keymap_mode: str) -> str:
+    """The ``*_pi`` keymap modes emitted PaliGemma camera names from the
+    dataset. Datasets now use one naming for every algo; the Pi wrapper
+    renames onto openpi's slots (egomimic.models.preprocess_pi_obs). The suffix
+    is still accepted so configs saved by earlier runs (eval, resume) rebuild."""
+    if not keymap_mode.endswith("_pi"):
+        return keymap_mode
+    base_mode = keymap_mode[: -len("_pi")]
+    warnings.warn(
+        f"keymap_mode '{keymap_mode}' is deprecated for {cls.__name__}; using "
+        f"'{base_mode}'. Pi maps the dataset camera keys onto base_0_rgb / "
+        "*_wrist_0_rgb itself.",
+        FutureWarning,
+        stacklevel=3,
+    )
+    return base_mode
+
+
 class Embodiment(ABC):
     """Define dataset transforms and visualization for an embodiment."""
 
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -320,8 +357,12 @@ class Embodiment(ABC):
             raise ValueError("morphology.platform disagrees with embodiment")
         active = set()
         for arity in platform.arity:
-            active.update(SIDES if arity == "bimanual" else (arity.removesuffix("_arm"),))
-        sides = named.sides if named is not None else tuple(s for s in SIDES if s in active)
+            active.update(
+                SIDES if arity == "bimanual" else (arity.removesuffix("_arm"),)
+            )
+        sides = (
+            named.sides if named is not None else tuple(s for s in SIDES if s in active)
+        )
         declared = morphology.get("end_effector", platform.default_end_effector)
         if isinstance(declared, str):
             declared = {side: declared for side in sides}
@@ -351,9 +392,13 @@ class Embodiment(ABC):
             raise ValueError(
                 f"morphology.end_effector must agree with {name!r} active sides {sides}"
             )
-        selected_arity = "bimanual" if set(resolved) == set(SIDES) else f"{next(iter(resolved))}_arm"
+        selected_arity = (
+            "bimanual" if set(resolved) == set(SIDES) else f"{next(iter(resolved))}_arm"
+        )
         if selected_arity not in platform.arity:
-            raise ValueError(f"morphology.end_effector selects unsupported arity {selected_arity!r}")
+            raise ValueError(
+                f"morphology.end_effector selects unsupported arity {selected_arity!r}"
+            )
 
         return ResolvedEmbodiment(
             platform=platform,
@@ -448,10 +493,14 @@ class Embodiment(ABC):
             sizes = {spec.n_slots for spec in (specs or {}).values()}
             if len(sizes) > 1:
                 raise ValueError("both hands must use the same keypoint topology size")
-            n_kp = next(iter(sizes), 21 if keypoint_spec is None else keypoint_spec.n_slots)
+            n_kp = next(
+                iter(sizes), 21 if keypoint_spec is None else keypoint_spec.n_slots
+            )
             valid_slots = None if keypoint_spec is None else keypoint_spec.valid
             if specs is not None:
-                valid_slots = {side: specs[side].valid if side in specs else () for side in SIDES}
+                valid_slots = {
+                    side: specs[side].valid if side in specs else () for side in SIDES
+                }
             color = kwargs.get("color", None)
             if color is not None and ColorPalette.is_valid(color):
                 n = len(cls.FINGER_COLORS)

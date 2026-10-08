@@ -6,7 +6,7 @@ train_datasets:
   eva_bimanual:
     resolver:
       key_map:
-        keymap_mode: cartesian_pi
+        keymap_mode: cartesian
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

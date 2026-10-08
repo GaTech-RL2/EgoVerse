@@ -44,6 +44,22 @@ def test_dataset_filter_matches_requires_bool_result() -> None:
         filters.matches({"episode_hash": "episode-1"})
 
 
+def test_dataset_filter_cache_key_reflects_contents() -> None:
+    a = DatasetFilter(filter_lambdas=["lambda row: True"], episode_hashes=["y", "x"])
+    b = DatasetFilter(filter_lambdas=["lambda row: True"], episode_hashes=["x", "y"])
+    c = DatasetFilter(filter_lambdas=["lambda row: False"], episode_hashes=["x", "y"])
+    assert a.cache_key() == b.cache_key()
+    assert a.cache_key() != c.cache_key()
+    hash(a.cache_key())
+
+
+def test_dataset_filter_subclass_without_cache_key_is_not_memoized() -> None:
+    class Custom(DatasetFilter):
+        pass
+
+    assert Custom(filter_lambdas=["lambda row: True"]).cache_key() is None
+
+
 def test_s3_resolver_filters_dataframe_with_dataset_filter(monkeypatch) -> None:
     df = pd.DataFrame(
         [
@@ -133,3 +149,33 @@ def test_sync_s3_parser_accepts_named_filter_key() -> None:
 def test_sync_s3_parser_rejects_unknown_filter_key() -> None:
     with pytest.raises(ValueError, match="Available filter keys"):
         parse_dataset_filter_key("does-not-exist")
+
+
+def test_dataset_filter_episode_hashes_pin_rows() -> None:
+    filters = DatasetFilter(episode_hashes=["a", "b"])
+
+    assert filters.episode_hashes == frozenset({"a", "b"})
+    assert filters.matches({"episode_hash": "a"})
+    assert not filters.matches({"episode_hash": "c"})
+    assert not filters.matches({"episode_hash": "a", "is_deleted": True})
+
+
+def test_dataset_filter_episode_hashes_combine_with_lambdas() -> None:
+    filters = DatasetFilter(
+        filter_lambdas=["lambda row: row['task'] == 'fold'"], episode_hashes=["a"]
+    )
+
+    assert filters.matches({"episode_hash": "a", "task": "fold"})
+    assert not filters.matches({"episode_hash": "a", "task": "stack"})
+    assert not filters.matches({"episode_hash": "b", "task": "fold"})
+
+
+def test_dataset_filter_empty_episode_hashes_means_no_pin() -> None:
+    assert DatasetFilter(episode_hashes=[]).matches({"episode_hash": "anything"})
+    assert "episode_hashes" in repr(DatasetFilter(episode_hashes=["a"]))
+
+
+def test_dataset_filter_single_string_pin_is_one_hash() -> None:
+    filters = DatasetFilter(episode_hashes="2026-04-30-09-41-51-255837")
+
+    assert filters.episode_hashes == {"2026-04-30-09-41-51-255837"}

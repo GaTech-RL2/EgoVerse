@@ -139,7 +139,9 @@ class Report:
                 lines.append(f"  {finding}")
         for name, capability in self.capabilities.items():
             if capability["requested"]:
-                result = {True: "available", False: "unavailable", None: "not checked"}[capability["available"]]
+                result = {True: "available", False: "unavailable", None: "not checked"}[
+                    capability["available"]
+                ]
                 lines.append(f"  requested {name}: {result}")
         lines.append(f"  {self.summary()}")
         return "\n".join(lines)
@@ -861,7 +863,9 @@ def _check_numeric_values(key, array, context, report, side):
         # sentinel). A partial nonfinite point is still corrupt data.
         missing = np.isnan(values).all(axis=-1) | (np.abs(values) >= 1e8).all(axis=-1)
         if human and missing.any():
-            report.add(WARNING, key, f"{missing.sum()} missing human keypoint estimates")
+            report.add(
+                WARNING, key, f"{missing.sum()} missing human keypoint estimates"
+            )
             values = values[~missing]
     if key.endswith("pose") and values.ndim == 2 and values.shape[1] == 7:
         missing = (np.abs(values) >= 1e8).all(axis=-1)
@@ -872,7 +876,9 @@ def _check_numeric_values(key, array, context, report, side):
         if not np.isfinite(values).all():
             report.add(ERROR, key, "nonfinite retained pose values")
         if not np.all(np.isfinite(norms) & np.isclose(norms, 1, atol=1e-3)):
-            report.add(ERROR, key, "retained quaternions must be finite and unit norm (wxyz)")
+            report.add(
+                ERROR, key, "retained quaternions must be finite and unit norm (wxyz)"
+            )
         return
     if not np.isfinite(values).all():
         report.add(ERROR, key, "nonfinite retained values in valid slots")
@@ -881,7 +887,11 @@ def _check_numeric_values(key, array, context, report, side):
     if key.endswith("hand_joints") and spec is not None and spec.joint_limits:
         limits = np.asarray(spec.joint_limits)
         if ((values < limits[:, 0] - 1e-6) | (values > limits[:, 1] + 1e-6)).any():
-            report.add(ERROR, key, "retained joints exceed registry limits; check units and joint order")
+            report.add(
+                ERROR,
+                key,
+                "retained joints exceed registry limits; check units and joint order",
+            )
 
 
 def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | None]]:
@@ -914,7 +924,9 @@ def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | 
 
 
 def validate_episode(
-    path: str | Path, *, requirements: Mapping[str, bool] | None = None,
+    path: str | Path,
+    *,
+    requirements: Mapping[str, bool] | None = None,
     ego_overlay: bool = False,
 ) -> Report:
     """Validate one Zarr episode against ``schema/episode_v3.yaml``.
@@ -944,7 +956,9 @@ def validate_episode(
     except Exception as exc:
         # An unreadable array or corrupt episode must not abort a multi-path
         # invocation. Schema configuration errors above remain programmer errors.
-        report.add(ERROR, "episode", f"cannot validate episode: {type(exc).__name__}: {exc}")
+        report.add(
+            ERROR, "episode", f"cannot validate episode: {type(exc).__name__}: {exc}"
+        )
     return report
 
 
@@ -963,7 +977,9 @@ def _validate_store(path, schema, report, ego_overlay):
         "array_keys": list(arrays),
         "arrays": arrays,
         "attrs": attrs,
-        "features": attrs.get("features") if isinstance(attrs.get("features"), Mapping) else {},
+        "features": attrs.get("features")
+        if isinstance(attrs.get("features"), Mapping)
+        else {},
         "total_frames": attrs.get("total_frames"),
     }
     embodiment = attrs.get("embodiment")
@@ -1015,7 +1031,11 @@ def _check_features(context, report, *, required):
     features = context["features"]
     for key, array in context["arrays"].items():
         if key not in features:
-            report.add(ERROR if required else WARNING, "features", f"missing description for {key}")
+            report.add(
+                ERROR if required else WARNING,
+                "features",
+                f"missing description for {key}",
+            )
             continue
         feature = features[key]
         if not isinstance(feature, Mapping):
@@ -1025,14 +1045,28 @@ def _check_features(context, report, *, required):
         if not isinstance(shape, (list, tuple)) or not all(
             isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in shape
         ):
-            report.add(ERROR, "features", f"{key}: shape must list nonnegative dimensions")
-        elif not key.startswith("images.") and key != "annotations" and tuple(shape) != array.shape[1:]:
-            report.add(ERROR, "features", f"{key}: described shape {shape} differs from stored {array.shape[1:]}")
+            report.add(
+                ERROR, "features", f"{key}: shape must list nonnegative dimensions"
+            )
+        elif (
+            not key.startswith("images.")
+            and key != "annotations"
+            and tuple(shape) != array.shape[1:]
+        ):
+            report.add(
+                ERROR,
+                "features",
+                f"{key}: described shape {shape} differs from stored {array.shape[1:]}",
+            )
         dtype = feature.get("dtype")
         if not isinstance(dtype, str):
             report.add(ERROR, "features", f"{key}: dtype must be a string")
         elif _dtype_kind(array.dtype) in ("float", "int") and dtype != str(array.dtype):
-            report.add(ERROR, "features", f"{key}: described dtype {dtype} differs from stored {array.dtype}")
+            report.add(
+                ERROR,
+                "features",
+                f"{key}: described dtype {dtype} differs from stored {array.dtype}",
+            )
 
 
 def _check_ego_overlay(context, report):
@@ -1045,61 +1079,100 @@ def _check_ego_overlay(context, report):
     if resolved is None:
         problems.append("cannot resolve morphology")
     else:
-        dexterous = any(s.ee_class == "dexterous_hand" for s in resolved.end_effectors.values())
+        dexterous = any(
+            s.ee_class == "dexterous_hand" for s in resolved.end_effectors.values()
+        )
         if dexterous:
             if not isinstance(context["attrs"].get("morphology"), Mapping):
                 problems.append("dexterous delivery must declare morphology")
             timestamps = context["arrays"].get("obs_rgb_timestamps_ns")
             if timestamps is None or str(timestamps.dtype) != "int64":
-                problems.append("dexterous RGB timestamps must use int64 UTC nanoseconds")
+                problems.append(
+                    "dexterous RGB timestamps must use int64 UTC nanoseconds"
+                )
             for side, spec in resolved.end_effectors.items():
                 if spec.ee_class != "dexterous_hand":
                     continue
                 for prefix in ("obs", "cmd"):
                     key = f"{side}.{prefix}_hand_joints"
                     feature = context["features"].get(key)
-                    if not isinstance(feature, Mapping) or feature.get("joint_names") != list(spec.joint_names):
-                        problems.append(f"{key}: features.joint_names must declare registry joint order")
+                    if not isinstance(feature, Mapping) or feature.get(
+                        "joint_names"
+                    ) != list(spec.joint_names):
+                        problems.append(
+                            f"{key}: features.joint_names must declare registry joint order"
+                        )
             if resolved.platform.aux and resolved.platform.aux.joint_names:
                 for key in ("obs_aux_joints", "cmd_aux_joints"):
                     feature = context["features"].get(key)
-                    if not isinstance(feature, Mapping) or feature.get("joint_names") != list(resolved.platform.aux.joint_names):
-                        problems.append(f"{key}: features.joint_names must declare registry auxiliary order")
+                    if not isinstance(feature, Mapping) or feature.get(
+                        "joint_names"
+                    ) != list(resolved.platform.aux.joint_names):
+                        problems.append(
+                            f"{key}: features.joint_names must declare registry auxiliary order"
+                        )
         calibration = context.get("calibration")
         entry = None if calibration is None else calibration.cameras.get("front_1")
         if entry is None or entry.K is None:
             problems.append("front_1: declared intrinsics required for ego overlay")
         elif dexterous and (calibration.legacy or entry.resolution is None):
-            problems.append("front_1: dexterous calibration must declare the stored image resolution")
+            problems.append(
+                "front_1: dexterous calibration must declare the stored image resolution"
+            )
         if dexterous and not problems:
-            camera_block = context["attrs"].get("calibration", {}).get("cameras", {}).get("front_1", {})
+            camera_block = (
+                context["attrs"]
+                .get("calibration", {})
+                .get("cameras", {})
+                .get("front_1", {})
+            )
             if not all(key in camera_block for key in ("model", "rectified")):
-                problems.append("front_1: declare the camera model and rectified image status")
+                problems.append(
+                    "front_1: declare the camera model and rectified image status"
+                )
         if not problems:
             for frame in range(context["total_frames"]):
                 try:
                     image = decode_frame(store, frame, "front_1")
-                    coverage = camera_coverage(store, "front_1", frame, resolved=resolved, image_shape=image.shape)
+                    coverage = camera_coverage(
+                        store,
+                        "front_1",
+                        frame,
+                        resolved=resolved,
+                        image_shape=image.shape,
+                    )
                     if not coverage.available:
                         raise ValueError("; ".join(coverage.missing))
                     feature = context["features"].get("images.front_1", {})
                     if tuple(feature.get("shape", ())) != image.shape:
-                        raise ValueError("images.front_1: feature shape differs from decoded RGB")
+                        raise ValueError(
+                            "images.front_1: feature shape differs from decoded RGB"
+                        )
                     # Consume the same supplied arrays and validity masks as
                     # the renderer. No FK generation or calibration fitting.
                     _, _, chunk, owned = keypoint_chunk(store, frame)
                     points = chunk.reshape(-1, 3)[owned]
                     if not np.isfinite(points).all():
-                        raise ValueError("front_1: missing/invalid keypoints in active slots")
+                        raise ValueError(
+                            "front_1: missing/invalid keypoints in active slots"
+                        )
                     checked += 1
                 except (ValueError, KeyError, OSError) as exc:
                     problems.append(f"frame {frame}: {exc}")
                     break
     report.capabilities["ego_overlay"] = {
-        "requested": True, "available": not problems,
-        "checked_frames": checked, "missing": problems,
+        "requested": True,
+        "available": not problems,
+        "checked_frames": checked,
+        "missing": problems,
     }
-    report.add(ERROR if problems else OK, "ego_overlay", "; ".join(problems) if problems else f"front_1 RGB, calibration and keypoints usable over {checked} retained frames")
+    report.add(
+        ERROR if problems else OK,
+        "ego_overlay",
+        "; ".join(problems)
+        if problems
+        else f"front_1 RGB, calibration and keypoints usable over {checked} retained frames",
+    )
 
 
 def _resolve(attrs: Mapping, report: Report) -> ResolvedEmbodiment | None:
@@ -1134,8 +1207,11 @@ def _build_parser() -> argparse.ArgumentParser:
             default=False,
             help=f"[{rule['severity']}] {help_text} (default: report limitation)",
         )
-    parser.add_argument("--ego-overlay", action="store_true",
-                        help="Require front_1 RGB, supplied keypoints and optical camera transforms over every retained frame")
+    parser.add_argument(
+        "--ego-overlay",
+        action="store_true",
+        help="Require front_1 RGB, supplied keypoints and optical camera transforms over every retained frame",
+    )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -1158,7 +1234,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     requirements = {name: getattr(args, f"require_{name}") for name in waivable_rules()}
-    reports = [validate_episode(p, requirements=requirements, ego_overlay=args.ego_overlay) for p in args.paths]
+    reports = [
+        validate_episode(p, requirements=requirements, ego_overlay=args.ego_overlay)
+        for p in args.paths
+    ]
     if args.json:
         print(json.dumps([r.to_jsonable() for r in reports], indent=2))
     else:

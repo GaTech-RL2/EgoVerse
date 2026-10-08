@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader, default_collate
 logger = logging.getLogger(__name__)
 
 
-
 class MultiDataModuleWrapper(LightningDataModule):
     """
     New functionality for dictionary based multi embodiment loading using CombinedLoader.
@@ -83,8 +82,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         return CombinedLoader(iterables, "max_size_cycle")
 
 
-
-
 def _extract_list_keys(batch):
     """Pop all list-valued keys from *batch* samples and return them separately.
 
@@ -106,5 +103,3 @@ def annotation_collate(batch):
     collated = default_collate(batch)
     collated.update(extracted)
     return collated
-
-

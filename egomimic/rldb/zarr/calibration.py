@@ -76,9 +76,7 @@ def _matrix(value: Any, shape: tuple[int, ...], where: str) -> np.ndarray:
     except (TypeError, ValueError) as exc:
         raise CalibrationError(f"{where}: not a numeric array ({exc})") from exc
     if arr.shape != shape:
-        raise CalibrationError(
-            f"{where}: expected shape {shape}, got {arr.shape}"
-        )
+        raise CalibrationError(f"{where}: expected shape {shape}, got {arr.shape}")
     if not np.isfinite(arr).all():
         raise CalibrationError(f"{where}: contains a non-finite value")
     return arr
@@ -111,7 +109,9 @@ def _rigid_matrix(value: Any, where: str) -> np.ndarray:
         and np.allclose(rotation.T @ rotation, np.eye(3), atol=1e-4)
         and np.isclose(np.linalg.det(rotation), 1, atol=1e-4)
     ):
-        raise CalibrationError(f"{where}: expected a rigid transform with a proper rotation")
+        raise CalibrationError(
+            f"{where}: expected a rigid transform with a proper rotation"
+        )
     return arr
 
 
@@ -247,9 +247,7 @@ class Calibration:
 
     def intrinsics(self) -> dict[str, np.ndarray]:
         """Return ``{camera_name: K}`` for cameras with intrinsic matrices."""
-        return {
-            name: cam.K for name, cam in self.cameras.items() if cam.K is not None
-        }
+        return {name: cam.K for name, cam in self.cameras.items() if cam.K is not None}
 
     def extrinsics(self, camera: str | None = None) -> dict[str, np.ndarray]:
         """Return composable ``{side: base_T_cam}`` values in legacy layout."""
@@ -264,9 +262,7 @@ class Calibration:
         """Serialize this calibration to plain values accepted by Zarr attributes."""
         out: dict[str, Any] = {
             "reference_frame": self.reference_frame,
-            "cameras": {
-                name: cam.to_jsonable() for name, cam in self.cameras.items()
-            },
+            "cameras": {name: cam.to_jsonable() for name, cam in self.cameras.items()},
         }
         if self.arm_bases:
             out["arm_bases"] = {
@@ -462,9 +458,7 @@ def parse_calibration(block: Any, where: str = "calibration") -> Calibration:
 
     if "reference_frame" not in block:
         raise CalibrationError(f"{where}: missing required field 'reference_frame'")
-    reference_frame = _parse_reference_frame(
-        block["reference_frame"], cameras, where
-    )
+    reference_frame = _parse_reference_frame(block["reference_frame"], cameras, where)
 
     raw_arm_bases = block.get("arm_bases") or {}
     if not isinstance(raw_arm_bases, Mapping):
@@ -503,7 +497,9 @@ def lift_legacy_calibration(
     Raises:
         CalibrationError: If either attribute is malformed.
     """
-    if (intrinsics is None or isinstance(intrinsics, Mapping) and not intrinsics) and not extrinsics:
+    if (
+        intrinsics is None or isinstance(intrinsics, Mapping) and not intrinsics
+    ) and not extrinsics:
         return None
 
     if isinstance(intrinsics, Mapping):
@@ -564,9 +560,7 @@ def read_calibration(attrs: Mapping[str, Any]) -> Calibration | None:
     block = attrs.get("calibration")
     if block:
         return parse_calibration(block)
-    return lift_legacy_calibration(
-        attrs.get("intrinsics"), attrs.get("extrinsics")
-    )
+    return lift_legacy_calibration(attrs.get("intrinsics"), attrs.get("extrinsics"))
 
 
 __all__ = [

@@ -200,9 +200,7 @@ def test_legacy_attributes_lift_without_changing_base_T_cam() -> None:
         np.testing.assert_allclose(
             calibration.arm_bases[side], np.linalg.inv(base_T_cam), atol=1e-12
         )
-        np.testing.assert_allclose(
-            calibration.base_T_cam(side), base_T_cam, atol=1e-12
-        )
+        np.testing.assert_allclose(calibration.base_T_cam(side), base_T_cam, atol=1e-12)
 
 
 def test_legacy_extrinsics_without_intrinsics_still_compose() -> None:
@@ -443,7 +441,9 @@ def test_a_transform_fallback_never_overrides_a_batch_value() -> None:
 
 
 @pytest.mark.parametrize("front", ["front_1", "camera_front"])
-def test_image_keymap_binds_intrinsics_and_pose_independently_of_reference(tmp_path, front):
+def test_image_keymap_binds_intrinsics_and_pose_independently_of_reference(
+    tmp_path, front
+):
     path = tmp_path / "camera.zarr"
     front_pose = np.eye(4)
     front_pose[0, 3] = 0.25
@@ -451,7 +451,9 @@ def test_image_keymap_binds_intrinsics_and_pose_independently_of_reference(tmp_p
     base_pose[1, 3] = 0.1
     ZarrWriter.create_and_write(
         path,
-        numeric_data={"left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (2, 1)).astype(float)},
+        numeric_data={
+            "left.obs_ee_pose": np.tile([0, 0, 1, 1, 0, 0, 0], (2, 1)).astype(float)
+        },
         image_data={f"images.{front}": np.full((2, 16, 16, 3), 40, np.uint8)},
         embodiment="eva_bimanual",
         calibration={
@@ -463,10 +465,13 @@ def test_image_keymap_binds_intrinsics_and_pose_independently_of_reference(tmp_p
             "arm_bases": {"left": base_pose.tolist()},
         },
     )
-    dataset = ZarrDataset(path, key_map={
-        "image": {"zarr_key": f"images.{front}", "key_type": "camera_keys"},
-        "pose": {"zarr_key": "left.obs_ee_pose"},
-    })
+    dataset = ZarrDataset(
+        path,
+        key_map={
+            "image": {"zarr_key": f"images.{front}", "key_type": "camera_keys"},
+            "pose": {"zarr_key": "left.obs_ee_pose"},
+        },
+    )
     sample = dataset[0]
     assert sample["image"].shape == (3, 16, 16)
     np.testing.assert_allclose(sample["intrinsics"], K_FRONT)
@@ -479,4 +484,6 @@ def test_legacy_extrinsics_follow_the_existing_front_camera_name():
         {"left": np.eye(4).tolist()},
     )
     assert calibration.reference_camera == "camera_front"
-    np.testing.assert_allclose(calibration.base_T_cam("left", "camera_front"), np.eye(4))
+    np.testing.assert_allclose(
+        calibration.base_T_cam("left", "camera_front"), np.eye(4)
+    )

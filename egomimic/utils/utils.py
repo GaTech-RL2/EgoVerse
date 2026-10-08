@@ -121,5 +121,4 @@ def get_metric_value(
     return metric_value
 
 
-
 # ---- moved from egomimicUtils.py (code unchanged) ----

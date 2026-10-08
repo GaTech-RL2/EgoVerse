@@ -27,7 +27,10 @@ def _requests_get_with_retry(*args, **kwargs):
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
             return requests.get(*args, **kwargs)
-        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
+        except (
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.ConnectionError,
+        ) as e:
             last_exc = e
             if attempt == _MAX_RETRIES:
                 raise
@@ -167,6 +170,7 @@ def get_completed_tasks(project_name: str, api_key: str) -> list[dict[str, Any]]
 # ---------------------------------------------------------------------------
 # Annotation CSV helpers
 # ---------------------------------------------------------------------------
+
 
 def load_scale_annotation_csv(csv_path: str) -> pd.DataFrame:
     return pd.read_csv(csv_path)

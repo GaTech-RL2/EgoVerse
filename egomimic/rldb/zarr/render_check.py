@@ -22,7 +22,14 @@ from egomimic.rldb.zarr.validate import validate_episode
 
 
 def render_episode(
-    path, out, *, camera="front_1", horizon=1, start=0, max_frames=None, step=1,
+    path,
+    out,
+    *,
+    camera="front_1",
+    horizon=1,
+    start=0,
+    max_frames=None,
+    step=1,
     mode="keypoint",
 ):
     """Stream a preview; missing overlays remain visible and are reported.
@@ -147,8 +154,12 @@ def main(argv=None):
     parser.add_argument("episode", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--camera", default="front_1")
-    parser.add_argument("--mode", choices=("keypoint", "cartesian", "orientation", "none"), default="keypoint",
-                        help="Inspector mode: supplied keypoints, Cartesian trajectory, current orientation axes, or RGB")
+    parser.add_argument(
+        "--mode",
+        choices=("keypoint", "cartesian", "orientation", "none"),
+        default="keypoint",
+        help="Inspector mode: supplied keypoints, Cartesian trajectory, current orientation axes, or RGB",
+    )
     parser.add_argument("--horizon", type=int, default=1)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--max-frames", type=int)
@@ -174,11 +185,15 @@ def main(argv=None):
     findings = validation["findings"]
     errors = sum(f["level"] == "error" for f in findings)
     warnings = sum(f["level"] == "warning" for f in findings)
-    print(f"Validation: {errors} errors, {warnings} warnings; data_status={validation['data_status']}; "
-          f"status eligible={'yes' if validation['status_eligible'] else 'no'}")
+    print(
+        f"Validation: {errors} errors, {warnings} warnings; data_status={validation['data_status']}; "
+        f"status eligible={'yes' if validation['status_eligible'] else 'no'}"
+    )
     for finding in findings:
         if finding["level"] != "ok":
-            print(f"  {finding['level'].upper()} {finding['check']}: {finding['message']}")
+            print(
+                f"  {finding['level'].upper()} {finding['check']}: {finding['message']}"
+            )
     notes = set()
     for frame in report["frames"]:
         if not frame["available"]:

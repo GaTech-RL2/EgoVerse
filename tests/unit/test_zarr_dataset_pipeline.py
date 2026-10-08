@@ -1,3 +1,9 @@
+"""End-to-end Eva and Human ``ZarrDataset`` pipelines on temporary episodes.
+
+Ported from ``egomimic/rldb/zarr/test_zarr.py`` (dexterous-embodiment branch),
+which replaced the cluster-path comparison script deleted on main.
+"""
+
 import numpy as np
 import torch
 

@@ -232,7 +232,9 @@ class AriaRay(EmbodimentRay):
             if filename not in has_slam:
                 missing.append("slam")
             if missing:
-                print(f"[MISSING] {filename}: has VRS but MISSING {missing}", flush=True)
+                print(
+                    f"[MISSING] {filename}: has VRS but MISSING {missing}", flush=True
+                )
                 continue
             if True:
                 vrs = vrs_by_name[filename]

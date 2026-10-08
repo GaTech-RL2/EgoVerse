@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import warnings
 from pathlib import Path
 
 import boto3
@@ -9,31 +8,11 @@ import cloudpathlib
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
 
+from egomimic.utils.env import load_env  # noqa: F401
+
 
 def _uses_r2_endpoint(endpoint_url: str | None) -> bool:
     return bool(endpoint_url and "r2.cloudflarestorage.com" in endpoint_url)
-
-
-def load_env(path="~/.egoverse_env", required: bool = False):
-    p = Path(path).expanduser()
-    if not p.exists():
-        if required:
-            raise ValueError(
-                f"Env file {p} does not exist, run ./egomimic/utils/aws/setup_secret.sh"
-            )
-        warnings.warn(
-            f"Env file {p} does not exist; AWS/R2 env vars not set. "
-            "Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.",
-            UserWarning,
-            stacklevel=2,
-        )
-        return
-    for line in p.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip().strip("'").strip('"'))
 
 
 def get_cloudpathlib_s3_client():

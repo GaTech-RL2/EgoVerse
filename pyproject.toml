@@ -61,19 +61,58 @@ dependencies = [
     "pytest",
     "dash",
     "pre-commit",
-    "ruff",
+    "ruff==0.8.6",  # keep in sync with .pre-commit-config.yaml and ci.yml
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
+    "scipy",
 ]
+
+# Not declared: `openpi` (egomimic/algo/pi.py). The fork at external/openpi pins
+# lerobot -> av>=14.2, which conflicts with av==12.0.0 above, so it cannot be a
+# resolvable extra. Install it without its dependencies, as the lab venv does:
+#     uv pip install --no-deps -e external/openpi
+# then apply openpi's `transformers_replace` patch (README, "Installation").
+# `uv sync` reinstalls transformers and silently undoes that patch.
+#
+# Also not declared: `scale_sensor_fusion_io` (PyPI: scale-sensor-fusion-io),
+# imported only by the Scale converter under external/scale/scripts, which is
+# not part of this package; install it by hand when running that converter.
+# The Ray data-processing image keeps its own requirements-ray.txt.
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["egomimic*"]
 
-# Include the registry and schema YAML files in built distributions.
+# Hydra configs and robot resources, plus the embodiment registry and the
+# episode schema YAML files the validator and resolver read at runtime.
 [tool.setuptools.package-data]
+egomimic = ["hydra_configs/**/*.yaml", "resources/*"]
 "egomimic.rldb.embodiment.registry" = ["*.yaml", "urdf/**/*"]
 "egomimic.rldb.zarr" = ["schema/*.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["egomimic/rldb/embodiment", "egomimic/rldb/zarr"]
+# The embodiment-registry and Zarr-schema suites still live next to their
+# source under egomimic/rldb (they predate the tests/ layout); collect them
+# with the tests/ tree until they are moved.
+testpaths = ["tests", "egomimic/rldb/embodiment", "egomimic/rldb/zarr"]
+norecursedirs = [
+    "external",
+    "emimic",
+    "logs",
+    "scratch",
+    "stanford_repo",  # pytest matches norecursedirs against basenames
+    ".*",
+    "*.egg-info",
+]
+markers = [
+    "integration: needs cluster data, credentials, a GPU, or optional extras; skipped unless --integration is passed",
+    "gpu: needs a CUDA device; run with --integration -m gpu on a GPU node",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = "emimic"
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+exclude = ["emimic", "external", "logs", "scratch", "assets", "**/__pycache__", "**/*.egg-info"]

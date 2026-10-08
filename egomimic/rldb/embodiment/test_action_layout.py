@@ -175,10 +175,13 @@ def test_a_mixed_batch_gets_one_mask_row_per_sample() -> None:
 def test_a_head_with_no_masked_embodiment_registers_no_buffer() -> None:
     head = _Head({"human_bimanual": 138})
 
-    assert head.action_mask(
-        {"embodiment": torch.tensor([get_embodiment_id("human_bimanual")])},
-        torch.zeros(1, 138),
-    ) is None
+    assert (
+        head.action_mask(
+            {"embodiment": torch.tensor([get_embodiment_id("human_bimanual")])},
+            torch.zeros(1, 138),
+        )
+        is None
+    )
     assert not [name for name, _ in head.named_buffers()]
 
 
@@ -228,9 +231,7 @@ def _draw(actions, **kwargs):
     from egomimic.rldb.embodiment.human import Human
 
     image = np.zeros((80, 80, 3), dtype=np.uint8)
-    intrinsics = np.array(
-        [[40.0, 0, 40, 0], [0, 40.0, 40, 0], [0, 0, 1.0, 0]]
-    )
+    intrinsics = np.array([[40.0, 0, 40, 0], [0, 40.0, 40, 0], [0, 0, 1.0, 0]])
     return Human.viz(image, actions, mode="keypoints", intrinsics=intrinsics, **kwargs)
 
 
