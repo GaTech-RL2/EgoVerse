@@ -353,12 +353,32 @@ def main():
     if args.preflight_only and not args.representation_method:
         parser.error("Preflight-only requires a representation method")
     episode_pairs = episode_schedule(args.tasks, args.seeds, args.episode_plan)
+    args.output.mkdir(parents=True, exist_ok=False)
+    prior_failures = {}
+    if args.guidance_baselines and not args.preflight_only:
+        from astra_reversal.complex_manipulation.language_guidance import prior_failure
+
+        # imageio seeks by starting ffmpeg subprocesses. Finish this work before
+        # JAX initializes its multithreaded runtime; forking afterward can leave
+        # the decoder with invalid inherited gRPC descriptors.
+        preparation = []
+        for task, seed in episode_pairs:
+            baseline = prior_failure(args.guidance_baselines / f"{task}_seed{seed}")
+            prior_failures[task, seed] = baseline
+            preparation.append(
+                {
+                    "task": task,
+                    "seed": seed,
+                    "video_sha256": baseline["video_sha256"],
+                    "frame_steps": [f["step"] for f in baseline["frames"]],
+                }
+            )
+            write_json(args.output / "prior_failure_preparation.json", preparation)
     import gymnasium as gym
     import jax
     import robocasa  # noqa: F401
     from robocasa.utils.dataset_registry_utils import get_task_horizon
 
-    args.output.mkdir(parents=True, exist_ok=False)
     versions = {
         name: importlib.metadata.version(name)
         for name in ("jax", "flax", "numpy", "mujoco", "robosuite")
@@ -436,15 +456,27 @@ def main():
         if args.preflight_only:
             return
     results = []
+    constructors = []
+    write_json(args.output / "constructors.json", constructors)
     for task, seed in episode_pairs:
         # Recreate the env for each seed so simulator reset RNG history is explicit.
         np.random.seed(seed)
+        constructor = {
+            "task": task,
+            "seed": seed,
+            "status": "started",
+            "setup_resets": None,
+        }
+        constructors.append(constructor)
+        write_json(args.output / "constructors.json", constructors)
         env = gym.make(
             f"robocasa/{task}",
             split=args.split,
             seed=seed,
             disable_env_checker=True,
         )
+        constructor.update(status="ready", setup_resets=1)
+        write_json(args.output / "constructors.json", constructors)
         try:
             policy._rng = jax.random.key(seed)
             guide = None
@@ -452,7 +484,6 @@ def main():
                 from astra_reversal.codex_relay import CodexRelayClient
                 from astra_reversal.complex_manipulation.language_guidance import (
                     LanguageGuide,
-                    prior_failure,
                 )
 
                 directory = args.output / f"{task}_seed{seed}"
@@ -478,9 +509,7 @@ def main():
                     }
                 guide = LanguageGuide(
                     client=client,
-                    baseline=prior_failure(
-                        args.guidance_baselines / f"{task}_seed{seed}"
-                    ),
+                    baseline=prior_failures[task, seed],
                     output=directory / "guidance",
                     **guide_kwargs,
                 )
