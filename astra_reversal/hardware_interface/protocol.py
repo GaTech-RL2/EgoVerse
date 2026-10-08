@@ -104,7 +104,9 @@ def validate(manifest, *, scored=False, confirmatory=False):
         or manifest["python_version"] != "3.8.13"
     ):
         raise ValueError("source_or_python_pin")
-    if not re.fullmatch(r"python@sha256:[a-f0-9]{64}", manifest["container_digest"]):
+    if not re.fullmatch(
+        r"docker.io/library/python@sha256:[a-f0-9]{64}", manifest["container_digest"]
+    ):
         raise ValueError("container_not_digest_pinned")
     if set(manifest["pilot_indices"]) & set(manifest["confirmatory_indices"]):
         raise ValueError("pilot_confirmation_overlap")

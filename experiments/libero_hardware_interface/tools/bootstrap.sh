@@ -25,11 +25,11 @@ git -C upstream-libero remote add origin https://github.com/Lifelong-Robot-Learn
 git -C upstream-libero fetch --depth 1 origin f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
 git -C upstream-libero checkout --detach FETCH_HEAD
 test "$(git -C upstream-libero rev-parse HEAD)" = f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
-python -m pip install -c experiments/libero_hardware_interface/constraints.txt -r upstream-libero/requirements.txt \
-    jsonschema==4.19.2 pytest==7.4.4 boto3==1.34.162 imageio==2.31.6 imageio-ffmpeg==0.4.9 h5py==3.8.0
 # LIBERO uses torch only to load official reset tensors here. Preserve 1.11.0;
 # the CPU wheel is an explicit runtime variant of the upstream CUDA training setup.
-python -m pip install torch==1.11.0+cpu torchvision==0.12.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+python -m pip install -c experiments/libero_hardware_interface/constraints.txt -r upstream-libero/requirements.txt \
+    jsonschema==4.19.2 pytest==7.4.4 boto3==1.34.162 imageio==2.31.6 imageio-ffmpeg==0.4.9 h5py==3.8.0 \
+    torch==1.11.0+cpu torchvision==0.12.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 python -m pip install --no-deps -e upstream-libero
 mkdir -p artifacts/runtime
 python -m pip freeze --all > artifacts/runtime/pip-freeze.txt

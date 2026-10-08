@@ -305,7 +305,7 @@ def test_trial_finishes_and_event_chain_detects_tampering(tmp_path):
 
 
 def manifest():
-    return design("python@sha256:" + "a" * 64)
+    return design("docker.io/library/python@sha256:" + "a" * 64)
 
 
 def test_disjoint_splits_randomized_paired_official_states():

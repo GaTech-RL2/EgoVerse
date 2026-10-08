@@ -5,7 +5,7 @@ libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
 libero_commit: f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
 robosuite_version: 1.4.1
 python_version: 3.8.13
-container_digest: python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307
+container_digest: docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307
 model:
   provider: responses
   identifier: gpt-6-astra

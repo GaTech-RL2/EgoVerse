@@ -1,5 +1,5 @@
 {
-  "image": "python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307",
+  "image": "docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307",
   "source_tag": "python:3.8.13-bullseye",
   "platform": "linux/amd64",
   "purpose": "Upstream-prescribed Python 3.8.13 simulator runtime; no policy weights"
