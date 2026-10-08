@@ -538,6 +538,13 @@ def test_bounds_check_has_relative_slack_but_catches_corrupt_values():
     assert check(1.0 + 0.6 * 2.0) is not None
     assert check(1e9) is not None
 
+    md.bounds_rel_slack = 10.0
+    assert check(1.0 + 5.0 * 2.0) is None
+    assert check(1e9) is not None
+    md.bounds_check = False
+    assert check(1e9) is None
+    assert check(float("nan")) is not None
+
 
 # ------------------------------------------------------ train_viz on by default
 def _viz_cfg(**top):

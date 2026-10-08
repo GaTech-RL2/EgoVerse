@@ -246,6 +246,18 @@ def test_config_without_the_keys_is_unchanged(compose_resolve):
     assert dm.val_loader_names() == ["valid", "train_viz", "unseen_op_valid"]
     assert dm.valid_datasets[HUMAN] is split
 
+    dm = MultiDataModuleWrapper(
+        train_datasets=datasets,
+        valid_datasets=datasets,
+        train_dataloader_params=params,
+        valid_dataloader_params=params,
+        extra_valid_datasets=datasets,
+        extra_valid_dataloader_params=params,
+        extra_valid_prefix="seen_ops_valid",
+    )
+    assert dm.val_loader_names() == ["valid", "extra_valid"]
+    assert len(dm.val_dataloader()) == 2
+
 
 # ------------------------------------------------------------ 2. metric loaders
 def test_metric_loader_is_even_stride_over_every_episode():
@@ -400,6 +412,17 @@ def test_video_dataset_holds_only_the_pins_in_frame_order():
 
     with pytest.raises(PinError, match="not in dataset"):
         pinned_episode_subset(split, ["nope"], dataset_name=HUMAN)
+
+
+def test_video_dataset_keeps_the_heads_bounds_settings():
+    split = _split({"ep0": 30, "ep1": 20})
+    assert pinned_episode_subset(split, ["ep0"]).bounds_check
+    split.bounds_check = False
+    assert not pinned_episode_subset(split, ["ep0"]).bounds_check
+    split.bounds_rel_slack = 10.0
+    assert pinned_episode_subset(split, ["ep0"]).bounds_rel_slack == 10.0
+    wrapped = EvenStrideDataset(split, frames_per_episode=5)
+    assert wrapped.bounds_rel_slack == 10.0 and not wrapped.bounds_check
 
 
 def test_video_datasets_are_built_per_head_from_the_resolved_split():

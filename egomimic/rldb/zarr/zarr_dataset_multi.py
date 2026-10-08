@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import copy
 import fcntl
+import hashlib
 import json
 import logging
 import math
@@ -31,7 +32,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
@@ -216,6 +216,29 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+def pose_glitch_frames(
+    head_pose: np.ndarray, step_m: float = 0.05, rot_deg: float = 10.0
+) -> np.ndarray:
+    """Frames on either side of a camera-pose jump: a one-frame move over
+    ``step_m`` or turn over ``rot_deg``. ``head_pose`` is (T, 7) xyz + wxyz."""
+    from scipy.spatial.transform import Rotation
+
+    step = np.linalg.norm(np.diff(head_pose[:, :3], axis=0), axis=1)
+    q = head_pose[:, 3:7]
+    ok = np.linalg.norm(q, axis=1) > 0
+    rot = np.zeros(len(step))
+    pair = ok[1:] & ok[:-1]
+    if pair.any():
+        r = (
+            Rotation.from_quat(q[1:][pair], scalar_first=True)
+            * Rotation.from_quat(q[:-1][pair], scalar_first=True).inv()
+        )
+        rot[pair] = np.degrees(r.magnitude())
+    jump = np.flatnonzero((step > step_m) | (rot > rot_deg)) + 1
+    # Which side of a jump is wrong is unknown, so both are.
+    return np.unique(np.concatenate([jump - 1, jump]))
+
+
 def _bounds_check_channels(zarr_key: str, width: int) -> list[int] | None:
     """Channels of a known bimanual layout that quantile bounds apply to
     (translation, gripper, keypoints), or ``None`` to check the full vector.
@@ -319,6 +342,13 @@ STAGE_DIR_ENV = "EGOVERSE_STAGE_DIR"
 # Never read from /workspace NFS: those reads have hung ranks unkillably and drained nodes.
 DEFAULT_STAGE_DIR = f"/ephemeral/loaner-jobs/{os.getuid()}/egoverse-datasets"
 _STAGE_MIN_FREE_FRAC = 0.1
+_LAUNCH_RECORD_TTL_S = 7 * 24 * 3600
+# A staged copy is re-checked against the source at least this often, which
+# catches NFS data rewritten without its SQL updated_at changing.
+_STAGED_TRUST_S = 7 * 24 * 3600
+_STAGE_CHUNK = 64
+# Longer than any job (48 h limit), so an episode this stale has no reader.
+_STAGE_EVICT_AGE_S = 3 * 24 * 3600
 
 
 class StagingError(RuntimeError):
@@ -332,83 +362,280 @@ def _episode_dir(root: Path, name: str) -> Path | None:
     return None
 
 
+def _launch_key() -> str | None:
+    """Identifies the ranks of one launch: an ``srun`` step, or else the process
+    group a launcher spawned its ranks in. None outside a Slurm job."""
+    job = os.environ.get("SLURM_JOB_ID")
+    if job is None:
+        return None
+    step = os.environ.get("SLURM_STEP_ID")
+    step = f"s{step}" if step is not None else f"pg{os.getpgid(0)}"
+    return f"{job}.{step}.{os.environ.get('SLURM_RESTART_COUNT', '0')}"
+
+
+def _launch_record(stage_root: Path, kind: str, source: Path) -> Path | None:
+    key = _launch_key()
+    if key is None:
+        return None
+    src = hashlib.sha256(str(source).encode()).hexdigest()[:16]
+    return stage_root / kind / f"{key}.{src}.json"
+
+
+def _read_json(path: Path | None) -> dict:
+    if path is None:
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.rename(path)
+
+
+def _prune(directory: Path, ttl_s: float) -> None:
+    cutoff = time.time() - ttl_s
+    for old in [*directory.glob("*.json"), *directory.glob(".*.tmp")]:
+        try:
+            if old.stat().st_mtime < cutoff:
+                old.unlink()
+        except OSError:
+            pass
+
+
+def _tar_copy(src_root: Path, names: list[str], dest: Path) -> None:
+    """Copy ``src_root/<name>`` trees into ``dest`` as one sequential tar stream."""
+    # --dereference: a symlinked episode must land as data, not a link back to NFS.
+    # pax keeps sub-second mtimes, which the fingerprints and norm-stat keys compare.
+    create = ["tar", "-C", str(src_root), "--dereference", "--format=posix"]
+    with tempfile.TemporaryFile() as read_err, tempfile.TemporaryFile() as write_err:
+        reader = subprocess.Popen(
+            [*create, "--null", "-T", "-", "-cf", "-"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=read_err,
+        )
+        writer = subprocess.Popen(
+            ["tar", "-C", str(dest), "-xf", "-"],
+            stdin=reader.stdout,
+            stderr=write_err,
+        )
+        reader.stdout.close()
+        try:
+            reader.stdin.write(b"".join(n.encode() + b"\0" for n in names))
+            reader.stdin.close()
+        except BrokenPipeError:
+            pass
+        writer.wait()
+        reader.wait()
+        if reader.returncode or writer.returncode:
+            read_err.seek(0)
+            write_err.seek(0)
+            detail = (read_err.read()[-2000:] + write_err.read()[-2000:]).decode(
+                errors="replace"
+            )
+            raise OSError(f"tar {src_root} -> {dest} failed: {detail.strip()}")
+
+
+def staged_episode_dir(stage_root: Path, src_root: Path) -> Path:
+    """Where ``stage_episodes`` puts episodes from ``src_root``: one subdirectory
+    per source, so the same hash from two sources never shares a copy."""
+    return stage_root / hashlib.sha256(str(src_root).encode()).hexdigest()[:16]
+
+
+def _evict_unused(stage_root: Path, keep: set[Path], target_free: float) -> int:
+    """Delete staged episodes untouched for ``_STAGE_EVICT_AGE_S`` (older than
+    any job, so no running job reads them), least recently used first, until
+    ``target_free`` of the disk is free. Returns how many were removed."""
+    cutoff = time.time() - _STAGE_EVICT_AGE_S
+    candidates = []
+    for ns in stage_root.iterdir():
+        if not ns.is_dir() or ns.name.startswith("."):
+            continue
+        for ep in ns.iterdir():
+            if ep.name.startswith(".") or ep in keep:
+                continue
+            try:
+                mtime = ep.stat().st_mtime
+            except OSError:
+                continue
+            if mtime < cutoff:
+                candidates.append((mtime, ep))
+    removed = 0
+    for _, ep in sorted(candidates):
+        usage = shutil.disk_usage(stage_root)
+        if usage.free >= target_free * usage.total:
+            break
+        (ep.parent / ".staged" / f"{ep.name.removesuffix('.zarr')}.json").unlink(
+            missing_ok=True
+        )
+        shutil.rmtree(ep, ignore_errors=True)
+        removed += 1
+    return removed
+
+
 def stage_episodes(
-    src_root: Path, stage_root: Path, names: set[str], workers: int = 16
+    src_root: Path,
+    stage_root: Path,
+    names: set[str],
+    versions: Mapping[str, str] | None = None,
 ) -> set[str]:
-    """Copy episodes from ``src_root`` into node-local ``stage_root`` and return
-    the names now loadable from it (those present in ``src_root``). Ranks on a
-    node serialize on a lock file, so the first one copies and the rest find
-    fresh copies. Raises ``StagingError`` if any present episode can't be staged."""
+    """Copy episodes from ``src_root`` into ``staged_episode_dir(stage_root,
+    src_root)`` on node-local disk and return the names now loadable from it
+    (those present in ``src_root``). Raises ``StagingError`` if any present
+    episode can't be staged.
+
+    ``/workspace`` NFS falls over under many small metadata ops, so the source
+    is touched as little as possible. Callers on a node serialize on a lock
+    file. An episode staged at the same ``versions[name]`` (e.g. the SQL
+    ``updated_at``), re-checked against the source within ``_STAGED_TRUST_S``
+    and still intact locally, is used without reading the source. The rest are
+    checked against the source (~45 metadata RPCs each) one at a time, at most
+    once per launch, whose other ranks and heads reuse the result; stale ones
+    are copied in sequential tar streams of ``_STAGE_CHUNK`` episodes, each
+    committed before the next, and swapped in by rename so a killed restage
+    never leaves a half-deleted copy in place."""
     from egomimic.rldb.zarr.norm_cache import episode_fingerprint
 
+    versions = versions or {}
+    ns = staged_episode_dir(stage_root, src_root)
     try:
-        stage_root.mkdir(parents=True, exist_ok=True)
+        ns.mkdir(parents=True, exist_ok=True)
         lock = open(stage_root / ".lock", "w")
     except OSError as e:
         raise StagingError(
             f"Stage dir {stage_root} is not writable ({e}); refusing to read "
             f"episodes from {src_root}. Set ${STAGE_DIR_ENV} to a node-local dir."
         ) from e
+    records = ns / ".staged"
+    incoming = stage_root / ".incoming"
+    trash = stage_root / ".trash"
+
+    def trusted(name):
+        version = versions.get(name)
+        if version is None:
+            return False
+        rec = _read_json(records / f"{name}.json")
+        if (
+            rec.get("version") != version
+            or time.time() - rec.get("checked_at", 0) > _STAGED_TRUST_S
+        ):
+            return False
+        dst = ns / rec.get("dir", "")
+        return dst.is_dir() and episode_fingerprint(dst) == rec.get("fp")
+
+    def record(name, dst):
+        if versions.get(name) is None:
+            return
+        _write_json(
+            records / f"{name}.json",
+            {
+                "dir": dst.name,
+                "version": versions[name],
+                "fp": episode_fingerprint(dst),
+                "checked_at": time.time(),
+            },
+        )
 
     def check(name):
         src = _episode_dir(src_root, name)
         fp = None if src is None else episode_fingerprint(src)
         if fp is None:
             return None
-        dst = stage_root / src.name
+        dst = ns / src.name
         return name, src, dst, dst.is_dir() and fp == episode_fingerprint(dst)
 
-    def check_all(names):
-        with ThreadPoolExecutor(workers) as ex:
-            return [c for c in ex.map(check, sorted(names)) if c is not None]
-
-    def copy(item):
-        name, src, dst, _ = item
+    def ensure_space(done, total, keep):
+        usage = shutil.disk_usage(stage_root)
+        if usage.free >= _STAGE_MIN_FREE_FRAC * usage.total:
+            return
+        evicted = _evict_unused(stage_root, keep, _STAGE_MIN_FREE_FRAC + 0.05)
         usage = shutil.disk_usage(stage_root)
         if usage.free < _STAGE_MIN_FREE_FRAC * usage.total:
-            return name, f"{stage_root} is below {_STAGE_MIN_FREE_FRAC:.0%} free"
-        tmp = stage_root / f".{src.name}.partial"
-        try:
-            shutil.rmtree(tmp, ignore_errors=True)
-            # copy2 keeps mtimes, so norm-stat cache keys match the source's.
-            shutil.copytree(src, tmp)
-            shutil.rmtree(dst, ignore_errors=True)
-            tmp.rename(dst)
-        except OSError as e:
-            shutil.rmtree(tmp, ignore_errors=True)
-            return name, str(e)
-        return name, None
+            raise StagingError(
+                f"{stage_root} is below {_STAGE_MIN_FREE_FRAC:.0%} free after "
+                f"{done}/{total} episodes (evicted {evicted} unused); refusing to "
+                f"read the rest from {src_root}."
+            )
+
+    def copy(todo, keep):
+        logger.info("Staging %d episodes into %s", len(todo), ns)
+        t0 = time.time()
+        for i in range(0, len(todo), _STAGE_CHUNK):
+            chunk = todo[i : i + _STAGE_CHUNK]
+            ensure_space(i, len(todo), keep)
+            try:
+                shutil.rmtree(incoming, ignore_errors=True)
+                incoming.mkdir()
+                _tar_copy(src_root, [c[1].name for c in chunk], incoming)
+                for name, src, dst, _ in chunk:
+                    (records / f"{name}.json").unlink(missing_ok=True)
+                    if dst.exists():
+                        trash.mkdir(exist_ok=True)
+                        dst.rename(trash / f"{dst.name}.{time.time_ns()}")
+                    (incoming / src.name).rename(dst)
+                    record(name, dst)
+            except OSError as e:
+                raise StagingError(
+                    f"Failed to stage episodes {i}-{i + len(chunk)} of {len(todo)} "
+                    f"into {ns}; refusing to read them from {src_root}: {e}"
+                ) from e
+            finally:
+                shutil.rmtree(incoming, ignore_errors=True)
+                shutil.rmtree(trash, ignore_errors=True)
+        logger.info(
+            "Staged %d episodes into %s in %.0fs", len(todo), ns, time.time() - t0
+        )
 
     with lock:
-        checked = check_all(names)
-        staged = {c[0] for c in checked if c[3]}
-        stale = [c[0] for c in checked if not c[3]]
-        if stale:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            # Another rank may have copied these while this one waited.
-            todo = [c for c in check_all(stale) if not c[3]]
-            staged |= set(stale) - {c[0] for c in todo}
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # Left by a caller killed mid-copy; the lock makes them nobody's now.
+        shutil.rmtree(incoming, ignore_errors=True)
+        shutil.rmtree(trash, ignore_errors=True)
+        launch = _launch_record(stage_root, ".verified", src_root)
+        verified = _read_json(launch)
+        local_ok = {n: trusted(n) for n in sorted(names)}
+        unchecked = sorted(
+            n for n, ok in local_ok.items() if not ok and n not in verified
+        )
+        if unchecked:
+            logger.info(
+                "Checking %d episodes against %s, one at a time",
+                len(unchecked),
+                src_root,
+            )
+            checked = [c for c in map(check, unchecked) if c is not None]
+            todo = [c for c in checked if not c[3]]
             if todo:
-                logger.info("Staging %d episodes into %s", len(todo), stage_root)
-            t0 = time.time()
-            with ThreadPoolExecutor(workers) as ex:
-                results = list(ex.map(copy, todo))
-            failed = [(n, err) for n, err in results if err is not None]
-            if failed:
-                raise StagingError(
-                    f"Failed to stage {len(failed)}/{len(todo)} episodes into "
-                    f"{stage_root}; refusing to read them from {src_root}. "
-                    f"First: {failed[0][0]}: {failed[0][1]}"
-                )
-            staged |= {n for n, _ in results}
-            if todo:
-                logger.info(
-                    "Staged %d episodes into %s in %.0fs",
-                    len(todo),
-                    stage_root,
-                    time.time() - t0,
-                )
-    logger.info("%d episodes load from %s", len(staged), stage_root)
+                copy(todo, keep={c[2] for c in checked})
+            for name, _, dst, fresh in checked:
+                if fresh:
+                    record(name, dst)
+            present = {c[0] for c in checked}
+            verified.update({n: n in present for n in unchecked})
+            if launch is not None:
+                _write_json(launch, verified)
+                _prune(launch.parent, _LAUNCH_RECORD_TTL_S)
+    staged = {
+        n
+        for n in names
+        if local_ok[n] or (verified.get(n) and _episode_dir(ns, n) is not None)
+    }
+    for n in staged:
+        os.utime(_episode_dir(ns, n))  # recency for _evict_unused
+    logger.info(
+        "%d episodes load from %s (%d trusted from earlier staging, %d checked "
+        "against %s)",
+        len(staged),
+        ns,
+        sum(local_ok.values()),
+        len(unchecked),
+        src_root,
+    )
     return staged
 
 
@@ -510,14 +737,21 @@ class EpisodeResolver:
         """Datasets for ``paths``, first copied to a node-local stage directory
         (``$EGOVERSE_STAGE_DIR`` or ``DEFAULT_STAGE_DIR``) and read from there."""
         valid = {h for _, h in paths}
-        stage_dir = os.environ.get(STAGE_DIR_ENV) or DEFAULT_STAGE_DIR
-        staged = stage_episodes(self.folder_path, Path(stage_dir), valid)
+        stage_dir = Path(os.environ.get(STAGE_DIR_ENV) or DEFAULT_STAGE_DIR)
+        staged = stage_episodes(
+            self.folder_path, stage_dir, valid, self._stage_versions(valid)
+        )
         if not staged:
             return {}
         datasets = self._load_zarr_datasets(
-            search_path=Path(stage_dir), valid_folder_names=staged
+            search_path=staged_episode_dir(stage_dir, self.folder_path),
+            valid_folder_names=staged,
         )
         return dict(sorted(datasets.items()))
+
+    def _stage_versions(self, names: set[str]) -> dict[str, str] | None:
+        """Per-episode version tokens that let staging trust an earlier copy."""
+        return None
 
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
@@ -551,6 +785,17 @@ class S3EpisodeResolver(EpisodeResolver):
             key_map=key_map,
             transform_list=transform_list,
         )
+
+    def _stage_versions(self, names: set[str]) -> dict[str, str] | None:
+        df = _episode_table()
+        if "updated_at" not in df.columns:
+            return None
+        rows = df[df["episode_hash"].astype(str).isin(names)]
+        return {
+            str(h): str(t)
+            for h, t in zip(rows["episode_hash"], rows["updated_at"])
+            if pd.notna(t)
+        }
 
     # Deliberately keyed on "S3" rather than type(self).__name__: every
     # subclass shares this exact path resolution and differs only in load().
@@ -723,6 +968,40 @@ class S3EpisodeResolver(EpisodeResolver):
         s3_paths: list[tuple[str, str]],
         local_dir: Path,
         numworkers: int = 10,
+    ):
+        """Sync ``s3_paths`` into ``local_dir``. Inside an ``srun`` step, once
+        per node per launch: callers serialize on a node-local lock, and the
+        node's other ranks and heads skip what an earlier caller of the launch
+        already synced instead of re-checking ``local_dir`` (NFS) episode by
+        episode. Elsewhere (e.g. a download script on the login node) it syncs
+        directly."""
+        if not s3_paths:
+            return
+        stage_root = Path(os.environ.get(STAGE_DIR_ENV) or DEFAULT_STAGE_DIR)
+        record = _launch_record(stage_root, ".synced", local_dir)
+        try:
+            if record is None:
+                raise OSError("not inside an srun step")
+            stage_root.mkdir(parents=True, exist_ok=True)
+            lock = open(stage_root / ".sync.lock", "w")
+        except OSError:
+            cls._sync_s3_to_local_unlocked(bucket_name, s3_paths, local_dir, numworkers)
+            return
+        with lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            done = set(_read_json(record).get("hashes", []))
+            pending = [(p, h) for p, h in s3_paths if h not in done]
+            cls._sync_s3_to_local_unlocked(bucket_name, pending, local_dir, numworkers)
+            _write_json(record, {"hashes": sorted(done | {h for _, h in s3_paths})})
+            _prune(record.parent, _LAUNCH_RECORD_TTL_S)
+
+    @classmethod
+    def _sync_s3_to_local_unlocked(
+        cls,
+        bucket_name: str,
+        s3_paths: list[tuple[str, str]],
+        local_dir: Path,
+        numworkers: int,
     ):
         if not s3_paths:
             return
@@ -972,6 +1251,11 @@ class SafeS3EpisodeResolver(S3EpisodeResolver):
         return kept
 
 
+# ``{episode_hash: attrs}`` for a LocalEpisodeResolver folder; when present it
+# replaces opening every episode to filter on its attrs.
+LOCAL_EPISODE_INDEX = "_episode_index.json"
+
+
 class LocalEpisodeResolver(EpisodeResolver):
     """
     Resolves episodes from local Zarr stores, filtering via local metadata.
@@ -1002,18 +1286,26 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         rows: list[dict] = []  # one normalized attrs row per episode dir
         paths_by_hash: dict[str, str] = {}
-        for p in sorted(search_path.iterdir()):
-            if not p.is_dir():
-                continue
-            episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
-            try:
-                store = zarr.open_group(str(p), mode="r")
-                metadata = dict(store.attrs)
-            except Exception as e:
-                logger.warning("Failed to read metadata for %s: %s", p, e)
-                continue
-            rows.append(_normalize_filter_row(metadata, episode_hash=episode_hash))
-            paths_by_hash[episode_hash] = str(p)
+        index = search_path / LOCAL_EPISODE_INDEX
+        if index.is_file():
+            # One read instead of opening every episode's attrs: on NFS that
+            # scan is thousands of small RPCs per rank per head.
+            for episode_hash, metadata in sorted(json.loads(index.read_text()).items()):
+                rows.append(_normalize_filter_row(metadata, episode_hash=episode_hash))
+                paths_by_hash[episode_hash] = str(search_path / f"{episode_hash}.zarr")
+        else:
+            for p in sorted(search_path.iterdir()):
+                if not p.is_dir():
+                    continue
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
+                try:
+                    store = zarr.open_group(str(p), mode="r")
+                    metadata = dict(store.attrs)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+                rows.append(_normalize_filter_row(metadata, episode_hash=episode_hash))
+                paths_by_hash[episode_hash] = str(p)
 
         if filters.episode_hashes:
             present = {r["episode_hash"]: r for r in rows}
@@ -1070,6 +1362,19 @@ class LocalEpisodeResolver(EpisodeResolver):
     def _memo_fields(self) -> tuple:
         return (str(self.folder_path), self.debug)
 
+    def _stage_versions(self, names: set[str]) -> dict[str, str] | None:
+        """A hash of each episode's index row, so a staged copy of an unchanged
+        episode is trusted without re-fingerprinting the NFS source."""
+        index = Path(self.folder_path) / LOCAL_EPISODE_INDEX
+        if not index.is_file():
+            return None
+        rows = json.loads(index.read_text())
+        return {
+            n: hashlib.sha1(json.dumps(rows[n], sort_keys=True).encode()).hexdigest()
+            for n in names
+            if n in rows
+        }
+
     def _compute_paths(
         self, filters: DatasetFilter, expected_embodiment: str | None
     ) -> list[tuple[str, str]]:
@@ -1125,7 +1430,8 @@ class MultiDataset(torch.utils.data.Dataset):
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
     # Bounds-check slack per (timestep, channel) cell; see _check_bounds.
     BOUNDS_ABS_TOL = 1e-6
-    BOUNDS_REL_SLACK = 0.5
+    bounds_rel_slack = 0.5
+    bounds_check = True
 
     def __init__(
         self,
@@ -1137,6 +1443,8 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        bounds_check: bool = True,
+        bounds_rel_slack: float | None = None,
         **kwargs,
     ):
         """
@@ -1147,8 +1455,18 @@ class MultiDataset(torch.utils.data.Dataset):
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
             state: If provided, populate stats fields from this dict (deploy mode).
+            bounds_check: reject samples outside the norm-stat quantile range
+                (NaN/Inf is rejected either way).
+            bounds_rel_slack: how far past each cell's quantile range, as a
+                fraction of it, a sample may go. Eval heads on other operators
+                widen it: their frames legitimately land just outside the train
+                range, and swapping them out biases the metric, while corrupt
+                values (fill constants, wrong frames) are orders of magnitude out.
         """
         super().__init__()
+        self.bounds_check = bounds_check
+        if bounds_rel_slack is not None:
+            self.bounds_rel_slack = bounds_rel_slack
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
@@ -1203,7 +1521,8 @@ class MultiDataset(torch.utils.data.Dataset):
 
         self._global_indices_by_dataset = {n: [] for n in self.datasets}
         for dataset_name, dataset in self.datasets.items():
-            for local_idx in range(len(dataset)):
+            starts = getattr(dataset, "sample_indices", None)
+            for local_idx in range(len(dataset)) if starts is None else starts.tolist():
                 global_idx = len(self.index_map)
                 self.index_map.append((dataset_name, local_idx))
                 self._global_indices_by_dataset[dataset_name].append(global_idx)
@@ -1302,6 +1621,9 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
+            if not self.bounds_check:
+                continue
+
             # Rotation channels are either Euler ypr (wraps at +-pi) or
             # continuous 6D columns; quantile bounds on them are meaningless
             # and reject otherwise-valid frames, so only the translation /
@@ -1334,15 +1656,15 @@ class MultiDataset(torch.utils.data.Dataset):
             # same way before comparing. Corrupt values
             # (fill constants, wrong-frame data) sit orders of magnitude
             # outside the range and are still caught.
-            tol = self.BOUNDS_ABS_TOL + self.BOUNDS_REL_SLACK * (q_high - q_low)
+            tol = self.BOUNDS_ABS_TOL + self.bounds_rel_slack * (q_high - q_low)
             below = arr_q < q_low - tol
             above = arr_q > q_high + tol
             # Cells normalize() treats as constant (wrist-frame t=0, the kp0 /
             # kp9 structural zeros) cannot blow up the loss whatever offset
             # they carry, so don't reject on them. Which stat decides that is
             # norm_mode's business -- std under zscore, the quantile range
-            # under quantile -- and every shipped config is zscore, so reading
-            # q99 - q1 here would exempt cells the normalizer still divides by.
+            # under quantile -- so reading q99 - q1 here regardless would
+            # exempt cells a zscore normalizer still divides by.
             constant = self._degenerate_cells(stats, arr.shape)
             if constant is not None:
                 if check_idx is not None:
@@ -1476,6 +1798,7 @@ class MultiDataset(torch.utils.data.Dataset):
         skipped by the resolver, is a PinError rather than a silent drop."""
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", None)
+        pose_glitch_mask = kwargs.pop("pose_glitch_mask", None)
         expected = None
         if dataset_name is not None:
             try:
@@ -1499,6 +1822,25 @@ class MultiDataset(torch.utils.data.Dataset):
                 f"'{dataset_name or '<unnamed>'}': {dropped}. They were excluded by "
                 "filter_lambdas or the resolver's debug limit, or failed to load / "
                 "were skipped by the resolver (see the log above)."
+            )
+
+        if pose_glitch_mask:
+            n_masked = n_total = n_eps = 0
+            for ds in resolved.values():
+                if isinstance(ds, ZarrDataset):
+                    dropped_frames = ds.set_pose_glitch_mask(**dict(pose_glitch_mask))
+                    n_masked += dropped_frames
+                    n_total += ds.total_frames
+                    n_eps += dropped_frames > 0
+            logger.info(
+                "pose_glitch_mask on '%s': %d of %d start frames dropped (%.1f%%) "
+                "in %d of %d episodes",
+                dataset_name or "<unnamed>",
+                n_masked,
+                n_total,
+                100 * n_masked / max(1, n_total),
+                n_eps,
+                len(resolved),
             )
 
         return cls(datasets=resolved, **kwargs)
@@ -2085,6 +2427,9 @@ class EvenStrideDataset(MultiDataset):
             )
         torch.utils.data.Dataset.__init__(self)
         self.base = base
+        # MultiDataset's class defaults would otherwise shadow the base's values.
+        self.bounds_check = base.bounds_check
+        self.bounds_rel_slack = base.bounds_rel_slack
         self.frames_per_episode = frames_per_episode
         self.stride = stride
         self.datasets = base.datasets
@@ -2138,6 +2483,17 @@ class EvenStrideDataset(MultiDataset):
         return getattr(base, item)
 
 
+def _unmasked(leaf):
+    """A shallow copy of ``leaf`` that starts at every frame: the replay video
+    assumes consecutive frames, so it plays through pose_glitch_mask gaps (the
+    metric loaders keep the mask)."""
+    if getattr(leaf, "sample_indices", None) is None:
+        return leaf
+    leaf = copy.copy(leaf)
+    leaf.sample_indices = None
+    return leaf
+
+
 def pinned_episode_subset(
     base: MultiDataset, episode_hashes, dataset_name: str | None = None
 ) -> MultiDataset:
@@ -2172,9 +2528,11 @@ def pinned_episode_subset(
             f"'{dataset_name or '<unnamed>'}'"
         )
     subset = MultiDataset(
-        datasets={h: base.datasets[h] for h in hashes},
+        datasets={h: _unmasked(base.datasets[h]) for h in hashes},
         mode="total",
         norm_mode=base.norm_mode,
+        bounds_check=base.bounds_check,
+        bounds_rel_slack=base.bounds_rel_slack,
     )
     subset.set_norm_stats_from(base)
     return subset
@@ -2206,7 +2564,54 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
+        # Frames a sample may start at; None = all of them (set_pose_glitch_mask).
+        self.sample_indices: np.ndarray | None = None
         super().__init__()
+
+    def set_pose_glitch_mask(
+        self,
+        step_m: float = 0.05,
+        rot_deg: float = 10.0,
+        head_key: str = "obs_head_pose",
+    ) -> int:
+        """Drop the start frames whose non-image reads touch a camera-pose jump
+        (``pose_glitch_frames``): world-frame hand poses jump with the camera
+        there. Returns the number of start frames dropped."""
+        T = self.total_frames
+        if head_key not in self.episode_reader._store or T < 2:
+            self.sample_indices = None
+            return 0
+        bad = pose_glitch_frames(
+            np.asarray(self.episode_reader._store[head_key][:T]), step_m, rot_deg
+        )
+        if bad.size == 0:
+            self.sample_indices = None
+            return 0
+        lo, hi = self._read_span_offsets()
+        # Start frame t reads [t + lo, t + hi]; it is bad iff that span holds a
+        # bad frame b, i.e. t in [b - hi, b - lo].
+        delta = np.zeros(T + 1, dtype=np.int64)
+        np.add.at(delta, np.clip(bad - hi, 0, T), 1)
+        np.add.at(delta, np.clip(bad - lo + 1, 0, T), -1)
+        masked = np.cumsum(delta[:T]) > 0
+        self.sample_indices = np.flatnonzero(~masked)
+        return int(masked.sum())
+
+    def _read_span_offsets(self) -> tuple[int, int]:
+        """(lo, hi) frame offsets, relative to the start frame, of everything a
+        sample reads outside the image and annotation keys, measured mid-episode
+        so no window is clipped."""
+        t0 = self.total_frames // 2
+        frames = [t0]
+        for k, (_, window) in self._read_windows(t0).items():
+            if self.key_map[k].get("key_type") == "camera_keys":
+                continue
+            if isinstance(window, np.ndarray):
+                frames.extend(int(i) for i in window)
+            else:
+                start, end = window
+                frames.extend([start, start if end is None else end - 1])
+        return min(frames) - t0, max(frames) - t0
 
     def init_episode(self):
         """
@@ -2457,7 +2862,9 @@ class ZarrDataset(torch.utils.data.Dataset):
             nonlocal attempts
             next_idx, attempts = get_fallback_idx(
                 idx=idx,
-                candidates=range(self.total_frames),
+                candidates=range(self.total_frames)
+                if self.sample_indices is None
+                else self.sample_indices.tolist(),
                 _attempts=attempts,
                 max_attempts=self.total_frames,
                 exhausted_error=(

@@ -10,6 +10,7 @@ cross-attend to the language and image tokens in alternating blocks.
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from egomimic.algo.hpt import HPT, HPTModel
 from egomimic.models.rdt_nets import (
@@ -48,6 +49,10 @@ class RDTModel(HPTModel):
     steps are masked out. ``short_dropout`` replaces a sample's whole short
     image stream by a learned null token (training only), so the policy cannot
     lean on the latest frames alone.
+
+    ``lang_pad_to`` right-pads the language tokens (masked) to a multiple of it,
+    so torch.compile sees a fixed length instead of each batch's longest prompt;
+    masked keys get zero attention weight, so outputs do not change.
     """
 
     def __init__(
@@ -61,6 +66,7 @@ class RDTModel(HPTModel):
         image_history_dropout: float = 0.0,
         memory: dict | None = None,
         short_dropout: float = 0.0,
+        lang_pad_to: int | None = None,
         **kwargs,
     ):
         super().__init__(
@@ -74,6 +80,7 @@ class RDTModel(HPTModel):
         self.image_history_dropout = float(image_history_dropout)
         self.stem_modality = {}
         self.short_dropout = float(short_dropout)
+        self.lang_pad_to = lang_pad_to
         self.long_memory = (
             None if memory is None else RDTMemory(hidden_dim=embed_dim, **memory)
         )
@@ -137,7 +144,7 @@ class RDTModel(HPTModel):
             raise ValueError(
                 f"'{modality}' carries {T} frames but trunk.image_history="
                 f"{self.image_history}; set it to match the data config's "
-                "image_history_gap_s (2 frames when set, else 1)"
+                "key_map.image_history (when image_history_gap_s is set, else 1)"
             )
         drop = self._drop(self.image_history_dropout, B, x.device) if T > 1 else None
         if drop is not None:
@@ -222,6 +229,10 @@ class RDTModel(HPTModel):
         if lang:
             cond.lang = torch.cat(lang, dim=1)
             cond.lang_mask = torch.cat(lang_mask, dim=1)
+            if self.lang_pad_to:
+                pad = -cond.lang.shape[1] % self.lang_pad_to
+                cond.lang = F.pad(cond.lang, (0, 0, 0, pad))
+                cond.lang_mask = F.pad(cond.lang_mask, (0, pad), value=False)
         if self.long_memory is not None:
             # after state dropout, so a fused memory loses its proprio with it
             cond.memory, cond.memory_mask = self.long_memory(
@@ -251,7 +262,7 @@ class RDT(HPT):
         domain="",
     ):
         """HPT's layout plus ``fps``; per camera with a ``*_hist`` twin, the
-        (past, current) frame pair on the image input's time axis; and a
+        (past..., current) frames on the image input's time axis; and a
         ``*_mem`` window as ``memory`` / ``memory_mask``, un-augmented (its
         tower is frozen and the stem normalizes)."""
         past = {
@@ -272,13 +283,16 @@ class RDT(HPT):
         )
         for key, past_key in past.items():
             short = key.rsplit(".", 1)[-1]
-            # (B * 2, 3, H, W), each sample's (past, current) adjacent: one
-            # jitter draw per sample covers both frames, and every op -- a
-            # contrast mean, a crop, a resize -- still sees one frame.
-            pair = torch.stack([batch[past_key], batch[key]], dim=1)
-            n = pair.shape[0]
-            pair = self._apply_image_augs(pair.flatten(0, 1), short, frames=2)
-            data[short] = pair.reshape(n, 2, *pair.shape[1:]).unsqueeze(2)
+            # (B * T, 3, H, W), each sample's frames adjacent: one jitter draw
+            # per sample covers all of them, and every op -- a contrast mean,
+            # a crop, a resize -- still sees one frame.
+            past_frames = batch[past_key]
+            if past_frames.dim() == 4:
+                past_frames = past_frames.unsqueeze(1)
+            clip = torch.cat([past_frames, batch[key].unsqueeze(1)], dim=1)
+            n, t = clip.shape[:2]
+            clip = self._apply_image_augs(clip.flatten(0, 1), short, frames=t)
+            data[short] = clip.reshape(n, t, *clip.shape[1:]).unsqueeze(2)
         for key in memory:
             data["memory"] = batch[key]
             data["memory_mask"] = batch[f"{key}{HISTORY_MASK_SUFFIX}"] > 0.5

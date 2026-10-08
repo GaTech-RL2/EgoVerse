@@ -9,10 +9,22 @@ from egomimic.utils.gpu_orphans import orphan_guarded
 logger = logging.getLogger(__name__)
 
 # Val heads that can carry a metric loader, in val_dataloader() order.
-VAL_HEADS = ("valid", "train_viz", "unseen_op_valid")
+VAL_HEADS = ("valid", "train_viz", "unseen_op_valid", "extra_valid")
 # Suffix of the video-only companion loader of a head (``valid`` ->
 # ``valid_video``). ModelWrapper.validation_step splits on it.
 VIDEO_SUFFIX = "_video"
+# A hung worker blocks only its own rank; without a timeout the other ranks die
+# 30 min later on the NCCL watchdog with no stack trace from the stuck one.
+WORKER_TIMEOUT_S = 600
+
+
+def _with_worker_defaults(params: dict, *, persistent: bool) -> dict:
+    params = orphan_guarded(params)
+    if params.get("num_workers", 0) > 0:
+        params.setdefault("timeout", WORKER_TIMEOUT_S)
+        if persistent:
+            params.setdefault("persistent_workers", True)
+    return params
 
 
 def video_loader_name(head: str) -> str:
@@ -81,11 +93,17 @@ class MultiDataModuleWrapper(LightningDataModule):
         train_viz_dataloader_params: dict | None = None,
         unseen_op_valid_datasets: dict | None = None,
         unseen_op_valid_dataloader_params: dict | None = None,
+        extra_valid_datasets: dict | None = None,
+        extra_valid_dataloader_params: dict | None = None,
+        extra_valid_prefix: str | None = None,
         valid_prefix: str | None = None,
         held_out_operators: list | None = None,
         video_datasets: dict | None = None,
         metric_frames_per_episode: dict | None = None,
         video_episodes: dict | None = None,
+        tasks: list | None = None,
+        held_out_hashes: list | None = None,
+        train_operators: list | None = None,
     ):
         """
         Args:
@@ -105,6 +123,11 @@ class MultiDataModuleWrapper(LightningDataModule):
                 operators' held-out episodes and ``train_viz`` the train split.
             unseen_op_valid_dataloader_params: dict of per-dataset DataLoader
                 kwargs for the unseen_op_valid loader.
+            extra_valid_datasets / extra_valid_dataloader_params: a fourth
+                val head, like unseen_op_valid, for a second seen split
+                (e.g. held-out episodes of several operators next to
+                ``valid``'s one). Logs under ``extra_valid_prefix``
+                (config-only, default ``extra_valid``).
             valid_prefix: config-only. When set, trainHydra wraps the canonical
                 evaluator so the valid loader logs ``<prefix>/...`` and writes
                 ``videos_<prefix>/`` (``seen_op_valid`` in the opsplit configs).
@@ -131,6 +154,10 @@ class MultiDataModuleWrapper(LightningDataModule):
             video_episodes: config-only ``{head: [episode_hash, ...]}`` -- the
                 pinned video episodes, one per operator per head. Provenance
                 only; trainHydra is what reads it.
+            tasks, held_out_hashes, train_operators: config-only lists
+                interpolated by the filter lambdas of data/mecka_*_holdout.yaml and
+                similar split configs; accepted
+                like ``held_out_operators``, provenance only.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -155,6 +182,11 @@ class MultiDataModuleWrapper(LightningDataModule):
             k: v for k, v in (unseen_op_valid_datasets or {}).items() if v is not None
         }
         self.unseen_op_valid_dataloader_params = unseen_op_valid_dataloader_params or {}
+        self.extra_valid_datasets = {
+            k: v for k, v in (extra_valid_datasets or {}).items() if v is not None
+        }
+        self.extra_valid_dataloader_params = extra_valid_dataloader_params or {}
+        self.extra_valid_prefix = extra_valid_prefix
         self.valid_prefix = valid_prefix
         self.held_out_operators = list(held_out_operators or [])
         # {head: {dataset_name: dataset}}; heads with no pinned episodes are
@@ -166,6 +198,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.video_datasets = {h: d for h, d in self.video_datasets.items() if d}
         self.metric_frames_per_episode = dict(metric_frames_per_episode or {})
         self.video_episodes = dict(video_episodes or {})
+        self.tasks = list(tasks or [])
+        self.held_out_hashes = list(held_out_hashes or [])
+        self.train_operators = list(train_operators or [])
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -180,7 +215,9 @@ class MultiDataModuleWrapper(LightningDataModule):
                 dataset,
                 shuffle=True,
                 collate_fn=self.collate_fn,
-                **orphan_guarded(dataset_params),
+                # Persistent: re-forking the workers every 100-step epoch is where
+                # a rank hung for good (job 405831).
+                **_with_worker_defaults(dataset_params, persistent=True),
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
@@ -195,7 +232,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 raise ValueError(
                     f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config {kind}_dataloader_params."
                 )
-            dataset_params = orphan_guarded(dataset_params)
+            dataset_params = _with_worker_defaults(dataset_params, persistent=False)
             shuffle = dataset_params.pop("shuffle", False)
             iterables[dataset_name] = DataLoader(
                 dataset,
@@ -246,6 +283,10 @@ class MultiDataModuleWrapper(LightningDataModule):
             "unseen_op_valid": (
                 self.unseen_op_valid_datasets,
                 self.unseen_op_valid_dataloader_params,
+            ),
+            "extra_valid": (
+                self.extra_valid_datasets,
+                self.extra_valid_dataloader_params,
             ),
         }
 

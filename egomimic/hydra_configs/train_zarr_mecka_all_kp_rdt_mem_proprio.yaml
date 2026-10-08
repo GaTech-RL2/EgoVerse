@@ -1,0 +1,26 @@
+# RDT memory ablation (all mecka, keypoints), PROPRIO arm: the baseline plus 8
+# keypoint-state steps 5 frames apart (~1.2 s, current last), one token each;
+# 0.25 % of samples fail the bounds check vs 0.05 % at K=1 (reject_probe.py).
+# history_dropout stays 0 as in the base. See train_zarr_mecka_all_kp_rdt_mem_base.yaml.
+defaults:
+  - train_zarr_mecka_all_kp_rdt_mem_base
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          proprio_history: 8
+          history_stride: 5
+
+model:
+  robomimic_model:
+    stem_specs:
+      human_bimanual:
+        state_keypoints:
+          history_len: 8
+    head_specs:
+      human_bimanual:
+        model:
+          n_state_tokens: 8

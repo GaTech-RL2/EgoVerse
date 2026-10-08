@@ -34,6 +34,21 @@ def test_failed_git_diff_raises_instead_of_reading_as_clean(tmp_path, monkeypatc
         git_info.git_diff()
 
 
+def test_staged_copy_reads_the_recorded_snapshot(tmp_path, monkeypatch):
+    """A node-local code copy has no .git; stage-runtime.sh records the facts."""
+    snap = tmp_path / ".git_provenance"
+    snap.mkdir()
+    (snap / "sha").write_bytes(b"a" * 40 + b"\n")
+    (snap / "diff").write_bytes(b"diff --git a/x b/x\n\xff\n")
+    (snap / "untracked.error").write_text("git ls-files exited 128")
+    monkeypatch.setattr(git_info, "_SNAPSHOT", snap)
+    monkeypatch.setattr(git_info, "_CWD", tmp_path)  # not a work tree
+    assert git_info.git_sha() == "a" * 40
+    assert git_info.git_diff() == b"diff --git a/x b/x\n\xff\n"
+    with pytest.raises(GitError, match="exited 128"):
+        git_info.git_untracked()
+
+
 def _trainer(tmp_path, rank0=True):
     return SimpleNamespace(default_root_dir=str(tmp_path), is_global_zero=rank0)
 
@@ -260,3 +275,9 @@ def test_callback_writes_on_validate_only_runs(tmp_path, monkeypatch):
     )
     trainer.validate(_Tiny(), dataloaders=_loader())
     assert (tmp_path / "git_sha.txt").read_text() == "d" * 40 + "\n"
+
+
+def test_stage_runtime_records_what_git_info_would_run():
+    script = (Path(git_info.__file__).parents[2] / "stage-runtime.sh").read_text()
+    for args in (("rev-parse", "HEAD"), git_info.DIFF_ARGS, git_info.UNTRACKED_ARGS):
+        assert f'git -C "$_RT_TREE" {" ".join(args)} ' in script

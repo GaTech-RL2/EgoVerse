@@ -52,3 +52,22 @@ def warmup_then_cosine(
         schedulers=[warmup, cosine],
         milestones=[warmup_epochs],
     )
+
+
+def warmup_stable_decay(
+    optimizer: torch.optim.Optimizer,
+    warmup: int,
+    stable: int,
+    decay: int,
+    warmup_start_factor: float = 1.0e-3,
+) -> torch.optim.lr_scheduler.LambdaLR:
+    """Linear warmup, constant peak LR, then linear decay to 0."""
+
+    def factor(step: int) -> float:
+        if step < warmup:
+            return warmup_start_factor + (1 - warmup_start_factor) * step / warmup
+        if step < warmup + stable:
+            return 1.0
+        return max(0.0, 1 - (step - warmup - stable) / decay)
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, factor)

@@ -100,3 +100,26 @@ def test_the_past_frame_costs_one_jpeg_row_whatever_the_gap(
     sample = leaf[idx]
     assert rows[-1]["images.front_1"] == 2
     assert torch.equal(sample[PAST], leaf[idx - round(gap_s * 30)][CAM])
+
+
+def test_image_history_reads_the_past_frames_gap_apart_oldest_first(tmp_path):
+    leaf = _leaf(tmp_path, 30, image_history_gap_s=0.1, image_history=4)
+    idx = 20
+    sample = leaf[idx]
+    assert sample[PAST].shape == (3, 3, 32, 32)
+    for i, lag in enumerate((9, 6, 3)):
+        assert torch.equal(sample[PAST][i], leaf[idx - lag][CAM])
+    assert sample[f"{PAST}_mask"].tolist() == [1.0, 1.0, 1.0]
+
+
+def test_image_history_pads_before_the_episode_start(tmp_path):
+    leaf = _leaf(tmp_path, 30, image_history_gap_s=0.1, image_history=4)
+    sample = leaf[4]
+    assert sample[f"{PAST}_mask"].tolist() == [0.0, 0.0, 1.0]
+    for i in range(3):
+        assert torch.equal(sample[PAST][i], leaf[1][CAM])
+
+
+def test_image_history_below_two_frames_is_rejected():
+    with pytest.raises(ValueError, match="image_history"):
+        Human.get_keymap("cartesian", image_history_gap_s=0.1, image_history=1)

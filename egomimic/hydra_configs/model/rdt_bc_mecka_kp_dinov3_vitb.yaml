@@ -1,56 +1,26 @@
-# RDT_BC_MECKA_6D_DINOV3_VITB: Robotics Diffusion Transformer
-# (thu-ml/RoboticsDiffusionTransformer) on the HPT chassis, ~300M trainable
-# DiT (param-matched to hpt_bc_mecka_6d_300M), same data / action space: 18-D
-# wrist-frame 6D-rotation cartesian action, 20-D ee_pose proprio, front camera,
-# one sampled annotation.
+# RDT_BC_MECKA_KP_DINOV3_VITB: rdt_bc_mecka_6d_dinov3_vitb (see it for the
+# architecture notes) on the 144-D wrist-frame hand-keypoint action with the
+# 144-D keypoint state at t-3 .. t, and RDT-1B's image pair: the current frame
+# and the one stored before it, so the data config must set
+# key_map.proprio_history: 4, history_stride: 1 and image_history_gap_s: 0.033
+# (t-1 at mecka's 30 fps). Pairs with evaluator=eval_hpt_keypoints_wrist.
 #
-#   python egomimic/trainHydra.py --config-name=train_zarr_mecka_flagship_6d_rdt \
-#     norm_stats.precomputed_norm_path=<out>/norm_stats
-#
-# egomimic.algo.rdt.RDT is HPT with the policy network swapped: no Perceiver
-# pooling. The stems are RDT's condition adaptors and hand their full token
-# sequences to the head. `trunk` is the DiT, shared across embodiments:
-# self-attention over [timestep; ctrl freq; state; noisy action chunk],
-# cross-attention alternating between the language tokens (even blocks) and the
-# image tokens (odd blocks). A head holds one embodiment's action adaptor,
-# position table and output layer, so co-training shares the blocks at native
-# action widths.
-#
-# Against the paper (decided with ABC-DiT, abc.bot, as the second reference):
-#   - flow matching (the repo's FMPolicy, 10 Euler steps like pi0.5 / ABC) for
-#     DDPM sample-prediction + DPM-Solver;
-#   - DINOv3 ViT-B/16 for SigLIP-so400m, fine-tuned at 0.1x LR (ABC's setting;
-#     encoder_specs.front_img_1.freeze_backbone=true is the frozen control), at
-#     the native 16:9 aspect, 224x400 = 350 patch tokens per frame, all of them
-#     cross-attended. The stem resizes and normalizes; the augs must NOT;
-#   - Qwen3-Embedding-0.6B per-token states for T5-XXL (frozen, cached);
-#   - native action width + per-embodiment adaptors for the 128-D unified vector;
-#   - 2 frames per camera, the past one 0.1 s back (RDT: the previous step);
-#     needs data...key_map.image_history_gap_s (the train config sets it);
-#   - DINOv3 is RoPE-only, so patches get a fixed normalized 2D sin-cos code on
-#     top of RDT's (learned, zero-init) frame / camera tags;
-#   - condition dropout per stream: state and language 0.1, no image dropout
-#     with a single camera.
-#
-# DiT: width 1280 x 18 blocks x 20 heads (head_dim 64, RDT-1B's), RDT's FFN
-# ratio 1 -> 16.4M / block, ~295M; width and depth both ~0.63x RDT-1B's 2048 x 28.
-# Trainable ~391M = DiT ~295M + DINOv3 85.6M + adaptors; Qwen 596M frozen.
-# Measured at the former 1024 x 28 shape -- H100, batch 32, bf16: 212 ms / step,
-# 30 GiB (ViT-L: 365 ms, 49 GiB; the 1B DiT: 359 ms, 57 GiB); sampling 0.3 s
-# per batch.
+# ~1B total: DiT 1280 x 18 (~295M) + DINOv3 ViT-B (86M) + frozen Qwen (596M).
+# Width and depth both ~0.63x RDT-1B's 2048 x 28 (head_dim 64), not width alone.
+# Standalone rather than a child of the 6d config: the state stem is renamed,
+# and an inherited, unused state_ee_pose stem would trip DDP.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.rdt.RDT
   camera_transforms: {}
   dims:
-    human_bimanual: {proprio: 20, action: 18}
+    human_bimanual: {proprio: 144, action: 144}
   # DiT width; every stem / encoder output_dim and the head's hidden_dim.
   width: 1280
   ac_keys:
-    human_bimanual: "actions_cartesian"
+    human_bimanual: "actions_keypoints"
 
   diffusion: true
-  6dof: true
 
   annotation_key: "annotations"
   annotation_sampling_mode: "random"
@@ -70,8 +40,9 @@ robomimic_model:
     cond_drop: {state: 0.1, lang: 0.1, img: 0.0}
     # frames per camera (current last); 2 <-> key_map.image_history_gap_s set
     image_history: 2
-    # past frame := current frame, per sample (what an episode start looks like)
-    image_history_dropout: 0.2
+    image_history_dropout: 0.0
+    # the prompt encoder's max_length: one language shape for torch.compile
+    lang_pad_to: 128
 
   multitask: false
   pretrained: false
@@ -94,7 +65,7 @@ robomimic_model:
         act_seq: 100
         hidden_dim: ${model.robomimic_model.width}
         # proprio stems x history_len
-        n_state_tokens: 1
+        n_state_tokens: 4
         # FMPolicy's t in [0, 1] -> RDT's [0, 1000) timestep embedding
         time_scale: 1000.0
 
@@ -119,22 +90,19 @@ robomimic_model:
   stem_specs:
     human_bimanual:
       # state adaptor (RDT's mlp3x_gelu); one token per proprio step
-      state_ee_pose:
+      state_keypoints:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
         output_dim: ${model.robomimic_model.width}
         widths:
           - ${model.robomimic_model.width}
           - ${model.robomimic_model.width}
-        history_len: 1
+        history_len: 4
         history_dropout: 0.2
 
   encoder_specs:
     front_img_1:
       _target_: egomimic.models.hpt_nets.DINOv3Stem
-      # timm pulls model_name from the HF hub; prefetch it (the ViT-L config's
-      # too) on a login node before an offline or multi-rank run:
-      #   python -c "import timm; timm.create_model('<model_name>', pretrained=True)"
       model_name: "vit_base_patch16_dinov3.lvd1689m"
       output_dim: ${model.robomimic_model.width}
       freeze_backbone: false
@@ -172,3 +140,9 @@ scheduler:
   end_factor: 1.0
   total_iters: 1000
 scheduler_interval: step
+
+# RDT's EMA (pl_utils/ema.py); when on, validation and eval use the EMA weights.
+ema:
+  enabled: false
+  power: 0.75
+  max_decay: 0.9999

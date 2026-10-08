@@ -8,4 +8,5 @@ defaults:
 robomimic_model:
   width: 2048
   trunk:
+    depth: 28
     num_heads: 32

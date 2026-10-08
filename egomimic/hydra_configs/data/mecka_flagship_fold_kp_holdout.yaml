@@ -1,0 +1,88 @@
+# Mecka FLAGSHIP fold_clothes (SQL lab='mecka', task='fold_clothes', 1607 eps /
+# 316k frames under processed_v3/mecka/flagship/) with the wrist-frame KEYPOINT
+# pipeline of mecka_all_kp_pinned_val, and 3 hand-picked held-out episodes as the
+# only validation: a fitting test, not an operator-generalization split.
+#   train = every other episode (mode total), minus the bad-egomotion blocklist
+#   valid = the `held_out_hashes` (3 operators, ~200 frames each, run in full)
+# Children swap `tasks` / `held_out_hashes` (mecka_flagship_fold_cup_kp_holdout,
+# mecka_flagship_fold_kp_overfit1). Norm stats are split-specific.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+tasks: [fold_clothes]
+
+# 2026-09-25, fold_clothes rows with 40-60th percentile length, one per operator.
+held_out_hashes:
+  - 6930852199946db9586cf530
+  - 692e9f2cba0400c70689fdfd
+  - 692eefe40ba268eb16564ab9
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_wristframe_6d
+        stride: 1
+        fix_left_wrist_convention: true
+        pad_proprio_gripper: false
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ${data.tasks}"
+        - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
+        - "lambda row: str(row.get('episode_hash', '')) not in ${data.held_out_hashes}"
+      exclude_hashes: mecka_bad_egomotion
+    mode: total
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+      episode_hashes: ${data.held_out_hashes}
+    mode: total
+
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters: ${data.train_datasets.human_bimanual.filters}
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 12
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 4
+    shuffle: false
+
+# Single-rank K = floor(5120 / episodes); the 3 valid episodes run in full.
+metric_frames_per_episode:
+  train_viz: 3
+
+video_episodes:
+  valid:
+    - 6930852199946db9586cf530
+  train_viz:
+    - 692fe87a3c1dfb13a7a99ee6

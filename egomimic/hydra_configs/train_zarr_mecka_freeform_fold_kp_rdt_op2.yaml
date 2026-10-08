@@ -1,0 +1,29 @@
+# train_zarr_mecka_flagship_fold_kp_rdt at the RDT-1B shape, on
+# one freeform fold operator's 19 episodes (0.39 h), 2 held out; 4 GPUs, so two
+# runs share a node (logs/freeform_fold/launch_pair.sbatch). At 4 x 32 / step
+# one pass is ~330 steps, so 600 x 100 steps is ~180 passes: the target is train
+# error, which kept falling to ~80 passes (+ decay) on the flagship fold run.
+# LR: 1k warmup, 47k stable, 12k linear decay to 0 (warmup_stable_decay); the
+# launcher swaps it in, since a config merge cannot drop LinearLR's arguments.
+defaults:
+  - train_zarr_mecka_flagship_fold_kp_rdt
+  - override model: rdt_1b_bc_mecka_kp_dinov3_vitb
+  - override data: mecka_freeform_fold_kp_op2_holdout
+  - override hydra/launcher: submitit_loaner
+  - _self_
+
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+
+trainer:
+  max_epochs: 600
+  min_epochs: 600
+  check_val_every_n_epoch: 25
+
+evaluator:
+  viz_every_n_epochs: 50
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 100

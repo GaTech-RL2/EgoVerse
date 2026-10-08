@@ -85,6 +85,8 @@ class ModelWrapper(LightningModule):
         # Optional third evaluator for the unseen_op_valid loader (held-out
         # operators in the opsplit data configs).
         self.unseen_op_valid_evaluator = None
+        # Optional fourth evaluator for the extra_valid loader.
+        self.extra_valid_evaluator = None
         # Val loader names in dataloader_idx order, from
         # MultiDataModuleWrapper.val_loader_names(); None = [valid, train_viz].
         self.val_loader_names = None
@@ -290,6 +292,7 @@ class ModelWrapper(LightningModule):
             "valid": self.evaluator,
             "train_viz": self.train_viz_evaluator,
             "unseen_op_valid": getattr(self, "unseen_op_valid_evaluator", None),
+            "extra_valid": getattr(self, "extra_valid_evaluator", None),
         }
 
     def on_validation_start(self):

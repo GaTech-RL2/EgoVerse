@@ -1,0 +1,45 @@
+# All mecka episodes with the wrist-frame KEYPOINT pipeline, and mecka_20pct_6d's
+# validation heads and video pins so runs are comparable to the 20 % ones:
+#   actions_keypoints              (100, 144)  per hand [wrist xyz+rot6d (9) |
+#                                              21 keypoints (63)], wrist frame
+#   observations.state.keypoints   (144,)      per hand [wrist pose in HEAD
+#                                              frame | keypoints in wrist frame]
+# train = every lab=mecka episode except the bad-egomotion blocklist, the 3 valid
+# pins and all 10 episodes of the 3 unseen_op_valid operators (38,596 episodes,
+# ~77M frames vs 4,078 / 10.5M for the 20 % subset, SQL 2026-09-23).
+defaults:
+  - mecka_20pct_6d
+  - _self_
+
+# SQL app.episodes.operator of the 3 unseen_op_valid pins.
+held_out_operators:
+  - 69475d885c0479a0fb81408e
+  - 69a84eed47e12c9b339208fd
+  - 6974f58bb393af9134c82247
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+      transform_list:
+        mode: keypoints_wristframe_6d
+        pad_proprio_gripper: false
+    filters:
+      episode_hashes: null
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('operator', '')) not in ${data.held_out_operators}"
+        - "lambda row: str(row.get('episode_hash', '')) not in ${data.valid_datasets.human_bimanual.filters.episode_hashes}"
+
+# The 20 % heads interpolate the train lambdas, which now exclude their own pins.
+valid_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+
+unseen_op_valid_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas: ${data.valid_datasets.human_bimanual.filters.filter_lambdas}

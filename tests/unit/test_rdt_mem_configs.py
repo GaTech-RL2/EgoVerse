@@ -9,13 +9,19 @@ from omegaconf import OmegaConf
 
 from egomimic.trainHydra import _build_model_config_tree
 
-ARMS = ("base", "proprio", "vision", "both")
+ARM_NAMES = {
+    "20pct_6d": ("base", "proprio", "vision", "both"),
+    "all_kp": ("base", "proprio", "proprio_frames", "short_long_encoder"),
+}
+ARMS = [
+    f"train_zarr_mecka_{variant}_rdt_mem_{arm}"
+    for variant in ("20pct_6d", "all_kp")
+    for arm in ARM_NAMES[variant]
+]
 
 
 def _compose(arm, compose_resolve):
-    cfg = compose_resolve(
-        f"train_zarr_mecka_20pct_6d_rdt_mem_{arm}", [], keep_hydra=True
-    )
+    cfg = compose_resolve(arm, [], keep_hydra=True)
     return OmegaConf.masked_copy(cfg, [k for k in cfg if k != "hydra"])
 
 
@@ -34,8 +40,14 @@ def test_model_sizes_match_the_keymap(arm, compose_resolve):
     model = cfg.model.robomimic_model
     denoiser = model.head_specs.human_bimanual.model
     history = km.get("proprio_history", 1)
-    assert model.stem_specs.human_bimanual.state_ee_pose.history_len == history
+    (state_stem,) = model.stem_specs.human_bimanual.values()
+    assert state_stem.history_len == history
     assert denoiser.n_state_tokens == history
+    frames = model.trunk.get("image_history", 1)
+    if km.get("image_history_gap_s") is None:
+        assert frames == 1
+    else:
+        assert frames == km.get("image_history", 2)
     memory = model.trunk.get("memory")
     if memory is None:
         assert not km.get("image_memory") and not denoiser.get("n_memory_tokens")

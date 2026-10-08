@@ -1,0 +1,21 @@
+# mecka_flagship_fold_kp_holdout plus the flagship cup_on_saucer episodes (5409
+# eps / 905k frames): 7016 eps / 1.22M frames. 3 held out, 1 fold (shared with
+# the parent's valid) and 2 cup, each from a different operator.
+defaults:
+  - mecka_flagship_fold_kp_holdout
+  - _self_
+
+tasks: [fold_clothes, cup_on_saucer]
+
+held_out_hashes:
+  - 6930852199946db9586cf530
+  - 692ed3f8f2e4e72c033b9970
+  - 692eb00f1e78e176ba6cf9b2
+
+metric_frames_per_episode:
+  train_viz: 1
+
+video_episodes:
+  valid:
+    - 6930852199946db9586cf530
+    - 692ed3f8f2e4e72c033b9970

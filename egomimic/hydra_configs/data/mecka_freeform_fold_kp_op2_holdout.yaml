@@ -1,0 +1,100 @@
+# Mecka FREEFORM fold clothes from ONE operator, 68e0b875c33a1abcb8fc55b9 (#2 by
+# total freeform hours: 21 eps / 0.43 h), on the keypoint pipeline of
+# mecka_flagship_fold_kp_holdout. All episodes, annotated or not: the 6 without
+# segments get the empty default prompt, RDT's no-instruction condition.
+#   train           = 19 eps, 42.0k frames = 0.39 h (mode total)
+#   seen_op_valid   = the 2 `held_out_hashes`, median-length episodes, 4.7k frames
+#   unseen_op_valid = the 2 episodes of each of 5 operators with exactly 2
+#                     annotated freeform fold episodes, so the all-operator
+#                     run (mecka_freeform_fold_kp_all_holdout) loses no more
+#                     than these 10 to hold them out
+# None of the operator's episodes are on the bad-egomotion blocklist (2026-09-29).
+# mecka_freeform_fold_kp_top3_holdout inherits this file.
+defaults:
+  - mecka_flagship_fold_kp_holdout
+  - _self_
+
+tasks: [folding_clothes]
+
+held_out_hashes:
+  - 69b49d838cd7957ebe478c88
+  - 69b4b52e6d78ad6736570e97
+
+valid_prefix: seen_op_valid
+
+# The unseen_op_valid operators; mecka_freeform_fold_kp_all_holdout keeps them out
+# of train. Each has exactly the 2 freeform fold episodes pinned below.
+held_out_operators:
+  - 69439c6ea2a8b5aee7660435
+  - 699f2e580aa6425a245d2e6f
+  - 699a5a3b6fe91711a3b1c45b
+  - 69ac8ebed84e313181d82dd4
+  - 6992b19ab9d55c9c2d48432c
+
+train_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() in ${data.tasks}"
+        - "lambda row: '/mecka/freeform/' in str(row.get('zarr_processed_path', ''))"
+        - "lambda row: str(row.get('operator', '')) == '68e0b875c33a1abcb8fc55b9'"
+        - "lambda row: str(row.get('episode_hash', '')) not in ${data.held_out_hashes}"
+
+# Val heads widen the norm-stat bounds from 0.5x to 10x each cell's quantile
+# range. Episodes the stats never saw (other operators; with op2's
+# one-operator stats, even its own held-out episodes) land just outside it, and
+# swapping those frames out biased the metric and then aborted validation
+# (406042). 10x still rejects garbage, but not a ~1 m egomotion jump, so these
+# heads mask frames around pose glitches instead. train_viz is the stats' own
+# split and keeps the defaults.
+valid_datasets:
+  human_bimanual:
+    bounds_rel_slack: 10.0
+    pose_glitch_mask: {step_m: 0.05, rot_deg: 10.0}
+
+unseen_op_valid_datasets:
+  human_bimanual:
+    bounds_rel_slack: 10.0
+    pose_glitch_mask: {step_m: 0.05, rot_deg: 10.0}
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        # a pin from any other operator is a PinError
+        - "lambda row: str(row.get('operator', '')) in ${data.held_out_operators}"
+      episode_hashes:
+        - 696ba3f375020a567fd375b4 # 69439c6ea2a8b5aee7660435
+        - 696ba3b9a491d5abbd79528b
+        - 69b9674cfa0ca5629329edae # 699f2e580aa6425a245d2e6f
+        - 69b9996a9d8f2a52dc2e0406
+        - 69b91de3bd0a1226e8720ad0 # 699a5a3b6fe91711a3b1c45b
+        - 69b91a05de59539246182a53
+        - 69bad9296984eb7262b04a2a # 69ac8ebed84e313181d82dd4
+        - 69ba0421ad41965cca81ccca
+        - 69b93da22e71fa6c931cbf9c # 6992b19ab9d55c9c2d48432c
+        - 69b92d11b3cc90fa8d9acd2c
+    mode: total
+
+unseen_op_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+# limit_val_batches x 32 = 2560 frames per head, fewer than the val episodes
+# hold, so every head subsamples evenly per episode.
+metric_frames_per_episode:
+  valid: auto
+  unseen_op_valid: auto
+  train_viz: auto
+
+video_episodes:
+  valid:
+    - 69b49d838cd7957ebe478c88
+  unseen_op_valid:
+    - 69b9674cfa0ca5629329edae # 699f2e580aa6425a245d2e6f
+  train_viz:
+    - 69b4bd2c47952ada7592905d
