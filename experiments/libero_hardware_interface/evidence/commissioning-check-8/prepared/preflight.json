@@ -1,0 +1,115 @@
+{
+  "calibrations": [
+    {
+      "condition": "F",
+      "controller_sha256": "d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef",
+      "observation_sequence_sha256": [
+        "f7c8cb11c050584a3ebf1e55d4c48f128983710b936ea24c9096c5fa70663960",
+        "a2da48904024999676b4799b8d8c41ccda23378aa5590b630fdb58a81b065c2b",
+        "19fa6ddaf6ccaf06bcd1331ec653cb8e4a3d8505c858db80dbd7cb1a7724a988",
+        "d43ea5bee94cc21cb67800278da98d87e100e6c5623a42db4dd77813ccbf4295"
+      ],
+      "reset": {
+        "bddl_sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+        "initial_success": false,
+        "model_body_pos_sha256": "70985f83a8a3b44bcc89888928f26d3e34c9cd2a26dc603ccdbc1b23df50dea9",
+        "model_body_quat_sha256": "4b61f073a690af419a6f3c4613598e720a1589bf5e6bcb0cecfff690177bc690",
+        "official_state_sha256": "4e3eaf7a315bc3bafb6db4837c8eef0e5f8aea717782a2a3ea33139392d966ed",
+        "settled_state_sha256": "dc11b978f1825fbfdbb2b179686c538accb824ac6554c3523a08df0b8a71f119",
+        "settling_action": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1
+        ],
+        "settling_steps": 10
+      }
+    },
+    {
+      "condition": "B0",
+      "controller_sha256": "d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef",
+      "observation_sequence_sha256": [
+        "f7c8cb11c050584a3ebf1e55d4c48f128983710b936ea24c9096c5fa70663960",
+        "a2da48904024999676b4799b8d8c41ccda23378aa5590b630fdb58a81b065c2b",
+        "19fa6ddaf6ccaf06bcd1331ec653cb8e4a3d8505c858db80dbd7cb1a7724a988",
+        "d43ea5bee94cc21cb67800278da98d87e100e6c5623a42db4dd77813ccbf4295"
+      ],
+      "reset": {
+        "bddl_sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+        "initial_success": false,
+        "model_body_pos_sha256": "70985f83a8a3b44bcc89888928f26d3e34c9cd2a26dc603ccdbc1b23df50dea9",
+        "model_body_quat_sha256": "4b61f073a690af419a6f3c4613598e720a1589bf5e6bcb0cecfff690177bc690",
+        "official_state_sha256": "4e3eaf7a315bc3bafb6db4837c8eef0e5f8aea717782a2a3ea33139392d966ed",
+        "settled_state_sha256": "dc11b978f1825fbfdbb2b179686c538accb824ac6554c3523a08df0b8a71f119",
+        "settling_action": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1
+        ],
+        "settling_steps": 10
+      }
+    },
+    {
+      "condition": "B",
+      "controller_sha256": "d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef",
+      "observation_sequence_sha256": [
+        "f7c8cb11c050584a3ebf1e55d4c48f128983710b936ea24c9096c5fa70663960",
+        "a2da48904024999676b4799b8d8c41ccda23378aa5590b630fdb58a81b065c2b",
+        "19fa6ddaf6ccaf06bcd1331ec653cb8e4a3d8505c858db80dbd7cb1a7724a988",
+        "d43ea5bee94cc21cb67800278da98d87e100e6c5623a42db4dd77813ccbf4295"
+      ],
+      "reset": {
+        "bddl_sha256": "9b59eb1287802868ad9bc78d58e6d36d4ba31134e679cfdbdf4b0feb660c959b",
+        "initial_success": false,
+        "model_body_pos_sha256": "70985f83a8a3b44bcc89888928f26d3e34c9cd2a26dc603ccdbc1b23df50dea9",
+        "model_body_quat_sha256": "4b61f073a690af419a6f3c4613598e720a1589bf5e6bcb0cecfff690177bc690",
+        "official_state_sha256": "4e3eaf7a315bc3bafb6db4837c8eef0e5f8aea717782a2a3ea33139392d966ed",
+        "settled_state_sha256": "dc11b978f1825fbfdbb2b179686c538accb824ac6554c3523a08df0b8a71f119",
+        "settling_action": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1
+        ],
+        "settling_steps": 10
+      }
+    }
+  ],
+  "checks": {
+    "budget_termination": false,
+    "interface_equivalence": true,
+    "model_smoke_B": false,
+    "model_smoke_B0": false,
+    "model_smoke_F": false,
+    "reset_replay": true,
+    "scratch_isolation": true,
+    "source_isolation": true,
+    "success_per_step": false
+  },
+  "model_access": "not yet commissioned",
+  "resolved": {
+    "adapter_sha256": "30b7f240765e6034d320ecc6b8895bd2c384f1aac523187c434e4986470f43f6",
+    "asset_manifest_sha256": "8c6fcdd195ace4806c9def86832b0bc3afcbe68f24bb8c511606bb425494606c",
+    "catalog_sha256": "0c15f78c58246cb688abd5cb2908936a8ae00e25df93e28a90d27114a08709a3",
+    "controller_config_sha256": "d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef",
+    "dependency_lock_sha256": "448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa",
+    "observer_sha256": "9b976544b27dfc75e59e3fe1eb6d53b7816d5da83debc794a4d085434f0a7b7e",
+    "source_allowlist_sha256": "e128364bd701feb3b6381d8c7fb904db67dd5a7b0515d1348a0486f7f26a584c"
+  },
+  "runtime": {
+    "container": "docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307",
+    "platform": "Linux-6.8.0-1054-oracle-x86_64-with-glibc2.2.5",
+    "python": "3.8.13"
+  },
+  "scored_collection_allowed": false
+}

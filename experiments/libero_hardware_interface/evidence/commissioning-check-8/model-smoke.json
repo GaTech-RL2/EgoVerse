@@ -1,0 +1,45 @@
+{
+  "audit": {
+    "status": "passed",
+    "trials": [
+      {
+        "applied_steps": 39,
+        "errors": [],
+        "events": 213,
+        "status": "passed",
+        "trial": "smoke-B"
+      },
+      {
+        "applied_steps": 35,
+        "errors": [],
+        "events": 192,
+        "status": "passed",
+        "trial": "smoke-B0"
+      },
+      {
+        "applied_steps": 40,
+        "errors": [],
+        "events": 186,
+        "status": "passed",
+        "trial": "smoke-F"
+      }
+    ]
+  },
+  "gates": {
+    "budget_termination": true,
+    "interface_equivalence": true,
+    "model_smoke_B": true,
+    "model_smoke_B0": true,
+    "model_smoke_F": true,
+    "reset_replay": true,
+    "scratch_isolation": true,
+    "source_isolation": true,
+    "success_per_step": true
+  },
+  "result": {
+    "split": "smoke",
+    "successes": 0,
+    "trials": 3
+  },
+  "scored_results": false
+}

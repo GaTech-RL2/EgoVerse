@@ -14,21 +14,29 @@ to the current simulation step and obey the overall wall deadline.
 
 ## Current readiness
 
-The source and runtime design are pinned. OSMO L40S commissioning
-`libero-hardware-interface-20261008-check-6` completed on 2026-10-08 using source
-`64b01ae16293e0ac61c716dbae2e5ac335ee9689`: all 22 contract tests passed on
-Linux/Python 3.8.13, and real rendering, matched reset/action/sensor traces,
-source isolation and scratch process isolation passed. The front and wrist
-views were inspected in this run.
-The tests also cover transient success inside repeat loops, malformed commands,
-token reservation and incomplete-analysis rejection. These are commissioning
-results, not model task-success scores. Check-6 started no model trials.
+OSMO L40S commissioning `libero-hardware-interface-20261008-check-8` completed
+on 2026-10-08 using source `e3d6421f8b3767575a65884a840d83e6b1664ac6`.
+All nine readiness gates passed: real rendering, matched reset/action/sensor
+traces, source and scratch isolation, per-step success and budget guards, and
+live Astra trials for F, B0 and B with independent replay. Its Linux/Python
+3.8.13 contract suite passed all 26 tests. The local suite now has 32 passing
+tests including additional pilot launch gates.
+
+The three unscored smoke trials exhausted their token budgets: F executed
+40 native steps, B0 35, and B 39 with one observer call. Task success was 0/3.
+These receipts establish functioning transport and execution; task performance
+and any interface advantage remain unestablished.
 
 Receipts and the exact wheelhouse are preserved under
-`s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-6/`.
-The checked-in [commissioning evidence](evidence/commissioning-check-6/commissioning.json)
-records the runtime hashes and keeps all three live-model smoke gates false.
-The GPU workflow has completed and released its allocation. Repository-wide
+`s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-8/`.
+The checked-in [live smoke evidence](evidence/commissioning-check-8/model-smoke.json)
+records every gate and replay audit. The smoke GPU has been released.
+The 150-trial pilot workflow `libero-hardware-interface-20261008-pilot-1` was
+submitted from source `0121630d4d6c8d23c2064ed0bc713eb6d96500fc`, whose adapter
+hash matches check-8. The new runtime checks passed and pilot collection started;
+its results are pending.
+Confirmation remains gated on the complete pilot and a new power-based freeze.
+Repository-wide
 `pytest tests/unit` was attempted before every commit; local collection is
 blocked by the existing missing `projectaria_tools` dependency.
 
@@ -56,19 +64,15 @@ ask for at most two short facts, one uncertainty and one occlusion; structured
 output uses low verbosity. This passed after the unconstrained description hit
 the 256-token cap. All such transport diagnostics are unscored.
 
-OSMO check-7 repeated all native gates successfully and started live smoke:
-F executed 40 steps before its token reservation exhausted the remaining budget;
-B0 stopped before acting because the provider rejected `uniqueItems` in its
-tool schema. All partial trials and independent replay receipts are retained.
+Earlier check-6 native receipts and check-7's partial live trials are retained.
+Check-7 stopped before B0 could act because the provider rejected `uniqueItems`.
 That unsupported API keyword is removed; duplicate-key rejection remains in the
 shared execution proxy. Live checks now validate the actual tool schemas for
 all three arms before simulator trials. Output-cap exhaustion is retained as a
 trial budget failure, rather than misclassified as a provider outage.
-No pilot or confirmation trial has started.
-
-The new transport code requires fresh Linux commissioning. The default manifest
-therefore clears the old runtime/readiness gates; check-6 evidence remains intact.
-`validate` and scored `run` reject it until the new gates have actual evidence.
+The default manifest now records the verified check-8 runtime/readiness hashes.
+Each collection job also verifies its current code, dependencies, assets and
+source view against those receipts before starting any trial.
 
 ## Frozen design
 

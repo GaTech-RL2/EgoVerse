@@ -1,0 +1,54 @@
+{
+  "arm_tool_schemas": {
+    "B": true,
+    "B0": true,
+    "F": true
+  },
+  "image_pair": true,
+  "model": {
+    "base_url": "https://inference-api.nvidia.com/v1",
+    "identifier": "openai/openai/gpt-6-astra",
+    "input_reservation": {
+      "mode": "gateway_margin_v1",
+      "multiplier": 2,
+      "overhead_tokens": 4096
+    },
+    "provider": "responses",
+    "reasoning_effort": "medium",
+    "retries": 0,
+    "sampling": {},
+    "serving_provider": "nvidia-inference",
+    "snapshot_pinned": false
+  },
+  "observer_schema_and_output_cap": true,
+  "passed": true,
+  "scored_trial": false,
+  "tool_round_trip": true,
+  "usage_by_role": {
+    "actor": {
+      "cached_input_tokens": 0,
+      "calls": 5,
+      "failed_transport_requests": 0,
+      "generation_attempts": 5,
+      "image_tokens": null,
+      "input_tokens": 1643,
+      "output_tokens": 97,
+      "provider_wall_seconds": 13.447792278951965,
+      "reasoning_tokens": 0,
+      "token_count_requests": 5
+    },
+    "observer": {
+      "cached_input_tokens": 0,
+      "calls": 1,
+      "failed_transport_requests": 0,
+      "generation_attempts": 1,
+      "image_tokens": null,
+      "input_tokens": 331,
+      "output_tokens": 199,
+      "provider_wall_seconds": 6.311069998017047,
+      "reasoning_tokens": 123,
+      "token_count_requests": 1
+    }
+  },
+  "workflow_tokens": 2270
+}

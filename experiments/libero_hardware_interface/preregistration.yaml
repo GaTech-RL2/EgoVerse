@@ -112,16 +112,25 @@ analysis:
   efficiency_improvement_fraction: 0.1
   confirmatory_contrasts:
   - F_minus_B0
-resolved: null
+resolved:
+  dependency_lock_sha256: 448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa
+  asset_manifest_sha256: 8c6fcdd195ace4806c9def86832b0bc3afcbe68f24bb8c511606bb425494606c
+  source_allowlist_sha256: e128364bd701feb3b6381d8c7fb904db67dd5a7b0515d1348a0486f7f26a584c
+  adapter_sha256: 30b7f240765e6034d320ecc6b8895bd2c384f1aac523187c434e4986470f43f6
+  observer_sha256: 9b976544b27dfc75e59e3fe1eb6d53b7816d5da83debc794a4d085434f0a7b7e
+  controller_config_sha256: d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef
+  catalog_sha256: 0c15f78c58246cb688abd5cb2908936a8ae00e25df93e28a90d27114a08709a3
 readiness:
-  budget_termination: false
-  interface_equivalence: false
-  model_smoke_B: false
-  model_smoke_B0: false
-  model_smoke_F: false
-  reset_replay: false
-  scratch_isolation: false
-  source_isolation: false
-  success_per_step: false
+  scratch_isolation: true
+  source_isolation: true
+  reset_replay: true
+  interface_equivalence: true
+  success_per_step: true
+  budget_termination: true
+  model_smoke_F: true
+  model_smoke_B0: true
+  model_smoke_B: true
 prior_commissioning_source_commit: 64b01ae16293e0ac61c716dbae2e5ac335ee9689
 prior_commissioning_workflow: libero-hardware-interface-20261008-check-6
+commissioning_source_commit: e3d6421f8b3767575a65884a840d83e6b1664ac6
+commissioning_workflow: libero-hardware-interface-20261008-check-8

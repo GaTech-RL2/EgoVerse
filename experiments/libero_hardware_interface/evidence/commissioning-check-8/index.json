@@ -1,0 +1,103 @@
+{
+  "workflow": "libero-hardware-interface-20261008-check-8",
+  "scope": "all live interface/replay gates passed; 0/3 unscored task successes; no pilot results",
+  "archive": "s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-8/",
+  "files": [
+    {
+      "path": "commissioning.json",
+      "sha256": "f2d6ece4769d18dfa472145d62e272a768f138e1399bef7616d237fa24db3a60"
+    },
+    {
+      "path": "source-receipt.json",
+      "sha256": "6a563135b799c4f691236a7e9b7d6519b48198b0a7b1055b30c16f6be69a083b"
+    },
+    {
+      "path": "model-smoke.json",
+      "sha256": "0c9abf2108bfce7c6bd9704d1642c51ed7e4290d5e2dfa3b6e6cf4898e982e32"
+    },
+    {
+      "path": "model-transport/transport.json",
+      "sha256": "de5e255b11ae173ffd65104c5ddae7c63b75316d1504ebb77c2bb818d23f76a7"
+    },
+    {
+      "path": "runtime/unit-tests.xml",
+      "sha256": "b69fa2b447be8e29974f8cf450f2f8ee5723c5988d7d1655b240fec23007f025"
+    },
+    {
+      "path": "runtime/unit-tests.log",
+      "sha256": "40e500db02ca1f3f8c9a32a2b0b8fe406190b78324b7f8dac832e8f4b344a37f"
+    },
+    {
+      "path": "runtime/pip-freeze.txt",
+      "sha256": "448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa"
+    },
+    {
+      "path": "runtime/wheels.sha256",
+      "sha256": "ac0db8495bbda21cd87fbed23cad0a4f9ee4aaf3c8480d577e03681ba6cc07b8"
+    },
+    {
+      "path": "runtime/python.txt",
+      "sha256": "f45ce4b0d947ba45834cba11cb653e2a32965a59123ce35eb531199cf6275f52"
+    },
+    {
+      "path": "runtime/gpu.txt",
+      "sha256": "a782d5bb51a540810800ebba672921ea4143a8151c6acfcff5a59f57c17f0825"
+    },
+    {
+      "path": "prepared/preflight.json",
+      "sha256": "1129d91a2b6f74738ebd8af6e32f1471d3651948e473ef02f0fa174b95bec80b"
+    },
+    {
+      "path": "prepared/isolation.json",
+      "sha256": "04a47c9693bba16cd3c5349d482b1d36909fdfee6eb1f233184c5a1407208353"
+    },
+    {
+      "path": "smoke/runs/smoke-F/outcome.json",
+      "sha256": "f375e1becc77094a93420abd45aaa95dd84a2872fbd132f866e0fbc0014ebe1d"
+    },
+    {
+      "path": "smoke/runs/smoke-F/independent-replay.json",
+      "sha256": "7fcdbe68b02d58ba7f62d85770276f795f1db6d7fb2fabcd173d3205ece4abf4"
+    },
+    {
+      "path": "smoke/runs/smoke-F/initial-front.png",
+      "sha256": "6829e26b3eb07115a5af5f5eb1f95e9af90d87117b7ab7f0716f60a9a45dfb99"
+    },
+    {
+      "path": "smoke/runs/smoke-F/terminal-front.png",
+      "sha256": "bd22204a62cd5b08f60ebf08e0af7e371cb1c05cf5102e4588c323431938ff2b"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/outcome.json",
+      "sha256": "8518b24061fbb04e9d16eb135f5346d9122f2a87980d0bb65b4f917945667d96"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/independent-replay.json",
+      "sha256": "ccf71ce41ba7cd6f11fe88d69db16c9827a300c3d3a959c1746a912cca8007d3"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/initial-front.png",
+      "sha256": "6829e26b3eb07115a5af5f5eb1f95e9af90d87117b7ab7f0716f60a9a45dfb99"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/terminal-front.png",
+      "sha256": "a91b61920cc43035172ccdbaf672915ab508a31f4c7fd3a0f731a1fef8a225bd"
+    },
+    {
+      "path": "smoke/runs/smoke-B/outcome.json",
+      "sha256": "21a037099a2ae47cb9ad97b8d842b20320cfb65b87f0351806b716d116e7268e"
+    },
+    {
+      "path": "smoke/runs/smoke-B/independent-replay.json",
+      "sha256": "60a76c5d8e9ae43c755144ab83f0ca0e1e4570e78afc44614cd97050547fd4ce"
+    },
+    {
+      "path": "smoke/runs/smoke-B/initial-front.png",
+      "sha256": "6829e26b3eb07115a5af5f5eb1f95e9af90d87117b7ab7f0716f60a9a45dfb99"
+    },
+    {
+      "path": "smoke/runs/smoke-B/terminal-front.png",
+      "sha256": "7464b9a8b9c3b88f1e7ac04d5e3052f705265b8f88d242b99740c9fb100a3395"
+    }
+  ]
+}

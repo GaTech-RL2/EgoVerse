@@ -1,0 +1,21 @@
+{
+  "source_commit": "0121630d4d6c8d23c2064ed0bc713eb6d96500fc",
+  "payload_sha256": "00da9a787cb9bacf04919aa3ed2bda22e00ca616b0095dafd70588ec8a4c463c",
+  "image": "docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307",
+  "pool": "groot-l40s-01",
+  "scope": "150-trial preregistered unscored pilot; no confirmation launch",
+  "stage": "pilot",
+  "bootstrap_sha256": "21891a8ea94511292004c3119af6b90f560145eb384b0a4e4777e8694e3fb818",
+  "commissioning_locks": {
+    "ready-preregistration.yaml": "48d263679b773dece622a66bddb997443e0269524bb2442c83f0475d53dca83f",
+    "model-smoke.json": "0c9abf2108bfce7c6bd9704d1642c51ed7e4290d5e2dfa3b6e6cf4898e982e32",
+    "transport.json": "de5e255b11ae173ffd65104c5ddae7c63b75316d1504ebb77c2bb818d23f76a7",
+    "source-receipt.json": "6a563135b799c4f691236a7e9b7d6519b48198b0a7b1055b30c16f6be69a083b"
+  },
+  "adapter_sha256": "30b7f240765e6034d320ecc6b8895bd2c384f1aac523187c434e4986470f43f6",
+  "workflow": "libero-hardware-interface-20261008-pilot-1",
+  "overview": "https://us-west-2-aws.osmo.nvidia.com/workflows/libero-hardware-interface-20261008-pilot-1",
+  "observed_pilot_started_utc": "2026-10-08T19:34:34Z",
+  "runtime_and_hash_gates_passed": true,
+  "results_pending": true
+}
