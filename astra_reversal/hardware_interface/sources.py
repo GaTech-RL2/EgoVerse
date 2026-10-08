@@ -45,6 +45,37 @@ def build_view(libero_root, robosuite_root, destination):
                 "projection": "entire_file",
             }
         )
+    # Camera-key construction is necessary for baseline source discovery. Expose
+    # this sensor method alone, excluding RobotEnv reward/success/reset methods.
+    relative = "robosuite/environments/robot_env.py"
+    source = Path(robosuite_root) / "environments/robot_env.py"
+    text = source.read_text()
+    lines = text.splitlines(keepends=True)
+    members = [
+        (member.lineno, member.end_lineno)
+        for node in ast.parse(text).body
+        if isinstance(node, ast.ClassDef) and node.name == "RobotEnv"
+        for member in node.body
+        if isinstance(member, ast.FunctionDef)
+        and member.name == "_create_camera_sensors"
+    ]
+    if len(members) != 1:
+        raise ValueError("camera_source_projection_changed")
+    target = destination / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    a, b = members[0]
+    target.write_text(
+        "# Audited camera sensor projection only.\nclass RobotEnv:\n"
+        + "".join(lines[a - 1 : b])
+    )
+    entries.append(
+        {
+            "path": relative,
+            "source_sha256": file_hash(source),
+            "view_sha256": file_hash(target),
+            "projection": members,
+        }
+    )
     relative = "libero/libero/envs/env_wrapper.py"
     source = Path(libero_root) / relative
     text = source.read_text()

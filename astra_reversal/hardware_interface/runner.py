@@ -271,6 +271,7 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
         "Shared source entry point: libero/libero/envs/env_wrapper.py. "
         "Inspect native controller and observation conventions through source tools. "
         "Only normalized controller inputs within [-1,1] are accepted. Physics advances only on accepted steps and pauses during reasoning. "
+        "Camera images are delivered upright in every arm. "
         "The repeated-step limit and all budgets are enforced. Scratch has standard-library Python, /sources read-only, and /scratch writable; "
         "scratch functions are read(channel,max_age_ms)/act(envelope) in F and observe(keys)/step(action,repeat_steps,observation_step) in B/B0. "
         "No hidden simulator objects exist there.\nBudgets: "

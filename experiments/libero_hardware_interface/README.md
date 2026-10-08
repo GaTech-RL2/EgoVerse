@@ -61,8 +61,8 @@ snapshot's expired date check is disabled; package signature checks remain on.
 
 Actors can read only a published positive source allowlist. Task definitions,
 goal/success/reward code, raw simulator state, demonstrations, weights and other
-trials are unavailable. The source view includes controller/robot code and two
-minimal LIBERO wrapper/sensor projections, each with original and projected
+trials are unavailable. The source view includes controller/robot code, a camera
+sensor projection, and two minimal LIBERO wrapper/sensor projections, each with original and projected
 hashes. F additionally receives generated channel documentation and typed tools.
 
 Scratch runs in a separate Linux process with a minimal read-only runtime and
