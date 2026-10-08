@@ -51,6 +51,35 @@ class UrdfChain:
             for name, transform in self._chain.forward_kinematics(angles).items()
         }
 
+    def batch_link_transforms(
+        self, joint_values: Mapping[str, np.ndarray], frames: int
+    ) -> dict[str, np.ndarray]:
+        """Return each link's ``root_T_link`` track with shape ``(frames, 4, 4)``.
+
+        Args:
+            joint_values: A mapping from actuated joint name to a ``(frames,)``
+                track. Omitted actuated joints are zero, as in
+                ``link_transforms``.
+            frames: The number of configurations.
+        """
+        values = {
+            name: np.broadcast_to(
+                np.asarray(joint_values.get(name, 0.0), dtype=np.float64), (frames,)
+            )
+            for name in self.actuated_joint_names
+        }
+        for name, source, multiplier, offset in self._mimics:
+            values[name] = multiplier * values[source] + offset
+        names = self._chain.get_joint_parameter_names()
+        angles = torch.from_numpy(
+            np.stack([values[name] for name in names], axis=-1).reshape(frames, -1)
+        )
+        # A link behind fixed joints only can carry a batch of one.
+        return {
+            name: np.broadcast_to(transform.get_matrix().numpy(), (frames, 4, 4))
+            for name, transform in self._chain.forward_kinematics(angles).items()
+        }
+
     def link_positions(
         self, joint_values: Mapping[str, float], links: Sequence[str]
     ) -> np.ndarray:

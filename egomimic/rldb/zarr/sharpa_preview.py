@@ -20,68 +20,24 @@ from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.embodiment import Embodiment
-from egomimic.rldb.embodiment.hand_kinematics import fk_keypoints, load_chain
-from egomimic.rldb.embodiment.urdf import load_urdf
 from egomimic.rldb.zarr.overlay import decode_frame, episode_length
+from egomimic.scripts.sharpa_process.sharpa_tracks import HEAD_LINK, derive_tracks
 from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
 
 def reconstruct_tracks(group):
     """Return canonical arrays and observed head-link poses in robot_base."""
-    resolved = Embodiment.resolve("dexmate_bimanual")
-    platform = load_urdf(resolved.platform.asset_path(verify=True))
     total = episode_length(group)
-    output = {}
-    observed_head = []
-    for prefix, source in (
-        ("obs", "sharpa.observation_state"),
-        ("cmd", "sharpa.action"),
-    ):
-        raw = np.asarray(group[source][:total], dtype=float)
-        if raw.shape != (total, 65) or not np.isfinite(raw).all():
+    raw = []
+    for source in ("sharpa.observation_state", "sharpa.action"):
+        values = np.asarray(group[source][:total], dtype=float)
+        if values.shape != (total, 65) or not np.isfinite(values).all():
             raise ValueError(f"{source} must be a finite (T, 65) array")
-        output[f"{prefix}_aux_joints"] = raw[:, 58:65]
-        values = {
-            name: raw[:, 58 + i]
-            for i, name in enumerate(resolved.platform.aux.joint_names)
-        }
-        for side, offset in (("left", 0), ("right", 29)):
-            for j in range(7):
-                values[f"{side}_arm_joint_{j + 1}"] = raw[:, offset + j]
-            output[f"{side}.{prefix}_joints"] = raw[:, offset : offset + 7]
-            output[f"{side}.{prefix}_hand_joints"] = raw[:, offset + 7 : offset + 29]
-        platform_poses = [
-            platform.link_transforms({k: v[t] for k, v in values.items()})
-            for t in range(total)
-        ]
-        if prefix == "obs":
-            observed_head = np.stack(
-                [poses["head_base_link"] for poses in platform_poses]
-            )
-        for side in ("left", "right"):
-            spec = resolved.end_effectors[side]
-            chain = load_chain(spec)
-            joints = output[f"{side}.{prefix}_hand_joints"]
-            # The platform mount leaf and hand flange are composed directly.
-            # Record that mechanical-frame assumption in the copy provenance.
-            palm = np.stack(
-                [
-                    poses[f"{side}_hand_base_link"]
-                    @ chain.link_transforms(dict(zip(spec.joint_names, row)))[
-                        spec.ee_pose_link
-                    ]
-                    for poses, row in zip(platform_poses, joints, strict=True)
-                ]
-            )
-            output[f"{side}.{prefix}_ee_pose"] = _matrix_to_xyzwxyz(palm)
-            if prefix == "obs":
-                local = fk_keypoints(spec, joints)
-                points = (
-                    np.einsum("tij,tkj->tki", palm[:, :3, :3], local)
-                    + palm[:, None, :3, 3]
-                )
-                output[f"{side}.obs_hand_keypoints"] = points.reshape(total, 63)
-    return output, np.asarray(observed_head)
+        raw.append(values)
+    # The platform mount leaf and hand flange are composed directly; the copy
+    # provenance records that mechanical-frame assumption.
+    output, links = derive_tracks(*raw, links=(HEAD_LINK,))
+    return output, np.array(links[HEAD_LINK])
 
 
 def fit_camera(tracks, head_poses, landmarks, resolution):
