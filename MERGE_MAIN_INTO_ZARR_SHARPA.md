@@ -77,7 +77,7 @@ on the post-fix tree.
 
 ## Non-blocking issues
 
-1. **Test layout policy.** Main's `AGENTS.md` says tests live under `tests/` and never next to source. The branch has 19 test modules plus `conftest.py` files under `egomimic/rldb/{embodiment,zarr}`. They are collected through `testpaths` and CI (`pyproject.toml`, the "Unit tests" step in `ci.yml`). Moving them to `tests/unit/` is follow-up cleanup. Note that `tests/unit` is not a package, so basenames must stay unique.
+1. **Test layout policy.** Main's `AGENTS.md` says tests live under `tests/` and never next to source. The branch has 19 test modules plus `conftest.py` files under `egomimic/rldb/{embodiment,zarr}`. They are collected through `testpaths` and CI (`pyproject.toml`, the "Unit tests" step in `ci.yml`). Moving them to `tests/unit/` is follow-up cleanup. Note that `tests/unit` is not a package, so basenames must stay unique. While the suites stay where they are, `packages.find include = ["egomimic*"]` also ships these test modules and the two `conftest.py` files in the wheel. That passes `test_packaging.py`, which checks only top-level entries, but it goes against main's goal that the wheel ship "the training stack and nothing else".
 2. **`egomimic.test_zarr` is gone.** The legacy `(errors, successes)` shim is deleted, as main intended. Callers should use `python -m egomimic.rldb.zarr.validate` or `validate_episode()`. Restore it from `ce623273a` if an external caller still needs it.
 3. **CI cache.** Main's `unit-tests` job uses `enable-cache: true`. The branch's CI had disabled the uv cache, citing a cache of about 5 GB against the 10 GB Actions quota (`ci.yml:41`). I kept main's setting; revisit it if the cache quota is exceeded.
 4. **Pi train-step tier not exercised here.** The Pi half of `tests/unit/test_train_step.py` and the `egomimic.algo.pi` import skip or fail locally because openpi and the gated PaliGemma tokenizer are not in the locked env. CI installs both and sets `EGOVERSE_REQUIRE_PI=1`. The merged Pi code path is verified only by CI.
@@ -92,8 +92,8 @@ on the post-fix tree.
    - The branch's `AGENTS.md` says to use uv and `.venv`.
 8. **Zarr dtype warnings.** zarr emits `UnstableSpecificationWarning` for `VariableLengthBytes` (about 120 warnings per run). The cause predates the merge; the same warnings appear on the branch.
 9. **Pi config names.** `keymap_mode: keypoints_pi` in user configs will log a `FutureWarning` for every `Human._get_keymap` call, which is main's deprecation path.
-10. **Slow test suite on this cluster's NFS.** The merged CPU tier takes about 1.5 h of
-    serial wall time on an `rl2-lab` CPU node. `tests/unit/test_lazy_imports.py` and
+10. **Slow test suite on this cluster's NFS.** A single serial run of the merged CPU tier takes
+    2 h 18 min on an `rl2-lab` CPU node. `tests/unit/test_lazy_imports.py` and
     `test_norm_cache.py` spend most of it on cold imports in subprocesses. CI's
     40-minute `timeout-minutes` applies to GitHub runners, not to this cluster.
 11. **Dangling preview commit.** `4ea7b1ae` is a `commit-tree` snapshot of the
@@ -109,7 +109,7 @@ Every command used the merge env. The CPU tier ran on Slurm CPU nodes (`rl2-lab`
 | Format | `ruff format --check . --exclude external` (0.8.6) | clean (265 files) |
 | Lock | `uv lock --check`; `uv sync --locked --python 3.11` into a new env | pass |
 | Smoke imports (31 touched modules) | `python -c "import …"` | 30/31 OK. `egomimic.algo.pi` fails with `ModuleNotFoundError: openpi`, which is expected because openpi is not lockable (see `pyproject.toml`); CI installs it separately. |
-| Merged CPU tier | `pytest tests/unit egomimic/rldb/embodiment egomimic/rldb/zarr` | **Pass:** 602 passed, 5 skipped, 0 failed after the fix (see below) |
+| Merged CPU tier | `pytest tests/unit egomimic/rldb/embodiment egomimic/rldb/zarr` | **Pass:** 602 passed, 5 skipped, 0 failed. Confirmed by a single full run on `22e8337de` (see below). |
 | Baseline: origin/main | `pytest tests/unit` in a detached worktree at `42817f5dd` | The full run hit the 1 h 30 min job limit with no output captured. A targeted run of `test_resolve_once.py` and `test_pins.py` gave 17 passed, which confirms the 4 failures above were caused by the merge. |
 | Baseline: branch tip | `pytest egomimic/rldb/embodiment egomimic/rldb/zarr` at `ce623273a` | 303 passed |
 | GPU / `--integration` tier | `pytest --integration -m gpu tests/integration/test_train_step_gpu.py` | **Not run.** The prerequisites are missing on this account: there is no `~/.egoverse_env` (S3/SQL credentials for the S3 resolver and pins), openpi is not installed, and there is no Pi checkpoint (`EGOVERSE_PI05_WEIGHTS`). The first A40 request also sat pending (nodes down or drained). |
@@ -124,7 +124,7 @@ Every command used the merge env. The CPU tier ran on Slurm CPU nodes (`rl2-lab`
 | `merge5` | `test_resolve_once`, `test_pins`, `test_data_status`, `test_calibration`, `test_legacy_compatibility`, `test_inspector_compatibility`, `test_zarr_dataset_pipeline` | after the fix | 81 passed, 0 failed |
 
 The 5 skips are the 4 Pi train-step rows and `test_pi_prompts`, which all need openpi. The `merge2` passes include the HPT train-step rows for eva, aria, mecka, and scale, and `test_packaging`, which shows the wheel builds with the merged package data.
-A single full run on the committed tree, Slurm job 4032732 (`logs/final_full_4032732.log`), was still in progress when this report was committed.
+**Confirmation run:** a single full run on the committed merge tree `22e8337de` (Slurm job 4032732, `logs/final_full_4032732.log`, `junit_final.xml`) gave **602 passed, 5 skipped, 0 failed** in 2 h 18 min. Its 607 test IDs match the union of the split runs exactly.
 
 **Failure classification.**
 - **Merge-induced:** 4 tests, all fixed in `22e8337de`:
