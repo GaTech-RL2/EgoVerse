@@ -1,9 +1,47 @@
 """Optional CPU checks against the pinned upstream JAX transformer and tokenizer."""
 
 import os
+import copy
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
+
+
+def test_failed_preflight_retains_all_cases_and_restores_rng():
+    pytest.importorskip("jax")
+    from astra_reversal.complex_manipulation.jax_text_interpolation import (
+        TextInterpolationPolicy,
+    )
+
+    policy = object.__new__(TextInterpolationPolicy)
+    policy.native = SimpleNamespace(
+        _rng=73,
+        infer=lambda *a, **kw: {"actions": np.zeros((50, 12), np.float32)},
+        _output_transform=lambda d: {"actions": d["actions"][:, :12]},
+    )
+    policy._prepare = lambda obs: (
+        SimpleNamespace(state=np.zeros((1, 32))),
+        np.ones(200, bool),
+    )
+    policy._prefix_probe = lambda *a: np.array([0.0, 0.0])
+    policy._sample = lambda *a, **kw: (np.zeros((1, 50, 32)), np.zeros((18, 2)))
+
+    def infer(*args, intervention, **kwargs):
+        policy._rng += 1
+        return {"actions": np.ones((50, 12)), "interpolation": {"has_effect": True}}
+
+    policy.infer = infer
+    receipts = []
+    with pytest.raises(RuntimeError, match="tei_0.0, tli_0.5"):
+        policy.preflight({}, publish=lambda r: receipts.append(copy.deepcopy(r)))
+    final = receipts[-1]
+    assert final["status"] == "failed"
+    assert set(final["operators"]) == {"tei_0.0", "tli_0.5", "tei_0.5", "tli_0.25"}
+    assert final["operators"]["tei_0.0"]["max_action_difference"] == 1
+    assert final["environment_resets"] == final["environment_actions"] == 0
+    assert policy._rng == 73
+    assert final["native_restored_exact"]
 
 
 def test_post_block_writes_affect_next_cache_without_changing_native_parameters():

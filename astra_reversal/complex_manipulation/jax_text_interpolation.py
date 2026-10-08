@@ -139,7 +139,14 @@ class Interpolator(nnx.Module):
         tokens, prefix_mask, ar_mask = native.embed_prefix(observation)
         target_text = tokens[:, -200:]
         metrics = jnp.zeros((18, 2), jnp.float32)
-        if operator == "tei":
+        if operator == "native_copy":
+            # Diagnostic only: isolate copied sampler numerics from text edits.
+            _, cache = native.PaliGemma.llm(
+                [tokens, None],
+                mask=pi0.make_attn_mask(prefix_mask, ar_mask),
+                positions=jnp.cumsum(prefix_mask, axis=1) - 1,
+            )
+        elif operator == "tei":
             source_text = native.PaliGemma.llm(
                 source_observation.tokenized_prompt, method="embed"
             )
@@ -313,43 +320,105 @@ class TextInterpolationPolicy:
         }
         return result
 
-    def preflight(self, observation):
+    def preflight(self, observation, *, publish=None):
         """No environment steps: compare native sampling and inspect real cache edits."""
         original_key = self._rng
-        target, mask = self._prepare(observation)
-        noise = np.random.default_rng(731).standard_normal((50, 32)).astype(np.float32)
-        native = self.native.infer(observation, noise=noise)["actions"]
-        cache_error = np.asarray(self._prefix_probe(target, jnp.asarray(mask)[None]))
-        if not np.isfinite(cache_error).all() or np.max(cache_error) > 1e-5:
-            raise RuntimeError("Recorded prefix path differs from native K/V cache")
-        results = {}
-        subgoal = "Lift the held object higher while keeping the gripper closed."
-        for method, alpha in (("tei", 0.0), ("tli", 0.5), ("tei", 0.5), ("tli", 0.25)):
-            result = self.infer(
-                observation,
-                noise=noise,
-                intervention={
-                    "method": method,
-                    "alpha": alpha,
-                    "subgoal": subgoal,
-                },
-            )
-            error = float(np.max(np.abs(result["actions"] - native)))
-            neutral = (method, alpha) in (("tei", 0.0), ("tli", 0.5))
-            if (neutral and error > 1e-5) or (not neutral and error <= 1e-6):
-                raise RuntimeError("Interpolation identity/sensitivity check failed")
-            results[f"{method}_{alpha}"] = {
-                "max_action_difference": error,
-                **result["interpolation"],
-            }
-        after = self.native.infer(observation, noise=noise)["actions"]
-        if not np.array_equal(native, after):
-            raise RuntimeError("Intervention mutated the native policy")
-        self._rng = original_key
-        return {
-            "native_cache_max_abs": cache_error.tolist(),
-            "operators": results,
-            "native_restored_exact": True,
+        receipt = {
+            "status": "running",
+            "operators": {},
+            "failed_checks": [],
+            "environment_resets": 0,
             "environment_actions": 0,
             "policy_updates": 0,
         }
+
+        def save():
+            if publish is not None:
+                publish(receipt)
+
+        save()
+        try:
+            target, mask = self._prepare(observation)
+            noise = (
+                np.random.default_rng(731).standard_normal((50, 32)).astype(np.float32)
+            )
+            native = self.native.infer(observation, noise=noise)["actions"]
+            cache_error = np.asarray(
+                self._prefix_probe(target, jnp.asarray(mask)[None])
+            )
+            receipt["native_cache_max_abs"] = cache_error.tolist()
+            if not np.isfinite(cache_error).all() or np.max(cache_error) > 1e-5:
+                receipt["failed_checks"].append("native_cache")
+            save()
+            # A third path separates Euler/suffix numerical drift from any edit.
+            copied, _ = self._sample(
+                jax.random.key(731),
+                target,
+                target,
+                jnp.asarray(mask)[None],
+                jnp.arange(200),
+                jnp.asarray(mask),
+                jnp.asarray(0, jnp.float32),
+                operator="native_copy",
+                noise=jnp.asarray(noise)[None],
+            )
+            copied = self.native._output_transform(
+                {
+                    "state": np.asarray(target.state[0]),
+                    "actions": np.asarray(copied[0]),
+                }
+            )["actions"]
+            receipt["native_copy_max_action_difference"] = float(
+                np.max(np.abs(copied - native))
+            )
+            save()
+            subgoal = "Lift the held object higher while keeping the gripper closed."
+            for method, alpha in (
+                ("tei", 0.0),
+                ("tli", 0.5),
+                ("tei", 0.5),
+                ("tli", 0.25),
+            ):
+                result = self.infer(
+                    observation,
+                    noise=noise,
+                    intervention={
+                        "method": method,
+                        "alpha": alpha,
+                        "subgoal": subgoal,
+                    },
+                )
+                error = float(np.max(np.abs(result["actions"] - native)))
+                neutral = (method, alpha) in (("tei", 0.0), ("tli", 0.5))
+                name = f"{method}_{alpha}"
+                receipt["operators"][name] = {
+                    "max_action_difference": error,
+                    "max_action_difference_from_native_copy": float(
+                        np.max(np.abs(result["actions"] - copied))
+                    ),
+                    **result["interpolation"],
+                }
+                if (neutral and error > 1e-5) or (not neutral and error <= 1e-6):
+                    receipt["failed_checks"].append(name)
+                save()
+            after = self.native.infer(observation, noise=noise)["actions"]
+            receipt["native_restored_exact"] = bool(np.array_equal(native, after))
+            if not receipt["native_restored_exact"]:
+                receipt["failed_checks"].append("native_restoration")
+            receipt["status"] = "failed" if receipt["failed_checks"] else "passed"
+            save()
+            if receipt["failed_checks"]:
+                raise RuntimeError(
+                    "Preflight failed: " + ", ".join(receipt["failed_checks"])
+                )
+            return receipt
+        except BaseException as exc:
+            receipt["status"] = "failed"
+            receipt["exception"] = {
+                "type": type(exc).__name__,
+                "message": str(exc)[:500],
+            }
+            save()
+            raise
+        finally:
+            self._rng = original_key

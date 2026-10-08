@@ -341,6 +341,7 @@ def main():
     parser.add_argument("--smoke-actions", type=int)
     parser.add_argument("--guidance-baselines", type=Path)
     parser.add_argument("--representation-method", choices=("tei", "tli"))
+    parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--episode-plan", type=Path)
     args = parser.parse_args()
     if args.smoke_actions is not None and args.smoke_actions < 1:
@@ -349,6 +350,8 @@ def main():
         parser.error("Guidance comparison uses full native horizons")
     if args.representation_method and not args.guidance_baselines:
         parser.error("Representation comparison requires paired native evidence")
+    if args.preflight_only and not args.representation_method:
+        parser.error("Preflight-only requires a representation method")
     episode_pairs = episode_schedule(args.tasks, args.seeds, args.episode_plan)
     import gymnasium as gym
     import jax
@@ -379,7 +382,9 @@ def main():
             "sample_steps": 10,
             "execution_prefix": 5,
             "scope": (
-                "development_guidance_comparison"
+                "checkpoint_interpolation_preflight"
+                if args.preflight_only
+                else "development_guidance_comparison"
                 if args.guidance_baselines
                 else "smoke_only"
                 if args.smoke_actions
@@ -397,7 +402,11 @@ def main():
                 if args.guidance_baselines
                 else None
             ),
-            "constructor_resets": "The upstream gym wrapper performs one setup reset per environment construction; these are not policy rollouts.",
+            "constructor_resets": (
+                "Zero: preflight uses saved observations without constructing an environment."
+                if args.preflight_only
+                else "The upstream gym wrapper performs one setup reset per environment construction; these are not policy rollouts."
+            ),
         },
     )
     if args.guidance_baselines:
@@ -418,9 +427,14 @@ def main():
         ) as data:
             probe = {key: data[key] for key in data.files if key != "simulator_state"}
         probe["prompt"] = str(probe["prompt"])
-        write_json(
-            args.output / "interpolation_preflight.json", policy.preflight(probe)
+        policy.preflight(
+            probe,
+            publish=lambda value: write_json(
+                args.output / "interpolation_preflight.json", value
+            ),
         )
+        if args.preflight_only:
+            return
     results = []
     for task, seed in episode_pairs:
         # Recreate the env for each seed so simulator reset RNG history is explicit.
