@@ -74,6 +74,7 @@ where = ["."]
 [tool.setuptools.package-data]
 "egomimic.rldb.embodiment.registry" = ["*.yaml", "urdf/**/*"]
 "egomimic.rldb.zarr" = ["schema/*.yaml"]
+"egomimic.scripts.sharpa_process" = ["*.yaml"]
 
 [tool.pytest.ini_options]
-testpaths = ["egomimic/rldb/embodiment", "egomimic/rldb/zarr"]
+testpaths = ["egomimic/rldb/embodiment", "egomimic/rldb/zarr", "egomimic/scripts/sharpa_process"]
