@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import yaml
 
 
 def prepare(destination, *, stage="commission"):
-    if stage not in ("commission", "smoke"):
+    if stage not in ("commission", "smoke", "pilot"):
         raise ValueError("unknown_hardware_stage")
     root = Path(__file__).resolve().parents[3]
     study = root / "experiments/libero_hardware_interface"
@@ -90,10 +91,21 @@ def prepare(destination, *, stage="commission"):
             ],
         }
     }
-    if stage == "smoke":
+    if stage in ("smoke", "pilot"):
         spec["workflow"]["tasks"][0]["environment"]["HARDWARE_API_KEY_FILE"] = (
             "/osmo/run/workspace/inference-api-key"
         )
+    if stage == "pilot":
+        sys.path.insert(0, str(root))
+        from astra_reversal.hardware_interface.protocol import RESOURCE_CAPS, validate
+
+        manifest = yaml.safe_load((study / "preregistration.yaml").read_text())
+        validate(manifest)
+        if any(manifest["limits"][key] is not None for key in RESOURCE_CAPS):
+            raise ValueError("revised_pilot_requires_no_resource_budgets")
+        spec["workflow"]["name"] = "libero-hardware-interface-20261008-uncapped"
+        # No experiment runtime deadline. Any platform ceiling is infrastructure.
+        spec["workflow"]["timeout"].pop("exec_timeout")
     (destination / "workflow.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
     receipt = {
         "source_commit": head,
@@ -104,11 +116,14 @@ def prepare(destination, *, stage="commission"):
         "scope": "unscored Linux simulator/interface/isolation commissioning"
         + (
             " plus live Astra transport and three-arm smoke"
-            if stage == "smoke"
+            if stage in ("smoke", "pilot")
             else "; zero model requests"
         ),
         "stage": stage,
     }
+    if stage == "pilot":
+        receipt["scope"] += " then a separate 150-trial pilot without resource budgets"
+        receipt["limits"] = manifest["limits"]
     (destination / "launch-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n"
     )
@@ -119,7 +134,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination")
     parser.add_argument(
-        "--stage", choices=("commission", "smoke"), default="commission"
+        "--stage", choices=("commission", "smoke", "pilot"), default="commission"
     )
     args = parser.parse_args()
     print(json.dumps(prepare(args.destination, stage=args.stage)))

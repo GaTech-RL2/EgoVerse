@@ -6,6 +6,7 @@ import io
 import math
 import time
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -34,14 +35,14 @@ NATIVE_KEYS = {values[0] for values in SENSORS.values()}
 @dataclass(frozen=True)
 class Limits:
     steps: int = 1000
-    wall_seconds: float = 1200
-    workflow_tokens: int = 100000
-    tool_calls: int = 1000
+    wall_seconds: Optional[float] = 1200
+    workflow_tokens: Optional[int] = 100000
+    tool_calls: Optional[int] = 1000
     max_repeat: int = 10
-    observer_calls: int = 50
-    actor_output_tokens: int = 2048
-    observer_output_tokens: int = 256
-    context_tokens: int = 32768
+    observer_calls: Optional[int] = 50
+    actor_output_tokens: Optional[int] = 2048
+    observer_output_tokens: Optional[int] = 256
+    context_tokens: Optional[int] = 32768
     response_seconds: float = 180
 
 
@@ -100,10 +101,15 @@ class Proxy:
         if any(len(v) != 7 for v in self.bounds):
             raise ValueError("controller_shape")
 
+    def remaining_wall_seconds(self):
+        if self.limits.wall_seconds is None:
+            return None
+        return max(0.0, self.limits.wall_seconds - (self.clock() - self.wall_start))
+
     def available(self):
         if self.terminal:
             raise CommandError("episode_ended")
-        if self.clock() - self.wall_start >= self.limits.wall_seconds:
+        if self.remaining_wall_seconds() == 0:
             self.terminal = "TIMEOUT_WALL"
             raise CommandError("wall_limit")
 
@@ -321,7 +327,7 @@ class Proxy:
             return self.reject(request, error.reason, safety=error.safety)
         applied = 0
         for _ in range(repeat_steps):
-            if self.clock() - self.wall_start >= self.limits.wall_seconds:
+            if self.remaining_wall_seconds() == 0:
                 self.terminal = "TIMEOUT_WALL"
                 break
             before = self.step_count

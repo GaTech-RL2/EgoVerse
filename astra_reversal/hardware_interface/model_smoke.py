@@ -100,7 +100,9 @@ def transport_smoke(manifest, prepared, destination):
             "workflow_tokens": meter.total,
             "tool_round_trip": True,
             "image_pair": True,
-            "observer_schema_and_output_cap": True,
+            "observer_schema": True,
+            "observer_output_tokens": limits.observer_output_tokens,
+            "limits": manifest["limits"],
             "arm_tool_schemas": arm_schemas,
         }
         write_json(destination / "transport.json", receipt)

@@ -1,4 +1,4 @@
-protocol_version: 2-implementation-1
+protocol_version: 2-implementation-2-no-resource-budgets
 study_date_utc: '2026-10-08T07:52:24.339752+00:00'
 scope: simulation only; direct Astra robot control; no policy or expert demonstrations
 libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
@@ -16,9 +16,8 @@ model:
   retries: 0
   base_url: https://inference-api.nvidia.com/v1
   input_reservation:
-    mode: gateway_margin_v1
-    multiplier: 2
-    overhead_tokens: 4096
+    mode: usage_only
+  context_truncation: auto
 observer_model: openai/openai/gpt-6-astra
 observer_stateless_per_request: true
 conditions:
@@ -69,14 +68,14 @@ smoke:
   init_state_index: 0
 limits:
   steps: 1000
-  wall_seconds: 1200
-  workflow_tokens: 100000
-  tool_calls: 1000
+  wall_seconds: null
+  workflow_tokens: null
+  tool_calls: null
   max_repeat: 10
-  observer_calls: 50
-  actor_output_tokens: 2048
-  observer_output_tokens: 256
-  context_tokens: 32768
+  observer_calls: null
+  actor_output_tokens: null
+  observer_output_tokens: null
+  context_tokens: null
   response_seconds: 180
 settling_steps: 10
 image_size: 128
@@ -99,7 +98,7 @@ infrastructure_exclusions:
 - evaluator_failure
 - provider_outage_before_any_agent_action
 power:
-  status: pending_pilot
+  status: pending_revised_pilot
   target_risk_difference: 0.15
   alpha: 0.05
   power: 0.8
@@ -112,25 +111,13 @@ analysis:
   efficiency_improvement_fraction: 0.1
   confirmatory_contrasts:
   - F_minus_B0
-resolved:
-  dependency_lock_sha256: 448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa
-  asset_manifest_sha256: 8c6fcdd195ace4806c9def86832b0bc3afcbe68f24bb8c511606bb425494606c
-  source_allowlist_sha256: e128364bd701feb3b6381d8c7fb904db67dd5a7b0515d1348a0486f7f26a584c
-  adapter_sha256: 30b7f240765e6034d320ecc6b8895bd2c384f1aac523187c434e4986470f43f6
-  observer_sha256: 9b976544b27dfc75e59e3fe1eb6d53b7816d5da83debc794a4d085434f0a7b7e
-  controller_config_sha256: d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef
-  catalog_sha256: 0c15f78c58246cb688abd5cb2908936a8ae00e25df93e28a90d27114a08709a3
-readiness:
-  scratch_isolation: true
-  source_isolation: true
-  reset_replay: true
-  interface_equivalence: true
-  success_per_step: true
-  budget_termination: true
-  model_smoke_F: true
-  model_smoke_B0: true
-  model_smoke_B: true
-prior_commissioning_source_commit: 64b01ae16293e0ac61c716dbae2e5ac335ee9689
-prior_commissioning_workflow: libero-hardware-interface-20261008-check-6
-commissioning_source_commit: e3d6421f8b3767575a65884a840d83e6b1664ac6
-commissioning_workflow: libero-hardware-interface-20261008-check-8
+resolved: null
+readiness: null
+amendment:
+  date: '2026-10-08'
+  authority: 'User: why are there budgets, we don''t need to have a budget'
+  supersedes: libero-hardware-interface-20261008-pilot-1
+  pool_with_prior_cohort: false
+  usage_policy: Record tokens, calls and elapsed time without stopping on them.
+  technical_limits: Provider context/output limits, request timeout and scratch isolation
+    still apply.

@@ -58,7 +58,7 @@ sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q \
     --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
 echo 'Running Linux renderer, reset, interface, and isolation commissioning'
-if [[ "${HARDWARE_STAGE:-commission}" == smoke ]]; then
+if [[ "${HARDWARE_STAGE:-commission}" == smoke || "${HARDWARE_STAGE:-commission}" == pilot ]]; then
     # Transfer separately from the committed payload. Never echo or archive it.
     for attempt in $(seq 1 300); do
         if [[ -s "$HARDWARE_API_KEY_FILE" ]]; then

@@ -66,7 +66,7 @@ class Meter:
                 target[field] += value
         target["calls"] += 1
         self.total += usage["input_tokens"] + usage["output_tokens"]
-        if self.total > self.limit:
+        if self.limit is not None and self.total > self.limit:
             raise ModelFailure("provider_usage_exceeded_reserved_budget")
 
 
@@ -215,7 +215,7 @@ class Session:
             "tools": tools,
             "reasoning": {"effort": self.model["reasoning_effort"]},
             "store": False,
-            "truncation": "disabled",
+            "truncation": self.model.get("context_truncation", "disabled"),
             "parallel_tool_calls": False,
             "include": ["reasoning.encrypted_content"],
         }
@@ -238,35 +238,47 @@ class Session:
             )
             if k in body
         }
-        timeout = min(
-            self.limits.response_seconds, timeout or self.limits.response_seconds
+        timeout = (
+            self.limits.response_seconds
+            if timeout is None
+            else min(self.limits.response_seconds, timeout)
         )
+        if timeout <= 0:
+            raise BudgetEnd("wall_limit")
         start = time.monotonic()
-        counts = self._post("responses/input_tokens", count_body, timeout)
-        count = counts.get("input_tokens")
-        if type(count) is not int or count < 0:
-            raise ModelFailure("input_token_count_unavailable")
         reservation = self.model.get("input_reservation", {"mode": "exact"})
-        if reservation["mode"] == "exact":
-            reserved = count
-        elif reservation["mode"] == "gateway_margin_v1":
-            # NVIDIA's gateway counter omits some provider-side prompt overhead.
-            # This is an explicit estimate, not an exact tokenizer claim. Reserve
-            # a frozen margin and audit actual usage before accepting any action.
-            reserved = (
-                count * reservation["multiplier"] + reservation["overhead_tokens"]
-            )
+        count = reserved = None
+        if reservation["mode"] == "usage_only":
+            if any(
+                v is not None
+                for v in (cap, self.limits.context_tokens, self.meter.limit)
+            ):
+                raise ModelFailure("usage_only_requires_no_token_caps")
         else:
-            raise ModelFailure("unknown_input_reservation")
-        if (
-            reserved + cap > self.limits.context_tokens
-            or self.meter.total + reserved + cap > self.meter.limit
-        ):
-            raise BudgetEnd("token_limit")
+            counts = self._post("responses/input_tokens", count_body, timeout)
+            count = counts.get("input_tokens")
+            if type(count) is not int or count < 0:
+                raise ModelFailure("input_token_count_unavailable")
+            if reservation["mode"] == "exact":
+                reserved = count
+            elif reservation["mode"] == "gateway_margin_v1":
+                # Historical capped runs reserve the gateway's empirically
+                # measured margin. Uncapped runs only record actual usage.
+                reserved = (
+                    count * reservation["multiplier"] + reservation["overhead_tokens"]
+                )
+            else:
+                raise ModelFailure("unknown_input_reservation")
+            if (
+                reserved + cap > self.limits.context_tokens
+                or self.meter.total + reserved + cap > self.meter.limit
+            ):
+                raise BudgetEnd("token_limit")
         remaining_time = timeout - (time.monotonic() - start)
         if remaining_time <= 0:
             raise BudgetEnd("wall_limit")
-        body["max_output_tokens"] = cap
+        if cap is not None:
+            body["max_output_tokens"] = cap
         # Evaluator-owned events are private; this includes context/response
         # bytes for audit. No credentials or provider request headers are logged.
         self.events.emit(
@@ -301,8 +313,8 @@ class Session:
                 reservation["mode"] == "exact"
                 and response["usage"]["input_tokens"] != count
             )
-            or response["usage"]["input_tokens"] > reserved
-            or response["usage"]["output_tokens"] > cap
+            or (reserved is not None and response["usage"]["input_tokens"] > reserved)
+            or (cap is not None and response["usage"]["output_tokens"] > cap)
         ):
             raise ModelFailure("provider_token_contract_mismatch")
         if (
@@ -312,6 +324,8 @@ class Session:
         ):
             # A model hitting the preregistered output cap is a trial budget
             # failure, not a provider outage or grounds to discard the trial.
+            if cap is None:
+                raise ModelFailure("provider_output_limit")
             raise BudgetEnd("output_token_limit")
         if response.get("status") != "completed":
             raise ModelFailure("incomplete_response")
@@ -340,7 +354,10 @@ class Observer:
     def describe(self, request_kind, observation, *, timeout=None):
         if request_kind not in self.REQUESTS:
             raise ValueError("observer_request_not_allowed")
-        if self.calls >= self.session.limits.observer_calls:
+        if (
+            self.session.limits.observer_calls is not None
+            and self.calls >= self.session.limits.observer_calls
+        ):
             raise BudgetEnd("observer_call_limit")
         step = observation["simulator_step"]
         visible = {

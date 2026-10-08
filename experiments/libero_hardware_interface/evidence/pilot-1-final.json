@@ -1,0 +1,23 @@
+{
+  "workflow": "libero-hardware-interface-20261008-pilot-1",
+  "status": "FAILED",
+  "end_time_utc": "2026-10-08T21:03:23.659687",
+  "source_commit": "0121630d4d6c8d23c2064ed0bc713eb6d96500fc",
+  "trials": 61,
+  "successes": 0,
+  "termination_counts": {
+    "BUDGET_EXHAUSTED": 60,
+    "MODEL_ERROR": 1
+  },
+  "infrastructure_failure": "NVIDIA responses HTTP 503 in pilot-t07-i02-r0-B",
+  "independent_replay_audit": "passed",
+  "audited_trials": 61,
+  "archive_prefix": "s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-pilot-1/",
+  "artifact_hashes": {
+    "archive-receipt.json": "1494e28fee1913f744fb5b7a2d12f4c42326106ab1544222e134f903a5ad7631",
+    "pilot-audit.json": "bc1f980e3b851e09e3c23efd62aef25499d86a58a4f8750f9004206ba6945723",
+    "results/analysis.json": "593ddade8346a10ff436b5cae4992c78bf2c05481227b2680f9c588a925b880a"
+  },
+  "superseded_by_user_removal_of_resource_budgets": true,
+  "pool_with_uncapped_cohort": false
+}

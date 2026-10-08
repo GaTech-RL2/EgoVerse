@@ -6,6 +6,15 @@ codebase discovery without an observer (B0), and the same discovery workflow wit
 a separate visual observer (B). F minus B0 is primary; F minus B is secondary.
 There is no pretrained robot policy or policy-weight training in this study.
 
+On 2026-10-08 the user removed experiment resource budgets. This instruction
+supersedes the budget clauses in the original protocol, which remains unchanged
+as a historical source. The amended manifest uses `null` for elapsed-time,
+workflow-token, tool-call, observer-call, output-token and local context caps.
+Usage is still measured. All arms retain the 1,000-step episode horizon and the
+same command validation. Comparisons now measure completion at a common robot
+horizon with unrestricted experiment compute; compute usage is an outcome.
+The new cohort restarts with fresh sessions and is never pooled with capped runs.
+
 Implementation lives in `astra_reversal/hardware_interface`. Both interfaces
 use the same controller validator, sensor allowlist, per-step success check and
 execution proxy. Simulation pauses during model inference. A delayed reply
@@ -19,8 +28,9 @@ on 2026-10-08 using source `e3d6421f8b3767575a65884a840d83e6b1664ac6`.
 All nine readiness gates passed: real rendering, matched reset/action/sensor
 traces, source and scratch isolation, per-step success and budget guards, and
 live Astra trials for F, B0 and B with independent replay. Its Linux/Python
-3.8.13 contract suite passed all 26 tests. The local suite now has 32 passing
-tests including additional pilot launch gates.
+3.8.13 contract suite passed all 26 tests. The revised local suite has 38 passing
+tests, including all three arms reaching the full horizon beyond the old token,
+wall, tool and observer limits.
 
 The three unscored smoke trials exhausted their token budgets: F executed
 40 native steps, B0 35, and B 39 with one observer call. Task success was 0/3.
@@ -31,10 +41,11 @@ Receipts and the exact wheelhouse are preserved under
 `s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-8/`.
 The checked-in [live smoke evidence](evidence/commissioning-check-8/model-smoke.json)
 records every gate and replay audit. The smoke GPU has been released.
-The 150-trial pilot workflow `libero-hardware-interface-20261008-pilot-1` was
-submitted from source `0121630d4d6c8d23c2064ed0bc713eb6d96500fc`, whose adapter
-hash matches check-8. The new runtime checks passed and pilot collection started;
-its results are pending.
+The historical capped pilot `libero-hardware-interface-20261008-pilot-1`, source
+`0121630d4d6c8d23c2064ed0bc713eb6d96500fc`, stopped after 61 trials: 60 budget
+terminations and one NVIDIA HTTP 503. There were zero successes. Its artifacts
+are archived under its own R2 prefix and its GPU has been released. The new
+uncapped cohort requires fresh commissioning of the amended source.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.
@@ -46,25 +57,39 @@ The user identified the credential as an NVIDIA Inference Hub key. It works at
 `https://inference-api.nvidia.com/v1` with the returned model identifier
 `openai/openai/gpt-6-astra`. Local live checks passed generation, function calls,
 front/wrist image delivery, tool-result continuation, and the observer JSON
-schema with its 256-token output cap. The original OpenAI HTTP 401 was an
+schema. The original OpenAI HTTP 401 was an
 endpoint mismatch. The key stays in a private file outside payloads and artifacts;
 the transport rejects credential-bearing redirects and does not pass the file
 setting into replay children or scratch processes.
 
-NVIDIA's pre-generation token counter is approximate: one tool request counted
+In the historical capped protocol, NVIDIA's pre-generation token counter was
+approximate: one tool request counted
 55 input tokens but generation reported 133. The frozen gateway reservation is
 `2 * estimated_input + 4096`, plus the output cap, checked against remaining
 workflow and context budgets. Actual provider usage is charged, including
 reasoning, and an actual count beyond the reservation stops collection before
 any returned action is accepted. This margin is conservative and empirically
 checked, not a provider-guaranteed exact count; any breach invalidates readiness.
-It may end trials before the nominal budget is fully consumed. Every arm uses
-the same rule. Estimates, reservations and actual counts are retained separately.
+It ended trials before the nominal budget was fully consumed. Estimates,
+reservations and actual counts are retained separately in those old receipts.
+The amended `usage_only` protocol makes no counter or reservation requests,
+omits `max_output_tokens`, and charges actual actor and observer usage without
+stopping on it. All arms use the same rule.
+
+Provider context/output ceilings remain technical service limits. The amended
+request uses `truncation=auto` at the provider's actual context boundary, with
+the task repeated in each request's instructions so it survives old-history
+truncation. Full request/response history remains in the private event log.
+The [Responses API](https://developers.openai.com/api/reference/python/resources/responses/methods/create)
+documents this behavior; NVIDIA transport is checked live before collection.
+A truncated response at the provider's own output limit is an infrastructure
+error, not an experiment-budget termination. Individual requests retain a
+180-second transport timeout, and scratch processes retain isolation limits.
 
 The observer's frozen system prompt is unchanged. Its fixed evidence requests
 ask for at most two short facts, one uncertainty and one occlusion; structured
-output uses low verbosity. This passed after the unconstrained description hit
-the 256-token cap. All such transport diagnostics are unscored.
+output uses low verbosity. The historical 256-token cap has been removed along
+with the actor's 2,048-token cap. All transport diagnostics are unscored.
 
 Earlier check-6 native receipts and check-7's partial live trials are retained.
 Check-7 stopped before B0 could act because the provider rejected `uniqueItems`.
@@ -72,9 +97,10 @@ That unsupported API keyword is removed; duplicate-key rejection remains in the
 shared execution proxy. Live checks now validate the actual tool schemas for
 all three arms before simulator trials. Output-cap exhaustion is retained as a
 trial budget failure, rather than misclassified as a provider outage.
-The default manifest now records the verified check-8 runtime/readiness hashes.
-Each collection job also verifies its current code, dependencies, assets and
-source view against those receipts before starting any trial.
+The amended template clears historical runtime/readiness hashes. A fresh job
+checks its code, dependencies, assets and source view, validates live transport
+for every arm, and independently replays three 20-step commissioning trials.
+Only the commissioning check uses that short horizon; pilot trials use 1,000.
 
 ## Frozen design
 
@@ -86,10 +112,10 @@ source view against those receipts before starting any trial.
 - Confirmation remains blocked until pilot discordance supports a documented
   power calculation and a new frozen confirmation manifest.
 - A separate `libero_spatial` task 0/state 0 is reserved for commissioning.
-- 1,000 actor control steps, 20 minutes wall time, 100,000 workflow tokens,
-  1,000 tools, at most ten repeated steps per action; observer at most 50 calls
-  with a hard 256-output-token cap. The actor output cap is 2,048; maximum
-  request context is 32,768. Reasoning is charged as part of provider output.
+- 1,000 actor control steps, at most ten repeated steps per action; no
+  experiment cap on tokens, calls, context size, output length or elapsed time.
+  Reasoning is recorded as part of provider output. Success, the agent's finish
+  command or the episode horizon ends a normally functioning trial.
 - Cameras are 128×128, upright RGB, at a 20 Hz controller rate. Ten identical
   settling actions occur before the actor budget starts.
 

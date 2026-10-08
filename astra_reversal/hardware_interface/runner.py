@@ -174,7 +174,10 @@ class Router:
         self.previous_rejected = False
 
     def dispatch(self, tool, arguments):
-        if self.calls >= self.proxy.limits.tool_calls:
+        if (
+            self.proxy.limits.tool_calls is not None
+            and self.calls >= self.proxy.limits.tool_calls
+        ):
             raise BudgetEnd("tool_call_limit")
         self.proxy.available()
         self.calls += 1
@@ -209,11 +212,11 @@ class Router:
             elif tool == "scratch_execute":
                 if self.scratch is None:
                     raise RuntimeError("scratch_isolation_unavailable")
-                remaining = self.proxy.limits.wall_seconds - (
-                    self.proxy.clock() - self.proxy.wall_start
-                )
+                remaining = self.proxy.remaining_wall_seconds()
                 result = self.scratch.execute(
-                    arguments["code"], self.dispatch, seconds=min(15, remaining)
+                    arguments["code"],
+                    self.dispatch,
+                    seconds=15 if remaining is None else min(15, remaining),
                 )
             elif tool == "describe_visible":
                 if self.observer is None:
@@ -221,9 +224,7 @@ class Router:
                 visible = self.proxy.observe(
                     ["agentview_image", "robot0_eye_in_hand_image"]
                 )
-                remaining = self.proxy.limits.wall_seconds - (
-                    self.proxy.clock() - self.proxy.wall_start
-                )
+                remaining = self.proxy.remaining_wall_seconds()
                 result = self.observer.describe(
                     arguments["request_kind"], visible, timeout=remaining
                 )
@@ -271,19 +272,23 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
         "Inspect native controller and observation conventions through source tools. "
         "Only normalized controller inputs within [-1,1] are accepted. Physics advances only on accepted steps and pauses during reasoning. "
         "Camera images are delivered upright in every arm. "
-        "The repeated-step limit and all budgets are enforced. Scratch has standard-library Python, /sources read-only, and /scratch writable; "
+        "The episode horizon, controller bounds and repeated-step limit are enforced. Scratch has standard-library Python, /sources read-only, and /scratch writable; "
         "scratch functions are read(channel,max_age_ms)/act(envelope) in F and observe(keys)/step(action,repeat_steps,observation_step) in B/B0. "
-        "No hidden simulator objects exist there.\nBudgets: "
+        "No hidden simulator objects exist there. Usage is recorded. A null resource setting means no experiment cap.\nEpisode and request settings: "
         + json.dumps(asdict(proxy.limits))
     )
     instructions = SHARED_PROMPT + "\n\n" + common
+    # Keep the goal in every request even if the provider needs to truncate old
+    # conversation items at its actual context-window boundary.
+    if model.get("context_truncation") == "auto":
+        instructions += "\nCurrent user task: " + json.dumps(task_instruction)
     if condition == "F":
         instructions += (
             "\nUse only the universal interface for device calls.\nDevice description: "
             + json.dumps(proxy.describe())
         )
     elif condition == "B":
-        instructions += "\nThe separate observer can report current visible evidence with describe_visible; its usage consumes the same workflow budget."
+        instructions += "\nThe separate observer can report current visible evidence with describe_visible; its usage is included in the workflow totals."
     actor.history = [{"role": "user", "content": task_instruction}]
     proxy.wall_start = proxy.clock()
     proxy.events.emit(
@@ -301,7 +306,7 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
     try:
         while proxy.terminal is None:
             proxy.available()
-            remaining = proxy.limits.wall_seconds - (proxy.clock() - proxy.wall_start)
+            remaining = proxy.remaining_wall_seconds()
             response = actor.request(instructions, router.tools, timeout=remaining)
             # A response after the wall deadline cannot trigger an action.
             proxy.available()

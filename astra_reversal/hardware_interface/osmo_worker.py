@@ -1,5 +1,6 @@
 """Own-prefix OSMO commissioning, optional live model smoke, and archival."""
 
+import copy
 import json
 import os
 import traceback
@@ -9,7 +10,53 @@ from types import SimpleNamespace
 
 from .common import file_hash, write_json
 from .preflight import probe
-from .protocol import load_manifest
+from .protocol import RESOURCE_CAPS, load_manifest, save_schedule, schedule, validate
+
+
+def collect_pilot(root, manifest):
+    """A fresh cohort after same-source native, transport and three-arm checks."""
+    import yaml
+
+    from .analysis import audit
+    from .common import strict_json
+    from .launcher import load_outcomes, run
+    from .reporting import export, power_worksheet
+
+    validate(manifest, scored=True)
+    if any(manifest["limits"][key] is not None for key in RESOURCE_CAPS):
+        raise ValueError("revised_pilot_requires_no_resource_budgets")
+    path = root / "pilot-preregistration.yaml"
+    with path.open("x") as stream:
+        stream.write(yaml.safe_dump(manifest, sort_keys=False))
+    rows = schedule(
+        manifest, strict_json((root / "prepared/catalog.json").read_bytes())
+    )
+    save_schedule(root / "trials.csv", rows)
+    args = SimpleNamespace(
+        manifest=str(path),
+        prepared=str(root / "prepared"),
+        libero_root="upstream-libero",
+        out=str(root / "pilot"),
+        split="pilot",
+        schedule=str(root / "trials.csv"),
+    )
+    expected = sum(row["split"] == "pilot" for row in rows)
+    print(
+        json.dumps({"pilot_start": True, "trials": expected, "resource_budgets": None}),
+        flush=True,
+    )
+    try:
+        result = run(args, manifest)
+        print(json.dumps({"pilot_result": result}), flush=True)
+    finally:
+        if (root / "pilot/runs").exists():
+            outcomes = load_outcomes(root / "pilot/runs")
+            write_json(root / "pilot-audit.json", audit(root / "pilot/runs"))
+            export(outcomes, manifest, root / "results", split="pilot")
+            if len(outcomes) == expected:
+                write_json(
+                    root / "power-worksheet.json", power_worksheet(outcomes, manifest)
+                )
 
 
 def archive(root, workflow):
@@ -97,20 +144,29 @@ def main():
         )
         print(json.dumps({"gates": checks, "model_trials_started": 0}), flush=True)
         stage = os.environ.get("HARDWARE_STAGE", "commission")
-        if stage == "smoke":
+        if stage in ("smoke", "pilot"):
             from .analysis import audit
             from .launcher import run
             from .model_smoke import transport_smoke
 
             transport_smoke(manifest, root / "prepared", root / "model-transport")
+            smoke_manifest = copy.deepcopy(manifest)
+            smoke_path = root / "prepared/preregistration.yaml"
+            if stage == "pilot":
+                # This is a short execution/replay check, never a task score.
+                # The actual pilot retains its full 1,000-step horizon.
+                smoke_manifest["limits"]["steps"] = 20
+                smoke_path = root / "smoke-preregistration.yaml"
+                with smoke_path.open("x") as stream:
+                    stream.write(yaml.safe_dump(smoke_manifest, sort_keys=False))
             args = SimpleNamespace(
-                manifest=str(root / "prepared/preregistration.yaml"),
+                manifest=str(smoke_path),
                 prepared=str(root / "prepared"),
                 libero_root="upstream-libero",
                 out=str(root / "smoke"),
                 split="pilot",
             )
-            result = run(args, manifest, smoke=True)
+            result = run(args, smoke_manifest, smoke=True)
             audits = audit(root / "smoke/runs")
             if len(audits["trials"]) != 3 or any(
                 trial["status"] != "passed" for trial in audits["trials"]
@@ -125,6 +181,8 @@ def main():
                     "audit": audits,
                     "gates": checks,
                     "scored_results": False,
+                    "commissioning_horizon_steps": smoke_manifest["limits"]["steps"],
+                    "pilot_horizon_steps": manifest["limits"]["steps"],
                 },
             )
             # Preserve the manifest used for replay. Readiness is a new artifact.
@@ -132,6 +190,8 @@ def main():
                 yaml.safe_dump(manifest, sort_keys=False)
             )
             print(json.dumps({"model_smoke": result, "gates": checks}), flush=True)
+            if stage == "pilot":
+                collect_pilot(root, manifest)
         elif stage != "commission":
             raise ValueError("unknown_hardware_stage")
     except BaseException as error:

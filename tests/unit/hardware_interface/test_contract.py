@@ -8,7 +8,13 @@ import pytest
 
 from astra_reversal.hardware_interface.analysis import analyze, audit
 from astra_reversal.hardware_interface.common import Events, digest
-from astra_reversal.hardware_interface.protocol import design, schedule, validate
+from astra_reversal.hardware_interface.protocol import (
+    RESOURCE_CAPS,
+    design,
+    schedule,
+    validate,
+    without_resource_budgets,
+)
 from astra_reversal.hardware_interface.provider import (
     HTTP,
     BudgetEnd,
@@ -213,6 +219,151 @@ def test_provider_reserves_input_and_output_before_generation(tmp_path):
     with pytest.raises(BudgetEnd):
         s.request("system", [])
     assert posted == ["responses/input_tokens"]
+
+
+def test_uncapped_manifest_preserves_history_and_retains_episode_controls():
+    original = design("docker.io/library/python@sha256:" + "a" * 64)
+    revised = without_resource_budgets(original)
+    limits = validate(revised)
+    assert all(revised["limits"][k] is None for k in RESOURCE_CAPS)
+    assert original["limits"]["workflow_tokens"] == 100000
+    assert original["model"]["input_reservation"]["mode"] == "gateway_margin_v1"
+    assert limits.steps == 1000 and limits.max_repeat == 10
+    assert limits.response_seconds == 180
+    assert revised["resolved"] is None and revised["readiness"] is None
+    assert revised["amendment"]["pool_with_prior_cohort"] is False
+    for key in ("steps", "max_repeat", "response_seconds"):
+        bad = without_resource_budgets(original)
+        bad["limits"][key] = None
+        with pytest.raises(ValueError, match="episode_and_request_limits_required"):
+            validate(bad)
+    revised["limits"]["workflow_tokens"] = 100000
+    with pytest.raises(ValueError, match="usage_only_requires_no_token_caps"):
+        validate(revised)
+
+
+@pytest.mark.parametrize("condition", ["F", "B0", "B"])
+def test_uncapped_trial_reaches_horizon_after_old_token_and_wall_limits(
+    tmp_path, condition
+):
+    manifest = without_resource_budgets(design("fixture"))
+    limits = Limits(**manifest["limits"])
+    clock = [0.0]
+    p = proxy(tmp_path, success_at=1001, limits=limits, clock=lambda: clock[0])
+    calls = []
+
+    def post(path, body, timeout):
+        assert path == "responses"  # No approximate reservation can end this run.
+        assert "max_output_tokens" not in body
+        assert body["truncation"] == "auto"
+        assert "fixture task" in body["instructions"]
+        calls.append(body)
+        clock[0] += 1201  # Well beyond the old whole-trial wall limit.
+        arguments = (
+            {"envelope": envelope(repeat=10, step=p.step_count)}
+            if condition == "F"
+            else {
+                "action": [0] * 7,
+                "repeat_steps": 10,
+                "observation_step": p.step_count,
+            }
+        )
+        return {
+            "model": manifest["model"]["identifier"],
+            "status": "completed",
+            "usage": {"input_tokens": 40000, "output_tokens": 5000},
+            "output": [
+                {
+                    "type": "function_call",
+                    "call_id": str(len(calls)),
+                    "name": "act" if condition == "F" else "step",
+                    "arguments": json.dumps(arguments),
+                }
+            ],
+        }
+
+    outcome = run_trial(
+        p,
+        Source(),
+        condition,
+        "fixture task",
+        manifest["model"],
+        scratch=None,
+        post=post,
+    )
+    assert outcome["terminal_reason"] == "TIMEOUT_STEPS"
+    assert outcome["sim_steps"] == 1000 and len(calls) == 100
+    assert outcome["known_workflow_tokens"] == 4_500_000
+    assert outcome["usage_by_role"]["actor"]["token_count_requests"] == 0
+    assert p.env.checked == list(range(1, 1001))
+
+
+def test_uncapped_tools_and_observer_exceed_previous_call_limits(tmp_path):
+    manifest = without_resource_budgets(design("fixture"))
+    p = proxy(tmp_path, limits=Limits(**manifest["limits"]))
+    router = Router(p, Source(), "B0")
+    for _ in range(1001):
+        assert "observations" in router.dispatch(
+            "observe", {"keys": ["robot0_eef_pos"]}
+        )
+    assert router.calls == 1001 and p.terminal is None
+
+    def post(path, body, timeout):
+        assert path == "responses" and "max_output_tokens" not in body
+        return {
+            "model": manifest["model"]["identifier"],
+            "status": "completed",
+            "usage": {"input_tokens": 1000, "output_tokens": 3000},
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": json.dumps(
+                                {
+                                    "frame_step": 0,
+                                    "visible_facts": ["A gripper is visible."],
+                                    "uncertainties": [],
+                                    "occlusions": [],
+                                }
+                            ),
+                        }
+                    ],
+                }
+            ],
+        }
+
+    meter = Meter(None)
+    observer = Observer(
+        Session(
+            manifest["model"], p.limits, meter, p.events, post=post, role="observer"
+        )
+    )
+    frames = p.observe(["agentview_image", "robot0_eye_in_hand_image"])
+    for _ in range(51):
+        assert observer.describe("scene", frames)["frame_step"] == 0
+    assert observer.calls == 51 and meter.total == 204000
+
+
+def test_provider_owned_output_limit_is_not_an_experiment_budget(tmp_path):
+    manifest = without_resource_budgets(design("fixture"))
+    p = proxy(tmp_path, limits=Limits(**manifest["limits"]))
+
+    def post(path, body, timeout):
+        return {
+            "model": manifest["model"]["identifier"],
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "usage": {"input_tokens": 100, "output_tokens": 10000},
+            "output": [],
+        }
+
+    meter = Meter(None)
+    session = Session(manifest["model"], p.limits, meter, p.events, post=post)
+    with pytest.raises(ModelFailure, match="provider_output_limit"):
+        session.request("system", [])
+    assert meter.total == 10100 and session.history == []
 
 
 def test_token_reservation_and_generation_use_identical_model_settings(tmp_path):
