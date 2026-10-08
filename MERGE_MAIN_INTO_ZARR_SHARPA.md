@@ -191,6 +191,22 @@ test need updates to match main's #629 conventions and its every-config compose
 tests. Nothing in `pi.py` conflicts. I could not exercise openpi itself: it is
 not installed in the locked env.
 
+## Follow-up commits on this branch
+
+After the merge, these were added on `jmni/zarr-sharpa-merge-main`:
+
+- `e4f97e646` merges `jmni/sharpa-lerobot-to-zarr`, the Sharpa LeRobot-to-Zarr
+  converter (`egomimic/scripts/sharpa_process`, `docs/SHARPA_LEROBOT_CONVERSION.md`).
+  - Its only conflict was `testpaths` in `pyproject.toml`; `egomimic/scripts/sharpa_process`
+    is now collected locally and in CI.
+  - In the merge env: ruff 0.8.6 check and format are clean, `uv lock --check` passes, and
+    290 tests pass (`sharpa_process`, `rldb/embodiment`, `rldb/zarr`,
+    `tests/unit/test_packaging.py`).
+  - A full 9,769-frame RoCo episode converts with numeric arrays bitwise equal to the
+    converter branch's output.
+- `dd41d6451` adds `SHARPA_PUBLIC_DATA_AUDIT.md`.
+- `d890be60b` adds `SHARPA_NEW_FORMAT_NOTES.md`.
+
 ## Fast-forwarding `jmni/zarr-sharpa`
 
 Your checkout `/coc/flash7/jni66/EgoVerse` has uncommitted Pi0.5 work on
