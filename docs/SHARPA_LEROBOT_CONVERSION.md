@@ -113,8 +113,9 @@ Episode attributes include:
 - `rig_name`, `license` (read from the dataset README) and `timestamp_source`
 - `conversion_report`
 
-A season that lacks a camera, for example the POC22032 seasons without
-`head_right`, is converted without that camera. The report records the gap.
+A season that lacks a camera is converted without it, and the report records the
+gap. For example, the v2.1 export of the four POC22061 Origami seasons from
+2026-05-23 to 05-25 has no `head_right` (their v3.0 export does).
 
 ### Derived by forward kinematics
 
@@ -127,6 +128,16 @@ and URDFs, so it can only confirm internal consistency (joint order, units and
 frames). It cannot confirm that the URDF matches the physical robot.
 Independently measured keypoints or palm poses would make that check
 meaningful.
+
+The one independent signal in the published data does not agree. Where
+`observation.state.tcp` is populated, its rotation follows the FK of the same
+side's distal arm link, but its position does not match any FK link under any
+rigid, offset or scaled fit (best 57 mm RMS), and it moves 3–10× more than the
+FK palm. Either `tcp` is not the hand position, or the arm chain or joint
+convention used by Sharpa's controller differs from
+`NTH_POC1_0_URDF_250905v4.urdf`. Until Sharpa confirms the arm joint order,
+signs and zeros, or supplies reference pairs of joint vectors and controller
+TCP poses, treat the FK-derived poses and keypoints as unverified.
 
 ### Not stored
 
@@ -191,6 +202,11 @@ and the EgoVerse registry:
 - Origami `season_POC22032_2026_05_14_19_21_01_train`, episode 0: `pinky_CMC`
   falls below its lower limit, and `pinky_MCP_FE` and `pinky_DIP` exceed their
   upper limits.
+
+Across both public datasets, 4,932 of 5,243 episodes (94%) have a hand joint
+outside the limits. Commanded DIP joints sit at exactly π/2 against a limit of
+1.3963 rad, observed DIP joints reach 1.617 rad, and observed pinky CMC reaches
+0.49 rad against 0.2618.
 
 The validator treats any hand joint outside the registry limits as an integrity
 error, so such episodes fail validation. The converter writes the values
