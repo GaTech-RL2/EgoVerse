@@ -33,7 +33,13 @@ def configure(root, config_directory):
         "assets": str(package / "assets"),
         "datasets": str(config_directory / "unavailable-demonstrations"),
     }
-    (config_directory / "config.yaml").write_text(json.dumps(paths))
+    config_file = config_directory / "config.yaml"
+    if config_file.exists():
+        if json.loads(config_file.read_text()) != paths:
+            raise ValueError("existing_LIBERO_configuration_differs")
+    else:
+        with config_file.open("x") as stream:
+            stream.write(json.dumps(paths))
     os.environ["LIBERO_CONFIG_PATH"] = str(config_directory)
     sys.path.insert(0, str(root))
     from libero.libero import benchmark

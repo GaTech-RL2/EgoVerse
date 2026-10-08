@@ -74,7 +74,7 @@ def verify_runtime(manifest, prepared, libero_root):
 
 def calibration(registry, args, manifest, suite, row, limits):
     """One evaluator-only, no-agent trace for every scheduled official state."""
-    name = f't{row["task_id"]:02d}-i{row["init_state_index"]:02d}'
+    name = f'{suite}-t{row["task_id"]:02d}-i{row["init_state_index"]:02d}'
     directory = Path(args.out) / "calibrations" / name
     events = Events(directory, {"calibration": name})
     env = None
@@ -149,7 +149,9 @@ def run(args, manifest, *, smoke=False):
         verify_runtime(manifest, prepared, args.libero_root)
     elif not smoke:
         raise ValueError("unresolved_runtime")
-    Path(args.out).mkdir(parents=True, exist_ok=False)
+    # Study roots may contain the manifest and a previous disjoint split. Every
+    # calibration, trial directory, and split summary still uses exclusive create.
+    Path(args.out).mkdir(parents=True, exist_ok=True)
     source = SourceView(prepared / "source-view")
     runtime = strict_json((prepared / "scratch-runtime.json").read_bytes())
     registry = configure(args.libero_root, Path(args.out) / "libero-config")
@@ -339,7 +341,10 @@ def run(args, manifest, *, smoke=False):
             "PROTOCOL_DEVIATION",
         ):
             raise RuntimeError("collection_paused_on_infrastructure_failure")
-    write_json(Path(args.out) / "summary.json", results)
+    write_json(
+        Path(args.out) / ("summary-" + ("smoke" if smoke else args.split) + ".json"),
+        results,
+    )
     return {
         "trials": len(results),
         "successes": sum(r["success"] for r in results),
@@ -431,14 +436,14 @@ def main():
         if name != "audit":
             p.add_argument("--manifest", required=True)
         if name in ("schedule", "probe", "smoke", "run", "audit", "analyze", "power"):
-            p.add_argument("--out", required=True)
+            p.add_argument("--out", required=name not in ("smoke", "run"))
         if name in ("probe", "smoke", "run", "verify-replay"):
-            p.add_argument("--libero-root", required=True)
+            p.add_argument("--libero-root")
         if name == "schedule":
-            p.add_argument("--catalog", required=True)
+            p.add_argument("--catalog")
         if name in ("smoke", "run"):
-            p.add_argument("--prepared", required=True)
-            p.add_argument("--schedule")
+            p.add_argument("--prepared")
+            p.add_argument("--schedule", required=name == "run")
             p.add_argument(
                 "--split", choices=("pilot", "confirmatory"), default="pilot"
             )
@@ -451,6 +456,17 @@ def main():
         if name == "verify-replay":
             p.add_argument("--trial", required=True)
     args = parser.parse_args()
+    if args.command != "audit":
+        study = Path(args.manifest).resolve().parent
+        prepared = study if (study / "catalog.json").is_file() else study / "prepared"
+        for name, default in (
+            ("libero_root", study / "src/libero"),
+            ("prepared", prepared),
+            ("catalog", prepared / "catalog.json"),
+            ("out", study),
+        ):
+            if hasattr(args, name) and getattr(args, name) is None:
+                setattr(args, name, str(default))
     manifest = load_manifest(args.manifest) if args.command != "audit" else None
     if args.command == "validate":
         validate(manifest, scored=True)

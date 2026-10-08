@@ -194,9 +194,21 @@ class Session:
         }
         if text_format:
             body["text"] = {"format": text_format}
+        if tools:
+            body["tool_choice"] = "required"
         count_body = {
             k: body[k]
-            for k in ("model", "instructions", "input", "tools", "text")
+            for k in (
+                "model",
+                "instructions",
+                "input",
+                "tools",
+                "text",
+                "reasoning",
+                "parallel_tool_calls",
+                "tool_choice",
+                "truncation",
+            )
             if k in body
         }
         timeout = min(

@@ -4,6 +4,7 @@
   "sources": [
     "https://developers.openai.com/api/reference/python/resources/responses/methods/create",
     "https://developers.openai.com/api/docs/guides/token-counting",
+    "https://developers.openai.com/api/reference/python/resources/responses/subresources/input_tokens/methods/count",
     "https://developers.openai.com/api/docs/models/gpt-6-astra"
   ],
   "credential_access": "public endpoint returned HTTP 401; custom endpoint clarification pending"

@@ -208,6 +208,35 @@ def test_provider_reserves_input_and_output_before_generation(tmp_path):
     assert posted == ["responses/input_tokens"]
 
 
+def test_token_reservation_and_generation_use_identical_model_settings(tmp_path):
+    p = proxy(tmp_path)
+    counted = {}
+
+    def post(path, body, timeout):
+        if path.endswith("input_tokens"):
+            counted.update(body)
+            return {"input_tokens": 100}
+        assert all(body[k] == value for k, value in counted.items())
+        assert counted["reasoning"] == {"effort": "medium"}
+        assert counted["tool_choice"] == "required"
+        assert counted["parallel_tool_calls"] is False
+        return {
+            "model": "gpt-6-astra",
+            "status": "completed",
+            "usage": {"input_tokens": 100, "output_tokens": 20},
+            "output": [],
+        }
+
+    session = Session(
+        {"identifier": "gpt-6-astra", "reasoning_effort": "medium"},
+        Limits(),
+        Meter(10000),
+        p.events,
+        post=post,
+    )
+    session.request("system", [{"type": "function", "name": "finish"}])
+
+
 def test_observer_receives_only_images_not_task_or_proprioception(tmp_path):
     p = proxy(tmp_path)
     captured = []
