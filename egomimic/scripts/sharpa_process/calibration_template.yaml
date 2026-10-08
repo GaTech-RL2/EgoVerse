@@ -1,0 +1,89 @@
+# Rig calibration for sharpa_to_zarr --calibration.
+#
+# TEMPLATE ONLY. Every FILL_* entry is a placeholder string, and the converter
+# rejects any file that still contains one. Copy this file, then replace each
+# placeholder with values measured on the rig that recorded the episodes. Do
+# not substitute nominal, estimated or image-centre values: an episode whose
+# calibration is guessed must stay `data_status: structural_sample`.
+#
+# Top-level keys select the rig. Use the rig name from the season directory
+# (`season_POC22002_...` -> `POC22002`). A `default` entry applies to every rig
+# without its own entry. A run fails when an episode's rig has neither.
+#
+# Camera keys are Sharpa's video names:
+#   head_left   -> images.front_1     (egocentric view; needed for `complete`)
+#   wrist_left  -> images.left_wrist
+#   wrist_right -> images.right_wrist
+#   head_right  -> images.head_right  (stored only with --include-head-right)
+# Omit a camera you have not calibrated.
+#
+# Fields (all required except `distortion`):
+#   K                  3x3 intrinsic matrix [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
+#                      in pixels, for the frames as stored in the LeRobot video
+#                      (480 x 480 unless you resize). A 3x4 [K | 0] is accepted.
+#   model              PINHOLE, OPENCV or KANNALA_BRANDT.
+#   distortion         Coefficients for `model`: [] for PINHOLE; 4, 5, 8, 12 or
+#                      14 for OPENCV; 4 for KANNALA_BRANDT. The overlay tools
+#                      project rectified PINHOLE images only.
+#   resolution         [width, height] of the stored frames, in pixels.
+#   rectified          true if the stored frames are already undistorted.
+#   parent_link        Link the camera is rigidly mounted on: a link of the
+#                      platform URDF (NTH_POC1_0_URDF_250905v4.urdf, e.g.
+#                      head_base_link, left_arm_Link_7) or of a hand URDF
+#                      (e.g. left_hand_flange, right_hand_wrist).
+#   parent_link_T_cam  4x4 rigid transform mapping camera coordinates to
+#                      parent-link coordinates (the camera's pose in the
+#                      parent link). The camera frame is the OPTICAL frame:
+#                      +X right, +Y down, +Z forward along the viewing axis.
+#                      Translations in metres.
+#
+# The converter computes the per-frame optical pose of head_left as
+# FK(parent_link)[t] @ parent_link_T_cam and stores it as `obs_head_pose` in
+# robot_base. Wrist mounts are recorded in the `camera_mounts` attribute.
+
+default:
+  head_left:
+    K:
+      - [FILL_fx, 0.0, FILL_cx]
+      - [0.0, FILL_fy, FILL_cy]
+      - [0.0, 0.0, 1.0]
+    model: PINHOLE
+    distortion: []
+    resolution: [480, 480]
+    rectified: true
+    parent_link: head_base_link
+    parent_link_T_cam:
+      - [FILL_r11, FILL_r12, FILL_r13, FILL_tx]
+      - [FILL_r21, FILL_r22, FILL_r23, FILL_ty]
+      - [FILL_r31, FILL_r32, FILL_r33, FILL_tz]
+      - [0.0, 0.0, 0.0, 1.0]
+  wrist_left:
+    K:
+      - [FILL_fx, 0.0, FILL_cx]
+      - [0.0, FILL_fy, FILL_cy]
+      - [0.0, 0.0, 1.0]
+    model: PINHOLE
+    distortion: []
+    resolution: [480, 480]
+    rectified: true
+    parent_link: FILL_left_wrist_camera_parent_link
+    parent_link_T_cam:
+      - [FILL_r11, FILL_r12, FILL_r13, FILL_tx]
+      - [FILL_r21, FILL_r22, FILL_r23, FILL_ty]
+      - [FILL_r31, FILL_r32, FILL_r33, FILL_tz]
+      - [0.0, 0.0, 0.0, 1.0]
+  wrist_right:
+    K:
+      - [FILL_fx, 0.0, FILL_cx]
+      - [0.0, FILL_fy, FILL_cy]
+      - [0.0, 0.0, 1.0]
+    model: PINHOLE
+    distortion: []
+    resolution: [480, 480]
+    rectified: true
+    parent_link: FILL_right_wrist_camera_parent_link
+    parent_link_T_cam:
+      - [FILL_r11, FILL_r12, FILL_r13, FILL_tx]
+      - [FILL_r21, FILL_r22, FILL_r23, FILL_ty]
+      - [FILL_r31, FILL_r32, FILL_r33, FILL_tz]
+      - [0.0, 0.0, 0.0, 1.0]

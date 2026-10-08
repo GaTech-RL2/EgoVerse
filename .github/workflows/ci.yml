@@ -72,12 +72,13 @@ jobs:
           uv run --no-sync python -c "from huggingface_hub import snapshot_download; snapshot_download('google/paligemma-3b-mix-224', allow_patterns=['tokenizer*', 'special_tokens_map.json', 'added_tokens.json'])"
       # --no-sync: a sync would not remove openpi, but never let it touch the venv.
       # The embodiment-registry and Zarr-schema suites still live under
-      # egomimic/rldb (see [tool.pytest.ini_options] testpaths).
+      # egomimic/rldb, and the Sharpa converter tests under
+      # egomimic/scripts/sharpa_process (see [tool.pytest.ini_options] testpaths).
       - name: Unit tests (hermetic; includes the Hydra compose test over every config)
         env:
           EGOVERSE_REQUIRE_PI: "1" # fail instead of skipping the Pi train-step tests
           HF_HUB_OFFLINE: "1" # only the tokenizer files are cached; the gated repo 401s without a token
-        run: uv run --no-sync pytest tests/unit egomimic/rldb/embodiment egomimic/rldb/zarr -q -p no:cacheprovider
+        run: uv run --no-sync pytest tests/unit egomimic/rldb/embodiment egomimic/rldb/zarr egomimic/scripts/sharpa_process -q -p no:cacheprovider
 
   wheel:
     runs-on: ubuntu-latest
