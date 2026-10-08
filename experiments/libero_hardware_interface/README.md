@@ -28,7 +28,7 @@ on 2026-10-08 using source `e3d6421f8b3767575a65884a840d83e6b1664ac6`.
 All nine readiness gates passed: real rendering, matched reset/action/sensor
 traces, source and scratch isolation, per-step success and budget guards, and
 live Astra trials for F, B0 and B with independent replay. Its Linux/Python
-3.8.13 contract suite passed all 26 tests. The revised local suite has 38 passing
+3.8.13 contract suite passed all 26 tests. The revised local suite has 40 passing
 tests, including all three arms reaching the full horizon beyond the old token,
 wall, tool and observer limits.
 
@@ -46,10 +46,15 @@ The historical capped pilot `libero-hardware-interface-20261008-pilot-1`, source
 terminations and one NVIDIA HTTP 503. There were zero successes. Its artifacts
 are archived under its own R2 prefix and its GPU has been released. The new
 uncapped cohort requires fresh commissioning of the amended source.
-The amended workflow `libero-hardware-interface-20261008-uncapped-1` was submitted
-on one OSMO L40S from commit `2d872a5cf2fd7cefe52210793c4b29c71bff4342`.
-It runs fresh checks and then the separate 150-trial pilot. Submission alone is
-not evidence of passed commissioning or task success.
+The amended workflow `libero-hardware-interface-20261008-uncapped-1`, source
+`2d872a5cf2fd7cefe52210793c4b29c71bff4342`, passed 38 Linux tests and every native,
+live transport and three-arm replay check. Smoke B used 120,991 tokens without
+a budget cutoff. The pilot then stopped before its first trial because CSV
+serialized unlimited budgets as empty cells and the schedule loader did not
+restore them to null. The loader now restores only those nullable fields, and
+regression tests cover full capped and uncapped schedule round trips. The exact
+archived 450-row schedule also passes the corrected comparison. These smoke
+checks have zero successes and establish execution only, not task performance.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.

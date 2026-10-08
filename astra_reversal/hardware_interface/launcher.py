@@ -29,6 +29,11 @@ def load_rows(path):
     for row in result:
         for key in ("task_id", "init_state_index", "env_seed", "replicate", "order"):
             row[key] = int(row[key])
+        # csv.DictWriter serializes None as an empty cell. Restore only the
+        # nullable resource fields before comparing with the frozen schedule.
+        for key in ("wall_limit_s", "token_limit", "tool_call_limit"):
+            if row[key] == "":
+                row[key] = None
     return result
 
 

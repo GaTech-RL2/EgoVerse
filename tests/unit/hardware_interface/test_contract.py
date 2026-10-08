@@ -8,9 +8,11 @@ import pytest
 
 from astra_reversal.hardware_interface.analysis import analyze, audit
 from astra_reversal.hardware_interface.common import Events, digest
+from astra_reversal.hardware_interface.launcher import load_rows
 from astra_reversal.hardware_interface.protocol import (
     RESOURCE_CAPS,
     design,
+    save_schedule,
     schedule,
     validate,
     without_resource_budgets,
@@ -592,6 +594,27 @@ def test_disjoint_splits_randomized_paired_official_states():
     m["confirmatory_indices"] = [0]
     with pytest.raises(ValueError, match="overlap"):
         validate(m)
+
+
+@pytest.mark.parametrize("uncapped", [False, True])
+def test_saved_schedule_round_trip_preserves_frozen_design(tmp_path, uncapped):
+    m = without_resource_budgets(manifest()) if uncapped else manifest()
+    catalog = [
+        {"task_id": t, "init_state_hashes": {str(i): digest([t, i]) for i in range(15)}}
+        for t in range(10)
+    ]
+    expected = schedule(m, catalog)
+    path = tmp_path / "trials.csv"
+    save_schedule(path, expected)
+    actual = load_rows(path)
+    # Match the launcher's frozen-schedule comparison across every field, task,
+    # arm and split, including None-valued caps passing through real CSV I/O.
+    assert len(actual) == len(expected) == 450
+    assert [dict((k, str(v)) for k, v in row.items()) for row in actual] == [
+        dict((k, str(v)) for k, v in row.items()) for row in expected
+    ]
+    if uncapped:
+        assert all(row["token_limit"] is None for row in actual)
 
 
 def test_partial_cohort_cannot_yield_confirmatory_claim():

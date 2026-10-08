@@ -1,0 +1,52 @@
+{
+  "workflow": "libero-hardware-interface-20261008-uncapped-1",
+  "status": "FAILED",
+  "source_commit": "2d872a5cf2fd7cefe52210793c4b29c71bff4342",
+  "unit_tests_passed": 38,
+  "native_and_live_gates": {
+    "budget_termination": true,
+    "interface_equivalence": true,
+    "model_smoke_B": true,
+    "model_smoke_B0": true,
+    "model_smoke_F": true,
+    "reset_replay": true,
+    "scratch_isolation": true,
+    "source_isolation": true,
+    "success_per_step": true
+  },
+  "smoke_replay_audit": "passed",
+  "smoke_trials": [
+    {
+      "condition": "B0",
+      "terminal_reason": "TIMEOUT_STEPS",
+      "success": false,
+      "sim_steps": 20,
+      "known_workflow_tokens": 96161
+    },
+    {
+      "condition": "B",
+      "terminal_reason": "TASK_FAILURE",
+      "success": false,
+      "sim_steps": 19,
+      "known_workflow_tokens": 120991
+    },
+    {
+      "condition": "F",
+      "terminal_reason": "TIMEOUT_STEPS",
+      "success": false,
+      "sim_steps": 20,
+      "known_workflow_tokens": 80960
+    }
+  ],
+  "pilot_trials_started": 0,
+  "failure": "schedule_changed: CSV empty cells were not restored to nullable budget values",
+  "archived_schedule_rows_verified_after_fix": 450,
+  "artifact_hashes": {
+    "trials.csv": "18f5e4db7e0ba6499e50bd0d08e9854c07d505705f4b8a4b91bb9539d0b87f3f",
+    "pilot-preregistration.yaml": "979d91c9829ab0f6f14ebb5b4e61a7a2e54e530487a5399a812fe2bef985ecd4",
+    "model-smoke.json": "e1060c744cfdea424b265583a735b15a6c9313484303e42fe56534241ea895cb",
+    "failure.json": "91fa61548cdd311cb16463ccdf83f7359e1a76349efab756e14b11b45c52ffdb"
+  },
+  "archive_prefix": "s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-uncapped-1/",
+  "performance_claim": false
+}
