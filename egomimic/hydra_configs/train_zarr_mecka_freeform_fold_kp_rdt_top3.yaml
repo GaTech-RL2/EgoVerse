@@ -1,0 +1,7 @@
+# train_zarr_mecka_freeform_fold_kp_rdt_op2 on freeform fold operators #2-#4
+# (43 train episodes, 0.96 h). At 4 x 32 / step one pass is ~810 steps, so
+# 600 x 100 steps is ~75 passes.
+defaults:
+  - train_zarr_mecka_freeform_fold_kp_rdt_op2
+  - override data: mecka_freeform_fold_kp_top3_holdout
+  - _self_

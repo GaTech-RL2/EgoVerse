@@ -1,0 +1,5 @@
+# train_zarr_mecka_flagship_fold_kp_rdt on fold_clothes + cup_on_saucer, 3 held out.
+defaults:
+  - train_zarr_mecka_flagship_fold_kp_rdt
+  - override data: mecka_flagship_fold_cup_kp_holdout
+  - _self_
