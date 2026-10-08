@@ -36,9 +36,11 @@ submitted from source `0121630d4d6c8d23c2064ed0bc713eb6d96500fc`, whose adapter
 hash matches check-8. The new runtime checks passed and pilot collection started;
 its results are pending.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
-Repository-wide
-`pytest tests/unit` was attempted before every commit; local collection is
-blocked by the existing missing `projectaria_tools` dependency.
+Validate this isolated study with
+`python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.
+The repository-wide test setup imports optional Aria tooling that this study
+does not use. The user authorized skipping that unrelated suite on 2026-10-08;
+`projectaria_tools` is not required to run or validate this experiment.
 
 The user identified the credential as an NVIDIA Inference Hub key. It works at
 `https://inference-api.nvidia.com/v1` with the returned model identifier
