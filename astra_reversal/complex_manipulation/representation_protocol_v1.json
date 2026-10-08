@@ -1,10 +1,7 @@
 {
-  "schema": "robocasa-online-subgoal-interpolation-2",
+  "schema": "robocasa-online-subgoal-interpolation-1",
   "status_at_registration": "not_run",
-  "arms": [
-    "tei",
-    "tli"
-  ],
+  "arms": ["tei", "tli"],
   "checkpoint": {
     "repository": "robocasa/robocasa365_checkpoints",
     "revision": "c484448aba1a9b60a04c9b0ca117241518ea69f3",
@@ -14,15 +11,8 @@
     "weights_frozen": true
   },
   "episodes": {
-    "tasks": [
-      "LoadPreparedFood",
-      "PackIdenticalLunches"
-    ],
-    "seeds": [
-      0,
-      1,
-      2
-    ],
+    "tasks": ["LoadPreparedFood", "PackIdenticalLunches"],
+    "seeds": [0, 1, 2],
     "split": "pretrain",
     "new_reset_attempts_per_arm_task_seed": 1,
     "planned_completed_episodes_per_arm": 6,
@@ -41,23 +31,12 @@
     "automatic_retries": 0,
     "observations": "Current three original policy-input cameras and 16D state, previous live review, four fixed chronological frames from paired native failure, original instruction, last two decisions and remaining budget.",
     "extra_information": "No privileged object poses, future frames or simulator lookahead.",
-    "review_intervals_controls": [
-      50,
-      100,
-      250,
-      500
-    ],
+    "review_intervals_controls": [50, 100, 250, 500],
     "first_review_control": 0,
     "after_final_interval": "Return to native original-instruction sampling.",
     "prompt_module": "representation_teacher.py",
     "subgoal_max_characters": 160,
-    "alpha_choices": [
-      0,
-      0.25,
-      0.5,
-      0.75,
-      1
-    ]
+    "alpha_choices": [0, 0.25, 0.5, 0.75, 1]
   },
   "interventions": {
     "source_representations": "Online, recomputed from the current real RoboCasa cameras/state with original instruction or Astra subgoal. These are not demonstration-derived banks.",
@@ -80,8 +59,7 @@
       "Native prediction remains bit-identical after active interventions.",
       "Restore policy RNG after probes so no rollout noise is consumed."
     ],
-    "failure_action": "Stop before creating environment or asking teacher.",
-    "required_operator": "The scheduled arm. Inference-only diagnostics require both arms. Native-cache and restoration checks are always required; both operator cases are recorded."
+    "failure_action": "Stop before creating environment or asking teacher."
   },
   "accounting": {
     "success": "Original benchmark binary predicate, one completed episode per task/seed/arm. Report counts and denominator; no best-of selection.",
@@ -92,17 +70,6 @@
     "cost": "Record GPU allocation including setup/teardown, rollout wall time, teacher wait and model inference; subscription-backed monetary inference cost remains unverified."
   },
   "excluded_from_this_comparison": [
-    "Demonstration-bank TEI/TLI",
-    "VEI",
-    "VLI",
-    "image edits",
-    "FRS",
-    "policy learning"
-  ],
-  "amendment": {
-    "prior_registration": "representation_protocol_v1.json",
-    "reason": "A TLI neutral mismatch must not prevent the independently validated TEI arm from running. Each operator must meet its unchanged numerical tolerance before its own episodes. Both are still measured and unused-operator failures remain recorded.",
-    "method_or_success_changes": false,
-    "actual_task_episodes_before_amendment": 0
-  }
+    "Demonstration-bank TEI/TLI", "VEI", "VLI", "image edits", "FRS", "policy learning"
+  ]
 }

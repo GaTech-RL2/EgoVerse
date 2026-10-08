@@ -1,7 +1,7 @@
 """Optional CPU checks against the pinned upstream JAX transformer and tokenizer."""
 
-import os
 import copy
+import os
 from types import SimpleNamespace
 
 import numpy as np
@@ -50,6 +50,7 @@ def test_post_block_writes_affect_next_cache_without_changing_native_parameters(
     import jax.numpy as jnp
     from flax import nnx
     from openpi.models import gemma
+
     from astra_reversal.complex_manipulation.jax_text_interpolation import (
         RecordingPrefix,
     )
@@ -86,6 +87,48 @@ def test_post_block_writes_affect_next_cache_without_changing_native_parameters(
         np.testing.assert_allclose(a, b, atol=1e-5, rtol=0)
     for a, b in zip(jax.tree.leaves(params), jax.tree.leaves(before), strict=True):
         np.testing.assert_array_equal(a, b)
+
+
+def test_other_arm_failure_stays_recorded_without_blocking_validated_arm():
+    pytest.importorskip("jax")
+    from astra_reversal.complex_manipulation.jax_text_interpolation import (
+        TextInterpolationPolicy,
+    )
+
+    policy = object.__new__(TextInterpolationPolicy)
+    policy.native = SimpleNamespace(
+        _rng=73,
+        _sample_kwargs={"num_steps": 10},
+        infer=lambda *a, **kw: {"actions": np.zeros((50, 12), np.float32)},
+        _output_transform=lambda d: {"actions": d["actions"][:, :12]},
+    )
+    policy._prepare = lambda obs: (
+        SimpleNamespace(state=np.zeros((1, 32))),
+        np.ones(200, bool),
+    )
+    policy._prefix_probe = lambda *a: np.array([0.0, 0.0])
+    policy._sample = lambda *a, **kw: (np.zeros((1, 50, 32)), np.zeros((18, 2)))
+
+    def infer(*args, intervention, **kwargs):
+        neutral = (intervention["method"], intervention["alpha"]) in (
+            ("tei", 0),
+            ("tli", 0.5),
+        )
+        value = (0.003 if intervention["method"] == "tli" else 0) if neutral else 1
+        return {
+            "actions": np.full((50, 12), value),
+            "interpolation": {"has_effect": not neutral},
+        }
+
+    policy.infer = infer
+    result = policy.preflight({}, active_method="tei")
+    assert result["status"] == "passed"
+    assert result["failed_checks"] == []
+    assert result["nonblocking_failed_checks"] == ["tli_0.5"]
+    assert result["operators"]["tli_0.5"]["max_action_difference"] == 0.003
+    with pytest.raises(RuntimeError, match="tli_0.5"):
+        policy.preflight({}, active_method="tli")
+    assert policy._rng == 73
 
 
 def test_real_tokenizer_preserves_state_and_uses_verified_byte_offsets():

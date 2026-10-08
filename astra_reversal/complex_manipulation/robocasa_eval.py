@@ -449,6 +449,7 @@ def main():
         probe["prompt"] = str(probe["prompt"])
         policy.preflight(
             probe,
+            active_method=None if args.preflight_only else args.representation_method,
             publish=lambda value: write_json(
                 args.output / "interpolation_preflight.json", value
             ),

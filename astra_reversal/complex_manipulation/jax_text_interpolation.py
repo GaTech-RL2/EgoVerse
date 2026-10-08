@@ -12,7 +12,6 @@ import flax.nnx as nnx
 import jax
 import jax.numpy as jnp
 import numpy as np
-
 from openpi.models import gemma
 from openpi.shared import nnx_utils
 
@@ -32,15 +31,31 @@ class RecordingBlock(gemma.Block):
             xs, kv_cache, positions, mask, [None] * len(xs), True
         )
         before = xs[0][:, -delta.shape[1] :]
-        after = jnp.where(
-            edit_mask[..., None],
-            (before.astype(jnp.float32) + delta).astype(before.dtype),
-            before,
+
+        def edit():
+            after = jnp.where(
+                edit_mask[..., None],
+                (before.astype(jnp.float32) + delta).astype(before.dtype),
+                before,
+            )
+            difference = jnp.where(
+                edit_mask[..., None],
+                after.astype(jnp.float32) - before.astype(jnp.float32),
+                0,
+            )
+            metrics = jnp.stack(
+                [jnp.linalg.norm(difference), jnp.max(jnp.abs(difference))]
+            )
+            return xs[0].at[:, -delta.shape[1] :].set(after), metrics
+
+        # A zero delta is a true no-op, including the slice/update and bf16
+        # conversion. Those extra operations can alter compiled rounding.
+        prefix, metrics = jax.lax.cond(
+            jnp.any((delta != 0) & edit_mask[..., None]),
+            edit,
+            lambda: (xs[0], jnp.zeros(2, jnp.float32)),
         )
-        xs = [xs[0].at[:, -delta.shape[1] :].set(after), *xs[1:]]
-        difference = after.astype(jnp.float32) - before.astype(jnp.float32)
-        metrics = jnp.stack([jnp.linalg.norm(difference), jnp.max(jnp.abs(difference))])
-        return xs, (kv_cache, before, metrics)
+        return [prefix, *xs[1:]], (kv_cache, before, metrics)
 
 
 class RecordingPrefix(nn.Module):
@@ -95,7 +110,8 @@ class Interpolator(nnx.Module):
         )
 
     def prefix_probe(self, observation, instruction_mask):
-        from openpi.models import model as model_lib, pi0
+        from openpi.models import model as model_lib
+        from openpi.models import pi0
 
         observation = model_lib.preprocess_observation(None, observation, train=False)
         tokens, mask, ar_mask = self.native.embed_prefix(observation)
@@ -130,7 +146,8 @@ class Interpolator(nnx.Module):
         num_steps,
         noise=None,
     ):
-        from openpi.models import model as model_lib, pi0
+        from openpi.models import model as model_lib
+        from openpi.models import pi0
 
         native = self.native
         observation = model_lib.preprocess_observation(None, observation, train=False)
@@ -345,13 +362,17 @@ class TextInterpolationPolicy:
         }
         return result
 
-    def preflight(self, observation, *, publish=None):
+    def preflight(self, observation, *, publish=None, active_method=None):
         """No environment steps: compare native sampling and inspect real cache edits."""
+        if active_method not in (None, "tei", "tli"):
+            raise ValueError("Unknown active preflight operator")
         original_key = self._rng
         receipt = {
             "status": "running",
+            "required_operators": [active_method] if active_method else ["tei", "tli"],
             "operators": {},
             "failed_checks": [],
+            "nonblocking_failed_checks": [],
             "environment_resets": 0,
             "environment_actions": 0,
             "policy_updates": 0,
@@ -417,6 +438,11 @@ class TextInterpolationPolicy:
                 error = float(np.max(np.abs(result["actions"] - native)))
                 neutral = (method, alpha) in (("tei", 0.0), ("tli", 0.5))
                 name = f"{method}_{alpha}"
+                failures = receipt[
+                    "failed_checks"
+                    if active_method is None or active_method == method
+                    else "nonblocking_failed_checks"
+                ]
                 receipt["operators"][name] = {
                     "max_action_difference": error,
                     "max_action_difference_from_native_copy": float(
@@ -425,9 +451,9 @@ class TextInterpolationPolicy:
                     **result["interpolation"],
                 }
                 if (neutral and error > 1e-5) or (not neutral and error <= 1e-6):
-                    receipt["failed_checks"].append(name)
+                    failures.append(name)
                 if neutral and result["interpolation"]["has_effect"]:
-                    receipt["failed_checks"].append(name + "_nonzero_edit")
+                    failures.append(name + "_nonzero_edit")
                 save()
             after = self.native.infer(observation, noise=noise)["actions"]
             receipt["native_restored_exact"] = bool(np.array_equal(native, after))
