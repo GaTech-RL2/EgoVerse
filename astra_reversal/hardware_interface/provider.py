@@ -34,6 +34,10 @@ class Meter:
                 "reasoning_tokens": 0,
                 "image_tokens": 0,
                 "calls": 0,
+                "generation_attempts": 0,
+                "token_count_requests": 0,
+                "failed_transport_requests": 0,
+                "provider_wall_seconds": 0.0,
             }
             for role in ("actor", "observer")
         }
@@ -145,6 +149,32 @@ class Session:
         self.post = post or HTTP(model["base_url"])
         self.history = []
 
+    def _post(self, path, body, timeout):
+        usage = self.meter.usage[self.role]
+        field = (
+            "token_count_requests"
+            if path.endswith("input_tokens")
+            else "generation_attempts"
+        )
+        usage[field] += 1
+        start, failed = time.monotonic(), False
+        try:
+            return self.post(path, body, timeout)
+        except Exception:
+            failed = True
+            usage["failed_transport_requests"] += 1
+            raise
+        finally:
+            elapsed = time.monotonic() - start
+            usage["provider_wall_seconds"] += elapsed
+            self.events.emit(
+                "provider_transport",
+                role=self.role,
+                endpoint=path,
+                failed=failed,
+                latency_seconds=elapsed,
+            )
+
     def request(self, system, tools, *, text_format=None, timeout=None):
         cap = (
             self.limits.actor_output_tokens
@@ -173,7 +203,7 @@ class Session:
             self.limits.response_seconds, timeout or self.limits.response_seconds
         )
         start = time.monotonic()
-        counts = self.post("responses/input_tokens", count_body, timeout)
+        counts = self._post("responses/input_tokens", count_body, timeout)
         count = counts.get("input_tokens")
         if type(count) is not int or count < 0:
             raise ModelFailure("input_token_count_unavailable")
@@ -196,7 +226,7 @@ class Session:
             input_tokens_counted=count,
         )
         try:
-            response = self.post("responses", body, remaining_time)
+            response = self._post("responses", body, remaining_time)
         except ModelFailure:
             self.meter.unknown += 1
             self.events.emit(

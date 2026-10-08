@@ -92,6 +92,7 @@ class Proxy:
         self.captured_utc = utc()
         self.terminal = None
         self.success = False
+        self.simulator_seconds = 0.0
         self.invalid_actions = self.safety_attempts = self.applied_violations = 0
         self.bounds = (controller["input_min"], controller["input_max"])
         if any(key not in observation for key in NATIVE_KEYS):
@@ -324,6 +325,7 @@ class Proxy:
                 self.terminal = "TIMEOUT_WALL"
                 break
             before = self.step_count
+            started = time.monotonic()
             self.observation, _, _, _ = self.env.step(action)
             self.step_count += 1
             applied += 1
@@ -338,6 +340,7 @@ class Proxy:
             )
             # Private evaluator check on EVERY step, never relay reward/done/info.
             self.success = bool(self.env.check_success())
+            self.simulator_seconds += time.monotonic() - started
             self.events.emit(
                 "evaluator_result", simulator_step=self.step_count, success=self.success
             )

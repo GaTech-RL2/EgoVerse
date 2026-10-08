@@ -117,6 +117,9 @@ python experiments/libero_hardware_interface/tools/launcher.py audit \
 python experiments/libero_hardware_interface/tools/analyze.py \
   --manifest /path/to/frozen/preregistration.yaml --runs /path/to/pilot/runs \
   --split pilot --out /path/to/new/results
+python experiments/libero_hardware_interface/tools/launcher.py power \
+  --manifest /path/to/frozen/preregistration.yaml --runs /path/to/pilot/runs \
+  --out /path/to/new/power-worksheet.json
 ```
 
 Every actor trial is independently replayed in another process from its official
@@ -127,3 +130,23 @@ Analysis retains all started trials, reports incomplete pairs and unknown cost,
 and clusters repeated sessions by official initial state. Infrastructure reruns
 must be separately versioned matched blocks; existing trial directories cannot
 be overwritten or silently excluded.
+
+The launcher also performs an evaluator-only calibration for every official
+initial state before its matched actor block. Initial robot sensors and pixels
+must match that calibration in every arm. Initial and terminal camera frames
+are retained privately. The live dependency set and benchmark assets are
+verified against the frozen receipts before collection.
+
+Analysis exports JSON, per-task CSV, paired-comparison CSV, a success chart and
+empirical step/time/token distributions. Provider-unknown usage breakdowns and
+cost stay null. Model attempts, failed transports, provider latency, simulator
+latency, tool timings and failure codes are retained. Confirmatory claims also
+require a passing independent replay audit for every started trial.
+
+The power command requires a complete, audited pilot. Its paired-binary normal
+approximation uses pilot discordance, a conservative upper-discordance scenario,
+the preregistered target effect, and equal allocation across tasks. This is a
+planning worksheet, not exact power for the bootstrap test or permission to
+start confirmation. A new manifest must freeze the selected sample size and
+verify enough disjoint official states exist. Infrastructure exclusions, if any,
+need a separate documented valid-run sensitivity; they are never automatic.

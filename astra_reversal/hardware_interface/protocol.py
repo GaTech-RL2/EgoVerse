@@ -2,6 +2,7 @@
 
 import csv
 import json
+import math
 import random
 import re
 from dataclasses import asdict
@@ -128,8 +129,19 @@ def validate(manifest, *, scored=False, confirmatory=False):
     ):
         raise ValueError("retry_or_timing_protocol")
     limits = Limits(**manifest["limits"])
-    if any(type(v) not in (int, float) or v <= 0 for v in asdict(limits).values()):
+    if any(
+        type(v) not in (int, float) or not math.isfinite(v) or v <= 0
+        for v in asdict(limits).values()
+    ):
         raise ValueError("positive_budgets_required")
+    if any(
+        type(v) is not int
+        for k, v in asdict(limits).items()
+        if k not in ("wall_seconds", "response_seconds")
+    ):
+        raise ValueError("integer_token_step_call_budgets_required")
+    if type(manifest["replicates"]) is not int or manifest["replicates"] < 1:
+        raise ValueError("positive_integer_replicates_required")
     if scored:
         resolved, gates = manifest.get("resolved"), manifest.get("readiness")
         if not resolved or not gates:

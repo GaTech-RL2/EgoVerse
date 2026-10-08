@@ -326,12 +326,23 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
         proxy.terminal = "TOOL_ERROR"
         proxy.events.emit("error", error_class=type(error).__name__)
     finally:
-        source.verify()
+        try:
+            source.verify()
+        except Exception as error:
+            proxy.terminal = "PROTOCOL_DEVIATION"
+            proxy.events.emit(
+                "error", error_class=type(error).__name__, reason="source_view_changed"
+            )
     outcome = {
         "success": proxy.success,
         "terminal_reason": proxy.terminal,
         "sim_steps": proxy.step_count,
         "wall_s": proxy.clock() - proxy.wall_start,
+        "simulator_and_step_evaluator_seconds": proxy.simulator_seconds,
+        "provider_wall_seconds": sum(
+            v["provider_wall_seconds"] for v in meter.usage.values()
+        ),
+        "tool_latency_note": "Per-tool timings are in events; scratch and observer tool latencies include nested calls and must not be summed as disjoint phases.",
         "actor_started": actor_started,
         "tool_calls": router.calls,
         "invalid_commands": router.invalid_commands,

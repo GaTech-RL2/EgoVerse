@@ -294,14 +294,15 @@ def test_trial_finishes_and_event_chain_detects_tampering(tmp_path):
     )
     p.events.close()
     assert not result["success"] and result["terminal_reason"] == "TASK_FAILURE"
-    assert audit(tmp_path)["status"] == "passed"
+    assert audit(tmp_path, require_replay=False)["status"] == "passed"
+    assert audit(tmp_path)["status"] == "failed"
     path = p.events.directory / "events.jsonl"
     records = path.read_text().splitlines()
     row = json.loads(records[-1])
     row["success"] = True
     records[-1] = json.dumps(row)
     path.write_text("\n".join(records) + "\n")
-    assert audit(tmp_path)["status"] == "failed"
+    assert audit(tmp_path, require_replay=False)["status"] == "failed"
 
 
 def manifest():

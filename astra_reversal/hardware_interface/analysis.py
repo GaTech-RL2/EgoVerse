@@ -1,7 +1,7 @@
 """Paired task-macro analysis with initial-state clusters and explicit missingness."""
 
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +9,7 @@ import numpy as np
 from .common import digest, strict_json
 
 
-def audit(runs):
+def audit(runs, *, require_replay=True):
     reports = []
     for path in sorted(Path(runs).glob("*/events.jsonl")):
         previous, count, applied, started, ended = "0" * 64, 0, 0, False, False
@@ -41,6 +41,17 @@ def audit(runs):
                 failures.append("outcome_continuity")
         else:
             failures.append("outcome_missing")
+        if started and require_replay:
+            replay = path.parent / "independent-replay.json"
+            if not replay.exists():
+                failures.append("independent_replay_missing")
+            else:
+                receipt = strict_json(replay.read_bytes())
+                if (
+                    receipt.get("status") != "passed"
+                    or receipt.get("replayed_steps") != applied
+                ):
+                    failures.append("independent_replay_failed")
         reports.append(
             {
                 "trial": path.parent.name,
@@ -90,6 +101,24 @@ def analyze(outcomes, manifest, *, split):
                 "success_rate": np.mean([r["success"] for r in trials]).item()
                 if trials
                 else None,
+                "steps": _distribution([r["sim_steps"] for r in trials]),
+                "wall_seconds": _distribution([r["wall_s"] for r in trials]),
+                "tokens": _distribution(
+                    [
+                        r["known_workflow_tokens"]
+                        if not r["unknown_usage_records"]
+                        else None
+                        for r in trials
+                    ]
+                ),
+                "cost": _distribution([r["estimated_cost_usd"] for r in trials]),
+                "failure_codes": dict(
+                    Counter(
+                        r.get("terminal_reason", "UNKNOWN")
+                        for r in trials
+                        if not r["success"]
+                    )
+                ),
             }
         per_task[condition] = tasks
         complete = all(v["n"] for v in tasks.values())
@@ -116,6 +145,24 @@ def analyze(outcomes, manifest, *, split):
             ),
             "cost": _distribution([r["estimated_cost_usd"] for r in rows]),
             "wall_timeouts_right_censored": sum(r["censored_wall"] for r in rows),
+            "wall_seconds_timeouts_assigned_cap": _distribution(
+                [
+                    manifest["limits"]["wall_seconds"]
+                    if r["censored_wall"]
+                    else r["wall_s"]
+                    for r in rows
+                ]
+            ),
+            "failure_codes": dict(
+                Counter(
+                    r.get("terminal_reason", "UNKNOWN")
+                    for r in rows
+                    if not r["success"]
+                )
+            ),
+            "tool_calls": _distribution([r.get("tool_calls") for r in rows]),
+            "observer_turns": sum(r.get("observer_turns", 0) for r in rows),
+            "recoveries": sum(r.get("recoveries", 0) for r in rows),
             "invalid_actions": sum(r["invalid_actions"] for r in rows),
             "safety_attempts": sum(r["safety_attempts"] for r in rows),
             "applied_safety_violations": sum(
@@ -160,6 +207,20 @@ def analyze(outcomes, manifest, *, split):
         )
         ci = np.quantile(bootstrap, [0.025, 0.975]).tolist()
         delta = float(np.mean([v.mean() for v in values]))
+        task_effects = np.array([v.mean() for v in values])
+        task_bootstrap = rng.choice(
+            task_effects, size=(count, len(values)), replace=True
+        ).mean(axis=1)
+        task_comparisons = {}
+        for task, value in zip(sorted(by_task), values):
+            samples = rng.choice(value, size=(count, len(value)), replace=True).mean(
+                axis=1
+            )
+            task_comparisons[str(task)] = {
+                "initial_state_clusters": len(value),
+                "risk_difference": float(value.mean()),
+                "bootstrap_95pct": np.quantile(samples, [0.025, 0.975]).tolist(),
+            }
         n = sum(discordant)
         p = (
             min(
@@ -187,6 +248,27 @@ def analyze(outcomes, manifest, *, split):
             split == "confirmatory"
             and manifest["power"]["confirmation_frozen"]
             and complete
+            and all(r.get("independent_evaluation_passed") is True for r in selected)
+        )
+        efficiency = {}
+        for metric in ("wall_seconds_timeouts_assigned_cap", "cost"):
+            f_value, other_value = (
+                summaries[c][metric]["median"] for c in ("F", other)
+            )
+            efficiency[metric] = (
+                1 - f_value / other_value
+                if f_value is not None and other_value is not None and other_value > 0
+                else None
+            )
+        efficiency_gain = (
+            confirm
+            and other == "B0"
+            and ci[0] > -manifest["analysis"]["noninferiority_margin"]
+            and any(
+                v is not None
+                and v >= manifest["analysis"]["efficiency_improvement_fraction"]
+                for v in efficiency.values()
+            )
         )
         comparisons["F_minus_" + other] = {
             "status": "paired_descriptive",
@@ -194,6 +276,13 @@ def analyze(outcomes, manifest, *, split):
             "bootstrap_95pct": ci,
             "method": "resample initial-state clusters within each fixed task; equal task weight",
             "discordant_F_only_other_only": discordant,
+            "per_task": task_comparisons,
+            "task_cluster_sensitivity_95pct": np.quantile(
+                task_bootstrap, [0.025, 0.975]
+            ).tolist(),
+            "task_cluster_sensitivity_caveat": "Only ten tasks; exploratory generalization, separate from the fixed-suite primary interval.",
+            "median_resource_reduction_fraction": efficiency,
+            "efficiency_gain_with_noninferior_completion": bool(efficiency_gain),
             "mcnemar_exact_p": p if manifest["replicates"] == 1 else None,
             "primary": other == "B0",
             "confirmatory_eligible": confirm and other == "B0",
@@ -211,5 +300,6 @@ def analyze(outcomes, manifest, *, split):
             "Pilot is unscored and cannot establish the primary claim.",
             "Safety observations do not establish safety equivalence.",
             "All-trial wall values retain observed censoring; success-only values are selected.",
+            "No automatic exclusions or reruns are combined; a separate documented valid-run sensitivity is required if infrastructure exclusions occur.",
         ],
     }
