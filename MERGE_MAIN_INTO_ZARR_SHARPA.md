@@ -221,8 +221,17 @@ git merge --ff-only jmni/zarr-sharpa-merge-main
 # 3. Restore your work. Expect conflicts in pl_model.py and pyproject.toml
 #    (and possibly uv.lock). Resolve them as described above, then drop the stash.
 git stash pop        # on conflict: fix the files, `git add` them, then `git stash drop`
-uv lock && uv sync   # regenerate the lock after resolving pyproject.toml
+uv lock              # regenerate the lock after resolving pyproject.toml
 ```
+
+Then update your environment the way you normally do. Do not run a bare `uv sync` here:
+
+- **No `.venv` in this checkout.** The env is `ev/`, so without `UV_PROJECT_ENVIRONMENT` a bare
+  `uv sync` builds a new multi-GB `.venv`.
+- **`ev/` itself.** Main's `pyproject.toml` comment warns that `uv sync` reinstalls
+  `transformers` and undoes openpi's `transformers_replace` patch.
+- **Your openpi dependency.** If you keep openpi as an optional dependency while resolving
+  `pyproject.toml`, main says it cannot resolve: the fork pins `av>=14.2` against `av==12.0.0`.
 
 If you committed your WIP in step 1 instead, `--ff-only` will refuse. In that case run
 `git rebase jmni/zarr-sharpa-merge-main`, or merge the merge branch into your branch.
