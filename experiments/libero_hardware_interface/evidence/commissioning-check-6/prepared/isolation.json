@@ -1,0 +1,78 @@
+{
+  "checks": {
+    "scratch_isolation": true,
+    "source_isolation": true
+  },
+  "receipts": {
+    "absolute_traversal_denied": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": false
+      }
+    },
+    "credentials_absent": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": true
+      }
+    },
+    "fresh_trial_scratch": {
+      "passed": true,
+      "response": {
+        "result": false
+      }
+    },
+    "host_path_denied": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": false
+      }
+    },
+    "network_denied": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": true
+      }
+    },
+    "privileged_modules_unavailable": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": true
+      }
+    },
+    "prohibited_proxy_denied": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "error": "scratch_tool_not_allowed"
+      }
+    },
+    "read_only_source": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": true
+      }
+    },
+    "scratch_writable": {
+      "passed": true,
+      "private_process_diagnostic": "",
+      "response": {
+        "result": true
+      }
+    }
+  },
+  "source_denials": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ]
+}

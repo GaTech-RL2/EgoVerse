@@ -1,0 +1,29 @@
+{
+  "workflow": "libero-hardware-interface-20261008-check-6",
+  "status": "COMPLETED",
+  "pool": "groot-l40s-01",
+  "gpu": "L40S",
+  "model_trials_started": 0,
+  "all_owned_compute_released": true,
+  "visual_inspection": {
+    "front": "Upright RGB: robot gripper, table and task objects visible.",
+    "wrist": "Upright RGB: gripper fingers, table and task objects visible."
+  },
+  "archive": "s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-6/",
+  "files": {
+    "commissioning.json": "341d18f7f1d846456778d206b9265529698fb3a58744a4261cabb471a6cd34e8",
+    "source-receipt.json": "13c7996be5e33d40802ae20d59f3d6ed2c37539bd52aae1e852697b09c6e7ea8",
+    "prepared/preflight.json": "36076fe8dbd77f14e431a7c7e1d88d2f1a877e84c56bfeaf95c73e56293dbd3f",
+    "prepared/isolation.json": "04a47c9693bba16cd3c5349d482b1d36909fdfee6eb1f233184c5a1407208353",
+    "prepared/calibration-F/hardware.json": "b6f5448e088c2d34349edd3bfbc7004339454d06892ea6fb3e97895c732f409d",
+    "prepared/calibration-F/front.png": "6829e26b3eb07115a5af5f5eb1f95e9af90d87117b7ab7f0716f60a9a45dfb99",
+    "prepared/calibration-F/wrist.png": "02306fd0fc5c1333515b6532ab0e6be4f1e8a99d3329c5015c12d346a3970d0f",
+    "runtime/unit-tests.log": "60f26c32a547031dfd6407408d02b9eb437c35282067fa436fc4f5dc70623b44",
+    "runtime/unit-tests.xml": "b955087d032428933c9e54a40822e88a1d06d20cec1d84369ce555c59a8681cb",
+    "runtime/python.txt": "f45ce4b0d947ba45834cba11cb653e2a32965a59123ce35eb531199cf6275f52",
+    "runtime/gpu.txt": "a782d5bb51a540810800ebba672921ea4143a8151c6acfcff5a59f57c17f0825",
+    "runtime/pip-freeze.txt": "448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa",
+    "runtime/apt-sources.list": "c0adc73f452c416aaac3e1f281198535a5334ba1b4eb767c26596c3395db8b02",
+    "runtime/wheels.sha256": "023dc411329783cf75e00beaeacd2bf643e4463b2e7e125a5d47872da54cd3b3"
+  }
+}

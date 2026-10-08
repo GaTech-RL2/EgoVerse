@@ -1,0 +1,25 @@
+{
+  "gates": {
+    "budget_termination": true,
+    "interface_equivalence": true,
+    "model_smoke_B": false,
+    "model_smoke_B0": false,
+    "model_smoke_F": false,
+    "reset_replay": true,
+    "scratch_isolation": true,
+    "source_isolation": true,
+    "success_per_step": true
+  },
+  "model_trials_started": 0,
+  "resolved": {
+    "adapter_sha256": "0ca40838e26fd47ce3249bad87a8c3dc99d5ebba508b5c4868c30f77afbe0675",
+    "asset_manifest_sha256": "8c6fcdd195ace4806c9def86832b0bc3afcbe68f24bb8c511606bb425494606c",
+    "catalog_sha256": "0c15f78c58246cb688abd5cb2908936a8ae00e25df93e28a90d27114a08709a3",
+    "controller_config_sha256": "d1f51c93f8d7bf4faaf5d505dcb41936a8e369a6c28a2b25d88ac59de08b0aef",
+    "dependency_lock_sha256": "448bc58b7aa32c0a4ce0ab7b834459ddff23cf5aa125d8aef69fcfa245de2baa",
+    "observer_sha256": "9fe6c0ed3fb0398a940cf4c87e00d977e1d59c86ccab5c30b5fd453be2d9222b",
+    "source_allowlist_sha256": "e128364bd701feb3b6381d8c7fb904db67dd5a7b0515d1348a0486f7f26a584c"
+  },
+  "scored_collection_allowed": false,
+  "unit_tests_passed": 22
+}

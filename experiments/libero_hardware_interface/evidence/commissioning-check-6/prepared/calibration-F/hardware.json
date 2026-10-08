@@ -1,0 +1,265 @@
+{
+  "actions": [
+    {
+      "channel": "robot.controller_command",
+      "control_frequency_hz": 20,
+      "description": "Atomic normalized delta position xyz, rotation axis-angle xyz, gripper",
+      "frequency_hz": 20,
+      "limits": {
+        "max": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "min": [
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ]
+      },
+      "metadata": {
+        "action_order": [
+          "dx",
+          "dy",
+          "dz",
+          "rx",
+          "ry",
+          "rz",
+          "gripper"
+        ],
+        "collision_checks": "unchanged MuJoCo collision/contact dynamics",
+        "episode_id": "calibration",
+        "frame": "world",
+        "frequency_hz": 20,
+        "freshness": "observation_step must equal current simulator_step; physics pauses between calls",
+        "gripper": "-1 open, +1 close; sign integrates finger command with internal clipping",
+        "hazardous_constraint": "out-of-controller-input-bounds request; attempted violation, never applied",
+        "input_max": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "input_min": [
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "max_duration_steps": 10,
+        "normalization": "pose affine scaling after controller input clipping; actor out-of-range inputs rejected",
+        "orientation": "axis-angle delta, left-multiplied onto current world rotation",
+        "orientation_limits": null,
+        "output_max_pose": [
+          0.05,
+          0.05,
+          0.05,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "output_min_pose": [
+          -0.05,
+          -0.05,
+          -0.05,
+          -0.5,
+          -0.5,
+          -0.5
+        ],
+        "position_limits": null,
+        "version": "robosuite-1.4.1:OSC_POSE"
+      },
+      "safe_range": {
+        "max": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "min": [
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0,
+          -1.0
+        ]
+      },
+      "shape": [
+        7
+      ],
+      "type": "float64[]",
+      "units": "normalized_controller_input"
+    }
+  ],
+  "device_id": "libero-panda",
+  "observations": [
+    {
+      "channel": "robot.joint_position",
+      "description": "robot joint_position",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "joint",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        7
+      ],
+      "type": "float64[]",
+      "units": "rad"
+    },
+    {
+      "channel": "robot.joint_velocity",
+      "description": "robot joint_velocity",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "joint",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        7
+      ],
+      "type": "float64[]",
+      "units": "rad/s"
+    },
+    {
+      "channel": "robot.eef_position",
+      "description": "robot eef_position",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "world",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        3
+      ],
+      "type": "float64[]",
+      "units": "m"
+    },
+    {
+      "channel": "robot.eef_orientation",
+      "description": "robot eef_orientation",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "world_xyzw",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        4
+      ],
+      "type": "float64[]",
+      "units": "unitless"
+    },
+    {
+      "channel": "robot.gripper_position",
+      "description": "robot gripper_position",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "joint",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        2
+      ],
+      "type": "float64[]",
+      "units": "m"
+    },
+    {
+      "channel": "robot.gripper_velocity",
+      "description": "robot gripper_velocity",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "joint",
+        "image_encoding": null,
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        2
+      ],
+      "type": "float64[]",
+      "units": "m/s"
+    },
+    {
+      "channel": "camera.front",
+      "description": "camera front",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "agentview",
+        "image_encoding": "PNG; upright RGB",
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "type": "image",
+      "units": "RGB_uint8"
+    },
+    {
+      "channel": "camera.wrist",
+      "description": "camera wrist",
+      "frequency_hz": 20,
+      "metadata": {
+        "episode_id": "calibration",
+        "frame": "robot0_eye_in_hand",
+        "image_encoding": "PNG; upright RGB",
+        "simulator_step": 0,
+        "timestamp": "2026-10-08T08:38:16.773738+00:00",
+        "valid": true
+      },
+      "shape": [
+        128,
+        128,
+        3
+      ],
+      "type": "image",
+      "units": "RGB_uint8"
+    }
+  ],
+  "schema_version": "hardware-1"
+}

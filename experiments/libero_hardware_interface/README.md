@@ -14,19 +14,32 @@ to the current simulation step and obey the overall wall deadline.
 
 ## Current readiness
 
-The source and runtime design are pinned. CPU contract tests exercise matching
-actions/observations, transient success inside repeat loops, malformed commands,
-budget reservation, observer isolation and incomplete-analysis rejection.
-Real Linux renderer/reset/isolation commissioning is required before actor
-smoke trials. No scored pilot or confirmation result exists yet.
+The source and runtime design are pinned. OSMO L40S commissioning
+`libero-hardware-interface-20261008-check-6` completed on 2026-10-08 using source
+`64b01ae16293e0ac61c716dbae2e5ac335ee9689`: all 22 contract tests passed on
+Linux/Python 3.8.13, and real rendering, matched reset/action/sensor traces,
+source isolation and scratch process isolation passed. The front and wrist
+views were inspected in this run.
+The tests also cover transient success inside repeat loops, malformed commands,
+token reservation and incomplete-analysis rejection. These are commissioning
+results, not model task-success scores. No actor, pilot or confirmation trial
+has started.
+
+Receipts and the exact wheelhouse are preserved under
+`s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-6/`.
+The checked-in [commissioning evidence](evidence/commissioning-check-6/commissioning.json)
+records the runtime hashes and keeps all three live-model smoke gates false.
+The GPU workflow has completed and released its allocation. Repository-wide
+`pytest tests/unit` was attempted before every commit; local collection is
+blocked by the existing missing `projectaria_tools` dependency.
 
 The supplied credential returned HTTP 401 at the public OpenAI endpoint. It is
 stored only outside the repository in a private local directory. A custom
 endpoint or a working credential is needed to test the actual Astra transport.
 No credential is included in a manifest, prompt, payload, source or report.
 
-The default manifest deliberately has unresolved runtime receipts and false
-model smoke gates. `validate` and scored `run` reject it until the gates have
+The default manifest records the verified runtime receipts and keeps the
+model smoke gates false. `validate` and scored `run` reject it until the gates have
 actual evidence. A Codex subscription is not substituted for capped API access.
 
 ## Frozen design
@@ -94,6 +107,11 @@ python experiments/libero_hardware_interface/tools/launcher.py probe \
   --manifest experiments/libero_hardware_interface/preregistration.yaml \
   --libero-root /path/to/pinned/libero --out /path/to/new/prepared
 ```
+
+The short protocol commands are supported as well: `--libero-root` defaults to
+`src/libero` beside the manifest, `--prepared`/`--catalog` to its prepared
+receipts, and the run output to the manifest directory. Explicit paths below
+are useful when the source, prepared runtime, and run outputs live separately.
 
 The OSMO bootstrap runs the pinned Linux installation and probe. It writes a
 resolved manifest and immutable receipts; model smoke gates remain false until

@@ -1,0 +1,2 @@
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20240901T000000Z/ bullseye main
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20240901T000000Z/ bullseye-security main

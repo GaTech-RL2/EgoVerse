@@ -1,0 +1,2 @@
+Python 3.8.13
+pip 24.0 from /workspace/hardware-study/emimic/lib/python3.8/site-packages/pip (python 3.8)
