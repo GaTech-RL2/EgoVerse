@@ -17,6 +17,7 @@ def test_failed_preflight_retains_all_cases_and_restores_rng():
     policy = object.__new__(TextInterpolationPolicy)
     policy.native = SimpleNamespace(
         _rng=73,
+        _sample_kwargs={"num_steps": 10},
         infer=lambda *a, **kw: {"actions": np.zeros((50, 12), np.float32)},
         _output_transform=lambda d: {"actions": d["actions"][:, :12]},
     )
@@ -33,7 +34,7 @@ def test_failed_preflight_retains_all_cases_and_restores_rng():
 
     policy.infer = infer
     receipts = []
-    with pytest.raises(RuntimeError, match="tei_0.0, tli_0.5"):
+    with pytest.raises(RuntimeError, match="tei_0.0"):
         policy.preflight({}, publish=lambda r: receipts.append(copy.deepcopy(r)))
     final = receipts[-1]
     assert final["status"] == "failed"

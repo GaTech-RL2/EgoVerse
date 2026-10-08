@@ -127,6 +127,7 @@ class Interpolator(nnx.Module):
         alpha,
         *,
         operator,
+        num_steps,
         noise=None,
     ):
         from openpi.models import model as model_lib, pi0
@@ -155,7 +156,13 @@ class Interpolator(nnx.Module):
                 (1 - alpha) * target_text.astype(jnp.float32)
                 + alpha * source_text.astype(jnp.float32)
             ).astype(target_text.dtype)
-            edited = jnp.where(instruction_mask[..., None], mixed, target_text)
+            # Preserve the exact endpoint, including excess-precision effects
+            # in compiled bfloat16 embedding arithmetic.
+            edited = jax.lax.cond(
+                alpha == 0,
+                lambda: target_text,
+                lambda: jnp.where(instruction_mask[..., None], mixed, target_text),
+            )
             delta = edited.astype(jnp.float32) - target_text.astype(jnp.float32)
             metrics = metrics.at[0].set(
                 jnp.stack([jnp.linalg.norm(delta), jnp.max(jnp.abs(delta))])
@@ -198,7 +205,9 @@ class Interpolator(nnx.Module):
             noise = jax.random.normal(
                 rng, (batch, native.action_horizon, native.action_dim)
             )
-        dt = -1.0 / 10
+        # Match upstream's dynamic num_steps argument at the JIT boundary
+        # instead of introducing a Python-folded timestep constant.
+        dt = -1.0 / num_steps
 
         def step(carry):
             actions, t = carry
@@ -241,6 +250,8 @@ class TextInterpolationPolicy:
         from openpi.models.tokenizer import PaligemmaTokenizer
 
         self.native = native
+        if native._sample_kwargs != {"num_steps": 10}:
+            raise ValueError("This experiment requires native ten-step sampling")
         self.tokenizer = PaligemmaTokenizer(200)._tokenizer
         self.interpolator = Interpolator(native._model)
         self._sample = nnx_utils.module_jit(
@@ -296,6 +307,7 @@ class TextInterpolationPolicy:
             jnp.asarray(valid),
             jnp.asarray(alpha, jnp.float32),
             operator=method,
+            num_steps=self.native._sample_kwargs["num_steps"],
             noise=noise,
         )
         actions, metrics = np.asarray(actions[0]), np.asarray(metrics)
@@ -360,6 +372,7 @@ class TextInterpolationPolicy:
                 jnp.asarray(mask),
                 jnp.asarray(0, jnp.float32),
                 operator="native_copy",
+                num_steps=self.native._sample_kwargs["num_steps"],
                 noise=jnp.asarray(noise)[None],
             )
             copied = self.native._output_transform(
@@ -400,6 +413,8 @@ class TextInterpolationPolicy:
                 }
                 if (neutral and error > 1e-5) or (not neutral and error <= 1e-6):
                     receipt["failed_checks"].append(name)
+                if neutral and result["interpolation"]["has_effect"]:
+                    receipt["failed_checks"].append(name + "_nonzero_edit")
                 save()
             after = self.native.infer(observation, noise=noise)["actions"]
             receipt["native_restored_exact"] = bool(np.array_equal(native, after))
