@@ -1,0 +1,43 @@
+# Lance pilot, streamed: the aria_pilot_lance.yaml recordings read straight from R2,
+# frames from 8-frame video chunk rows, one batched fetch per DataLoader batch
+# (MultiDataset.__getitems__). Needs R2_* credentials in the environment.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.lance.dataset.LanceStreamingResolver
+      lance_root: s3://rldb/scratch/rco3/lance_pilot/lance_faststart
+      cameras:
+        images.front_1: front_1
+      video_chunks:
+        images.front_1: front_1_k8
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_headframe_6d
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual'"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 16
+    multiprocessing_context: forkserver
+    persistent_workers: true
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
