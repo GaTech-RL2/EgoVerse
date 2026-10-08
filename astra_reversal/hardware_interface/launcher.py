@@ -317,7 +317,9 @@ def run(args, manifest, *, smoke=False):
                 env.close()
             events.close()
         environment = {
-            k: v for k, v in os.environ.items() if not k.startswith(("OPENAI_", "R2_"))
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith(("OPENAI_", "R2_")) and k != "HARDWARE_API_KEY_FILE"
         }
         subprocess.run(
             [

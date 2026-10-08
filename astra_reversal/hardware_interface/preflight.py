@@ -53,7 +53,7 @@ def probe(libero_root, destination, manifest):
         "absolute_traversal_denied": "from pathlib import Path\nresult = Path('/../../proc/1/environ').exists()",
         "privileged_modules_unavailable": "import importlib.util\nresult = importlib.util.find_spec('libero') is None",
         "network_denied": "import socket\ntry:\n socket.socket()\n result = False\nexcept PermissionError:\n result = True",
-        "credentials_absent": "import os\nresult = not any(k in os.environ for k in ['OPENAI_API_KEY','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY'])",
+        "credentials_absent": "import os\nresult = not any(k in os.environ for k in ['OPENAI_API_KEY','HARDWARE_API_KEY_FILE','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY'])",
         "read_only_source": "from pathlib import Path\ntry:\n Path('/sources/robosuite/controllers/osc.py').write_text('changed')\n result = False\nexcept PermissionError:\n result = True",
         "scratch_writable": "from pathlib import Path\np=Path('/scratch/memo'); p.write_text('ok'); result=p.read_text()=='ok'",
         "prohibited_proxy_denied": "import sys,json\nprint(json.dumps({'tool':'check_success','arguments':{}}),flush=True)\nresult=None",

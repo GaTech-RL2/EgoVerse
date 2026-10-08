@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "scored_trial": false,
+  "model": {
+    "provider": "responses",
+    "identifier": "openai/openai/gpt-6-astra",
+    "serving_provider": "nvidia-inference",
+    "snapshot_pinned": false,
+    "reasoning_effort": "medium",
+    "sampling": {},
+    "retries": 0,
+    "base_url": "https://inference-api.nvidia.com/v1",
+    "input_reservation": {
+      "mode": "gateway_margin_v1",
+      "multiplier": 2,
+      "overhead_tokens": 4096
+    }
+  },
+  "usage_by_role": {
+    "actor": {
+      "input_tokens": 465,
+      "cached_input_tokens": 0,
+      "output_tokens": 43,
+      "reasoning_tokens": 0,
+      "image_tokens": null,
+      "calls": 2,
+      "generation_attempts": 2,
+      "token_count_requests": 2,
+      "failed_transport_requests": 0,
+      "provider_wall_seconds": 4.854854208067991
+    },
+    "observer": {
+      "input_tokens": 331,
+      "cached_input_tokens": 0,
+      "output_tokens": 219,
+      "reasoning_tokens": 144,
+      "image_tokens": null,
+      "calls": 1,
+      "generation_attempts": 1,
+      "token_count_requests": 1,
+      "failed_transport_requests": 0,
+      "provider_wall_seconds": 7.010905832983553
+    }
+  },
+  "workflow_tokens": 1058,
+  "tool_round_trip": true,
+  "image_pair": true,
+  "observer_schema_and_output_cap": true,
+  "scope": "Local API commissioning only; no actor benchmark trial started",
+  "native_runtime_recommissioning": "pending",
+  "prior_diagnostics": [
+    {
+      "check": "public_openai_access",
+      "status": 401,
+      "interpretation": "key intended for NVIDIA"
+    },
+    {
+      "check": "exact_gateway_token_count",
+      "passed": false,
+      "estimate": 55,
+      "actual_input": 133
+    },
+    {
+      "check": "unconstrained_observer",
+      "passed": false,
+      "output_tokens": 256,
+      "reason": "max_output_tokens"
+    }
+  ],
+  "reservation_checks": [
+    {
+      "role": "actor",
+      "estimate": 54,
+      "reserved": 4204,
+      "actual_input": 132,
+      "actual_output": 14,
+      "status": "completed"
+    },
+    {
+      "role": "actor",
+      "estimate": 255,
+      "reserved": 4606,
+      "actual_input": 333,
+      "actual_output": 29,
+      "status": "completed"
+    },
+    {
+      "role": "observer",
+      "estimate": 256,
+      "reserved": 4608,
+      "actual_input": 331,
+      "actual_output": 219,
+      "status": "completed"
+    }
+  ]
+}

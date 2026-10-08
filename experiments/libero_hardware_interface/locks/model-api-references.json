@@ -1,11 +1,16 @@
 {
   "checked": "2026-10-08",
-  "model": "gpt-6-astra",
+  "model": "openai/openai/gpt-6-astra",
+  "base_url": "https://inference-api.nvidia.com/v1",
   "sources": [
     "https://developers.openai.com/api/reference/python/resources/responses/methods/create",
     "https://developers.openai.com/api/docs/guides/token-counting",
     "https://developers.openai.com/api/reference/python/resources/responses/subresources/input_tokens/methods/count",
-    "https://developers.openai.com/api/docs/models/gpt-6-astra"
+    "https://developers.openai.com/api/docs/models/gpt-6-astra",
+    "https://inference.nvidia.com",
+    "https://inference-api.nvidia.com/openapi.json"
   ],
-  "credential_access": "public endpoint returned HTTP 401; custom endpoint clarification pending"
+  "credential_access": "NVIDIA authenticated catalog and live Astra generation succeeded; no credential stored here",
+  "input_counting": "Gateway estimate; frozen 2x plus 4096 input reservation, actual usage audited before any returned action",
+  "snapshot_limitation": "Returned identifier is a serving alias; no immutable model snapshot exposed"
 }

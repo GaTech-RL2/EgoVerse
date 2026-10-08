@@ -33,14 +33,33 @@ The GPU workflow has completed and released its allocation. Repository-wide
 `pytest tests/unit` was attempted before every commit; local collection is
 blocked by the existing missing `projectaria_tools` dependency.
 
-The supplied credential returned HTTP 401 at the public OpenAI endpoint. It is
-stored only outside the repository in a private local directory. A custom
-endpoint or a working credential is needed to test the actual Astra transport.
-No credential is included in a manifest, prompt, payload, source or report.
+The user identified the credential as an NVIDIA Inference Hub key. It works at
+`https://inference-api.nvidia.com/v1` with the returned model identifier
+`openai/openai/gpt-6-astra`. Local live checks passed generation, function calls,
+front/wrist image delivery, tool-result continuation, and the observer JSON
+schema with its 256-token output cap. The original OpenAI HTTP 401 was an
+endpoint mismatch. The key stays in a private file outside payloads and artifacts;
+the transport rejects credential-bearing redirects and does not pass the file
+setting into replay children or scratch processes.
 
-The default manifest records the verified runtime receipts and keeps the
-model smoke gates false. `validate` and scored `run` reject it until the gates have
-actual evidence. A Codex subscription is not substituted for capped API access.
+NVIDIA's pre-generation token counter is approximate: one tool request counted
+55 input tokens but generation reported 133. The frozen gateway reservation is
+`2 * estimated_input + 4096`, plus the output cap, checked against remaining
+workflow and context budgets. Actual provider usage is charged, including
+reasoning, and an actual count beyond the reservation stops collection before
+any returned action is accepted. This margin is conservative and empirically
+checked, not a provider-guaranteed exact count; any breach invalidates readiness.
+It may end trials before the nominal budget is fully consumed. Every arm uses
+the same rule. Estimates, reservations and actual counts are retained separately.
+
+The observer's frozen system prompt is unchanged. Its fixed evidence requests
+ask for at most two short facts, one uncertainty and one occlusion; structured
+output uses low verbosity. This passed after the unconstrained description hit
+the 256-token cap. All such transport diagnostics are unscored.
+
+The new transport code requires fresh Linux commissioning. The default manifest
+therefore clears the old runtime/readiness gates; check-6 evidence remains intact.
+`validate` and scored `run` reject it until the new gates have actual evidence.
 
 ## Frozen design
 
@@ -116,6 +135,15 @@ are useful when the source, prepared runtime, and run outputs live separately.
 The OSMO bootstrap runs the pinned Linux installation and probe. It writes a
 resolved manifest and immutable receipts; model smoke gates remain false until
 actual actor/observer trials complete. Use a separately frozen resolved manifest:
+
+`tools/prepare_osmo.py DESTINATION --stage smoke` packages a committed checkout
+for an unscored OSMO L40S run. Transfer the private key separately as
+`/osmo/run/workspace/inference-api-key`, mode 0600. It is read through
+`HARDWARE_API_KEY_FILE`; never include its contents in workflow YAML or source
+payloads. The smoke stage repeats native commissioning, tests live image/tool/
+observer transport, runs all three actor arms, and independently replays them.
+Only then does it write a new `ready-preregistration.yaml`. Pilot collection is
+a separate launch after inspection of these receipts.
 
 ```bash
 python experiments/libero_hardware_interface/tools/launcher.py smoke \

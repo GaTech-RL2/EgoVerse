@@ -10,7 +10,9 @@ from pathlib import Path
 import yaml
 
 
-def prepare(destination):
+def prepare(destination, *, stage="commission"):
+    if stage not in ("commission", "smoke"):
+        raise ValueError("unknown_hardware_stage")
     root = Path(__file__).resolve().parents[3]
     study = root / "experiments/libero_hardware_interface"
     paths = [
@@ -69,6 +71,7 @@ def prepare(destination):
                         "HARDWARE_SOURCE_COMMIT": head,
                         "HARDWARE_WORKFLOW": "{{workflow_id}}",
                         "NVIDIA_DRIVER_CAPABILITIES": "all",
+                        "HARDWARE_STAGE": stage,
                     },
                     "credentials": {
                         "grabber-arc-r2-20260916": {
@@ -87,6 +90,10 @@ def prepare(destination):
             ],
         }
     }
+    if stage == "smoke":
+        spec["workflow"]["tasks"][0]["environment"]["HARDWARE_API_KEY_FILE"] = (
+            "/osmo/run/workspace/inference-api-key"
+        )
     (destination / "workflow.yaml").write_text(yaml.safe_dump(spec, sort_keys=False))
     receipt = {
         "source_commit": head,
@@ -94,7 +101,13 @@ def prepare(destination):
         "image": image,
         "pool": "groot-l40s-01",
         "workflow": str(destination / "workflow.yaml"),
-        "scope": "unscored Linux simulator/interface/isolation commissioning; zero model requests",
+        "scope": "unscored Linux simulator/interface/isolation commissioning"
+        + (
+            " plus live Astra transport and three-arm smoke"
+            if stage == "smoke"
+            else "; zero model requests"
+        ),
+        "stage": stage,
     }
     (destination / "launch-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n"
@@ -105,4 +118,8 @@ def prepare(destination):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination")
-    print(json.dumps(prepare(parser.parse_args().destination)))
+    parser.add_argument(
+        "--stage", choices=("commission", "smoke"), default="commission"
+    )
+    args = parser.parse_args()
+    print(json.dumps(prepare(args.destination, stage=args.stage)))

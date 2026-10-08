@@ -31,14 +31,20 @@ def design(container):
         "container_digest": container,
         "model": {
             "provider": "responses",
-            "identifier": "gpt-6-astra",
+            "identifier": "openai/openai/gpt-6-astra",
+            "serving_provider": "nvidia-inference",
             "snapshot_pinned": False,
             "reasoning_effort": "medium",
             "sampling": {},
             "retries": 0,
-            "base_url": "https://api.openai.com/v1",
+            "base_url": "https://inference-api.nvidia.com/v1",
+            "input_reservation": {
+                "mode": "gateway_margin_v1",
+                "multiplier": 2,
+                "overhead_tokens": 4096,
+            },
         },
-        "observer_model": "gpt-6-astra",
+        "observer_model": "openai/openai/gpt-6-astra",
         "observer_stateless_per_request": True,
         "conditions": list(CONDITIONS),
         "primary_contrast": ["F", "B0"],
@@ -119,10 +125,18 @@ def validate(manifest, *, scored=False, confirmatory=False):
         ):
             raise ValueError("initial_state_indices")
     if (
-        manifest["model"]["identifier"] != "gpt-6-astra"
-        or manifest["observer_model"] != "gpt-6-astra"
+        manifest["model"]["identifier"]
+        not in ("gpt-6-astra", "openai/openai/gpt-6-astra", "azure/openai/gpt-6-astra")
+        or manifest["observer_model"] != manifest["model"]["identifier"]
     ):
         raise ValueError("Astra_model_required")
+    reservation = manifest["model"].get("input_reservation", {"mode": "exact"})
+    if reservation != {"mode": "exact"} and reservation != {
+        "mode": "gateway_margin_v1",
+        "multiplier": 2,
+        "overhead_tokens": 4096,
+    }:
+        raise ValueError("unrecognized_input_reservation_contract")
     if (
         manifest["model"]["retries"] != 0
         or not manifest["simulator_pauses_during_model_calls"]

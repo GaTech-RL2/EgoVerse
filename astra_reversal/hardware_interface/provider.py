@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import re
+import stat
 import time
 import urllib.error
 import urllib.parse
@@ -77,12 +78,31 @@ class HTTP:
             or parsed.username
             or parsed.password
             or parsed.query
+            or parsed.fragment
+            or not parsed.hostname
         ):
             raise ValueError("credential_free_https_endpoint_required")
         self.base_url = base_url.rstrip("/")
-        self.key = key or os.environ.get("OPENAI_API_KEY")
+        self.key = key
+        key_file = os.environ.get("HARDWARE_API_KEY_FILE")
+        if not self.key and key_file:
+            # The file stays outside payloads, artifacts, the scratch jail and
+            # subprocess environments. Never log its contents or provider headers.
+            try:
+                fd = os.open(key_file, os.O_RDONLY | os.O_NOFOLLOW)
+                with os.fdopen(fd) as stream:
+                    info = os.fstat(stream.fileno())
+                    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+                        raise ModelFailure("api_key_file_not_private")
+                    self.key = stream.read(4097).strip()
+                    if not self.key or len(self.key) > 4096:
+                        raise ModelFailure("api_key_file_invalid")
+            except OSError:
+                raise ModelFailure("api_key_file_unavailable") from None
+        self.key = self.key or os.environ.get("OPENAI_API_KEY")
         if not self.key:
             raise ModelFailure("api_key_unavailable")
+        self.opener = urllib.request.build_opener(NoRedirect)
 
     def __call__(self, path, body, timeout):
         request = urllib.request.Request(
@@ -94,13 +114,20 @@ class HTTP:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with self.opener.open(request, timeout=timeout) as response:
                 return strict_json(response.read())
         except urllib.error.HTTPError as error:
             # Provider error bodies may echo credential fragments; never return them.
             raise ModelFailure("provider_http_" + str(error.code)) from None
         except Exception as error:
             raise ModelFailure("provider_" + type(error).__name__) from None
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    """An authenticated request must never forward its key to another host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def observation_content(value):
@@ -193,7 +220,7 @@ class Session:
             "include": ["reasoning.encrypted_content"],
         }
         if text_format:
-            body["text"] = {"format": text_format}
+            body["text"] = {"format": text_format, "verbosity": "low"}
         if tools:
             body["tool_choice"] = "required"
         count_body = {
@@ -219,9 +246,21 @@ class Session:
         count = counts.get("input_tokens")
         if type(count) is not int or count < 0:
             raise ModelFailure("input_token_count_unavailable")
+        reservation = self.model.get("input_reservation", {"mode": "exact"})
+        if reservation["mode"] == "exact":
+            reserved = count
+        elif reservation["mode"] == "gateway_margin_v1":
+            # NVIDIA's gateway counter omits some provider-side prompt overhead.
+            # This is an explicit estimate, not an exact tokenizer claim. Reserve
+            # a frozen margin and audit actual usage before accepting any action.
+            reserved = (
+                count * reservation["multiplier"] + reservation["overhead_tokens"]
+            )
+        else:
+            raise ModelFailure("unknown_input_reservation")
         if (
-            count > self.limits.context_tokens
-            or self.meter.total + count + cap > self.meter.limit
+            reserved + cap > self.limits.context_tokens
+            or self.meter.total + reserved + cap > self.meter.limit
         ):
             raise BudgetEnd("token_limit")
         remaining_time = timeout - (time.monotonic() - start)
@@ -236,6 +275,8 @@ class Session:
             request=body,
             request_sha256=digest(body),
             input_tokens_counted=count,
+            input_tokens_reserved=reserved,
+            input_reservation=reservation,
         )
         try:
             response = self._post("responses", body, remaining_time)
@@ -256,7 +297,11 @@ class Session:
         if response.get("model") != self.model["identifier"]:
             raise ModelFailure("returned_model_mismatch")
         if (
-            response["usage"]["input_tokens"] != count
+            (
+                reservation["mode"] == "exact"
+                and response["usage"]["input_tokens"] != count
+            )
+            or response["usage"]["input_tokens"] > reserved
             or response["usage"]["output_tokens"] > cap
         ):
             raise ModelFailure("provider_token_contract_mismatch")
@@ -294,7 +339,8 @@ class Observer:
             "frame_step": step,
             "timestamp": observation["timestamp"],
             "cameras": observation["observations"],
-            "request": self.REQUESTS[request_kind],
+            "request": self.REQUESTS[request_kind]
+            + " Be concise: at most two visible facts and one uncertainty or occlusion each; keep each string under 12 words.",
         }
         text, images = observation_content(visible)
         self.session.history = [
@@ -307,7 +353,11 @@ class Observer:
             "properties": {
                 "frame_step": {"type": "integer", "enum": [step]},
                 **{
-                    key: {"type": "array", "items": {"type": "string"}, "maxItems": 8}
+                    key: {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 2 if key == "visible_facts" else 1,
+                    }
                     for key in ("visible_facts", "uncertainties", "occlusions")
                 },
             },

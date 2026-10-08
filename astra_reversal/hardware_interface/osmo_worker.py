@@ -1,10 +1,11 @@
-"""Own-prefix OSMO commissioning and archival; no physical hardware or API calls."""
+"""Own-prefix OSMO commissioning, optional live model smoke, and archival."""
 
 import json
 import os
 import traceback
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from types import SimpleNamespace
 
 from .common import file_hash, write_json
 from .preflight import probe
@@ -95,6 +96,44 @@ def main():
             },
         )
         print(json.dumps({"gates": checks, "model_trials_started": 0}), flush=True)
+        stage = os.environ.get("HARDWARE_STAGE", "commission")
+        if stage == "smoke":
+            from .analysis import audit
+            from .launcher import run
+            from .model_smoke import transport_smoke
+
+            transport_smoke(manifest, root / "prepared", root / "model-transport")
+            args = SimpleNamespace(
+                manifest=str(root / "prepared/preregistration.yaml"),
+                prepared=str(root / "prepared"),
+                libero_root="upstream-libero",
+                out=str(root / "smoke"),
+                split="pilot",
+            )
+            result = run(args, manifest, smoke=True)
+            audits = audit(root / "smoke/runs")
+            if len(audits["trials"]) != 3 or any(
+                trial["status"] != "passed" for trial in audits["trials"]
+            ):
+                raise RuntimeError("model_smoke_replay_audit_failed")
+            for condition in manifest["conditions"]:
+                checks["model_smoke_" + condition] = True
+            write_json(
+                root / "model-smoke.json",
+                {
+                    "result": result,
+                    "audit": audits,
+                    "gates": checks,
+                    "scored_results": False,
+                },
+            )
+            # Preserve the manifest used for replay. Readiness is a new artifact.
+            (root / "ready-preregistration.yaml").write_text(
+                yaml.safe_dump(manifest, sort_keys=False)
+            )
+            print(json.dumps({"model_smoke": result, "gates": checks}), flush=True)
+        elif stage != "commission":
+            raise ValueError("unknown_hardware_stage")
     except BaseException as error:
         write_json(
             root / "failure.json",

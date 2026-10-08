@@ -10,8 +10,11 @@ from astra_reversal.hardware_interface.analysis import analyze, audit
 from astra_reversal.hardware_interface.common import Events, digest
 from astra_reversal.hardware_interface.protocol import design, schedule, validate
 from astra_reversal.hardware_interface.provider import (
+    HTTP,
     BudgetEnd,
     Meter,
+    ModelFailure,
+    NoRedirect,
     Observer,
     Session,
 )
@@ -235,6 +238,61 @@ def test_token_reservation_and_generation_use_identical_model_settings(tmp_path)
         post=post,
     )
     session.request("system", [{"type": "function", "name": "finish"}])
+
+
+def test_gateway_estimate_reserves_margin_and_charges_actual_usage(tmp_path):
+    p = proxy(tmp_path)
+    model = design("fixture")["model"]
+    posted = []
+    actual = [133]
+
+    def post(path, body, timeout):
+        posted.append(path)
+        if path.endswith("input_tokens"):
+            return {"input_tokens": 55}
+        return {
+            "model": model["identifier"],
+            "status": "completed",
+            "output": [],
+            "usage": {"input_tokens": actual[0], "output_tokens": 14},
+        }
+
+    meter = Meter(100000)
+    session = Session(model, Limits(), meter, p.events, post=post)
+    session.request("system", [])
+    assert meter.total == 147  # Neither the estimate nor margin is billed usage.
+    # 2 * 55 + 4096 is reserved; the output cap is reserved separately.
+    small = Session(model, Limits(), Meter(4206 + 2048 - 1), p.events, post=post)
+    with pytest.raises(BudgetEnd):
+        small.request("system", [])
+    assert posted[-1] == "responses/input_tokens"
+    actual[0] = 4207
+    with pytest.raises(ModelFailure, match="provider_token_contract_mismatch"):
+        session.request("system", [])
+    assert session.history == []  # No action-bearing output accepted after overrun.
+
+
+def test_private_key_file_and_no_redirect_transport(tmp_path, monkeypatch):
+    key = tmp_path / "key"
+    key.write_text("unit-test-placeholder")
+    key.chmod(0o600)
+    monkeypatch.setenv("HARDWARE_API_KEY_FILE", str(key))
+    client = HTTP("https://inference-api.nvidia.com/v1")
+    assert client.key == "unit-test-placeholder"
+    key.chmod(0o644)
+    with pytest.raises(ModelFailure, match="api_key_file_not_private"):
+        HTTP("https://inference-api.nvidia.com/v1")
+    assert (
+        NoRedirect().redirect_request(None, None, 302, "", {}, "https://other.test")
+        is None
+    )
+    for url in (
+        "http://other.test",
+        "https://user:secret@host.test",
+        "https://host.test/#secret",
+    ):
+        with pytest.raises(ValueError):
+            HTTP(url)
 
 
 def test_observer_receives_only_images_not_task_or_proprioception(tmp_path):

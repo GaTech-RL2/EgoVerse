@@ -58,4 +58,15 @@ sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q \
     --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
 echo 'Running Linux renderer, reset, interface, and isolation commissioning'
+if [[ "${HARDWARE_STAGE:-commission}" == smoke ]]; then
+    # Transfer separately from the committed payload. Never echo or archive it.
+    for attempt in $(seq 1 300); do
+        if [[ -s "$HARDWARE_API_KEY_FILE" ]]; then
+            chmod 600 "$HARDWARE_API_KEY_FILE"
+            break
+        fi
+        if [[ "$attempt" == 300 ]]; then exit 3; fi
+        sleep 2
+    done
+fi
 python -m astra_reversal.hardware_interface.osmo_worker
