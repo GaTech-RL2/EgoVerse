@@ -314,7 +314,8 @@ def _report(path):
 
 def test_public_data_path_is_a_valid_structural_sample(dataset, tmp_path):
     out = tmp_path / "out"
-    assert _convert(dataset, out, "--episodes", "0-1", "--validate") == 0
+    args = ["--episodes", "0-1", "--validate", "--include-head-right"]
+    assert _convert(dataset, out, *args) == 0
     first = out / "2026-01-01-19-04-05-000000.zarr"
     second = out / "2026-01-01-19-04-05-800000.zarr"
     assert first.is_dir() and second.is_dir()
@@ -352,7 +353,11 @@ def test_public_data_path_is_a_valid_structural_sample(dataset, tmp_path):
     assert report["ok"], report
     assert validate.main([str(first), str(second)]) == 0
     sidecar = _report(out / f"{second.stem}.conversion.json")
-    reasons = sidecar["attributes"]["conversion_report"]["data_status_reasons"]
+    conversion = sidecar["attributes"]["conversion_report"]
+    # The synthetic season declares no head_right stream: skipped and recorded.
+    assert conversion["cameras"]["absent_in_source"] == ["head_right"]
+    assert conversion["cameras"]["never_stored"] == ["tactile_deform"]
+    reasons = conversion["data_status_reasons"]
     assert any("calibration" in r for r in reasons)
     assert any("synthesized" in r for r in reasons)
 
@@ -363,6 +368,7 @@ def test_complete_path_passes_the_delivery_profile(
     out = tmp_path / "out"
     args = ["--episodes", "1", "--calibration", str(calibration)]
     args += ["--utc-timestamp-column", UTC_COLUMN, "--validate", "--save-mp4"]
+    args += ["--keep-vendor-arrays"]
     assert _convert(dataset, out, *args) == 0
     [path] = list(out.glob("*.zarr"))
     group = zarr.open_group(path, mode="r")
@@ -370,6 +376,9 @@ def test_complete_path_passes_the_delivery_profile(
     assert attrs["data_status"] == "complete", attrs["conversion_report"]
     assert attrs["timestamp_source"] == f"vendor_column:{UTC_COLUMN}"
     assert (out / f"{path.stem}.mp4").is_file()
+    # Vendor extensions keep their raw values and feature descriptions.
+    assert attrs["features"]["sharpa.tcp"]["source_column"] == "observation.state.tcp"
+    assert group["sharpa.observation_tactile"].shape[1:] == (60,)
 
     source = load_episode(open_season(dataset / SEASON, "v2.1"), 1)
     np.testing.assert_array_equal(
