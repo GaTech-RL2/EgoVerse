@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "scored_trial": false,
+  "model": {
+    "provider": "responses",
+    "identifier": "openai/openai/gpt-6-astra",
+    "serving_provider": "nvidia-inference",
+    "snapshot_pinned": false,
+    "reasoning_effort": "medium",
+    "sampling": {},
+    "retries": 0,
+    "base_url": "https://inference-api.nvidia.com/v1",
+    "input_reservation": {
+      "mode": "gateway_margin_v1",
+      "multiplier": 2,
+      "overhead_tokens": 4096
+    }
+  },
+  "usage_by_role": {
+    "actor": {
+      "input_tokens": 1643,
+      "cached_input_tokens": 0,
+      "output_tokens": 97,
+      "reasoning_tokens": 0,
+      "image_tokens": null,
+      "calls": 5,
+      "generation_attempts": 5,
+      "token_count_requests": 5,
+      "failed_transport_requests": 0,
+      "provider_wall_seconds": 17.43771287833806
+    },
+    "observer": {
+      "input_tokens": 331,
+      "cached_input_tokens": 0,
+      "output_tokens": 190,
+      "reasoning_tokens": 113,
+      "image_tokens": null,
+      "calls": 1,
+      "generation_attempts": 1,
+      "token_count_requests": 1,
+      "failed_transport_requests": 0,
+      "provider_wall_seconds": 6.9810027909697965
+    }
+  },
+  "workflow_tokens": 2261,
+  "tool_round_trip": true,
+  "image_pair": true,
+  "observer_schema_and_output_cap": true,
+  "arm_tool_schemas": {
+    "F": true,
+    "B0": true,
+    "B": true
+  },
+  "scope": "Local live API validation of every actual arm tool schema, image continuation and observer; no simulator trial"
+}

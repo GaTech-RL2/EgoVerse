@@ -22,8 +22,7 @@ source isolation and scratch process isolation passed. The front and wrist
 views were inspected in this run.
 The tests also cover transient success inside repeat loops, malformed commands,
 token reservation and incomplete-analysis rejection. These are commissioning
-results, not model task-success scores. No actor, pilot or confirmation trial
-has started.
+results, not model task-success scores. Check-6 started no model trials.
 
 Receipts and the exact wheelhouse are preserved under
 `s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-6/`.
@@ -56,6 +55,16 @@ The observer's frozen system prompt is unchanged. Its fixed evidence requests
 ask for at most two short facts, one uncertainty and one occlusion; structured
 output uses low verbosity. This passed after the unconstrained description hit
 the 256-token cap. All such transport diagnostics are unscored.
+
+OSMO check-7 repeated all native gates successfully and started live smoke:
+F executed 40 steps before its token reservation exhausted the remaining budget;
+B0 stopped before acting because the provider rejected `uniqueItems` in its
+tool schema. All partial trials and independent replay receipts are retained.
+That unsupported API keyword is removed; duplicate-key rejection remains in the
+shared execution proxy. Live checks now validate the actual tool schemas for
+all three arms before simulator trials. Output-cap exhaustion is retained as a
+trial budget failure, rather than misclassified as a provider outage.
+No pilot or confirmation trial has started.
 
 The new transport code requires fresh Linux commissioning. The default manifest
 therefore clears the old runtime/readiness gates; check-6 evidence remains intact.

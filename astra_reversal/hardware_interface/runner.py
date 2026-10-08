@@ -120,7 +120,6 @@ def tools_for(condition):
                                 "type": "array",
                                 "items": string,
                                 "minItems": 1,
-                                "uniqueItems": True,
                             }
                         }
                     ),

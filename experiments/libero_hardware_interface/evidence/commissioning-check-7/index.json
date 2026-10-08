@@ -1,0 +1,43 @@
+{
+  "workflow": "libero-hardware-interface-20261008-check-7",
+  "scope": "partial unscored commissioning; B0 provider tool-schema error, B not started",
+  "archive": "s3://rldb/experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-check-7/",
+  "files": [
+    {
+      "path": "commissioning.json",
+      "sha256": "bd337953f8874885f88164ea94e9334626f7a62058adade91de2c76beacdd42e"
+    },
+    {
+      "path": "source-receipt.json",
+      "sha256": "b470dbd3267e3a0d9d9cb8f2a15fff39b4e100369198e537f411114e385a7ae9"
+    },
+    {
+      "path": "model-transport/transport.json",
+      "sha256": "962b30f5eec9b6641fe1a2f2d0370aaca8ada0cee7d898a36fd46a02cc7ed36c"
+    },
+    {
+      "path": "runtime/unit-tests.xml",
+      "sha256": "bdbacb1a42e7e566b3fe7cceb96b423fcf53f61758c3e7e87c5828ca5e049e73"
+    },
+    {
+      "path": "runtime/unit-tests.log",
+      "sha256": "5943c0c089b5f78f4201a701a5d653a049dae3fa2b37c0623045778133dbd4d4"
+    },
+    {
+      "path": "smoke/runs/smoke-F/outcome.json",
+      "sha256": "4de0c6dc01ab3d9b33b697bbec4a0d862f8601085bff6e4c0a88b6d377f8592b"
+    },
+    {
+      "path": "smoke/runs/smoke-F/independent-replay.json",
+      "sha256": "7fcdbe68b02d58ba7f62d85770276f795f1db6d7fb2fabcd173d3205ece4abf4"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/outcome.json",
+      "sha256": "4dea21c48645434527226e66a87de0939351652e0996c9536631a3788adf19b6"
+    },
+    {
+      "path": "smoke/runs/smoke-B0/independent-replay.json",
+      "sha256": "e0ad03e86730f8581ac5ccff0d56cbdedd0f5a9ed122c0e9efe30b2dca7d32ee"
+    }
+  ]
+}

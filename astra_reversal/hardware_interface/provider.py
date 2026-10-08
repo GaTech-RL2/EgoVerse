@@ -305,6 +305,14 @@ class Session:
             or response["usage"]["output_tokens"] > cap
         ):
             raise ModelFailure("provider_token_contract_mismatch")
+        if (
+            response.get("status") == "incomplete"
+            and (response.get("incomplete_details") or {}).get("reason")
+            == "max_output_tokens"
+        ):
+            # A model hitting the preregistered output cap is a trial budget
+            # failure, not a provider outage or grounds to discard the trial.
+            raise BudgetEnd("output_token_limit")
         if response.get("status") != "completed":
             raise ModelFailure("incomplete_response")
         self.history.extend(response.get("output", []))

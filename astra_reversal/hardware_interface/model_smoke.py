@@ -5,6 +5,7 @@ import base64
 from .common import Events, strict_json, write_json
 from .provider import HTTP, Meter, Observer, Session
 from .proxy import Limits
+from .runner import tools_for
 
 
 def transport_smoke(manifest, prepared, destination):
@@ -54,6 +55,20 @@ def transport_smoke(manifest, prepared, destination):
         },
     }
     try:
+        arm_schemas = {}
+        for condition in manifest["conditions"]:
+            session = Session(manifest["model"], limits, meter, events, post=post)
+            session.history = [
+                {"role": "user", "content": "Call source_search with query camera."}
+            ]
+            response = session.request(
+                "Transport validation only. Call source_search with query camera. Do not perform any other task.",
+                tools_for(condition),
+            )
+            calls = [r for r in response["output"] if r.get("type") == "function_call"]
+            if len(calls) != 1 or calls[0]["name"] != "source_search":
+                raise ValueError("transport_arm_tool_schema_failed_" + condition)
+            arm_schemas[condition] = True
         actor.history = [{"role": "user", "content": "Use inspect_frame once."}]
         response = actor.request(
             "API transport check. Call the requested tool.", [inspect]
@@ -86,6 +101,7 @@ def transport_smoke(manifest, prepared, destination):
             "tool_round_trip": True,
             "image_pair": True,
             "observer_schema_and_output_cap": True,
+            "arm_tool_schemas": arm_schemas,
         }
         write_json(destination / "transport.json", receipt)
         return receipt

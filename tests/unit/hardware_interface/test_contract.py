@@ -171,6 +171,10 @@ def test_wrong_arm_tools_cannot_bypass_authority(tmp_path):
     assert "error" in r.dispatch(
         "source_read", {"path": "../secret", "start": 1, "lines": 10}
     )
+    # The provider rejects JSON Schema uniqueItems, so the native proxy must
+    # enforce duplicates itself even when the API schema accepts an array.
+    duplicated = r.dispatch("observe", {"keys": ["agentview_image", "agentview_image"]})
+    assert "error" in duplicated and not p.env.actions
 
 
 def test_nested_scratch_commands_share_tool_budget(tmp_path):
@@ -293,6 +297,29 @@ def test_private_key_file_and_no_redirect_transport(tmp_path, monkeypatch):
     ):
         with pytest.raises(ValueError):
             HTTP(url)
+
+
+@pytest.mark.parametrize("role,cap", [("actor", 2048), ("observer", 256)])
+def test_output_cap_is_metered_trial_failure_not_provider_outage(tmp_path, role, cap):
+    p = proxy(tmp_path)
+    model = {"identifier": "gpt-6-astra", "reasoning_effort": "medium"}
+
+    def post(path, body, timeout):
+        if path.endswith("input_tokens"):
+            return {"input_tokens": 100}
+        return {
+            "model": model["identifier"],
+            "status": "incomplete",
+            "incomplete_details": {"reason": "max_output_tokens"},
+            "usage": {"input_tokens": 100, "output_tokens": cap},
+            "output": [{"type": "function_call", "arguments": "partial"}],
+        }
+
+    meter = Meter(10000)
+    session = Session(model, Limits(), meter, p.events, post=post, role=role)
+    with pytest.raises(BudgetEnd, match="output_token_limit"):
+        session.request("system", [])
+    assert meter.total == 100 + cap and session.history == []
 
 
 def test_observer_receives_only_images_not_task_or_proprioception(tmp_path):
