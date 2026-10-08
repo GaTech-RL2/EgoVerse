@@ -1,0 +1,37 @@
+{
+  "source_commit": "2d872a5cf2fd7cefe52210793c4b29c71bff4342",
+  "payload_sha256": "a7b80bd4854e8d673f973d434be6e2a4539017376ded0d2e0a211af920e1c183",
+  "image": "docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307",
+  "pool": "groot-l40s-01",
+  "workflow": "/Users/rpunamiya/Desktop/GEAR/EgoVerse/scratch/libero-hardware-interface-20261008-artifacts/uncapped-v1/workflow.yaml",
+  "scope": "unscored Linux simulator/interface/isolation commissioning plus live Astra transport and three-arm smoke then a separate 150-trial pilot without resource budgets",
+  "stage": "pilot",
+  "limits": {
+    "steps": 1000,
+    "wall_seconds": null,
+    "workflow_tokens": null,
+    "tool_calls": null,
+    "max_repeat": 10,
+    "observer_calls": null,
+    "actor_output_tokens": null,
+    "observer_output_tokens": null,
+    "context_tokens": null,
+    "response_seconds": 180
+  },
+  "name": "libero-hardware-interface-20261008-uncapped-1",
+  "status_at_check": "RUNNING",
+  "start_time_utc": "2026-10-08T21:19:09.765467",
+  "url": "https://us-west-2-aws.osmo.nvidia.com/workflows/libero-hardware-interface-20261008-uncapped-1",
+  "bootstrap_sha256": "d3092d03db3d2119eecad88e75fac58104e0acf78df5a2af9fc9007041a14eb7",
+  "osmo_infrastructure_exec_timeout_seconds": 5184000,
+  "credentials_transferred_separately": true,
+  "cpu_contract_tests_passed": 38,
+  "live_api_arm_checks": {
+    "F": true,
+    "B0": true,
+    "B": true
+  },
+  "commissioning_and_pilot_results": "pending",
+  "prior_cohort": "libero-hardware-interface-20261008-pilot-1",
+  "pool_with_prior_cohort": false
+}

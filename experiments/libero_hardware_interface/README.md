@@ -46,6 +46,10 @@ The historical capped pilot `libero-hardware-interface-20261008-pilot-1`, source
 terminations and one NVIDIA HTTP 503. There were zero successes. Its artifacts
 are archived under its own R2 prefix and its GPU has been released. The new
 uncapped cohort requires fresh commissioning of the amended source.
+The amended workflow `libero-hardware-interface-20261008-uncapped-1` was submitted
+on one OSMO L40S from commit `2d872a5cf2fd7cefe52210793c4b29c71bff4342`.
+It runs fresh checks and then the separate 150-trial pilot. Submission alone is
+not evidence of passed commissioning or task success.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.
@@ -193,6 +197,14 @@ repeats native commissioning and must reproduce every resolved runtime hash
 before collecting any pilot data. It retains partial failures, writes the pilot
 analysis and power worksheet when complete, archives its own artifacts, and
 releases the GPU on exit. It never launches confirmation automatically.
+
+For the amended protocol, `tools/prepare_osmo.py DESTINATION --stage pilot`
+packages fresh native, transport, and three-arm replay checks followed by the
+150-trial cohort in one owned workflow. The three commissioning episodes have
+a 20-step horizon; every pilot episode has the full 1,000-step horizon. No
+experiment resource cap applies to either stage. The workflow omits a custom
+execution timeout and inherits the pool's infrastructure timeout. Confirmation
+is never launched automatically.
 
 ```bash
 python experiments/libero_hardware_interface/tools/launcher.py smoke \
