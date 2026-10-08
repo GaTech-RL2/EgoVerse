@@ -20,12 +20,23 @@ Tests live under `tests/`, never next to source in `egomimic/`.
   `pytest --integration -m gpu tests/integration/test_train_step_gpu.py` on a GPU node.
   `tests/unit/test_data_configs_compose.py` checks every `data/*.yaml` composes.
 
+## Lance
+When implementing anything that reads or writes Lance tables (`egomimic/rldb/lance/`, converters,
+committers, loaders), check the Lance format docs first: https://lance.org/format/table/ (table
+format, versioning, fragments, schema evolution). Follow them over memory of older Lance releases.
+Lance is not fork-safe (internal Rust threads): DataLoader workers that touch Lance use
+`multiprocessing_context="forkserver"` (or `spawn`), never the default fork, and reopen the dataset
+from its URI inside the worker; see https://lance.org/integrations/pytorch/ and
+https://docs.lancedb.com/training/torch.
+
 ## Model settings
 use plan mode for anything except extremely simple tasks
 
 ## Slurm rules
 If you're on a slurm cluster, request a GPU before running or testing training.
 On sky1/sky2: salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c 12 --mem=30G
+Use the `rl2-lab` or `hoffman-lab` partition, with `-A` matching `-p`. If rl2-lab pends on
+`QOSGrpGRES` (group GPU quota), switch to `-p hoffman-lab -A hoffman-lab`.
 
 ## Cancelled jobs and leaked GPU memory
 A cancelled DDP job can leave whole GPUs allocated, with `nvidia-smi` blaming PIDs that are not in
