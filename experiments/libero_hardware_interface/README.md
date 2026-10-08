@@ -154,6 +154,14 @@ observer transport, runs all three actor arms, and independently replays them.
 Only then does it write a new `ready-preregistration.yaml`. Pilot collection is
 a separate launch after inspection of these receipts.
 
+`tools/prepare_pilot_osmo.py DESTINATION --commissioning RETRIEVED_SMOKE_ARTIFACTS`
+packages the fixed 150-trial pilot on one L40S. It requires completed three-arm
+smoke/replay receipts and the same adapter and model settings. The new job
+repeats native commissioning and must reproduce every resolved runtime hash
+before collecting any pilot data. It retains partial failures, writes the pilot
+analysis and power worksheet when complete, archives its own artifacts, and
+releases the GPU on exit. It never launches confirmation automatically.
+
 ```bash
 python experiments/libero_hardware_interface/tools/launcher.py smoke \
   --manifest /path/to/resolved/preregistration.yaml --prepared /path/to/prepared \
