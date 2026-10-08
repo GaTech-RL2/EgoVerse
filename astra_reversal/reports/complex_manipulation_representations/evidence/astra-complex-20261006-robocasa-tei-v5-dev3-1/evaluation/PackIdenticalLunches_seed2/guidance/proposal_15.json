@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The lower-shelf chicken drumstick is visibly grasped and lifted clear of the shelf; then return to native after the interval.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 2150, the end effector has shifted slightly while the base remains nearly unchanged. The gripper opening has narrowed and the drumstick appears larger in the wrist view, but no grasp or lift is established. Corn and another drumstick remain on the upper shelf; current tupperware contents are out of view.",
+  "subgoal": "Grasp and lift the chicken drumstick from the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:2250:guide:15",
+  "request_fingerprint": "869101f66b7574eb384c81ff760df25abefb5377df2df79150108f54d77fda33",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 15,
+  "observation_step": 2250
+}

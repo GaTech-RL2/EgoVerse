@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper reaches the tupperware rim and the container visibly lifts from the counter.",
+  "method": "native",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1150, the tupperware remains on the counter while the arm has moved farther below it. The end-effector position's third component decreased from 0.0795 to 0.0364; the fingers remain open and the wrist view obstructed. Stronger subgoal guidance produced no visible recovery, so return to native.",
+  "subgoal": "",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:1200:guide:13",
+  "request_fingerprint": "2fda0332330f0d3276c54a9dd9b9477832efef79b28989fcb6a2efe5856d9c39",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 13,
+  "observation_step": 1200
+}

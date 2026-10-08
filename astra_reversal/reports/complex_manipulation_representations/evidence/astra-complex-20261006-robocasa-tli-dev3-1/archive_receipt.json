@@ -1,0 +1,77 @@
+{
+  "files": {
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/worker_started.json",
+      "bytes": 227,
+      "sha256": "1e7799848c4b58ba430beea60e3372a5774bfc5a272073dfc2480c24ffe920ff",
+      "stamp": [
+        227,
+        1791412733778283495
+      ]
+    },
+    "episode_plan.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/episode_plan.json",
+      "bytes": 249,
+      "sha256": "83728b1345d3514c8c5f60f8fa7c9b4d1f873b02de09bb0ef1f6c413a8b4bc47",
+      "stamp": [
+        249,
+        1791413004265249499
+      ]
+    },
+    "evaluation.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/evaluation.log",
+      "bytes": 9768,
+      "sha256": "192224a3de45e85b2fcab50d48f3cd24b5e13f22f21866d676601504ab8425fd",
+      "stamp": [
+        9768,
+        1791413084647238615
+      ]
+    },
+    "evaluation_command.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/evaluation_command.json",
+      "bytes": 613,
+      "sha256": "6ed59b28980e0c23461049dcf2090c4bbb26105d60db26750de548376dda6bf3",
+      "stamp": [
+        613,
+        1791413004265249499
+      ]
+    },
+    "guidance_baseline_manifest.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/guidance_baseline_manifest.json",
+      "bytes": 5531,
+      "sha256": "4c194725f95f96100ee9115e1056c9858ea22229c1af3daff4cd79d12d576b6d",
+      "stamp": [
+        5531,
+        1791413004264249499
+      ]
+    },
+    "stage_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/stage_receipt.json",
+      "bytes": 17755,
+      "sha256": "ba0220758862f9d35f51031b2d05506705ded701e6e46de41677d56a0c2bf223",
+      "stamp": [
+        17755,
+        1791412998609250253
+      ]
+    },
+    "evaluation/runtime.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/evaluation/runtime.json",
+      "bytes": 1264,
+      "sha256": "c9e6f234ecbceae48a28217466b06f626c0a12b84c9aba1153445c36360cbf6f",
+      "stamp": [
+        1264,
+        1791413008673248909
+      ]
+    },
+    "worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-tli-dev3-1/results/worker_finished.json",
+      "bytes": 61,
+      "sha256": "d5f081fd51512b36461431f364055a914482b75c837fb5fa512066bb2c46a5f2",
+      "stamp": [
+        61,
+        1791413087171238269
+      ]
+    }
+  },
+  "updated_unix": 1791413087.583354
+}

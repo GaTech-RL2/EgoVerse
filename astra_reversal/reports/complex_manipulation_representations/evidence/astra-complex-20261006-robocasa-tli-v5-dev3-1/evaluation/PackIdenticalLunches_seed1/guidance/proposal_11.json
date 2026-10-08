@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper clears the refrigerator door and the wrist view becomes unobstructed.",
+  "method": "native",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 950, end-effector height relative to base fell from 0.164 to 0.021 despite stronger raising guidance. The arm remains low beside the refrigerator, and a broad gray surface now obscures most of the wrist view. No food grasp or placement is confirmed. Return to native to reassess after unsuccessful guidance.",
+  "subgoal": "",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:1050:guide:11",
+  "request_fingerprint": "01ba9206c7371f44a6296626099fdc13c87ede309c0845897fd84495fb8453e7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 11,
+  "observation_step": 1050
+}

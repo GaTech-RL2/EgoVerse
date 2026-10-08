@@ -1,0 +1,2572 @@
+[
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/executed_steps.jsonl.gz",
+    "bytes": 184012,
+    "sha256": "6bc8ec360d2708b04a22f580e08add0a3a14910e3f7d57ba36320f4d391be501"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/paired_reset.json",
+    "bytes": 508,
+    "sha256": "5608c9a1416435bcfb8c75cb402151497b1f39872c106affba49a348b954245e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_00.json",
+    "bytes": 1064,
+    "sha256": "faed78ef05441a14355d932865cad0f628caa9967365d8aacece87e14f6f73f6"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_01.json",
+    "bytes": 1124,
+    "sha256": "904aa316f2261f71f445fbc3e9b2a6f01bcb6a8760efd2d4df2dcb5f7e8ec2fb"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_02.json",
+    "bytes": 1106,
+    "sha256": "c13338029d7af908f18a44cd61ca07fdfae4bfb6560913c574c340b378ee5bec"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_03.json",
+    "bytes": 1120,
+    "sha256": "7d3ef327106a5dd2240d5b2d03a243fbb00b68f92cb527f864aa061069d974f3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_04.json",
+    "bytes": 1104,
+    "sha256": "955a0442f1f26acd78e531e2869f05aea1da23784c594a1ad7c19ddc2c7bde08"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_05.json",
+    "bytes": 1112,
+    "sha256": "2feabb2965b62fc2f62495a3d7ae5f4c2813f196b90a7a9429d98c32d6082023"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_06.json",
+    "bytes": 1089,
+    "sha256": "23c58b01c3a13173bf4b00cc6705dc27c3d7cd7eeae81bcc0590e613ee55a3e6"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_07.json",
+    "bytes": 1111,
+    "sha256": "1351e1a335977f3fda2060cc494b3270ce915596e70298043be7a8760f5834c8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_08.json",
+    "bytes": 1170,
+    "sha256": "81b2b45794fd0c605ca2ecd836a52fcb19240bf083c77c3636bca7ac59da3791"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_09.json",
+    "bytes": 1179,
+    "sha256": "1eb9829e5a9890643fc55285a4b675069c8ae0600eddd0f9f61d22fabb1b4be1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/proposal_10.json",
+    "bytes": 1184,
+    "sha256": "4cec24b265a1c014c1c593bbc16aede8bb88c29c2011445cdb7665ff5d98bfd3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/provider.jsonl.gz",
+    "bytes": 7234,
+    "sha256": "95e9be015e29c4f02b5cd6c95291183ee2b981d6dbbb3f29b7282a5ef4ac73db"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_00.json.gz",
+    "bytes": 1016598,
+    "sha256": "a339887214ab387dde4a9870cc5942cf9e04de562cb6c6dbc7825e3380054c2a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_01.json.gz",
+    "bytes": 1179971,
+    "sha256": "031e58f79f34d1e9edc732a59258d2bcd149981823a2031a1ba37832e33d64a7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_02.json.gz",
+    "bytes": 1182899,
+    "sha256": "eef7ad20f2a68a4322f33e2d62f326c4d2a9eb8106e0f00fb15597a6050b1ab1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_03.json.gz",
+    "bytes": 1180829,
+    "sha256": "b06b80656e5778999e060fb8d67630feacc76907bbf4edcbaa7b5dc382cd4839"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_04.json.gz",
+    "bytes": 1178715,
+    "sha256": "f46442543ce5d9acbf0bdffe311c556615e136f06a6ad62091dd8c721defc715"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_05.json.gz",
+    "bytes": 1187341,
+    "sha256": "622b0d503c9d8934ae4503a611034783ca76bce28b160a36c4cfee45fd2af3e1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_06.json.gz",
+    "bytes": 1192489,
+    "sha256": "5bceee08b8b03e1dce3a9af763199bf1b0cd63e8f0126e58892e2c972146c664"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_07.json.gz",
+    "bytes": 1186457,
+    "sha256": "69038ba9f2faa840258119d65ea872d37745160ca293474a62c1f54b24096b84"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_08.json.gz",
+    "bytes": 1189797,
+    "sha256": "e8cfed0706a80615ebc7d428e5f9c4072004bd8709a941c71e76bc9e0b74b959"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_09.json.gz",
+    "bytes": 1188321,
+    "sha256": "2acab4082491f2386e44560ef5b75bb7e798b7a62210395c7d23d1c64b2bf4c5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/guidance/request_10.json.gz",
+    "bytes": 1189385,
+    "sha256": "d4cc988701cb757fb45c6a9502a5e3dc299350e4fd2e3be5bb27eeaf5e083ea2"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/initial_model.xml.gz",
+    "bytes": 43699,
+    "sha256": "f919948a2cb96429fc4319c4fbc1e6073cbd812f2a5dc30dd070006070cfee00"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/initial_observation.npz",
+    "bytes": 208448,
+    "sha256": "82f873dc2f3fe22f0d700230702c3113023075b005b5936bce3731d3d7400285"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/predictions.jsonl.gz",
+    "bytes": 1781765,
+    "sha256": "6bb198cfe5710e7faa5bd325bbed77b15bbc0ccbe9b604baecd2b1a86858d36b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/progress.json",
+    "bytes": 230,
+    "sha256": "b8e1101d5c2c4e6f8d9b32cd31534cbe4e09725860fe3165aa80ee59a6464847"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/reset.json",
+    "bytes": 604,
+    "sha256": "ef19c8450392eed8bb80fcf80352572472c147c7113ad4a402bff64956296218"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/result.json",
+    "bytes": 2653,
+    "sha256": "340f0634d24cefe234c63ef2d977af37687898cfb39110574d5814b5bd80a4b1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/rollout.mp4",
+    "bytes": 2386642,
+    "sha256": "6b42a4a388f00af2120e40fedcd29e1502964ab14e5aaf6999dc02d621e31e55"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/started.json",
+    "bytes": 146,
+    "sha256": "5f5145fda857c7df0f2e6ebf8f241397b684dd5868390c97dec1a7516f865ff4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed0/starting_image.png",
+    "bytes": 198359,
+    "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/error.json",
+    "bytes": 92,
+    "sha256": "a15c16759b9437bc4e8d19f7150c4dfa874ddbe528e824aa35e9eddbb385ac0d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/executed_steps.jsonl.gz",
+    "bytes": 20,
+    "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/initial_model.xml.gz",
+    "bytes": 44539,
+    "sha256": "e109fadfcd9ee6d92b81af1e6544133270c2253b29f5fa8cbcf7f598eb92b459"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/initial_observation.npz",
+    "bytes": 279979,
+    "sha256": "937ef8e9cd8f01953190baa53161e9414bd7acb8fe68275fbe55bd8ef69944f8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/predictions.jsonl.gz",
+    "bytes": 20,
+    "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/reset.json",
+    "bytes": 615,
+    "sha256": "d2c3e9ee0d76f378e8c52a902395cec4788bf860590bc648a2c6891f3a379e0e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/result.json",
+    "bytes": 2565,
+    "sha256": "1c62571332758546d8457250b2d4093ce651a45daa241c5645d49c76e2d50094"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/started.json",
+    "bytes": 146,
+    "sha256": "e8053c121ba803f1856a45d7630fa75f67662aa3fbc9d39b3717b2b2eb00192b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-dev3-1/LoadPreparedFood_seed1/starting_image.png",
+    "bytes": 259134,
+    "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/error.json",
+    "bytes": 86,
+    "sha256": "a54bac47a4b6bd622e8065ac060a49a702bb2abb4f8f8b5f0dfea6b635281d85"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/executed_steps.jsonl.gz",
+    "bytes": 20,
+    "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/initial_model.xml.gz",
+    "bytes": 44534,
+    "sha256": "cabf6602ca72099e5368822050dd330960df00d8bbc9d174315c4c7b550c866e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/initial_observation.npz",
+    "bytes": 279979,
+    "sha256": "937ef8e9cd8f01953190baa53161e9414bd7acb8fe68275fbe55bd8ef69944f8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/predictions.jsonl.gz",
+    "bytes": 20,
+    "sha256": "f1b651238a58fe290baec6c5e32f3bdb1943dd2bd582f02569231f7a757c7837"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/reset.json",
+    "bytes": 615,
+    "sha256": "4423ca3fd27be6ceb07a5852840f6e614479d421aba83fd5f6d7c2241a615f2a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/result.json",
+    "bytes": 2573,
+    "sha256": "cd8508ed33ffcb0915e3acb308ec4f6d3508213236e49c6a3a384a3cf8c53ee5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/started.json",
+    "bytes": 153,
+    "sha256": "311f4ee57799aecf918bd4eca52ede2f6ffcbbf32a76c545ec165b76ad1ed1a9"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume-dev5-1/LoadPreparedFood_seed1/starting_image.png",
+    "bytes": 259134,
+    "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/executed_steps.jsonl.gz",
+    "bytes": 184220,
+    "sha256": "7352421ed2a184a1618fef829c56bd535380b6568a729ed950e50a7b4401b93b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/paired_reset.json",
+    "bytes": 11525,
+    "sha256": "90cfb6924b75940b27d50325b5fb5490b47eeed29e5f85e43681997e50619ed0"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_00.json",
+    "bytes": 1091,
+    "sha256": "18a76867919cbdcb40acb7f9005b5e584268b88ab3c94a49b1efd84f94c9f15d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_01.json",
+    "bytes": 1195,
+    "sha256": "f2640589f44d0eb86289bf0d787f41a9e053d04dd57657c6cd27d18be9221453"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_02.json",
+    "bytes": 1154,
+    "sha256": "aa628dc441dec1fa0ff79992be2cbd9765f9c976c7f88248182790e7a14224e3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_03.json",
+    "bytes": 1168,
+    "sha256": "d3ebfd4576a55e697dda9ed5b4390cf09c588b141b3f94df92a50b0bdbc48114"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_04.json",
+    "bytes": 1151,
+    "sha256": "dde9cd7862ab26d3546cd644abbad2c5942d41e567629de24df790188ffecc74"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_05.json",
+    "bytes": 1137,
+    "sha256": "3facb6e863a5ad45cbdd44c9b46309f05d21b01b4d59d90f33e30c1d82de641f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_06.json",
+    "bytes": 1139,
+    "sha256": "46f15456bd8845b52265a269c7ab58c9fa882c721ae85de5e6a300b0fab837d0"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_07.json",
+    "bytes": 1125,
+    "sha256": "cec3d761bb84f324b5f8fa0ab20027cce43f669c1e4d63bc94f92d1f92456757"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_08.json",
+    "bytes": 1102,
+    "sha256": "49935002b2c7d3b422172cf1d4616e330929dd3c0c0d8431bc541ea4f1352eb4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_09.json",
+    "bytes": 1132,
+    "sha256": "3d4c1f9e21d42c171c1fcce33ec66f118bf7e93adb8a962a61c1679c8712e874"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_10.json",
+    "bytes": 1172,
+    "sha256": "188c43f9bbdf2a4239a4e3c22a7b14d24ead079d8ffe0beb3b70407a73474bf2"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/proposal_11.json",
+    "bytes": 1153,
+    "sha256": "cc7dd2f9150c3c2ef5e084968bea7ea83c9fea9d2f0a159627af779bbca10e0f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/provider.jsonl.gz",
+    "bytes": 7859,
+    "sha256": "88872913b44642808381f7ee325f85133090b0a3e32fb01c5b283e3d9164a5dc"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_00.json.gz",
+    "bytes": 1133275,
+    "sha256": "4cf740d9e48688dbe2d088af267d4429af469b21fb5cdd6b43011aba3658447d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_01.json.gz",
+    "bytes": 1321603,
+    "sha256": "6270b30e19e5a9979bfbcd8825c0b1b5a85420bacc9442e1b37ab3810d93bb99"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_02.json.gz",
+    "bytes": 1313158,
+    "sha256": "d19feb48b8fcbb0079b550a9538a5c5fd46b4856c22ce27d01b407716f94bb5d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_03.json.gz",
+    "bytes": 1317349,
+    "sha256": "f80decf9210d166efb0dce753e098db959bce701ae2511114924b0c82af946f7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_04.json.gz",
+    "bytes": 1323859,
+    "sha256": "d53c0f9bd9549e9f79370a9750914c542662278727cdb1bc325da3955dcd2af4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_05.json.gz",
+    "bytes": 1324832,
+    "sha256": "eb3142b893d5b4da203c302179a02517fbaa765ee906258e4afff037eb5a03c4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_06.json.gz",
+    "bytes": 1321386,
+    "sha256": "88dafd37112e2dc9ce6f8745777ea5aa792e04e9f1d4829de4a074f1b8916dc5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_07.json.gz",
+    "bytes": 1314902,
+    "sha256": "e13c707021154542c4f6da2a291e2a9a62156bf16f8f78660da26bfe746c2edf"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_08.json.gz",
+    "bytes": 1310819,
+    "sha256": "5e12f3ba80e1e2a43db1e47bf4cad59666bd5d3a8477a8e5343c4ae94c6bbf6d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_09.json.gz",
+    "bytes": 1310624,
+    "sha256": "1cfb5c6d3e55f0357f6689083bda8265e31d829dc8723774014f1bc538715865"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_10.json.gz",
+    "bytes": 1310063,
+    "sha256": "109476f46585e922fa361eebb8e39ae009e60db3f50885612eb737f37a194b95"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/guidance/request_11.json.gz",
+    "bytes": 1309115,
+    "sha256": "4d9b7ce6b38a0b12d8f78c87a5666dbff024c28cf7af7933b488965e009ff078"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/initial_model.xml.gz",
+    "bytes": 44534,
+    "sha256": "299204cc96e9fd401b9d816f5803cccdb0ff4c9d5854005be06eee44ce5f8773"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/initial_observation.npz",
+    "bytes": 279979,
+    "sha256": "937ef8e9cd8f01953190baa53161e9414bd7acb8fe68275fbe55bd8ef69944f8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/predictions.jsonl.gz",
+    "bytes": 1783275,
+    "sha256": "a2f1d64f9416864af9cebd1832d53a05b0cb32d8f50028619ab7d96d51f0675b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/progress.json",
+    "bytes": 237,
+    "sha256": "d0a263e8e4a407505317500da1fbf510737ce5ced94ec624986f6bbe51001d5f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/reset.json",
+    "bytes": 615,
+    "sha256": "4423ca3fd27be6ceb07a5852840f6e614479d421aba83fd5f6d7c2241a615f2a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/result.json",
+    "bytes": 2662,
+    "sha256": "660064353bdee2534955c4d6d8d7c37b2c939fa4a92adc69ac8048b38f8eed77"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/rollout.mp4",
+    "bytes": 1629333,
+    "sha256": "5dd0e3fd6d48ed00065726951ac2c7a12de88608cdff86b25b68441615e30b08"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/started.json",
+    "bytes": 154,
+    "sha256": "54130ee147aa7f9780b064f08ea7748aa2ffe57c01d251171286507e33da89d2"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed1/starting_image.png",
+    "bytes": 259134,
+    "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/executed_steps.jsonl.gz",
+    "bytes": 184274,
+    "sha256": "60757c25b27cb4d02675343444be5d5ee16cb10ee9b6cf7444fa6860949db4b8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/paired_reset.json",
+    "bytes": 19117,
+    "sha256": "2dd0068e098ffc215c684d9fe7a347b95b475ed172c81bb1cb4d1a56ff37437d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_00.json",
+    "bytes": 1153,
+    "sha256": "3b2e035204ce4b853394f1e952aeffcff3dc37e236c152f067be30b54ca8c47a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_01.json",
+    "bytes": 1169,
+    "sha256": "ff171800ebdef5f26bca987670a93739aa32791054011cc0961619cbed11464c"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_02.json",
+    "bytes": 1176,
+    "sha256": "b0d5c423f8faa410cb4580159c55ab9cdaf534f9b46177061bc15a9b85236b47"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_03.json",
+    "bytes": 1227,
+    "sha256": "c98f1f9f479caa7893894ecc8c449747f3c740691671a45557ff1c823077dbcd"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_04.json",
+    "bytes": 1234,
+    "sha256": "eb654cd3693f8e1ec34bd4f235eb9a1a8ead54b359f26c289175fad6c8cedfc8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_05.json",
+    "bytes": 1223,
+    "sha256": "6bfe09f0b4982a27ea7475c67bc20fec12b0d65cd1d4ba71058244b1720bf967"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_06.json",
+    "bytes": 1215,
+    "sha256": "fa9574ba6946162ce37af5e83f0c02fe8fe649b76d27a85910c424fb09e4ba3d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_07.json",
+    "bytes": 1237,
+    "sha256": "fa0c80338ba33f810a71a3349b7892dacbe599d9ca8f5f5c287c8536f76515d7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_08.json",
+    "bytes": 1236,
+    "sha256": "854aa45ed2cd8a942f26be103d7b1b103d856007cc101ac13af5f2882c2c17b6"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/proposal_09.json",
+    "bytes": 1216,
+    "sha256": "ae247a7114d3dfb1d71e02c6bfe07d5475f980c6cd67c58499f113e3b69b1c2e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/provider.jsonl.gz",
+    "bytes": 6765,
+    "sha256": "f3ed31eefcff712860fe890c7b6492eca2f73cdac6c31bc3814d3898cfa2ad32"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_00.json.gz",
+    "bytes": 782141,
+    "sha256": "bd0a3749e7dd5a3bf4e80651c5258f7915d13d58e29a5c78c634b1e70dcf1fcf"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_01.json.gz",
+    "bytes": 897307,
+    "sha256": "3ff7606183e504cb3c804aa5e708ab934e4251fa41ee050d438723054ae4b42d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_02.json.gz",
+    "bytes": 891935,
+    "sha256": "cf837be4c157b9bcf18789ebcf4213e08c1e7ef94df7835722301964b3df0a3d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_03.json.gz",
+    "bytes": 897757,
+    "sha256": "b0627309213401627fa16eee141cc52637730bafadbc3ecaaa8e9cc417583557"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_04.json.gz",
+    "bytes": 911328,
+    "sha256": "3c4b2a99fcd0ae9665999421f5158bb2892f5af56de3b1c836699303c4fd0e2f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_05.json.gz",
+    "bytes": 910374,
+    "sha256": "457a03eb642c5ebc453863ca2608f9f97970e89100854d46ab94596dc6c798a5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_06.json.gz",
+    "bytes": 903427,
+    "sha256": "185368efd84adde20b2d20c5c2c01a14c685a3bf39d4df550ed0c28a053ea744"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_07.json.gz",
+    "bytes": 897268,
+    "sha256": "a6b0f8c539e3ae2464fc61434c20824eabcd4be81492c879418b565e297fe761"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_08.json.gz",
+    "bytes": 889756,
+    "sha256": "ffec16be2b5d0d406bf4268aba687b2fc8b9336248ca58e5240b880de556fc67"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/guidance/request_09.json.gz",
+    "bytes": 889682,
+    "sha256": "77f675bb6b5e16cd16eaa212da5cfae73d9bbaa53e261f0e4433ec777cff44ec"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/initial_model.xml.gz",
+    "bytes": 38710,
+    "sha256": "41268c82fa9937c8afeec53c78a56baf54fcf7ca5ea471c2e75d1c2fda9302a8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/initial_observation.npz",
+    "bytes": 146798,
+    "sha256": "8a61f7fac145f7d44f38c5e381451a2d21ad15004f3956a704b4d07224d261f5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/predictions.jsonl.gz",
+    "bytes": 1781070,
+    "sha256": "154ea78f09cc1634ff55b8ce0c423981ed577c909be4f9a6a555c20f2ae9af48"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/progress.json",
+    "bytes": 239,
+    "sha256": "7b1b6f0c229eb0c34c4afc1900bd2526b9833f9866f1840d748c3d6eb28e5c09"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/reset.json",
+    "bytes": 604,
+    "sha256": "95831832338c16e7e95229c8a5e4f5123dcdebf1231c2223690981e56f1006ce"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/result.json",
+    "bytes": 2663,
+    "sha256": "65249c5bc59442f19fad474cf77fe00ed88b7d7794dd027fd3302780eacfbdf4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/rollout.mp4",
+    "bytes": 2210185,
+    "sha256": "2ca03275279d6be15ddaefa8bee1ca563705217e5ea933526abf8e1eb54d6a8e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/started.json",
+    "bytes": 154,
+    "sha256": "707958a5d2b471304817f4062343e3c0a8cd677a6a2f2500aefd44b70e61d913"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/LoadPreparedFood_seed2/starting_image.png",
+    "bytes": 140950,
+    "sha256": "fd9e23131d95779f99d6bb6c58696934b62c6f84bc6f946f8c45a6662af31495"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/executed_steps.jsonl.gz",
+    "bytes": 477375,
+    "sha256": "3db48a597280ed8b03c540d41e4ec11c837bd843fadefd60bb3994f2b06f563f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/paired_reset.json",
+    "bytes": 23777,
+    "sha256": "e4dd4e84aec1748da36396ac3e514f9e2c17a4d0a9741949ac123ee4126e5abc"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_00.json",
+    "bytes": 1111,
+    "sha256": "5029304646bd6e322b0ea2c586becd40f971c273b272d1c4a80b0d132d511986"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_01.json",
+    "bytes": 1145,
+    "sha256": "7f076ea696f7d6c7a952f24001a248eea1c3d77c6fa846bed3677822ce9ef831"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_02.json",
+    "bytes": 1151,
+    "sha256": "27e5d9d78597157fe8c181f93830bc196705298f6f36bd88d20e1297321b7e46"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_03.json",
+    "bytes": 1234,
+    "sha256": "a425154b3f9d13bcac3c670f0e6b98f945bb8cf324a14e112c903dc4307a1d1d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_04.json",
+    "bytes": 1181,
+    "sha256": "e909bf0b73bde024c8031402ebee722d40dbdba4336e8dc222249bc8d6f2d49d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_05.json",
+    "bytes": 1194,
+    "sha256": "0f7a2ccc5cedbd7204abbfd4175457705fdda4fed81ed39db9332347dc69cbff"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_06.json",
+    "bytes": 1226,
+    "sha256": "59e7a0c52d621e0eeefa18a04a802c4c9f570d652bdeb63d9124945f92b98473"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_07.json",
+    "bytes": 1191,
+    "sha256": "974171476ecf0d5fc294b48f0f4c5c66ac6f56077987449d8395790cdffe89bd"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_08.json",
+    "bytes": 1178,
+    "sha256": "6a45efd6beaf5350bf6a11b0ab2d4ac06919983e30283a060efc3442a8ce313a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_09.json",
+    "bytes": 1229,
+    "sha256": "6b441c866782d8c7769c28cded1feac5276d42f2fe1b8610fb8dc0d42ad4dec3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_10.json",
+    "bytes": 1235,
+    "sha256": "8cb0b29974dfbda9e5cc056167236b23a1d7e4b16c16621cb0127bbc73041acc"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_11.json",
+    "bytes": 1216,
+    "sha256": "b0f7242dceca4500367ee1bffde48abf01dd183daf3e6c59e6eea4eb78ec8031"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_12.json",
+    "bytes": 1233,
+    "sha256": "86cfadb6d340e90dcfc725a7d0e6524a8c861623ab9b3ca7ea0b9eb3d65a5f96"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_13.json",
+    "bytes": 1264,
+    "sha256": "bc7b73903acfd3651d9406969a4b2627b92596b036cba25a8486065710461589"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_14.json",
+    "bytes": 1297,
+    "sha256": "386db9d5b4e58bc85cc6c8281a88c4f249815537c90fd4109430a106fe60ce6d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/proposal_15.json",
+    "bytes": 1237,
+    "sha256": "189495463006742d88c4a1b6636f05c5b4b81bdbf8c1fd09f3a5f062359fb1d1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/provider.jsonl.gz",
+    "bytes": 9991,
+    "sha256": "ab1f7a2b80565d261ea7a0a7141ccbb1d8e57891b5772988ca9ae6d9ac3368a1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_00.json.gz",
+    "bytes": 832547,
+    "sha256": "38fc7b1395801307dfa09cdd7db05c394324f8a2f69799b6faedcdb6933546ab"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_01.json.gz",
+    "bytes": 932817,
+    "sha256": "af26d174e90cd3c09398675314553cb955286d3a2597b8d154fed96717cb7b55"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_02.json.gz",
+    "bytes": 937831,
+    "sha256": "a665332c7bc53ce0f072a10340cd4ca039306e9eb79c0e944614d541e44a5823"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_03.json.gz",
+    "bytes": 1013491,
+    "sha256": "330b75445cb017d69428ab18bc71e494734126480e1802f0a3e9b8674e163cba"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_04.json.gz",
+    "bytes": 1044743,
+    "sha256": "d4c4db3ed6d456ddae6a7342b5d516f87307244f15936b309c234150b558da19"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_05.json.gz",
+    "bytes": 1016273,
+    "sha256": "116cf3721fc22b06251cda844e4f32445b7a5bcd6ce56d7affc214d86e625c6d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_06.json.gz",
+    "bytes": 987282,
+    "sha256": "31e5f5f84aafda9bc7725d8e8a65379ec160f460a56130251f48eaa604b58291"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_07.json.gz",
+    "bytes": 935290,
+    "sha256": "5de27cf9031d499896316eac300ee5d9b2b6db0469f93c52c80406f722bfd797"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_08.json.gz",
+    "bytes": 932544,
+    "sha256": "db196c582a8cdacc42aeeffda50e9cce51c9eb6c7aa9456763eae71bdf1bf0a3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_09.json.gz",
+    "bytes": 944282,
+    "sha256": "b9c1270f0f066172086a2b84cc91044018d1ecae59730597c1e6afa47fae9db9"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_10.json.gz",
+    "bytes": 970073,
+    "sha256": "70357f6b6628734d094481debbe3f387a2da550f31d03c16c15f84b09a7df33b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_11.json.gz",
+    "bytes": 1027224,
+    "sha256": "14c2da55dac22f768138e91129ae016ffe61a8e52e7c0b50871422e19c38098f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_12.json.gz",
+    "bytes": 1025415,
+    "sha256": "df22f71a6afad701a428775860c4924015c29050ccd86c97740d2d33ac45c931"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_13.json.gz",
+    "bytes": 1013893,
+    "sha256": "f9a9fb656538753b63b5053242d562b02771b533c1f9e5bebbba309c435669de"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_14.json.gz",
+    "bytes": 1030785,
+    "sha256": "c05c1af5c9274a893963d92f3fb807767187d58531ee3f0f428950d2e2c5ba50"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/guidance/request_15.json.gz",
+    "bytes": 1014685,
+    "sha256": "61ea1c0a7a806b5e5256996e7731204d4168224f234ca5a1d8aab986401592f4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/initial_model.xml.gz",
+    "bytes": 36509,
+    "sha256": "21fd52ee8df57556f6466a5b3ec981622099aa8c4c906623bcb77601dea1397f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/initial_observation.npz",
+    "bytes": 111850,
+    "sha256": "9b220f6d7be5f38faf47cb6d4ad80d763dcd6b0f42834f1a98d25d24c75f9dfb"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/predictions.jsonl.gz",
+    "bytes": 4618780,
+    "sha256": "839697410d624347aa727ea22f7c82c7a8f4a9207cda67f02655e76201a15bd1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/progress.json",
+    "bytes": 242,
+    "sha256": "31357dc69013b86d37f852122b74fca56e7c5dc7e788b7fba55c0264efb346a5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/reset.json",
+    "bytes": 519,
+    "sha256": "1913a95889f64fd43677f791004cc1ef8342dbfe57793358532e6d767f4b2242"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/result.json",
+    "bytes": 2668,
+    "sha256": "42f050648dcf7e4ea05c364eeecb43565eb8bee45353b3508b15cce1ff9276a9"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/rollout.mp4",
+    "bytes": 7813928,
+    "sha256": "ea740c74f87dd8663aa74b4296c31d14ed8db1c8707f96999da36c71b06d0f72"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/started.json",
+    "bytes": 158,
+    "sha256": "ae79a07db65af0a043289183c064965494fddef22083c075bcb10645ba88d94d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed0/starting_image.png",
+    "bytes": 112800,
+    "sha256": "566a8a2e443626aeac427b79fe2bab4d0e888a483caad12abb258c396f2e3cff"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/executed_steps.jsonl.gz",
+    "bytes": 476789,
+    "sha256": "05a600f538f8e4b48cc172bf6939defbd80c2fe29e1c7b49d257b03ac456eb4b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/budget_exhausted.json",
+    "bytes": 58,
+    "sha256": "d8327b5d3d568a76629fa8184aa0ed9dd0c30f99b556ae80b82e2fe434c3da1a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/paired_reset.json",
+    "bytes": 18457,
+    "sha256": "88f2f88c54b1f6112b0722dcc91cd0928f26721920093fe4bbc06a2bcaabf735"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_00.json",
+    "bytes": 1125,
+    "sha256": "a87fe668a8094e41f0b25dfef8bd9a40040034cd54507dabcbf62fd49682a2cf"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_01.json",
+    "bytes": 1175,
+    "sha256": "97ab4eac98bafa469af55d95fbcf0236850f306c0830b5cbc7f30bc556eb9e1b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_02.json",
+    "bytes": 1169,
+    "sha256": "927d03dd9dec6806059ec7ff2459940a2ffdca2059b1a58322e43f5af4ec4858"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_03.json",
+    "bytes": 1178,
+    "sha256": "2ba64a000f2eeb7047cd2c5e90d2c3d238c2f22d39779f231677ad8bf13c3305"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_04.json",
+    "bytes": 1243,
+    "sha256": "adfd35379356666f365acbf1dd1c87fbd07828ed62172c1c38e409d8e405834a"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_05.json",
+    "bytes": 1212,
+    "sha256": "821d3d458db40a807fe7b85f0e230091b009ca2c67dd68cf61dc7db94f89bfca"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_06.json",
+    "bytes": 1177,
+    "sha256": "008cb8544bc4f96b56e85b971b9402daad266f19347feb5ae028a55ffdeb13f0"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_07.json",
+    "bytes": 1216,
+    "sha256": "535446d82f432a6b1709397448c4329ef500a66dc6437b61359c8c9efa5b1a5f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_08.json",
+    "bytes": 1212,
+    "sha256": "4177a9cc49ce359315bc472938d3fdf5ddb840ded5c3d66da5dd7b38d086e38b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_09.json",
+    "bytes": 1247,
+    "sha256": "8e5861cbde60a36ce755b15194235dec59505f8525049dc52b3a4554230f8264"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_10.json",
+    "bytes": 1248,
+    "sha256": "9540be3b7800bc48cf6953f9ad5f5c63d9c1061a5969b4b12b099f4de9efb2ab"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_11.json",
+    "bytes": 1250,
+    "sha256": "568bfca07ba00b71eaaf4abe80014e32be228529aa93ab5e0d11b341ca7c6f6d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_12.json",
+    "bytes": 1222,
+    "sha256": "d12df63a1101302e37ff1edd4d3ab413e12091de1deb56e00635c2238c2b16f3"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_13.json",
+    "bytes": 1168,
+    "sha256": "3eb2d172f41e1ef8333b2bc9e1b5ce8e0e4d43375be1106fe96a73a4ac81f7c9"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_14.json",
+    "bytes": 1248,
+    "sha256": "2955ec511b9a1209724c892ab3a30dc90e9053f7101ffe6f8a4aef552494e103"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/proposal_15.json",
+    "bytes": 1220,
+    "sha256": "8cde44684ed5fba38336606ad1d83e7bad206ce6430002019f394797891f40e2"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/provider.jsonl.gz",
+    "bytes": 9979,
+    "sha256": "90472f988150d1d973ffc424cf2e13b6eb22801e758945d9a17df561d98a443b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_00.json.gz",
+    "bytes": 855534,
+    "sha256": "4f5d13995b0e15bcfa02180fcec7534496666d53addfc0f5551d442ac8524038"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_01.json.gz",
+    "bytes": 1001311,
+    "sha256": "19ee4efe1d2c56240e3f6e7d7b9ee2b46454b8b6204ed5e7a631146aacd6fffd"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_02.json.gz",
+    "bytes": 1052303,
+    "sha256": "520cfb46ba53cc6751b84292f6a929468b63cea1b1aa03c0015e0880798a8e5b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_03.json.gz",
+    "bytes": 1093829,
+    "sha256": "6bdca5037d75ba8bbc511160fe38f16d40c8b7d03830e50d24e705af8b3179b7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_04.json.gz",
+    "bytes": 1047076,
+    "sha256": "10c98b2f06920627298791a87237100f9bd22c702e8c61d5bae95e6c7af3b702"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_05.json.gz",
+    "bytes": 994143,
+    "sha256": "c4233b5b29a38991ae93226a13ef29769c7746b18bc43db188a1fa7429e842ef"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_06.json.gz",
+    "bytes": 999834,
+    "sha256": "b0310e0e46728ed7d42b6515956fc6cd7889a4a1577a7959b720b58ece60635d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_07.json.gz",
+    "bytes": 997668,
+    "sha256": "d2b42e22da58b66f8531177a8ecd77ff9dfed65d9a108df0fecea16dbfd68c3d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_08.json.gz",
+    "bytes": 1046593,
+    "sha256": "61ce1bed9e678239e26ee66fe57701c6242757c989cf278011fc81243e729141"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_09.json.gz",
+    "bytes": 1113631,
+    "sha256": "ab7d61d968a989fc6df136501afaad30db83c747a0ca5bc044461e26b6661cbe"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_10.json.gz",
+    "bytes": 1119087,
+    "sha256": "b1b34b52fdad7f2d30e79ee266701e3ddd3091741484bf7bbfa1444e13edfe1d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_11.json.gz",
+    "bytes": 1106613,
+    "sha256": "922822e5845f0d648b3263dfcd76581d583a39500dbf694024a8718608764834"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_12.json.gz",
+    "bytes": 1100670,
+    "sha256": "0d110d4dccb975c393b868dba6a3dbbe88e20b74286a6e50f0e9813217263675"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_13.json.gz",
+    "bytes": 1077521,
+    "sha256": "ed57b83fc68775bf773eacb74484b86ce2be3aed4a0168b89004a493adc5dd9c"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_14.json.gz",
+    "bytes": 1003135,
+    "sha256": "6f06ae19bdd50fcfc54227479d9604dc6ef661790fe87025fcd5303e6aa5f835"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/guidance/request_15.json.gz",
+    "bytes": 1004641,
+    "sha256": "8a655d56738af08c8905f212d9b4d36482a2d14d1a2da20460cd12b8171159e8"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/initial_model.xml.gz",
+    "bytes": 37921,
+    "sha256": "788326552e025a193e33d8c4a8b2c992225accd101ec44d80b5bde34e19de2e0"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/initial_observation.npz",
+    "bytes": 159581,
+    "sha256": "4e4bc1993f70ed081d191ae2d6576ed2e3deb9fd372c1a0c29d9c97f2388a6cb"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/predictions.jsonl.gz",
+    "bytes": 4614746,
+    "sha256": "7bc0a0113851b062ab203bde8eb7271623b9c91393f269c05e606bd6b9107973"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/progress.json",
+    "bytes": 241,
+    "sha256": "0d5b98b309c5cb1b0e40236d3ef845e44191a794fad0cb71fba2e5d3c73d9748"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/reset.json",
+    "bytes": 516,
+    "sha256": "124c45efbb87b17317adc7f3825936e80a36659910a8c7b4064b1ed51e13723e"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/result.json",
+    "bytes": 2668,
+    "sha256": "366d94890b65a2ff98bf0eddb76520448f75c5fb2612558a52d48298e9acfa09"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/rollout.mp4",
+    "bytes": 7306630,
+    "sha256": "62ae8d85b87d5ed39b7ca91c8bd17acdc5b7bdf390dd7f37ca67a33c8a6f8570"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/started.json",
+    "bytes": 158,
+    "sha256": "a68feffcad1de43ab8b071d8de6c7347801e7503fac37763b6c568f15127d45b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed1/starting_image.png",
+    "bytes": 148107,
+    "sha256": "712c68395702a1445856dd4b85f9211ff2a379f43d853ecbfd3567441a5d0723"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/executed_steps.jsonl.gz",
+    "bytes": 477335,
+    "sha256": "58095931b78fe8f251eca33048b1a3246deddcfff61fe8df7b5876675520d6c4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/budget_exhausted.json",
+    "bytes": 58,
+    "sha256": "c5fc39aabe12372f9b461de41fc94d6bdc7d5fdf33b45bd75d97e0a913831b6f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/paired_reset.json",
+    "bytes": 21768,
+    "sha256": "d7d8267d8130dd10af6c7a3fa9276c62a03b1491eac834372b2c25d83a594f7f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_00.json",
+    "bytes": 1158,
+    "sha256": "a89a10f219bb97c568b5ba71ddf30116584b1a315c94df0e2674053841d4c3a9"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_01.json",
+    "bytes": 1154,
+    "sha256": "5bfaa559ccdb165bee836e2c6df50b4be3fc4c61d859f64794a95add150191db"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_02.json",
+    "bytes": 1181,
+    "sha256": "efe1635a107c09d89abca3cb48357f0ed1af75e91a503db1c1e9512101a5cb2f"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_03.json",
+    "bytes": 1150,
+    "sha256": "c11cc3a4603a53109584d80859bb2628e92d110049a1c109c200195d4c2d38db"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_04.json",
+    "bytes": 1168,
+    "sha256": "e7f9ba944fc5cdffbb63ec39e69b612bde34d1cb33b694097d2dbd90d1c0ddc4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_05.json",
+    "bytes": 1187,
+    "sha256": "991ec04c8d4ee9414dc489b1dc4006b1f21d2cf21e94c38ada01c4abff821517"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_06.json",
+    "bytes": 1184,
+    "sha256": "59c036b214499d78b63f89ce52a2e725220da5ec2cd4b8543f6401bfa261101b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_07.json",
+    "bytes": 1251,
+    "sha256": "e5f078f0cb7e176df44fc5f6d9aeb9e6eddc2a434b7d4e92c33d82a0bbd68dac"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_08.json",
+    "bytes": 1213,
+    "sha256": "ac35babdc7d3397e6e859f3a12a8c199f553a704069806332a1ce7ad2c19924d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_09.json",
+    "bytes": 1170,
+    "sha256": "5754a6fc9482c352a702feea1b2b92929b68e6a3c73d0fa688789c4883b98afd"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_10.json",
+    "bytes": 1197,
+    "sha256": "e14b4ccd43e82866575c683ece789b3243c182e81f05c956d94ae9379d5a6e39"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_11.json",
+    "bytes": 1211,
+    "sha256": "284bbdb9442345b900422399b82060f756406ecfec3f2f99332d4aac06ae1109"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_12.json",
+    "bytes": 1267,
+    "sha256": "87931d3bc01e8194626cd163e59b40181a32a07f30b21376b1ae398b2ee1b660"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_13.json",
+    "bytes": 1273,
+    "sha256": "3026d533c7340670c2aa7d4795c2114475fb9815a302b92540d047b330767210"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_14.json",
+    "bytes": 1262,
+    "sha256": "7a99f8f7fb325bb5c246cee568f6676fd780b7b5649dddb06e86fd749e62c7ef"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/proposal_15.json",
+    "bytes": 1280,
+    "sha256": "0d0dda9e24a2e04c6f07d8404664b1f3788108f988778334b0f375e0dbf58cdf"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/provider.jsonl.gz",
+    "bytes": 9975,
+    "sha256": "cba14c2cbddc16b7d6faf162aa028a24d6ed8a2b90cde950c559fd1fff514297"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_00.json.gz",
+    "bytes": 775855,
+    "sha256": "c126a69ce29df6cb180535d20e6e007a67d11315768964b487ef89f6756529a5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_01.json.gz",
+    "bytes": 903949,
+    "sha256": "5a192dd879a90ec9d24be39cc701d49c4a605b73127ba1dd62c07bedc20425e1"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_02.json.gz",
+    "bytes": 946545,
+    "sha256": "0996db402056c5abe0d7827cbbb9fc5374f5f7a562b02984b242b8b2586217db"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_03.json.gz",
+    "bytes": 958529,
+    "sha256": "5b6c97607407f08301dac1ef1f865a0b2746a20771c752788ca1c7c1b2be72ab"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_04.json.gz",
+    "bytes": 942087,
+    "sha256": "cb5fae93e71251506599b17a2ae931fa83989c4595bfc5a745bf88653f6fd396"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_05.json.gz",
+    "bytes": 933140,
+    "sha256": "4f744256821c42e179c664452eab414f28000e074fcdd7158bb6471dc65292bf"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_06.json.gz",
+    "bytes": 912895,
+    "sha256": "82f4edc8d57a5a062fbff87585a7e7dfd5fafc0d26c2334ce7ce08111f480764"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_07.json.gz",
+    "bytes": 947919,
+    "sha256": "d3ad1450670e7fcd4400a438455115e8a943e106bb5c37cb0648f1bb1de47c72"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_08.json.gz",
+    "bytes": 991711,
+    "sha256": "e594d02c69d531323f91b8024e8bf36ce07b6349dfbccfc1bd0db1b3d2f4c16b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_09.json.gz",
+    "bytes": 966602,
+    "sha256": "a45899b07627c385cb89052131331d7d435767d95e60d20cc4238176b3200dba"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_10.json.gz",
+    "bytes": 952580,
+    "sha256": "8d362e2c25dc67eddc451545b9e17556bea16bc4fe87178295cf9005c7977516"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_11.json.gz",
+    "bytes": 946755,
+    "sha256": "51e1708a396c21cc30260f0bc64460832851809bb067fc09af207bee5c145b70"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_12.json.gz",
+    "bytes": 947584,
+    "sha256": "0fd0e579f4e70d60c5493f9f545d6301085eafefdec6ffccf0f5773a617e8837"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_13.json.gz",
+    "bytes": 948052,
+    "sha256": "cfed5dd592c16f44352542c54b429f3a051f2fc26b04af25ee3a34932b68a60b"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_14.json.gz",
+    "bytes": 948556,
+    "sha256": "a7c49656f84898fd8034a64619598e51943460e7b34cb4deb2c0640aecf0e164"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/guidance/request_15.json.gz",
+    "bytes": 945940,
+    "sha256": "2ca5f337fab0552871a1c5e6f22d7532df03c5597e61f743bc8217e41abc30a7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/initial_model.xml.gz",
+    "bytes": 32869,
+    "sha256": "3ce8c733038f16d195c75fb8d34b5bc06a3814d15aa678ba0a1eae884176c55d"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/initial_observation.npz",
+    "bytes": 125776,
+    "sha256": "1fa9162f623eb1533acc7b3aa48fab25d3fc5df4ca0fa7fb33e985138dbcd4d7"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/predictions.jsonl.gz",
+    "bytes": 4613779,
+    "sha256": "ab94357c9038dab5b5322fcaf73bfa087b296f051230938165abcd5c10b4a6d5"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/progress.json",
+    "bytes": 242,
+    "sha256": "b76369ab3f9f4680f4d469daddeae74eb88241aaac8a455c95ee09e1e0324d34"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/reset.json",
+    "bytes": 527,
+    "sha256": "7c7d10a7d7087f88d4608a69f95ce24d30bcf8fe0781862d5264f216dd2eebca"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/result.json",
+    "bytes": 2669,
+    "sha256": "1deae7b772de513a2f75c64a6bb8696c812708047f2f7de6b56e3efa4bbe1459"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/rollout.mp4",
+    "bytes": 6281748,
+    "sha256": "300c706edef0e17af34906574aa179e19353ca0252a93de334622f05ebd56413"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/started.json",
+    "bytes": 158,
+    "sha256": "5cacdac795c702bcc3dab025e10e308253baad6d2f8c0b8ff144157e8e6b5ae4"
+  },
+  {
+    "file": "evidence/astra-complex-20261006-robocasa-language-resume2-dev5-1/PackIdenticalLunches_seed2/starting_image.png",
+    "bytes": 115434,
+    "sha256": "140c781286cab5b17e9c494e365dcea6ceb8fe31cbd8777c8097f15c12b456cb"
+  },
+  {
+    "file": "index.html",
+    "bytes": 62368,
+    "sha256": "0e225b7595515bccc52f84a675ad364cd14b63b5e0769ec237608e35e5fc1a43"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/audit/commands.jsonl.gz",
+    "bytes": 863294,
+    "sha256": "af0a4059c602c1531fe0d8304cbc94d28e7a623915abdbb0c7d835bad7b1e2d7"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/audit/recording_started.json",
+    "bytes": 58,
+    "sha256": "ff80c09e52fb2240d42cc72e251aee8ea4ab58bd2a6125d2dbc9dc2e5c43d945"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/audit/runtime_joint_map.json",
+    "bytes": 3457,
+    "sha256": "381c3900c36c58a37e7b8693d1dc9c62998871037eafc9fb91dbebef0ba4e5dc"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/audit/simulator_environment.json",
+    "bytes": 179,
+    "sha256": "510abb397f8aa3d3b1d6bb336466c7452e29c7d422a119534c4a6381eae916b8"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/commands.json",
+    "bytes": 1840,
+    "sha256": "678cb2b71e55430589b3b9e7995e3dacf569fbf82f6d24927f27cd1fa85faac5"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/native_results/per_episode.jsonl.gz",
+    "bytes": 4732,
+    "sha256": "192e879dfab42796b2086a226d3c9812cd183a722438b6679fc2afea675aad95"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/native_results/per_task.json",
+    "bytes": 10658,
+    "sha256": "a45378e59f3daf03edef9e82d40445fcf352cc7cc1caabfbe0968a63f961d819"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/native_results/summary.json",
+    "bytes": 10208,
+    "sha256": "ac88242f289d90eb8fca97381619e2507c1660996ae8708146e80aa6612ed937"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/pilot_summary.json",
+    "bytes": 212,
+    "sha256": "2022e96b3dba241216c348ecbd56dd6c9029c959c50964cc15f5961b5512c53c"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/inference.jsonl.gz",
+    "bytes": 794,
+    "sha256": "f7368cabcd719700c554c57955bce2ec7a74ae160c6d68ddaca76d6011ed1b42"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/native_policy_config.json",
+    "bytes": 347,
+    "sha256": "757ea524d3f031685ad0765352d6bf176965855669518b1d4ea5f16c4471250d"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00000.npz",
+    "bytes": 3111,
+    "sha256": "7d5eed57d50565b4bbef9e7e2e4f553222adf2c5f0e49a591e995fe8ecc1f5eb"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00001.npz",
+    "bytes": 3120,
+    "sha256": "9a3b3243da799c26bf0b5a3bd6cbac35fc01f2e8391fc3637ee69e94884b945d"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00002.npz",
+    "bytes": 3098,
+    "sha256": "68257209ae1eb3a7f207106a760f58cee62d9f61c293e6ea04daac5de2bd7023"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00003.npz",
+    "bytes": 3104,
+    "sha256": "e82010477d2ffbfd04545a7a42f55af448b4e0c80758e3d7fd37ac0ed7eaf139"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00004.npz",
+    "bytes": 3119,
+    "sha256": "1ce924b8d42371942fa48192a46ce2daba2013a3c8bc7096f04ee587141aae72"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00005.npz",
+    "bytes": 3108,
+    "sha256": "6abe6904dee0165ee40655a2a08e7474779909d21c96d98a366417a1d442f5ab"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00006.npz",
+    "bytes": 3110,
+    "sha256": "f690a0099735126c716838bfb10b70a6a642e3f4c9a1455f1ef222a132766c30"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00007.npz",
+    "bytes": 3122,
+    "sha256": "002221334e7bff453e691df8106d5041e4e190579395385b22da7a83ed20598f"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00008.npz",
+    "bytes": 3132,
+    "sha256": "b7ed4c4ccf4bd52c1efee3ccb0703b10b4faea1b3ac2d87875de52c982590a45"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00009.npz",
+    "bytes": 3140,
+    "sha256": "f994a440e8d0a15e470f6cc82eee9a0a3087755607fa9ce24c7def0bc805dc10"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00010.npz",
+    "bytes": 3116,
+    "sha256": "356e72b3033200808afc9ded22da39387f3104367c4e235a4bb21997265b760d"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00011.npz",
+    "bytes": 3129,
+    "sha256": "d2aa921de47df73c0ad97d6d14e3a931a47f4e0c539c2992905b8d63f9920f62"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00012.npz",
+    "bytes": 3095,
+    "sha256": "05452f778bf74902cd6534bcea84af64e130e2c3700e3a1ef4663eee5da6499f"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00013.npz",
+    "bytes": 3082,
+    "sha256": "8291fab28711e03af5be6ba2cc0a38c3029f0f6eebabd24151275e7a559e2b50"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00014.npz",
+    "bytes": 3081,
+    "sha256": "108e8bd0ba750fe094248d8909b0cc2fca34efa95b7c961a559a6f252504c099"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00015.npz",
+    "bytes": 3097,
+    "sha256": "e6e17b5496c202ce938018ed3da7eeaace9603102bd203fa8e1583370a93c844"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00016.npz",
+    "bytes": 3082,
+    "sha256": "f18ae6eb651856e889e3496452ee845b5e8a7995ee233841b26494be8413c610"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00017.npz",
+    "bytes": 3063,
+    "sha256": "6d24b949ac7ab0282202e9708a62fa3733009c14337d99e1e3243cb21c1a25f9"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00018.npz",
+    "bytes": 3077,
+    "sha256": "d0ea0caffcaa13b0c546b116cc4bed1d694c43462a47637d57477e8d0d2ac8fc"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00019.npz",
+    "bytes": 3095,
+    "sha256": "e84bfa5824b1572bcce20e910e44fe691bb0ca803009e90cec689d67905a6247"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00020.npz",
+    "bytes": 3086,
+    "sha256": "6b1ae650e8a0f08f02c3de3d1eba706dcdcdd4e19f9af334a608b03714d2d6b1"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00021.npz",
+    "bytes": 3084,
+    "sha256": "9ed4e3d8cf4530ab6ba4388bb6922c3fb4f91efd13ef915bb558b95773c2a5ac"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00022.npz",
+    "bytes": 3077,
+    "sha256": "6e3a5f524e6f0cdcaba084f0f296e251887d4e03dcbbeceb4af215044c5c013b"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00023.npz",
+    "bytes": 3079,
+    "sha256": "d8914d929f6a0a0cf86a2b07ad1d9de6e270da512ab2f091f265e98ff7c109ab"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00024.npz",
+    "bytes": 3073,
+    "sha256": "c05f342b93a5008845113336ed2f600524455eb32736482717276162b14e79ae"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00025.npz",
+    "bytes": 3075,
+    "sha256": "47d87832e32584b33ba8d140eb0984826ad05f179322894f6ff3b223e0cdf2f2"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00026.npz",
+    "bytes": 3085,
+    "sha256": "8d6cdbee4e6ca6415352f3e320fa6aab46edb3a2e522a6897f07535241588ea7"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00027.npz",
+    "bytes": 3084,
+    "sha256": "647f841dba041d7a14ab01b5f4c3e398b9a90579992882eb21d3f0d408510b88"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00028.npz",
+    "bytes": 3086,
+    "sha256": "026dce8131ecc8f0a81ed066321eaf86789716cfd9da414d19f299725b853bca"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00029.npz",
+    "bytes": 3093,
+    "sha256": "f59c819acbb30bfaf85c17029f963c1f7ead3e6c06ae4bff782d92c71168136b"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00030.npz",
+    "bytes": 3077,
+    "sha256": "4f6a843235f820914fc857ab43984faee2d32f04c238b7549bf38cbbcf99ec37"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00031.npz",
+    "bytes": 3074,
+    "sha256": "1a8bd86ca494fc188f597fd1cfe08fdbc3478e8f77af7d54bb9e2f2c1fc04bff"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00032.npz",
+    "bytes": 3086,
+    "sha256": "d7be690aa80d02985b9a7b8622868d7b103b1b2446335afcbcf9f27ab9b62b06"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00033.npz",
+    "bytes": 3086,
+    "sha256": "98f9ec0037af90e1b10621969572d8f8d9a9dc189aa04de803f1bc61d43a2a85"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00034.npz",
+    "bytes": 3077,
+    "sha256": "3704a6facd4128a1fb289ba1b2f3f99fb8f57d25b48ea574404e402b6eb60416"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00035.npz",
+    "bytes": 3063,
+    "sha256": "ab7da9c5a13d4043175ff51d84b38f63369ab577a12e8178405c0074d8277a15"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00036.npz",
+    "bytes": 3068,
+    "sha256": "7967c4a3a9082a66a67d3312c4e19a561dcd6dda1fa091d556267bcbb2c64848"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00037.npz",
+    "bytes": 3077,
+    "sha256": "2e4701b6bae160537f6c4f235c60798ffcac36a631d4e42f39552992b66779c0"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00038.npz",
+    "bytes": 3086,
+    "sha256": "8bb174b8a4c84c5d10e94983e0d8a814d84f8221e17f01ee9b6822a740934195"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00039.npz",
+    "bytes": 3074,
+    "sha256": "ac035b48c01d900ab2eb141725790750ac3be9918b84ee42dd210fc66a02c957"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00040.npz",
+    "bytes": 3087,
+    "sha256": "2a51b86bd63bbc15327165ce76cc85e3f71896453d2347f8fbc090ebf15c988c"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00041.npz",
+    "bytes": 3075,
+    "sha256": "da9622ee6e904075727c515c20a9d672025404230f5add24888f89ac6085b797"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00042.npz",
+    "bytes": 3088,
+    "sha256": "4e0c8ba4bb40348deccb88a4635c77cb90c36a6473b05fd9357af2847a8b292f"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00043.npz",
+    "bytes": 3089,
+    "sha256": "2a88091c6a8dfeaf9c030f8ccf5af3a17cd4c2369f30bf53fbd6b65790e08e5f"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00044.npz",
+    "bytes": 3085,
+    "sha256": "a5a15bcce2d8e788fafb156791bcf3e9d9999874fd8071acb5f34dee3ef7a451"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00045.npz",
+    "bytes": 3082,
+    "sha256": "6adaaf2dc12da16a4eadc2c31f3e2cd5c03738498b9aef56e48317b162594240"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00046.npz",
+    "bytes": 3091,
+    "sha256": "40e1fb794e765d33ba299cb790b8ef97003e149bc21285135c9af75955dee72b"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00047.npz",
+    "bytes": 3084,
+    "sha256": "4fa36302666d0fe4b826572c8c30c5a080f0d71283fe209e73ca3dc7e56959f4"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00048.npz",
+    "bytes": 3092,
+    "sha256": "89219eb99bbe25d070ef82d9de3da420fb8bafc5644e3f09171c5c2dee423337"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00049.npz",
+    "bytes": 3087,
+    "sha256": "da11df37f7fc3503136e6d8c39c37553f7a5ed15ad0903c1bfe00af6a1f6c286"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00050.npz",
+    "bytes": 3089,
+    "sha256": "d63d09b0104ad17c2d47368631a81c6425f04b3e9d6a0edf83b2fbc3463491ee"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00051.npz",
+    "bytes": 3077,
+    "sha256": "ceda09df9b7fc41981de46f08cc2bf5cf2f1bdffa673b221ed4b1b146a3d96f0"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00052.npz",
+    "bytes": 3080,
+    "sha256": "26c74f69b2c5717641a14d9c78ebacbfe8d7094a1cb085631fcaeda6551cc857"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/prediction_00053.npz",
+    "bytes": 3083,
+    "sha256": "4786fbeb2f62d38f500261a9ff02a51f578ddccf48fc05bd626f78194f333db1"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/policy/resets.jsonl.gz",
+    "bytes": 93,
+    "sha256": "2495db96e23ae403dba45cd62948420e42b0c14636ce10b9c9c8dc5a77523db7"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_overhead.png",
+    "bytes": 414017,
+    "sha256": "b80c9a4f7338d7f6b850892643b6c51a51c4a5edb7af409e18aa9a92d1d9dc8e"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_left.png",
+    "bytes": 374524,
+    "sha256": "436f46293b46f691f321d4a946ec6b5da897553f51cdaa036e27004766c5ac28"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_right.png",
+    "bytes": 374484,
+    "sha256": "950bea2e8e20875cd9037c084aea978a7e961cfa9b377defb457f35145b7062b"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_left.png",
+    "bytes": 234047,
+    "sha256": "a49f3edc756eba58d09208cf72a7bde81bf00eaca7aec51c4a51036f4ba43f52"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_right.png",
+    "bytes": 223045,
+    "sha256": "b12f278e0f39617ce563b153bcb1328e7b1631c73c8aca414d14bdec7729a889"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/preflight/inference_preflight_extrinsics.txt",
+    "bytes": 893,
+    "sha256": "46c86775e7f8a33118b3f3eb9f354e9259d78acf1060004d9580bb02c3531599"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/rollout.mp4",
+    "bytes": 8755157,
+    "sha256": "e3c135988259eea3aeb314fa9dca2314b4ef7d9d03864dc2f5f20863bc53f9f1"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/starting_image.png",
+    "bytes": 1254708,
+    "sha256": "9b9f31e68994872880572eb1f9000cf5fd0a4d1e1c20243746ac34a85d42f362"
+  },
+  {
+    "file": "native/bench/34_fridge_wine_interhand_pour/video_receipt.json",
+    "bytes": 636,
+    "sha256": "01756de53e8e9c212a18eeb14f8f18e2c8f57821363201b0110ac2f14a85e537"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/audit/commands.jsonl.gz",
+    "bytes": 1242814,
+    "sha256": "6b2e66ed6a743e5441b3931da625f5c8077e8241c2faba4b252e2160373dc0db"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/audit/recording_started.json",
+    "bytes": 58,
+    "sha256": "ff80c09e52fb2240d42cc72e251aee8ea4ab58bd2a6125d2dbc9dc2e5c43d945"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/audit/runtime_joint_map.json",
+    "bytes": 3249,
+    "sha256": "1e1653a7749049f5f8824a044433838530e8823cbe6a51f6dd6ce10f2ffdaa9e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/audit/simulator_environment.json",
+    "bytes": 179,
+    "sha256": "510abb397f8aa3d3b1d6bb336466c7452e29c7d422a119534c4a6381eae916b8"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/commands.json",
+    "bytes": 1802,
+    "sha256": "cf84c644f7027bc7489ca898b06521930c44e044cd9b22da38a20d41a4c08b0e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/native_results/per_episode.jsonl.gz",
+    "bytes": 4725,
+    "sha256": "9f8e836ed23453bc623b84c2476c0a7868cf25c2db257bf3c984e28f1ddb59f4"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/native_results/per_task.json",
+    "bytes": 10211,
+    "sha256": "f12f94cf05a53390d56afe53695db49cfa2ff7e23c42e82ada4bf042e734c5ab"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/native_results/summary.json",
+    "bytes": 9773,
+    "sha256": "1bc512180191ec46bdb64736ea35b1025a8643694bf69e5de4e6934fc231095e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/pilot_summary.json",
+    "bytes": 208,
+    "sha256": "d4c8e79fdcc952e404619088986bfbd1136e291a2afdc36d60d37e060938c9a7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/inference.jsonl.gz",
+    "bytes": 882,
+    "sha256": "5bbec0b811ff42c31927183472c76fee7fc9228b2383d9ccfcd20da39bdafb0f"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/native_policy_config.json",
+    "bytes": 337,
+    "sha256": "5d2e03869303604d1ec71fbd778e21dd328f6c65b998efb1ed3618bf9ab5d222"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00000.npz",
+    "bytes": 4278,
+    "sha256": "ea6d8a04423cce06c40b4be2f0b5e5978dbbdb98a35e33ee4653f8285337993d"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00001.npz",
+    "bytes": 4272,
+    "sha256": "07a2bd5cb62b62e3c0f528edf6b4c3d7df8ec24d0bc0896f4409cbeff6da79f9"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00002.npz",
+    "bytes": 4252,
+    "sha256": "3856aed63921f071d187571d8bd460075c62b483b90b07f8779df5453f23cea7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00003.npz",
+    "bytes": 4268,
+    "sha256": "167d97aab10b9ed9ed676e07bb7c27761489e75303d6f1c60a8fa6d36c391872"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00004.npz",
+    "bytes": 4247,
+    "sha256": "270c01cae10bbfac9017a7c5eefafb4ce98e2d8d632294d9004b4257349bfcfa"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00005.npz",
+    "bytes": 4243,
+    "sha256": "0da01b96ca18cc5f02cb6cb0da408e95bef9bb02f0520668cfa84f98bf141e56"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00006.npz",
+    "bytes": 4249,
+    "sha256": "604644c10ffa0b4910373d9bcadcc7e120b62ae94170cd37b30d02e68519b468"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00007.npz",
+    "bytes": 4268,
+    "sha256": "351a87b5c5f5e53a98a2b8e094efb7c347daff9e47eca1113844cd5d91a9f72e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00008.npz",
+    "bytes": 4271,
+    "sha256": "00c7e09611897a20e1722dfbf4ca1877d955d7dd463a9a54ad95ebc07cfe8286"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00009.npz",
+    "bytes": 4248,
+    "sha256": "d317a0e3bf999b096790d63d25d6e66b0666bf7bed6067141a7bf6ea4dac0e6e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00010.npz",
+    "bytes": 4276,
+    "sha256": "6dd985c2a15c25688436cb02258abdd8a49dc91c9779be8deb0e0464a2deda07"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00011.npz",
+    "bytes": 4289,
+    "sha256": "1afa4a4a0f8c2f5744ea78489f71aefb573d15b0f4aac48a951af2d2ddaf2e19"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00012.npz",
+    "bytes": 4288,
+    "sha256": "48b4d93b6549b8a6a0c66371e2c19b8371ef948f68ee9c3bbebd7ac521e43d38"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00013.npz",
+    "bytes": 4266,
+    "sha256": "1a2c27a2a6de674565819d824455b8698d705a86f1e1a0d76282e6ec497b2f26"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00014.npz",
+    "bytes": 4269,
+    "sha256": "d9704933c92cd555aada8c276b201a8ba8d3ff883772d091f807e8f747736fa2"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00015.npz",
+    "bytes": 4281,
+    "sha256": "dfe90cdf2d8776dab4292ab9a08d2c619932a064fa5f4af72366e0ca773484e5"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00016.npz",
+    "bytes": 4271,
+    "sha256": "3c54fe60b28a4dcb2a2f0ad86253969ebcd82986b77d7f2a7d74567a2737903d"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00017.npz",
+    "bytes": 4284,
+    "sha256": "ac26639212a8d9f75e8747a252b150a4973feb594e00ba22b3d82d7160631ff9"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00018.npz",
+    "bytes": 4285,
+    "sha256": "586480e922c15260c53d15485483b00f6aa354e587e368798794aa71a27863f5"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00019.npz",
+    "bytes": 4277,
+    "sha256": "a4c36b0c659c3489e0f72e10d5df1813078ff6d6050f36c5134f2bba41142074"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00020.npz",
+    "bytes": 4300,
+    "sha256": "5af80c2f444eecc8c2fdfe9d0799494b2e9ca744e236505e8edf2dbc350a61e7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00021.npz",
+    "bytes": 4279,
+    "sha256": "f186f86081e51a3f44953f4d11da518ee9dea12d4050c304c529b5bf31015af0"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00022.npz",
+    "bytes": 4274,
+    "sha256": "696ae9c8d3789346368c66bb16e22dc56888ac9aa21890984d73237c72c813f7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00023.npz",
+    "bytes": 4278,
+    "sha256": "c81bddef7da9bbbfb35d96f3e14f6c41df39303a89a47814821ce48fdd0c50f9"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00024.npz",
+    "bytes": 4288,
+    "sha256": "7c99cd89b692594856877e353679b62c90438d9c9663f120729416cf14c472ed"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00025.npz",
+    "bytes": 4288,
+    "sha256": "d32902236a2544c6c3a119b9e82942e1c163d5846313ff2dfe24273187d0e711"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00026.npz",
+    "bytes": 4277,
+    "sha256": "e2891b4d1d13f3e0b5af35c376143c8f7a16ed198e0475cb69983ec6ba59389f"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00027.npz",
+    "bytes": 4292,
+    "sha256": "b79e73e698c7609b1c4e3a4f477bad6bbc019df7ad5358c7e332cc8cf04e9292"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00028.npz",
+    "bytes": 4295,
+    "sha256": "c366724d33a0aba6204092df82ed0ae986ceff39fe01c270fb42dd7544f06f65"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00029.npz",
+    "bytes": 4290,
+    "sha256": "0a83a6a874c9920c0a5f8e67c1f4f0f16d61b4a60018e9174223a3722840a2b7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00030.npz",
+    "bytes": 4279,
+    "sha256": "26c8c1026e7cb06ca9cdf140e2f1f3af3628fb0aa7c7dd2aa64b24275bd364a5"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00031.npz",
+    "bytes": 4247,
+    "sha256": "3349dbb6a6202c52a71501bffdbf5bbebec9afebef063694fa7c85c2cde87391"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00032.npz",
+    "bytes": 4249,
+    "sha256": "bbdf4b11a0aee30975074ca01b6a905b9d18466a33e8229a4e725b5e88ad70bb"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00033.npz",
+    "bytes": 4251,
+    "sha256": "df0239bfb38302ef573765adc914fa38c1ae66b669bfab56d430024a0cc8f41c"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00034.npz",
+    "bytes": 4260,
+    "sha256": "577f28b847cb4b9a415d8282de23ddcd0e690a98fa94dc4dbc4c97e2a2996eda"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00035.npz",
+    "bytes": 4259,
+    "sha256": "499560e63dd79006c3d04df0ff89ef9ed59ac7df33226765a9d9ac1e01b397ca"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00036.npz",
+    "bytes": 4276,
+    "sha256": "8d10a927217a0bc6671bd12c0dcd02307a2cf8d660ccc3a270a434fb23d2620d"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00037.npz",
+    "bytes": 4282,
+    "sha256": "11604254aee1064049f99d18f2e10d8a4ae94349abde93c808daf9a929829e2a"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00038.npz",
+    "bytes": 4277,
+    "sha256": "7252626e8fa3a305c3aa4d1dc73de17c9011b04b99de2a05e5a58af3ddd00107"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00039.npz",
+    "bytes": 4269,
+    "sha256": "200cfcffa38c83b5ac75c033c43f03663f115de60e2340214c5bb2b3ee93886d"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00040.npz",
+    "bytes": 4284,
+    "sha256": "993db0928b7bd93f3b78247f75b28a8739f9c15d81176d860edd72d2870ebdb9"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00041.npz",
+    "bytes": 4279,
+    "sha256": "ffb239e38d1cfc3b2429ad32fa4988de42fc2c44711d07b7a9aba43452dd5666"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00042.npz",
+    "bytes": 4285,
+    "sha256": "03794f39fdc4d041a220fa77db798d6e0ce3db0f7d6e22888a471da8c46db3ad"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00043.npz",
+    "bytes": 4273,
+    "sha256": "c1df2c5ad89fbc7f27a385d5385d340349924521d8cadccaed50cc62a444dbd6"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00044.npz",
+    "bytes": 4291,
+    "sha256": "16ac3e5a65d2bc4ce9abae67f76ab11c0607ec7d31e9960532ecc59886401a3b"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00045.npz",
+    "bytes": 4278,
+    "sha256": "6e14852c66c94dbef9b9b590018315e946d6f990935282d4d7f74ff9713c5ece"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00046.npz",
+    "bytes": 4285,
+    "sha256": "b557f6656649eb7949d09f69bc8534a555db4b731c6938cd13c722b0df62d1c5"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00047.npz",
+    "bytes": 4278,
+    "sha256": "37c71b9efef9765585ea4345b143b417e29215b4f3e9d12b6c0de6de573d4632"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00048.npz",
+    "bytes": 4281,
+    "sha256": "5c09d7e8d6fe4487b46c70f32a102dd606c97db67de5058cc5d2032f724625e5"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00049.npz",
+    "bytes": 4294,
+    "sha256": "f4c3db65e3146eb9fba4e9240ff050887f0ec063f65e8a236cf61a672511ab39"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00050.npz",
+    "bytes": 4299,
+    "sha256": "a903e599f27952a9e74ccbecd904851c7d2e6beced4dddec8083de281bf10d49"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00051.npz",
+    "bytes": 4278,
+    "sha256": "307a96f18fbf2d359e90366efc33743287a80fcc7624af4ed1223bd8288b80a7"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00052.npz",
+    "bytes": 4284,
+    "sha256": "089aec956af39849ad6bebeffad5d795ab8a094dc17f1bd08f4330b5f63ce20b"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00053.npz",
+    "bytes": 4302,
+    "sha256": "e76e4ef944cfd8cb28f39ae2c51a145baca89a46aead3746f1d2f17032971358"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00054.npz",
+    "bytes": 4284,
+    "sha256": "32be0442445cc14f4e00e15a34049290e23600da6fd69d4dd4a8fbc46403e489"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00055.npz",
+    "bytes": 4279,
+    "sha256": "14b84ba5eec05b4cd2d78d84b85b9b5eee90d3b58c70ab5ed990f450700219c2"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00056.npz",
+    "bytes": 4269,
+    "sha256": "ab5fa1349b8ebd9ba2d346633ca8d784cda14b50bd36390552191bc10da2b1f0"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00057.npz",
+    "bytes": 4253,
+    "sha256": "9d6bbf12b22f787a38b14c5afe669932688fc2fd62dfeb1a105e1fad0d376aa4"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00058.npz",
+    "bytes": 4259,
+    "sha256": "f14b67e8b7c0d3a3e4fdcc7ec12d7123d18962dfb1a4649a86fbf2d8831852e2"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00059.npz",
+    "bytes": 4252,
+    "sha256": "4281125a480972ba76e8d48f8a1e452fe79c55824f5b3a9e973000a9b23609a0"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/prediction_00060.npz",
+    "bytes": 4266,
+    "sha256": "f1d1b0ee276dd95a7f5394be4989eef41f97b0873e21a59318b0313014b8fbcc"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/policy/resets.jsonl.gz",
+    "bytes": 93,
+    "sha256": "47c53b1324c3a920eac330fcf3c95d97f4df96e2e99f796a0c780e1ed0235a78"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_overhead.png",
+    "bytes": 222123,
+    "sha256": "981b55bb4acba6031a611989d0bd934cd12b29c99a4928799ba9bd6a4eb0647a"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_left.png",
+    "bytes": 252414,
+    "sha256": "4d6d344d91292881cff55f0e6ca2b97bc2d6d4a7cb29339b7927746dc620b1bb"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_right.png",
+    "bytes": 246251,
+    "sha256": "9552c9e540816496231c2c12f9c59ab572591e088cd73ed5dd50cb76fb8eb34e"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_left.png",
+    "bytes": 194085,
+    "sha256": "9b3c20b1506f94c808ad762e1f7c6d4b96e067b5234a0d71b52e23150f0754dc"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_right.png",
+    "bytes": 193094,
+    "sha256": "e26bbe4727848c6e99eea5834d24180c9bee90acdfb77062c71c1d3720ee6494"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/preflight/inference_preflight_extrinsics.txt",
+    "bytes": 898,
+    "sha256": "3c13c7ddc9293cff0892d1538f14bda59b24cb873f0f61594ad1ac433c87cedb"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/rollout.mp4",
+    "bytes": 8508826,
+    "sha256": "20992a138a61f8a9cbffd60e72ca65cdf0550494446df270e89676723d3dd323"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/starting_image.png",
+    "bytes": 932158,
+    "sha256": "34d12c0876db4931f54f771e4c23ae19a6ac3129641d3863113eee274488d346"
+  },
+  {
+    "file": "native/bench/73_jigsaw_puzzle_assembly/video_receipt.json",
+    "bytes": 632,
+    "sha256": "6e2bfe266033b9dc60b9ef8f6101cde4b25432b3ff435fedd6f0906611ed17c2"
+  },
+  {
+    "file": "native/index.html",
+    "bytes": 11944,
+    "sha256": "799c1f76a670654f62190b72856862c7e289883c59aed6db876aceff68c5d586"
+  },
+  {
+    "file": "native/manifest.json",
+    "bytes": 42787,
+    "sha256": "3c8ab2ecebc7e225dc8cc3f9bb7815f1570ec22213d4379a3ad537b70f80c445"
+  },
+  {
+    "file": "native/provenance/README.txt",
+    "bytes": 9630,
+    "sha256": "4bc08b3b3ff6427883dcd84c462e30b5597859d8bc4d3f35b92f00d2eb1ad723"
+  },
+  {
+    "file": "native/provenance/bench_original_archive_receipt.json",
+    "bytes": 65492,
+    "sha256": "f4d1b002973c118ce97380c92c0a5a812704d21fe67c9eb97dc2ad7fbd57259e"
+  },
+  {
+    "file": "native/provenance/derive_bench_videos.py",
+    "bytes": 2654,
+    "sha256": "d92021bbdd7d80abd5332d42fdaaee82adc30fadb833c37351246599803ea658"
+  },
+  {
+    "file": "native/provenance/protocol.json",
+    "bytes": 10856,
+    "sha256": "d622ed788bc410fbf1349004cce70bfc59dbc7925bda35c51d190bc8a3671d48"
+  },
+  {
+    "file": "native/provenance/release_manifest.json",
+    "bytes": 32297,
+    "sha256": "587ddff4557c29313df238f22c5606ce5095bfef1ef7e3775fec1f61b572a0d9"
+  },
+  {
+    "file": "native/results.json",
+    "bytes": 12075,
+    "sha256": "5b83f255fc1a3275b90f408a9c45b57235edcd0b053b3ff562f06e89ad742714"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/executed_steps.jsonl.gz",
+    "bytes": 184306,
+    "sha256": "c8faab4d46992260289370e9f8d8b491ca7908027353fc0d2df6b000792cfc40"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/initial_model.xml.gz",
+    "bytes": 43699,
+    "sha256": "e32a45ef3f09bcbf1b63a8fa66360c1a8faca4977fb452ba331afc619d31a883"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/initial_observation.npz",
+    "bytes": 208448,
+    "sha256": "82f873dc2f3fe22f0d700230702c3113023075b005b5936bce3731d3d7400285"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/predictions.jsonl.gz",
+    "bytes": 1755434,
+    "sha256": "8ccff5e586741cda4c10b51e47045a159d76890638e238949a1f4469f153e94b"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/progress.json",
+    "bytes": 222,
+    "sha256": "c9e6765d925d8a16a14aea77caf8ca13a53b0c6aee22c11f8cd8f18114e877dd"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/reset.json",
+    "bytes": 604,
+    "sha256": "ef19c8450392eed8bb80fcf80352572472c147c7113ad4a402bff64956296218"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/result.json",
+    "bytes": 716,
+    "sha256": "041983d5abbe006aece5cdb38a3a9d6ed243cc08b37b92d6a2f1ed44094fe86a"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/rollout.mp4",
+    "bytes": 2070908,
+    "sha256": "c4803377b04c6bbc91826e4c3bbf338cb5ed0f65a09f0781f1c435dc97c0704f"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/started.json",
+    "bytes": 138,
+    "sha256": "eca1309c33d5a6da3e4d4396c623d5551892691e512c5e7bfc5e22d3352a77cd"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed0/starting_image.png",
+    "bytes": 198359,
+    "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/executed_steps.jsonl.gz",
+    "bytes": 184317,
+    "sha256": "955608d09051c18150f0d596e486ea32c00ad237291546efe6d185ca026d0e80"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/initial_model.xml.gz",
+    "bytes": 44539,
+    "sha256": "291e6985066f433ac558f64f56c06b661750d3817ced3c6b7112f63fba5b943d"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/initial_observation.npz",
+    "bytes": 279980,
+    "sha256": "9c77b26c8d2fcaf2c3e4e68d9021f339fa5304790997abcdf702ea606c0504f6"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/predictions.jsonl.gz",
+    "bytes": 1753193,
+    "sha256": "54ed81342a218b275bf1ec1ba52a069002c9998f9e629c19adb695b0370f5624"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/progress.json",
+    "bytes": 222,
+    "sha256": "edac18f76bc7a04b8725a9d2ce458325ccdd75c17f834b39b4bf44b703c8e0c3"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/reset.json",
+    "bytes": 615,
+    "sha256": "275ed04f446b41a496e445a87c9d59577226d876201ad3a3caa3ad5b460ff17a"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/result.json",
+    "bytes": 716,
+    "sha256": "ef13e39bc71f98bfcbde8dabe0db10e3a4ad6509a1fb1caa4a4d0bf0d26b172b"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/rollout.mp4",
+    "bytes": 2354809,
+    "sha256": "e1313635cb5ed7602f6d1f364d9be0299d077d6c3760eedbe0a3f044541fc9c2"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/started.json",
+    "bytes": 138,
+    "sha256": "70a76c058bba1a06d7d17d7fc73cb0494ef33b825ec13ffc9bbe95c0d4989cd8"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed1/starting_image.png",
+    "bytes": 259134,
+    "sha256": "89e0d7075d323c25e7470d363c65890c7c83133cd4a20dae7adedb06fde11309"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/executed_steps.jsonl.gz",
+    "bytes": 184351,
+    "sha256": "bfd605dfafecc359faa9fafe4a5160de87589e9e010faaf061810acc8d83d963"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/initial_model.xml.gz",
+    "bytes": 38758,
+    "sha256": "cf4d9ae1dc70522dbf7075eeffe0467358782ea0c4bb777607eaae3ca2e7eaa4"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/initial_observation.npz",
+    "bytes": 146798,
+    "sha256": "8a61f7fac145f7d44f38c5e381451a2d21ad15004f3956a704b4d07224d261f5"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/predictions.jsonl.gz",
+    "bytes": 1752715,
+    "sha256": "961ec41de8d93e9a50574b77050caa9f14333a48adf2a11be6cde1b4a5443058"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/progress.json",
+    "bytes": 222,
+    "sha256": "d4206a55f11d50a019733a6fe1c067e2d6711aa24c9875433201f87b05d25a1b"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/reset.json",
+    "bytes": 604,
+    "sha256": "ff703530879ecca50e974c0ddc636338b6f87730247f6ae0fb877857cdb90bf6"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/result.json",
+    "bytes": 715,
+    "sha256": "93675428e2d5315c10931b0e69d6c276703ec051906eb054ff52b3cf22eadb01"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/rollout.mp4",
+    "bytes": 2223599,
+    "sha256": "d965cc7267b6e1cc059b57cc4da329316fc93ed7c705f9b05022227a38f4a582"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/started.json",
+    "bytes": 138,
+    "sha256": "4384ffd04daa833faca3a35657b14f63989f39763ecc2f037e9a5a5d5d236279"
+  },
+  {
+    "file": "native/robocasa/evidence/LoadPreparedFood_seed2/starting_image.png",
+    "bytes": 140950,
+    "sha256": "fd9e23131d95779f99d6bb6c58696934b62c6f84bc6f946f8c45a6662af31495"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/executed_steps.jsonl.gz",
+    "bytes": 476506,
+    "sha256": "3b791a5e5ede30d094d5e3db6e221273fb7947cc5b0c917e2addc401b739e05c"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/initial_model.xml.gz",
+    "bytes": 36510,
+    "sha256": "2f2584a0404719439e245711b4e81592586125ef2a26ddf7b8e9a4dbbea39bb2"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/initial_observation.npz",
+    "bytes": 111850,
+    "sha256": "9b220f6d7be5f38faf47cb6d4ad80d763dcd6b0f42834f1a98d25d24c75f9dfb"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/predictions.jsonl.gz",
+    "bytes": 4542793,
+    "sha256": "e397207edd86e12587cb28234a7e41ecdf8ef57dbde12e0b3d2897724779149d"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/progress.json",
+    "bytes": 226,
+    "sha256": "b893a26703448ee866dcffdd9ccaacd667b152bcff7a953e995411db14c85841"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/reset.json",
+    "bytes": 519,
+    "sha256": "4156ebfcdd8610fbf92290363d92f29dae29d8f0530aee5970d2d3da668d6b63"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/result.json",
+    "bytes": 723,
+    "sha256": "a6c5018099ff528dc43235389ce1737a433eb163616d41db4dada9442577aa5e"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/rollout.mp4",
+    "bytes": 10178529,
+    "sha256": "4e98afd3157dacfb58628d14681c6a742d1a2629e2814108274f965884fd0205"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/started.json",
+    "bytes": 142,
+    "sha256": "24b796691de7f40489995749f1929e1686ea0efe5af02a8b1411e9fd31b381bf"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed0/starting_image.png",
+    "bytes": 112800,
+    "sha256": "566a8a2e443626aeac427b79fe2bab4d0e888a483caad12abb258c396f2e3cff"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/executed_steps.jsonl.gz",
+    "bytes": 476435,
+    "sha256": "3dce606bd3b09d81746aaf1366f6da505439dac224e70b05fe1a38a5b7d803ab"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/initial_model.xml.gz",
+    "bytes": 37918,
+    "sha256": "c1eaff3617c54aa78a620e2a67bf002d1758825540e292c76bd6b7c45279b867"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/initial_observation.npz",
+    "bytes": 159581,
+    "sha256": "4e4bc1993f70ed081d191ae2d6576ed2e3deb9fd372c1a0c29d9c97f2388a6cb"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/predictions.jsonl.gz",
+    "bytes": 4547289,
+    "sha256": "d30757f485a7c2936a9f33061231a62fc49d60c119a2528029ab232d4b6f72f7"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/progress.json",
+    "bytes": 225,
+    "sha256": "333f69a3154627ca89f29a218439b7396e009d61db13319ced02ff7e96f1b4e8"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/reset.json",
+    "bytes": 516,
+    "sha256": "5ea17d9e9a32e57950faf5daa363508e45f0fab48e5e3d3d3437b8b969d47294"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/result.json",
+    "bytes": 722,
+    "sha256": "c05e062fd4a552f25bc459b8d88b0707926aac37beda3aad9fe4c7418f260211"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/rollout.mp4",
+    "bytes": 6916874,
+    "sha256": "5133aa576c7cae80c7dce8154927ce7541b24c3ba68ff1a118bc7eee0bcc4960"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/started.json",
+    "bytes": 142,
+    "sha256": "c71ea8f566da6d12579158e05513c9c6199e4635f42929f48e77962e17887b38"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed1/starting_image.png",
+    "bytes": 148107,
+    "sha256": "712c68395702a1445856dd4b85f9211ff2a379f43d853ecbfd3567441a5d0723"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/executed_steps.jsonl.gz",
+    "bytes": 477041,
+    "sha256": "43712bc3e14269b8dcd80dfd4b766ef8d19a0a726c463ad649247248dbbad6c0"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/initial_model.xml.gz",
+    "bytes": 32841,
+    "sha256": "985b21a24c1bf4fdc9b40b3e11e0e0828fc60c35584a8bdf97fd876b6f6e0e3d"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/initial_observation.npz",
+    "bytes": 125776,
+    "sha256": "1fa9162f623eb1533acc7b3aa48fab25d3fc5df4ca0fa7fb33e985138dbcd4d7"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/predictions.jsonl.gz",
+    "bytes": 4548775,
+    "sha256": "7690ad8fdc2c6cc745a56dd227e2738ffc08f3776f0786010444b3be0e7b7c15"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/progress.json",
+    "bytes": 226,
+    "sha256": "f5b738986c900807f4585e6c969eac5fb348ffffc52031df7448f31e41fa5b75"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/reset.json",
+    "bytes": 527,
+    "sha256": "e6c5a55f98497ad3a1d5e367696e426c6876ff37d37fdfc20329baab8080aaf5"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/result.json",
+    "bytes": 724,
+    "sha256": "04e1dad8147944da9591ee24c058000a272eee6b4c806ec16f533a84b95681bd"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/rollout.mp4",
+    "bytes": 7086553,
+    "sha256": "8fd4ef0c0f3033b93b367d7896d9a4fc84a3e5582a2863f887115ccb416e6d1d"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/started.json",
+    "bytes": 142,
+    "sha256": "0106ccf739adbf456b77bd95fb2a3a21c0d4e3f79e561695943f8e93f529df2a"
+  },
+  {
+    "file": "native/robocasa/evidence/PackIdenticalLunches_seed2/starting_image.png",
+    "bytes": 115434,
+    "sha256": "140c781286cab5b17e9c494e365dcea6ceb8fe31cbd8777c8097f15c12b456cb"
+  },
+  {
+    "file": "native/robocasa/index.html",
+    "bytes": 15577,
+    "sha256": "f3d97629a211381cf987ce8b2d2470482eb81d862b9db9ac28f56057e2678791"
+  },
+  {
+    "file": "native/robocasa/manifest.json",
+    "bytes": 11617,
+    "sha256": "f031c843ac3925df3079addba8203251925761eab39d268a8e788293138e50f6"
+  },
+  {
+    "file": "native/robocasa/provenance/README.txt",
+    "bytes": 9158,
+    "sha256": "8227ae7ff46d7b64a3f0de58a65aa7e54d5c5a73e80b12a07429e2c703b185ed"
+  },
+  {
+    "file": "native/robocasa/provenance/bench_policy_runtime.json",
+    "bytes": 1366,
+    "sha256": "e039a7119f9b75ebafdb1050d6c4c11de79a26ce49be6dbc65eb9a49478e3e4f"
+  },
+  {
+    "file": "native/robocasa/provenance/original_archive_receipt.json",
+    "bytes": 26396,
+    "sha256": "61b0baf6e40bb96d69ffe8a22f51c0395cf847eb9075684545bdee0db4a71bcd"
+  },
+  {
+    "file": "native/robocasa/provenance/protocol.json",
+    "bytes": 8712,
+    "sha256": "bed6fc23a96f8ecc4b4ebd92d959c8209800835e323bf7316712ae38230b3032"
+  },
+  {
+    "file": "native/robocasa/provenance/release_manifest.json",
+    "bytes": 32297,
+    "sha256": "587ddff4557c29313df238f22c5606ce5095bfef1ef7e3775fec1f61b572a0d9"
+  },
+  {
+    "file": "native/robocasa/results.json",
+    "bytes": 8653,
+    "sha256": "dd6101e66d4f13ce2e79b041a714bcbb5dc96ba637f058c3fa645c238f93e0c6"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-dev3-1_archive_receipt.json",
+    "bytes": 20305,
+    "sha256": "6a13e425fe8849af53a675a514f915cbddcc2569c72960a9a3e8d8d49c373c0e"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-dev3-1_guidance_baseline_manifest.json",
+    "bytes": 3287,
+    "sha256": "bbd0cc153539f98b9155bd489a0b66f75636a8f4f8d344d6feb0e63891f16aa3"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-dev3-1_worker_finished.json",
+    "bytes": 61,
+    "sha256": "588a99fa1d7484df0d5a110726621eef55fcc6d94fe991cbc090435fd7431cd2"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-dev3-1_worker_started.json",
+    "bytes": 232,
+    "sha256": "582fe60964fbbb7d8d803d4eb4fd6a92221aad13f4d8efb29824e2be30097e8a"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume-dev5-1_archive_receipt.json",
+    "bytes": 6432,
+    "sha256": "1060bc254adc46a202d0bf1623a12dd979f09d5928a796b094212ba71c34ce0a"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume-dev5-1_guidance_baseline_manifest.json",
+    "bytes": 4421,
+    "sha256": "902ea11929f04c18907412250212bac98e28a559c20e9c394f948efc19137315"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume-dev5-1_worker_finished.json",
+    "bytes": 61,
+    "sha256": "b7f7eae417d779aece150f7efd9161f6bd7743d8442ce46190c9896112304d25"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume-dev5-1_worker_started.json",
+    "bytes": 239,
+    "sha256": "443a4c91ff8ccdd984189f33d2af625352b102a2fd2543967bdc4c8b1b1ac8d2"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume2-dev5-1_archive_receipt.json",
+    "bytes": 90269,
+    "sha256": "965c45ec5d5e23be38cc0ba7502c8ec4561c4b71512ee2707a1a20470646f15d"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume2-dev5-1_guidance_baseline_manifest.json",
+    "bytes": 5531,
+    "sha256": "4c194725f95f96100ee9115e1056c9858ea22229c1af3daff4cd79d12d576b6d"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume2-dev5-1_worker_finished.json",
+    "bytes": 60,
+    "sha256": "23b83689c5f0b348563129ba08d59bcce9df179ee35cac9f7ba2104a1da941f5"
+  },
+  {
+    "file": "provenance/astra-complex-20261006-robocasa-language-resume2-dev5-1_worker_started.json",
+    "bytes": 240,
+    "sha256": "e83b0f03992647c797e57f3e007a3023293308584bfcc7259e274c79533db673"
+  },
+  {
+    "file": "provenance/audit_language_prompts.py",
+    "bytes": 7625,
+    "sha256": "68040e305cf23b0eb75ae8d32b5ab7c3c2c50082e5cc95b4a224b622522da5a6"
+  },
+  {
+    "file": "provenance/language-seed1-reset-difference.json",
+    "bytes": 1045,
+    "sha256": "bba47beefaf5310f4e530918ededa7b85d4423f4f40889ab1713a7c71a7a6bd6"
+  },
+  {
+    "file": "provenance/language-seed1-xml-diff.txt",
+    "bytes": 1080,
+    "sha256": "f37f5d04cb2ab3fbd593d5448309cb819a35e1864aaa21dc03193f91bd3c5b79"
+  },
+  {
+    "file": "provenance/language_preflight.json",
+    "bytes": 11098,
+    "sha256": "df68bf43ceb4d8d14745f7c065cc32ba89e8b249c13a4ab1af07769e27f31835"
+  },
+  {
+    "file": "provenance/language_protocol.json",
+    "bytes": 6402,
+    "sha256": "71b4b5b3ae9eb42bf8fa88c66e021bb99f460c749ec9148095029d271ee102f3"
+  },
+  {
+    "file": "provenance/language_protocol_v1.json",
+    "bytes": 3586,
+    "sha256": "a450efce4b980871a5e34df8bbcd19d805dfaee4b858e516f7698db4e8815095"
+  },
+  {
+    "file": "provenance/language_protocol_v2.json",
+    "bytes": 5151,
+    "sha256": "51466af8be56b4f5acc6499b853c797badc82a569613aaeae43244b7b713427f"
+  },
+  {
+    "file": "provenance/language_teacher.py",
+    "bytes": 11467,
+    "sha256": "81fe691542dea823f7cd346a7cd11f54f718274a44c2e2ef6224a332ec6e36fd"
+  },
+  {
+    "file": "provenance/prompt_capacity_audit.json",
+    "bytes": 121489,
+    "sha256": "f384161b3c7e4a72560c937b3852d9f01d81dcff155a6ffeed725716a88db2d7"
+  },
+  {
+    "file": "provenance/protocol.json",
+    "bytes": 17762,
+    "sha256": "af7037a9501fb13ce47035ba902099c71d25b239b0e0bab826a9405be357f1b8"
+  },
+  {
+    "file": "provenance/reset-comparison-v3-cpu-audit.json",
+    "bytes": 12962,
+    "sha256": "e9fd771a558e475015c0eff56589be6481b9ad7ba23b5d93247156fcde7c5697"
+  },
+  {
+    "file": "results.json",
+    "bytes": 174777,
+    "sha256": "116fc17066838063b794f6363f7ceb2112544e4074ad8d024b62297ba711717e"
+  },
+  {
+    "file": "tokens-and-success-mobile.svg",
+    "bytes": 758,
+    "sha256": "be4a2794eb1b8f828f3f3fb9e287326cafd460a04903349614d6a1b84d8ca1e9"
+  },
+  {
+    "file": "tokens-and-success.svg",
+    "bytes": 735,
+    "sha256": "c84915b51dad005b6eadf5caf0181dbc902644785400ccb7dff9e0a7a8de65d7"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "matched": true,
+  "checked_fields": [
+    "seed",
+    "instruction",
+    "state_sha256",
+    "horizon",
+    "execution_prefix",
+    "initial_success"
+  ],
+  "observation_match": "exact",
+  "pixel_differences": {},
+  "model_match": "exact_raw_xml",
+  "baseline_episode_id": "astra-complex-20261006-robocasa-native-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:native:attempt0",
+  "baseline_video_sha256": "c4803377b04c6bbc91826e4c3bbf338cb5ed0f65a09f0781f1c435dc97c0704f",
+  "baseline_executed_controls": 1500,
+  "baseline_stop_reason": "horizon"
+}

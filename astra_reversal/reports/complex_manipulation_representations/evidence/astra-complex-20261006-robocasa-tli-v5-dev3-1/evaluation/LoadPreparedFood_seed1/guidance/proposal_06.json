@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The fingers visibly open and straddle the tupperware's near rim.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 500, the tupperware remains on the countertop without a visible lift. The end-effector position's third component decreased from 0.2921 to 0.2721, and gripper positions remain near zero. The stronger raising intervention did not establish clearance or a grasp.",
+  "subgoal": "Open the gripper and position its fingers around the near rim of the fish-containing tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:600:guide:6",
+  "request_fingerprint": "3f869fcafb5638eb92b62f7f10fd13f78cf139710dbdf5b610a55537b1e0fb59",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 6,
+  "observation_step": 600
+}

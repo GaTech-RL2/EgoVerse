@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The tupperware lifts clear of the counter and remains supported by the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 0, the end effector has lowered toward the tupperware and the gripper positions have moved near zero. Current cameras still show the container on the counter; a secure grasp or lift is not established.",
+  "subgoal": "Grasp the food-filled tupperware beside the stove and lift it off the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0:100:guide:1",
+  "request_fingerprint": "289109d79552ed1d7529f25fe5897f9ca0a351107d2d1824de7b92ff00b265a8",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "request_index": 1,
+  "observation_step": 100
+}

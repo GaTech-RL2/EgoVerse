@@ -1,0 +1,6 @@
+{
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "executed_actions": 3900,
+  "reset_free_segments": 780,
+  "policy_seconds": 93.76101028488483
+}

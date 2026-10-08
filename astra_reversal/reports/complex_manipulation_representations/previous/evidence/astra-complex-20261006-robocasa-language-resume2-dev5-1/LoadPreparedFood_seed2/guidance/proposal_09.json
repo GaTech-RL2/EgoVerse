@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Fridge door is fully closed with the tupperware remaining inside on the top shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 1250, the open gripper has withdrawn farther while the tupperware remains beside the jar, appearing supported on the top shelf. Unlike the failed rollout, the container is still visible after release. The fridge door remains open.",
+  "subgoal": "Leave the tupperware beside the jar on the top shelf. Move the arm clear of the shelves and close the fridge door fully.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:1300:guide:9",
+  "request_fingerprint": "44a9e7c98614699471e7da15d2d556b1083761b887040c881e17f55e15e75e23",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 1300
+}

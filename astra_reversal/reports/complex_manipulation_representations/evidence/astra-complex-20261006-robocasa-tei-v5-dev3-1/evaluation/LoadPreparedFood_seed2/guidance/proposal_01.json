@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The tupperware visibly clears the countertop and stays supported by the gripper.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 0, the gripper has approached and lowered over the tupperware, which now fills the wrist view. The fingers are open and the container still appears on the counter; no lift or grasp is established.",
+  "subgoal": "Grasp the food-filled tupperware beside the stove and lift it clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:100:guide:1",
+  "request_fingerprint": "4c8f86da915c50a976f244b1bd0d979391f4db07ebc7bab7e6f6dc33be3f2dfc",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 1,
+  "observation_step": 100
+}

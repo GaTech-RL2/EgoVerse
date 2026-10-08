@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The chicken drumstick is visibly held and lifted clear of the lower refrigerator shelf.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with the previous live observation, the end effector has moved farther forward and lower while the base remains nearly unchanged. The drumstick appears larger in the wrist camera but remains on the shelf; the gripper is still open, with no established grasp. Corn and another drumstick remain on the upper shelf; current tupperware contents are out of view.",
+  "subgoal": "Grasp and lift the chicken drumstick from the lower refrigerator shelf, preserving already packed food.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:2050:guide:13",
+  "request_fingerprint": "161e7cc91d830f0aa576a289b64035594ac5b0e5445eb3b263fefb98926839e1",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 13,
+  "observation_step": 2050
+}

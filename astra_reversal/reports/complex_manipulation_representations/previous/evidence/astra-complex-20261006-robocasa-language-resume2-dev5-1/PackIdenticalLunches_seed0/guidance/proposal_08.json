@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Broccoli visibly held above and clear of the refrigerator shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The arm has reached the food shelf since the previous review. The wrist view centers on the steak, with broccoli to its left; neither is visibly lifted. Prior failure showed food dropped during transport.",
+  "subgoal": "Move the gripper left from the steak to the broccoli, grasp the broccoli, and lift it clear of the shelf before backing away.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:1700:guide:8",
+  "request_fingerprint": "f64af0a14959924e356ab65f98b85fe789ec97c1510bd7065da189d3acdc0f5b",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 8,
+  "observation_step": 1700
+}

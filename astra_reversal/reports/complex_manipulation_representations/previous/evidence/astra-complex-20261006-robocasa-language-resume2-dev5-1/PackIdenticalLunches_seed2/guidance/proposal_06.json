@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The drumstick rests beside the corn in the left tupperware after the gripper withdraws.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has moved from the counter to the open fridge. A drumstick is visible at the gripper, but secure grasp is unconfirmed. Corn remains on the counter; prior failure separated the foods.",
+  "subgoal": "Lift the drumstick clear of the fridge, carry it to the left tupperware containing corn, and release it beside the corn.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:1300:guide:6",
+  "request_fingerprint": "3d297c297df5f59e4fb80c552eb8c5f8ddcff5b12c29ca0beb1ecbb86fe58386",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 6,
+  "observation_step": 1300
+}

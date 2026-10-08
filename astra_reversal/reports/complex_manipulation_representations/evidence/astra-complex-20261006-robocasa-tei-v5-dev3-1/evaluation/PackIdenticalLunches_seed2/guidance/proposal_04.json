@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The corn remains inside the left tupperware as the open gripper withdraws clear of it.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 600, the arm has lowered over the left tupperware; end-effector position changed from [0.181,0.204,0.472] to [0.349,0.252,0.325] while the base stayed nearly unchanged. Corn still fills the wrist view, so release is unconfirmed. The adjacent right tupperware remains empty.",
+  "subgoal": "Release the corn inside the left tupperware and withdraw the gripper.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:700:guide:4",
+  "request_fingerprint": "81c5fbaa2b8bc8dada4fb760819e7398cb952f23308ae38aa2a3ae7280b0d595",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 4,
+  "observation_step": 700
+}

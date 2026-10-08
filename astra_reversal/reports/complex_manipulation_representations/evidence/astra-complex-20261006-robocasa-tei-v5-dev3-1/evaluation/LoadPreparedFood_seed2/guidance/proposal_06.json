@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The open fridge moves into the forward view while the tupperware remains supported and approaches its top shelf.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 500, the arm has retracted slightly, but the base remains essentially unchanged and the stove is still ahead. The food-filled tupperware remains in a similar wrist-view position; transport toward the fridge is not evident.",
+  "subgoal": "Turn toward the open fridge on the left while holding the food-filled tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:600:guide:6",
+  "request_fingerprint": "a3d661f1e4eac4c6b991acc5dfcfcd4e19a3765ff72c57818faaec30129254c7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 6,
+  "observation_step": 600
+}

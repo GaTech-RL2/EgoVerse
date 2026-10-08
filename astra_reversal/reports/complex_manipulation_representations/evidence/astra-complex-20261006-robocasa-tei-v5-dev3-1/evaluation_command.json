@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "/opt/astra-complex/runtime/bin/python",
+    "-u",
+    "-m",
+    "astra_reversal.complex_manipulation.robocasa_eval",
+    "--checkpoint",
+    "/opt/astra-complex/weights/pi05_pretrain_human300/multitask_learning/75000",
+    "--output",
+    "/opt/astra-results/evaluation",
+    "--tasks",
+    "LoadPreparedFood",
+    "PackIdenticalLunches",
+    "--seeds",
+    "0",
+    "1",
+    "2",
+    "--guidance-baselines",
+    "/opt/astra-complex/guidance-baselines",
+    "--episode-plan",
+    "/tmp/episode_plan.json",
+    "--representation-method",
+    "tei"
+  ],
+  "restore_seconds": 273.2965133190155
+}

@@ -1,0 +1,332 @@
+{
+  "schema": "astra-complex-staging-1",
+  "workflow": "astra-complex-20261006-stage-1",
+  "manifest_sha256": "587ddff4557c29313df238f22c5606ce5095bfef1ef7e3775fec1f61b572a0d9",
+  "gpu_count": 0,
+  "policy_rollouts": 0,
+  "weights": [
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/_CHECKPOINT_METADATA",
+      "sha256": "c15b833bd5b285c426ac1eb078ddfa334140a6661c61515e3bfd304ec87bdc70",
+      "bytes": 426
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/assets/norm_stats.json",
+      "sha256": "4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee",
+      "bytes": 3208
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/_METADATA",
+      "sha256": "f27d21952e602528615298c668b588ba14ae8268e03e94598ea0235eaea52a5f",
+      "bytes": 23544
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/_sharding",
+      "sha256": "7e65c8b63fafedfedb52bf416d6bfde394c1c88fd28dc02f18a7911f2581c183",
+      "bytes": 12797
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/array_metadatas/process_0",
+      "sha256": "b6f4c56c01a8b73c9db955c4c68dd0b74d7fdda723831715dcbcd18ba5ddd4ab",
+      "bytes": 9162
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/d/35c0b41e13ddb0a578456230f51a3416",
+      "sha256": "97ee62c8ea97e9d8460dfa4cac06a73755d61c290c8aa6b046ba33f90f515041",
+      "bytes": 2138
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/manifest.ocdbt",
+      "sha256": "e0d7c903d80c8ed959cb0428463be3a85406e82b170dbae2c5ca0004f81f0839",
+      "bytes": 117
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/16a296efc9531f413b90c15199e43385",
+      "sha256": "dc757fa844af3d94c8eaaa07194417a7c482bb52edf6e8d86e577f81816c5bae",
+      "bytes": 538931200
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/28b537f74e118c2c1c44f72e8b0e00b7",
+      "sha256": "f209dd91be421638fea6261cc63a34a2004ee145eb30cb6ba38a99654f9af305",
+      "bytes": 2240151552
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/471d6e9b709ec1a579f83c8b4914e1ed",
+      "sha256": "3ce8fe59c2e2b636d434e02c985a02916d88d2b129189b529d24c3e6099baed4",
+      "bytes": 30384128
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/5cf1127d4e3fcd6e80a66ebba54dc32d",
+      "sha256": "bacba2b2609a43ca79324669efc844756779f69a4d8c7cd10c7762683fd32deb",
+      "bytes": 2799407104
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/6292e633c11b8f6931cac6ab824f3279",
+      "sha256": "96aa01bc6b8323995e711fbd80ca0f52f24d472194b4bd61cd0cc9c64cf2b4a2",
+      "bytes": 35061760
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/65f82551b4d64f31f6bb1cdcf17945e1",
+      "sha256": "e1f92637f1d9e85c6da42b7cc315fdd98ff1f8786baf31bc93728df8c99c9b4a",
+      "bytes": 70041600
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/7f76f4974bbb6946ff46b5dbcd4d44f8",
+      "sha256": "e4282ee9762ef7bd9a27972e42f0a10e110b27e4a9d4123610cd8a0e47266754",
+      "bytes": 2529587200
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b627c21812ded6c524507187a8526a3e",
+      "sha256": "2a36a95461e1b67ea66240045be0b2011d7ade7ed2237a8bf95a3f117010e734",
+      "bytes": 1956962304
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b808ab91bab1b5805b381e09b7fc0a85",
+      "sha256": "0c06d6434c9c6937e4804d6cfd0ab3e91eb982c71e8464880ef8e156a9f91d03",
+      "bytes": 5367
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d71893b153190783845eb3aabec57214",
+      "sha256": "c32792c5ea2f6ea460915854df63ce59f0135e6fb8f6bd716642550d8802e8df",
+      "bytes": 1098
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d76149c5c280cb9da59fd2f948d9cdda",
+      "sha256": "fff2f8b328c86ab34912c01d5758210df1805bcd73e3709be401d1989b9b18c3",
+      "bytes": 213
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/fb6f9dae6d90f1b488a3d4ebf79278ed",
+      "sha256": "c91af421dfea08263fa55d6cd904fb7a909925447c448cebeee8bc140fb5a340",
+      "bytes": 2240278528
+    },
+    {
+      "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/manifest.ocdbt",
+      "sha256": "619bbfc24075a6e9055ec5e160a0d1e5d1900e2b7edcc2286ca432997f0d58e4",
+      "bytes": 486
+    }
+  ],
+  "assets": [
+    {
+      "name": "textures.zip",
+      "url": "https://utexas.box.com/shared/static/4i85ileasdvstmlln5sbvzptz7keuoy1.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets",
+      "bytes": 543180421,
+      "sha256": "ba3a4dcef96e199cbd601c7cdb7eb46077fb6672611b7ac74c25a191bf0be392"
+    },
+    {
+      "name": "generative_textures.zip",
+      "url": "https://utexas.box.com/shared/static/ebaad09k82tmfmlq6ohdkmrh8izl9vn5.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets",
+      "bytes": 1184675536,
+      "sha256": "bc05095af306222d9a799a9b0b5b16662aa546998622ee8fd3072566ea4c31ec"
+    },
+    {
+      "name": "fixtures.zip",
+      "url": "https://utexas.box.com/shared/static/idbncsadpnaz1jfl4i6m8qejawk7p9pi.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets",
+      "bytes": 529745465,
+      "sha256": "62c1c87776edda9b7c42dda7b00781a1e5a7f90acc3e49d06c39c9545cbd6c3e"
+    },
+    {
+      "name": "objaverse.zip",
+      "url": "https://utexas.box.com/shared/static/03eionyo8fk3a9dsksq9jb8du5lqfw8h.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects",
+      "bytes": 2163884721,
+      "sha256": "66a7eebef3bac855301964d35d905fc2cb44d691f007f97af08d96e83db5cc08"
+    },
+    {
+      "name": "aigen_objs.zip",
+      "url": "https://utexas.box.com/shared/static/nwi1vrn5pgbo95kushkasa3nx1i012ff.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects",
+      "bytes": 5773223039,
+      "sha256": "1f88792322ccce79f775e88482626c324c6e07d002adf23320a124b72764dd19"
+    },
+    {
+      "name": "lightwheel.zip",
+      "url": "https://utexas.box.com/shared/static/vckqvvkh1z8t69k8qcpcmee6k66stii4.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects",
+      "bytes": 791939656,
+      "sha256": "a1db739b0e80fc4d56d4be27d89dba3aa60000e9648c5607874700e0f14b7955"
+    }
+  ],
+  "sources": {
+    "robosuite": {
+      "url": "https://github.com/ARISE-Initiative/robosuite.git",
+      "revision": "5ce6643f3092639d08f7b0f90ed1c6a84f50552c"
+    },
+    "robocasa": {
+      "url": "https://github.com/robocasa/robocasa.git",
+      "revision": "456174f62b89b8fca99eaaf33949c29fec9cfc2a"
+    },
+    "openpi": {
+      "url": "https://github.com/robocasa-benchmark/openpi.git",
+      "revision": "5a6beda9ff99da30b4e1b59320f6a32971d7c397"
+    }
+  },
+  "uploaded_files": [
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/_CHECKPOINT_METADATA",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/_CHECKPOINT_METADATA",
+      "bytes": 426,
+      "sha256": "c15b833bd5b285c426ac1eb078ddfa334140a6661c61515e3bfd304ec87bdc70"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/assets/norm_stats.json",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/assets/norm_stats.json",
+      "bytes": 3208,
+      "sha256": "4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/_METADATA",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/_METADATA",
+      "bytes": 23544,
+      "sha256": "f27d21952e602528615298c668b588ba14ae8268e03e94598ea0235eaea52a5f"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/_sharding",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/_sharding",
+      "bytes": 12797,
+      "sha256": "7e65c8b63fafedfedb52bf416d6bfde394c1c88fd28dc02f18a7911f2581c183"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/array_metadatas/process_0",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/array_metadatas/process_0",
+      "bytes": 9162,
+      "sha256": "b6f4c56c01a8b73c9db955c4c68dd0b74d7fdda723831715dcbcd18ba5ddd4ab"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/d/35c0b41e13ddb0a578456230f51a3416",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/d/35c0b41e13ddb0a578456230f51a3416",
+      "bytes": 2138,
+      "sha256": "97ee62c8ea97e9d8460dfa4cac06a73755d61c290c8aa6b046ba33f90f515041"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/manifest.ocdbt",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/manifest.ocdbt",
+      "bytes": 117,
+      "sha256": "e0d7c903d80c8ed959cb0428463be3a85406e82b170dbae2c5ca0004f81f0839"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/16a296efc9531f413b90c15199e43385",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/16a296efc9531f413b90c15199e43385",
+      "bytes": 538931200,
+      "sha256": "dc757fa844af3d94c8eaaa07194417a7c482bb52edf6e8d86e577f81816c5bae"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/28b537f74e118c2c1c44f72e8b0e00b7",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/28b537f74e118c2c1c44f72e8b0e00b7",
+      "bytes": 2240151552,
+      "sha256": "f209dd91be421638fea6261cc63a34a2004ee145eb30cb6ba38a99654f9af305"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/471d6e9b709ec1a579f83c8b4914e1ed",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/471d6e9b709ec1a579f83c8b4914e1ed",
+      "bytes": 30384128,
+      "sha256": "3ce8fe59c2e2b636d434e02c985a02916d88d2b129189b529d24c3e6099baed4"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/5cf1127d4e3fcd6e80a66ebba54dc32d",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/5cf1127d4e3fcd6e80a66ebba54dc32d",
+      "bytes": 2799407104,
+      "sha256": "bacba2b2609a43ca79324669efc844756779f69a4d8c7cd10c7762683fd32deb"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/6292e633c11b8f6931cac6ab824f3279",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/6292e633c11b8f6931cac6ab824f3279",
+      "bytes": 35061760,
+      "sha256": "96aa01bc6b8323995e711fbd80ca0f52f24d472194b4bd61cd0cc9c64cf2b4a2"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/65f82551b4d64f31f6bb1cdcf17945e1",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/65f82551b4d64f31f6bb1cdcf17945e1",
+      "bytes": 70041600,
+      "sha256": "e1f92637f1d9e85c6da42b7cc315fdd98ff1f8786baf31bc93728df8c99c9b4a"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/7f76f4974bbb6946ff46b5dbcd4d44f8",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/7f76f4974bbb6946ff46b5dbcd4d44f8",
+      "bytes": 2529587200,
+      "sha256": "e4282ee9762ef7bd9a27972e42f0a10e110b27e4a9d4123610cd8a0e47266754"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b627c21812ded6c524507187a8526a3e",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b627c21812ded6c524507187a8526a3e",
+      "bytes": 1956962304,
+      "sha256": "2a36a95461e1b67ea66240045be0b2011d7ade7ed2237a8bf95a3f117010e734"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b808ab91bab1b5805b381e09b7fc0a85",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b808ab91bab1b5805b381e09b7fc0a85",
+      "bytes": 5367,
+      "sha256": "0c06d6434c9c6937e4804d6cfd0ab3e91eb982c71e8464880ef8e156a9f91d03"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d71893b153190783845eb3aabec57214",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d71893b153190783845eb3aabec57214",
+      "bytes": 1098,
+      "sha256": "c32792c5ea2f6ea460915854df63ce59f0135e6fb8f6bd716642550d8802e8df"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d76149c5c280cb9da59fd2f948d9cdda",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d76149c5c280cb9da59fd2f948d9cdda",
+      "bytes": 213,
+      "sha256": "fff2f8b328c86ab34912c01d5758210df1805bcd73e3709be401d1989b9b18c3"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/fb6f9dae6d90f1b488a3d4ebf79278ed",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/fb6f9dae6d90f1b488a3d4ebf79278ed",
+      "bytes": 2240278528,
+      "sha256": "c91af421dfea08263fa55d6cd904fb7a909925447c448cebeee8bc140fb5a340"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/manifest.ocdbt",
+      "relative": "weights/pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/manifest.ocdbt",
+      "bytes": 486,
+      "sha256": "619bbfc24075a6e9055ec5e160a0d1e5d1900e2b7edcc2286ca432997f0d58e4"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/textures.zip",
+      "relative": "asset_archives/textures.zip",
+      "bytes": 543180421,
+      "sha256": "ba3a4dcef96e199cbd601c7cdb7eb46077fb6672611b7ac74c25a191bf0be392"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/generative_textures.zip",
+      "relative": "asset_archives/generative_textures.zip",
+      "bytes": 1184675536,
+      "sha256": "bc05095af306222d9a799a9b0b5b16662aa546998622ee8fd3072566ea4c31ec"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/fixtures.zip",
+      "relative": "asset_archives/fixtures.zip",
+      "bytes": 529745465,
+      "sha256": "62c1c87776edda9b7c42dda7b00781a1e5a7f90acc3e49d06c39c9545cbd6c3e"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/objaverse.zip",
+      "relative": "asset_archives/objaverse.zip",
+      "bytes": 2163884721,
+      "sha256": "66a7eebef3bac855301964d35d905fc2cb44d691f007f97af08d96e83db5cc08"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/aigen_objs.zip",
+      "relative": "asset_archives/aigen_objs.zip",
+      "bytes": 5773223039,
+      "sha256": "1f88792322ccce79f775e88482626c324c6e07d002adf23320a124b72764dd19"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/asset_archives/lightwheel.zip",
+      "relative": "asset_archives/lightwheel.zip",
+      "bytes": 791939656,
+      "sha256": "a1db739b0e80fc4d56d4be27d89dba3aa60000e9648c5607874700e0f14b7955"
+    },
+    {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/runtime.tar.gz",
+      "relative": "runtime.tar.gz",
+      "bytes": 3814154697,
+      "sha256": "e03209b19ce9f6d1b576f002bb4412d723e19b2e27bd91cb21ed7cbe759a9fee"
+    }
+  ],
+  "status": "staged_not_evaluated"
+}

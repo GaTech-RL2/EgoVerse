@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The lower-shelf carrot is visibly held by the gripper and lifted clear of the shelf.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 100, the arm has advanced and lowered toward the carrot, which appears larger in the wrist view beside the red fish. Gripper positions remain essentially unchanged and open; the carrot still rests on the shelf, with no established grasp or lift.",
+  "subgoal": "Pick up the carrot between the two fish on the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:200:guide:2",
+  "request_fingerprint": "08a9eaa8f9ff875e025804873a9a790ccb1d6ce9b061cda5e74fb52f42a1bd7f",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 2,
+  "observation_step": 200
+}

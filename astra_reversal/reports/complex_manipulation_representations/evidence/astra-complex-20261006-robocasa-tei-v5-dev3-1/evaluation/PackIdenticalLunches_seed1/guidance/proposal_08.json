@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The held red fish clears the refrigerator and is positioned above a tupperware on the nearby counter.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 700, the arm has retracted and risen while the red fish remains stable in the wrist view; the shelf, carrot and gray fish have receded behind it. This supports continued transport with a retained grasp, but the fish is not yet above a tupperware.",
+  "subgoal": "Carry the held red fish out of the refrigerator and above a tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:800:guide:8",
+  "request_fingerprint": "e36bc3f3652c5ac3c91a7d13e0adfe98f2178574c70799c546e2f1f34594b33b",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 8,
+  "observation_step": 800
+}

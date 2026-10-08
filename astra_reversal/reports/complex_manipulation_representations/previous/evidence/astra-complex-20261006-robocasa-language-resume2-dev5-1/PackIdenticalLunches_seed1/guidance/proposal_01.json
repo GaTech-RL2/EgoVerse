@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The red fish rests inside one tupperware on the counter.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The red fish has moved from the shelf to between the gripper fingers and appears held; the carrot remains on the shelf. No container placement is visible. The failed rollout left food outside the containers.",
+  "subgoal": "Move the red fish clear of the refrigerator, carry it over one tupperware on the nearby counter, and lower and release it inside.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:250:guide:1",
+  "request_fingerprint": "03242d4ada6cba5ed06196f142a3751f83f9af020d61e0eb7d7631dc57275532",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 1,
+  "observation_step": 250
+}

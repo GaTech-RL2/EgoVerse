@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The gripper visibly lifts the lower-shelf carrot clear of the refrigerator shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The red fish remains inside the left tupperware. The gripper has withdrawn empty, and the carrot remains on the lower refrigerator shelf; no carrot transfer is visible.",
+  "subgoal": "Leave the packed fish undisturbed. Turn back toward the open refrigerator, reach the lower-shelf carrot, and grasp and lift it clear of the shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:750:guide:3",
+  "request_fingerprint": "423c402bdf316dc5d492b7aa6a472588dcf6eaa63de977d99954a9eb52b249fd",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 3,
+  "observation_step": 750
+}

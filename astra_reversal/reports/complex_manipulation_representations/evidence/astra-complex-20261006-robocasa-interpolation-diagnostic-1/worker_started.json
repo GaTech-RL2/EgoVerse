@@ -1,0 +1,7 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-interpolation-diagnostic-1",
+  "started_unix": 1791485827.2425892,
+  "source_revision": "74a9ed5607090371efcf51803e0b108ccf8a9224",
+  "scope": "full_episodes",
+  "worker_limit_seconds": 3300
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The red fish rests inside the right-hand light-gray tupperware and the gripper withdraws without it.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1050, the arm has extended and lowered over the light-gray tupperware. The wrist view now shows the fish aligned over its interior, but the fish remains close to the wrist and release is not established.",
+  "subgoal": "Lower and release the red fish inside the right-hand light-gray tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:1150:guide:10",
+  "request_fingerprint": "9482e6e3a2734beef5b11c2c44151aa63d33018a0b0339e8fe2660b10bac8418",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 10,
+  "observation_step": 1150
+}

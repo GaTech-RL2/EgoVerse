@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The green corn is visibly held and lifted clear of the lower refrigerator shelf.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1150, end-effector height relative to base decreased from 0.191 to 0.166. Both corn pieces and both drumsticks remain on the refrigerator shelves, with no visible grasp. The right view remains obstructed and the wrist view shows the robot and floor. Moderate guidance has not produced sustained progress; increase guidance toward the same subgoal.",
+  "subgoal": "Pick up the green corn from the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0:1250:guide:11",
+  "request_fingerprint": "dd781f3fb0a1dc2ed26b92ae6467d67aa6ea8736cf98f05d12943a5c9cc4b903",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "request_index": 11,
+  "observation_step": 1250
+}

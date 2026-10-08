@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly above the tupperware rim, clear of the counter edge.",
+  "method": "tli",
+  "next_review_controls": 50,
+  "observed_evidence": "Since step 300, the end effector has lowered and shifted toward the counter edge; the wrist view now faces the cabinet and robot. The tupperware remains visible beside the microwave, with no confirmed lift. Gripper positions remain near closed.",
+  "subgoal": "Raise the gripper above the food-filled tupperware on the counter beside the microwave.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:400:guide:4",
+  "request_fingerprint": "50f7282a655f5cd202ca4909d35a34284a0e5178255307891b2454ae78137eac",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

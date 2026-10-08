@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The open fingers visibly straddle a side rim of the container.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1300, the arm has moved slightly but the container still appears counter-supported; no successful lift is visible. The prior failed rollout never achieved shelf placement.",
+  "subgoal": "Open the gripper, raise it clear of the food, and reposition over a side rim of the tupperware with one finger inside and one outside.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:1400:guide:11",
+  "request_fingerprint": "693afdffd873b1b1bf3052d21fa2ec5f8b24bf4a4a8a449d2c0ac06bf77222fc",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 11,
+  "observation_step": 1400
+}

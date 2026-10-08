@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The refrigerator interior and a chicken drumstick are visible for pickup.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 700, the corn now rests inside the left tupperware, clear of the withdrawn gripper, and the gripper positions indicate greater opening. The right tupperware remains empty. Historical footage shows chicken drumsticks in the refrigerator, but its current contents are not visible.",
+  "subgoal": "Locate a chicken drumstick in the refrigerator, leaving the placed corn in its tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:800:guide:5",
+  "request_fingerprint": "f4613eb64f8736848afb4ed46a8bc23b6ff7b898a43efb9fad386fd562edbabd",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 5,
+  "observation_step": 800
+}

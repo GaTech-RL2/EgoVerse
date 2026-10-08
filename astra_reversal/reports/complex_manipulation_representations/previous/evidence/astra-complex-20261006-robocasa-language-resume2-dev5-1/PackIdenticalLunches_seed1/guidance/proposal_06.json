@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Carrot lifts alone while the dark fish stays on the refrigerator shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 1250, the gripper is wider open but the carrot and dark fish remain together in the wrist view. No isolated lift is confirmed; the failed rollout showed similar entanglement.",
+  "subgoal": "Withdraw the open gripper from the dark fish, then grasp the carrot around its orange body away from the fish and lift it alone.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:1350:guide:6",
+  "request_fingerprint": "d55efa60878074d7eb27307fc22957088969de4b256cd4ebf0621de6c2afd77a",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 6,
+  "observation_step": 1350
+}

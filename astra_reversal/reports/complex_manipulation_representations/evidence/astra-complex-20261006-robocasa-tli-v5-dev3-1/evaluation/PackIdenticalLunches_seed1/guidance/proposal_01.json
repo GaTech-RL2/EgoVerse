@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The carrot between the fish is visibly lifted clear of the shelf and held by the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 0, the arm and wrist viewpoint have shifted and the gripper positions are near closed. The current right camera still shows the carrot between the two fish on the shelf; no lifted object or successful grasp is visible.",
+  "subgoal": "Grasp and lift the carrot between the two fish on the refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:100:guide:1",
+  "request_fingerprint": "2032c441e6f402397df342f9ea9967724c2aa0096bb2fd62cd543ce64cb215fa",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 1,
+  "observation_step": 100
+}

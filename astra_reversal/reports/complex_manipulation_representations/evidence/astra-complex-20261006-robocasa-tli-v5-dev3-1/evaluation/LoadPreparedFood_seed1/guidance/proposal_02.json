@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The tupperware lifts clear of the countertop and moves with the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 100, the arm has moved lower while the fish-containing tupperware remains on the countertop beside the gripper. The wrist view still shows countertop, and the nearly closed gripper does not establish a grasp. Two intervals at alpha .25 have produced no visible lift.",
+  "subgoal": "Grasp the near rim of the fish-containing tupperware and lift it clear of the countertop.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:200:guide:2",
+  "request_fingerprint": "5e5e28b1514f45be7ee6824f5e6b04fcd589fc0c4eb38c623b233ccfabc3e93a",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 2,
+  "observation_step": 200
+}

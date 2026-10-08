@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The open gripper is visibly positioned above the tupperware rim, ready to descend around it.",
+  "method": "tli",
+  "next_review_controls": 50,
+  "observed_evidence": "Since step 300, the arm has shifted but the tupperware remains on the counter beside the stove. The wrist view still lacks the container, and the base is nearly unchanged. No grasp or lift is visible after the stronger intervention.",
+  "subgoal": "Raise the gripper above the counter and align its open fingers over the tupperware rim beside the stove.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0:400:guide:4",
+  "request_fingerprint": "a431eeb04f5433d15b0f0d1d4a3ccace1cb58e6b3e342110358bb1a7379e0546",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

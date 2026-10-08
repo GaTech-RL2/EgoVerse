@@ -1,0 +1,38 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "status": "ready",
+    "setup_resets": 1
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "status": "ready",
+    "setup_resets": 1
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "status": "ready",
+    "setup_resets": 1
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "status": "ready",
+    "setup_resets": 1
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "status": "ready",
+    "setup_resets": 1
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "status": "ready",
+    "setup_resets": 1
+  }
+]

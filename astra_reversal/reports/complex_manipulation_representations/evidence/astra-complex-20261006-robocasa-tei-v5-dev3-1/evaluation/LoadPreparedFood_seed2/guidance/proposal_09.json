@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The tupperware reaches the top shelf opening while remaining supported.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 800, the open fridge is more centered in the left view and the base state has changed. The food-filled tupperware remains similarly positioned in the wrist view, consistent with continued transport; it has not visibly reached a shelf.",
+  "subgoal": "Carry the food-filled tupperware to the top shelf of the open fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:900:guide:9",
+  "request_fingerprint": "c55e4c645658e50af9317b8d2b6228119645d2043661c075296af1993e04c8ee",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 9,
+  "observation_step": 900
+}

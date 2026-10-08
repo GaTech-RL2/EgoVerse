@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The lower-shelf chicken drumstick is visibly lifted clear of the shelf and held by the gripper.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1050, the robot has reached the open refrigerator. Current left and right cameras show a chicken drumstick on the lower shelf and another beside corn on the upper shelf. The gripper is open with no visible held object; the wrist camera faces the refrigerator drawers.",
+  "subgoal": "Pick up the chicken drumstick on the lower refrigerator shelf, leaving the placed corn in its tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:1300:guide:7",
+  "request_fingerprint": "fef26966e9333f20c3a82b468e9645714893a1e7fff65b297b30b40a54740b53",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 7,
+  "observation_step": 1300
+}

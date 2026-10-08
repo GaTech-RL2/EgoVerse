@@ -1,0 +1,86 @@
+{
+  "files": {
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/worker_started.json",
+      "bytes": 242,
+      "sha256": "e3879211c84c8b523e8962c6ce1e6119c1c30303541d1cb78fe0563a4cf27a18",
+      "stamp": [
+        242,
+        1791485827630118494
+      ]
+    },
+    "episode_plan.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/episode_plan.json",
+      "bytes": 42,
+      "sha256": "3572762b7defc9829b7cc71f147f1e463479316e8bf7e515e11b77657cd599d0",
+      "stamp": [
+        42,
+        1791486092308068112
+      ]
+    },
+    "evaluation/runtime.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/evaluation/runtime.json",
+      "bytes": 986,
+      "sha256": "8a1e48a9b6f94d9b71a6fdc76a621a17a85e1b23eaf41b018243747573e963c6",
+      "stamp": [
+        986,
+        1791486096964067190
+      ]
+    },
+    "evaluation.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/evaluation.log",
+      "bytes": 8521,
+      "sha256": "c63febd9dc126dceadcbdd9f7a0e87269526e0cbff7f4665595038810e577c8f",
+      "stamp": [
+        8521,
+        1791486193763047795
+      ]
+    },
+    "evaluation_command.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/evaluation_command.json",
+      "bytes": 636,
+      "sha256": "d92b6e67dbc36e5b7d55f9ff56441f79bba44e7e80b57a152d7301d0a17179e9",
+      "stamp": [
+        636,
+        1791486092308068112
+      ]
+    },
+    "guidance_baseline_manifest.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/guidance_baseline_manifest.json",
+      "bytes": 5531,
+      "sha256": "4c194725f95f96100ee9115e1056c9858ea22229c1af3daff4cd79d12d576b6d",
+      "stamp": [
+        5531,
+        1791486092307068112
+      ]
+    },
+    "stage_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/stage_receipt.json",
+      "bytes": 17755,
+      "sha256": "ba0220758862f9d35f51031b2d05506705ded701e6e46de41677d56a0c2bf223",
+      "stamp": [
+        17755,
+        1791486084881069581
+      ]
+    },
+    "evaluation/interpolation_preflight.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/evaluation/interpolation_preflight.json",
+      "bytes": 9588,
+      "sha256": "8ba29ac61191c3e33b84a9d73e82e0b764968abe4ef83d4eee32d350ba9b3df9",
+      "stamp": [
+        9588,
+        1791486193762047795
+      ]
+    },
+    "worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-interpolation-diagnostic-1/results/worker_finished.json",
+      "bytes": 61,
+      "sha256": "894ad433af98a4d4b6caad310974289a520334ac936d96fe4cd489aab65684e5",
+      "stamp": [
+        61,
+        1791486196218047297
+      ]
+    }
+  },
+  "updated_unix": 1791486196.8597004
+}

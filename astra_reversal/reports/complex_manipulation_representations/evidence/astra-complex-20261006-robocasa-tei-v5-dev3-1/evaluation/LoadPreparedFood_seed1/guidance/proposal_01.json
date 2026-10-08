@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The tupperware clears the countertop and moves with the gripper while retaining the fish and lime.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 0, the tupperware remains on the counter and the arm and base have moved little. Gripper positions changed, but the current right and wrist views show no established grasp or lift.",
+  "subgoal": "Grasp the near rim of the tupperware containing fish and lime and lift it off the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0:100:guide:1",
+  "request_fingerprint": "5a64fa11eca87459e1af2a20b97b2ae5be91bf672fcaa8d537d834ba33d4d684",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "request_index": 1,
+  "observation_step": 100
+}

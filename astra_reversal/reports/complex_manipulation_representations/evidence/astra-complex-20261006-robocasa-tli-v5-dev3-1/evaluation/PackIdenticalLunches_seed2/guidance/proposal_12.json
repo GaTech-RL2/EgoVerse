@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly positioned above the green corn on the lower refrigerator shelf.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1250, end-effector height relative to base decreased from 0.166 to 0.154. Both corn pieces and both drumsticks remain on the shelves; no grasp is visible. The right camera remains obstructed and the wrist camera shows the robot and floor. Stronger pickup guidance has not produced progress, so use a narrower approach subgoal.",
+  "subgoal": "Raise the gripper above the green corn on the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0:1350:guide:12",
+  "request_fingerprint": "e8a9ea85bed63a94f7ef4540a456885a8b4aefabc8ceecf1b1d2b521830283f7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "request_index": 12,
+  "observation_step": 1350
+}

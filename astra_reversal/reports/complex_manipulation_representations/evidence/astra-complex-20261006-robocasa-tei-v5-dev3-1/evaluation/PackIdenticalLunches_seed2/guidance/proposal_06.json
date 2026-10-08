@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "A chicken drumstick is visible inside the open refrigerator, with the placed corn undisturbed.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 800, the robot has moved away from the tupperwares toward the stove; base position changed from [0.913,-0.932,0.701] to [2.153,-1.074,0.701]. Corn remains in the left container and the right container appears empty. The refrigerator is open at the left edge, but no chicken is currently visible; the wrist camera faces the floor.",
+  "subgoal": "Approach the open refrigerator and locate a chicken drumstick inside, leaving the corn in its tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:1050:guide:6",
+  "request_fingerprint": "6db632820a592df95e0bbca17ad6963afec1bf39b91c42a56e4aa32978aaff89",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 6,
+  "observation_step": 1050
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Steak visibly clears the refrigerator and remains held while approaching the tupperware.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm has retracted while the steak remains close in the wrist view and broccoli recedes on the shelf, suggesting a steak grasp rather than broccoli. Secure retention is uncertain; the prior failure showed dropped steak.",
+  "subgoal": "Secure the steak between the fingers, lift it clear of the shelf, then carry it to a nearby tupperware while keeping the grasp closed.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:1800:guide:9",
+  "request_fingerprint": "8b5644a33bbfeef7ecc1ef14ca8d92ad3996d5f0908cbe5366eff7591111bbee",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 1800
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Gripper clears both containers and robot turns away from the counter toward the refrigerator.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm shifted, but the base remains nearly unchanged. Corn is visible in the left container and chicken in the right; no grasp is confirmed. Refrigerator navigation has not begun, leaving the same incomplete lunches seen in the failed rollout.",
+  "subgoal": "Leave both containers and their food on the counter. Open the gripper, retract the arm clear of the container rims, then back away toward the refrigerator.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:3500:guide:15",
+  "request_fingerprint": "91fca51262ead0a107d9e3fa83389f00f816b237e725a1233185eacbb1d1f175",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 15,
+  "observation_step": 3500
+}

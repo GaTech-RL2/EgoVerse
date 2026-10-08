@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Broccoli is visibly held clear of the shelf as the arm retracts.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The arm has reached into the refrigerator and broccoli is close to the gripper in the wrist view, but lift clearance is unconfirmed. The prior failure left steak on the floor.",
+  "subgoal": "Secure the broccoli by its stalk, lift it clear of the shelf, and retract it out of the refrigerator while keeping it held.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:250:guide:1",
+  "request_fingerprint": "203b58d9e0eb804c82d10d9277bf6f54edc8cc47ef5a7250e5439ebc4da5a3df",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 1,
+  "observation_step": 250
+}

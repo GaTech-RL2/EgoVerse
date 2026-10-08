@@ -1,0 +1,514 @@
+{
+  "schema": "astra-complex-study-1",
+  "status": "native_and_matched_language_guidance_pilots_complete_learning_comparison_pending",
+  "source_proposals": {
+    "complex_parallel_grippers_20261006.md": "ddf75b9a4646fb8b02398df6a60101177decaad09f301468c14e93c2062c5e50",
+    "complex_dexterous_tasks_20261006.md": "d63e7e43a428047a0eb45ba67926c46a76432fd2ec5730b350f9a4c84e6ac21f"
+  },
+  "inherited_compute": {
+    "authorized_l40s_gpu_hours": 48,
+    "previous_study_gpu_hours": 22.055959544722224,
+    "remaining_l40s_gpu_hours": 25.65412198833333,
+    "additional_budget": {
+      "recorded_at_utc": "2026-10-07T05:14:03.039434+00:00",
+      "user_instruction": "go for another 24 l40s",
+      "additional_l40s_gpu_hours": 24,
+      "previous_total_gpu_hours": 24,
+      "new_total_gpu_hours": 48,
+      "prior_ledger_sha256": "464168dbd9d7cd42ab9510ab61f8d356a9cbb4aee72158c2827a7b0e0a6ffebb"
+    },
+    "max_concurrent_gpus": 2,
+    "new_study_gpu_hours": 0.28991846694444445,
+    "remaining_hours_note": "At additional authorization, before the six-episode native development batch. Live allocation reservations are maintained in the operational ledger."
+  },
+  "initial_task_pairs": [
+    {
+      "benchmark": "robocasa365",
+      "task": "LoadPreparedFood",
+      "checkpoint": "robocasa_pi05",
+      "split": "pretrain",
+      "action_limit": 1500,
+      "execute_steps": 5
+    },
+    {
+      "benchmark": "robocasa365",
+      "task": "PackIdenticalLunches",
+      "checkpoint": "robocasa_pi05",
+      "split": "pretrain",
+      "action_limit": 3900,
+      "execute_steps": 5
+    },
+    {
+      "benchmark": "bench2dex",
+      "task": "73_jigsaw_puzzle_assembly",
+      "checkpoint": "bench2dex_jigsaw_pi05",
+      "robot": "multi_iiwa7_with_sharpa",
+      "action_limit": 1213,
+      "physics_steps_per_action": 3,
+      "model_horizon": 20,
+      "execute_steps": 20
+    },
+    {
+      "benchmark": "bench2dex",
+      "task": "34_fridge_wine_interhand_pour",
+      "checkpoint": "bench2dex_fridge_pi05",
+      "robot": "multi_ur5_rh5dg2_with_flange",
+      "action_limit": 1080,
+      "physics_steps_per_action": 3,
+      "model_horizon": 20,
+      "execute_steps": 20
+    }
+  ],
+  "additional_requested_tasks": [
+    {
+      "benchmark": "embodiedswe",
+      "tasks": [
+        "assembly.pc_motherboard_gpu_ram.franka.osc",
+        "assembly.ikea_table.bimanual_franka.osc",
+        "assembly.ikea_table.g1.joint",
+        "assembly.ikea_table.g1.pink_ik",
+        "assembly.ikea_table.gr1t2.joint",
+        "assembly.ikea_table.gr1t2.pink_ik"
+      ],
+      "status": "environment_configs_found_compatible_trained_policy_not_verified"
+    },
+    {
+      "benchmark": "behavior1k",
+      "tasks": [
+        "make_pizza",
+        "sorting_household_items",
+        "clean_up_your_desk"
+      ],
+      "status": "specialized_released_checkpoints_mapped_to_all_three_tasks_native_runtime_not_validated"
+    },
+    {
+      "benchmark": "dexverse",
+      "tasks": [
+        "OvenBakeSalmon",
+        "CleanTable"
+      ],
+      "status": "assets_available_requested_long_horizon_demonstrations_or_policy_not_found_in_inspected_release"
+    }
+  ],
+  "planned_comparison": {
+    "status": "not_run",
+    "conditions": [
+      "native_frozen",
+      "astra_guidance_frozen",
+      "learning_without_astra",
+      "astra_guidance_and_learning"
+    ],
+    "collection_episode_checkpoints": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
+    "collection_seeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "evaluation_seeds": [
+      1000,
+      1001,
+      1002,
+      1003,
+      1004,
+      1005,
+      1006,
+      1007,
+      1008,
+      1009
+    ],
+    "policy_updates": "between_reset_episodes_only",
+    "learning_rule": "to_be_frozen_after_native_adapter_and_support_validation",
+    "teacher_information": [
+      "actual_camera_images",
+      "robot_proprioception",
+      "original_instruction",
+      "previous_collection_execution_and_failure_history"
+    ],
+    "hidden_from_teacher": [
+      "privileged_object_pose",
+      "evaluation_trajectories",
+      "unexecuted_candidate_outcomes"
+    ],
+    "evaluation_modes": [
+      "with_guidance_when_condition_requires",
+      "autonomous_student_without_astra"
+    ],
+    "failure_accounting": "No best-of retry success. Interrupted work and all reset-free segments remain charged. Incomplete batches do not establish full SR.",
+    "metrics": [
+      "binary_environment_success",
+      "stage_progress_if_native_benchmark_exposes_it",
+      "reset_episodes_started",
+      "completed_episodes",
+      "reset_free_segments",
+      "assisted_segments",
+      "generated_candidates",
+      "teacher_tokens_including_cached_input",
+      "teacher_uncached_input_tokens",
+      "teacher_output_tokens",
+      "wall_seconds",
+      "policy_seconds",
+      "gpu_hours_including_initialization",
+      "rollout_video"
+    ]
+  },
+  "interpretation": [
+    "RoboCasa tasks use a mobile PandaOmron, not a fixed Panda.",
+    "The selected RoboCasa tasks are seen composite tasks; pretrain-scene scores are not novel-task OOD results.",
+    "The earlier LIBERO learning study did not solve the benchmark in two rollouts.",
+    "Native development pilots and six paired phase-prompt guidance episodes are complete. No final-success gain was measured. No learned-policy result, latent/flow intervention or held-out OOD score is claimed."
+  ],
+  "observed_initial_probes": {
+    "reset_episodes_started": 3,
+    "completed_episodes": 0,
+    "incomplete_episodes": 3,
+    "reset_free_segments": 144,
+    "recorded_actions": 718,
+    "success_rate": null,
+    "teacher_calls": 0,
+    "teacher_tokens": 0,
+    "policy_updates": 0,
+    "report": "astra_reversal/reports/complex_manipulation_initial/index.html"
+  },
+  "bench_cpu_preparation": {
+    "workflow": "astra-complex-20261006-bench-stage-2",
+    "status": "assets_staged_simulator_and_policy_not_evaluated",
+    "gpu_count": 0,
+    "policy_rollouts": 0,
+    "teacher_calls": 0,
+    "full_runtime_validated": true,
+    "anchor_distractor_supplement": "Two missing object trees staged separately; preserve the original release manifest.",
+    "policy_runtime_stage": "astra-complex-20261006-bench-runtime-stage-1",
+    "policy_runtime_imports_validated": true,
+    "simulator_image": "nvcr.io/nvidia/isaac-lab:2.3.2",
+    "simulator_cpu_imports_validated": true
+  },
+  "active_native_batch": {
+    "workflow": "astra-complex-20261006-robocasa-native-dev3-1",
+    "planned_episodes": 6,
+    "tasks": [
+      "LoadPreparedFood",
+      "PackIdenticalLunches"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "scope": "development_baseline",
+    "heldout_ood": false,
+    "retry_accounting": "Earlier interrupted seed-0 attempt remains charged; this is a new physical reset.",
+    "status": "completed"
+  },
+  "observed_native_baseline": {
+    "source_revision": "9054715cc8d6ae935934acf6051b34d0a9107e95",
+    "summary": {
+      "reset_episodes_started": 6,
+      "completed_episodes": 6,
+      "incomplete_episodes": 0,
+      "reset_free_segments": 3240,
+      "assisted_segments": 0,
+      "executed_actions": 16200,
+      "completed_successes": 0,
+      "completed_episode_sr": 0.0,
+      "intended_batch_sr": 0.0,
+      "sr_note": "Incomplete probes stay visible; they do not establish a full-batch SR."
+    },
+    "tasks": [
+      {
+        "task": "LoadPreparedFood",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0
+      },
+      {
+        "task": "PackIdenticalLunches",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0
+      }
+    ],
+    "known_constructor_resets": 6,
+    "teacher_calls": 0,
+    "teacher_tokens": 0,
+    "policy_updates": 0,
+    "median_policy_seconds": 0.10034102341160178,
+    "p95_policy_seconds": 0.10289059113711119,
+    "first_policy_seconds_including_jit": 40.88822642387822,
+    "batch_gpu_hours": 0.5444238825000001,
+    "scope": "Seen RoboCasa composite tasks, pretrain scenes, development seeds 0/1/2; not held-out OOD.",
+    "source_parity": "Pinned weights, dimensions and inference transforms checked. An independent same-noise output comparison against the full upstream factory has not been run.",
+    "report": "astra_reversal/reports/complex_manipulation_native/index.html"
+  },
+  "active_bench_batch": {
+    "workflow": "astra-complex-20261006-bench-native-dev1-1",
+    "status": "completed",
+    "planned_episodes": 2,
+    "unique_reset_anchors_per_task": 1,
+    "scope": "native_development_integration",
+    "heldout_ood": false,
+    "source_revision": "9afc95c5a4f5abd4055168b5bef08801c10634b7"
+  },
+  "observed_bench_native_results": {
+    "workflow": "astra-complex-20261006-bench-native-dev1-1",
+    "completed_episodes": 2,
+    "successes": 0,
+    "reset_free_segments": 115,
+    "controls": 2293,
+    "physics_steps": 6879,
+    "warmup_physics_steps": 120,
+    "teacher_calls": 0,
+    "teacher_tokens": 0,
+    "policy_updates": 0,
+    "scope": "one recorded anchor per task; native development integration, not held-out OOD",
+    "source_revision": "9afc95c5a4f5abd4055168b5bef08801c10634b7",
+    "tasks": [
+      {
+        "scene": "scenes/73_jigsaw_puzzle_assembly.yaml",
+        "seed": 107300000,
+        "success": false,
+        "steps": 3639,
+        "policy_query_count": 61,
+        "latched_stage_completion_rate": 0.5,
+        "current_stage_completion_rate": 0.25,
+        "stage_completion": {
+          "assemble_piece_2": false,
+          "assemble_piece_3": true,
+          "assemble_piece_4": true,
+          "assemble_piece_5": false
+        },
+        "current_stage_completion": {
+          "assemble_piece_2": false,
+          "assemble_piece_3": false,
+          "assemble_piece_4": true,
+          "assemble_piece_5": false
+        }
+      },
+      {
+        "scene": "scenes/34_fridge_wine_interhand_pour.yaml",
+        "seed": 103400000,
+        "success": false,
+        "steps": 3240,
+        "policy_query_count": 54,
+        "latched_stage_completion_rate": 0.4,
+        "current_stage_completion_rate": 0.2,
+        "stage_completion": {
+          "open_fridge": true,
+          "take_bottle": true,
+          "pour_wine": false,
+          "return_bottle": false,
+          "close_fridge": false
+        },
+        "current_stage_completion": {
+          "open_fridge": true,
+          "take_bottle": false,
+          "pour_wine": false,
+          "return_bottle": false,
+          "close_fridge": false
+        }
+      }
+    ],
+    "gpu_hours": 0.39629632333333337,
+    "report": "astra_reversal/reports/complex_manipulation_pilots/index.html"
+  },
+  "latest_closed_compute_snapshot": {
+    "authorized_gpu_hours": 48,
+    "used_gpu_hours_including_previous_study": 24.46286952527778,
+    "remaining_gpu_hours": 23.53713047472222,
+    "all_jobs_closed": true,
+    "scope": "All GPU allocations in this study ledger are closed after the six-pair guidance pilot. Other agents workloads are outside this ledger."
+  },
+  "next_guidance_pilot": {
+    "status": "completed",
+    "protocol": "language_protocol.json",
+    "method": "astra_phase_prompt_pi05",
+    "scope": "Six new matched reset attempts with prior native failure evidence. Language prompt guidance only; no latent interpolation, flow reversal or learning."
+  },
+  "observed_language_first_allocation": {
+    "workflow": "astra-complex-20261006-robocasa-language-dev3-1",
+    "source_revision": "bc7e40ff16a4e11891a513101603d4c3e24f697d",
+    "completed_episodes": 1,
+    "completed_successes": 0,
+    "incomplete_reset_episodes": 1,
+    "incomplete_reset_controls": 0,
+    "not_started_pairs": 4,
+    "completed_task": "LoadPreparedFood",
+    "completed_seed": 0,
+    "executed_controls": 1500,
+    "reset_free_segments": 300,
+    "teacher_calls": 11,
+    "teacher_tokens": 216084,
+    "gpu_hours": 0.23863192805555555,
+    "interruption": "Seed1 wrist image differed by one uint8 color value of magnitude one; all physical state, XML, proprioception and other cameras exactly matched. No seed1 controls or teacher calls.",
+    "continuation": "Remaining five pairs only, with recorded bounded render-rounding validation per language_protocol.json v2."
+  },
+  "observed_language_xml_preflight": {
+    "workflow": "astra-complex-20261006-robocasa-language-resume-dev5-1",
+    "reset_episodes_started": 1,
+    "executed_controls": 0,
+    "teacher_calls": 0,
+    "gpu_hours": 0.10031967277777779,
+    "outcome": "Rejected equivalent XML export before any policy action. Preserved in full; validation amendment in language_protocol.json v3."
+  },
+  "observed_language_guidance": {
+    "report": "astra_reversal/reports/complex_manipulation_guidance/index.html",
+    "source_revisions": [
+      "bc7e40ff16a4e11891a513101603d4c3e24f697d",
+      "de4319ed49da37a053c219b2e015ec348977af2c",
+      "f75d882c719ced79577f06ac66abdbf4f1718236"
+    ],
+    "summary": {
+      "reset_episodes_started": 8,
+      "completed_episodes": 6,
+      "incomplete_episodes": 2,
+      "reset_free_segments": 3240,
+      "assisted_segments": 3180,
+      "executed_actions": 16200,
+      "completed_successes": 0,
+      "completed_episode_sr": 0.0,
+      "intended_batch_sr": null,
+      "sr_note": "Incomplete probes stay visible; they do not establish a full-batch SR.",
+      "completed_pair_sr": 0.0,
+      "planned_episodes": 6,
+      "missing_episode_results": 0
+    },
+    "tasks": [
+      {
+        "task": "LoadPreparedFood",
+        "native_successes": 0,
+        "native_episodes": 3,
+        "guided_successes": 0,
+        "guided_completed": 3,
+        "guided_planned": 3,
+        "full_guided_sr": 0.0,
+        "teacher_tokens_known_sum": 648972
+      },
+      {
+        "task": "PackIdenticalLunches",
+        "native_successes": 0,
+        "native_episodes": 3,
+        "guided_successes": 0,
+        "guided_completed": 3,
+        "guided_planned": 3,
+        "full_guided_sr": 0.0,
+        "teacher_tokens_known_sum": 943283
+      }
+    ],
+    "known_resets": {
+      "guided_policy_reset_attempts": 8,
+      "paired_native_policy_reset_attempts": 6,
+      "guided_constructor_setup_resets": 8,
+      "native_constructor_setup_resets": 6,
+      "combined_policy_and_constructor_resets": 28,
+      "scope": "This paired screen only. One documented wrapper setup reset per constructed environment. Earlier incomplete development probes and Bench2Dex resets are separate."
+    },
+    "teacher_calls": 81,
+    "teacher_tokens": 1592255,
+    "cpu_preflight_tokens": 38215,
+    "guided_gpu_hours_including_aborted_allocations": 1.1762713077777778,
+    "prompt_capacity": {
+      "guided_policy_calls_with_truncation_warning": 21,
+      "review_steps_audited": 81,
+      "review_steps_over_capacity": 1,
+      "review_steps_losing_instruction_prefix": 0,
+      "review_steps_losing_state_values": 0,
+      "review_steps_with_unknown_prefix_alignment": 0,
+      "evidence": "provenance/prompt_capacity_audit.json"
+    },
+    "policy_updates": 0,
+    "heldout_ood": false,
+    "interpretation": "All six guided policy episodes completed after their paired native failures. Both tasks scored 0/3 under native and phase-prompt guidance. The two extra pre-control rejected resets remain counted. This screen found no final-success improvement and does not complete the four-condition learning comparison.",
+    "per_episode": [
+      {
+        "task": "LoadPreparedFood",
+        "seed": 0,
+        "success": false,
+        "teacher_calls": 11,
+        "teacher_tokens": 216084,
+        "cached_input_tokens": 64000,
+        "uncached_input_tokens": 150763,
+        "wall_seconds": 406.8791481596418,
+        "teacher_seconds": 190.60767700662836,
+        "median_model_seconds": 0.09976118616759777
+      },
+      {
+        "task": "LoadPreparedFood",
+        "seed": 1,
+        "success": false,
+        "teacher_calls": 12,
+        "teacher_tokens": 236410,
+        "cached_input_tokens": 88576,
+        "uncached_input_tokens": 146033,
+        "wall_seconds": 387.92945871083066,
+        "teacher_seconds": 220.26299205655232,
+        "median_model_seconds": 0.09780173585750163
+      },
+      {
+        "task": "LoadPreparedFood",
+        "seed": 2,
+        "success": false,
+        "teacher_calls": 10,
+        "teacher_tokens": 196478,
+        "cached_input_tokens": 103424,
+        "uncached_input_tokens": 91577,
+        "wall_seconds": 347.0137917269021,
+        "teacher_seconds": 197.28893711604178,
+        "median_model_seconds": 0.09917368786409497
+      },
+      {
+        "task": "PackIdenticalLunches",
+        "seed": 0,
+        "success": false,
+        "teacher_calls": 16,
+        "teacher_tokens": 313713,
+        "cached_input_tokens": 167424,
+        "uncached_input_tokens": 144145,
+        "wall_seconds": 556.1849397751503,
+        "teacher_seconds": 296.1131462994963,
+        "median_model_seconds": 0.0986799243837595
+      },
+      {
+        "task": "PackIdenticalLunches",
+        "seed": 1,
+        "success": false,
+        "teacher_calls": 16,
+        "teacher_tokens": 314033,
+        "cached_input_tokens": 186880,
+        "uncached_input_tokens": 125048,
+        "wall_seconds": 560.3757199938409,
+        "teacher_seconds": 277.52634694846347,
+        "median_model_seconds": 0.09746018960140646
+      },
+      {
+        "task": "PackIdenticalLunches",
+        "seed": 2,
+        "success": false,
+        "teacher_calls": 16,
+        "teacher_tokens": 315537,
+        "cached_input_tokens": 167424,
+        "uncached_input_tokens": 145886,
+        "wall_seconds": 677.7889613700099,
+        "teacher_seconds": 324.76330295205116,
+        "median_model_seconds": 0.10157738346606493
+      }
+    ]
+  }
+}

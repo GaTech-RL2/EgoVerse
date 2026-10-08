@@ -1,0 +1,45 @@
+{
+  "versions": {
+    "jax": "0.5.3",
+    "flax": "0.10.2",
+    "numpy": "2.2.5",
+    "mujoco": "3.3.1",
+    "robosuite": "1.5.2"
+  },
+  "devices": [
+    "cuda:0"
+  ],
+  "checkpoint_norm_sha256": "4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee",
+  "tasks": [
+    "LoadPreparedFood",
+    "PackIdenticalLunches"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "episode_schedule": [
+    [
+      "LoadPreparedFood",
+      0
+    ]
+  ],
+  "split": "pretrain",
+  "model_horizon": 50,
+  "internal_action_dim": 32,
+  "output_action_dim": 12,
+  "normalization": "checkpoint_mean_std",
+  "sample_steps": 10,
+  "execution_prefix": 5,
+  "scope": "checkpoint_interpolation_preflight",
+  "guidance": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "backend": "codex_relay",
+    "maximum_calls_per_episode": 16,
+    "method": "tei",
+    "policy_updates": 0
+  },
+  "constructor_resets": "Zero: preflight uses saved observations without constructing an environment."
+}

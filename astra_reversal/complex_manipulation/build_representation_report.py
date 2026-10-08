@@ -1,6 +1,7 @@
 """Build a portable, receipt-checked comparison of RoboCasa representation arms."""
 
 import argparse
+import csv
 import gzip
 import hashlib
 import json
@@ -274,6 +275,39 @@ def main():
         },
         "constructor_reset_unknown_attempts": constructor_unknown,
     }
+    table_rows = []
+    for pair in pairs:
+        for method in ("native", "phase", "tei", "tli"):
+            row = pair[method]
+            if row is None:
+                continue
+            table_rows.append(
+                {
+                    "task": pair["task"],
+                    "seed": pair["seed"],
+                    "method": method,
+                    "episode_complete": row["episode_complete"],
+                    "success": row["success"],
+                    **{
+                        key: row.get(key)
+                        for key in (
+                            "executed_actions",
+                            "reset_free_segments",
+                            "assisted_segments",
+                            "teacher_calls",
+                            "teacher_tokens",
+                            "wall_seconds",
+                            "teacher_seconds",
+                            "median_model_seconds",
+                        )
+                    },
+                    "evidence": row["evidence"],
+                }
+            )
+    with (args.output / "episode_results.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=table_rows[0])
+        writer.writeheader()
+        writer.writerows(table_rows)
     (args.output / "results.json").write_text(json.dumps(data, indent=2) + "\n")
     template = Path(__file__).with_name("representation_dashboard.html").read_text()
     # Keep arbitrary instruction/proposal text inert in the embedded JSON block.

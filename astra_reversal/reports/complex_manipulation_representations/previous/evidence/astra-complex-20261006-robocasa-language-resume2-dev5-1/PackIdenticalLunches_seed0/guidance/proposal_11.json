@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Steak rests inside the tupperware with broccoli after the gripper releases it.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has reached the counter from the refrigerator, with steak still visible between the fingers and in the wrist view. A tupperware containing broccoli is visible beside an empty one. The prior rollout dropped steak during transport.",
+  "subgoal": "Keep the steak grasped while aligning over the tupperware containing broccoli, then lower it inside and release.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:2300:guide:11",
+  "request_fingerprint": "f3f568b4e957c2a816394abcf45d05f3ea4d3cc574b87432be51775fc121ffb2",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 11,
+  "observation_step": 2300
+}

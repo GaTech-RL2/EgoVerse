@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The open refrigerator shelves come into view and the robot approaches them.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Both live observations face the stove and coffee maker; the current wrist view still shows the oven. The base shifted slightly and rotated, but the refrigerator and lunch containers remain out of view. No held food is visible. The previous alpha 1 intervention has not visibly achieved the return.",
+  "subgoal": "Move to the open refrigerator to retrieve a chicken drumstick, leaving the packed corn in place.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:1500:guide:9",
+  "request_fingerprint": "a151414f007a0107fa4e9216605177d41eba18dacba857d78babdfd55cf9928e",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 9,
+  "observation_step": 1500
+}

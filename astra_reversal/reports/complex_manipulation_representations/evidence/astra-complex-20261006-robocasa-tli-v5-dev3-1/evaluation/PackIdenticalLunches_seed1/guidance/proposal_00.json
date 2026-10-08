@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The carrot is lifted clear of the refrigerator shelf and remains visibly held by the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Current wrist view shows a carrot between a red fish and a gray fish on the refrigerator shelf; no grasp is established. Historical views show the failed native rollout repeatedly returning to the refrigerator, but no current progress comparison is available.",
+  "subgoal": "Pick up the carrot between the two fish on the refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:0:guide:0",
+  "request_fingerprint": "026bc61a1651cb43c33018a0e6f9b046ae1eae21cd4a2f8454987a44b7437151",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

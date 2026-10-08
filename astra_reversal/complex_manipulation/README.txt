@@ -3,7 +3,33 @@ Complex manipulation pilots — 2026-10-06
 Implements the next-study request in complex_parallel_grippers_20261006.md and
 complex_dexterous_tasks_20261006.md. The previous learning study remains intact.
 
-Current phase: eight completed native development episodes across four tasks.
+Current phase: complete paired RoboCasa steering comparison (2026-10-08).
+Each of native, Astra phase prompt, Astra TEI and Astra TLI scored 0/3 on
+LoadPreparedFood and 0/3 on PackIdenticalLunches. This is a negative result
+for the tested online-subgoal recipes on these six development resets.
+Phase prompt: 81 teacher jobs, 1,592,255 tokens, 48.94 rollout minutes.
+TEI: 96 teacher jobs, 1,872,439 tokens, 45.09 rollout minutes.
+TLI: 96 teacher jobs, 1,876,076 tokens, 48.46 rollout minutes.
+Native: no teacher usage, 22.20 rollout minutes.
+Token totals include cached inputs; subscription-backed dollar cost is unknown.
+The representation arms used 2.699257 L40S-hours including all stopped checks.
+The final dashboard is reports/complex_manipulation_representations/index.html
+(relative to astra_reversal), with 26 videos, all 24 completed paired-method
+episodes, CSV/JSON tables, diagrams, exact teacher prompt and usage receipts.
+The portable delivery record is representation_report_delivery.json.
+
+TEI/TLI sources are Astra subgoals encoded on the current real observation,
+not the previous LIBERO demonstration banks. Both arms passed their full-weight
+neutral-equivalence, active-effect and native-restoration checks. Independent
+output parity with the full upstream training-dependent factory is unmeasured.
+Weights are frozen; no FRS, vision edits or learning update is evaluated here.
+Each arm used six policy resets and no completed-failure retries. TEI made
+2,350 edited segments and TLI 1,840, out of 3,240 per arm; the policy returned
+to native after its final selected review interval. Two earlier zero-control
+phase-prompt reset rejects remain counted. Constructor setup resets remain
+separate: native 6, phase prompt 8, TEI 7 (including one stopped setup), TLI 6.
+
+Original native development batch (plus the two Bench2Dex episodes below):
 LoadPreparedFood: 0/3 successes at the 1,500-control horizon.
 PackIdenticalLunches: 0/3 successes at the 3,900-control horizon.
 Seeds 0/1/2: 16,200 controls, 3,240 reset-free segments, six policy resets,

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The lower-shelf corn is visibly resting inside one counter tupperware after release.",
+  "method": "tli",
+  "next_review_controls": 250,
+  "observed_evidence": "Current cameras show corn beside a chicken drumstick on the refrigerator's lower shelf, with no established grasp. There is no previous live observation. The failed historical rollout left corn and chicken in separate containers instead of pairing them.",
+  "subgoal": "Place the corn from the refrigerator's lower shelf into one tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0:0:guide:0",
+  "request_fingerprint": "7a1b1a973fb5109af5c570ebc44333aeeed2d8f4bed4b72132ffc6b0be956cc3",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

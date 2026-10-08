@@ -1,0 +1,108 @@
+{
+  "schema": "robocasa-online-subgoal-interpolation-2",
+  "status_at_registration": "not_run",
+  "arms": [
+    "tei",
+    "tli"
+  ],
+  "checkpoint": {
+    "repository": "robocasa/robocasa365_checkpoints",
+    "revision": "c484448aba1a9b60a04c9b0ca117241518ea69f3",
+    "path": "pi05_pretrain_human300/multitask_learning/75000",
+    "release_manifest": "release_manifest.json",
+    "normalization": "released_checkpoint_mean_std",
+    "weights_frozen": true
+  },
+  "episodes": {
+    "tasks": [
+      "LoadPreparedFood",
+      "PackIdenticalLunches"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "split": "pretrain",
+    "new_reset_attempts_per_arm_task_seed": 1,
+    "planned_completed_episodes_per_arm": 6,
+    "native_baseline_workflow": "astra-complex-20261006-robocasa-native-dev3-1",
+    "reset_validation": "Same comparison as language_protocol.json v3; all validation-rejected starts remain counted.",
+    "scope": "Development comparison on seen tasks. Not held-out OOD, not a final SR estimate.",
+    "completed_failures_retried": false,
+    "provider_errors": "Stop, preserve partial evidence and count all calls/resets; never silently retry or substitute native."
+  },
+  "teacher": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "backend": "local_codex_relay",
+    "tools": "disallowed",
+    "maximum_calls_per_episode": 16,
+    "automatic_retries": 0,
+    "observations": "Current three original policy-input cameras and 16D state, previous live review, four fixed chronological frames from paired native failure, original instruction, last two decisions and remaining budget.",
+    "extra_information": "No privileged object poses, future frames or simulator lookahead.",
+    "review_intervals_controls": [
+      50,
+      100,
+      250,
+      500
+    ],
+    "first_review_control": 0,
+    "after_final_interval": "Return to native original-instruction sampling.",
+    "prompt_module": "representation_teacher.py",
+    "subgoal_max_characters": 160,
+    "alpha_choices": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      1
+    ]
+  },
+  "interventions": {
+    "source_representations": "Online, recomputed from the current real RoboCasa cameras/state with original instruction or Astra subgoal. These are not demonstration-derived banks.",
+    "instruction_mask": "Verify exact released 200-token Task/State/Action formatting; SentencePiece UTF-8 surface offsets select instruction-only tokens. Protect BOS, delimiters, all discrete-state tokens, padding, attention masks and positions. Reject any source requiring truncation.",
+    "alignment": "Left-align source instruction positions onto target instruction positions; zero-pad or truncate the source representation.",
+    "tei": "At target instruction input slots, (1-alpha)*E_original + alpha*aligned(E_subgoal). Alpha0 is native.",
+    "tli": "Retain target input embeddings. After blocks0..16 add (1-2*alpha)*(aligned(T_subgoal)-T_original) at target instruction slots. Each T is a native post-block, pre-final-norm state. Alpha0.5 is native. No final block output edit, because its K/V already exists.",
+    "indirect_effects": "Later transformer attention can change non-instruction hidden states. Direct intervention writes are instruction-only.",
+    "action_sampler": "Native 10-step Euler flow sampler, original per-episode JAX noise sequence, model horizon50, execute5 controls, original 12-channel action decoding.",
+    "policy_updates": 0
+  },
+  "preflight": {
+    "environment_resets": 0,
+    "environment_actions": 0,
+    "input": "Saved native initial observation from first scheduled pair.",
+    "checks": [
+      "Zero-delta recorder reproduces native K/V cache within max_abs1e-5.",
+      "TEIalpha0 and TLIalpha0.5 reproduce native decoded actions at identical explicit noise within max_abs1e-5.",
+      "Nonzero TEI and TLI have finite measurable decoded-action effect greater than1e-6.",
+      "Native prediction remains bit-identical after active interventions.",
+      "Restore policy RNG after probes so no rollout noise is consumed."
+    ],
+    "failure_action": "Stop before creating environment or asking teacher.",
+    "required_operator": "The scheduled arm. Inference-only diagnostics require both arms. Native-cache and restoration checks are always required; both operator cases are recorded."
+  },
+  "accounting": {
+    "success": "Original benchmark binary predicate, one completed episode per task/seed/arm. Report counts and denominator; no best-of selection.",
+    "reset_free_segment": "One actually executed nonempty prefix of at most5 controls.",
+    "resets": "Count policy attempts, zero-control rejects and constructor setup resets separately. Diagnostic inference on saved inputs is not a rollout.",
+    "assisted_segment": "A prefix sampled with a measured nonzero embedding/hidden-state edit. Teacher calls selecting native or neutral strength do not count as assisted prefixes.",
+    "tokens": "Actual Codex provider receipts including cached/uncached input and output. Unknown usage remains unknown. CPU teacher probes and prior native preparation reported separately.",
+    "cost": "Record GPU allocation including setup/teardown, rollout wall time, teacher wait and model inference; subscription-backed monetary inference cost remains unverified."
+  },
+  "excluded_from_this_comparison": [
+    "Demonstration-bank TEI/TLI",
+    "VEI",
+    "VLI",
+    "image edits",
+    "FRS",
+    "policy learning"
+  ],
+  "amendment": {
+    "prior_registration": "representation_protocol_v1.json",
+    "reason": "A TLI neutral mismatch must not prevent the independently validated TEI arm from running. Each operator must meet its unchanged numerical tolerance before its own episodes. Both are still measured and unused-operator failures remain recorded.",
+    "method_or_success_changes": false,
+    "actual_task_episodes_before_amendment": 0
+  }
+}

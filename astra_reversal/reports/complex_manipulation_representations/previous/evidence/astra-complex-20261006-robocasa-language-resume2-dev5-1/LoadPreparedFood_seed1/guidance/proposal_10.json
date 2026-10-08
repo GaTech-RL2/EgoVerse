@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware visibly lifts clear of the counter with the food inside.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Current views remain nearly unchanged from step 1200; withdrawal and a successful grasp are unconfirmed. The container still appears counter-supported. Prior failure never established shelf placement.",
+  "subgoal": "Grasp the near rim of the tupperware and lift the whole container clear of the counter, keeping it level with the food inside.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:1300:guide:10",
+  "request_fingerprint": "38df6803500011da85cbb885dd26f6a29cb21f3ad281bc772f33e81978120029",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 10,
+  "observation_step": 1300
+}

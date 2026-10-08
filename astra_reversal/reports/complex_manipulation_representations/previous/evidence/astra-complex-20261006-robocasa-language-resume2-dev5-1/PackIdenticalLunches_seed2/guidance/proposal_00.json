@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The green corn rests inside one counter tupperware after release.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Current views show corn and drumsticks still in the open fridge; no grasp is established. The failed rollout left corn and chicken in separate containers instead of pairing them.",
+  "subgoal": "Pick up the green corn from the lower fridge shelf and place it in one counter tupperware; then put a drumstick in that same tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "bfd2d2ff83919b8d5a0723e204b721a45a28cd166a283b674c9cef7404f2e162",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

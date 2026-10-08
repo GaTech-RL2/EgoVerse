@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The refrigerator shelves and a remaining carrot become visible; return to native after 250 controls.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 2000, the robot has moved from the toaster toward the microwave and ovens. The refrigerator remains out of view, and the gripper appears open and empty. Full-strength guidance has not produced the requested return.",
+  "subgoal": "Turn left and return along the counter past the stove to the refrigerator for a carrot, leaving the packed fish in place.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:2250:guide:15",
+  "request_fingerprint": "c8e87d81bc9b048ff68be6f8d4b0e0a82e80a72287117fcd6a5d64b6598ff2fd",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 15,
+  "observation_step": 2250
+}

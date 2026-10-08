@@ -1,0 +1,251 @@
+{
+  "schema": "complex-language-preflight-1",
+  "probes": [
+    {
+      "probe": 1,
+      "scope": "CPU-only teacher contract validation; zero new environment resets or policy controls",
+      "result": {
+        "proposal": null,
+        "receipt": {
+          "accepted": false,
+          "availability_reason": "cli_tool_use",
+          "backend": "codex_exec",
+          "cli_version": "codex-cli 0.159.3",
+          "configured_model": "gpt-6-astra",
+          "error_kind": "provider_unavailable",
+          "exit_code": 0,
+          "image_hashes": [
+            {
+              "file": "image_0.png",
+              "image_index": 0,
+              "label": "prior_native_failure; after 376 controls; left_right_wrist_panorama",
+              "sha256": "49acb5d334b082437518b39ccc81579dd093f2d04777e46c23b8ff6fb401a239"
+            },
+            {
+              "file": "image_1.png",
+              "image_index": 1,
+              "label": "prior_native_failure; after 750 controls; left_right_wrist_panorama",
+              "sha256": "ccb84c301c491140e08759d1733d53fda90b9738b8294dba04a11fba76f2480e"
+            },
+            {
+              "file": "image_2.png",
+              "image_index": 2,
+              "label": "prior_native_failure; after 1124 controls; left_right_wrist_panorama",
+              "sha256": "5effce9ae0d5408488b1f7e7fd56d4e8768373433747b80ac0933f5b51932b7d"
+            },
+            {
+              "file": "image_3.png",
+              "image_index": 3,
+              "label": "prior_native_failure; after 1500 controls; left_right_wrist_panorama",
+              "sha256": "00befd71238d386bfe68a5a50fff86f9f0962d3bdacda25c6faf6339cca18d56"
+            },
+            {
+              "file": "image_4.png",
+              "image_index": 4,
+              "label": "current; after 0 controls; left",
+              "sha256": "4cc09ab20df967eed98ec27ba1337222d3bd65f41662723429933435848926bd"
+            },
+            {
+              "file": "image_5.png",
+              "image_index": 5,
+              "label": "current; after 0 controls; right",
+              "sha256": "e8324b64270617f6393eb377a93f34a94faebb96633b356249cebad30d1475b2"
+            },
+            {
+              "file": "image_6.png",
+              "image_index": 6,
+              "label": "current; after 0 controls; wrist",
+              "sha256": "e391983174a09c029d8229d123f67cb83910fb377acd84e2fc86a8247e587506"
+            }
+          ],
+          "internal_retry_count": null,
+          "internal_turn_count": null,
+          "latency_seconds": 11.70344741595909,
+          "observed_completed_turns": 1,
+          "original_schema_sha256": "8ea0def89bff856d12cf6b03a950ac4ed6c776bc8dec4245b3f5e84c9533744c",
+          "prompt_sha256": "58ef47830e6c29694bbede892275e1a71bc99996951dd2115fed195dc2d852de",
+          "prompt_template_version": "robocasa-phase-guidance-1",
+          "provider_call": true,
+          "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+          "provider_unavailable": true,
+          "raw_usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 0,
+            "input_tokens": 19000,
+            "output_tokens": 110,
+            "reasoning_output_tokens": 0
+          },
+          "raw_usage_events": [
+            {
+              "cache_write_input_tokens": 0,
+              "cached_input_tokens": 0,
+              "input_tokens": 19000,
+              "output_tokens": 110,
+              "reasoning_output_tokens": 0
+            }
+          ],
+          "reasoning_effort": "medium",
+          "request_fingerprint": "46dbf5fe59311c0dc5a0f220aa0dc5a20ae2d6d9d2caaa187c4daad0d8fdd154",
+          "request_sha256": "e0c4f259f085a70e7c53c47a44cdfd0082cfd1c03a6ff2969dc737b09357e58d",
+          "request_time": 1791355543.180937,
+          "requested_model": "gpt-6-astra",
+          "response_time": 1791355554.884368,
+          "returned_model": null,
+          "schema_sha256": "8ea0def89bff856d12cf6b03a950ac4ed6c776bc8dec4245b3f5e84c9533744c",
+          "status": "provider_unavailable",
+          "system_prompt_sha256": "a78e057cf6e4c959eb94cd858e438b23203e80136015a284939ed239448a526f",
+          "token_usage": {
+            "input_tokens": 19000,
+            "output_tokens": 110,
+            "reasoning_tokens": 0,
+            "total_tokens": 19110
+          },
+          "token_usage_is_lower_bound": false,
+          "tool_items": [
+            {
+              "event_type": "item.completed",
+              "item_type": "error"
+            },
+            {
+              "event_type": "item.completed",
+              "item_type": "error"
+            }
+          ],
+          "total_tokens_derived": true
+        },
+        "request_fingerprint": "46dbf5fe59311c0dc5a0f220aa0dc5a20ae2d6d9d2caaa187c4daad0d8fdd154"
+      }
+    },
+    {
+      "probe": 2,
+      "scope": "CPU-only teacher contract validation; zero new environment resets or policy controls",
+      "result": {
+        "proposal": {
+          "attempt_id": "complex-language-cpu-contract-probe-2",
+          "completion_signal": "The whole tupperware is visibly lifted clear of the counter and held securely.",
+          "decision_id": "complex-language-cpu-contract-probe-2:0:guide:0",
+          "episode_id": "complex-language-cpu-contract-probe-2",
+          "method": "phase_prompt",
+          "next_review_controls": 100,
+          "observation_step": 0,
+          "observed_evidence": "The tupperware containing green and orange food rests beside the microwave; no grasp is established. Prior failed observations show prolonged hovering near it.",
+          "request_fingerprint": "fc0fdd9f95414637e50a8a1f278c7d2ad8cf07e3d4326869383eb248317bde83",
+          "request_index": 0,
+          "role": "guide",
+          "schema_version": "complex-language-teacher-1",
+          "subgoal": "Grasp the tupperware container by its rim, not the food inside, and lift it clear of the counter."
+        },
+        "receipt": {
+          "accepted": true,
+          "backend": "codex_exec",
+          "cli_version": "codex-cli 0.159.3",
+          "configured_model": "gpt-6-astra",
+          "exit_code": 0,
+          "final_sha256": "e455db460ef84cffe0e16c13483faa3e699e319cf1ea417fdc52d7f3e59c285e",
+          "image_hashes": [
+            {
+              "file": "image_0.png",
+              "image_index": 0,
+              "label": "prior_native_failure; after 376 controls; left_right_wrist_panorama",
+              "sha256": "49acb5d334b082437518b39ccc81579dd093f2d04777e46c23b8ff6fb401a239"
+            },
+            {
+              "file": "image_1.png",
+              "image_index": 1,
+              "label": "prior_native_failure; after 750 controls; left_right_wrist_panorama",
+              "sha256": "ccb84c301c491140e08759d1733d53fda90b9738b8294dba04a11fba76f2480e"
+            },
+            {
+              "file": "image_2.png",
+              "image_index": 2,
+              "label": "prior_native_failure; after 1124 controls; left_right_wrist_panorama",
+              "sha256": "5effce9ae0d5408488b1f7e7fd56d4e8768373433747b80ac0933f5b51932b7d"
+            },
+            {
+              "file": "image_3.png",
+              "image_index": 3,
+              "label": "prior_native_failure; after 1500 controls; left_right_wrist_panorama",
+              "sha256": "00befd71238d386bfe68a5a50fff86f9f0962d3bdacda25c6faf6339cca18d56"
+            },
+            {
+              "file": "image_4.png",
+              "image_index": 4,
+              "label": "current; after 0 controls; left",
+              "sha256": "4cc09ab20df967eed98ec27ba1337222d3bd65f41662723429933435848926bd"
+            },
+            {
+              "file": "image_5.png",
+              "image_index": 5,
+              "label": "current; after 0 controls; right",
+              "sha256": "e8324b64270617f6393eb377a93f34a94faebb96633b356249cebad30d1475b2"
+            },
+            {
+              "file": "image_6.png",
+              "image_index": 6,
+              "label": "current; after 0 controls; wrist",
+              "sha256": "e391983174a09c029d8229d123f67cb83910fb377acd84e2fc86a8247e587506"
+            }
+          ],
+          "internal_retry_count": null,
+          "internal_turn_count": null,
+          "latency_seconds": 10.123813249985687,
+          "observed_completed_turns": 1,
+          "original_schema_sha256": "8ea0def89bff856d12cf6b03a950ac4ed6c776bc8dec4245b3f5e84c9533744c",
+          "prompt_sha256": "fbdd5d9bcdba76e9601ad3ead97ebf87bd768c3fe65a14392270a1084f21881e",
+          "prompt_template_version": "robocasa-phase-guidance-1",
+          "provider_call": true,
+          "provider_call_semantics": "CLI job started; not a raw HTTP request count",
+          "provider_unavailable": false,
+          "raw_usage": {
+            "cache_write_input_tokens": 0,
+            "cached_input_tokens": 0,
+            "input_tokens": 19003,
+            "output_tokens": 102,
+            "reasoning_output_tokens": 0
+          },
+          "raw_usage_events": [
+            {
+              "cache_write_input_tokens": 0,
+              "cached_input_tokens": 0,
+              "input_tokens": 19003,
+              "output_tokens": 102,
+              "reasoning_output_tokens": 0
+            }
+          ],
+          "reasoning_effort": "medium",
+          "request_fingerprint": "fc0fdd9f95414637e50a8a1f278c7d2ad8cf07e3d4326869383eb248317bde83",
+          "request_sha256": "cc7e177bd67a5312eec880201f694e294fc55bb37082175c7539599761cc923b",
+          "request_time": 1791355699.278341,
+          "requested_model": "gpt-6-astra",
+          "response_time": 1791355709.402156,
+          "returned_model": null,
+          "schema_sha256": "8ea0def89bff856d12cf6b03a950ac4ed6c776bc8dec4245b3f5e84c9533744c",
+          "startup_notices": [
+            {
+              "kind": "unknown_ultrafast_feature_requirement",
+              "message_sha256": "9e5788cb6d6b7f35271a3e099a589479f80da1dfc5191d4ecbcce3735c986d3b"
+            },
+            {
+              "kind": "unknown_ultrafast_feature_requirement",
+              "message_sha256": "9e5788cb6d6b7f35271a3e099a589479f80da1dfc5191d4ecbcce3735c986d3b"
+            }
+          ],
+          "status": "accepted",
+          "system_prompt_sha256": "a78e057cf6e4c959eb94cd858e438b23203e80136015a284939ed239448a526f",
+          "token_usage": {
+            "input_tokens": 19003,
+            "output_tokens": 102,
+            "reasoning_tokens": 0,
+            "total_tokens": 19105
+          },
+          "token_usage_is_lower_bound": false,
+          "tool_items": [],
+          "total_tokens_derived": true
+        },
+        "request_fingerprint": "fc0fdd9f95414637e50a8a1f278c7d2ad8cf07e3d4326869383eb248317bde83"
+      }
+    }
+  ],
+  "total_tokens_including_rejected_probe": 38215,
+  "note": "Probe 1 remains rejected under its original harness. The two error items were pre-turn unknown-ultrafast-feature warnings. Probe 2 is a separate verification of the corrected event classification, not an indeterminate-job retry. Neither is a task rollout or success result."
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "A second corn rests beside the drumstick in the right tupperware.",
+  "method": "phase_prompt",
+  "next_review_controls": 500,
+  "observed_evidence": "The drumstick remains in the right tupperware with no visible lifted grasp; little has changed since the previous review. Corn remains in the left. Both placements can be preserved while adding the missing foods.",
+  "subgoal": "Leave both placed foods in place. Return to the open refrigerator, pick up another corn, and place it beside the drumstick in the right tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:2250:guide:11",
+  "request_fingerprint": "d5cbe990d9be2e6a9c57bca313582ccfca4d0092f3bcdd7e41563f4b966bba4e",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 11,
+  "observation_step": 2250
+}

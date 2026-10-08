@@ -1,0 +1,567 @@
+{
+  "status": "passed",
+  "required_operators": [
+    "tei"
+  ],
+  "operators": {
+    "tei_0.0": {
+      "max_action_difference": 0.0,
+      "max_action_difference_from_native_copy": 0.0,
+      "method": "tei",
+      "alpha": 0.0,
+      "subgoal": "Lift the held object higher while keeping the gripper closed.",
+      "source": "same_current_real_cameras_and_state_online_subgoal",
+      "target_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
+      "source_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "target_tokens_sha256": "29cae5789d950119bf8706c1fa1676a6ca7eb85ca6172da159d563c7aa7f3ad2",
+      "source_tokens_sha256": "291fab343d6652726c973c278f556b939013128498a406ccd321699c8af6d53d",
+      "layer_delta_frobenius_max_abs": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "has_effect": false,
+      "protected_slots_direct_writes": 0,
+      "seconds": 8.129513488005614
+    },
+    "tli_0.5": {
+      "max_action_difference": 0.0,
+      "max_action_difference_from_native_copy": 0.0,
+      "method": "tli",
+      "alpha": 0.5,
+      "subgoal": "Lift the held object higher while keeping the gripper closed.",
+      "source": "same_current_real_cameras_and_state_online_subgoal",
+      "target_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
+      "source_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "target_tokens_sha256": "29cae5789d950119bf8706c1fa1676a6ca7eb85ca6172da159d563c7aa7f3ad2",
+      "source_tokens_sha256": "291fab343d6652726c973c278f556b939013128498a406ccd321699c8af6d53d",
+      "layer_delta_frobenius_max_abs": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "has_effect": false,
+      "protected_slots_direct_writes": 0,
+      "seconds": 14.29600585901062
+    },
+    "tei_0.5": {
+      "max_action_difference": 0.2147292014737101,
+      "max_action_difference_from_native_copy": 0.2147292014737101,
+      "method": "tei",
+      "alpha": 0.5,
+      "subgoal": "Lift the held object higher while keeping the gripper closed.",
+      "source": "same_current_real_cameras_and_state_online_subgoal",
+      "target_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
+      "source_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "target_tokens_sha256": "29cae5789d950119bf8706c1fa1676a6ca7eb85ca6172da159d563c7aa7f3ad2",
+      "source_tokens_sha256": "291fab343d6652726c973c278f556b939013128498a406ccd321699c8af6d53d",
+      "layer_delta_frobenius_max_abs": [
+        [
+          910.0235595703125,
+          63.25
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "has_effect": true,
+      "protected_slots_direct_writes": 0,
+      "seconds": 0.1339993869769387
+    },
+    "tli_0.25": {
+      "max_action_difference": 2.5583488565322634,
+      "max_action_difference_from_native_copy": 2.5583488565322634,
+      "method": "tli",
+      "alpha": 0.25,
+      "subgoal": "Lift the held object higher while keeping the gripper closed.",
+      "source": "same_current_real_cameras_and_state_online_subgoal",
+      "target_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
+      "source_instruction_positions": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "target_tokens_sha256": "29cae5789d950119bf8706c1fa1676a6ca7eb85ca6172da159d563c7aa7f3ad2",
+      "source_tokens_sha256": "291fab343d6652726c973c278f556b939013128498a406ccd321699c8af6d53d",
+      "layer_delta_frobenius_max_abs": [
+        [
+          1259.0208740234375,
+          410.0
+        ],
+        [
+          1390.619140625,
+          490.0
+        ],
+        [
+          1491.880859375,
+          524.0
+        ],
+        [
+          1608.6041259765625,
+          564.0
+        ],
+        [
+          1740.7620849609375,
+          612.0
+        ],
+        [
+          1963.0936279296875,
+          652.0
+        ],
+        [
+          2099.6611328125,
+          644.0
+        ],
+        [
+          2222.235595703125,
+          632.0
+        ],
+        [
+          2239.011962890625,
+          616.0
+        ],
+        [
+          2291.94384765625,
+          604.0
+        ],
+        [
+          2264.439208984375,
+          572.0
+        ],
+        [
+          2246.29541015625,
+          524.0
+        ],
+        [
+          2364.861572265625,
+          532.0
+        ],
+        [
+          2777.65283203125,
+          568.0
+        ],
+        [
+          3519.3603515625,
+          640.0
+        ],
+        [
+          4418.85986328125,
+          732.0
+        ],
+        [
+          8248.671875,
+          1032.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ],
+      "has_effect": true,
+      "protected_slots_direct_writes": 0,
+      "seconds": 0.19882869202410802
+    }
+  },
+  "failed_checks": [],
+  "nonblocking_failed_checks": [],
+  "environment_resets": 0,
+  "environment_actions": 0,
+  "policy_updates": 0,
+  "native_cache_max_abs": [
+    0.0,
+    0.0
+  ],
+  "native_copy_max_action_difference": 0.0,
+  "native_restored_exact": true
+}

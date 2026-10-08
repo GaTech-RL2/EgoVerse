@@ -1,0 +1,11 @@
+{
+  "seed": 0,
+  "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+  "observation_sha256": "ab41accb3780a3a6292a956bde390feff94392880bfbffceb9ba7ffd97ef692e",
+  "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913",
+  "model_sha256": "8a325968def7473858e188b7b01bf5e6101a1b2f620b9639d370601dc300cf2c",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 5,
+  "extra_libero_stabilization_steps": 0
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The broccoli is visibly lifted clear of the lower refrigerator shelf and held between the gripper fingers.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 100, the arm has reached farther into the refrigerator and the broccoli appears larger and closer between the open fingers in the wrist view. It remains on the shelf; no grasp or lift is established. The base state is nearly unchanged.",
+  "subgoal": "Pick up the broccoli on the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0:200:guide:2",
+  "request_fingerprint": "57db931fcc6f7e16c0695cdf6e269c20a5fe0634bb3cbb11cbb612cdab8c242e",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "request_index": 2,
+  "observation_step": 200
+}

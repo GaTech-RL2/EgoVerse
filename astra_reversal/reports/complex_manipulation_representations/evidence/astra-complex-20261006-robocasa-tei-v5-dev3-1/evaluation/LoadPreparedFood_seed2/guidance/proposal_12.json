@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The tupperware rises with the gripper to the top shelf opening beside the jar.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 1100, the tupperware has rotated from nearly upright to more level in the wrist view but remains below the fridge shelves. End-effector height relative to the base increased from 0.492 to 0.523. The gripper narrowed, but a secure grasp and shelf support are not established. The fridge remains open.",
+  "subgoal": "Lift the food-filled tupperware up to the top shelf opening beside the jar.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:1200:guide:12",
+  "request_fingerprint": "15e4632835a60c937acec24ab90ec5d94347d8da84d551c043eef9b51b9c4eea",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 12,
+  "observation_step": 1200
+}

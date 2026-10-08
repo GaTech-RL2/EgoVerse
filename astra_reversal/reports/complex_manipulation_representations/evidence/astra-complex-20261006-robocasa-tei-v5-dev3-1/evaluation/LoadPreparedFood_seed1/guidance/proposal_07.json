@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The robot reaches the fridge with the tupperware moving with the gripper and the fish and lime remaining inside.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 600, the container has moved upward and left in the right camera while remaining similarly positioned in the wrist camera. End-effector position changed from [0.223, -0.117, 0.383] to [0.171, -0.063, 0.468], with the base nearly unchanged. This supports progressing from lifting to transport.",
+  "subgoal": "Carry the tupperware containing fish and lime to the front of the fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0:700:guide:7",
+  "request_fingerprint": "dbb3da034c58c7c7cd48aa18068111424a2f107cb0d3760115afbff571e74c8f",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "request_index": 7,
+  "observation_step": 700
+}

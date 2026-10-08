@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly above the tupperware rim with clearance to approach it.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 300, the arm has shifted lower beside the container. The fish-containing tupperware remains on the countertop, and gripper positions remain near zero; no opening or secured lift is visible.",
+  "subgoal": "Raise the gripper clear of the countertop and position it above the near rim of the fish-containing tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:400:guide:4",
+  "request_fingerprint": "c891c9dac1d0e3e1ee19b8aa67f604c14e06c602607cb1db2322abd7f10e0f6f",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

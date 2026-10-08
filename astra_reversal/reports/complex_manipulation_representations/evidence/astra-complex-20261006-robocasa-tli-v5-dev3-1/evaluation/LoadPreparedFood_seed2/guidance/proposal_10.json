@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper is visibly centered above the tupperware on the counter.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 850, the camera views remain nearly unchanged and the robot state shows only small changes. The tupperware remains on the counter beside the stove, with no visible grasp or lift; the wrist view remains obstructed. Moderate steering has not produced observable progress.",
+  "subgoal": "Move the gripper directly above the tupperware on the counter beside the stove.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0:950:guide:10",
+  "request_fingerprint": "6ded2967051d2ce346cb4da50ab1f0292ba46c92220906fb40faffe1d08dfcfe",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "request_index": 10,
+  "observation_step": 950
+}

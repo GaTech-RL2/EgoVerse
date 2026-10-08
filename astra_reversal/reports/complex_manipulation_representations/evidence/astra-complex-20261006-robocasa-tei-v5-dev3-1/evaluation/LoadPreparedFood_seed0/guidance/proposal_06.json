@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The tupperware visibly clears the countertop and moves with the gripper.",
+  "method": "tei",
+  "next_review_controls": 50,
+  "observed_evidence": "Since step 500, the gripper has closed and the end effector has risen slightly, but the tupperware remains on the counter in the side views. A secure grasp is not established; the failed native rollout likewise never visibly lifted it.",
+  "subgoal": "Grasp the tupperware rim beside the microwave and lift the whole container clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0:600:guide:6",
+  "request_fingerprint": "e7551feda393a949723055b99f894113c001715b89f9a7869b2620dfaddef5eb",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "request_index": 6,
+  "observation_step": 600
+}

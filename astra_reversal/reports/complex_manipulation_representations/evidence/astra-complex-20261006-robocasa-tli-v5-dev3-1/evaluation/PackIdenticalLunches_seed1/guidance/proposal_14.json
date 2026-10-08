@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper rises visibly beside the refrigerator door and clears its lower edge.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1250, the wrist view reveals more cabinetry, but the arm remains low beside the open refrigerator door. End-effector height relative to base decreased from 0.025 to -0.028 despite stronger withdrawal guidance. No food grasp or placement is confirmed.",
+  "subgoal": "Lift the gripper upward clear of the refrigerator door's lower edge.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:1350:guide:14",
+  "request_fingerprint": "81ff6939bdcd5ff0c358d4445f7923bb94c2e7526bf576790fa9e32d021aeb13",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 14,
+  "observation_step": 1350
+}

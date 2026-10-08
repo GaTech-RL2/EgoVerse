@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly separated from the refrigerator drawer, with open space between them.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Stronger lift guidance did not establish clearance: the end-effector position's third component decreased from 0.256 to 0.197. The arm remains beside the drawer and the wrist view remains obstructed. No food grasp or placement is visible.",
+  "subgoal": "Withdraw the gripper away from the refrigerator drawer into open space.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0:1100:guide:11",
+  "request_fingerprint": "0aeda6795cd406cf7a163be0adc8d17110bdee53e122a310564e57b5366539d0",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "request_index": 11,
+  "observation_step": 1100
+}

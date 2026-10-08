@@ -1,0 +1,1472 @@
+{
+  "files": {
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/worker_started.json",
+      "bytes": 311,
+      "sha256": "1c8fd1a435216c6f56a9c5f16c55e90886f6ff8abc796d9f91592783dd744f4f",
+      "stamp": [
+        311,
+        1791352417351311516
+      ]
+    },
+    "asset_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/asset_receipt.json",
+      "bytes": 2565955,
+      "sha256": "3e108e2e8f35a75cd5feda6f6d8c8930aada7eb6fb3f02221280d27cb7caee09",
+      "stamp": [
+        2565955,
+        1791352557039296202
+      ]
+    },
+    "supplement_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/supplement_receipt.json",
+      "bytes": 8386,
+      "sha256": "23be11177047321b67eb848e81eec89431c1459cd45a43edea740371ee150dea",
+      "stamp": [
+        8386,
+        1791352558792296010
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/audit/simulator_environment.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/audit/simulator_environment.json",
+      "bytes": 179,
+      "sha256": "510abb397f8aa3d3b1d6bb336466c7452e29c7d422a119534c4a6381eae916b8",
+      "stamp": [
+        179,
+        1791352743072275777
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/commands.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/commands.json",
+      "bytes": 1802,
+      "sha256": "cf84c644f7027bc7489ca898b06521930c44e044cd9b22da38a20d41a4c08b0e",
+      "stamp": [
+        1802,
+        1791352722801278004
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/native_policy_config.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/native_policy_config.json",
+      "bytes": 337,
+      "sha256": "5d2e03869303604d1ec71fbd778e21dd328f6c65b998efb1ed3618bf9ab5d222",
+      "stamp": [
+        337,
+        1791352724248277845
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy.log",
+      "bytes": 975,
+      "sha256": "cba129d9a6fd81535110240cc3af70d5899e3c31e83054e7b6b961a25a59409f",
+      "stamp": [
+        975,
+        1791353199478225574
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/simulator.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/simulator.log",
+      "bytes": 62390,
+      "sha256": "834c1a98e1ef9fd489011b54126c8bd4db303e5dd7348c35cf0fcc1dd473d546",
+      "stamp": [
+        62390,
+        1791353197531225789
+      ]
+    },
+    "runtime_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/runtime_receipt.json",
+      "bytes": 1367,
+      "sha256": "be47cea519f8b68508d2c392c828d868f3bf2dff598ddefad6de8c0629f4ab13",
+      "stamp": [
+        1367,
+        1791352722572278029
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/native_results/per_episode.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/native_results/per_episode.jsonl",
+      "bytes": 17804,
+      "sha256": "4f7b7d48cbd418fb043a5ca97abbc37d9e689a2f08129f29b6dc837d4e9b844b",
+      "stamp": [
+        17804,
+        1791353196157225940
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/audit/recording_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/audit/recording_started.json",
+      "bytes": 58,
+      "sha256": "ff80c09e52fb2240d42cc72e251aee8ea4ab58bd2a6125d2dbc9dc2e5c43d945",
+      "stamp": [
+        58,
+        1791352895601259011
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/audit/runtime_joint_map.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/audit/runtime_joint_map.json",
+      "bytes": 3249,
+      "sha256": "1e1653a7749049f5f8824a044433838530e8823cbe6a51f6dd6ce10f2ffdaa9e",
+      "stamp": [
+        3249,
+        1791352894726259107
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/resets.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/resets.jsonl",
+      "bytes": 83,
+      "sha256": "a77c6dbccea3872689f67d8ed77d2757bf8177e92bd19b9b55813fcca27f9188",
+      "stamp": [
+        83,
+        1791352895500259022
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_overhead.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_overhead.png",
+      "bytes": 222123,
+      "sha256": "981b55bb4acba6031a611989d0bd934cd12b29c99a4928799ba9bd6a4eb0647a",
+      "stamp": [
+        222123,
+        1791352895462259026
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_left.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_left.png",
+      "bytes": 252414,
+      "sha256": "4d6d344d91292881cff55f0e6ca2b97bc2d6d4a7cb29339b7927746dc620b1bb",
+      "stamp": [
+        252414,
+        1791352895486259023
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_right.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_stereo_right.png",
+      "bytes": 246251,
+      "sha256": "9552c9e540816496231c2c12f9c59ab572591e088cd73ed5dd50cb76fb8eb34e",
+      "stamp": [
+        246251,
+        1791352895495259022
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_left.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_left.png",
+      "bytes": 194085,
+      "sha256": "9b3c20b1506f94c808ad762e1f7c6d4b96e067b5234a0d71b52e23150f0754dc",
+      "stamp": [
+        194085,
+        1791352895476259024
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_right.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_cam_wrist_right.png",
+      "bytes": 193094,
+      "sha256": "e26bbe4727848c6e99eea5834d24180c9bee90acdfb77062c71c1d3720ee6494",
+      "stamp": [
+        193094,
+        1791352895469259025
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/preflight/inference_preflight_extrinsics.txt": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/preflight/inference_preflight_extrinsics.txt",
+      "bytes": 898,
+      "sha256": "3c13c7ddc9293cff0892d1538f14bda59b24cb873f0f61594ad1ac433c87cedb",
+      "stamp": [
+        898,
+        1791352895495259022
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/inference.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/inference.jsonl",
+      "bytes": 7298,
+      "sha256": "ca7ad8d7ba37e3ee011d6e9361b88ad6751ed70bcaafe8f67fe3f28d776caec4",
+      "stamp": [
+        7298,
+        1791353192580226334
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00000.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00000.npz",
+      "bytes": 4278,
+      "sha256": "ea6d8a04423cce06c40b4be2f0b5e5978dbbdb98a35e33ee4653f8285337993d",
+      "stamp": [
+        4278,
+        1791352915367256837
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00001.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00001.npz",
+      "bytes": 4272,
+      "sha256": "07a2bd5cb62b62e3c0f528edf6b4c3d7df8ec24d0bc0896f4409cbeff6da79f9",
+      "stamp": [
+        4272,
+        1791352919869256342
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00002.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00002.npz",
+      "bytes": 4252,
+      "sha256": "3856aed63921f071d187571d8bd460075c62b483b90b07f8779df5453f23cea7",
+      "stamp": [
+        4252,
+        1791352924277255857
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00003.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00003.npz",
+      "bytes": 4268,
+      "sha256": "167d97aab10b9ed9ed676e07bb7c27761489e75303d6f1c60a8fa6d36c391872",
+      "stamp": [
+        4268,
+        1791352928834255356
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00004.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00004.npz",
+      "bytes": 4247,
+      "sha256": "270c01cae10bbfac9017a7c5eefafb4ce98e2d8d632294d9004b4257349bfcfa",
+      "stamp": [
+        4247,
+        1791352933495254843
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00005.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00005.npz",
+      "bytes": 4243,
+      "sha256": "0da01b96ca18cc5f02cb6cb0da408e95bef9bb02f0520668cfa84f98bf141e56",
+      "stamp": [
+        4243,
+        1791352938116254335
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00006.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00006.npz",
+      "bytes": 4249,
+      "sha256": "604644c10ffa0b4910373d9bcadcc7e120b62ae94170cd37b30d02e68519b468",
+      "stamp": [
+        4249,
+        1791352942596253842
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00007.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00007.npz",
+      "bytes": 4268,
+      "sha256": "351a87b5c5f5e53a98a2b8e094efb7c347daff9e47eca1113844cd5d91a9f72e",
+      "stamp": [
+        4268,
+        1791352947548253297
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00008.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00008.npz",
+      "bytes": 4271,
+      "sha256": "00c7e09611897a20e1722dfbf4ca1877d955d7dd463a9a54ad95ebc07cfe8286",
+      "stamp": [
+        4271,
+        1791352952433252760
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00009.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00009.npz",
+      "bytes": 4248,
+      "sha256": "d317a0e3bf999b096790d63d25d6e66b0666bf7bed6067141a7bf6ea4dac0e6e",
+      "stamp": [
+        4248,
+        1791352957387252215
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00010.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00010.npz",
+      "bytes": 4276,
+      "sha256": "6dd985c2a15c25688436cb02258abdd8a49dc91c9779be8deb0e0464a2deda07",
+      "stamp": [
+        4276,
+        1791352962508251652
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00011.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00011.npz",
+      "bytes": 4289,
+      "sha256": "1afa4a4a0f8c2f5744ea78489f71aefb573d15b0f4aac48a951af2d2ddaf2e19",
+      "stamp": [
+        4289,
+        1791352966953251163
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00012.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00012.npz",
+      "bytes": 4288,
+      "sha256": "48b4d93b6549b8a6a0c66371e2c19b8371ef948f68ee9c3bbebd7ac521e43d38",
+      "stamp": [
+        4288,
+        1791352971412250672
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00013.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00013.npz",
+      "bytes": 4266,
+      "sha256": "1a2c27a2a6de674565819d824455b8698d705a86f1e1a0d76282e6ec497b2f26",
+      "stamp": [
+        4266,
+        1791352975752250195
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00014.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00014.npz",
+      "bytes": 4269,
+      "sha256": "d9704933c92cd555aada8c276b201a8ba8d3ff883772d091f807e8f747736fa2",
+      "stamp": [
+        4269,
+        1791352979974249731
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00015.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00015.npz",
+      "bytes": 4281,
+      "sha256": "dfe90cdf2d8776dab4292ab9a08d2c619932a064fa5f4af72366e0ca773484e5",
+      "stamp": [
+        4281,
+        1791352984333249251
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00016.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00016.npz",
+      "bytes": 4271,
+      "sha256": "3c54fe60b28a4dcb2a2f0ad86253969ebcd82986b77d7f2a7d74567a2737903d",
+      "stamp": [
+        4271,
+        1791352988647248777
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00017.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00017.npz",
+      "bytes": 4284,
+      "sha256": "ac26639212a8d9f75e8747a252b150a4973feb594e00ba22b3d82d7160631ff9",
+      "stamp": [
+        4284,
+        1791352992975248300
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00018.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00018.npz",
+      "bytes": 4285,
+      "sha256": "586480e922c15260c53d15485483b00f6aa354e587e368798794aa71a27863f5",
+      "stamp": [
+        4285,
+        1791352996968247861
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00019.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00019.npz",
+      "bytes": 4277,
+      "sha256": "a4c36b0c659c3489e0f72e10d5df1813078ff6d6050f36c5134f2bba41142074",
+      "stamp": [
+        4277,
+        1791353001440247369
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00020.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00020.npz",
+      "bytes": 4300,
+      "sha256": "5af80c2f444eecc8c2fdfe9d0799494b2e9ca744e236505e8edf2dbc350a61e7",
+      "stamp": [
+        4300,
+        1791353006493246813
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00021.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00021.npz",
+      "bytes": 4279,
+      "sha256": "f186f86081e51a3f44953f4d11da518ee9dea12d4050c304c529b5bf31015af0",
+      "stamp": [
+        4279,
+        1791353011489246264
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00022.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00022.npz",
+      "bytes": 4274,
+      "sha256": "696ae9c8d3789346368c66bb16e22dc56888ac9aa21890984d73237c72c813f7",
+      "stamp": [
+        4274,
+        1791353016363245728
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00023.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00023.npz",
+      "bytes": 4278,
+      "sha256": "c81bddef7da9bbbfb35d96f3e14f6c41df39303a89a47814821ce48fdd0c50f9",
+      "stamp": [
+        4278,
+        1791353021280245187
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00024.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00024.npz",
+      "bytes": 4288,
+      "sha256": "7c99cd89b692594856877e353679b62c90438d9c9663f120729416cf14c472ed",
+      "stamp": [
+        4288,
+        1791353026420244621
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00025.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00025.npz",
+      "bytes": 4288,
+      "sha256": "d32902236a2544c6c3a119b9e82942e1c163d5846313ff2dfe24273187d0e711",
+      "stamp": [
+        4288,
+        1791353031471244065
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00026.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00026.npz",
+      "bytes": 4277,
+      "sha256": "e2891b4d1d13f3e0b5af35c376143c8f7a16ed198e0475cb69983ec6ba59389f",
+      "stamp": [
+        4277,
+        1791353036517243510
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00027.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00027.npz",
+      "bytes": 4292,
+      "sha256": "b79e73e698c7609b1c4e3a4f477bad6bbc019df7ad5358c7e332cc8cf04e9292",
+      "stamp": [
+        4292,
+        1791353041582242953
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00028.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00028.npz",
+      "bytes": 4295,
+      "sha256": "c366724d33a0aba6204092df82ed0ae986ceff39fe01c270fb42dd7544f06f65",
+      "stamp": [
+        4295,
+        1791353046508242411
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00029.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00029.npz",
+      "bytes": 4290,
+      "sha256": "0a83a6a874c9920c0a5f8e67c1f4f0f16d61b4a60018e9174223a3722840a2b7",
+      "stamp": [
+        4290,
+        1791353051465241865
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00030.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00030.npz",
+      "bytes": 4279,
+      "sha256": "26c8c1026e7cb06ca9cdf140e2f1f3af3628fb0aa7c7dd2aa64b24275bd364a5",
+      "stamp": [
+        4279,
+        1791353056434241319
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00031.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00031.npz",
+      "bytes": 4247,
+      "sha256": "3349dbb6a6202c52a71501bffdbf5bbebec9afebef063694fa7c85c2cde87391",
+      "stamp": [
+        4247,
+        1791353061552240755
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00032.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00032.npz",
+      "bytes": 4249,
+      "sha256": "bbdf4b11a0aee30975074ca01b6a905b9d18466a33e8229a4e725b5e88ad70bb",
+      "stamp": [
+        4249,
+        1791353066637240196
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00033.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00033.npz",
+      "bytes": 4251,
+      "sha256": "df0239bfb38302ef573765adc914fa38c1ae66b669bfab56d430024a0cc8f41c",
+      "stamp": [
+        4251,
+        1791353071561239654
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00034.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00034.npz",
+      "bytes": 4260,
+      "sha256": "577f28b847cb4b9a415d8282de23ddcd0e690a98fa94dc4dbc4c97e2a2996eda",
+      "stamp": [
+        4260,
+        1791353076464239114
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00035.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00035.npz",
+      "bytes": 4259,
+      "sha256": "499560e63dd79006c3d04df0ff89ef9ed59ac7df33226765a9d9ac1e01b397ca",
+      "stamp": [
+        4259,
+        1791353080989238616
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00036.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00036.npz",
+      "bytes": 4276,
+      "sha256": "8d10a927217a0bc6671bd12c0dcd02307a2cf8d660ccc3a270a434fb23d2620d",
+      "stamp": [
+        4276,
+        1791353085663238102
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00037.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00037.npz",
+      "bytes": 4282,
+      "sha256": "11604254aee1064049f99d18f2e10d8a4ae94349abde93c808daf9a929829e2a",
+      "stamp": [
+        4282,
+        1791353090536237566
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00038.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00038.npz",
+      "bytes": 4277,
+      "sha256": "7252626e8fa3a305c3aa4d1dc73de17c9011b04b99de2a05e5a58af3ddd00107",
+      "stamp": [
+        4277,
+        1791353095403237030
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00039.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00039.npz",
+      "bytes": 4269,
+      "sha256": "200cfcffa38c83b5ac75c033c43f03663f115de60e2340214c5bb2b3ee93886d",
+      "stamp": [
+        4269,
+        1791353100279236493
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00040.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00040.npz",
+      "bytes": 4284,
+      "sha256": "993db0928b7bd93f3b78247f75b28a8739f9c15d81176d860edd72d2870ebdb9",
+      "stamp": [
+        4284,
+        1791353105137235959
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00041.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00041.npz",
+      "bytes": 4279,
+      "sha256": "ffb239e38d1cfc3b2429ad32fa4988de42fc2c44711d07b7a9aba43452dd5666",
+      "stamp": [
+        4279,
+        1791353110035235420
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00042.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00042.npz",
+      "bytes": 4285,
+      "sha256": "03794f39fdc4d041a220fa77db798d6e0ce3db0f7d6e22888a471da8c46db3ad",
+      "stamp": [
+        4285,
+        1791353114897234884
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00043.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00043.npz",
+      "bytes": 4273,
+      "sha256": "c1df2c5ad89fbc7f27a385d5385d340349924521d8cadccaed50cc62a444dbd6",
+      "stamp": [
+        4273,
+        1791353119130234419
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00044.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00044.npz",
+      "bytes": 4291,
+      "sha256": "16ac3e5a65d2bc4ce9abae67f76ab11c0607ec7d31e9960532ecc59886401a3b",
+      "stamp": [
+        4291,
+        1791353123392233950
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00045.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00045.npz",
+      "bytes": 4278,
+      "sha256": "6e14852c66c94dbef9b9b590018315e946d6f990935282d4d7f74ff9713c5ece",
+      "stamp": [
+        4278,
+        1791353127633233483
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00046.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00046.npz",
+      "bytes": 4285,
+      "sha256": "b557f6656649eb7949d09f69bc8534a555db4b731c6938cd13c722b0df62d1c5",
+      "stamp": [
+        4285,
+        1791353132505232947
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00047.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00047.npz",
+      "bytes": 4278,
+      "sha256": "37c71b9efef9765585ea4345b143b417e29215b4f3e9d12b6c0de6de573d4632",
+      "stamp": [
+        4278,
+        1791353136837232470
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00048.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00048.npz",
+      "bytes": 4281,
+      "sha256": "5c09d7e8d6fe4487b46c70f32a102dd606c97db67de5058cc5d2032f724625e5",
+      "stamp": [
+        4281,
+        1791353141014232010
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00049.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00049.npz",
+      "bytes": 4294,
+      "sha256": "f4c3db65e3146eb9fba4e9240ff050887f0ec063f65e8a236cf61a672511ab39",
+      "stamp": [
+        4294,
+        1791353145282231540
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00050.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00050.npz",
+      "bytes": 4299,
+      "sha256": "a903e599f27952a9e74ccbecd904851c7d2e6beced4dddec8083de281bf10d49",
+      "stamp": [
+        4299,
+        1791353149435231083
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00051.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00051.npz",
+      "bytes": 4278,
+      "sha256": "307a96f18fbf2d359e90366efc33743287a80fcc7624af4ed1223bd8288b80a7",
+      "stamp": [
+        4278,
+        1791353153651230619
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00052.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00052.npz",
+      "bytes": 4284,
+      "sha256": "089aec956af39849ad6bebeffad5d795ab8a094dc17f1bd08f4330b5f63ce20b",
+      "stamp": [
+        4284,
+        1791353157977230143
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00053.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00053.npz",
+      "bytes": 4302,
+      "sha256": "e76e4ef944cfd8cb28f39ae2c51a145baca89a46aead3746f1d2f17032971358",
+      "stamp": [
+        4302,
+        1791353162134229685
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00054.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00054.npz",
+      "bytes": 4284,
+      "sha256": "32be0442445cc14f4e00e15a34049290e23600da6fd69d4dd4a8fbc46403e489",
+      "stamp": [
+        4284,
+        1791353166277229229
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00055.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00055.npz",
+      "bytes": 4279,
+      "sha256": "14b84ba5eec05b4cd2d78d84b85b9b5eee90d3b58c70ab5ed990f450700219c2",
+      "stamp": [
+        4279,
+        1791353170414228774
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00056.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00056.npz",
+      "bytes": 4269,
+      "sha256": "ab5fa1349b8ebd9ba2d346633ca8d784cda14b50bd36390552191bc10da2b1f0",
+      "stamp": [
+        4269,
+        1791353175170228250
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00057.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00057.npz",
+      "bytes": 4253,
+      "sha256": "9d6bbf12b22f787a38b14c5afe669932688fc2fd62dfeb1a105e1fad0d376aa4",
+      "stamp": [
+        4253,
+        1791353180060227712
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00058.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00058.npz",
+      "bytes": 4259,
+      "sha256": "f14b67e8b7c0d3a3e4fdcc7ec12d7123d18962dfb1a4649a86fbf2d8831852e2",
+      "stamp": [
+        4259,
+        1791353184130227264
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00059.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00059.npz",
+      "bytes": 4252,
+      "sha256": "4281125a480972ba76e8d48f8a1e452fe79c55824f5b3a9e973000a9b23609a0",
+      "stamp": [
+        4252,
+        1791353188072226830
+      ]
+    },
+    "34_fridge_wine_interhand_pour/audit/simulator_environment.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/audit/simulator_environment.json",
+      "bytes": 179,
+      "sha256": "510abb397f8aa3d3b1d6bb336466c7452e29c7d422a119534c4a6381eae916b8",
+      "stamp": [
+        179,
+        1791353221872223109
+      ]
+    },
+    "34_fridge_wine_interhand_pour/commands.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/commands.json",
+      "bytes": 1840,
+      "sha256": "678cb2b71e55430589b3b9e7995e3dacf569fbf82f6d24927f27cd1fa85faac5",
+      "stamp": [
+        1840,
+        1791353201583225342
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/native_policy_config.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/native_policy_config.json",
+      "bytes": 347,
+      "sha256": "757ea524d3f031685ad0765352d6bf176965855669518b1d4ea5f16c4471250d",
+      "stamp": [
+        347,
+        1791353203250225159
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy.log",
+      "bytes": 979,
+      "sha256": "98ac38d946e1e3ddf3c5df3e1efb67a1c1760f83d31ce32771ac963122f03403",
+      "stamp": [
+        979,
+        1791353536067188506
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/audit/commands.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/audit/commands.jsonl",
+      "bytes": 2957056,
+      "sha256": "8480e2eaf50af2039873975f73e8ed0a01e14f2b5c760d2b59995c18472f131a",
+      "stamp": [
+        2957056,
+        1791353195019226065
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/native_results/per_task.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/native_results/per_task.json",
+      "bytes": 10211,
+      "sha256": "f12f94cf05a53390d56afe53695db49cfa2ff7e23c42e82ada4bf042e734c5ab",
+      "stamp": [
+        10211,
+        1791353196687225882
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/native_results/summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/native_results/summary.json",
+      "bytes": 9773,
+      "sha256": "1bc512180191ec46bdb64736ea35b1025a8643694bf69e5de4e6934fc231095e",
+      "stamp": [
+        9773,
+        1791353197218225823
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/pilot_summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/pilot_summary.json",
+      "bytes": 208,
+      "sha256": "d4c8e79fdcc952e404619088986bfbd1136e291a2afdc36d60d37e060938c9a7",
+      "stamp": [
+        208,
+        1791353201344225369
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/policy/prediction_00060.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/policy/prediction_00060.npz",
+      "bytes": 4266,
+      "sha256": "f1d1b0ee276dd95a7f5394be4989eef41f97b0873e21a59318b0313014b8fbcc",
+      "stamp": [
+        4266,
+        1791353192580226334
+      ]
+    },
+    "73_jigsaw_puzzle_assembly/recordings/failure/episode_000001.hdf5": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/73_jigsaw_puzzle_assembly/recordings/failure/episode_000001.hdf5",
+      "bytes": 213479636,
+      "sha256": "9ebb5c73647516ddd749740d10f6072bd8f4a8de3689847b2f8d64bd3c532521",
+      "stamp": [
+        213479636,
+        1791353196143225941
+      ]
+    },
+    "pilot_summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/pilot_summary.json",
+      "bytes": 522,
+      "sha256": "ef14766eca8979738d53a9eb58b6d01525170f0421cc3fee9628cefc792c188b",
+      "stamp": [
+        522,
+        1791353537734188322
+      ]
+    },
+    "34_fridge_wine_interhand_pour/audit/recording_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/audit/recording_started.json",
+      "bytes": 58,
+      "sha256": "ff80c09e52fb2240d42cc72e251aee8ea4ab58bd2a6125d2dbc9dc2e5c43d945",
+      "stamp": [
+        58,
+        1791353253689219606
+      ]
+    },
+    "34_fridge_wine_interhand_pour/audit/runtime_joint_map.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/audit/runtime_joint_map.json",
+      "bytes": 3457,
+      "sha256": "381c3900c36c58a37e7b8693d1dc9c62998871037eafc9fb91dbebef0ba4e5dc",
+      "stamp": [
+        3457,
+        1791353252526219734
+      ]
+    },
+    "34_fridge_wine_interhand_pour/native_results/per_episode.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/native_results/per_episode.jsonl",
+      "bytes": 17431,
+      "sha256": "1824d10d90bb4535efa526aa7de5583eb944aba93b067a9359ebcd54c6be50e9",
+      "stamp": [
+        17431,
+        1791353533145188828
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/resets.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/resets.jsonl",
+      "bytes": 83,
+      "sha256": "1f83ff1c0359753abffd2288433e4223245fa8c54c3af29646dc8c759bc8d2d3",
+      "stamp": [
+        83,
+        1791353253540219622
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_overhead.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_overhead.png",
+      "bytes": 414017,
+      "sha256": "b80c9a4f7338d7f6b850892643b6c51a51c4a5edb7af409e18aa9a92d1d9dc8e",
+      "stamp": [
+        414017,
+        1791353253479219629
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_left.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_left.png",
+      "bytes": 374524,
+      "sha256": "436f46293b46f691f321d4a946ec6b5da897553f51cdaa036e27004766c5ac28",
+      "stamp": [
+        374524,
+        1791353253518219625
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_right.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_stereo_right.png",
+      "bytes": 374484,
+      "sha256": "950bea2e8e20875cd9037c084aea978a7e961cfa9b377defb457f35145b7062b",
+      "stamp": [
+        374484,
+        1791353253535219623
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_left.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_left.png",
+      "bytes": 234047,
+      "sha256": "a49f3edc756eba58d09208cf72a7bde81bf00eaca7aec51c4a51036f4ba43f52",
+      "stamp": [
+        234047,
+        1791353253501219627
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_right.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_cam_wrist_right.png",
+      "bytes": 223045,
+      "sha256": "b12f278e0f39617ce563b153bcb1328e7b1631c73c8aca414d14bdec7729a889",
+      "stamp": [
+        223045,
+        1791353253490219628
+      ]
+    },
+    "34_fridge_wine_interhand_pour/preflight/inference_preflight_extrinsics.txt": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/preflight/inference_preflight_extrinsics.txt",
+      "bytes": 893,
+      "sha256": "46c86775e7f8a33118b3f3eb9f354e9259d78acf1060004d9580bb02c3531599",
+      "stamp": [
+        893,
+        1791353253535219623
+      ]
+    },
+    "34_fridge_wine_interhand_pour/simulator.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/simulator.log",
+      "bytes": 60156,
+      "sha256": "b20cedd80020f517abaf4aa0f23d0967d4f3bd0471eed5db801af597adf1218a",
+      "stamp": [
+        60156,
+        1791353534867188638
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/inference.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/inference.jsonl",
+      "bytes": 6462,
+      "sha256": "afaecf43cefd533ae1344b23cd2268eba0142c878a2097e4520cfe74afcd45d0",
+      "stamp": [
+        6462,
+        1791353527292189473
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00000.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00000.npz",
+      "bytes": 3111,
+      "sha256": "7d5eed57d50565b4bbef9e7e2e4f553222adf2c5f0e49a591e995fe8ecc1f5eb",
+      "stamp": [
+        3111,
+        1791353274069217362
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00001.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00001.npz",
+      "bytes": 3120,
+      "sha256": "9a3b3243da799c26bf0b5a3bd6cbac35fc01f2e8391fc3637ee69e94884b945d",
+      "stamp": [
+        3120,
+        1791353278714216850
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00002.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00002.npz",
+      "bytes": 3098,
+      "sha256": "68257209ae1eb3a7f207106a760f58cee62d9f61c293e6ea04daac5de2bd7023",
+      "stamp": [
+        3098,
+        1791353283314216344
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00003.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00003.npz",
+      "bytes": 3104,
+      "sha256": "e82010477d2ffbfd04545a7a42f55af448b4e0c80758e3d7fd37ac0ed7eaf139",
+      "stamp": [
+        3104,
+        1791353288035215824
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00004.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00004.npz",
+      "bytes": 3119,
+      "sha256": "1ce924b8d42371942fa48192a46ce2daba2013a3c8bc7096f04ee587141aae72",
+      "stamp": [
+        3119,
+        1791353292681215312
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00005.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00005.npz",
+      "bytes": 3108,
+      "sha256": "6abe6904dee0165ee40655a2a08e7474779909d21c96d98a366417a1d442f5ab",
+      "stamp": [
+        3108,
+        1791353297291214805
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00006.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00006.npz",
+      "bytes": 3110,
+      "sha256": "f690a0099735126c716838bfb10b70a6a642e3f4c9a1455f1ef222a132766c30",
+      "stamp": [
+        3110,
+        1791353301159214379
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00007.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00007.npz",
+      "bytes": 3122,
+      "sha256": "002221334e7bff453e691df8106d5041e4e190579395385b22da7a83ed20598f",
+      "stamp": [
+        3122,
+        1791353305115213943
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00008.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00008.npz",
+      "bytes": 3132,
+      "sha256": "b7ed4c4ccf4bd52c1efee3ccb0703b10b4faea1b3ac2d87875de52c982590a45",
+      "stamp": [
+        3132,
+        1791353309021213513
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00009.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00009.npz",
+      "bytes": 3140,
+      "sha256": "f994a440e8d0a15e470f6cc82eee9a0a3087755607fa9ce24c7def0bc805dc10",
+      "stamp": [
+        3140,
+        1791353313284213044
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00010.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00010.npz",
+      "bytes": 3116,
+      "sha256": "356e72b3033200808afc9ded22da39387f3104367c4e235a4bb21997265b760d",
+      "stamp": [
+        3116,
+        1791353317145212618
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00011.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00011.npz",
+      "bytes": 3129,
+      "sha256": "d2aa921de47df73c0ad97d6d14e3a931a47f4e0c539c2992905b8d63f9920f62",
+      "stamp": [
+        3129,
+        1791353321322212158
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00012.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00012.npz",
+      "bytes": 3095,
+      "sha256": "05452f778bf74902cd6534bcea84af64e130e2c3700e3a1ef4663eee5da6499f",
+      "stamp": [
+        3095,
+        1791353326165211625
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00013.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00013.npz",
+      "bytes": 3082,
+      "sha256": "8291fab28711e03af5be6ba2cc0a38c3029f0f6eebabd24151275e7a559e2b50",
+      "stamp": [
+        3082,
+        1791353330939211099
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00014.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00014.npz",
+      "bytes": 3081,
+      "sha256": "108e8bd0ba750fe094248d8909b0cc2fca34efa95b7c961a559a6f252504c099",
+      "stamp": [
+        3081,
+        1791353335558210591
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00015.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00015.npz",
+      "bytes": 3097,
+      "sha256": "e6e17b5496c202ce938018ed3da7eeaace9603102bd203fa8e1583370a93c844",
+      "stamp": [
+        3097,
+        1791353340216210078
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00016.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00016.npz",
+      "bytes": 3082,
+      "sha256": "f18ae6eb651856e889e3496452ee845b5e8a7995ee233841b26494be8413c610",
+      "stamp": [
+        3082,
+        1791353344887209564
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00017.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00017.npz",
+      "bytes": 3063,
+      "sha256": "6d24b949ac7ab0282202e9708a62fa3733009c14337d99e1e3243cb21c1a25f9",
+      "stamp": [
+        3063,
+        1791353349765209026
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00018.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00018.npz",
+      "bytes": 3077,
+      "sha256": "d0ea0caffcaa13b0c546b116cc4bed1d694c43462a47637d57477e8d0d2ac8fc",
+      "stamp": [
+        3077,
+        1791353354456208510
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00019.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00019.npz",
+      "bytes": 3095,
+      "sha256": "e84bfa5824b1572bcce20e910e44fe691bb0ca803009e90cec689d67905a6247",
+      "stamp": [
+        3095,
+        1791353359143207994
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00020.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00020.npz",
+      "bytes": 3086,
+      "sha256": "6b1ae650e8a0f08f02c3de3d1eba706dcdcdd4e19f9af334a608b03714d2d6b1",
+      "stamp": [
+        3086,
+        1791353364056207452
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00021.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00021.npz",
+      "bytes": 3084,
+      "sha256": "9ed4e3d8cf4530ab6ba4388bb6922c3fb4f91efd13ef915bb558b95773c2a5ac",
+      "stamp": [
+        3084,
+        1791353369085206898
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00022.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00022.npz",
+      "bytes": 3077,
+      "sha256": "6e3a5f524e6f0cdcaba084f0f296e251887d4e03dcbbeceb4af215044c5c013b",
+      "stamp": [
+        3077,
+        1791353374099206346
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00023.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00023.npz",
+      "bytes": 3079,
+      "sha256": "d8914d929f6a0a0cf86a2b07ad1d9de6e270da512ab2f091f265e98ff7c109ab",
+      "stamp": [
+        3079,
+        1791353379104205795
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00024.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00024.npz",
+      "bytes": 3073,
+      "sha256": "c05f342b93a5008845113336ed2f600524455eb32736482717276162b14e79ae",
+      "stamp": [
+        3073,
+        1791353384167205237
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00025.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00025.npz",
+      "bytes": 3075,
+      "sha256": "47d87832e32584b33ba8d140eb0984826ad05f179322894f6ff3b223e0cdf2f2",
+      "stamp": [
+        3075,
+        1791353389184204685
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00026.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00026.npz",
+      "bytes": 3085,
+      "sha256": "8d6cdbee4e6ca6415352f3e320fa6aab46edb3a2e522a6897f07535241588ea7",
+      "stamp": [
+        3085,
+        1791353394266204125
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00027.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00027.npz",
+      "bytes": 3084,
+      "sha256": "647f841dba041d7a14ab01b5f4c3e398b9a90579992882eb21d3f0d408510b88",
+      "stamp": [
+        3084,
+        1791353399395203560
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00028.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00028.npz",
+      "bytes": 3086,
+      "sha256": "026dce8131ecc8f0a81ed066321eaf86789716cfd9da414d19f299725b853bca",
+      "stamp": [
+        3086,
+        1791353404505202997
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00029.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00029.npz",
+      "bytes": 3093,
+      "sha256": "f59c819acbb30bfaf85c17029f963c1f7ead3e6c06ae4bff782d92c71168136b",
+      "stamp": [
+        3093,
+        1791353409476202450
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00030.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00030.npz",
+      "bytes": 3077,
+      "sha256": "4f6a843235f820914fc857ab43984faee2d32f04c238b7549bf38cbbcf99ec37",
+      "stamp": [
+        3077,
+        1791353414400201908
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00031.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00031.npz",
+      "bytes": 3074,
+      "sha256": "1a8bd86ca494fc188f597fd1cfe08fdbc3478e8f77af7d54bb9e2f2c1fc04bff",
+      "stamp": [
+        3074,
+        1791353419318201366
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00032.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00032.npz",
+      "bytes": 3086,
+      "sha256": "d7be690aa80d02985b9a7b8622868d7b103b1b2446335afcbcf9f27ab9b62b06",
+      "stamp": [
+        3086,
+        1791353424258200822
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00033.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00033.npz",
+      "bytes": 3086,
+      "sha256": "98f9ec0037af90e1b10621969572d8f8d9a9dc189aa04de803f1bc61d43a2a85",
+      "stamp": [
+        3086,
+        1791353429188200279
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00034.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00034.npz",
+      "bytes": 3077,
+      "sha256": "3704a6facd4128a1fb289ba1b2f3f99fb8f57d25b48ea574404e402b6eb60416",
+      "stamp": [
+        3077,
+        1791353434096199738
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00035.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00035.npz",
+      "bytes": 3063,
+      "sha256": "ab7da9c5a13d4043175ff51d84b38f63369ab577a12e8178405c0074d8277a15",
+      "stamp": [
+        3063,
+        1791353438987199200
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00036.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00036.npz",
+      "bytes": 3068,
+      "sha256": "7967c4a3a9082a66a67d3312c4e19a561dcd6dda1fa091d556267bcbb2c64848",
+      "stamp": [
+        3068,
+        1791353443972198651
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00037.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00037.npz",
+      "bytes": 3077,
+      "sha256": "2e4701b6bae160537f6c4f235c60798ffcac36a631d4e42f39552992b66779c0",
+      "stamp": [
+        3077,
+        1791353448879198110
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00038.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00038.npz",
+      "bytes": 3086,
+      "sha256": "8bb174b8a4c84c5d10e94983e0d8a814d84f8221e17f01ee9b6822a740934195",
+      "stamp": [
+        3086,
+        1791353453765197572
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00039.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00039.npz",
+      "bytes": 3074,
+      "sha256": "ac035b48c01d900ab2eb141725790750ac3be9918b84ee42dd210fc66a02c957",
+      "stamp": [
+        3074,
+        1791353458650197034
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00040.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00040.npz",
+      "bytes": 3087,
+      "sha256": "2a51b86bd63bbc15327165ce76cc85e3f71896453d2347f8fbc090ebf15c988c",
+      "stamp": [
+        3087,
+        1791353463517196498
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00041.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00041.npz",
+      "bytes": 3075,
+      "sha256": "da9622ee6e904075727c515c20a9d672025404230f5add24888f89ac6085b797",
+      "stamp": [
+        3075,
+        1791353468410195959
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00042.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00042.npz",
+      "bytes": 3088,
+      "sha256": "4e0c8ba4bb40348deccb88a4635c77cb90c36a6473b05fd9357af2847a8b292f",
+      "stamp": [
+        3088,
+        1791353473290195421
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00043.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00043.npz",
+      "bytes": 3089,
+      "sha256": "2a88091c6a8dfeaf9c030f8ccf5af3a17cd4c2369f30bf53fbd6b65790e08e5f",
+      "stamp": [
+        3089,
+        1791353478187194882
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00044.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00044.npz",
+      "bytes": 3085,
+      "sha256": "a5a15bcce2d8e788fafb156791bcf3e9d9999874fd8071acb5f34dee3ef7a451",
+      "stamp": [
+        3085,
+        1791353483088194342
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00045.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00045.npz",
+      "bytes": 3082,
+      "sha256": "6adaaf2dc12da16a4eadc2c31f3e2cd5c03738498b9aef56e48317b162594240",
+      "stamp": [
+        3082,
+        1791353487977193804
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00046.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00046.npz",
+      "bytes": 3091,
+      "sha256": "40e1fb794e765d33ba299cb790b8ef97003e149bc21285135c9af75955dee72b",
+      "stamp": [
+        3091,
+        1791353492869193265
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00047.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00047.npz",
+      "bytes": 3084,
+      "sha256": "4fa36302666d0fe4b826572c8c30c5a080f0d71283fe209e73ca3dc7e56959f4",
+      "stamp": [
+        3084,
+        1791353497794192722
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00048.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00048.npz",
+      "bytes": 3092,
+      "sha256": "89219eb99bbe25d070ef82d9de3da420fb8bafc5644e3f09171c5c2dee423337",
+      "stamp": [
+        3092,
+        1791353502709192181
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00049.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00049.npz",
+      "bytes": 3087,
+      "sha256": "da11df37f7fc3503136e6d8c39c37553f7a5ed15ad0903c1bfe00af6a1f6c286",
+      "stamp": [
+        3087,
+        1791353507653191636
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00050.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00050.npz",
+      "bytes": 3089,
+      "sha256": "d63d09b0104ad17c2d47368631a81c6425f04b3e9d6a0edf83b2fbc3463491ee",
+      "stamp": [
+        3089,
+        1791353512587191093
+      ]
+    },
+    "34_fridge_wine_interhand_pour/audit/commands.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/audit/commands.jsonl",
+      "bytes": 2037005,
+      "sha256": "94c9690d3f9a520c89c37b9c8aab19065456fbafc9713753eb36c338c786b4f2",
+      "stamp": [
+        2037005,
+        1791353531886188967
+      ]
+    },
+    "34_fridge_wine_interhand_pour/native_results/per_task.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/native_results/per_task.json",
+      "bytes": 10658,
+      "sha256": "a45378e59f3daf03edef9e82d40445fcf352cc7cc1caabfbe0968a63f961d819",
+      "stamp": [
+        10658,
+        1791353534007188733
+      ]
+    },
+    "34_fridge_wine_interhand_pour/native_results/summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/native_results/summary.json",
+      "bytes": 10208,
+      "sha256": "ac88242f289d90eb8fca97381619e2507c1660996ae8708146e80aa6612ed937",
+      "stamp": [
+        10208,
+        1791353534581188670
+      ]
+    },
+    "34_fridge_wine_interhand_pour/pilot_summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/pilot_summary.json",
+      "bytes": 212,
+      "sha256": "2022e96b3dba241216c348ecbd56dd6c9029c959c50964cc15f5961b5512c53c",
+      "stamp": [
+        212,
+        1791353537734188322
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00051.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00051.npz",
+      "bytes": 3077,
+      "sha256": "ceda09df9b7fc41981de46f08cc2bf5cf2f1bdffa673b221ed4b1b146a3d96f0",
+      "stamp": [
+        3077,
+        1791353517499190552
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00052.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00052.npz",
+      "bytes": 3080,
+      "sha256": "26c74f69b2c5717641a14d9c78ebacbfe8d7094a1cb085631fcaeda6551cc857",
+      "stamp": [
+        3080,
+        1791353522392190013
+      ]
+    },
+    "34_fridge_wine_interhand_pour/policy/prediction_00053.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/policy/prediction_00053.npz",
+      "bytes": 3083,
+      "sha256": "4786fbeb2f62d38f500261a9ff02a51f578ddccf48fc05bd626f78194f333db1",
+      "stamp": [
+        3083,
+        1791353527292189473
+      ]
+    },
+    "34_fridge_wine_interhand_pour/recordings/failure/episode_000001.hdf5": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/34_fridge_wine_interhand_pour/recordings/failure/episode_000001.hdf5",
+      "bytes": 210224176,
+      "sha256": "ac1ca4f5898dd3ecc7d52c1f94d600516f6f44ef9d2810592e5c2775daf1c2cb",
+      "stamp": [
+        210224176,
+        1791353533130188829
+      ]
+    },
+    "worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-native-dev1-1/results/worker_finished.json",
+      "bytes": 59,
+      "sha256": "ad1f40990d62380bf3c9b6046ddcf5860f258b2783f5e6d677e234285029dd1f",
+      "stamp": [
+        59,
+        1791353537734188322
+      ]
+    }
+  },
+  "updated_unix": 1791353544.0899
+}
