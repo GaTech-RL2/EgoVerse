@@ -633,6 +633,15 @@ def convert_episode(job: Job, args, kinematics, calibration_rigs, zone) -> dict:
             raise ConversionError(
                 f"--calibration has no entry for rig {rig!r} and no 'default'"
             )
+    for s in set(entries) & set(present):
+        # Fail before decoding when info.json already shows a mismatch.
+        declared = season.info["features"][f"observation.images.{s}"].get("shape")
+        resolution = entries[s]["camera"].resolution
+        if declared and resolution != (declared[1], declared[0]):
+            raise ConversionError(
+                f"calibration for {s} declares resolution {list(resolution)}, "
+                f"info.json declares [{declared[1]}, {declared[0]}]"
+            )
     parents = {entry["parent_link"] for s, entry in entries.items() if s in present}
     tracks, link_poses = derive_tracks(
         stored["obs"],
