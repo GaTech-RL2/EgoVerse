@@ -67,7 +67,11 @@ def probe(libero_root, destination, manifest):
         passed = result == {"result": expected}
         if name == "prohibited_proxy_denied":
             passed = result == {"error": "scratch_tool_not_allowed"}
-        receipts[name] = {"passed": passed, "response": result}
+        receipts[name] = {
+            "passed": passed,
+            "response": result,
+            "private_process_diagnostic": jail.last_diagnostic,
+        }
     fresh = Scratch(
         destination / "scratch-runtime",
         runtime["executable"],

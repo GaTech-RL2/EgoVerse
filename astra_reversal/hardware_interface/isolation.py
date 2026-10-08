@@ -5,6 +5,7 @@ scratch directory. It has no simulator object, benchmark assets, credentials,
 network sockets, host /proc, or inherited descriptors beyond the JSON pipes.
 """
 
+import contextlib
 import ctypes
 import errno
 import os
@@ -89,6 +90,7 @@ class Scratch:
     def __init__(self, runtime, executable, trial_directory, source_view, condition):
         self.seccomp = require_host()
         self.condition, self.executable = condition, executable
+        self.last_diagnostic = ""
         self.root = Path(trial_directory).resolve()
         shutil.copytree(runtime, self.root, copy_function=os.link)
         self.root.chmod(0o755)
@@ -170,8 +172,15 @@ class Scratch:
             [self.executable, "-I", "-S", "/worker.py"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            env={"PATH": "/nonexistent", "LANG": "C.UTF-8", "PYTHONHASHSEED": "0"},
+            stderr=subprocess.PIPE,
+            env={
+                "PATH": "/nonexistent",
+                "LANG": "C.UTF-8",
+                "PYTHONHASHSEED": "0",
+                # The minimal jail deliberately has no host ld.so.cache. These
+                # are paths inside the jail, containing only copied runtime libs.
+                "LD_LIBRARY_PATH": "/usr/local/lib:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:/lib64",
+            },
             preexec_fn=self._restrict,
             close_fds=True,
             start_new_session=True,
@@ -223,5 +232,8 @@ class Scratch:
                 process.kill()
             process.wait()
             selector.close()
-            process.stdin.close()
+            with contextlib.suppress(BrokenPipeError):
+                process.stdin.close()
             process.stdout.close()
+            self.last_diagnostic = process.stderr.read(65536).decode(errors="replace")
+            process.stderr.close()
