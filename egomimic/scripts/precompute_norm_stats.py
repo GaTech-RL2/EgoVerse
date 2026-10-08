@@ -42,7 +42,7 @@ from omegaconf import OmegaConf
 
 import egomimic
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.rldb.zarr import episode_norm_samples, norm_cache
+from egomimic.rldb.zarr import episode_norm_samples, history_stats, norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.env import load_env
 
@@ -83,12 +83,34 @@ def main() -> None:
         help="only write the explicit file; skip the content-keyed cache entry",
     )
     ap.add_argument(
+        "--history-max-lag",
+        type=int,
+        default=0,
+        help="also write <out>/norm_stats/history_stats.json: per-lag stats (lags "
+        "0..N frames) of the head-frame wrist translation, for "
+        "norm_stats.history_stats_path on a proprio-history run",
+    )
+    ap.add_argument(
+        "--history-anchors",
+        type=int,
+        default=100000,
+        help="frames sampled for the history stats; lag L only counts those at "
+        "least L frames into their episode",
+    )
+    ap.add_argument(
+        "--history-only",
+        action="store_true",
+        help="compute only the history stats (the current-step stats exist already)",
+    )
+    ap.add_argument(
         "overrides",
         nargs="*",
         help="extra hydra overrides appended verbatim (e.g. "
         "paths.dataset_dir=/path/to/zarr/mirror)",
     )
     args = ap.parse_args()
+    if args.history_only and args.history_max_lag <= 0:
+        ap.error("--history-only needs --history-max-lag")
 
     cfg_dir = os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
     GlobalHydra.instance().clear()
@@ -144,6 +166,35 @@ def main() -> None:
             # frame is exactly `[..., -1, :]` of the window, minus the K-fold
             # read.
             km["proprio_history"] = 1
+        if args.history_max_lag > 0:
+            lag_inst = copy.deepcopy(inst)
+            lag_inst.resolver.key_map = history_stats.history_keymap(
+                km, args.history_max_lag
+            )
+            lag_dataset = hydra.utils.instantiate(lag_inst, dataset_name=dataset_name)
+            t0 = time.perf_counter()
+            table = history_stats.compute(
+                norm_stats,
+                lag_dataset,
+                get_embodiment_id(dataset_name),
+                args.history_max_lag,
+                args.history_anchors,
+                seed=cfg.seed,
+                num_workers=args.num_workers,
+            )
+            written = history_stats.save(
+                os.path.join(args.out, "norm_stats"),
+                get_embodiment_id(dataset_name),
+                table,
+                args.history_max_lag,
+            )
+            print(
+                f"[precompute] {dataset_name}: history stats in "
+                f"{time.perf_counter() - t0:.1f}s -> {written}"
+            )
+        if args.history_only:
+            continue
+
         inst.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(inst, dataset_name=dataset_name)
 
@@ -194,10 +245,17 @@ def main() -> None:
             )
             print(f"[precompute] {dataset_name}: cache entry {written}")
 
-    norm_stats.cache_stats(save_cache_dir=args.out)
     out_dir = os.path.join(args.out, "norm_stats")
+    if args.history_only:
+        print(
+            f"\nDONE. Use this in training:\n  norm_stats.history_stats_path={out_dir}"
+        )
+        return
+    norm_stats.cache_stats(save_cache_dir=args.out)
     print("\nDONE. Use this in training:")
     print(f"  norm_stats.precomputed_norm_path={out_dir}")
+    if args.history_max_lag > 0:
+        print(f"  norm_stats.history_stats_path={out_dir}")
     if cache_dir:
         print(
             f"(or nothing: the content-keyed cache under {cache_dir} now holds "

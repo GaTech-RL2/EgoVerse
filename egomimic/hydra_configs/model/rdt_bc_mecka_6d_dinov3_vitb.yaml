@@ -32,11 +32,12 @@
 #   - condition dropout per stream: state and language 0.1, no image dropout
 #     with a single camera.
 #
-# DiT: width 1024 x 28 blocks x 16 heads (head_dim 64, RDT-1B's), RDT's FFN
-# ratio 1 -> 10.5M / block.
-# Trainable 392.7M = DiT 296.6M + DINOv3 85.6M + adaptors; Qwen 596M frozen.
-# H100, batch 32, bf16: 212 ms / step, 30 GiB (ViT-L: 365 ms, 49 GiB; the 1B
-# DiT: 359 ms, 57 GiB); sampling 0.3 s per batch.
+# DiT: width 1280 x 18 blocks x 20 heads (head_dim 64, RDT-1B's), RDT's FFN
+# ratio 1 -> 16.4M / block, ~295M; width and depth both ~0.63x RDT-1B's 2048 x 28.
+# Trainable ~391M = DiT ~295M + DINOv3 85.6M + adaptors; Qwen 596M frozen.
+# Measured at the former 1024 x 28 shape -- H100, batch 32, bf16: 212 ms / step,
+# 30 GiB (ViT-L: 365 ms, 49 GiB; the 1B DiT: 359 ms, 57 GiB); sampling 0.3 s
+# per batch.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.rdt.RDT
@@ -44,7 +45,7 @@ robomimic_model:
   dims:
     human_bimanual: {proprio: 20, action: 18}
   # DiT width; every stem / encoder output_dim and the head's hidden_dim.
-  width: 1024
+  width: 1280
   ac_keys:
     human_bimanual: "actions_cartesian"
 
@@ -60,8 +61,8 @@ robomimic_model:
 
   trunk:
     embed_dim: ${model.robomimic_model.width}
-    depth: 28
-    num_heads: 16
+    depth: 18
+    num_heads: 20
     mlp_ratio: 1.0
     # RDT's cond_mask_prob, per stream (train only). A dropped prompt becomes
     # "", the no-prompt deployment condition; `img` is per camera and never

@@ -1,0 +1,43 @@
+# RDT memory ablation on ALL mecka with the 144-D keypoint action and state,
+# BASELINE arm: the recipe of train_zarr_mecka_20pct_6d_rdt_mem_base (8xH100,
+# 32 / GPU, 1000 x 100 steps) with RDT-1B's short pair: image and proprio at t and
+# t-1 frame.
+#   _proprio             + proprio history: 8 steps 5 frames apart (~1.2 s)
+#   _proprio_frames      _proprio with 4 full front frames 10 apart (t-30 .. t)
+#                        through the main encoder instead of the pair
+#   _short_long_encoder  _proprio + 8 front frames on the proprio grid, one CLS
+#                        token each from a second DINOv3, fused with proprio;
+#                        pair dropped for 30 %
+# All arms share one set of norm stats; K>1 wrist xyz uses per-step history stats.
+defaults:
+  - train_zarr_mecka_20pct_6d_rdt_mem_base
+  - override evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
+  - override model: rdt_bc_mecka_kp_dinov3_vitb
+  - override data: mecka_all_kp_pinned_val
+  - override evaluator: eval_hpt_keypoints_wrist
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          # RDT-1B's pair is the previous stored frame (hdf5_vla_dataset.py):
+          # one frame back at 30 fps, for both the image and the proprio.
+          image_history_gap_s: 0.033
+          proprio_history: 2
+          history_stride: 1
+
+model:
+  robomimic_model:
+    stem_specs:
+      human_bimanual:
+        state_keypoints:
+          history_len: 2
+          # [s_t, s_t] would read as a stationary hand; cond_drop.state
+          # already guards against leaning on proprio.
+          history_dropout: 0.0
+    head_specs:
+      human_bimanual:
+        model:
+          n_state_tokens: 2

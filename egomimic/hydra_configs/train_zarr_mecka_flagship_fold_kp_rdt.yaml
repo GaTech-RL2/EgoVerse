@@ -1,0 +1,28 @@
+# RDT (model/rdt_bc_mecka_kp_dinov3_vitb: DiT 1280 x 18, DINOv3 ViT-B, frozen
+# Qwen; image pair t, t-1 frame; keypoint state t-3 .. t) fitting the mecka
+# flagship data, in three steps:
+#   train_zarr_mecka_flagship_fold_kp_rdt_overfit1   one fold_clothes episode, 1 GPU
+#   train_zarr_mecka_flagship_fold_kp_rdt            fold_clothes, 3 held out
+#   train_zarr_mecka_flagship_fold_cup_kp_rdt        + cup_on_saucer, 3 held out
+# Recipe of train_zarr_mecka_20pct_6d_rdt_mem_base: 8xH100, 32 / GPU, AdamW 1e-4,
+# 1k-step warmup, grad clip 1.0, 1000 x 100 steps, val every 25 epochs.
+defaults:
+  - train_zarr_mecka_20pct_6d_rdt_mem_base
+  - override evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
+  - override model: rdt_bc_mecka_kp_dinov3_vitb
+  - override data: mecka_flagship_fold_kp_holdout
+  - override evaluator: eval_hpt_keypoints_wrist
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          # t-1 at mecka's 30 fps, RDT-1B's pair
+          image_history_gap_s: 0.033
+          proprio_history: 4
+          history_stride: 1
+
+norm_stats:
+  max_samples: 200000

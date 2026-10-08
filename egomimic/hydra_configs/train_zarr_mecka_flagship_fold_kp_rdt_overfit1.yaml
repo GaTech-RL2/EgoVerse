@@ -1,0 +1,27 @@
+# train_zarr_mecka_flagship_fold_kp_rdt on a single episode, 1 GPU. Its 191 frames
+# are 6 batches of 32, so an epoch is 6 steps: 840 epochs = 5040 steps (~840
+# passes), val every 84 epochs (~500 steps), video + checkpoint every 168.
+defaults:
+  - train_zarr_mecka_flagship_fold_kp_rdt
+  - override data: mecka_flagship_fold_kp_overfit1
+  - override hydra/launcher: submitit_loaner
+  - _self_
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+train_viz: false
+
+trainer:
+  max_epochs: 840
+  min_epochs: 840
+  check_val_every_n_epoch: 84
+  log_every_n_steps: 6
+
+evaluator:
+  viz_every_n_epochs: 168
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 168

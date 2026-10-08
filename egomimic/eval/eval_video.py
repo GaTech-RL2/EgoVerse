@@ -35,7 +35,7 @@ class EvalVideo(Eval):
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
         viz_mode: str = "replay",
-        replay_chunks: int = 5,
+        replay_chunks: int = 17,
         replay_trail: int = 5,
         action_stride: float | None = None,
     ):
@@ -55,7 +55,8 @@ class EvalVideo(Eval):
         # "replay" (egomimic/eval/replay_viz.py) plays each chunk as GT then
         # prediction; it needs consecutive frames, so it runs only on a pinned
         # video loader and caps it at ``replay_chunks`` chunks instead of
-        # ``viz_max_batches``. "overlay" draws each frame's whole GT and
+        # ``viz_max_batches`` (17: ~17 s of a 30-frame-chunk episode, 1020 video
+        # frames). "overlay" draws each frame's whole GT and
         # predicted chunk, and is what a head without a video loader gets.
         # ``action_stride`` is frames per chunk step, fractional when the chunk
         # is resampled (None: inferred from the GT keypoints, see

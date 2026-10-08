@@ -1,0 +1,22 @@
+# Overfit check: ONE flagship fold_clothes episode (191 frames), trained on and
+# validated on itself (valid runs without dropout or augmentation, so it reads
+# how well the episode was memorized). train_viz would duplicate valid; the
+# train config turns it off.
+defaults:
+  - mecka_flagship_fold_kp_holdout
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    filters:
+      episode_hashes: [692fe87a3c1dfb13a7a99ee6]
+
+valid_datasets:
+  human_bimanual:
+    filters:
+      episode_hashes: [692fe87a3c1dfb13a7a99ee6]
+
+video_episodes:
+  valid:
+    - 692fe87a3c1dfb13a7a99ee6
+  train_viz: []
