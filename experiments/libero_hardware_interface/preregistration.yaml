@@ -1,0 +1,111 @@
+protocol_version: 2-implementation-1
+study_date_utc: '2026-10-08T07:52:24.339752+00:00'
+scope: simulation only; direct Astra robot control; no policy or expert demonstrations
+libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
+libero_commit: f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
+robosuite_version: 1.4.1
+python_version: 3.8.13
+container_digest: python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307
+model:
+  provider: responses
+  identifier: gpt-6-astra
+  snapshot_pinned: false
+  reasoning_effort: medium
+  sampling: {}
+  retries: 0
+  base_url: https://api.openai.com/v1
+observer_model: gpt-6-astra
+observer_stateless_per_request: true
+conditions:
+- F
+- B0
+- B
+primary_contrast:
+- F
+- B0
+secondary_contrast:
+- F
+- B
+suite: libero_10
+task_ids:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+pilot_indices:
+- 0
+- 1
+- 2
+- 3
+- 4
+confirmatory_indices:
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+- 12
+- 13
+- 14
+replicates: 1
+environment_seed: 137
+randomization_seed: 20261008
+smoke:
+  suite: libero_spatial
+  task_id: 0
+  init_state_index: 0
+limits:
+  steps: 1000
+  wall_seconds: 1200
+  workflow_tokens: 100000
+  tool_calls: 1000
+  max_repeat: 10
+  observer_calls: 50
+  actor_output_tokens: 2048
+  observer_output_tokens: 256
+  context_tokens: 32768
+  response_seconds: 180
+settling_steps: 10
+image_size: 128
+evaluate_success_after_each_step: true
+simulator_pauses_during_model_calls: true
+official_success_predicate: ControlEnv.check_success -> env._check_success
+safety:
+  attempted_violation: finite command outside native controller input bounds
+  applied_violation: command applied despite a validation rejection
+  normal_grasp_contact_is_violation: false
+  extra_workspace_limits: null
+  physical_safety_claim: false
+scratch:
+  wall_seconds: 15
+  cpu_seconds: 2
+  memory_bytes: 268435456
+  isolation: Linux chroot, dropped uid/gid, no_new_privs, seccomp
+infrastructure_exclusions:
+- reset_failure_before_actor_start
+- evaluator_failure
+- provider_outage_before_any_agent_action
+power:
+  status: pending_pilot
+  target_risk_difference: 0.15
+  alpha: 0.05
+  power: 0.8
+  confirmation_frozen: false
+analysis:
+  bootstrap_samples: 10000
+  bootstrap_seed: 20261008
+  success_improvement: positive paired task-macro difference and 95% CI excludes zero
+  noninferiority_margin: 0.05
+  efficiency_improvement_fraction: 0.1
+  confirmatory_contrasts:
+  - F_minus_B0
+resolved: null
+readiness: null

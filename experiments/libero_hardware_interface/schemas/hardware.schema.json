@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Universal hardware description",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "device_id",
+    "observations",
+    "actions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "hardware-1"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "channel",
+          "type",
+          "description",
+          "units",
+          "shape",
+          "frequency_hz",
+          "metadata"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "float64[]",
+              "image"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 1
+          },
+          "frequency_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "channel",
+          "type",
+          "description",
+          "units",
+          "shape",
+          "frequency_hz",
+          "metadata",
+          "control_frequency_hz",
+          "limits",
+          "safe_range"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "float64[]",
+              "image"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "units": {
+            "type": "string"
+          },
+          "shape": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minItems": 1
+          },
+          "frequency_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "control_frequency_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "limits": {
+            "type": "object",
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "min": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 1
+              },
+              "max": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 1
+              }
+            }
+          },
+          "safe_range": {
+            "type": "object",
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "min": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 1
+              },
+              "max": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

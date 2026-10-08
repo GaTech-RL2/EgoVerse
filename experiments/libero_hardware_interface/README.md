@@ -1,0 +1,126 @@
+# LIBERO universal hardware interface experiment
+
+The supplied [reviewed protocol](PROTOCOL.md) is retained byte-for-byte. This
+study compares direct Astra control through a typed interface (F), audited
+codebase discovery without an observer (B0), and the same discovery workflow with
+a separate visual observer (B). F minus B0 is primary; F minus B is secondary.
+There is no pretrained robot policy or policy-weight training in this study.
+
+Implementation lives in `astra_reversal/hardware_interface`. Both interfaces
+use the same controller validator, sensor allowlist, per-step success check and
+execution proxy. Simulation pauses during model inference. A delayed reply
+cannot become stale solely because wall time passed; actions must still refer
+to the current simulation step and obey the overall wall deadline.
+
+## Current readiness
+
+The source and runtime design are pinned. CPU contract tests exercise matching
+actions/observations, transient success inside repeat loops, malformed commands,
+budget reservation, observer isolation and incomplete-analysis rejection.
+Real Linux renderer/reset/isolation commissioning is required before actor
+smoke trials. No scored pilot or confirmation result exists yet.
+
+The supplied credential returned HTTP 401 at the public OpenAI endpoint. It is
+stored only outside the repository in a private local directory. A custom
+endpoint or a working credential is needed to test the actual Astra transport.
+No credential is included in a manifest, prompt, payload, source or report.
+
+The default manifest deliberately has unresolved runtime receipts and false
+model smoke gates. `validate` and scored `run` reject it until the gates have
+actual evidence. A Codex subscription is not substituted for capped API access.
+
+## Frozen design
+
+- Official LIBERO commit `f78abd68ee283de9f9be3c8f7e2a9ad60246e95c`,
+  `libero_10`, task order 0, all ten tasks.
+- Pilot official states 0–4; proposed confirmation states 5–14; seed 137;
+  one fresh actor session per state/arm; randomized paired order seed 20261008.
+  This yields 150 unscored pilot trials and 300 proposed confirmation trials.
+- Confirmation remains blocked until pilot discordance supports a documented
+  power calculation and a new frozen confirmation manifest.
+- A separate `libero_spatial` task 0/state 0 is reserved for commissioning.
+- 1,000 actor control steps, 20 minutes wall time, 100,000 workflow tokens,
+  1,000 tools, at most ten repeated steps per action; observer at most 50 calls
+  with a hard 256-output-token cap. The actor output cap is 2,048; maximum
+  request context is 32,768. Reasoning is charged as part of provider output.
+- Cameras are 128×128, upright RGB, at a 20 Hz controller rate. Ten identical
+  settling actions occur before the actor budget starts.
+
+The official README prescribes Python 3.8.13. The OSMO image is pinned by digest
+to that version. Its unmodified requirements are installed with additional pins
+for otherwise unspecified dependencies, including robosuite 1.4.1 and MuJoCo
+2.3.7. The explicit Torch variant is 1.11.0 CPU: it only loads official reset
+assets, unlike the upstream CUDA policy-training recipe. Exact installed wheels,
+wheel hashes, Python/build-tool versions, editable-source SHA, OS packages,
+benchmark-asset hashes and controller configuration are archived.
+
+## Isolation and interpretation
+
+Actors can read only a published positive source allowlist. Task definitions,
+goal/success/reward code, raw simulator state, demonstrations, weights and other
+trials are unavailable. The source view includes controller/robot code and two
+minimal LIBERO wrapper/sensor projections, each with original and projected
+hashes. F additionally receives generated channel documentation and typed tools.
+
+Scratch runs in a separate Linux process with a minimal read-only runtime and
+source tree, its own writable scratch directory, chroot, UID/GID 65534, no new
+privileges, resource limits and seccomp denial of network and process-escape
+operations. It receives JSON only. Nested robot calls pass through the same
+validator and tool budget. An unavailable OS isolation mechanism blocks execution.
+
+The observer receives only current camera frames/timestamps and one of three
+fixed evidence requests. It sees no task instruction, actor transcript, proposed
+control, joint state or evaluator label. Output schema and a conservative advice
+filter are enforced. A language model is not deterministic; these checks cannot
+prove every possible description is accurate or non-advisory. Live validation is
+required and observer failures count in B's workflow budget.
+
+Attempted controller-bound violations and applied guard bypasses are recorded
+separately from schema errors. Native collision and joint dynamics are unchanged;
+no additional workspace limits are invented when the native controller exposes
+none. This supports simulation measurements, not physical safety claims.
+
+## Commands
+
+From the repository root, activate `emimic` before Python commands:
+
+```bash
+source /path/to/emimic/bin/activate
+python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q
+python experiments/libero_hardware_interface/tools/launcher.py probe \
+  --manifest experiments/libero_hardware_interface/preregistration.yaml \
+  --libero-root /path/to/pinned/libero --out /path/to/new/prepared
+```
+
+The OSMO bootstrap runs the pinned Linux installation and probe. It writes a
+resolved manifest and immutable receipts; model smoke gates remain false until
+actual actor/observer trials complete. Use a separately frozen resolved manifest:
+
+```bash
+python experiments/libero_hardware_interface/tools/launcher.py smoke \
+  --manifest /path/to/resolved/preregistration.yaml --prepared /path/to/prepared \
+  --libero-root /path/to/pinned/libero --out /path/to/new/smoke
+python experiments/libero_hardware_interface/tools/launcher.py validate \
+  --manifest /path/to/frozen/preregistration.yaml
+python experiments/libero_hardware_interface/tools/launcher.py schedule \
+  --manifest /path/to/frozen/preregistration.yaml --catalog /path/to/prepared/catalog.json \
+  --out /path/to/new/trials.csv
+python experiments/libero_hardware_interface/tools/launcher.py run \
+  --manifest /path/to/frozen/preregistration.yaml --prepared /path/to/prepared \
+  --libero-root /path/to/pinned/libero --schedule /path/to/trials.csv \
+  --split pilot --out /path/to/new/pilot
+python experiments/libero_hardware_interface/tools/launcher.py audit \
+  --runs /path/to/pilot/runs --out /path/to/new/audit.json
+python experiments/libero_hardware_interface/tools/analyze.py \
+  --manifest /path/to/frozen/preregistration.yaml --runs /path/to/pilot/runs \
+  --split pilot --out /path/to/new/results
+```
+
+Every actor trial is independently replayed in another process from its official
+initial state and applied-action log. Replay verifies first success and terminal
+state. Hash-chained events preserve request/response bytes, per-step actions,
+model usage and source identity. Raw model transcripts stay evaluator-owned.
+Analysis retains all started trials, reports incomplete pairs and unknown cost,
+and clusters repeated sessions by official initial state. Infrastructure reruns
+must be separately versioned matched blocks; existing trial directories cannot
+be overwritten or silently excluded.
