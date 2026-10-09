@@ -1,6 +1,7 @@
 """Restore pinned native artifacts and archive the bounded selector experiment."""
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -18,7 +19,7 @@ def main():
     parser.add_argument("--manifest",type=Path,required=True)
     parser.add_argument("--protocol",type=Path,required=True)
     parser.add_argument("--maximum-worker-seconds",type=int,default=21240)
-    parser.add_argument("--evaluator",choices=("selector","replay_audit"),default="selector")
+    parser.add_argument("--evaluator",choices=("selector","replay_audit","observation_audit"),default="selector")
     args = parser.parse_args()
     started = time.monotonic()
     workflow = os.environ["ASTRA_RUN_ID"]
@@ -44,21 +45,27 @@ def main():
     write_json(output/"worker_started.json",{"workflow":workflow,"source_revision":os.environ["ASTRA_SOURCE_REVISION"],
         "worker_limit_seconds":args.maximum_worker_seconds,"stage":args.stage,"started_unix":time.time()})
     try:
-        receipt = restore(client,args.stage,args.manifest,root)
+        receipt = restore(client,args.stage,args.manifest,root,include_weights=args.evaluator != "observation_audit")
         write_json(output/"stage_receipt.json",receipt)
-        if args.evaluator == "replay_audit":
+        if args.evaluator in ("replay_audit","observation_audit"):
             parent = protocol["replay_parent_workflow"]
             if not parent.startswith("astra-complex-20261006-robocasa-xiaomi-selector-"):
                 raise ValueError("Unexpected replay parent")
             parent_prefix = f"experiments/astra-complex-20261006/{parent}/results/"
-            parent_receipt = json.loads(client.get_object(Bucket="rldb",Key=parent_prefix+"archive_receipt.json")["Body"].read())
+            payload = client.get_object(Bucket="rldb",Key=parent_prefix+"archive_receipt.json")["Body"].read()
+            if protocol.get('replay_parent_receipt_sha256') and hashlib.sha256(payload).hexdigest() != protocol['replay_parent_receipt_sha256']:
+                raise ValueError('Reset audit parent changed after registration')
+            parent_receipt = json.loads(payload)
             excerpt = {}
-            for name in ("anchor.json","anchor_model.xml.gz","anchor_state.npz","anchor_rng.json"):
-                relative = "evaluation/PackIdenticalLunches_seed2/"+name
+            names = ["anchor.json","anchor_model.xml.gz","anchor_state.npz","anchor_rng.json"]
+            if args.evaluator == 'observation_audit':
+                names.append(f"native1/seed{protocol['replay_seed']}/initial_observation.npz")
+            for name in names:
+                relative = str(safe_relative("evaluation/"+protocol.get('replay_parent_case','PackIdenticalLunches_seed2')+"/"+name))
                 item = parent_receipt["files"][relative]
                 if item["bytes"] > 16*1024**2:raise ValueError("Replay anchor too large")
                 target = output/"replay_parent"/name
-                target.parent.mkdir(exist_ok=True)
+                target.parent.mkdir(parents=True,exist_ok=True)
                 client.download_file("rldb",parent_prefix+relative,str(target))
                 if target.stat().st_size != item["bytes"] or sha256(target) != item["sha256"]:
                     raise ValueError("Replay anchor checksum mismatch")
@@ -79,7 +86,8 @@ def main():
         env = {k:v for k,v in os.environ.items() if not k.startswith("R2_")}
         env.update(HF_HUB_OFFLINE="1",TRANSFORMERS_OFFLINE="1",TOKENIZERS_PARALLELISM="false",
                    OMP_NUM_THREADS="2",OPENBLAS_NUM_THREADS="1",MKL_NUM_THREADS="2",PYTHONUNBUFFERED="1")
-        evaluator = "xiaomi_selector_eval" if args.evaluator == "selector" else "xiaomi_replay_audit"
+        evaluator = {"selector":"xiaomi_selector_eval","replay_audit":"xiaomi_replay_audit",
+                     "observation_audit":"xiaomi_observation_audit"}[args.evaluator]
         command = [str(root/"runtime/bin/python"),"-u","-m",
                    "astra_reversal.complex_manipulation."+evaluator,
                    "--protocol",str(args.protocol),"--output",str(output/"evaluation")]
