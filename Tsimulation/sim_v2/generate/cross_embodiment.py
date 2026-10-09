@@ -220,10 +220,18 @@ def rollout(source, embodiment, config):
     initial_position = np.asarray(env.agent_pos)
     initial_object = np.asarray(env.object_pose[:2])
     initial_coverage = float(env._coverage())
-    max_penetration = max_overflow = max_static_penetration = 0.0
+    max_penetration = float(env._pusher_object_penetration_depth())
+    max_static_penetration = float(env._latched_pair_static_penetration_depth())
+    max_overflow = float(env._object_arena_metrics()[0])
+    if (max_penetration > config['max_penetration']
+            or max_static_penetration > config.get('max_static_penetration', .6)
+            or max_overflow > config['max_object_overflow']):
+        controller.reason = 'invalid_initial_geometry'
     started = time.monotonic()
     try:
         for _ in range(config["max_steps"]):
+            if controller.reason:
+                break
             action = controller().astype(np.float32)
             if controller.reason:
                 break
