@@ -1,4 +1,4 @@
-"""Reconstruct reset XML on CPU, with no policy calls or control actions."""
+"""Reconstruct reset XML, with no policy calls or control actions."""
 
 import argparse
 import gzip
@@ -15,17 +15,28 @@ from astra_reversal.records import digest
 
 
 def inspect(output):
+    # Match the evaluator's import context without constructing a policy client.
+    sys.path.insert(0, "/opt/astra-xiaomi/sources/xiaomi/eval_robocasa365")
+    import entry  # noqa: F401
     import gymnasium as gym
     import numpy as np
     import robocasa  # noqa: F401
 
-    rows = []
+    rows, constructors = [], []
     for task in ("LoadPreparedFood", "PackIdenticalLunches"):
         for seed in (0, 1, 2):
             np.random.seed(seed)
+            constructor = {"task": task, "seed": seed, "status": "started", "setup_resets": None,
+                           "explicit_audit_resets_completed": 0, "policy_calls": 0, "control_actions": 0}
+            constructors.append(constructor)
+            write_json(output / "constructors.json", constructors)
             env = gym.make(f"robocasa/{task}", split="pretrain", seed=seed, disable_env_checker=True)
+            constructor.update(status="ready", setup_resets=1)
+            write_json(output / "constructors.json", constructors)
             try:
                 obs, _ = env.reset(seed=seed)
+                constructor["explicit_audit_resets_completed"] = 1
+                write_json(output / "constructors.json", constructors)
                 raw = env.unwrapped.env
                 xml = raw.sim.model.get_xml().encode()
                 with gzip.open(output / f"{task}_seed{seed}.xml.gz", "wb") as stream:
@@ -58,7 +69,8 @@ def main():
     if client.list_objects_v2(Bucket="rldb", Prefix=prefix + "/", MaxKeys=1).get("KeyCount"):
         raise FileExistsError("Audit archive already exists")
     publisher = Publisher(client, output, prefix)
-    write_json(output / "scope.json", {"gpu_count": 0, "policy_rollouts": 0,
+    write_json(output / "scope.json", {"gpu_count": int(os.environ.get("ASTRA_AUDIT_GPU_COUNT", "0")),
+        "renderer": os.environ.get("MUJOCO_GL"), "policy_rollouts": 0,
         "reason": "Reconstruct six initial model XML documents to diagnose reset fingerprint differences",
         "source_revision": os.environ["ASTRA_SOURCE_REVISION"]})
     try:
