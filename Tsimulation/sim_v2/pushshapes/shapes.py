@@ -216,6 +216,7 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # Triangle: an equilateral pusher whose CONTACT PATCH depends on its
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
+PENTAGON_R = 12.0
 
 # Spring plunger: a tip on a sprung shaft inside a housing. The tip RETRACTS
 # into the housing under load, so contact is mediated by the spring rather
@@ -306,6 +307,7 @@ _PUSHER_RADII: dict[str, float] = {
     "flipper": FLIPPER_LEN,
     "spring": SPRING_HOUSING_HALF_W,
     "triangle": TRI_R,
+    "pentagon": PENTAGON_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
 }
 
@@ -542,6 +544,15 @@ def make_pusher(
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
+
+    if shape == "pentagon":
+        verts = [(PENTAGON_R * math.cos(math.pi / 2 + i * 2 * math.pi / 5),
+                  PENTAGON_R * math.sin(math.pi / 2 + i * 2 * math.pi / 5))
+                 for i in range(5)]
+        poly = pymunk.Poly(body, verts)
+        poly.friction = OBJECT_FRICTION
+        space.add(body, poly)
+        return body, [poly]
 
     if shape == "triangle":
         verts = [

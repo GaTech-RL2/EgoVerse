@@ -340,9 +340,8 @@ class Agent:
         self.shape = shape
         self.solid_pusher = bool(solid_pusher)
         self.solid_contact_guard = bool(solid_contact_guard)
-        # Only the stick auto-yaws; this preserves _ORIENTED_PUSHERS exactly.
-        if shape == "stick":
-            self.auto_orients = True
+        # Match the fixed-angle bar in the September pusher data release.
+        self.fixed_angle = 0.0 if shape == "stick" else None
 
     def build(self, space: pymunk.Space, position):
         """Create the pusher body/shapes in ``space``."""
@@ -444,6 +443,11 @@ class Agent:
 
     def pre_substep(self, env):
         """Capture whatever post_substep needs to compare against."""
+        if self.fixed_angle is not None:
+            body = env._pusher_body
+            body.angle = self.fixed_angle
+            body.angular_velocity = 0.0
+            env._space.reindex_shapes_for_body(body)
         if self.active_constraints():
             return None
         return self._capture_solid_contact_guard_pose(env)
@@ -2867,6 +2871,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "chain_gripper": ChainGripperAgent,
     "suction": SuctionAgent,
     "triangle": TriangleAgent,
+    "pentagon": TriangleAgent,
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "flipper": FlipperAgent,
