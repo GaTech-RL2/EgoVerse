@@ -14,6 +14,7 @@ import numpy as np
 from astra_reversal.codex_accounting import summarize_codex_calls
 from .worker import safe_relative, sha256
 from .xiaomi_teacher import METHODS, SYSTEM_PROMPT, _validate_request
+from .xiaomi_reset_match import assess_reset, load_observation
 
 
 def read(path):
@@ -146,8 +147,18 @@ def build(results, output):
         seed_folder = folder / f"seed{row['seed']}"
         pairing = read(seed_folder / 'paired_reset.json')
         anchor = read(folder.parent / 'anchor.json')
-        if pairing.pop('verified') is not True or pairing != anchor:
+        recorded_comparison = pairing.pop('comparison',None)
+        if pairing.pop('verified') is not True or pairing.pop('reference_fingerprint',anchor) != anchor:
             raise ValueError('Episode does not match its saved anchor: ' + identity)
+        reference_path = folder.parent/'anchor_observation.npz'
+        if not reference_path.exists():
+            reference_path = folder.parent/f"native1/seed{row['seed']}/initial_observation.npz"
+        comparison = assess_reset(anchor,pairing,load_observation(reference_path),
+            load_observation(seed_folder/'initial_observation.npz'),
+            protocol.get('continuation',{}).get('camera_rounding_allowance'))
+        if (not comparison['accepted'] or (recorded_comparison is None and not comparison['exact'])
+                or (recorded_comparison is not None and recorded_comparison != comparison)):
+            raise ValueError('Episode failed independent reset comparison: '+identity)
         reset = read(seed_folder / 'reset.json')
         records = jsonl(folder / 'provider.jsonl')
         accounting = summarize_codex_calls(records)
@@ -192,6 +203,7 @@ def build(results, output):
         queries += episode_queries
         native_video = folder / row['task'] / f"episode_{row['episode']:03d}_seed_{row['seed']}_{'success' if row['success'] else 'failure'}.mp4"
         value = dict(row, id=identity, instruction=reset['instruction'], pairing_verified=True,
+                     pairing_exact=comparison['exact'],initial_observation_comparison=comparison,
                      video=copy(native_video, f'media/{identity}.mp4'),
                      image=copy(seed_folder / 'starting_image.png', f'media/{identity}.png'),
                      tokens=token_count['sum'], teacher_seconds=accounting['latency_seconds'],
@@ -199,7 +211,8 @@ def build(results, output):
                      output_tokens=accounting['tokens']['output_tokens']['sum'],
                      decisions=decision_rows, queries=episode_queries)
         rows.append(value)
-        for name in ('reset.json', 'paired_reset.json', 'result.json', 'policy_queries.jsonl', 'initial_model.xml.gz'):
+        for name in ('reset.json', 'paired_reset.json', 'result.json', 'policy_queries.jsonl', 'initial_model.xml.gz',
+                     'initial_observation.npz'):
             copy(seed_folder / name, f'evidence/{identity}/{name}')
         copy(folder / 'episode.json', f'evidence/{identity}/episode.json')
         for path in folder.glob('reset_verification*'):
@@ -268,8 +281,12 @@ def build(results, output):
     for case in protocol['cases']:
         for name in ('anchor.json', 'anchor_model.xml.gz', 'anchor_state.npz', 'anchor_rng.json'):
             copy(results / 'evaluation' / case['id'] / name, f"evidence/{case['id']}/{name}")
+        reference = results/'evaluation'/case['id']/'anchor_observation.npz'
+        if not reference.exists():
+            reference = results/'evaluation'/case['id']/f"native1/seed{case['seed']}/initial_observation.npz"
+        copy(reference,f"evidence/{case['id']}/anchor_observation.npz")
     for name in ('xiaomi_teacher.py', 'xiaomi_interventions.py', 'xiaomi_selector_eval.py', 'xiaomi_selector_worker.py',
-                 'xiaomi_selector_protocol.json', 'xiaomi_selector_provider_preflight.json'):
+                 'xiaomi_reset_match.py', 'xiaomi_selector_protocol.json', 'xiaomi_selector_provider_preflight.json'):
         content = subprocess.check_output(['git', 'show', report['source']['source_revision'] +
             ':astra_reversal/complex_manipulation/' + name], cwd=Path(__file__).resolve().parents[2])
         (output / 'provenance' / name).write_bytes(content)

@@ -17,6 +17,7 @@ from astra_reversal.records import digest
 from .worker import write_json
 from .xiaomi_eval import Recorder, RecordedEnvironment
 from . import xiaomi_teacher as teacher
+from .xiaomi_reset_match import assess_reset, load_observation
 
 
 def video_feedback(video, steps):
@@ -147,12 +148,14 @@ def fingerprint(env, obs):
 
 
 class ReplayEnvironment(RecordedEnvironment):
-    def __init__(self, env, recorder, anchor, expected, resets, *, maximum_restore_attempts=1):
+    def __init__(self, env, recorder, anchor, expected, resets, *, maximum_restore_attempts=1,
+                 reference_observation=None, camera_allowance=None):
         super().__init__(env,recorder)
         self.anchor, self.expected, self.resets = anchor, expected, resets
         if type(maximum_restore_attempts) is not int or not 1 <= maximum_restore_attempts <= 3:
             raise ValueError('Reset verification must have a registered finite bound')
         self.maximum_restore_attempts = maximum_restore_attempts
+        self.reference_observation, self.camera_allowance = reference_observation, camera_allowance
 
     def reset(self, *, seed):
         self.resets["policy_restore_resets"] += 1
@@ -162,23 +165,25 @@ class ReplayEnvironment(RecordedEnvironment):
                 self.resets['additional_verification_restore_resets'] = self.resets.get('additional_verification_restore_resets',0)+1
             obs = restore_anchor(self.env,self.anchor)
             actual = fingerprint(self.env,obs)
-            checks.append(dict(restore_index=index,exact=actual==self.expected,actual=actual))
+            comparison = assess_reset(self.expected,actual,self.reference_observation,obs,self.camera_allowance)
+            checks.append(dict(restore_index=index,exact=actual==self.expected,actual=actual,comparison=comparison))
             write_json(self.recorder.root/'reset_verification.json',dict(
                 maximum_restore_attempts=self.maximum_restore_attempts,expected=self.expected,checks=checks))
-            if actual == self.expected:
+            if comparison['accepted']:
                 break
             np.savez_compressed(self.recorder.root/f'reset_verification_{index}_observation.npz',**obs)
             # Only an observation-only mismatch can use another zero-action restore.
             # Physical model/state/RNG or instruction changes stop immediately.
-            if any(actual[k] != self.expected[k] for k in actual if k != 'observation_sha256'):
+            if not comparison['physical_fingerprints_exact'] or comparison['noncamera_observations_exact'] is False:
                 break
-        if actual != self.expected:
+        if not comparison['accepted']:
             np.savez_compressed(self.recorder.root / 'reset_mismatch_observation.npz',**obs)
             write_json(self.recorder.root / "reset_mismatch.json",{"actual":actual,"expected":self.expected})
-            raise ValueError("Prospective paired reset failed exact fingerprint checks")
+            raise ValueError("Prospective paired reset failed exact fingerprint or registered camera checks")
         self.recorder.terminated = False
         self.recorder.reset(self.env,obs,seed)
-        write_json(self.recorder.directory / "paired_reset.json",{"verified":True,**actual})
+        write_json(self.recorder.directory / "paired_reset.json",{"verified":True,**actual,
+            "reference_fingerprint":self.expected,"comparison":comparison})
         return obs, {"success":False}
 
     def close(self):
@@ -325,6 +330,17 @@ def main():
                     "numpy_rng":[anchor["numpy_rng"][0],anchor["numpy_rng"][1].tolist(),*anchor["numpy_rng"][2:]],
                     "python_rng":anchor["python_rng"]})
                 write_json(root/"anchor.json",expected)
+            if reuse_anchor:
+                reference_path = root/'anchor_observation.npz'
+                if not reference_path.exists():
+                    reference_path = root/f"native1/seed{case['seed']}/initial_observation.npz"
+                reference_observation = load_observation(reference_path)
+            else:
+                reference_observation = obs
+            if digest(reference_observation) != expected['observation_sha256']:
+                raise ValueError('Saved camera reference differs from the registered anchor')
+            if not (root/'anchor_observation.npz').exists():
+                np.savez_compressed(root/'anchor_observation.npz',**reference_observation)
             completed = {arm:any(r['case']==case['id'] and r['arm']==arm and r['success'] for r in rows)
                          for arm in ('native','astra')}
             astra_history = history[case["id"]]
@@ -375,7 +391,9 @@ def main():
                                 restore_anchor(env,anchor)
                                 counts['diagnostic_restore_resets'] += 1
                         wrapped = ReplayEnvironment(env,record,anchor,expected,counts,
-                            maximum_restore_attempts=protocol.get('continuation',{}).get('maximum_reset_verification_attempts',1))
+                            maximum_restore_attempts=protocol.get('continuation',{}).get('maximum_reset_verification_attempts',1),
+                            reference_observation=reference_observation,
+                            camera_allowance=protocol.get('continuation',{}).get('camera_rounding_allowance'))
                         result = entry.evaluate_task(case["task"],0,native_args,
                             PolicyClient(engine,record,case_index,attempt,guide),GymProxy(),get_task_horizon,
                             convert_action,folder,episode_indices=[0],show_progress=False,write_task_stats=False)
