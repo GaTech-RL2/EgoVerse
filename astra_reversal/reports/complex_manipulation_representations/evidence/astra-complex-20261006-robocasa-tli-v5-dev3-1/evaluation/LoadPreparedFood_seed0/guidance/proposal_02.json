@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper visibly straddles the tupperware rim and closes around it.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 100, the end effector has lowered and shifted, but the food-filled tupperware remains on the counter. The gripper positions remain near closed; neither grasp nor lift is established.",
+  "subgoal": "Open the gripper and grasp the near rim of the food-filled tupperware beside the microwave.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:200:guide:2",
+  "request_fingerprint": "f2b57ff2454ea695efab4e074c85d073c7c1da7b1a035295ab1e52f2bcd8a9c7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 2,
+  "observation_step": 200
+}

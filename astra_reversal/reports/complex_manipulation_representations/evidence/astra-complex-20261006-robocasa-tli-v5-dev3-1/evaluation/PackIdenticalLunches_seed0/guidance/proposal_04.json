@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly level with and beside the broccoli above the drawers.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 300, the end-effector position's third component decreased from 0.505 to 0.400. The gripper now appears below the broccoli, which remains on the shelf above the drawers. The wrist view remains obstructed by refrigerator surfaces; no grasp is established.",
+  "subgoal": "Raise the gripper to the broccoli on the refrigerator shelf immediately above the drawers.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0:400:guide:4",
+  "request_fingerprint": "efa384f1bc89e7f7ec35ba573d25629012ebf7f2319d18286c33e741e55c3fe6",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

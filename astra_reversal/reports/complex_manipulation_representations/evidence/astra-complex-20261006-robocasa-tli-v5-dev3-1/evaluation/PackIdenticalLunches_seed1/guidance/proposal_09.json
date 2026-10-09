@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper is visibly above the front edge of the lower refrigerator shelf.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 750, end-effector height relative to base decreased from 0.236 to 0.193 despite stronger withdrawal guidance. The gripper remains low near the refrigerator opening; the wrist view remains obstructed, and no food grasp is confirmed.",
+  "subgoal": "Raise the gripper in front of the open refrigerator until it is above the lower shelf's front edge.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:850:guide:9",
+  "request_fingerprint": "3b77ccc37a16bd8752667223bac77240aa649ea8f4a280b16de330ebc93a2310",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 9,
+  "observation_step": 850
+}

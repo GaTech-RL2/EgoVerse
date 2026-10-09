@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Gripper clears the tupperware, which remains stationary and fully supported on the top shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 50,
+  "observed_evidence": "Since step 1150, the gripper has opened and withdrawn somewhat; the tupperware remains visible beside the jar near the top shelf edge. Full support is still uncertain, unlike the failed rollout where it disappeared from view.",
+  "subgoal": "Withdraw the open gripper clear of the tupperware without disturbing it. Leave it resting on the top shelf beside the jar before closing the door.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:1250:guide:8",
+  "request_fingerprint": "47593b5d18b60768ad755e333ca7bc6184293fb55dfd8d126603f47154282b1f",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 8,
+  "observation_step": 1250
+}

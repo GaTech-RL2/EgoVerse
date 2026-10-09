@@ -1,0 +1,21 @@
+{
+  "episode": 0,
+  "global_episode_index": 0,
+  "seed": 2,
+  "success": false,
+  "steps": 3900,
+  "cohort": "astra",
+  "task": "PackIdenticalLunches",
+  "horizon": 3900,
+  "completed": true,
+  "policy_queries": 244,
+  "explicit_episode_resets": 1,
+  "physical_retries": 0,
+  "policy_seconds": 55.744532271754,
+  "environment_seconds": 265.02097339741886,
+  "wall_seconds": 588.9306302322075,
+  "case": "PackIdenticalLunches_seed2",
+  "arm": "astra",
+  "attempt": 1,
+  "teacher_calls": 16
+}

@@ -1,0 +1,14 @@
+{
+  "source_hdf5": "73_jigsaw_puzzle_assembly/recordings/failure/episode_000001.hdf5",
+  "source_sha256": "9ebb5c73647516ddd749740d10f6072bd8f4a8de3689847b2f8d64bd3c532521",
+  "frames": 1213,
+  "fps": 20,
+  "camera_order_top_left_top_right_bottom_left_bottom_right": [
+    "cam_stereo_left",
+    "cam_stereo_right",
+    "cam_wrist_left",
+    "cam_wrist_right"
+  ],
+  "native_physics_steps_per_control": 3,
+  "meaning": "A mosaic of recorded live policy-camera JPEGs, with no observation intervention. Playback follows simulated control time. Native per_episode.jsonl defines success; video appearance does not score the episode."
+}

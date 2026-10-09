@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper reaches the tupperware rim from above, with the container visibly between its fingers.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 950, the tupperware remains on the counter beside the microwave while the gripper appears below its rim. The end-effector position's third component fell from 0.2189 to 0.0991 and the fingers narrowed, without a visible grasp or lift. The wrist view remains obstructed. Stronger guidance has not established pickup.",
+  "subgoal": "Raise the gripper above the food-filled tupperware beside the microwave and grasp its rim.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:1050:guide:11",
+  "request_fingerprint": "7ff1cce360049c44d6b66e653b73436041aaf319172d7b40844cc553fea0eafe",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 11,
+  "observation_step": 1050
+}

@@ -1,0 +1,6 @@
+{
+  "episode_id": "astra-complex-20261006-robocasa-native-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:native:attempt0",
+  "executed_actions": 3900,
+  "reset_free_segments": 780,
+  "policy_seconds": 77.37751191202551
+}

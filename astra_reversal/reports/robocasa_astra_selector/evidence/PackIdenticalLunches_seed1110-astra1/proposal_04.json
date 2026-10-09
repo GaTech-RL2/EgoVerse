@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Another food item visibly lifts clear of the refrigerator shelf and remains held during withdrawal, then is released into a tupperware.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "After the first tomato was visibly placed in a tupperware, the robot has returned to the open refrigerator. A tomato and drumsticks remain visible on the shelf; the gripper is open with no confirmed grasp. Retrieval is the current phase, with no visible stall or failure yet.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:512:guide:4",
+  "request_fingerprint": "9bc593329fe4ee9e9e35d06a9d0bbbb974d143be909b0e591db3dd94d7ac031e",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 4,
+  "observation_step": 512
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware rests fully supported on the top shelf and the gripper withdraws.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has moved from the microwave counter to the open fridge, unlike the prior stalled rollout. The tupperware remains visible beside the gripper and in the wrist view. Several small items occupy the top shelf.",
+  "subgoal": "Lift the held tupperware level to the fridge's top shelf and place it in a clear space among the items. Release only when fully supported.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:1400:guide:10",
+  "request_fingerprint": "d8af7336e84d2fe90f3c0456f39211a3a0800af4bfd38a7ce96c2c48f4bc08ec",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 10,
+  "observation_step": 1400
+}

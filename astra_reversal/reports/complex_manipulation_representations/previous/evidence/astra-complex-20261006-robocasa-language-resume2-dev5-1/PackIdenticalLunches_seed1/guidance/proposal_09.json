@@ -1,0 +1,15 @@
+{
+  "completion_signal": "One carrot is visibly grasped and lifted clear of the refrigerator shelf; both fish remain in their containers.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The dark fish now rests inside the light tupperware with the gripper withdrawn, unlike the previous wrist view showing it carried. The red fish remains in the neighboring container. Prior failure left carrots in the refrigerator.",
+  "subgoal": "Leave both placed fish undisturbed. Return to the open refrigerator and grasp one carrot, then lift it clear of the shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:2100:guide:9",
+  "request_fingerprint": "532221be6f79e1e4855bb78a2493219ec22d16836f1214f7b3e069ac110f04c8",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 9,
+  "observation_step": 2100
+}

@@ -1,0 +1,15 @@
+{
+  "complete": true,
+  "policy_trials": 0,
+  "diagnostic_episodes": 5,
+  "counts": {
+    "constructor_setup_resets": 3,
+    "anchor_selection_resets": 3,
+    "diagnostic_restore_resets": 6,
+    "policy_restore_resets": 5,
+    "diagnostic_control_steps": 640,
+    "diagnostic_chunks": 40,
+    "astra_jobs": 0,
+    "policy_SR_denominator_contribution": 0
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0.75,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains exactly one lime and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Both limes and both drumsticks remain in the right tupperware; the left remains empty. The arm has shifted above the food, but no lifted grasp or redistribution is visible after the previous TEI interval. Increase instruction interpolation to address the stalled transfer.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Pick up one chicken drumstick from the right tupperware, lift it out, and release it in the empty left tupperware. Leave the other food in place.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1107-astra2:2240:guide:13",
+  "request_fingerprint": "dac8ba938f07516d5c48942c4a1c8195b93a20efb61e69f2a78a33939993451e",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1107-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1107-astra2",
+  "request_index": 13,
+  "observation_step": 2240
+}

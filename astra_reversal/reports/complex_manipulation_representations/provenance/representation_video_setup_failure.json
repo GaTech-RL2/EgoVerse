@@ -1,0 +1,22 @@
+{
+  "schema": "robocasa-representation-setup-failure-1",
+  "workflow": "astra-complex-20261006-robocasa-tei-v3-dev3-1",
+  "source_revision": "5ab3072fce1b6b5c19da4a4982565438c6dedf5c",
+  "status": "stopped_before_policy_reset",
+  "interpolation_preflight": "passed",
+  "stage": "prior_native_failure_video_decode_after_environment_construction",
+  "terminal_error": "OSError: Could not load meta information",
+  "evidence": "evaluation.log places the failure in prior_failure(), after gym.make returned and before rollout() was called. The upstream wrapper performs one setup reset during construction.",
+  "constructor_setup_resets": 1,
+  "policy_reset_episodes": 0,
+  "executed_controls": 0,
+  "teacher_calls": 0,
+  "teacher_tokens": 0,
+  "task_sr": null,
+  "evidence_hashes": {
+    "evaluation.log": "a191914cf02131ff0ea85dfacb10293ac1d44e9c8761181503dbd3e209c7d633",
+    "evaluation/interpolation_preflight.json": "4a1cf3bfc686dc2762dad4f059065c91ed3f799bb7ec322b300149c1e712213d",
+    "archive_receipt.json": "c0d87d2682d08fb6e5ac6b67edab4168e67483395b6bb81f15c8c831ea731358"
+  },
+  "correction": "Decode all scheduled prior-failure videos before importing or initializing JAX. Preserve the same source videos, frame indices and teacher payload; record each constructor separately."
+}

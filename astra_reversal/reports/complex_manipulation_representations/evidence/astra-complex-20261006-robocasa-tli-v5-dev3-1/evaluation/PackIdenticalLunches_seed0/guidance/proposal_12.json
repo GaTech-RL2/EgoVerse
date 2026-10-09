@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper is visibly clear of the refrigerator drawer, with open space between them.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1100, the side views show little change and the wrist view remains obstructed by nearby surfaces and the arm. The end-effector position's third component decreased from 0.197 to 0.176. Moderate withdrawal guidance has not established clearance; no food grasp or placement is visible.",
+  "subgoal": "Withdraw the gripper away from the refrigerator drawer into open space.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0:1200:guide:12",
+  "request_fingerprint": "9e08267bec587cd11e77967d7579182f2bc166505485ffcfc861b2b198eea214",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "request_index": 12,
+  "observation_step": 1200
+}

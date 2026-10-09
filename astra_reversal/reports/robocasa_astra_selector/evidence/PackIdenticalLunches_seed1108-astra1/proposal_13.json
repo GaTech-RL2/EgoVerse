@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The remaining garlic is released into the gray tupperware, with one garlic and one drumstick visibly resting in each container after gripper withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The drumstick now rests inside the gray tupperware, and the open gripper has withdrawn with no ingredient visible in the wrist view. The robot is moving away from the counter toward the open refrigerator. Placement has progressed; no visible stall warrants intervention. Garlic in the gray container is not yet confirmed.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:2944:guide:13",
+  "request_fingerprint": "67b2b5ef4526e29aacc41575cb4626b61e8010b21c64b543a32cdde05705bfef",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 13,
+  "observation_step": 2944
+}

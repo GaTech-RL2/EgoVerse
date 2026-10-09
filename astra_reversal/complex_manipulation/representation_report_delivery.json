@@ -1,0 +1,58 @@
+{
+  "dashboard": "/Users/rpunamiya/Downloads/complex-manipulation-representations-20261008/index.html",
+  "zip": "/Users/rpunamiya/Downloads/complex-manipulation-representations-20261008.zip",
+  "zip_bytes": 515383064,
+  "zip_sha256": "b14bf69c80da09e280cfb6ec45a04c288311ed312c9ec6c075c928af1aeb0724",
+  "manifest_files_verified": 1151,
+  "csv_rows": 24,
+  "rollout_videos": 26,
+  "paired_comparison_videos_decoded": 24,
+  "browser_viewports": [
+    1440,
+    390
+  ],
+  "branch": "astra/complex-manipulation-20261006",
+  "pr": 706,
+  "experiment_source_revision": "bdcf8db84e2da5a6b6e6194354da6e9af1fd9c75",
+  "unit_tests": {
+    "passed": 1827,
+    "skipped": 6,
+    "seconds": 243.32
+  },
+  "optional_integration_tests": {
+    "passed": 4
+  },
+  "campaign_gpu_hours_as_of_delivery": 27.162126330833335,
+  "authorized_gpu_hours": 48,
+  "remaining_authorized_gpu_hours": 20.837873669166665,
+  "results": {
+    "native": {
+      "completed_episodes": 6,
+      "completed_successes": 0,
+      "teacher_tokens": 0,
+      "teacher_calls": 0,
+      "wall_seconds": 1332.2919847751036
+    },
+    "phase": {
+      "completed_episodes": 6,
+      "completed_successes": 0,
+      "teacher_tokens": 1592255,
+      "teacher_calls": 81,
+      "wall_seconds": 2936.1730601568706
+    },
+    "tei": {
+      "completed_episodes": 6,
+      "completed_successes": 0,
+      "teacher_tokens": 1872439,
+      "teacher_calls": 96,
+      "wall_seconds": 2705.123476551991
+    },
+    "tli": {
+      "completed_episodes": 6,
+      "completed_successes": 0,
+      "teacher_tokens": 1876076,
+      "teacher_calls": 96,
+      "wall_seconds": 2907.4194024090248
+    }
+  }
+}

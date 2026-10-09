@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "The containers return into view, then one garlic is lifted from gray and released into blue, leaving one garlic in each.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has moved away from the wall into the kitchen beside the stove during the last intervention. The gripper appears empty and the containers remain out of view. Navigation is progressing, but correction of the previously observed two garlics in gray is unconfirmed.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Return to the tupperwares beside the sink. Pick up one garlic from the gray container and place it in the empty blue container, leaving one garlic in gray.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:1728:guide:10",
+  "request_fingerprint": "4aa74cacb43bc9a33549d447979070fee5259f8d3cc176831d500ba577c812e9",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 10,
+  "observation_step": 1728
+}

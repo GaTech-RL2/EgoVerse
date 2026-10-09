@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Robot faces the open fridge with the tupperware held level near the top shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm has risen since the previous observation while the tupperware remains aligned with the wrist, suggesting a grasp; counter clearance is partly obscured. Prior transport showed substantial tilting.",
+  "subgoal": "Carry the tupperware level with its opening upward to the open fridge, and align it with the top shelf without releasing it.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:350:guide:2",
+  "request_fingerprint": "93c673e5562eaa65013115b99e843c8c732b7c413999e794997623b3c3a75652",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 2,
+  "observation_step": 350
+}

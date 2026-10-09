@@ -1,0 +1,15 @@
+/opt/astra-xiaomi/sources/robocasa/robocasa/__init__.py:1030: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+/opt/astra-xiaomi/sources/robosuite/robosuite/__init__.py:45: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+[robosuite WARNING] No private macro file found! (macros.py:57)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:58)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robosuite/robosuite/scripts/setup_macros.py (macros.py:59)
+[robosuite WARNING] Could not import robosuite_models. Some robots may not be available. If you want to use these robots, please install robosuite_models from source (https://github.com/ARISE-Initiative/robosuite_models) or through pip install. (__init__.py:30)
+[robosuite WARNING] Could not load the mink-based whole-body IK. Make sure you install related import properly (e.g. pip install mink==0.0.5), otherwise you will not be able to use the default IK controller setting for GR1 robot. (__init__.py:40)
+[robosuite WARNING] No private macro file found! (macros.py:28)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:29)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robocasa/robocasa/scripts/setup_macros.py (macros.py:30)
+WARNING: mimicgen environments not imported since mimicgen is not installed!
+Creating LoadPreparedFood with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)

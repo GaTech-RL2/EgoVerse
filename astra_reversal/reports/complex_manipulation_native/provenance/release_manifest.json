@@ -1,0 +1,785 @@
+{
+  "schema": "astra-complex-release-manifest-1",
+  "recorded_utc": "2026-10-06T21:03:45.346809+00:00",
+  "sources": {
+    "robocasa": {
+      "url": "https://github.com/robocasa/robocasa.git",
+      "revision": "456174f62b89b8fca99eaaf33949c29fec9cfc2a"
+    },
+    "openpi": {
+      "url": "https://github.com/robocasa-benchmark/openpi.git",
+      "revision": "5a6beda9ff99da30b4e1b59320f6a32971d7c397"
+    },
+    "bench2dex": {
+      "url": "https://github.com/Bench2Dex/Bench2Dex.git",
+      "revision": "fd90dcc625b66c2e535a8b25bcf75bc81c7b080d"
+    },
+    "embodiedswe": {
+      "url": "https://github.com/EmbodiedSWE/EmbodiedSWE.git",
+      "revision": "433d0ceedc2c5acf58551f4b3502b2cd1c7e8f1b"
+    },
+    "robosuite": {
+      "url": "https://github.com/ARISE-Initiative/robosuite.git",
+      "revision": "5ce6643f3092639d08f7b0f90ed1c6a84f50552c"
+    }
+  },
+  "checkpoints": {
+    "robocasa_pi05": {
+      "repo_id": "robocasa/robocasa365_checkpoints",
+      "revision": "c484448aba1a9b60a04c9b0ca117241518ea69f3",
+      "prefix": "pi05_pretrain_human300/multitask_learning/75000",
+      "model_horizon": 50,
+      "model_action_dim": 32,
+      "output_action_dim": 12,
+      "camera_count": 3,
+      "normalization_sha256": "4aed1af411bd0e0f49d2b0e6d6832b11b8682917231a07173fbc30fd493bbdee",
+      "files": [
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/_CHECKPOINT_METADATA",
+          "size": 426,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/assets/norm_stats.json",
+          "size": 3208,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/_METADATA",
+          "size": 23544,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/_sharding",
+          "size": 12797,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/array_metadatas/process_0",
+          "size": 9162,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/d/35c0b41e13ddb0a578456230f51a3416",
+          "size": 2138,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/manifest.ocdbt",
+          "size": 117,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/16a296efc9531f413b90c15199e43385",
+          "size": 538931200,
+          "lfs": {
+            "size": 538931200,
+            "sha256": "dc757fa844af3d94c8eaaa07194417a7c482bb52edf6e8d86e577f81816c5bae",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/28b537f74e118c2c1c44f72e8b0e00b7",
+          "size": 2240151552,
+          "lfs": {
+            "size": 2240151552,
+            "sha256": "f209dd91be421638fea6261cc63a34a2004ee145eb30cb6ba38a99654f9af305",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/471d6e9b709ec1a579f83c8b4914e1ed",
+          "size": 30384128,
+          "lfs": {
+            "size": 30384128,
+            "sha256": "3ce8fe59c2e2b636d434e02c985a02916d88d2b129189b529d24c3e6099baed4",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/5cf1127d4e3fcd6e80a66ebba54dc32d",
+          "size": 2799407104,
+          "lfs": {
+            "size": 2799407104,
+            "sha256": "bacba2b2609a43ca79324669efc844756779f69a4d8c7cd10c7762683fd32deb",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/6292e633c11b8f6931cac6ab824f3279",
+          "size": 35061760,
+          "lfs": {
+            "size": 35061760,
+            "sha256": "96aa01bc6b8323995e711fbd80ca0f52f24d472194b4bd61cd0cc9c64cf2b4a2",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/65f82551b4d64f31f6bb1cdcf17945e1",
+          "size": 70041600,
+          "lfs": {
+            "size": 70041600,
+            "sha256": "e1f92637f1d9e85c6da42b7cc315fdd98ff1f8786baf31bc93728df8c99c9b4a",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/7f76f4974bbb6946ff46b5dbcd4d44f8",
+          "size": 2529587200,
+          "lfs": {
+            "size": 2529587200,
+            "sha256": "e4282ee9762ef7bd9a27972e42f0a10e110b27e4a9d4123610cd8a0e47266754",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b627c21812ded6c524507187a8526a3e",
+          "size": 1956962304,
+          "lfs": {
+            "size": 1956962304,
+            "sha256": "2a36a95461e1b67ea66240045be0b2011d7ade7ed2237a8bf95a3f117010e734",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/b808ab91bab1b5805b381e09b7fc0a85",
+          "size": 5367,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d71893b153190783845eb3aabec57214",
+          "size": 1098,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/d76149c5c280cb9da59fd2f948d9cdda",
+          "size": 213,
+          "lfs": null
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/d/fb6f9dae6d90f1b488a3d4ebf79278ed",
+          "size": 2240278528,
+          "lfs": {
+            "size": 2240278528,
+            "sha256": "c91af421dfea08263fa55d6cd904fb7a909925447c448cebeee8bc140fb5a340",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "pi05_pretrain_human300/multitask_learning/75000/params/ocdbt.process_0/manifest.ocdbt",
+          "size": 486,
+          "lfs": null
+        }
+      ],
+      "inference_download_bytes": 12440863932,
+      "runtime_validation": "pending"
+    },
+    "bench2dex_fridge_pi05": {
+      "repo_id": "Bench2Dex/policy_ckpt",
+      "revision": "773e65842bd36de1cbe951b0f52c865a87d41732",
+      "prefix": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000",
+      "model_horizon": 20,
+      "model_action_dim": 38,
+      "output_action_dim": 38,
+      "camera_count": 4,
+      "normalization_sha256": "3d43bf5da97a14d344043d7e0db0b5b6269ba69e991ebd310deaa9f317910f44",
+      "files": [
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/_CHECKPOINT_METADATA",
+          "size": 417,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/assets/dex2bench/norm_stats.json",
+          "size": 9055,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/_METADATA",
+          "size": 22038,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/_sharding",
+          "size": 18152,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/d/3f6a2387186b036c4899e98ea9173a84",
+          "size": 2402,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/manifest.ocdbt",
+          "size": 117,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/003c12d1914bbdd5765f875c5b57f317",
+          "size": 34944358,
+          "lfs": {
+            "size": 34944358,
+            "sha256": "7d77a3e8fb3a4be8dbfdac4078cdfbe2291305bf2640370c2c9a53ff4a445885",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/04c229c38c35572ffa6f1c030c979234",
+          "size": 422320407,
+          "lfs": {
+            "size": 422320407,
+            "sha256": "ec335ad569d41775d90c54c1534829818a8d322523ee2aa6d0abfc0c5ca6e2e3",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/0b6de2e883695eaf9e7e309c1e42be20",
+          "size": 1120147631,
+          "lfs": {
+            "size": 1120147631,
+            "sha256": "3ec9241ce56115b526e6ad891841420b49ad33f46be21ca484d47c7fedd47657",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/0c076ca3b0d050a402703da7e22600f5",
+          "size": 152933,
+          "lfs": {
+            "size": 152933,
+            "sha256": "b4a098037d075439df61e43dabe0d2de5eb66d475d6d4352eced6aed159db333",
+            "pointer_size": 131
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/19dc06208627c75614bc7deaf5f54574",
+          "size": 133034774,
+          "lfs": {
+            "size": 133034774,
+            "sha256": "4288854e57031770b22c343b06ed4ff4cd9afc99bceaa37319a05c4b39cc0927",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/1ffea3faeea7fbb2b138f47fd9acb863",
+          "size": 5397,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/266b119e452fe40757d4176520988a48",
+          "size": 140034749,
+          "lfs": {
+            "size": 140034749,
+            "sha256": "84e5789b09f3d31808b06df48c52dca2133945b95d7150ff00ffd688892c50c8",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/2ccbffe4d9e8496af72b0331a0944c41",
+          "size": 213,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/36a42f10d7d30c335b1e47686d09db47",
+          "size": 2240428756,
+          "lfs": {
+            "size": 2240428756,
+            "sha256": "f3d998d70d9fa955a25a9fb014da1cf461734d7874a4fdb301eb4e929119bf91",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/3926260f66f6dd002d41597d2337cdb0",
+          "size": 1678,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/42eaafba116b49e5586957f9cb7d5c65",
+          "size": 2006,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/48f316408d38e27f15b4c3ecc1779720",
+          "size": 133037261,
+          "lfs": {
+            "size": 133037261,
+            "sha256": "667daee42d3cab92f2b64125849da6ba22b243d5f54bb2d2a40ab49877b2f540",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/53c300ad3a6b0abc968ad5abf3cca931",
+          "size": 30400393,
+          "lfs": {
+            "size": 30400393,
+            "sha256": "c5958f0e4061dcb7d45dc0b55808333e21afd32d5f55988d006d72017d72206d",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/6280c93cf6d27339ad9fb63e75eb7e0f",
+          "size": 497035644,
+          "lfs": {
+            "size": 497035644,
+            "sha256": "48e269be0b6acffcd8ca4842b001c50838707a9cd81ed6316250fd06f6c033cd",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/692179094d27c78f70547eacbc90d73a",
+          "size": 139877051,
+          "lfs": {
+            "size": 139877051,
+            "sha256": "46673bf160b874abf512e5cc9d5956dd276d8c64751f30747ad95b36093a2508",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/78c2313e74a06e6c40b847c875f13a9e",
+          "size": 2354,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/94756b2033eed5ab6faa6615cb0cac78",
+          "size": 497188954,
+          "lfs": {
+            "size": 497188954,
+            "sha256": "6adcb3280af5f923e4794a780e7f96804ba4dba171a95d0af4f1a7c513e02058",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/9e2ca3be65b18d4ed3be5deedbfb76d5",
+          "size": 1957002003,
+          "lfs": {
+            "size": 1957002003,
+            "sha256": "72f81bd34d14ba6da15b50de22c3f4b7a8387d0cae44e79997bbea5e7fccb906",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/aeb94a055273ad8a7c265c543e672995",
+          "size": 559160977,
+          "lfs": {
+            "size": 559160977,
+            "sha256": "aa081f5925a50dfbe746fa7325f9c8e16c58e0b6afdb74c2f9ad50b2172d3c0b",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/af7dca5b2b7ac2f6bf72813f185c782b",
+          "size": 1061,
+          "lfs": null
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/aff8817fba51f0f1505c1428b8aca90f",
+          "size": 280206764,
+          "lfs": {
+            "size": 280206764,
+            "sha256": "7ef6bff6a23a1d3a18f6f35a68b9669cc22fa7f06ae2df393f414a2a01782959",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/b01fecac92c34560a81364479ea32d20",
+          "size": 280094108,
+          "lfs": {
+            "size": 280094108,
+            "sha256": "011f2db8339f512e687b36e2f7cfcd08798ad5d753119be66b31e98d9a5cb761",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/b3a573e75a8751ba1403128c0d7c6d5f",
+          "size": 2240298501,
+          "lfs": {
+            "size": 2240298501,
+            "sha256": "81600999bfff63e53ab12aca57791bd2a23a7d95e88543ea071fe64b75c3478f",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/bc4e371d71a658e76c2d9c8a69e891d4",
+          "size": 133017412,
+          "lfs": {
+            "size": 133017412,
+            "sha256": "e10bec8647bb37e38cbebc0ccc261861f1dda8f18866932d81ae6102bf795a53",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/c76a8beeb3fc38e7b57ec1141d59e723",
+          "size": 279975775,
+          "lfs": {
+            "size": 279975775,
+            "sha256": "65312e4e637eb4164f804ba1584e97509aecc62aaf9a40b4fee6812f1080fef1",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/d3cc252492a670b188942858d2cbe618",
+          "size": 132944601,
+          "lfs": {
+            "size": 132944601,
+            "sha256": "8cb285becdd7689ad64f1ceebdb59533a3c09d47a96bdb2e6413e866abf05523",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/d8ba28a4240d1be6975656e70b2e22fd",
+          "size": 70042423,
+          "lfs": {
+            "size": 70042423,
+            "sha256": "061823a018d79ac5f27b733257a79ed6b7ac2807cd087430665f407fc60d29d1",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/d/ee573b8048549bc903385fd6c1a7d773",
+          "size": 1120286913,
+          "lfs": {
+            "size": 1120286913,
+            "sha256": "b1052495914d4162d3c3360b1cad7b81a224f2938d73221ab151c1e0a2aa4bd0",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "34/multi_ur5_rh5dg2_with_flange/pi05/pi05_base_dex2bench_full/34_pi05_256/2000/params/ocdbt.process_0/manifest.ocdbt",
+          "size": 636,
+          "lfs": null
+        }
+      ],
+      "inference_download_bytes": 12441697914,
+      "runtime_validation": "pending"
+    },
+    "bench2dex_jigsaw_pi05": {
+      "repo_id": "Bench2Dex/policy_ckpt",
+      "revision": "773e65842bd36de1cbe951b0f52c865a87d41732",
+      "prefix": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000",
+      "model_horizon": 20,
+      "model_action_dim": 54,
+      "output_action_dim": 54,
+      "camera_count": 4,
+      "normalization_sha256": "f45c55afdc9669451c5edaa9206e07b79ba92cac54fc3a5215f32d22bb804846",
+      "files": [
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/_CHECKPOINT_METADATA",
+          "size": 417,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/assets/dex2bench/norm_stats.json",
+          "size": 12775,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/_METADATA",
+          "size": 22038,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/_sharding",
+          "size": 18152,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/d/d413ab610cbe96be69f13b5fad8c518a",
+          "size": 2535,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/manifest.ocdbt",
+          "size": 117,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/02c668f96433018d5ab6259fa5ce5797",
+          "size": 2240432011,
+          "lfs": {
+            "size": 2240432011,
+            "sha256": "9566306faa70100437958bf8c688c3d2a9662f7871400e873da92f3e706ec3ae",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/10fbd4af56591903b95291ab4386225c",
+          "size": 280093837,
+          "lfs": {
+            "size": 280093837,
+            "sha256": "83ee53ea2564427e52870078664caca9f8fe842cdfe4ca64ee73caa23e8cd971",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/164a3c1ab9ae6f22a22c69fcc8278be7",
+          "size": 210885703,
+          "lfs": {
+            "size": 210885703,
+            "sha256": "c2676d2d5f61f10306c2eb402fd48fc043f483106aa45f8ad03c3153321d88b2",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/1be1f7db6926ffff44d79913242c06f7",
+          "size": 11798986,
+          "lfs": {
+            "size": 11798986,
+            "sha256": "4222cf2442e05b199cdffb788a9d36d885ff34c2587ddf5c2292eb82660ebc1c",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/1ffb08bc817bf478814ccc63b42127f2",
+          "size": 211437388,
+          "lfs": {
+            "size": 211437388,
+            "sha256": "499fee1a76bb31af46cb19337ef4f40204fc8f45db264dc9953fcc112b323765",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/22a939e1b22259f63774f39f41fcdc9e",
+          "size": 2240297476,
+          "lfs": {
+            "size": 2240297476,
+            "sha256": "23473ebc24876e484b7c0267368f58d40aca34584edb4f66b49212754b1f4b72",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/482a123ffa3759c116f48f191fc07b3f",
+          "size": 133035371,
+          "lfs": {
+            "size": 133035371,
+            "sha256": "5f526c2a8907359c6d1c65d9132bbf488c1f47b63c43d77da94d49b1bb998f39",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/4eb095bcad672e7c02d98eb5f40124c3",
+          "size": 1092,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/592bbd3995a630a309058ef7ad8fe0c4",
+          "size": 280205079,
+          "lfs": {
+            "size": 280205079,
+            "sha256": "59a1eb1d1cd56f4c6098b08ef8ce570ca7746a13f2ebff5e7d07be85b82b2942",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/680bd7845d5af393ee8d206a201db719",
+          "size": 1957002026,
+          "lfs": {
+            "size": 1957002026,
+            "sha256": "96b79d7e0af64aa54041c5f4c42beff102ffa267cabbb2518abf1da4cb5a6b69",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/69c6c189673e5d072165fea809d425de",
+          "size": 5357,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/6e899afcd71d4c01073d87e844c82698",
+          "size": 427951,
+          "lfs": {
+            "size": 427951,
+            "sha256": "e1d673179046c6461300fb646253fd9498eee61877487d01a31ba66838723d2b",
+            "pointer_size": 131
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/810050aa68374beb71f068494b19641c",
+          "size": 132942325,
+          "lfs": {
+            "size": 132942325,
+            "sha256": "4bdf9edc74ddb551463fc3568b2a0e3dec4135c896584cb4b4f0b1522274f45d",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/81160ea171e4b7b28155c8887f185dc9",
+          "size": 1567028,
+          "lfs": {
+            "size": 1567028,
+            "sha256": "0b967cf6e0227754cd82469190ea40147fa7665ef376f943e3ee224a47e511a8",
+            "pointer_size": 132
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/85062d849527cacd6a8f7c91d0b0eb85",
+          "size": 34944362,
+          "lfs": {
+            "size": 34944362,
+            "sha256": "aec9e4a288f067755fe2ea0f3c166e2929ab6ab0e2d572fd5319619013da833b",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/8cc91eb9e85e22c36023fbe1b2dfeb31",
+          "size": 70041872,
+          "lfs": {
+            "size": 70041872,
+            "sha256": "8795fdf9bd3f07f5461c7a246b7ca33a9c82336c805bd7d0593f5cb172111a3a",
+            "pointer_size": 133
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/9805ea406d0c44cd0c6d98547b646ca4",
+          "size": 213,
+          "lfs": null
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/990157c08c0c74d9b0ddb35e4c06c4d3",
+          "size": 7924172,
+          "lfs": {
+            "size": 7924172,
+            "sha256": "0c97d635f36aa10abc46e47c1009ac0acb3686ffc6e28720d96b5e212a625c31",
+            "pointer_size": 132
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/b553638b077be85ccd6a1899f1f551c3",
+          "size": 140035321,
+          "lfs": {
+            "size": 140035321,
+            "sha256": "5e6b5c45ba6ef0afb7a63dfce622c8a7557c34c21a311a270fed9d8afd525092",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/c102808ae9d84e04b7f74cea3a9b99e4",
+          "size": 497033956,
+          "lfs": {
+            "size": 497033956,
+            "sha256": "4387d5ddd603475f47473c846fee748b74781bca5e7d7d8980e425045f7304af",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/c185b00d4124195b286b126ce0d8e0d1",
+          "size": 8754569,
+          "lfs": {
+            "size": 8754569,
+            "sha256": "3b235460c990e22b60620fa29c010c1f6d9ff2bfa4d8cbca733b9f2f4cb5af16",
+            "pointer_size": 132
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/cfa185a638cdb8354ff942a573fecd83",
+          "size": 209818,
+          "lfs": {
+            "size": 209818,
+            "sha256": "264e34f460dec39d5b9f881abf158846f944785ee6ffa685896075bec0698a9c",
+            "pointer_size": 131
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/cfbbab534f19113c486c5f3733a9685e",
+          "size": 1120291979,
+          "lfs": {
+            "size": 1120291979,
+            "sha256": "6fa6eb6dd1fcf3f325fdcf79097b5f293f0d1f10f7f1e799631fdd6d6d848b78",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/d8b6b020f498502fe657f73ae96d53e1",
+          "size": 272909849,
+          "lfs": {
+            "size": 272909849,
+            "sha256": "00c7664337bc5bf64f471fe45aa91d833da4d80727fba37ca5274a52a9c03947",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/dc97b01ef47851349aa806c848ad5b6b",
+          "size": 133016223,
+          "lfs": {
+            "size": 133016223,
+            "sha256": "6ab9a80cb80fbf4f683204b8607a575146b842ef48a106e4578d12a4bd067af0",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/ebb2b79cf88a2a405dcc9cbe92c8b401",
+          "size": 1120147380,
+          "lfs": {
+            "size": 1120147380,
+            "sha256": "cee1b979b925d663befefb9bc111a7daf0f5ed3f9eb5564ac171fdf6874dd080",
+            "pointer_size": 135
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/ebbef706e408d4d8ade62872949933d7",
+          "size": 559162401,
+          "lfs": {
+            "size": 559162401,
+            "sha256": "73dcd118f152ecc2507637efe48515e4b4d4cd59b9caa6faff475b9711333cc0",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/f97edc21a30a196ebc62a9cb70c97419",
+          "size": 497189302,
+          "lfs": {
+            "size": 497189302,
+            "sha256": "f53364162db0923ae332c1ee31120b3f607875411352b581b2d2547eef0c18fb",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/d/fecdeae3985e59a490bacb2d7d9be77a",
+          "size": 279979406,
+          "lfs": {
+            "size": 279979406,
+            "sha256": "220aea5649f4551dc471280c540e5488368141143e4942046252ab7268c61f02",
+            "pointer_size": 134
+          }
+        },
+        {
+          "path": "73/multi_iiwa7_with_sharpa/pi05/pi05_base_dex2bench_full/73_pi05_256/2000/params/ocdbt.process_0/manifest.ocdbt",
+          "size": 640,
+          "lfs": null
+        }
+      ],
+      "inference_download_bytes": 12441829127,
+      "runtime_validation": "pending"
+    }
+  },
+  "robocasa_asset_archives": [
+    {
+      "name": "textures.zip",
+      "url": "https://utexas.box.com/shared/static/4i85ileasdvstmlln5sbvzptz7keuoy1.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "generative_textures.zip",
+      "url": "https://utexas.box.com/shared/static/ebaad09k82tmfmlq6ohdkmrh8izl9vn5.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "fixtures.zip",
+      "url": "https://utexas.box.com/shared/static/idbncsadpnaz1jfl4i6m8qejawk7p9pi.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "objaverse.zip",
+      "url": "https://utexas.box.com/shared/static/03eionyo8fk3a9dsksq9jb8du5lqfw8h.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    },
+    {
+      "name": "aigen_objs.zip",
+      "url": "https://utexas.box.com/shared/static/nwi1vrn5pgbo95kushkasa3nx1i012ff.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    },
+    {
+      "name": "lightwheel.zip",
+      "url": "https://utexas.box.com/shared/static/vckqvvkh1z8t69k8qcpcmee6k66stii4.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    }
+  ]
+}

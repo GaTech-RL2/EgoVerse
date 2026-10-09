@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The tupperware is visibly lifted clear of the countertop and remains supported by the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Current cameras show the open tupperware containing fish and lime resting on the countertop near the gripper; a grasp is not established. The previous failed rollout carried the container but did not place it on the fridge shelf.",
+  "subgoal": "Grasp the tupperware containing fish and lime and lift it clear of the countertop.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:0:guide:0",
+  "request_fingerprint": "1f79d262592bd976974e8b59023f95accbe445fae80a7150697a3c7559ff20ac",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

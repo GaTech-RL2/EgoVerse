@@ -1,0 +1,47 @@
+{
+  "evaluation/PackIdenticalLunches_seed1108/anchor.json": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor.json",
+    "bytes": 597,
+    "sha256": "c6a730bf0c5dd9b4844b0c6b368d64fb3461c6a333aa35fbc0a12db669f2f2a5",
+    "stamp": [
+      597,
+      1791573930182074473
+    ]
+  },
+  "evaluation/PackIdenticalLunches_seed1108/anchor_model.xml.gz": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_model.xml.gz",
+    "bytes": 39243,
+    "sha256": "b608a6298f4bbedd968493fbb5133be98ee213198be36b392fbfcefcbe56ed7f",
+    "stamp": [
+      39243,
+      1791573930181074473
+    ]
+  },
+  "evaluation/PackIdenticalLunches_seed1108/anchor_state.npz": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_state.npz",
+    "bytes": 2360,
+    "sha256": "d88d1978489b39a416bbcc497d4d1a141c3c444ddecdff4b702e42dd7ab00a70",
+    "stamp": [
+      2360,
+      1791573930181074473
+    ]
+  },
+  "evaluation/PackIdenticalLunches_seed1108/anchor_rng.json": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_rng.json",
+    "bytes": 22499,
+    "sha256": "22cfbaecefa3505d35b7859f1ea2eb74877916f90a3e25abc9ae7f59bdea1c8e",
+    "stamp": [
+      22499,
+      1791573930182074473
+    ]
+  },
+  "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_observation.npz": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_observation.npz",
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412",
+    "stamp": [
+      109857,
+      1791573936789073710
+    ]
+  }
+}

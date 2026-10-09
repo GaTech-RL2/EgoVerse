@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "Basket visibly lifts clear of the source counter with bread retained, then rests upright on the dining counter after release and withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "crop",
+  "layer": 12,
+  "method": "image",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "Bread remains in the basket on the source counter. The arm and open fingers show little change after the approach prompt, with no visible basket lift. The wrist view mostly shows countertop; emphasize the basket and adjacent gripper in the left camera to revise the stalled approach.",
+  "roi": [
+    0.5,
+    0.4,
+    1,
+    0.85
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:2240:guide:14",
+  "request_fingerprint": "8efe3d998877746fe6e46bea26685e1ea1b259b3fb7cc07bab82bd43afc974f9",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 14,
+  "observation_step": 2240
+}

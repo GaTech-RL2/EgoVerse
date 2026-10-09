@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The tupperware visibly lifts off the counter and moves with the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 450, the arm and base have barely moved despite stronger guidance. The tupperware remains beside the stove, and the wrist view shows no container. No grasp or lift is established.",
+  "subgoal": "Grasp the tupperware beside the stove and lift it clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0:550:guide:6",
+  "request_fingerprint": "6fae771008c0d539f6d94feea1e10bd19952843977d705e8d2e1986334a59a2b",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "request_index": 6,
+  "observation_step": 550
+}

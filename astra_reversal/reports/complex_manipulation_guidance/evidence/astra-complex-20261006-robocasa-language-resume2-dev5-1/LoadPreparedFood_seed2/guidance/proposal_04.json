@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Tupperware is held level at the top shelf opening, clear of the jar and other items.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The open fridge now faces the robot, showing navigation progress since step 600. Tupperware remains visible at the wrist below the top shelf; its levelness is uncertain. The failed rollout lost sight of it without verified placement.",
+  "subgoal": "Raise the supported tupperware to the top shelf opening, keeping its opening upward and aligning with clear space beside the jar. Keep holding it.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:850:guide:4",
+  "request_fingerprint": "bb1af00ace241355bcaf70c71581b1e79dbf5230327302a1b7a7bc282e2c5865",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 4,
+  "observation_step": 850
+}

@@ -1,0 +1,146 @@
+{
+  "status": "exact_native_model_fingerprint_unresolved",
+  "native_state_and_instruction_match_previous_cases": 6,
+  "pixel_identical_cases": 5,
+  "pixel_comparison": [
+    {
+      "task": "LoadPreparedFood",
+      "seed": 0,
+      "pixel_identical": true,
+      "mean_absolute_difference": 0.0,
+      "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc"
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 1,
+      "pixel_identical": false,
+      "mean_absolute_difference": 2.3735894097222223e-05,
+      "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 2,
+      "pixel_identical": true,
+      "mean_absolute_difference": 0.0,
+      "sha256": "fd9e23131d95779f99d6bb6c58696934b62c6f84bc6f946f8c45a6662af31495"
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 0,
+      "pixel_identical": true,
+      "mean_absolute_difference": 0.0,
+      "sha256": "566a8a2e443626aeac427b79fe2bab4d0e888a483caad12abb258c396f2e3cff"
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 1,
+      "pixel_identical": true,
+      "mean_absolute_difference": 0.0,
+      "sha256": "712c68395702a1445856dd4b85f9211ff2a379f43d853ecbfd3567441a5d0723"
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 2,
+      "pixel_identical": true,
+      "mean_absolute_difference": 0.0,
+      "sha256": "140c781286cab5b17e9c494e365dcea6ceb8fe31cbd8777c8097f15c12b456cb"
+    }
+  ],
+  "strict_cross_policy_pairing_verified": false,
+  "reconstruction": [
+    {
+      "task": "LoadPreparedFood",
+      "seed": 0,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        3855,
+        3855
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 1,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        3794,
+        3794
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 2,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        3294,
+        3294
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 0,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        2899,
+        2899
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 1,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        3124,
+        3124
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 2,
+      "reconstructed_xml_matches_actual_gpu": false,
+      "reconstructed_state_matches_actual_gpu": true,
+      "xml_elements": [
+        2561,
+        2561
+      ],
+      "changed_elements": 0,
+      "differences": [],
+      "diff_lines": 0
+    }
+  ],
+  "interpretation": "Independent reset-only native EGL reconstruction matches every old XML byte after the declared installation-root substitution. It does not match the model hashes captured in the evaluated Xiaomi run. Keep nominal task/seed comparisons separate from a certified paired policy effect. Do not infer a physics difference solely from differing hashes.",
+  "diagnostic_policy_calls": 0,
+  "diagnostic_control_actions": 0,
+  "completed_diagnostic_setup_resets": 6,
+  "completed_diagnostic_explicit_resets": 6,
+  "prior_cpu_failure": {
+    "workflow": "astra-complex-20261006-robocasa-xiaomi-reset-audit-1",
+    "stage": "first environment constructor",
+    "cause": "SIGSEGV under software-rendering setup",
+    "completed_audit_resets": 0,
+    "constructor_setup_resets": "unknown before process failure",
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  "gpu_audit_workflow": "astra-complex-20261006-robocasa-xiaomi-reset-audit-v2-1",
+  "gpu_audit_hours": 0.13968073027777778
+}

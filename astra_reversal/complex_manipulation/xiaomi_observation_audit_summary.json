@@ -1,0 +1,39 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-observation-v1-1",
+  "source_revision": "9ab4c96b695e65a955e52144c94b68c48530876e",
+  "archive_receipt_sha256": "658bbfb6c93a117c2c514ed8f31bc3449233b3279a38d5ece275c4eb026010e8",
+  "completed": {
+    "complete": true,
+    "counts": {
+      "constructor_setup_resets": 3,
+      "anchor_selection_resets": 3,
+      "diagnostic_restore_resets": 15,
+      "controls": 0,
+      "policy_queries": 0,
+      "teacher_jobs": 0,
+      "policy_success_trial_denominator_contribution": 0
+    },
+    "comparisons": 9,
+    "exact_fingerprint_matches": 8,
+    "exact_policy_state_matches": 9
+  },
+  "summary_sha256": "ff3dd6889c2b2f974ce447799629b9d8b66c92c7232b9124e117d058d24c1a8e",
+  "differences": [
+    {
+      "name": "constructor2_restore0",
+      "key": "video.robot0_agentview_right",
+      "shape_matches": true,
+      "dtype_matches": true,
+      "exact": false,
+      "actual_sha256": "24b25904f65fac4b2d5e0d0035bfb13befb594b8f50b8e9b35b2cdcee0a23a80",
+      "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+      "max_abs": 1.0,
+      "mean_abs": 4.57763671875e-05,
+      "changed_elements": 9,
+      "elements": 196608,
+      "changed_pixels": 3,
+      "pixels": 65536
+    }
+  ],
+  "interpretation": "Eight of nine measured restores across three fresh native EGL environments reproduced the saved seed1108 observation exactly. One changed three pixels in the right camera by one intensity level; its next restore matched exactly. All nine physical fingerprints and policy states matched. Zero controls and teacher jobs. This supports bounded zero-action restoration checks, without pixel tolerances. It does not identify the earlier mismatch cause or guarantee identical closed-loop trajectories."
+}

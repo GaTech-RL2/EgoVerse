@@ -1,0 +1,45 @@
+{
+  "schema": "robocasa-interpolation-initial-allocation-audit-1",
+  "runs": [
+    {
+      "method": "tei",
+      "workflow": "astra-complex-20261006-robocasa-tei-dev3-1",
+      "source_revision": "d8d4e117c25c0ed3181720e1e940911efce07e0b",
+      "allocation_gpu_hours": 0.1129726875,
+      "status": "preflight_failed_before_environment_construction",
+      "scheduled_episodes": 6,
+      "started_policy_episodes": 0,
+      "completed_policy_episodes": 0,
+      "environment_resets": 0,
+      "environment_actions": 0,
+      "teacher_calls": 0,
+      "teacher_tokens": 0,
+      "success_rate": null,
+      "failure": "Interpolation identity/sensitivity check failed",
+      "failed_case": "not_recorded_by_original_diagnostic",
+      "evaluation_log_sha256": "063c2a455c0797d5378aabcaa04fe5f290c59f1396eca14e7ff905a2ec714ba2",
+      "archive_receipt_sha256": "b7aae236c8661a7dca188897dab6ec4f8af3bfa914c7a04217fd9b0c80abc781"
+    },
+    {
+      "method": "tli",
+      "workflow": "astra-complex-20261006-robocasa-tli-dev3-1",
+      "source_revision": "d8d4e117c25c0ed3181720e1e940911efce07e0b",
+      "allocation_gpu_hours": 0.1074790463888889,
+      "status": "preflight_failed_before_environment_construction",
+      "scheduled_episodes": 6,
+      "started_policy_episodes": 0,
+      "completed_policy_episodes": 0,
+      "environment_resets": 0,
+      "environment_actions": 0,
+      "teacher_calls": 0,
+      "teacher_tokens": 0,
+      "success_rate": null,
+      "failure": "Interpolation identity/sensitivity check failed",
+      "failed_case": "not_recorded_by_original_diagnostic",
+      "evaluation_log_sha256": "192224a3de45e85b2fcab50d48f3cd24b5e13f22f21866d676601504ab8425fd",
+      "archive_receipt_sha256": "7f6d6e5804d5109523ab642de3676faac9b25782cad72dfc268072648684f392"
+    }
+  ],
+  "gpu_hours": 0.2204517338888889,
+  "interpretation": "No TEI/TLI SR measurements: neither allocation reached a policy episode. Do not count these as zero-success rollouts. CPU teacher probe cost is separately recorded in representation_preflight.json."
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "A food item lifts clear of the refrigerator shelf and remains with the gripper during transport, then is released inside a counter tupperware.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show tomatoes and chicken on the open refrigerator shelf, with no confirmed grasp. This is initial retrieval. The verified prior attempt packed the first lunch under native control before a later transport stall; no current failure warrants intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:0:guide:0",
+  "request_fingerprint": "363803afab5670d708e8a24d5368662a9a406614e33f447ae7b940aba0da6d4b",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 0,
+  "observation_step": 0
+}

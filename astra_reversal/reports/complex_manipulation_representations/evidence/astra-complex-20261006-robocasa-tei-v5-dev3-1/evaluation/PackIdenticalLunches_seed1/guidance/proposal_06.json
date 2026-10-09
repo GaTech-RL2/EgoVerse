@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The red fish is visibly held and lifted clear of the lower refrigerator shelf.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 500, the end effector has shifted and the gripper opening has narrowed. The red fish remains in the wrist view, with a carrot now visible beside it. The side views do not establish a secure grasp or clearance above the shelf.",
+  "subgoal": "Grasp and lift the red fish from the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:600:guide:6",
+  "request_fingerprint": "0b8c0f3df6ef7f592818415170d1d39efbad09c1d5678142c073f7a850ef893e",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 6,
+  "observation_step": 600
+}

@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware rises clear of the counter and moves with the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The wrist view shifted slightly, but the tupperware still appears on the counter and the base is unchanged. A grasp is unconfirmed; prior failure also showed prolonged delay here.",
+  "subgoal": "Lift the fish-and-lime tupperware clear of the counter; if it stays behind, open the gripper and regrasp its near rim.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:800:guide:5",
+  "request_fingerprint": "116364ac97e5684c1a6dc86f65f58a728de8c45992e6088561b209cf88ce2d5b",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 5,
+  "observation_step": 800
+}

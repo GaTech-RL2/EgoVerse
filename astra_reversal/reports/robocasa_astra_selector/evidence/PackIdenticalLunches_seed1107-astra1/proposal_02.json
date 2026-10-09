@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains one lime and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has withdrawn from the refrigerator, with a lime prominent beside the gripper in the wrist view and only one lime remaining visibly on the shelf. This supports successful retrieval and progress into transport; no current stall or failure is visible.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1107-astra1:384:guide:2",
+  "request_fingerprint": "109c7673d3c47cce728640523dc6c5c18a959b5a136e5c77391fee38268f4eda",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1107-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1107-astra1",
+  "request_index": 2,
+  "observation_step": 384
+}

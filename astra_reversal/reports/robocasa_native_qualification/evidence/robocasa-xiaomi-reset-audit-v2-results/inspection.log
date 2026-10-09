@@ -1,0 +1,31 @@
+/opt/astra-xiaomi/sources/robocasa/robocasa/__init__.py:1030: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+/opt/astra-xiaomi/sources/robosuite/robosuite/__init__.py:45: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+[robosuite WARNING] No private macro file found! (macros.py:57)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:58)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robosuite/robosuite/scripts/setup_macros.py (macros.py:59)
+[robosuite WARNING] Could not import robosuite_models. Some robots may not be available. If you want to use these robots, please install robosuite_models from source (https://github.com/ARISE-Initiative/robosuite_models) or through pip install. (__init__.py:30)
+[robosuite WARNING] Could not load the mink-based whole-body IK. Make sure you install related import properly (e.g. pip install mink==0.0.5), otherwise you will not be able to use the default IK controller setting for GR1 robot. (__init__.py:40)
+[robosuite WARNING] No private macro file found! (macros.py:28)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:29)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robocasa/robocasa/scripts/setup_macros.py (macros.py:30)
+WARNING: mimicgen environments not imported since mimicgen is not installed!
+Creating LoadPreparedFood with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "LoadPreparedFood", "seed": 0, "model_sha256": "3f00eefec05f33fe36d82e4567435fcc1b21e2191abadf99b39d1d92be943eb9", "state_sha256": "4cfb57b8bfaaacdbbc1f810df740f1f65b1be1ec69a2d0329f816890dd23b77f", "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}
+Creating LoadPreparedFood with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "LoadPreparedFood", "seed": 1, "model_sha256": "13bff85e896499608a0a029f2d42a2e245d8a4fa760962584911abd4edf5a1cb", "state_sha256": "8bc8b31863c87c88a4d3636611bb457ef5b75f3cc6162b72d57f745eb2b5901c", "instruction": "Place the tupperware on the second highest shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}
+Creating LoadPreparedFood with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "LoadPreparedFood", "seed": 2, "model_sha256": "b56f38900cb63349660f96b7a1e7a2f58a8595e8e1807b61e28171c67af5745f", "state_sha256": "5d0b34b909ded373633188536a342e171d90cf1ed9d2cae8499e1393eca68996", "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "PackIdenticalLunches", "seed": 0, "model_sha256": "e58ec5cf2247f6518b9ed8c0becaa0565b53760a47f8c3b0d82d0977dbd34bcb", "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913", "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "PackIdenticalLunches", "seed": 1, "model_sha256": "869caac6de224b4b7638e278eb366e7227c079e3049d5ed22f6fbd9cfd5810a1", "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b", "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+{"task": "PackIdenticalLunches", "seed": 2, "model_sha256": "fd010cf951671a628bcfbc72d08d2be6ef420aee518bd15c5cdb93bf8bb700f8", "state_sha256": "e9165713ef085f94442c2d9863086f6d1bc9f624a97fb023acf4b8e9e41a3b38", "instruction": "Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.", "setup_resets": 1, "explicit_audit_resets": 1, "policy_calls": 0, "control_actions": 0, "policy_rollouts": 0}

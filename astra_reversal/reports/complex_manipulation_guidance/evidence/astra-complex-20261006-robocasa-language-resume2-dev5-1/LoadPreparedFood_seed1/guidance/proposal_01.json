@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware rises with the gripper, visibly clear of the counter and level.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The gripper has moved down to the tupperware rim since the previous view, but the container still appears on the counter; a secure grasp is unconfirmed. The failed rollout lingered here before reaching the fridge.",
+  "subgoal": "Lift the food-filled tupperware straight up from the counter, keeping it level; confirm it moves with the gripper before carrying it.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:250:guide:1",
+  "request_fingerprint": "8cae5fd82f6dd176b44f3757f5c07211bb77295ed6288e1e786bedad2c9f8cf2",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 1,
+  "observation_step": 250
+}

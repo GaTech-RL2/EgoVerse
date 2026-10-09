@@ -1,0 +1,36 @@
+{
+  "workflow": "astra-complex-20261006-bench-runtime-stage-1",
+  "status": "policy_runtime_imports_validated_gpu_inference_not_run",
+  "gpu_count": 0,
+  "source": {
+    "url": "https://github.com/Bench2Dex/Bench2Dex.git",
+    "revision": "fd90dcc625b66c2e535a8b25bcf75bc81c7b080d"
+  },
+  "root": "/opt/astra-bench-runtime",
+  "python": "/opt/astra-bench-runtime/Bench2Dex/policy/pi05/.venv/bin/python",
+  "uv_lock_sha256": "330f8db019cf3aee909e92177c5d138f123317240937baedff9c328742787ddf",
+  "requirements_sha256": "e14cb15f3677fae179e592a48f5ad2332469c21ee32271b2cb501a920afa9a16",
+  "probe": {
+    "python": "3.11.17 (main, Oct  3 2026, 01:05:36) [Clang 22.1.3 ]",
+    "versions": {
+      "jax": "0.5.0",
+      "jaxlib": "0.5.0",
+      "numpy": "1.26.4",
+      "flax": "0.10.2",
+      "orbax-checkpoint": "0.11.1",
+      "torch": "2.6.0",
+      "lerobot": "0.1.0"
+    },
+    "model_type": "ModelType.PI05",
+    "devices": [
+      "TFRT_CPU_0"
+    ],
+    "note": "Imports only; no checkpoint loaded and no inference or simulation run."
+  },
+  "script_sha256": "ce5f4c82e3e439cae369ef567b9dabb4f2e6f30501264421a20469a7cd5de148",
+  "archive": {
+    "key": "experiments/astra-complex-20261006/astra-complex-20261006-bench-runtime-stage-1/runtime.tar.gz",
+    "bytes": 4795508624,
+    "sha256": "7868dcb099af0b1ff1bfab03eecd83a7350e03d2c101836511cbd08d5ffd7cbb"
+  }
+}

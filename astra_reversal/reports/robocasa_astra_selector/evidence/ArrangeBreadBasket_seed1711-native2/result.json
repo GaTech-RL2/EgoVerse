@@ -1,0 +1,17 @@
+{
+  "episode": 0,
+  "global_episode_index": 0,
+  "seed": 1711,
+  "success": false,
+  "steps": 4350,
+  "cohort": "native",
+  "task": "ArrangeBreadBasket",
+  "horizon": 4350,
+  "completed": true,
+  "policy_queries": 272,
+  "explicit_episode_resets": 1,
+  "physical_retries": 0,
+  "policy_seconds": 53.33567826915532,
+  "environment_seconds": 297.52161212218925,
+  "wall_seconds": 358.2102049142122
+}

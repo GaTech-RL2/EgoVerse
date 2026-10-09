@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one sweet potato and one steak, released inside.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has moved from the refrigerator toward the counter. A sweet potato is visible immediately below the gripper in the right view and close to the wrist camera, consistent with ongoing transport. Both tupperwares appear empty; no placement or current failure is established. Continue native progress.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1111-astra1:256:guide:1",
+  "request_fingerprint": "9ae3dd33d8ee7bddd086bc666b8992d6d275850f50d7acf7511de56c9b17cf53",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1111-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1111-astra1",
+  "request_index": 1,
+  "observation_step": 256
+}

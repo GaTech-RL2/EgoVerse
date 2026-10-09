@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The robot faces the open fridge and the tupperware approaches its top shelf while remaining supported.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 600, the end effector has shifted slightly, but the base and camera views remain nearly unchanged with the stove ahead. The food-filled tupperware remains visible beside the gripper in the wrist view; progress toward the fridge is not evident.",
+  "subgoal": "Carry the food-filled tupperware to the top shelf of the open fridge on the left.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:700:guide:7",
+  "request_fingerprint": "b3401d11b67ca0f1d61b08384df23076187a656ee3b7347160399efac9d4a3df",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 7,
+  "observation_step": 700
+}

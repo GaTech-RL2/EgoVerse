@@ -1,0 +1,8 @@
+{
+  "type": "ClientError",
+  "message": "Codex relay unavailable (relay_response_timeout)",
+  "steps": 1152,
+  "queries": 72,
+  "teacher_calls": 9,
+  "counts_as_completed_failure": false
+}

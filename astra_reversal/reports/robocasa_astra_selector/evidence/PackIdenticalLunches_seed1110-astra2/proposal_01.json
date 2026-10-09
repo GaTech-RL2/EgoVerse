@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The tomato is lowered into a tupperware, released, and remains inside as the gripper withdraws.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has moved from the refrigerator toward the counter, with a tomato visible between the fingers in the wrist view. This supports pickup and transport toward the two tupperwares. Placement is the current phase; no visible failure warrants intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:256:guide:1",
+  "request_fingerprint": "c381706d2618a8da74c76d4d7c600fd0d114dfb262b010624036b601238d912a",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 1,
+  "observation_step": 256
+}

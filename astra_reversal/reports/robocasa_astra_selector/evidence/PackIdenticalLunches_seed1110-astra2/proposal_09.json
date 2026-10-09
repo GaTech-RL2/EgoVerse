@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The remaining drumstick lifts clear of the refrigerator shelf and stays with the gripper during withdrawal; later, each container contains one tomato and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot left the counter and returned to the open refrigerator, where a remaining drumstick is visible on the shelf. The gripper is empty; tomato redistribution was not demonstrated. Restore native for the remaining chicken retrieval, which is progressing, while retaining the unresolved tomato imbalance for correction.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:1536:guide:9",
+  "request_fingerprint": "869d87d3be279e0abed6a7040296ce4d3bb2aef19e3c890e1e97dd4fcae54832",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 9,
+  "observation_step": 1536
+}

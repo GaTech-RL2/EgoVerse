@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware visibly clears the counter and follows the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 750, the container still appears on the counter with no clear lift. The closed gripper does not confirm a grasp; the prior rollout stalled here too.",
+  "subgoal": "Open the gripper, reposition the fingers to straddle the tupperware's exposed rim, then close around the rim and lift clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:800:guide:7",
+  "request_fingerprint": "7b0d101e10bab9967c35aad1711b52bd24ff2a699acf19e2d35d56d4a3e6a52a",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 7,
+  "observation_step": 800
+}

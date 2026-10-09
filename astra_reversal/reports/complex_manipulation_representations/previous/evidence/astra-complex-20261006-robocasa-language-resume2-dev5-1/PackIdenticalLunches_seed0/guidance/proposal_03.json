@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Broccoli rests inside one tupperware after the gripper releases and withdraws.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has moved from the refrigerator to the island with broccoli still visible at the gripper. Tupperware is farther along the counter beside the sink; placement is unconfirmed. Prior failure dropped steak onto the floor.",
+  "subgoal": "Keep the broccoli held while moving along the island to the tupperware beside the sink; position it over one container, lower inside, then release.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:600:guide:3",
+  "request_fingerprint": "809d0dd76236abf93cd16529673534cea2d29b99993ceeca95b3149ac4181248",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 3,
+  "observation_step": 600
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The red fish is visibly held by the gripper and lifted clear of the lower shelf.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 300, the side views show little change and the wrist camera remains centered on the red fish. The gripper remains open; neither a carrot nor a fish grasp is established. The original task permits either food to be picked first.",
+  "subgoal": "Pick up the red fish on the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:400:guide:4",
+  "request_fingerprint": "9f4156a658bd90a09892eee04f02ad30ea8ecc4f4d7e7d6fbdb1b62aab041888",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

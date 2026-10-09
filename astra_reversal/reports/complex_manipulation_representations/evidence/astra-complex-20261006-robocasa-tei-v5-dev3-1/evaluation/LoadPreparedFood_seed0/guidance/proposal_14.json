@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The tupperware visibly clears the counter and stays held by the gripper.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1200, the wrist view shifted slightly, but the tupperware remains tipped beside the microwave with no visible lift. The gripper positions remain essentially unchanged. Pickup is still stalled, as in the previous failed native rollout.",
+  "subgoal": "Pick up the tupperware from the counter beside the microwave.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0:1300:guide:14",
+  "request_fingerprint": "c5c4998a95fd060accd00fb3a190a24acc8ff650a414415bede81de19c3ab408",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "request_index": 14,
+  "observation_step": 1300
+}

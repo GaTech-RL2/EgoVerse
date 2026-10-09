@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The drumstick remains held during transport and is released inside the tupperware containing the previously placed tomato.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has withdrawn from its extended shelf approach. The wrist view shows the drumstick at the gripper, clear of its previous shelf position, supporting pickup and transition to transport. No visible failure warrants intervention; the earlier tomato placement should be preserved.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:768:guide:6",
+  "request_fingerprint": "f290cbc255396f64b6981ac11fea2232621544c227e3947a84e918ffe1b23a49",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 6,
+  "observation_step": 768
+}

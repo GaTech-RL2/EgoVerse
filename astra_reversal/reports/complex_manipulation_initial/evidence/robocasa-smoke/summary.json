@@ -1,0 +1,12 @@
+{
+  "reset_episodes_started": 2,
+  "completed_episodes": 0,
+  "incomplete_episodes": 2,
+  "reset_free_segments": 2,
+  "assisted_segments": 0,
+  "executed_actions": 10,
+  "completed_successes": 0,
+  "completed_episode_sr": null,
+  "intended_batch_sr": null,
+  "sr_note": "Incomplete probes stay visible; they do not establish a full-batch SR."
+}

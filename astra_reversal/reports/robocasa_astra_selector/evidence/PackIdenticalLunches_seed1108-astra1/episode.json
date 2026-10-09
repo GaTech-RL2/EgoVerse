@@ -1,0 +1,23 @@
+{
+  "episode": 0,
+  "global_episode_index": 0,
+  "seed": 1108,
+  "success": false,
+  "steps": 3900,
+  "cohort": "astra",
+  "task": "PackIdenticalLunches",
+  "horizon": 3900,
+  "completed": true,
+  "policy_queries": 244,
+  "explicit_episode_resets": 1,
+  "physical_retries": 0,
+  "policy_seconds": 52.639156660065055,
+  "environment_seconds": 276.6822770508006,
+  "wall_seconds": 601.5621990230866,
+  "case": "PackIdenticalLunches_seed1108",
+  "arm": "astra",
+  "attempt": 1,
+  "teacher_calls": 16,
+  "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+  "origin_source_revision": "6094883cbc29aeb283c72b29dc8217be21646d6c"
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Green corn is released beside the drumstick in the right tupperware; final completion requires one corn and one drumstick visibly inside each tupperware.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has backed away from the counter with no visibly held ingredient. Both corn remain together in the left tupperware and a drumstick remains in the right. Repeated layer-12 steering has not produced a transfer.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Approach the counter and transfer the green husked corn from the left tupperware into the right tupperware beside the drumstick. Leave yellow corn in place.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra1:2560:guide:13",
+  "request_fingerprint": "3f0df8a94e7004aac9163759c9ea9ec5ecbed5d3490c8030e35f0110b6dbf383",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra1",
+  "attempt_id": "PackIdenticalLunches_seed2-astra1",
+  "request_index": 13,
+  "observation_step": 2560
+}

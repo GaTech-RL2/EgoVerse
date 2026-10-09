@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Each tupperware visibly contains one corn and one chicken drumstick, with all ingredients released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Green corn remains beside the drumstick in the right tupperware after the gripper withdraws, confirming release in the intended container. Yellow corn remains alone in the left tupperware, which still needs a drumstick. No visible stall or failed placement warrants intervention; continue native toward fetching the remaining chicken.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra2:1536:guide:11",
+  "request_fingerprint": "d022878581cb4d94c70fc3fa981f85a81adce43d63e13de3caefb1bf931dfea6",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra2",
+  "attempt_id": "PackIdenticalLunches_seed2-astra2",
+  "request_index": 11,
+  "observation_step": 1536
+}

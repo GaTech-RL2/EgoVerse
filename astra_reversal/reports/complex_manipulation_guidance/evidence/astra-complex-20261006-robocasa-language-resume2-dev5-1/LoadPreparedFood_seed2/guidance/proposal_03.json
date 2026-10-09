@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Open fridge shelves are centered in front of the robot, with the tupperware still supported by the gripper.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 350, the stove remains ahead and the open fridge remains at the left edge, indicating little navigation progress. Tupperware remains visible at the wrist; its levelness is uncertain. Prior transport showed pronounced tilting.",
+  "subgoal": "Turn and move the base left toward the open fridge while keeping the tupperware supported and its opening upward.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:600:guide:3",
+  "request_fingerprint": "8d78f7a6143655cbc5d374a92b8d302b1e164a1beed0530bbe1b28b6cc6b9aee",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 3,
+  "observation_step": 600
+}

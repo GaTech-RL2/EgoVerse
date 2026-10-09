@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Green corn remains beside the drumstick after the gripper withdraws; ultimately each tupperware contains one corn and one drumstick, released.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 64,
+  "noise_sigma": 0,
+  "observed_evidence": "The gripper has lowered over the tupperware containing chicken. The wrist view shows green corn directly beside the drumstick within that container's rim, while yellow corn remains in the other container. Placement is progressing toward the correct destination; release is not yet confirmed. Restore native and check after withdrawal.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra2:1472:guide:10",
+  "request_fingerprint": "84737b6bf7ec7792ea2e78814e0e7db7799fd9bac8a39135650761e74e177113",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra2",
+  "attempt_id": "PackIdenticalLunches_seed2-astra2",
+  "request_index": 10,
+  "observation_step": 1472
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0.75,
+  "camera": "left",
+  "completion_signal": "One tomato transfers from left to right and one drumstick from right to left; each tupperware visibly contains exactly one tomato and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 1024,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has returned to the open refrigerator with no food visibly held. Previous counter views showed two tomatoes in the left container and both drumsticks in the right. Layer-12 steering produced no observed redistribution and diverted back to retrieval; stronger instruction embedding steering targets the counter transfers.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Return to the counter. Transfer one tomato left to right and one drumstick right to left, leaving one of each food in each container.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:2560:guide:15",
+  "request_fingerprint": "098615150803ce83aa9c916494037fb33536d4152635f9690b38c46ae724fa2b",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 15,
+  "observation_step": 2560
+}

@@ -1,0 +1,99 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+  "source_revision": "6094883cbc29aeb283c72b29dc8217be21646d6c",
+  "scope": "LOW-priority borrowing after normal quota was exhausted; all nonzero exits fail without automatic rescheduling. Registered continuation after confirmed OSMO transport outage. Keep nine completed episodes byte-for-byte; preserve the prior executed partial episode and replace only a rejected zero-action guided start from the same saved anchor without using its partial feedback. Same six cases, original case/noise indexes, frozen policy and eight intervention choices. Maximum15 additional completed episodes,128 additional Astra jobs. Combined maximum24 completed episodes,1 executed partial episode and1 zero-action rejected start; maximum200 teacher jobs. All interrupted controls/tokens and rejected resets charged. Fresh simulator instances per pending episode after a registered observation diagnostic; exact initial fingerprints still required. Exact initial fingerprints required before all actions; permit at most3 zero-action restores per episode start for observation-only mismatches. Save all failed candidates and count extra verification restores separately, maximum30. Physical-state mismatches stop immediately. Native camera-history variability limits trajectory-level attribution. Bounded20minute relay/observability grace within fixed6hour execution budget.",
+  "files": [
+    {
+      "file": "astra_reversal/__init__.py",
+      "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+    },
+    {
+      "file": "astra_reversal/records.py",
+      "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+    },
+    {
+      "file": "astra_reversal/agent.py",
+      "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+    },
+    {
+      "file": "astra_reversal/astra_client.py",
+      "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+    },
+    {
+      "file": "astra_reversal/intervention_agent.py",
+      "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+    },
+    {
+      "file": "astra_reversal/codex_relay.py",
+      "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+    },
+    {
+      "file": "astra_reversal/codex_accounting.py",
+      "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/__init__.py",
+      "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/worker.py",
+      "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_worker.py",
+      "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_eval.py",
+      "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/language_teacher.py",
+      "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_teacher.py",
+      "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_interventions.py",
+      "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_worker.py",
+      "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_eval.py",
+      "sha256": "62e50dbbd58d45b8fde6a898b6eebc628524954ab044c4c7c820e89efa24a2f4"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_resume.py",
+      "sha256": "c6fe9ce4d1e122ff6e7c9525ee4f973f6f36b260d65e3da00de5e3eb93028b73"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_bootstrap.sh",
+      "sha256": "d431bd1e61b0ec5509a27ddc0ff38e88a66e592826b684058bae51e6d2ea7d42"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_manifest.json",
+      "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_continuation2_protocol.json",
+      "sha256": "f856cd93ffdc803093c9cc0e805a526f1f931b27810cf1fd56b745d6d7221314"
+    },
+    {
+      "file": "controller/run_xiaomi_selector_v5.py",
+      "sha256": "c317c0c7fa06f2a73cc57226e78348bedb86593458693ed9cdfcc9cfdf4ee8a1"
+    },
+    {
+      "file": "controller/submit_xiaomi_selector_low_guarded.py",
+      "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+    },
+    {
+      "file": "controller/reconnect_xiaomi_selector_v5_tunnel.py",
+      "sha256": "7c092560b179e386a3bd3df37c6f47500a364244a531136efec65e7e4138282e"
+    }
+  ]
+}

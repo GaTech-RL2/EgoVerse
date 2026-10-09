@@ -1,0 +1,170 @@
+{
+  "status": "released_model_candidates_verified_not_run",
+  "behavior_task_mapping": [
+    {
+      "task": "make_pizza",
+      "task_id": 49,
+      "checkpoint": "checkpoint_3"
+    },
+    {
+      "task": "sorting_household_items",
+      "task_id": 27,
+      "checkpoint": "checkpoint_3"
+    },
+    {
+      "task": "clean_up_your_desk",
+      "task_id": 29,
+      "checkpoint": "checkpoint_1"
+    }
+  ],
+  "task_metadata": {
+    "repo_id": "behavior-1k/2025-challenge-demos",
+    "revision": "33639692425296185f245aaa648530178c7b3d2b",
+    "path": "meta/tasks.jsonl",
+    "sha256": "fb6717bbb4fa503ac5d2bbf220d13727e29d6d320e5cd0d4a4e9b2200483943b"
+  },
+  "specialized_model": {
+    "repo_id": "IliaLarchenko/behavior_submission",
+    "revision": "89545bc1b7aa7f2e687bc0032d091f132d715d4e",
+    "architecture_note": "Modified pi0.5 with task-ID embeddings, stage prediction, correlated noise, custom KV routing and native inpainting; not a stock text-conditioned pi0.5 baseline.",
+    "source": {
+      "url": "https://github.com/IliaLarchenko/behavior-1k-solution",
+      "revision": "ca556f74a455cef7987a2be4537b5ac85cc56dd7"
+    }
+  },
+  "shared_text_policy_candidate": {
+    "repo_id": "RLinf/RLinf-Pi05-BEHAVIOR-1K-PT50-CS32",
+    "revision": "860dc24b6449b4e26596af9ba864aaffb778b59a",
+    "files": [
+      {
+        "path": ".gitattributes",
+        "size": 91,
+        "lfs": null
+      },
+      {
+        "path": "README.md",
+        "size": 2857,
+        "lfs": null
+      },
+      {
+        "path": "SHA256SUMS",
+        "size": 397,
+        "lfs": null
+      },
+      {
+        "path": "assets/behavior-1k/2025-challenge-demos/norm_stats.json",
+        "size": 6368,
+        "lfs": null
+      },
+      {
+        "path": "config.json",
+        "size": 149,
+        "lfs": null
+      },
+      {
+        "path": "model.safetensors",
+        "size": 7233650408,
+        "lfs": {
+          "sha256": "7e257666d835f6af701de493676a6c86a0421b2efc737a0f911d782b7a09f635",
+          "size": 7233650408
+        }
+      },
+      {
+        "path": "physical-intelligence/behavior/norm_stats.json",
+        "size": 6368,
+        "lfs": null
+      }
+    ],
+    "status": "checkpoint_and_config_exist_RPent_interface_and_task_coverage_need_runtime_validation"
+  },
+  "bench_native_limits": [
+    {
+      "task": "73_jigsaw_puzzle_assembly",
+      "expert_physics_steps": 2426,
+      "stock_policy_action_limit": 1213,
+      "physics_steps_per_action": 3,
+      "stock_total_physics_steps": 3639,
+      "execute_prefix": 20,
+      "maximum_reset_free_segments": 61,
+      "success_conditions": [
+        {
+          "type": "custom",
+          "evaluator": "success.custom.task_73_jigsaw_puzzle_assembly",
+          "params": {}
+        }
+      ]
+    },
+    {
+      "task": "34_fridge_wine_interhand_pour",
+      "expert_physics_steps": 2160,
+      "stock_policy_action_limit": 1080,
+      "physics_steps_per_action": 3,
+      "stock_total_physics_steps": 3240,
+      "execute_prefix": 20,
+      "maximum_reset_free_segments": 54,
+      "success_conditions": [
+        {
+          "type": "custom",
+          "evaluator": "success.custom.task_34_fridge_wine_interhand_pour"
+        }
+      ]
+    }
+  ],
+  "bench_asset_selection": {
+    "manifest_sha256": "10879be9a8b420813845a45c67a5c792754bfade47bdd53493b1053458fed37e",
+    "files": 13833,
+    "bytes": 6973198858,
+    "scope": "Requested objects and robot trees plus entire shared appearance libraries downloaded and hash-verified. Main archive upload complete on OSMO with zero GPUs. CPU USD reference audit identified two additional anchor distractor trees, supplied in a separate verified supplement. Full robot/runtime dependency resolution remains pending."
+  },
+  "bench_anchor_supplement": {
+    "revision": "bf65215f844d1fca30750e4cc70d7266650abf0a",
+    "files": 40,
+    "bytes": 88422511,
+    "archive_sha256": "1cc5d47a2698df161a5dd3a0b90c07942d83bd65c9c0b0cf3be8423cd13febb3",
+    "archive_bytes": 74605932,
+    "status": "missing_anchor_objects_staged_runtime_validation_pending",
+    "object_trees": [
+      "Objects/004_sugar_box/",
+      "Objects/025_mug/"
+    ],
+    "note": "CPU USD audit resolves task objects except engine MDL modules; two missing distractor roots supplied here. Full Isaac runtime and robot asset closure remain unvalidated."
+  },
+  "bench_replay_observation_check": {
+    "source": "two released replay-generalization episode_000000.hdf5 anchors",
+    "frame_counts": {
+      "fridge": 816,
+      "jigsaw": 815
+    },
+    "command_shapes": {
+      "fridge": [
+        816,
+        48
+      ],
+      "jigsaw": [
+        815,
+        58
+      ]
+    },
+    "cameras": [
+      "cam_stereo_left",
+      "cam_stereo_right",
+      "cam_wrist_left",
+      "cam_wrist_right"
+    ],
+    "first_decoded_image_shape": [
+      480,
+      640,
+      3
+    ],
+    "audit": "CPU-only HDF5 read and first RGB JPEG decode; not a simulator replay, policy query, teacher call or measured success trial."
+  },
+  "bench_archive": {
+    "workflow": "astra-complex-20261006-bench-stage-2",
+    "status": "assets_staged_simulator_and_policy_not_evaluated",
+    "gpu_count": 0,
+    "files": 72,
+    "bytes": 31602752226,
+    "receipt_sha256": "21b6341136e64c9e206136256dee163aa3d6b4e1176fc98db0456d8f45d0103f",
+    "storage_check": "All archived object sizes match the final catalog. File hashes were checked on the CPU worker before upload; the 31.6 GB archive was not redownloaded to the laptop."
+  }
+}

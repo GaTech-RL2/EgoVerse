@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The lower-shelf corn lifts clear of the shelf and moves with the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 550, the gripper has shifted rightward but remains below the lower-shelf corn. Both visible corn pieces and drumsticks remain on their shelves. Gripper positions remain near zero, with no visible grasp. The right camera remains obstructed; the wrist camera shows the arm and floor.",
+  "subgoal": "Pick up the green corn beside the drumstick on the refrigerator's lower shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0:650:guide:5",
+  "request_fingerprint": "c8c5d6a976eb63e788a84a64ca9b52b1d13bf54b3081d053e7f36a7db7503f9e",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tli:attempt0",
+  "request_index": 5,
+  "observation_step": 650
+}

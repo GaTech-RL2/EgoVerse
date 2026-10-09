@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The food-filled tupperware reaches the top shelf opening beside the jar.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 900, the open fridge is closer in both side views and now appears above the tupperware in the wrist view. The base position changed while end-effector position relative to the base stayed nearly constant. The tupperware remains visible below shelf height; shelf support is not established.",
+  "subgoal": "Lift the food-filled tupperware to the top shelf of the open fridge beside the jar.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:1000:guide:10",
+  "request_fingerprint": "26cd3cae63782b48d3229dc3f25e806b2af8aa794628390c16d637791338e295",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 10,
+  "observation_step": 1000
+}

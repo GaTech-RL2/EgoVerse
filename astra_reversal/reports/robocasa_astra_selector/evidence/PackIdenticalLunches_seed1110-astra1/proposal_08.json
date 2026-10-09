@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The robot retrieves another tomato or drumstick and transports it toward the empty tupperware while leaving the completed lunch intact.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The drumstick now rests beside the tomato inside the left tupperware, and the open gripper has withdrawn. The right tupperware remains empty. The first lunch appears packed; transition to retrieving food for the second lunch shows no visible failure requiring intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:1024:guide:8",
+  "request_fingerprint": "8a36c1967244885e6aa23cc1263608672084eb7b0f87a15c4719e4886e166e11",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 8,
+  "observation_step": 1024
+}

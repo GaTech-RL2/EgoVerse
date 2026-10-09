@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The fridge enters the live views with the tupperware still supported and the fish and lime inside.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1000, base position changed from [3.602,-3.404,0.700] to [3.428,-3.409,0.700] with nearly unchanged rotation. Counter and floor views shifted while the tupperware, fish and lime remained stable relative to the wrist, supporting continued transport. The fridge is still absent from current views; its appearance in the failed historical rollout does not establish current arrival.",
+  "subgoal": "Carry the tupperware containing fish and lime to the front of the fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0:1100:guide:11",
+  "request_fingerprint": "ccb6d665160b61f30ed62ce2fa5df63303958369b9d54a92cec0c712b6855827",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "request_index": 11,
+  "observation_step": 1100
+}

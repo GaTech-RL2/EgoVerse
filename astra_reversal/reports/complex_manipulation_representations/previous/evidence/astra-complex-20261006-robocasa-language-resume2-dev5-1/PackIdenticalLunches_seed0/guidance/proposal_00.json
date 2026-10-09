@@ -1,0 +1,15 @@
+{
+  "completion_signal": "One broccoli is visibly held and lifted clear of the refrigerator shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Current cameras show an open refrigerator with broccoli on the shelf ahead; no grasp is established. The prior failed rollout left steak on the floor.",
+  "subgoal": "Grasp the broccoli on the refrigerator shelf directly ahead and lift it clear of the shelf before moving away.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "3ed793ed3e9f2913b4d6685996d89a7512bba083f75ee2333f10b1a28c23627f",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

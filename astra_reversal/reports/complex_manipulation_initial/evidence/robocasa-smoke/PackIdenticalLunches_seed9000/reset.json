@@ -1,0 +1,11 @@
+{
+  "seed": 9000,
+  "instruction": "Place one lemon and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+  "observation_sha256": "55626295ae478b8dad440d5daaa89823eb21dae542e501397c094c0259e02ff6",
+  "state_sha256": "3a5730cffa359f817197843d718fa069c2e0c335af728bace92ae9b5977664ec",
+  "model_sha256": "f979d6422d3cf19c8e9e2104ab11e0906e34c7117426875678b19188e814a9b8",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 5,
+  "extra_libero_stabilization_steps": 0
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The broccoli is released inside one tupperware and remains there as the gripper withdraws.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 1100, the arm has retracted and risen while the base remains nearly unchanged. The broccoli remains centered close to the gripper in the wrist view despite this movement, supporting a successful pickup, though shelf clearance is partly obscured.",
+  "subgoal": "Place the broccoli currently at the gripper into one tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0:1200:guide:12",
+  "request_fingerprint": "74498c2b0e8c086d2cbad904b32db5eb5504cb911d965724af0dff8a477e37db",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "request_index": 12,
+  "observation_step": 1200
+}

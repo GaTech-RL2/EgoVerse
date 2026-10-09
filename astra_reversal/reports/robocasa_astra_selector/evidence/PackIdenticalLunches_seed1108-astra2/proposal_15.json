@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The held drumstick is released into the tupperware lacking a drumstick and remains after withdrawal; each container contains one garlic and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 512,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot is back at the open refrigerator with a drumstick visible at the gripper in wrist and external views. Container contents are out of view, so an intervening placement and second pickup cannot be confirmed. Direct the currently held ingredient toward completing the lunches.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Carry the held chicken drumstick to the counter and release it inside the tupperware that lacks a drumstick. Keep the garlic in each container.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:3136:guide:15",
+  "request_fingerprint": "c4ef6b3f1142a7d2788a71cb8b362e0de6646bc5fd5aeca982a35e64f3d8fceb",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 15,
+  "observation_step": 3136
+}

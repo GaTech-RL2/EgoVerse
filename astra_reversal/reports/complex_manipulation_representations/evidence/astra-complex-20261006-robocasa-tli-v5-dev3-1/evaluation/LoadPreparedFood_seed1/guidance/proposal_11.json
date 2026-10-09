@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper visibly clears the tupperware rim while the container remains upright.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 1000, the current camera views show almost no change: the tupperware remains on the countertop and the wrist view is obstructed. Small state changes do not establish clearance or a grasp. The moderate raising intervention has not visibly achieved its subgoal.",
+  "subgoal": "Raise the gripper clear above the fish-containing tupperware rim.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:1050:guide:11",
+  "request_fingerprint": "1fcfe61d4a7bd9ee10cf221b55927638c38ff502d7bc034bd040a34d2c085978",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 11,
+  "observation_step": 1050
+}

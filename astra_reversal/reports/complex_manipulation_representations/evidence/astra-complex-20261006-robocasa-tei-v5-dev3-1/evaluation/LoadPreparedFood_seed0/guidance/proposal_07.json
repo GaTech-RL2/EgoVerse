@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The fingers visibly straddle the container rim before closing, and the container then lifts clear of the counter.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 600, the end effector has moved back and upward while the gripper remains nearly closed. The tupperware still appears supported by the counter beside the microwave; no secure lift is visible. This resembles the stalled pickup in the failed native history.",
+  "subgoal": "Open the gripper and reposition it around the tupperware rim beside the microwave to grasp and lift the container.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0:650:guide:7",
+  "request_fingerprint": "8ccf0ddcd85e6cf8488d32c8ca59ae111573557edfb2bb84889ab8bb49b9091d",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "request_index": 7,
+  "observation_step": 650
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains one lime and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has moved from the lower drumstick shelf toward the upper lime shelf. Both limes remain visible on the shelf, and the open gripper is approaching them. No grasp or placement is confirmed, but the changed arm position shows retrieval progress without a clear failure.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1107-astra1:256:guide:1",
+  "request_fingerprint": "c8fc0b7d05aaab097964f79512c83df4e30d1afca847b435ec8dcab359d01eab",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1107-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1107-astra1",
+  "request_index": 1,
+  "observation_step": 256
+}

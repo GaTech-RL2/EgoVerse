@@ -1,0 +1,145 @@
+{
+  "schema": "robocasa-language-guidance-pilot-3",
+  "method": "astra_phase_prompt_pi05",
+  "status_at_registration": "not_run",
+  "teacher": {
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "backend": "codex_relay",
+    "maximum_calls_per_episode": 16,
+    "timeout_seconds_per_call": 300,
+    "automatic_retries": 0,
+    "provider_error": "stop_and_record_incomplete_episode",
+    "tools": "disallowed; reject a job containing tool events",
+    "prompt_module": "astra_reversal.complex_manipulation.language_teacher",
+    "prompt_version": "robocasa-phase-guidance-1"
+  },
+  "episodes": {
+    "tasks": [
+      "LoadPreparedFood",
+      "PackIdenticalLunches"
+    ],
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "split": "pretrain",
+    "new_reset_attempts_per_task_seed": 1,
+    "native_baseline_workflow": "astra-complex-20261006-robocasa-native-dev3-1",
+    "match_before_execution": [
+      "seed",
+      "instruction",
+      "model_xml_equivalence_with_recorded_redundant_obj_format_normalization",
+      "state_sha256",
+      "horizon",
+      "execution_prefix",
+      "initial_success",
+      "exact_robot_proprioception",
+      "camera_tensors_exact_or_bounded_render_rounding"
+    ],
+    "comparison_scope": "Matched development scenes of seen tasks, not held-out OOD.",
+    "history_cost": "Each guided attempt has access to its one already charged native failure. Report this preparation separately from guided rollout cost; it is not zero-shot guidance.",
+    "render_rounding_allowance": {
+      "max_changed_color_values_per_camera": 16,
+      "max_uint8_difference": 1,
+      "camera_shape": [
+        224,
+        224,
+        3
+      ],
+      "all_differences_recorded": true,
+      "observation_pixels_modified": false,
+      "physical_state_and_xml_hashes": "Physical state/proprioception exact; XML raw hashes preserved, equivalent redundant OBJ type declarations normalized only for comparison."
+    },
+    "continuation_plan": [
+      [
+        "LoadPreparedFood",
+        1
+      ],
+      [
+        "LoadPreparedFood",
+        2
+      ],
+      [
+        "PackIdenticalLunches",
+        0
+      ],
+      [
+        "PackIdenticalLunches",
+        1
+      ],
+      [
+        "PackIdenticalLunches",
+        2
+      ]
+    ]
+  },
+  "teacher_observations": {
+    "current": "All three unmodified 224x224 policy-input RGB cameras and native 16D state before execution.",
+    "previous_live": "The preceding teacher-review observation, after the first call.",
+    "historical": "Four fixed chronological panoramas from the paired failed native video, sampled at indices floor((frame_count-1)*[0.25,0.5,0.75,1]). Video frames follow every two executed controls; historical proprioception is unavailable and null.",
+    "other_context": "Original instruction, preceding two proposals, active subgoal, remaining call budget, prior observed binary failure and horizon.",
+    "excluded": [
+      "privileged_object_pose",
+      "unused_cameras",
+      "evaluation_trajectories",
+      "future_outcomes",
+      "simulator_lookahead"
+    ]
+  },
+  "intervention": {
+    "choices": [
+      "native",
+      "phase_prompt"
+    ],
+    "application": "Retain original instruction and append ' Current phase: ' plus the chosen subgoal (at most 160 characters).",
+    "first_review_control": 0,
+    "review_interval_choices_controls": [
+      50,
+      100,
+      250,
+      500
+    ],
+    "between_reviews": "Reuse the active language setting while the native policy replans every five controls.",
+    "after_last_review_interval": "Revert to original instruction and record budget exhaustion.",
+    "model_horizon": 50,
+    "execution_prefix": 5,
+    "flow_steps": 10,
+    "policy_updates": 0,
+    "simulation_while_teacher_runs": "paused",
+    "not_claimed": [
+      "TEI",
+      "TLI",
+      "VEI",
+      "VLI",
+      "FRS",
+      "motor_action_edits",
+      "learned_policy"
+    ]
+  },
+  "accounting": {
+    "success": "Original environment binary success predicate; no teacher-defined success or best-of retries.",
+    "reset_free_segment": "One actually executed nonempty policy prefix of at most five controls.",
+    "incomplete_batch": "No full-batch SR claim; retain all started episodes and missing scheduled episodes.",
+    "tokens": "Real Codex usage including failed/rejected jobs. Unknown usage remains unknown. Input includes cached tokens and harness overhead; reasoning is a subset of output.",
+    "money": "Unverified for subscription-backed Codex; do not infer zero marginal token cost or apply unverified API pricing.",
+    "latency": "Separate teacher latency, native policy inference, full wall time, and charged GPU allocation including initialization."
+  },
+  "amendment": {
+    "reason": "One uint8 wrist-camera color value differed by one level at seed1; exact physical state, scene XML, proprioception and both other camera tensors matched. The original check stopped before controls or teacher calls.",
+    "evidence": "language-seed1-reset-difference.json",
+    "original_registration": "language_protocol_v1.json",
+    "original_source_revision": "bc7e40ff16a4e11891a513101603d4c3e24f697d",
+    "preservation": "Keep the completed seed0 attempt and the seed1 rejected reset; resume only five pairs without completed guided episodes. No best-of reroll of seed0."
+  },
+  "xml_export_amendment": {
+    "reason": "Second allocation stopped with zero controls because a single OBJ mesh content_type declaration was omitted in its XML export. Same asset path, reference pose, scale and all other XML values; simulator state and robot state exact. Wrist image still differed at one color value by one level.",
+    "previous_registration": "language_protocol_v2.json",
+    "previous_revision": "de4319ed49da37a053c219b2e015ec348977af2c",
+    "validation": "Compare parsed XML after removing only content_type=model/obj from asset/mesh elements whose filenames end in .obj. Retain every numeric attribute, mesh path, child order and other setting; retain raw XML hashes and normalized mesh names. No XML is changed in the simulator.",
+    "reference": "https://mujoco.readthedocs.io/en/3.3.1/XMLreference.html#asset-mesh",
+    "cpu_audit": "reset-comparison-v3-cpu-audit.json",
+    "accounting": "Both zero-control rejected resets remain charged. Resume the same five unfinished task/seed pairs; never rerun the completed seed0 policy episode."
+  }
+}

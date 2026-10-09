@@ -1,0 +1,11 @@
+{
+  "seed": 0,
+  "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+  "observation_sha256": "9da4ebbfff246995e50e69625c18805fedc3d276cae7fe9bdb3a7d9877fb865e",
+  "state_sha256": "4cfb57b8bfaaacdbbc1f810df740f1f65b1be1ec69a2d0329f816890dd23b77f",
+  "model_sha256": "e4aaf6d2420cb0a896283a871b9f05d1a5c352eac6e6efc22788a7cd1791723d",
+  "initial_success": false,
+  "horizon": 1500,
+  "execution_prefix": 5,
+  "extra_libero_stabilization_steps": 0
+}

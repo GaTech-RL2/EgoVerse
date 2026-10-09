@@ -1,0 +1,2705 @@
+{
+  "files": {
+    "protocol.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/protocol.json",
+      "bytes": 13833,
+      "sha256": "101a7983976bb4c0c6d31efb2dd6e1a75dca88774a0de82fd775263beb4c1c2f",
+      "stamp": [
+        13833,
+        1791572168453282923
+      ]
+    },
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/worker_started.json",
+      "bytes": 269,
+      "sha256": "006942bc0b36a4619d8b22aa3bc5bb639dd36a1532a11e24cbc292550c0bacbd",
+      "stamp": [
+        269,
+        1791572168453282923
+      ]
+    },
+    "continuation/parent/evaluation/intervention_preflight.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/evaluation/intervention_preflight.json",
+      "bytes": 2386,
+      "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256",
+      "stamp": [
+        2386,
+        1791572480074236899
+      ]
+    },
+    "continuation/parent/evaluation/preflight_progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/evaluation/preflight_progress.json",
+      "bytes": 1709,
+      "sha256": "6b4ee29b8fc19b9a974e03c801393212389136caf886ef6d2ea2a715b3f534f8",
+      "stamp": [
+        1709,
+        1791572480235236875
+      ]
+    },
+    "continuation/parent/evaluation/summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/evaluation/summary.json",
+      "bytes": 3560,
+      "sha256": "ad889c802ffa9b1d2692b9af0f5ba01aebf4841d0a071b3b719663c1ec847ac4",
+      "stamp": [
+        3560,
+        1791572480430236847
+      ]
+    },
+    "continuation/parent/evaluation.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/evaluation.log",
+      "bytes": 3564,
+      "sha256": "ca3439375040ea5f479a8b98572a4f596222edf394933be1f9fd7632519e4567",
+      "stamp": [
+        3564,
+        1791572480624236819
+      ]
+    },
+    "continuation/parent/evaluation_command.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/evaluation_command.json",
+      "bytes": 260,
+      "sha256": "defe6a8775b2ac43ba5bc968dc2e7a761bb43af162bce329208f662636ce87be",
+      "stamp": [
+        260,
+        1791572480776236797
+      ]
+    },
+    "continuation/parent/protocol.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/protocol.json",
+      "bytes": 11771,
+      "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0",
+      "stamp": [
+        11771,
+        1791572479431236992
+      ]
+    },
+    "continuation/parent/stage_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/stage_receipt.json",
+      "bytes": 9094,
+      "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c",
+      "stamp": [
+        9094,
+        1791572479888236926
+      ]
+    },
+    "continuation/parent/worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/worker_started.json",
+      "bytes": 270,
+      "sha256": "56a9b5a14635a95659ee262522fc59cbbacb0c37f9d246528541a1e3b967be88",
+      "stamp": [
+        270,
+        1791572479697236954
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/anchor.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/anchor.json",
+      "bytes": 595,
+      "sha256": "e4b0d1403e84c942d051b66b732edfc2f6128bf4f6e7739fe86a629a086068fa",
+      "stamp": [
+        595,
+        1791572481067236754
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/anchor_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/anchor_model.xml.gz",
+      "bytes": 32846,
+      "sha256": "298625824d40568add4aa1a1f023b1858530a5d160908be85fc423252f6f07cf",
+      "stamp": [
+        32846,
+        1791572481266236725
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/anchor_rng.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/anchor_rng.json",
+      "bytes": 22519,
+      "sha256": "e6ae61b286ed44c5bffa3546f2c462f3106ab697fa6bba45983332a64329c1ab",
+      "stamp": [
+        22519,
+        1791572481519236688
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/anchor_state.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/anchor_state.npz",
+      "bytes": 2191,
+      "sha256": "a03f602d3dcebabbc744879707307b8f5d4156d5059f12f5062caa895d892f21",
+      "stamp": [
+        2191,
+        1791572481748236655
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/PackIdenticalLunches/episode_000_seed_2_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/PackIdenticalLunches/episode_000_seed_2_failure.mp4",
+      "bytes": 10473000,
+      "sha256": "88012a6a044c7566f203d51dfafed0bc80182b1a4a35f5bc98e7946cef2952b3",
+      "stamp": [
+        10473000,
+        1791572493159234996
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/episode.json",
+      "bytes": 491,
+      "sha256": "bb37f07d75c5d78fad1f9e375360d288427cc3bb3e4b435b38a40effe0cd3fea",
+      "stamp": [
+        491,
+        1791572493396234962
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_00.json",
+      "bytes": 1088,
+      "sha256": "d97fcfca3dcaca1e91e667ce6c040ad51007c86b57b27b224d052b35bf601922",
+      "stamp": [
+        1088,
+        1791572483245236438
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_01.json",
+      "bytes": 1071,
+      "sha256": "7394608f39eb1908ea178b8618110b383b702f703acdbe36f1b10fb8037cd187",
+      "stamp": [
+        1071,
+        1791572486181236011
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_02.json",
+      "bytes": 1182,
+      "sha256": "b3c78f1d6af509242b639d1fcd13a92351036aa731086902e77c1729c17de2b0",
+      "stamp": [
+        1182,
+        1791572486623235946
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_03.json",
+      "bytes": 1115,
+      "sha256": "9ea9b54666bb6a65497436c5703882d2b4485a309324dd65357083fd96d51b96",
+      "stamp": [
+        1115,
+        1791572486941235900
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_04.json",
+      "bytes": 1159,
+      "sha256": "94c48c51d4a64acf99cbd931871c33314526adde3256cd675b4eabf19683a9f6",
+      "stamp": [
+        1159,
+        1791572487695235791
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_05.json",
+      "bytes": 1124,
+      "sha256": "20d2fa8b5c8ec9064d6be6d1617b0238b80d6956ccd2439d5dec6187975cfbd0",
+      "stamp": [
+        1124,
+        1791572488164235722
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_06.json",
+      "bytes": 1092,
+      "sha256": "3d663902a79d76325513b191adbb586cc76f3c020b2415352ace3f4bc2511bee",
+      "stamp": [
+        1092,
+        1791572488427235684
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_07.json",
+      "bytes": 1258,
+      "sha256": "f082d099a594303c2f55ef5587a8c150ce0c4ccf2574908a8dd119fdc3a20a6b",
+      "stamp": [
+        1258,
+        1791572488960235607
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_08.json",
+      "bytes": 1260,
+      "sha256": "11567caef503a5e17ef13d5e51823632f9a6f4191a1f31cc43fe649779c09c00",
+      "stamp": [
+        1260,
+        1791572489790235486
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_09.json",
+      "bytes": 1148,
+      "sha256": "13e701790de53ed41d2ba1057365253a635bbf307d88eb4bd361734efa879acc",
+      "stamp": [
+        1148,
+        1791572490093235442
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_10.json",
+      "bytes": 1237,
+      "sha256": "fde7fed4dc99b357a6840b5a4f640eba86e98383b1c4ac32c5f27a987333c6f0",
+      "stamp": [
+        1237,
+        1791572490565235373
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_11.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_11.json",
+      "bytes": 1216,
+      "sha256": "fa6d9d6294cc58b1e6ed45bb04d78d3c7175d30dfa390c8eeab9974dafe42f05",
+      "stamp": [
+        1216,
+        1791572491274235270
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_12.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_12.json",
+      "bytes": 1233,
+      "sha256": "36ed496745df0b57e9c829d1aac17418fa4764e47800424950de3e6c7eb198fc",
+      "stamp": [
+        1233,
+        1791572491625235219
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_13.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_13.json",
+      "bytes": 1262,
+      "sha256": "b69e72ef01d297694749cbf52703401ed05731b6eaeb1ddc9ec4b6655d005e56",
+      "stamp": [
+        1262,
+        1791572491997235165
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_14.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_14.json",
+      "bytes": 1255,
+      "sha256": "dc0d966f63c684bc4beb65983bfbcffa810841fabcfa6e3ed03b38d51500bab4",
+      "stamp": [
+        1255,
+        1791572492476235096
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_15.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/proposal_15.json",
+      "bytes": 1254,
+      "sha256": "0c8c2c474f89d5a6d9b47e747f9d23ce094cf2520a578ad8a9795f6faf35aa7b",
+      "stamp": [
+        1254,
+        1791572492660235069
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_00.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_00.json.gz",
+      "bytes": 704995,
+      "sha256": "f533b65cabfd47793e463e2924395d12ef04c1c6c8e4c20e8b2d9507df95ac21",
+      "stamp": [
+        704995,
+        1791572483458236407
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_01.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_01.json.gz",
+      "bytes": 872123,
+      "sha256": "9f43eb338ea629f794be30dbd08322f522ff33deda177fa8fbe2828e624b8b11",
+      "stamp": [
+        872123,
+        1791572486482235967
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_02.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_02.json.gz",
+      "bytes": 888529,
+      "sha256": "9bce05b154527a7ee00c4c25e4d52af61484451e47a40032190f2f9b574cd2e5",
+      "stamp": [
+        888529,
+        1791572486803235920
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_03.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_03.json.gz",
+      "bytes": 912002,
+      "sha256": "9f1164c0c1b3720bbed81ab0c12aff906c3d6ca381f4959bd38b6d61e907f544",
+      "stamp": [
+        912002,
+        1791572487221235859
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_04.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_04.json.gz",
+      "bytes": 977184,
+      "sha256": "75c9c90d15c3c462a87020ecbdf26402e9a524b5dc9547be2f646b943e1aff6f",
+      "stamp": [
+        977184,
+        1791572487479235822
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_05.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_05.json.gz",
+      "bytes": 901087,
+      "sha256": "6b09cf1d2f718c138b02f5c12597f716dcd979e5372d769644916d67c2a14c72",
+      "stamp": [
+        901087,
+        1791572487926235757
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_06.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_06.json.gz",
+      "bytes": 896824,
+      "sha256": "34b4281b5c5e101d5360b677e3b84c5672b8d00eda8d6d5ae420f69eed135256",
+      "stamp": [
+        896824,
+        1791572488788235632
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_07.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_07.json.gz",
+      "bytes": 935399,
+      "sha256": "9dcc68b6fff586d1691801d7137ea75a7268c836c23b29e274a8ce5da3a05428",
+      "stamp": [
+        935399,
+        1791572489214235570
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_08.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_08.json.gz",
+      "bytes": 936785,
+      "sha256": "d276ac7d6be93fdbb4c1199969c3ae1e29bc6dbee810952268c2906dd43c1a59",
+      "stamp": [
+        936785,
+        1791572489446235536
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_09.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_09.json.gz",
+      "bytes": 1016541,
+      "sha256": "1d8bef0eda6e617ba0a10914fcd3de65f65595916a8e10a0fca2fd1ed664e47e",
+      "stamp": [
+        1016541,
+        1791572490389235399
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_10.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_10.json.gz",
+      "bytes": 972426,
+      "sha256": "993ffbd32476b59fb0c143391040aed59538d43c7970492d5435aad6302ea89c",
+      "stamp": [
+        972426,
+        1791572490749235347
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_11.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_11.json.gz",
+      "bytes": 865214,
+      "sha256": "8196555ee81b2fa4013d41f7c794b9721f673b8402028b136b7a6d952b78484b",
+      "stamp": [
+        865214,
+        1791572490912235323
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_12.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_12.json.gz",
+      "bytes": 873086,
+      "sha256": "156f4326658d6ffdd99948b0670c71ae46e1a959d270471d78093fdcd995174b",
+      "stamp": [
+        873086,
+        1791572491455235244
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_13.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_13.json.gz",
+      "bytes": 923405,
+      "sha256": "6156610773cfebffb122169e98e8462770a03c7fc357b5b36c2dad530833b115",
+      "stamp": [
+        923405,
+        1791572491781235197
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_14.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_14.json.gz",
+      "bytes": 852211,
+      "sha256": "5b8bcfd9116d6aca94bd3741f0ceb6fb85056b2fafdce06c635e18064efd4f41",
+      "stamp": [
+        852211,
+        1791572492249235129
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_15.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/guidance/request_15.json.gz",
+      "bytes": 827165,
+      "sha256": "0807722b80a4cebe8783c3cf95c32ec55a9c7da541140f094140f72e9a5778b1",
+      "stamp": [
+        827165,
+        1791572492838235043
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/provider.jsonl",
+      "bytes": 84414,
+      "sha256": "fa751bd67811d70ec414557acd858138cec7ecfcafef03d5b27268dba7b51e61",
+      "stamp": [
+        84414,
+        1791572483623236383
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/initial_model.xml.gz",
+      "bytes": 32840,
+      "sha256": "1b3656e3c59ce7fc1db6252c3ba2948cf5250f6a596393bb4bdcc17e20463544",
+      "stamp": [
+        32840,
+        1791572483764236362
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/initial_observation.npz",
+      "bytes": 128894,
+      "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642",
+      "stamp": [
+        128894,
+        1791572483922236339
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/paired_reset.json",
+      "bytes": 615,
+      "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3",
+      "stamp": [
+        615,
+        1791572484173236303
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/policy_queries.jsonl",
+      "bytes": 56097,
+      "sha256": "ad4bf4da7b7a91d3680306a01e78bb469f9f89cc686ac0b28c5529ad8d6ab75f",
+      "stamp": [
+        56097,
+        1791572484342236278
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/progress.json",
+      "bytes": 131,
+      "sha256": "10fa88318aba0157a250ab33513c4f616b381c697f3e7e557d497a3f2f76f584",
+      "stamp": [
+        131,
+        1791572484550236248
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/reset.json",
+      "bytes": 559,
+      "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0",
+      "stamp": [
+        559,
+        1791572484861236203
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/result.json",
+      "bytes": 394,
+      "sha256": "b716027d1af8b6cc192df29798d05a9f9268eb60fc394e814bd767d9d6e0a20d",
+      "stamp": [
+        394,
+        1791572493570234937
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra1/seed2/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra1/seed2/starting_image.png",
+      "bytes": 115302,
+      "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e",
+      "stamp": [
+        115302,
+        1791572485084236170
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_00.json",
+      "bytes": 1092,
+      "sha256": "6c3b222f9e9014c719eb11f1217cc38179d5ca54e1d829383bf6b7ce9ef53e0b",
+      "stamp": [
+        1092,
+        1791572496012234582
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_01.json",
+      "bytes": 1152,
+      "sha256": "85c73a394e0b5f407c6d0be792ad1127865b45732f8b70accc93b83a20bbd39c",
+      "stamp": [
+        1152,
+        1791572497656234343
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_02.json",
+      "bytes": 1127,
+      "sha256": "d107702ed6e655bad3d721cf518a714eb353970e1c9a611e976773f53fffb425",
+      "stamp": [
+        1127,
+        1791572498244234258
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_03.json",
+      "bytes": 1139,
+      "sha256": "1df352fbd8d9c59b74e745c932e98bb4ae20b2915fe1e9698f3a46876d721f6d",
+      "stamp": [
+        1139,
+        1791572498658234197
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_04.json",
+      "bytes": 1149,
+      "sha256": "5d0fa21f9ec50a44fd5114f1c8741ee516841002e98d4d8679283d16fb3ca00a",
+      "stamp": [
+        1149,
+        1791572499127234129
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_05.json",
+      "bytes": 1187,
+      "sha256": "e5580b2778edd8afb286ed4e0af4a8d2e46069d840f4b9c4454f259f05edec21",
+      "stamp": [
+        1187,
+        1791572499862234023
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_06.json",
+      "bytes": 1190,
+      "sha256": "c7431f4fec01ebd09beff35075d56e116a843127eca2dcec9ea23a2644e90a26",
+      "stamp": [
+        1190,
+        1791572500339233953
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_07.json",
+      "bytes": 1174,
+      "sha256": "50e349c561f78b74e9806e1abfec6de6324baea9b50edaa51bb6e1bed84137b0",
+      "stamp": [
+        1174,
+        1791572500549233923
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_08.json",
+      "bytes": 1313,
+      "sha256": "f76016ff8375e1cce78a8c98d6eeaf5124e72c2428e4d7a97b87f4771b2fa170",
+      "stamp": [
+        1313,
+        1791572501353233806
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_09.json",
+      "bytes": 1298,
+      "sha256": "c5adcba9c9e68e01b8ea22a67a343221ed8eaca938fc9f43e0b209aae05120f7",
+      "stamp": [
+        1298,
+        1791572501757233748
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_10.json",
+      "bytes": 1204,
+      "sha256": "659c21f226e1ff1a7b8051bd9ddc5a73305153ab473566d1eca5f53591188f69",
+      "stamp": [
+        1204,
+        1791572501922233723
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_11.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_11.json",
+      "bytes": 1179,
+      "sha256": "0ff15ac79210ee1453e80acbd8bd66b8e0349185063ed7cb33fe284e998c7343",
+      "stamp": [
+        1179,
+        1791572502536233634
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_00.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_00.json.gz",
+      "bytes": 789330,
+      "sha256": "e9d7426cb0e1cd7640dd7d49c27362459d0bada57e4185ba86b31b398d9ab295",
+      "stamp": [
+        789330,
+        1791572496225234551
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_01.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_01.json.gz",
+      "bytes": 949231,
+      "sha256": "2b88fd52ff00b80ebff5550b746df616e77e60bd79150bfad50f5eeb708ebc63",
+      "stamp": [
+        949231,
+        1791572497865234313
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_02.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_02.json.gz",
+      "bytes": 1004081,
+      "sha256": "33e5511243057b3b179f14731e01a9006fff00788eda8c8971a876d4af9af3df",
+      "stamp": [
+        1004081,
+        1791572498452234227
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_03.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_03.json.gz",
+      "bytes": 1042625,
+      "sha256": "a166f7e9b68165e69af1ae06d756c191705b6bbe6b29bacad54efe0a01ee71d2",
+      "stamp": [
+        1042625,
+        1791572498938234157
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_04.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_04.json.gz",
+      "bytes": 1035690,
+      "sha256": "c10f4741b2fb9353eeb359e00af59a4926ce712efdfd46a04cae43aad4abeedb",
+      "stamp": [
+        1035690,
+        1791572499376234093
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_05.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_05.json.gz",
+      "bytes": 1023271,
+      "sha256": "d4595186e6542605f924da8e47734375be8524b0bd05128c1d31f50f2b20ce38",
+      "stamp": [
+        1023271,
+        1791572499704234046
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_06.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_06.json.gz",
+      "bytes": 961599,
+      "sha256": "ec67b8db11a36c82b37b9958b91fa8401edae35026d1bf2cb304ea94ad233f9b",
+      "stamp": [
+        961599,
+        1791572500124233984
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_07.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_07.json.gz",
+      "bytes": 896882,
+      "sha256": "dda3d2bb91895e3927f2373a4dd481dd066b2cb922d428036184512bce298305",
+      "stamp": [
+        896882,
+        1791572500760233892
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_08.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_08.json.gz",
+      "bytes": 1005856,
+      "sha256": "4603c9de1ad315185139f46adad150f7132725cd7712baad09bbfe7c2c85eabb",
+      "stamp": [
+        1005856,
+        1791572500988233859
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_09.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_09.json.gz",
+      "bytes": 1030179,
+      "sha256": "154ee32757cdd39df33737425289c9f0d3ed4c2f1ef67bdaac675ed3d2e63f23",
+      "stamp": [
+        1030179,
+        1791572501576233774
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_10.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_10.json.gz",
+      "bytes": 973295,
+      "sha256": "807201948dbaee69b58e8909ca5fec163b06d17b537e389dd734592cb53d2fef",
+      "stamp": [
+        973295,
+        1791572502139233692
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_11.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_11.json.gz",
+      "bytes": 965913,
+      "sha256": "2c786836188eb9c8e8e52a2397be391ad890af53b110040cf0d27e41fed76cf0",
+      "stamp": [
+        965913,
+        1791572502352233661
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/provider.jsonl",
+      "bytes": 79189,
+      "sha256": "f8774df4a6367f7d628fa2ef76a6fc1a706933559fda2567e040d369af598d55",
+      "stamp": [
+        79189,
+        1791572496382234528
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/initial_model.xml.gz",
+      "bytes": 32840,
+      "sha256": "7eea88378b6d5850ec0785f401ec22ae4f7ea1019375ab3ed135b9f3af1486ac",
+      "stamp": [
+        32840,
+        1791572496546234504
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/initial_observation.npz",
+      "bytes": 128894,
+      "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642",
+      "stamp": [
+        128894,
+        1791572496742234476
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/paired_reset.json",
+      "bytes": 615,
+      "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3",
+      "stamp": [
+        615,
+        1791572496878234456
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/policy_queries.jsonl",
+      "bytes": 26489,
+      "sha256": "496cea2d84dd4d14c12f31ee7d79f1a71aea229ed853b72b47f152200f40bd7f",
+      "stamp": [
+        26489,
+        1791572497097234424
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/progress.json",
+      "bytes": 131,
+      "sha256": "cec1be80776de69deb820ef3a36520c9476127d2de345f059cdd44a3af83fd95",
+      "stamp": [
+        131,
+        1791572498052234286
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/reset.json",
+      "bytes": 559,
+      "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0",
+      "stamp": [
+        559,
+        1791572497249234402
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/starting_image.png",
+      "bytes": 115302,
+      "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e",
+      "stamp": [
+        115302,
+        1791572497411234379
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/PackIdenticalLunches/episode_000_seed_2_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/PackIdenticalLunches/episode_000_seed_2_failure.mp4",
+      "bytes": 10903070,
+      "sha256": "809370411b0ec63fcf986bc218b5a8fd13eb3790b6f68c08beb44e3f7c410623",
+      "stamp": [
+        10903070,
+        1791572485549236102
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/episode.json",
+      "bytes": 493,
+      "sha256": "881ffa04312e27f49d53c986cda0f00b1d02eeca2fd0d5529dbb78a807885ad2",
+      "stamp": [
+        493,
+        1791572485815236064
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/initial_model.xml.gz",
+      "bytes": 32840,
+      "sha256": "0edf9f22fd4d03dac570d689ee5f6e013b619806ea65e17bda7a649032741e6b",
+      "stamp": [
+        32840,
+        1791572481943236627
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/initial_observation.npz",
+      "bytes": 128894,
+      "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642",
+      "stamp": [
+        128894,
+        1791572482132236600
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/paired_reset.json",
+      "bytes": 615,
+      "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3",
+      "stamp": [
+        615,
+        1791572482334236570
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/policy_queries.jsonl",
+      "bytes": 48305,
+      "sha256": "0e8a6152214bbbd19cd410b4d5d729dcdfac5c4f3132126de80cf0a0e8919ecc",
+      "stamp": [
+        48305,
+        1791572483056236465
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/progress.json",
+      "bytes": 131,
+      "sha256": "03b2af0d87c9889e22ce0f5e997e41d13bc158b4215288d538d2fb691c7b1a3d",
+      "stamp": [
+        131,
+        1791572482519236543
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/reset.json",
+      "bytes": 559,
+      "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0",
+      "stamp": [
+        559,
+        1791572482727236513
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/result.json",
+      "bytes": 396,
+      "sha256": "e843474533bf27f65c89de3243154e2244edd3fd878a14faf9538b1f690c8f6d",
+      "stamp": [
+        396,
+        1791572485954236044
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native1/seed2/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native1/seed2/starting_image.png",
+      "bytes": 115302,
+      "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e",
+      "stamp": [
+        115302,
+        1791572482886236490
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/PackIdenticalLunches/episode_000_seed_2_success.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/PackIdenticalLunches/episode_000_seed_2_success.mp4",
+      "bytes": 6099407,
+      "sha256": "a26bcf52d219125c0bffda27c4e8f7384f0143aa29fa9d27411799065e180c15",
+      "stamp": [
+        6099407,
+        1791572495448234664
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/episode.json",
+      "bytes": 495,
+      "sha256": "c5f3e913fe08dd3dadf01321824832660a0d67f963ec9e9b6b5dc3ff818857e7",
+      "stamp": [
+        495,
+        1791572495640234636
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/initial_model.xml.gz",
+      "bytes": 32840,
+      "sha256": "6ded5c7d942e19be85e1618d93157dd64740eecbf70b9502e03c9ce3e512eed0",
+      "stamp": [
+        32840,
+        1791572493738234912
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/initial_observation.npz",
+      "bytes": 128894,
+      "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642",
+      "stamp": [
+        128894,
+        1791572493900234889
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/paired_reset.json",
+      "bytes": 615,
+      "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3",
+      "stamp": [
+        615,
+        1791572494080234863
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/policy_queries.jsonl",
+      "bytes": 28430,
+      "sha256": "b850e106d550837f42dddcecddcb6baf3fbd95bc3650bceabf570616d6094db4",
+      "stamp": [
+        28430,
+        1791572494271234835
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/progress.json",
+      "bytes": 130,
+      "sha256": "64aee3676743a1d05a9ad9f8292e9bdbef02232074fbb8ce2ad2a92fc2d6b81d",
+      "stamp": [
+        130,
+        1791572494833234753
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/reset.json",
+      "bytes": 559,
+      "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0",
+      "stamp": [
+        559,
+        1791572494474234805
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/result.json",
+      "bytes": 398,
+      "sha256": "f9e9f6b0836a0b97ebe227f5e15d304bbccb0fdaa0794001120c00487949e7d9",
+      "stamp": [
+        398,
+        1791572495814234611
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/native2/seed2/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/native2/seed2/starting_image.png",
+      "bytes": 115302,
+      "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e",
+      "stamp": [
+        115302,
+        1791572494685234775
+      ]
+    },
+    "history/ArrangeBreadBasket_seed1711/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/ArrangeBreadBasket_seed1711/initial_observation.npz",
+      "bytes": 306066,
+      "sha256": "faea9a9b265263bed09c939284fc6019854641d4e338b40b3be651b899234eea",
+      "stamp": [
+        306066,
+        1791572478666237104
+      ]
+    },
+    "history/ArrangeBreadBasket_seed1711/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/ArrangeBreadBasket_seed1711/reset.json",
+      "bytes": 571,
+      "sha256": "74f5b0937a3353e26e128f08622e14dac179fd1d78b2c309dbb92ffc875606f9",
+      "stamp": [
+        571,
+        1791572478899237070
+      ]
+    },
+    "history/ArrangeBreadBasket_seed1711/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/ArrangeBreadBasket_seed1711/rollout.mp4",
+      "bytes": 13745004,
+      "sha256": "efd7ef4419fa58511ede3cbb83f28890aaaea6f8f7b828373d325fa3e587fe70",
+      "stamp": [
+        13745004,
+        1791572478284237159
+      ]
+    },
+    "history/PackIdenticalLunches_seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1107/initial_observation.npz",
+      "bytes": 129998,
+      "sha256": "d89a1092a2f811fe4b8382f54da86c16a144abe5c993b5c68b1c7a1078c346b4",
+      "stamp": [
+        129998,
+        1791572475324237590
+      ]
+    },
+    "history/PackIdenticalLunches_seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "a2d7056cf2baffc23ff90f864096799b266f9b46a7ddcdb44d65afb95e030a4a",
+      "stamp": [
+        562,
+        1791572475512237562
+      ]
+    },
+    "history/PackIdenticalLunches_seed1107/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1107/rollout.mp4",
+      "bytes": 11181612,
+      "sha256": "6fbef3a2fcb11aab665b212d5b4a000f8d7113bc0398e30b54d8870c50ced267",
+      "stamp": [
+        11181612,
+        1791572475115237620
+      ]
+    },
+    "history/PackIdenticalLunches_seed1108/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1108/initial_observation.npz",
+      "bytes": 109850,
+      "sha256": "817b8c315fde95c731646fae1c3692e83f1eb18546ecfe43efd829a1caef0cea",
+      "stamp": [
+        109850,
+        1791572476042237485
+      ]
+    },
+    "history/PackIdenticalLunches_seed1108/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1108/reset.json",
+      "bytes": 564,
+      "sha256": "f0141a345bac5afe037047edf295aeb7053ce0c1c7ff7be3958cb79ad1928e37",
+      "stamp": [
+        564,
+        1791572476260237453
+      ]
+    },
+    "history/PackIdenticalLunches_seed1108/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1108/rollout.mp4",
+      "bytes": 8546580,
+      "sha256": "f74d1d58e383aa464fb08ca1c0881613e4a1931c7a4f419436c5f8c0b6000105",
+      "stamp": [
+        8546580,
+        1791572475839237515
+      ]
+    },
+    "history/PackIdenticalLunches_seed1110/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1110/initial_observation.npz",
+      "bytes": 158781,
+      "sha256": "c1af8a8c927db8c893ce4b2bf214e21ac3743418bbb98a59a2e910a01bd12070",
+      "stamp": [
+        158781,
+        1791572476718237387
+      ]
+    },
+    "history/PackIdenticalLunches_seed1110/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1110/reset.json",
+      "bytes": 564,
+      "sha256": "a53ce74b42261f5384ff672f36a853a955c44e7c48c77fdbeaa21675c131f85e",
+      "stamp": [
+        564,
+        1791572476979237349
+      ]
+    },
+    "history/PackIdenticalLunches_seed1110/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1110/rollout.mp4",
+      "bytes": 7595527,
+      "sha256": "50dfdec6b577701988c434ccab562352546084e544149517a827e9c223c765b8",
+      "stamp": [
+        7595527,
+        1791572476544237412
+      ]
+    },
+    "history/PackIdenticalLunches_seed1111/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1111/initial_observation.npz",
+      "bytes": 160851,
+      "sha256": "9a33dabcd2d0cf272bb5191be73c8d570da985f13456d519e04f468e41973422",
+      "stamp": [
+        160851,
+        1791572477593237260
+      ]
+    },
+    "history/PackIdenticalLunches_seed1111/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1111/reset.json",
+      "bytes": 558,
+      "sha256": "7965d910d23679bd8c7de0f31455c7eb45f794a765d7587959298f9558534048",
+      "stamp": [
+        558,
+        1791572477780237233
+      ]
+    },
+    "history/PackIdenticalLunches_seed1111/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed1111/rollout.mp4",
+      "bytes": 7836083,
+      "sha256": "1703eeaee8844bb13007bdd2aa20ea38f3c65c3b5bb1dd1ad33b973e56b7f132",
+      "stamp": [
+        7836083,
+        1791572477326237299
+      ]
+    },
+    "history/PackIdenticalLunches_seed2/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed2/initial_observation.npz",
+      "bytes": 129004,
+      "sha256": "c62df0302018a122edb95087a3b9d32e55f353a39ddf9ef18ecde0fed4bc1e31",
+      "stamp": [
+        129004,
+        1791572474565237700
+      ]
+    },
+    "history/PackIdenticalLunches_seed2/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed2/reset.json",
+      "bytes": 559,
+      "sha256": "cc0e9d8694bf618d548e0b2badd979a92907537438885acae2bc7ca8b25c9c48",
+      "stamp": [
+        559,
+        1791572474756237672
+      ]
+    },
+    "history/PackIdenticalLunches_seed2/rollout.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/history/PackIdenticalLunches_seed2/rollout.mp4",
+      "bytes": 10644196,
+      "sha256": "f47da95c8167e958fb268e6bd0891738e5578d986e94719c34967c63288aad18",
+      "stamp": [
+        10644196,
+        1791572474346237732
+      ]
+    },
+    "stage_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/stage_receipt.json",
+      "bytes": 9094,
+      "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c",
+      "stamp": [
+        9094,
+        1791572473983237785
+      ]
+    },
+    "continuation/parent/worker_error.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/worker_error.json",
+      "bytes": 85,
+      "sha256": "a76391e60ae9f2e0c6f2d9c9def5502c4c407abef045e5c4a90e2026ec5d7b4c",
+      "stamp": [
+        85,
+        1791572512900232130
+      ]
+    },
+    "continuation/parent/worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent/worker_finished.json",
+      "bytes": 63,
+      "sha256": "2a41743a5fce77055e73258914b8f2436e450fa71531a99bc737a5366d78143b",
+      "stamp": [
+        63,
+        1791572513080232104
+      ]
+    },
+    "continuation/parent_archive_receipt.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/parent_archive_receipt.json",
+      "bytes": 76621,
+      "sha256": "caf64b8178a1c05fdd57cc83bb6d6e6cb33e8ffb9faf5c4d9bd3a05a85aba7f7",
+      "stamp": [
+        76621,
+        1791572513081232104
+      ]
+    },
+    "continuation/retained_files.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/continuation/retained_files.json",
+      "bytes": 91673,
+      "sha256": "f637a32db20fd0913cf0ffc62e4a7c556f8c9c05aac80bb4ed6e43825383c246",
+      "stamp": [
+        91673,
+        1791572513083232103
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/anchor.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/anchor.json",
+      "bytes": 595,
+      "sha256": "a6a97c61847e8565931497b0056a4ef964b67a5d4b25b9ece185d982e0197b3e",
+      "stamp": [
+        595,
+        1791572504795233306
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/anchor_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/anchor_model.xml.gz",
+      "bytes": 33826,
+      "sha256": "36dd6eca005a68a75da0053efb99f619544c4e574a0bba13355eb1fe89f93b60",
+      "stamp": [
+        33826,
+        1791572504984233279
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/anchor_rng.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/anchor_rng.json",
+      "bytes": 22497,
+      "sha256": "bbd9a8aef930695ca5805eac62f316dc51b2116f225ad26a876e8b0d8509b1e9",
+      "stamp": [
+        22497,
+        1791572505165233253
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/anchor_state.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/anchor_state.npz",
+      "bytes": 2207,
+      "sha256": "a3d4ee912c57de5d1c4ea81db2d688c119663208c6efaa63e36d4201f4de3b3c",
+      "stamp": [
+        2207,
+        1791572505367233223
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/PackIdenticalLunches/episode_000_seed_1107_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/PackIdenticalLunches/episode_000_seed_1107_failure.mp4",
+      "bytes": 10245750,
+      "sha256": "e5fa97a29f66580716041f5ed3a4a453bb83e61dda69aa8f91900eeaf328f307",
+      "stamp": [
+        10245750,
+        1791572507023232983
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/episode.json",
+      "bytes": 501,
+      "sha256": "29b153b0469f91fcbe374c19987c106a9b43d693cb15760792a653cc22479606",
+      "stamp": [
+        501,
+        1791572507247232951
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/initial_model.xml.gz",
+      "bytes": 33821,
+      "sha256": "d46aed7487c7fb5b0f442e0908a463f0dca21ff7fd57b24c89a05fe14768c5c7",
+      "stamp": [
+        33821,
+        1791572505551233197
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/initial_observation.npz",
+      "bytes": 129932,
+      "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12",
+      "stamp": [
+        129932,
+        1791572505785233163
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/paired_reset.json",
+      "bytes": 615,
+      "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d",
+      "stamp": [
+        615,
+        1791572505923233143
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/policy_queries.jsonl",
+      "bytes": 48309,
+      "sha256": "7145d77611373783be62123bfc8899fc62281d9f034dda8d281f74f921681157",
+      "stamp": [
+        48309,
+        1791572506690233031
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/progress.json",
+      "bytes": 131,
+      "sha256": "c825faeecde2e5225b241d992bf70486fb772db1d9d15dd0780721b2d7e64af4",
+      "stamp": [
+        131,
+        1791572506089233119
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f",
+      "stamp": [
+        562,
+        1791572506275233091
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/result.json",
+      "bytes": 401,
+      "sha256": "a593d623dc2fcdb467ee143556726e3267c07049f8fd0602dc372c1acddca2d0",
+      "stamp": [
+        401,
+        1791572507473232918
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native1/seed1107/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native1/seed1107/starting_image.png",
+      "bytes": 113746,
+      "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1",
+      "stamp": [
+        113746,
+        1791572506445233067
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/PackIdenticalLunches/episode_000_seed_2_success.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/PackIdenticalLunches/episode_000_seed_2_success.mp4",
+      "bytes": 5910898,
+      "sha256": "03a6624e1317ac8144bec4d3f9b89def3c6a2d084fc3de18cb45b7113bc44776",
+      "stamp": [
+        5910898,
+        1791572504217233390
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/episode.json",
+      "bytes": 493,
+      "sha256": "62b3a78a69f4d5b907bb3058f3ba751e987119477742407628ca216a0ade99e3",
+      "stamp": [
+        493,
+        1791572504439233358
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_12.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_12.json",
+      "bytes": 1205,
+      "sha256": "d0af8ed637ec920db12de7b54f5e1a07686167e5347ac14df1c3032f8d4866b2",
+      "stamp": [
+        1205,
+        1791572502971233571
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_13.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_13.json",
+      "bytes": 1208,
+      "sha256": "4d34a08bbfabed65ee2548abfb2986379e77f91da7975641384f2066616243ac",
+      "stamp": [
+        1208,
+        1791572503442233503
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_14.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/proposal_14.json",
+      "bytes": 1153,
+      "sha256": "761b10a70944cc78a7f53523b8f3e7ed6c6830da188e358bd0be1e73a047429c",
+      "stamp": [
+        1153,
+        1791572503603233479
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_12.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_12.json.gz",
+      "bytes": 911006,
+      "sha256": "ed21243344451df352225144fbca858583777a0f04ce70f75e188198b110bba7",
+      "stamp": [
+        911006,
+        1791572502795233597
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_13.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_13.json.gz",
+      "bytes": 946905,
+      "sha256": "ca71a631eb1f2163c0472fdae3bc1b322a8d9503d704fb6069a05801b6173c1b",
+      "stamp": [
+        946905,
+        1791572503294233524
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_14.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/guidance/request_14.json.gz",
+      "bytes": 1010863,
+      "sha256": "6bb181693f998a0a548bcead47bc09df289171e70a0343d48ab6a9cf6a13c710",
+      "stamp": [
+        1010863,
+        1791572503984233424
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed2/astra2/seed2/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed2/astra2/seed2/result.json",
+      "bytes": 396,
+      "sha256": "e61279d93618a93f41cc84a586243234cf61e295a859d166efd6b36119716452",
+      "stamp": [
+        396,
+        1791572504574233338
+      ]
+    },
+    "evaluation/intervention_preflight.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/intervention_preflight.json",
+      "bytes": 2386,
+      "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256",
+      "stamp": [
+        2386,
+        1791572550352226704
+      ]
+    },
+    "evaluation/preflight_progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/preflight_progress.json",
+      "bytes": 1709,
+      "sha256": "6b4ee29b8fc19b9a974e03c801393212389136caf886ef6d2ea2a715b3f534f8",
+      "stamp": [
+        1709,
+        1791572549197226871
+      ]
+    },
+    "evaluation/summary.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/summary.json",
+      "bytes": 8178,
+      "sha256": "3f56de6a3e34b282a6bde028e6cbab66205d1a36dd74c0086631cc9105e19d97",
+      "stamp": [
+        8178,
+        1791574265490034507
+      ]
+    },
+    "evaluation.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation.log",
+      "bytes": 3275,
+      "sha256": "18e86856896b609a05d9c3bfb90fd25a743aaf1a5eff38342b4af3a4132d007b",
+      "stamp": [
+        3275,
+        1791574265491034508
+      ]
+    },
+    "evaluation_command.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation_command.json",
+      "bytes": 260,
+      "sha256": "defe6a8775b2ac43ba5bc968dc2e7a761bb43af162bce329208f662636ce87be",
+      "stamp": [
+        260,
+        1791572513084232103
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_00.json",
+      "bytes": 1120,
+      "sha256": "82c59b82d03091c76738682b1e5c3883e46346ed7adaa5c1eae80c5177b9e138",
+      "stamp": [
+        1120,
+        1791572507631232895
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_01.json",
+      "bytes": 1111,
+      "sha256": "8be17fc45d9d183f62aac87813e264e0480949e0d26b347a17fca9113d5b29fa",
+      "stamp": [
+        1111,
+        1791572509711232593
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_02.json",
+      "bytes": 1071,
+      "sha256": "875f430fe5255e8873ed354f4d63485e6dee9fe55beab473678284c5d14cc8a2",
+      "stamp": [
+        1071,
+        1791572509912232564
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_03.json",
+      "bytes": 1115,
+      "sha256": "7f5070e1292c6c4a9aa6f3d26d58ac785e637493f08f3263319c9bc8b0601d5c",
+      "stamp": [
+        1115,
+        1791572510429232489
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_04.json",
+      "bytes": 1127,
+      "sha256": "392fdec759f8449b0ed44d5fe7f55625fc48daa632c8af09e57dcfe30053d5c7",
+      "stamp": [
+        1127,
+        1791572511129232387
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_05.json",
+      "bytes": 1143,
+      "sha256": "aaf28412c60d25f25d70190380824cbfb1a1ddb0448c3832df48db7a8ffca054",
+      "stamp": [
+        1143,
+        1791572511291232364
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_06.json",
+      "bytes": 1150,
+      "sha256": "1c69c945cf794faf27cd8d33b9b9283add5faf73989538844481810df9090f53",
+      "stamp": [
+        1150,
+        1791572511643232313
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_07.json",
+      "bytes": 1150,
+      "sha256": "c31a6cbcb844ae03e085236ce70810c0cc1045d7391277be8a494f2194adfbe5",
+      "stamp": [
+        1150,
+        1791572512261232223
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_00.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_00.json.gz",
+      "bytes": 752420,
+      "sha256": "d4f703008f5b7654c7032360102b0466f0fc22f27823467ad3edcd23664001fb",
+      "stamp": [
+        752420,
+        1791572507831232866
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_01.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_01.json.gz",
+      "bytes": 847196,
+      "sha256": "64e3070da9fddbee7c37b7cb9933828538df898c38e571dc3fcffa02b9dc4870",
+      "stamp": [
+        847196,
+        1791572508103232826
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_02.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_02.json.gz",
+      "bytes": 843584,
+      "sha256": "7dcb508269d8ade8b706911edd36c32336e522f618fbf0013025154c664f04c8",
+      "stamp": [
+        843584,
+        1791572510245232515
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_03.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_03.json.gz",
+      "bytes": 884133,
+      "sha256": "02451f259876d128f389bc4a6b05799359ceef49237f1eda5f16d63d8c3d538b",
+      "stamp": [
+        884133,
+        1791572510636232459
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_04.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_04.json.gz",
+      "bytes": 937145,
+      "sha256": "967d71a2812bc73be7ff421ec20c923fbe2f89d1831ee2a862ffe4736f8aa76d",
+      "stamp": [
+        937145,
+        1791572510990232407
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_05.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_05.json.gz",
+      "bytes": 895694,
+      "sha256": "72c9e7b5b699220637f21165308b92a2b4cb3965e96d9e31613d9bc1108f4c5a",
+      "stamp": [
+        895694,
+        1791572511449232341
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_06.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_06.json.gz",
+      "bytes": 831249,
+      "sha256": "f1ca0812e84f8ddebbe6b8aecb95948e3fddb3ab512930293bf48466a7fdc3e1",
+      "stamp": [
+        831249,
+        1791572511837232284
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_07.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_07.json.gz",
+      "bytes": 869239,
+      "sha256": "28e25dfd55dd3e7f477baa119b368ab569bc69f2b602fe3f22f99f079b7bb15c",
+      "stamp": [
+        869239,
+        1791572512086232248
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_08.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_08.json.gz",
+      "bytes": 900786,
+      "sha256": "f67e3e49c528549518d0dd598384d2faa892bfbe0608b42abd6807ebe0ae7d9d",
+      "stamp": [
+        900786,
+        1791572512510232187
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/incomplete.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/incomplete.json",
+      "bytes": 189,
+      "sha256": "36f656362ab2f2662b3190f6f965bbefea50db268542b2ed54bbf433221ff52f",
+      "stamp": [
+        189,
+        1791572512699232159
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/provider.jsonl",
+      "bytes": 43528,
+      "sha256": "def0c2be7a066c58fa9031d899801504bde935bf27f0b65721479dc3dd6e6737",
+      "stamp": [
+        43528,
+        1791572508302232797
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_model.xml.gz",
+      "bytes": 33821,
+      "sha256": "35043a22d38d1de68721f02ac57d21198a5e335ad5ae97d1d6d4a6eab4938606",
+      "stamp": [
+        33821,
+        1791572508469232773
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_observation.npz",
+      "bytes": 129932,
+      "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12",
+      "stamp": [
+        129932,
+        1791572508708232738
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/paired_reset.json",
+      "bytes": 615,
+      "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d",
+      "stamp": [
+        615,
+        1791572508903232710
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/policy_queries.jsonl",
+      "bytes": 14160,
+      "sha256": "e35adbc30870d961f59f73795c6360a2319a5c4ee2b236b53d357d39799d6edc",
+      "stamp": [
+        14160,
+        1791572509082232684
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/progress.json",
+      "bytes": 130,
+      "sha256": "fc5fac7cd20a1267d8d1ef7c48d1eb1355e634201f2e536621e96e30abe6f4c3",
+      "stamp": [
+        130,
+        1791572509269232657
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f",
+      "stamp": [
+        562,
+        1791572509420232635
+      ]
+    },
+    "interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/starting_image.png",
+      "bytes": 113746,
+      "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1",
+      "stamp": [
+        113746,
+        1791572509543232617
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_00.json",
+      "bytes": 1115,
+      "sha256": "2b5dc0d1749d1d53d4838a170c7be9697873f7c1b747fc3e5e4e77f226a46ae2",
+      "stamp": [
+        1115,
+        1791572610577218007
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_00.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_00.json.gz",
+      "bytes": 752420,
+      "sha256": "807449f555bd4ae474c622b6dc3ffb6f7c05a5bb560275ce984e6e56d415025e",
+      "stamp": [
+        752420,
+        1791572596199220080
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_01.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_01.json.gz",
+      "bytes": 851218,
+      "sha256": "e6f59a69f23e1cb484e4ed14e211afe6ea3a0bcf4ea0ee0c430574d76c524bf2",
+      "stamp": [
+        851218,
+        1791572624820215955
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/provider.jsonl",
+      "bytes": 84718,
+      "sha256": "c299a88ddee3dc87e5f52a2438104c2ab4a47b98a294251cdabc55cc156fe52a",
+      "stamp": [
+        84718,
+        1791573017957159877
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/initial_model.xml.gz",
+      "bytes": 33821,
+      "sha256": "9366d6a01a80b0a80653d90f7b2a707befce999f6a93c71cc961c69d0edd5aae",
+      "stamp": [
+        33821,
+        1791572595977220112
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/initial_observation.npz",
+      "bytes": 129932,
+      "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12",
+      "stamp": [
+        129932,
+        1791572595991220110
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/paired_reset.json",
+      "bytes": 615,
+      "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d",
+      "stamp": [
+        615,
+        1791572596123220091
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/policy_queries.jsonl",
+      "bytes": 48917,
+      "sha256": "d0304ac1297c298d1f83b26ecafdef4ecd1018fd41e3cecd2e81dd693b575858",
+      "stamp": [
+        48917,
+        1791573089931153041
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/progress.json",
+      "bytes": 131,
+      "sha256": "d8fb04f1f270e34788f6c1e83039ecca7c94b450d59d204c83094f0ab5352dd6",
+      "stamp": [
+        131,
+        1791573089931153041
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f",
+      "stamp": [
+        562,
+        1791572595979220112
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/starting_image.png",
+      "bytes": 113746,
+      "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1",
+      "stamp": [
+        113746,
+        1791572596121220092
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_01.json",
+      "bytes": 1076,
+      "sha256": "3f8a213d9c6e7de827b39c077e827212cccb70e426d37a732dbe9fb9f4119552",
+      "stamp": [
+        1076,
+        1791572640136213751
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_02.json",
+      "bytes": 1096,
+      "sha256": "4afd8156e89e93d2fd7294e8ca9f0fdcb2b3f5ae2854168b3f434d4e434d5937",
+      "stamp": [
+        1096,
+        1791572664141210300
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_02.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_02.json.gz",
+      "bytes": 929166,
+      "sha256": "1ea08cf752b33a39df03c3331ff22ae7c8fa645411bf1b9ac1f810ac192b29f3",
+      "stamp": [
+        929166,
+        1791572648500212548
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_03.json",
+      "bytes": 1113,
+      "sha256": "45797bf13fe4bcc24605dc769fa75935faa677d33a95221dc36a8d33cfeaf92d",
+      "stamp": [
+        1113,
+        1791572696968205588
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_03.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_03.json.gz",
+      "bytes": 1036519,
+      "sha256": "9de017d3a6d6488eb7f00697f733c3883d5300839e909d7d71921e0c37c31278",
+      "stamp": [
+        1036519,
+        1791572679157208143
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_04.json",
+      "bytes": 1142,
+      "sha256": "b574b7baf5bf6d93519e5a73b5b208d3865b78ddaa101620843a315603b4ba1a",
+      "stamp": [
+        1142,
+        1791572728220201110
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_04.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_04.json.gz",
+      "bytes": 954406,
+      "sha256": "84ebdcacb4ce07a9a48877077fb14ec9f0626f8949c19aac058945e57257f956",
+      "stamp": [
+        954406,
+        1791572712142203413
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_05.json",
+      "bytes": 1140,
+      "sha256": "47b786efa79755d15229f05b2b1af7d65dbac9de4ef4844a3232807dbf5d49c1",
+      "stamp": [
+        1140,
+        1791572753001197564
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_05.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_05.json.gz",
+      "bytes": 922781,
+      "sha256": "000593f775ad17394c657576c116579f16b7925bd72a6ddcf38adce9b8d037bb",
+      "stamp": [
+        922781,
+        1791572736308199952
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_06.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_06.json.gz",
+      "bytes": 958501,
+      "sha256": "4cc61927fb720b771a860d89b16734a776d3b0497b89c8e5c5511bb060c50661",
+      "stamp": [
+        958501,
+        1791572761464196354
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_06.json",
+      "bytes": 1108,
+      "sha256": "487a8c91d8db654a9caae73e897a7ba97f06b738c8255ad12f1cb20a5c165545",
+      "stamp": [
+        1108,
+        1791572775607194333
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_07.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_07.json.gz",
+      "bytes": 884303,
+      "sha256": "41a61e954cfd92e5e7d9701a92f9a9c94c880d31d486812d9ff5c3e9868f82f4",
+      "stamp": [
+        884303,
+        1791572790943192143
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_07.json",
+      "bytes": 1156,
+      "sha256": "29926bca1e1569fcca34d53c3604311579cc5df91c23ac1f0916f321ce8046b2",
+      "stamp": [
+        1156,
+        1791572806673189898
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_08.json",
+      "bytes": 1151,
+      "sha256": "7f35996d22ef686fe9dce71b91e5aca67b1ea811dae18127eccf4939fb46dbc3",
+      "stamp": [
+        1151,
+        1791572830976186433
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_08.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_08.json.gz",
+      "bytes": 854956,
+      "sha256": "1bc7097cebd449547f72cde05bb5f0954cbcb91c1e64650c99f3ad67ec353b51",
+      "stamp": [
+        854956,
+        1791572814493188782
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_09.json",
+      "bytes": 1161,
+      "sha256": "8a6a9b06f01183a0675cdc0fc201919292c9fad4c7c2ed973e3cb83248bdcd1f",
+      "stamp": [
+        1161,
+        1791572853395183239
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_09.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_09.json.gz",
+      "bytes": 899176,
+      "sha256": "38ac448d9e81ca6867c157a855784b9125176416dff8713130dc022c99821773",
+      "stamp": [
+        899176,
+        1791572839053185282
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_10.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_10.json.gz",
+      "bytes": 918187,
+      "sha256": "369d367369eb934c144336a481866c32ea4e8b74377837fca943e4cb058da671",
+      "stamp": [
+        918187,
+        1791572861120182140
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_10.json",
+      "bytes": 1212,
+      "sha256": "2ee335e41aeb6c9447c1dd2b3bb852381adadd58344a76a85fba34592cd2272f",
+      "stamp": [
+        1212,
+        1791572877324179834
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_11.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_11.json.gz",
+      "bytes": 950031,
+      "sha256": "866c39fc41f7d290f5ce867db5e4dc1393deda0c43c689aac5ee7a12656c222b",
+      "stamp": [
+        950031,
+        1791572885926178610
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_11.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_11.json",
+      "bytes": 1257,
+      "sha256": "073c1b10ae95b896a8120baf7f0e8dc853814c0739800c2af0a0724cd9469695",
+      "stamp": [
+        1257,
+        1791572905109175883
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_12.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_12.json.gz",
+      "bytes": 912701,
+      "sha256": "ff657c791d6333027d9b3a6b27bf0b5bb52a797afe891c4326f9a1cb688f7cf1",
+      "stamp": [
+        912701,
+        1791572913472174695
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_12.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_12.json",
+      "bytes": 1120,
+      "sha256": "7fea71c478bee2ba5e25ba38080d2361dd07270e415ab64ce4aa009311115403",
+      "stamp": [
+        1120,
+        1791572929701172390
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_13.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_13.json",
+      "bytes": 1240,
+      "sha256": "85052a37db500c497c4e46ef44b95589a064b34c3396c50d2f12824e259a6aa5",
+      "stamp": [
+        1240,
+        1791572959251168196
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_13.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_13.json.gz",
+      "bytes": 887084,
+      "sha256": "0aaecf62a1075795b1a8af94bba5e48118f75194684a911eeb4524c290f8e27d",
+      "stamp": [
+        887084,
+        1791572945741170113
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_14.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_14.json",
+      "bytes": 1193,
+      "sha256": "cc7e45ff12fd9fa09f763f8ea121c3d2872992da81e446e75811f6aa2b5ee6f4",
+      "stamp": [
+        1193,
+        1791572984345164638
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_14.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_14.json.gz",
+      "bytes": 934481,
+      "sha256": "6fa1e38f49e1a7a839a53035e814e318fea4794833669e96e40351ec9e2586f2",
+      "stamp": [
+        934481,
+        1791572966983167100
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_15.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/proposal_15.json",
+      "bytes": 1284,
+      "sha256": "2dcc7c7d7de86982a70b3202a187738fdda9d2189433383037f58fbb5253c449",
+      "stamp": [
+        1284,
+        1791573017958159876
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_15.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/guidance/request_15.json.gz",
+      "bytes": 927490,
+      "sha256": "ea4ec48d947605ea7d626ac32290aaabad96f641e09f1684fd248977ecdbc9ab",
+      "stamp": [
+        927490,
+        1791573000518162346
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/PackIdenticalLunches/episode_000_seed_1107_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/PackIdenticalLunches/episode_000_seed_1107_failure.mp4",
+      "bytes": 10702911,
+      "sha256": "2feae09a3da8fa12c794ad2ab6cfa8a861d3546dafcd095bc253808b181f5822",
+      "stamp": [
+        10702911,
+        1791573096662152660
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/episode.json",
+      "bytes": 646,
+      "sha256": "866d4e9f1efbe825858d0e3823f2252115fb95da1183ed3be64340b3db57572a",
+      "stamp": [
+        646,
+        1791573096741152656
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra1/seed1107/result.json",
+      "bytes": 397,
+      "sha256": "6368163ee297d6a13b9322a7ef1b2c9de4914e9dcf5a5b7562ec04395d4ed1f0",
+      "stamp": [
+        397,
+        1791573096741152656
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/initial_model.xml.gz",
+      "bytes": 33821,
+      "sha256": "a37f21665d845042544d18279133647017364ac7a2622db77437c0f9cdb4a91b",
+      "stamp": [
+        33821,
+        1791573105173152170
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/initial_observation.npz",
+      "bytes": 129932,
+      "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12",
+      "stamp": [
+        129932,
+        1791573105187152169
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/paired_reset.json",
+      "bytes": 615,
+      "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d",
+      "stamp": [
+        615,
+        1791573105214152168
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/progress.json",
+      "bytes": 130,
+      "sha256": "7ebf8188cc0a1ae4128096dceffb28d8aa5acfad6a73069dd90928303693601f",
+      "stamp": [
+        130,
+        1791573332664135795
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f",
+      "stamp": [
+        562,
+        1791573105176152170
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/starting_image.png",
+      "bytes": 113746,
+      "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1",
+      "stamp": [
+        113746,
+        1791573105212152168
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/policy_queries.jsonl",
+      "bytes": 48308,
+      "sha256": "ff641f6b38b791080185a3e00fe2306fd942c40bfdcf999a45f6865fd361186a",
+      "stamp": [
+        48308,
+        1791573332664135795
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/PackIdenticalLunches/episode_000_seed_1107_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/PackIdenticalLunches/episode_000_seed_1107_failure.mp4",
+      "bytes": 9240626,
+      "sha256": "51122f2b3cc034338cd3b62992a4ca9d1137d42b6d4e6a7571ad800799964386",
+      "stamp": [
+        9240626,
+        1791573338692135288
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/episode.json",
+      "bytes": 650,
+      "sha256": "b720c2387b1c25f71dab86ed19375fa3286fb8f13e70cac2cc68f65ce6362d3b",
+      "stamp": [
+        650,
+        1791573338778135281
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/native2/seed1107/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/native2/seed1107/result.json",
+      "bytes": 401,
+      "sha256": "0067123912645b04ced99c67572becca2a87893f767f6c46748dd95a6f3589f4",
+      "stamp": [
+        401,
+        1791573338778135281
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_00.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_00.json",
+      "bytes": 1174,
+      "sha256": "65e1f64596eb4a4f3d6823c8e5b5c2cca71974658377bc926337410ccca1d633",
+      "stamp": [
+        1174,
+        1791573358393133609
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_00.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_00.json.gz",
+      "bytes": 915692,
+      "sha256": "2908a3607cb6a17d462630c4430f13a99c722eb76cf17f595ae13404b6c15a59",
+      "stamp": [
+        915692,
+        1791573344194134822
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/provider.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/provider.jsonl",
+      "bytes": 84747,
+      "sha256": "a5957997be08791f5261de4c47c445e82a84200c3343751d60d9300dc3becd7d",
+      "stamp": [
+        84747,
+        1791573781750091263
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/initial_model.xml.gz",
+      "bytes": 33821,
+      "sha256": "3e76e699ba78f9c53b52aba526b8f7a2e0a4b336873aed80fb46d02dedcd7e41",
+      "stamp": [
+        33821,
+        1791573344063134834
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/initial_observation.npz",
+      "bytes": 129932,
+      "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12",
+      "stamp": [
+        129932,
+        1791573344077134833
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/paired_reset.json",
+      "bytes": 615,
+      "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d",
+      "stamp": [
+        615,
+        1791573344104134830
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/progress.json",
+      "bytes": 131,
+      "sha256": "0eb4dd350a052d0223dc6ca20e1d007c5d7a6cd3f02bc55c95cd48b709fbb1ae",
+      "stamp": [
+        131,
+        1791573868918081488
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f",
+      "stamp": [
+        562,
+        1791573344066134833
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/starting_image.png",
+      "bytes": 113746,
+      "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1",
+      "stamp": [
+        113746,
+        1791573344103134830
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_01.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_01.json",
+      "bytes": 1136,
+      "sha256": "347bba8f8f4716e87f55b904da4b9914188ade2f2b4d9c7f657c6d85a2dc7055",
+      "stamp": [
+        1136,
+        1791573404089129588
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_01.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_01.json.gz",
+      "bytes": 1070102,
+      "sha256": "cb6f69d5d11a1a27ed2db6d480beaef8c78c51f675c1d3b34aee38a34c80724c",
+      "stamp": [
+        1070102,
+        1791573388868130946
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/policy_queries.jsonl",
+      "bytes": 58624,
+      "sha256": "68efa9973744c47c001083b55f8154224fa46427569e0c7587d5b89231b2def6",
+      "stamp": [
+        58624,
+        1791573868917081488
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_02.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_02.json",
+      "bytes": 1138,
+      "sha256": "6f6ec27414e8459370b432ce5c5d956984e04f60ba9aab7678a6f92496ef4710",
+      "stamp": [
+        1138,
+        1791573431622127086
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_02.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_02.json.gz",
+      "bytes": 1058776,
+      "sha256": "290ae7082341c2de6580f276fb6ad73e2f9e77a629fca9b03b82d8ed220cdb7a",
+      "stamp": [
+        1058776,
+        1791573418868128252
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_03.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_03.json.gz",
+      "bytes": 1083133,
+      "sha256": "a450443cc1ff583f39c7b0a54ccdfb07ab86e4cc56120f0305ee5975e56b46c3",
+      "stamp": [
+        1083133,
+        1791573439617126349
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_03.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_03.json",
+      "bytes": 1283,
+      "sha256": "d29b8abbf7490ad60ccbe753a8172e73a0c5e7866d67f086ae9e14fdf7952fa0",
+      "stamp": [
+        1283,
+        1791573458542124586
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_04.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_04.json.gz",
+      "bytes": 1130806,
+      "sha256": "a816546dade4725d6f8d07f44de0dfdc7918db085b1f3db29f3ec395599d8770",
+      "stamp": [
+        1130806,
+        1791573467058123784
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_04.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_04.json",
+      "bytes": 1257,
+      "sha256": "f8f90bae6fdff9d1c0a24bb206ed775fba6755f6cd10ddf968055de641aab32d",
+      "stamp": [
+        1257,
+        1791573478398122709
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_05.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_05.json.gz",
+      "bytes": 1079104,
+      "sha256": "4d0a4c881625984a0ab1a62db699e1bf99efc54aded67851824baedd51897f09",
+      "stamp": [
+        1079104,
+        1791573482996122270
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_05.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_05.json",
+      "bytes": 1227,
+      "sha256": "ba340db7c12c59857ef4b5f24451054b680d20e09efda16166ab8737f27a0549",
+      "stamp": [
+        1227,
+        1791573508995119765
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_06.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_06.json",
+      "bytes": 1267,
+      "sha256": "0eb609866a1c1fa6de5adb6ae7b82e9e10cf85aa2ba96a03694a5f220d105532",
+      "stamp": [
+        1267,
+        1791573531657117546
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_06.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_06.json.gz",
+      "bytes": 1145939,
+      "sha256": "1b682b78e12fd43bb7dd60b7987f15bb1e037f7ea00e62daefb3518b9099d675",
+      "stamp": [
+        1145939,
+        1791573517872118900
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_07.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_07.json",
+      "bytes": 1289,
+      "sha256": "3d760801a4c647316d9e3dbb3bb23f0f251e87a484d24e0dbb0a94dd6e0677d5",
+      "stamp": [
+        1289,
+        1791573553557115372
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_07.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_07.json.gz",
+      "bytes": 1131973,
+      "sha256": "89b330ee79a60b067b594fb95ddeb789415a7656bb970e72cfd9d69d91d33b7a",
+      "stamp": [
+        1131973,
+        1791573540468116675
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_08.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_08.json.gz",
+      "bytes": 1008735,
+      "sha256": "855e265fb7be810307e7e67c17ab99637c4856dd85e1220c4a6b36932aaffa38",
+      "stamp": [
+        1008735,
+        1791573562042114523
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_08.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_08.json",
+      "bytes": 1159,
+      "sha256": "c0479993e39c632103cb17cfef591dfe2f5ee7a444da51cda2393d171d95ee70",
+      "stamp": [
+        1159,
+        1791573574234113294
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_09.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_09.json",
+      "bytes": 1152,
+      "sha256": "b7de145e56e5a8d18e92fe5c668870e010a258a4545c4b333a74fdb2344fba7e",
+      "stamp": [
+        1152,
+        1791573599281110745
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_09.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_09.json.gz",
+      "bytes": 1086944,
+      "sha256": "6302176ee3cd05f4e85eece5577e37b162c585181b42872ab3aa00ae2b97e5df",
+      "stamp": [
+        1086944,
+        1791573583311112374
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_10.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_10.json",
+      "bytes": 1273,
+      "sha256": "ccbfce1c1d3ba80acbce44a32be2bf20bfe5d80da1b52987e6968c6c983f7349",
+      "stamp": [
+        1273,
+        1791573624065108190
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_10.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_10.json.gz",
+      "bytes": 1135403,
+      "sha256": "8adb25914087de04d238775bca699b60ea2787731f589031b24cd07e18e2aee3",
+      "stamp": [
+        1135403,
+        1791573609149109732
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_11.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_11.json.gz",
+      "bytes": 1159311,
+      "sha256": "39f607d91a7e4d049d442b7791be3d46ef9716566fb294c182b2aed84044ed87",
+      "stamp": [
+        1159311,
+        1791573633789107179
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_11.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_11.json",
+      "bytes": 1227,
+      "sha256": "d125e8775e5f9d18527302fa96acc2ea19ff21038439c4d0250a1b380600bb7e",
+      "stamp": [
+        1227,
+        1791573651325105344
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_12.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_12.json.gz",
+      "bytes": 1172537,
+      "sha256": "60f2a4ac488c4a7bb34437c59aeb1326f23377fa829c425e1ca4132e10922d28",
+      "stamp": [
+        1172537,
+        1791573670429103328
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_12.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_12.json",
+      "bytes": 1207,
+      "sha256": "23ba34a0553ed0a453c8915cb4c045a32ff33d1b44460d3f0c8239ea02c103d9",
+      "stamp": [
+        1207,
+        1791573685367101740
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_13.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_13.json.gz",
+      "bytes": 1107790,
+      "sha256": "b5aeeac5f185ab5d23f824db8e6779aca202eb32b3c5d220c42de01459847f2b",
+      "stamp": [
+        1107790,
+        1791573695207100688
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_13.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_13.json",
+      "bytes": 1266,
+      "sha256": "59b4c904efda65269905c484ca838af828d37568cb1c8e47a0db7a1c037b5513",
+      "stamp": [
+        1266,
+        1791573710138099084
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_14.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_14.json.gz",
+      "bytes": 1165021,
+      "sha256": "bef88160c1070db99840d6ac5ba08eeb9cd2c0d17f849e15922ae2b9e8135363",
+      "stamp": [
+        1165021,
+        1791573729074097036
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_14.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_14.json",
+      "bytes": 1274,
+      "sha256": "d452764ae3447911fa2b5c805469ba6e478f9efdf0be115452adace93450e873",
+      "stamp": [
+        1274,
+        1791573745323095267
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_15.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/proposal_15.json",
+      "bytes": 1276,
+      "sha256": "458284d83636b1072e9d9748b128211df9d8452cadb0b95a0a4582f0ba45a360",
+      "stamp": [
+        1276,
+        1791573781750091263
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_15.json.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/guidance/request_15.json.gz",
+      "bytes": 1219269,
+      "sha256": "14f443ab423a4539c1a9ff22eac497dddd0fca18e5afb6a10927fec518021735",
+      "stamp": [
+        1219269,
+        1791573767298092858
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/PackIdenticalLunches/episode_000_seed_1107_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/PackIdenticalLunches/episode_000_seed_1107_failure.mp4",
+      "bytes": 10212452,
+      "sha256": "c64536e55c38cc54222e73ebc81d61ce922d30879c83b37ff7279cc52b022d46",
+      "stamp": [
+        10212452,
+        1791573875249080769
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/episode.json",
+      "bytes": 647,
+      "sha256": "9a017b6eeedca6f7372c86177f2f53f5a1ea057e360893395b376a565e71ede3",
+      "stamp": [
+        647,
+        1791573875330080759
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1107/astra2/seed1107/result.json",
+      "bytes": 398,
+      "sha256": "870dddb65b36cb2a2388c690711204825b15571526de876093bb2c57b9f1ffd8",
+      "stamp": [
+        398,
+        1791573875330080759
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/anchor.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor.json",
+      "bytes": 597,
+      "sha256": "c6a730bf0c5dd9b4844b0c6b368d64fb3461c6a333aa35fbc0a12db669f2f2a5",
+      "stamp": [
+        597,
+        1791573930182074473
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/anchor_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_model.xml.gz",
+      "bytes": 39243,
+      "sha256": "b608a6298f4bbedd968493fbb5133be98ee213198be36b392fbfcefcbe56ed7f",
+      "stamp": [
+        39243,
+        1791573930181074473
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/anchor_rng.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_rng.json",
+      "bytes": 22499,
+      "sha256": "22cfbaecefa3505d35b7859f1ea2eb74877916f90a3e25abc9ae7f59bdea1c8e",
+      "stamp": [
+        22499,
+        1791573930182074473
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/anchor_state.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/anchor_state.npz",
+      "bytes": 2360,
+      "sha256": "d88d1978489b39a416bbcc497d4d1a141c3c444ddecdff4b702e42dd7ab00a70",
+      "stamp": [
+        2360,
+        1791573930181074473
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_model.xml.gz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_model.xml.gz",
+      "bytes": 39238,
+      "sha256": "ccb336a736036cf036de71f54e6eed0b635a754280fcfe7018b9de395000a0a0",
+      "stamp": [
+        39238,
+        1791573936774073712
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_observation.npz": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/initial_observation.npz",
+      "bytes": 109857,
+      "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412",
+      "stamp": [
+        109857,
+        1791573936789073710
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/paired_reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/paired_reset.json",
+      "bytes": 617,
+      "sha256": "02414cbc67647bb9d6c01d7d5ba6f971b4ef980b92abda7c82c64f83235d4304",
+      "stamp": [
+        617,
+        1791573936812073707
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/policy_queries.jsonl": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/policy_queries.jsonl",
+      "bytes": 48297,
+      "sha256": "b6cf5939b720a29140c48804493aabad4a9a0b04103ee00568d120fa18253de7",
+      "stamp": [
+        48297,
+        1791574251387036230
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/progress.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/progress.json",
+      "bytes": 130,
+      "sha256": "9ef1bb53417fc0dde638a6986157bc3d02901a73e94c1238ac917284eb220634",
+      "stamp": [
+        130,
+        1791574251388036230
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/reset.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/reset.json",
+      "bytes": 564,
+      "sha256": "dc7e7a1bbee5ed7bd5bf20ae97d468d55ee03b366805098f59498ae2fa03f268",
+      "stamp": [
+        564,
+        1791573936777073712
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/starting_image.png": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/starting_image.png",
+      "bytes": 97281,
+      "sha256": "7f60a82efb3c4f1e0db960bdfd7dad45f016d5312dee9d85b6126d1eac0f35b4",
+      "stamp": [
+        97281,
+        1791573936810073708
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/astra1/incomplete.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/astra1/incomplete.json",
+      "bytes": 192,
+      "sha256": "90f0a6a1bcd6fa9e95eea14fa48c6a9e96898b26570606a54f1c7c0facd8b192",
+      "stamp": [
+        192,
+        1791574265255034536
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/astra1/reset_mismatch.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/astra1/reset_mismatch.json",
+      "bytes": 1253,
+      "sha256": "9b6a18e90e6ad06c68548b69cf0cef0b4dfaba72c86a814cd4b54eec53e54d12",
+      "stamp": [
+        1253,
+        1791574265255034536
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/PackIdenticalLunches/episode_000_seed_1108_failure.mp4": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/PackIdenticalLunches/episode_000_seed_1108_failure.mp4",
+      "bytes": 7584447,
+      "sha256": "19d7bb1cf16adda6a53d0a9dc48484f432554d4bc2afc58632703ec0c78cbb81",
+      "stamp": [
+        7584447,
+        1791574256734035577
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/episode.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/episode.json",
+      "bytes": 649,
+      "sha256": "6edb1807434d1351d2bd33b3217b706638a9618621c398ee6dde89aefc7876c6",
+      "stamp": [
+        649,
+        1791574256850035563
+      ]
+    },
+    "evaluation/PackIdenticalLunches_seed1108/native1/seed1108/result.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/evaluation/PackIdenticalLunches_seed1108/native1/seed1108/result.json",
+      "bytes": 400,
+      "sha256": "575b84846ec30c0f9bb5239d79347ad4df6a67cb08e6c58001d1340c0f080ea3",
+      "stamp": [
+        400,
+        1791574256849035563
+      ]
+    },
+    "worker_error.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/worker_error.json",
+      "bytes": 85,
+      "sha256": "a76391e60ae9f2e0c6f2d9c9def5502c4c407abef045e5c4a90e2026ec5d7b4c",
+      "stamp": [
+        85,
+        1791574266689034361
+      ]
+    },
+    "worker_finished.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/results/worker_finished.json",
+      "bytes": 63,
+      "sha256": "9bbf7a83bc5a803e7a1b2e8651f945756998ff81e77b4cbf021f5344ae7647f0",
+      "stamp": [
+        63,
+        1791574266689034361
+      ]
+    }
+  },
+  "updated_unix": 1791574270.9279816
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper approaches a visible carrot or fish on the refrigerator shelf, with any grasp confirmed by the object lifting clear.",
+  "method": "native",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 300, end-effector height relative to the base decreased from 0.431 to 0.407. The wrist view still shows the robot below the shelf, and both carrots and both fish remain visible inside the refrigerator. Guidance has not produced alignment or a confirmed grasp; return to native for reassessment.",
+  "subgoal": "",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:400:guide:4",
+  "request_fingerprint": "ee539e7294c86c7b2841505c4f3d67a3d895b06bb6c8e4e9c0aef92af09de58c",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 4,
+  "observation_step": 400
+}

@@ -1,0 +1,155 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-replay-v1-1",
+  "source_revision": "6e0f90e6ed995ddb3636d7528e0e09bc9822dfef",
+  "actual_gpu_hours": 0.1438342572222222,
+  "completed": {
+    "complete": true,
+    "policy_trials": 0,
+    "diagnostic_episodes": 5,
+    "counts": {
+      "constructor_setup_resets": 3,
+      "anchor_selection_resets": 3,
+      "diagnostic_restore_resets": 6,
+      "policy_restore_resets": 5,
+      "diagnostic_control_steps": 640,
+      "diagnostic_chunks": 40,
+      "astra_jobs": 0,
+      "policy_SR_denominator_contribution": 0
+    }
+  },
+  "comparisons": [
+    {
+      "left": "same1",
+      "right": "same2",
+      "actions": {
+        "bitwise_equal": false,
+        "max_abs": 0.060546875,
+        "first_difference_index": 3
+      },
+      "policy_states": {
+        "bitwise_equal": false,
+        "max_abs": 0.012996077537536621,
+        "first_difference_index": 4
+      },
+      "integration_states": {
+        "bitwise_equal": false,
+        "max_abs": 1136.870287253561,
+        "first_difference_index": 49
+      }
+    },
+    {
+      "left": "same1",
+      "right": "same_png",
+      "actions": {
+        "bitwise_equal": false,
+        "max_abs": 0.125,
+        "first_difference_index": 4
+      },
+      "policy_states": {
+        "bitwise_equal": false,
+        "max_abs": 0.004826545715332031,
+        "first_difference_index": 5
+      },
+      "integration_states": {
+        "bitwise_equal": false,
+        "max_abs": 300.86065808312077,
+        "first_difference_index": 65
+      }
+    },
+    {
+      "left": "fresh1",
+      "right": "fresh2",
+      "actions": {
+        "bitwise_equal": false,
+        "max_abs": 0.23046875,
+        "first_difference_index": 3
+      },
+      "policy_states": {
+        "bitwise_equal": false,
+        "max_abs": 0.005644313991069794,
+        "first_difference_index": 4
+      },
+      "integration_states": {
+        "bitwise_equal": false,
+        "max_abs": 675.5840672450074,
+        "first_difference_index": 49
+      }
+    },
+    {
+      "left": "same1",
+      "right": "fresh1",
+      "actions": {
+        "bitwise_equal": false,
+        "max_abs": 0.35546875,
+        "first_difference_index": 3
+      },
+      "policy_states": {
+        "bitwise_equal": false,
+        "max_abs": 0.005934730172157288,
+        "first_difference_index": 4
+      },
+      "integration_states": {
+        "bitwise_equal": false,
+        "max_abs": 503.4468251509147,
+        "first_difference_index": 49
+      }
+    }
+  ],
+  "input_divergence_audit": [
+    {
+      "left": "same1",
+      "right": "same2",
+      "first_input_difference_query": 4,
+      "control_step": 48,
+      "physics_identical_through_input": true,
+      "policy_state_identical_at_input": true,
+      "changed_cameras": [
+        "video.robot0_eye_in_hand"
+      ],
+      "recorded_controller_difference_paths": []
+    },
+    {
+      "left": "same1",
+      "right": "same_png",
+      "first_input_difference_query": 5,
+      "control_step": 64,
+      "physics_identical_through_input": true,
+      "policy_state_identical_at_input": true,
+      "changed_cameras": [
+        "video.robot0_eye_in_hand"
+      ],
+      "recorded_controller_difference_paths": []
+    },
+    {
+      "left": "fresh1",
+      "right": "fresh2",
+      "first_input_difference_query": 4,
+      "control_step": 48,
+      "physics_identical_through_input": true,
+      "policy_state_identical_at_input": true,
+      "changed_cameras": [
+        "video.robot0_eye_in_hand"
+      ],
+      "recorded_controller_difference_paths": []
+    },
+    {
+      "left": "same1",
+      "right": "fresh1",
+      "first_input_difference_query": 4,
+      "control_step": 48,
+      "physics_identical_through_input": true,
+      "policy_state_identical_at_input": true,
+      "changed_cameras": [
+        "video.robot0_eye_in_hand"
+      ],
+      "recorded_controller_difference_paths": []
+    }
+  ],
+  "duplicated_forwards": {
+    "queries": 40,
+    "bitwise_equal": 40
+  },
+  "archive_files_verified": 64,
+  "archive_receipt_sha256": "92200992a2bd3743d7f2e908908fd5d6b4bf676c7521750cccfa5389101cb01b",
+  "interpretation": "All starting fingerprints match. Native-input divergence first appears in the wrist-camera history at control48 or64 while integration state, policy robot state and recorded controller values remain identical. All40 repeated native forwards on identical inputs are bitwise equal. Recreating environments and omitting PNG preparation do not remove the discrepancy. The exact rendering/history cause and pixel magnitude remain unmeasured. Initial-condition pairing is verified; bitwise closed-loop trajectory replay is not. The small adaptive pilot cannot isolate intervention gains from native trajectory variability."
+}

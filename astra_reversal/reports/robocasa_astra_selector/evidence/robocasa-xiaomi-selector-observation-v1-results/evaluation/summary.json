@@ -1,0 +1,1129 @@
+{
+  "counts": {
+    "constructor_setup_resets": 3,
+    "anchor_selection_resets": 3,
+    "diagnostic_restore_resets": 15,
+    "controls": 0,
+    "policy_queries": 0,
+    "teacher_jobs": 0,
+    "policy_success_trial_denominator_contribution": 0
+  },
+  "runs": [
+    {
+      "name": "constructor0_restore0",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor0_restore1",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor0_restore2",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor1_restore0",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor1_restore1",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor1_restore2",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor2_restore0",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "cefb88157f6e15906cde6cd34b291a197290b7d44b5aca25a40e194b9037e169",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": false,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": false,
+          "actual_sha256": "24b25904f65fac4b2d5e0d0035bfb13befb594b8f50b8e9b35b2cdcee0a23a80",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 1.0,
+          "mean_abs": 4.57763671875e-05,
+          "changed_elements": 9,
+          "elements": 196608,
+          "changed_pixels": 3,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor2_restore1",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    },
+    {
+      "name": "constructor2_restore2",
+      "actual_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "expected_fingerprint": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "fingerprint_exact": true,
+      "observations": {
+        "state.gripper_qpos": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "expected_sha256": "2d65e4cd8bf21961422242f623155fd1a58e6988c782acad773926e089a0e006",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 2
+        },
+        "state.base_position": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "expected_sha256": "9c64da519cbbf22c5bf8f5c8ce32ac9259b5ee99a13aae65a03a1f90cc052ae2",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.base_rotation": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "expected_sha256": "518be8a2b4bf6293248e2d1a3ffe4588a2db13417212c0ea67b10159669dca16",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "state.end_effector_position_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "expected_sha256": "a019c778a41460e0753fc70d57b9eae6fcaa3610c6d947e3a076fe4060e89a20",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 3
+        },
+        "state.end_effector_rotation_relative": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "expected_sha256": "0c45b64572fa7b14008001c96b2669cf956d7ba6846aee74469705e0b9c64882",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 4
+        },
+        "video.robot0_agentview_left": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "expected_sha256": "5e9a77a4dfd841b2e99a09a7bf5ff024988126bfef41bec608b391392e8abd1b",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_agentview_right": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "expected_sha256": "2e790702373195cf7e50f34c41448e9d0a591f9e84b0dd019371f2a5de2b9559",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "video.robot0_eye_in_hand": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "expected_sha256": "948039f8ba986a366f368db78751ebc4f2a2359cee792ddeaf49e71d9a0c2f93",
+          "max_abs": 0.0,
+          "mean_abs": 0.0,
+          "changed_elements": 0,
+          "elements": 196608,
+          "changed_pixels": 0,
+          "pixels": 65536
+        },
+        "annotation.human.task_description": {
+          "shape_matches": true,
+          "dtype_matches": true,
+          "exact": true,
+          "actual_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705",
+          "expected_sha256": "6e730585740132d45ac2be464abbfcd7e03b2f6e07b8c5294ae1806cc8870705"
+        }
+      },
+      "policy_state_exact": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper fingers visibly separate beside the tupperware rim while the container stays upright.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 1150, the arm has shifted slightly, but the tupperware remains on the countertop and the wrist view remains obstructed. Gripper positions are nearly unchanged and near zero; the moderate opening intervention has not produced visible opening or an established grasp.",
+  "subgoal": "Open the gripper beside the fish-containing tupperware rim to prepare a fresh grasp.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0:1200:guide:13",
+  "request_fingerprint": "f9d379a7be816ac5c375c32e67a870a1f35e97abb2f1a83037eff8d675ac2088",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tli:attempt0",
+  "request_index": 13,
+  "observation_step": 1200
+}

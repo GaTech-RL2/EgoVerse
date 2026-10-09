@@ -1,0 +1,75 @@
+{
+  "testing": "frs",
+  "completed_checks": [
+    {
+      "method": "native",
+      "neutral_bitwise_equal": true
+    },
+    {
+      "method": "phase_prompt",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.1953125,
+      "audit": {
+        "method": "phase_prompt",
+        "noise_seed": 991
+      }
+    },
+    {
+      "method": "tei",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.09765625,
+      "audit": {
+        "method": "tei",
+        "noise_seed": 991,
+        "edited_slots": 24,
+        "layer": null,
+        "representation_delta_rms": 0.02475941739976406
+      }
+    },
+    {
+      "method": "tli",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.048828125,
+      "audit": {
+        "method": "tli",
+        "noise_seed": 991,
+        "edited_slots": 24,
+        "layer": 12,
+        "representation_delta_rms": 0.6446284055709839
+      }
+    },
+    {
+      "method": "image",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.0234375,
+      "audit": {
+        "method": "image",
+        "noise_seed": 991
+      }
+    },
+    {
+      "method": "vei",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.021484375,
+      "audit": {
+        "method": "vei",
+        "noise_seed": 991,
+        "edited_slots": 384,
+        "layer": null,
+        "representation_delta_rms": 0.257321834564209
+      }
+    },
+    {
+      "method": "vli",
+      "neutral_bitwise_equal": true,
+      "active_action_linf": 0.048828125,
+      "audit": {
+        "method": "vli",
+        "noise_seed": 991,
+        "edited_slots": 384,
+        "layer": 12,
+        "representation_delta_rms": 0.7480377554893494
+      }
+    }
+  ]
+}

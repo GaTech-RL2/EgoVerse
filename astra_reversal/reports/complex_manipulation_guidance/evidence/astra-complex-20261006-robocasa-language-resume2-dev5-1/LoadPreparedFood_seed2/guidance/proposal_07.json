@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Tupperware rests fully on the top shelf beside the jar and stays there as the gripper withdraws.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Compared with step 1050, the held tupperware has moved farther into the fridge near the top shelf beside the jar. Shelf support remains unconfirmed. The failed rollout lost sight of the container without verified placement.",
+  "subgoal": "Set the tupperware flat on the top shelf beside the jar, opening upward and fully inside. Release only once supported, then withdraw the gripper.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:1150:guide:7",
+  "request_fingerprint": "b12b25b0bc70043a110a48d9117f60d9db49eb0f9125c2dcf7d2ec9a0bada626",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 7,
+  "observation_step": 1150
+}

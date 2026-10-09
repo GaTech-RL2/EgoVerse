@@ -1,0 +1,266 @@
+"""Guidance preserves sensors/reset identity and cannot hide failed teacher calls."""
+
+import copy
+import hashlib
+import json
+from types import SimpleNamespace
+
+import numpy as np
+import pytest
+
+from astra_reversal import codex_executor, codex_relay
+from astra_reversal.astra_client import ClientError
+from astra_reversal.complex_manipulation import language_teacher as teacher
+from astra_reversal.complex_manipulation.language_guidance import (
+    LanguageGuide,
+    check_reset,
+)
+from astra_reversal.complex_manipulation.robocasa_eval import episode_schedule
+from astra_reversal.records import digest
+
+
+def observation():
+    return {
+        "prompt": "Place the tupperware on the top shelf, then close the fridge.",
+        "observation/state": np.arange(16, dtype=np.float32),
+        **{
+            key: np.full((8, 8, 3), 20 + i, np.uint8)
+            for i, key in enumerate(teacher.CAMERAS.values())
+        },
+    }
+
+
+def request():
+    obs = observation()
+    return teacher.build_request(
+        episode_id="synthetic:matched:attempt1",
+        request_index=0,
+        step=0,
+        snapshots=[teacher.live_snapshot(obs, 0)],
+        context={
+            "original_instruction": obs["prompt"],
+            "remaining_calls_including_this": 16,
+        },
+    )
+
+
+def response():
+    return {
+        "method": "phase_prompt",
+        "subgoal": "Lift the held container above the shelf lip.",
+        "observed_evidence": "The container appears to be below the shelf edge.",
+        "completion_signal": "Container clears the shelf lip.",
+        "next_review_controls": 50,
+    }
+
+
+def test_all_three_cameras_survive_codex_payload_and_foreign_episode_is_rejected():
+    req = request()
+    assert codex_executor._module(req) is teacher
+    assert codex_relay._module("complex_language") is teacher
+    payload = teacher.build_payload(req, "gpt-6-astra")
+    images = [
+        p["image_url"]["url"]
+        for p in payload["messages"][1]["content"]
+        if p["type"] == "image_url"
+    ]
+    assert len(images) == len(set(images)) == 3
+    proposal = teacher.parse_proposal(response(), req)
+    assert codex_relay._proposal(proposal, req, teacher, "complex_language") == proposal
+    proposal["episode_id"] = "another-reset"
+    with pytest.raises(ClientError, match="identity differs"):
+        codex_relay._proposal(proposal, req, teacher, "complex_language")
+    req["snapshots"][0]["images"].pop("right")
+    with pytest.raises(ValueError, match="identity differs"):
+        teacher.build_payload(req, "gpt-6-astra")
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"method": "native"},
+        {"subgoal": " "},
+        {"next_review_controls": True},
+        {"next_review_controls": 51},
+        {"subgoal": "x" * 161},
+        {"motor_commands": [0] * 12},
+    ],
+)
+def test_illegal_intervention_or_review_cannot_be_applied(change):
+    with pytest.raises(ValueError):
+        teacher.parse_proposal({**response(), **change}, request())
+
+
+def test_seed_equality_is_insufficient_for_a_matched_reset():
+    expected = {
+        "seed": 0,
+        "instruction": "goal",
+        "observation_sha256": "image-a",
+        "state_sha256": "state-a",
+        "model_sha256": "xml-a",
+        "horizon": 1500,
+        "execution_prefix": 5,
+        "initial_success": False,
+    }
+    assert check_reset(expected, expected)["matched"]
+    for key in ("observation_sha256", "state_sha256", "model_sha256", "instruction"):
+        with pytest.raises(ValueError, match=key):
+            check_reset({**expected, key: "different"}, expected)
+
+
+def guide(tmp_path, propose):
+    return LanguageGuide(
+        client=SimpleNamespace(propose=propose, records=[]),
+        baseline={
+            "frames": [],
+            "episode_id": "native-reset",
+            "executed_controls": 1500,
+            "stop_reason": "horizon",
+            "video_sha256": "video-sha",
+        },
+        output=tmp_path,
+    )
+
+
+def test_phase_persists_without_extra_calls_then_expires_at_budget(tmp_path):
+    requests = []
+
+    def propose(req):
+        requests.append(req)
+        return teacher.parse_proposal(response(), req)
+
+    scheduler = guide(tmp_path, propose)
+    obs = observation()
+    original = copy.deepcopy(obs)
+    first, metadata = scheduler.prepare(obs, step=0, episode_id="case")
+    assert first["prompt"].startswith(original["prompt"])
+    assert metadata["assisted"]
+    for key in teacher.CAMERAS.values():
+        assert first[key] is obs[key]
+        np.testing.assert_array_equal(first[key], original[key])
+    for step in range(5, 50, 5):
+        assert (
+            scheduler.prepare(obs, step=step, episode_id="case")[0]["prompt"]
+            == first["prompt"]
+        )
+    assert len(requests) == 1
+    for step in range(50, 800, 50):
+        scheduler.prepare(obs, step=step, episode_id="case")
+    assert len(requests) == 16
+    assert requests[-1]["context"]["remaining_calls_including_this"] == 1
+    final, metadata = scheduler.prepare(obs, step=800, episode_id="case")
+    assert final["prompt"] == original["prompt"]
+    assert metadata["budget_exhausted"] and not metadata["assisted"]
+    assert obs["prompt"] == original["prompt"]
+
+
+def test_provider_outage_is_charged_and_propagates_before_policy_execution(tmp_path):
+    def unavailable(req):
+        raise ClientError("provider unavailable")
+
+    scheduler = guide(tmp_path, unavailable)
+    with pytest.raises(ClientError, match="provider unavailable"):
+        scheduler.prepare(observation(), step=0, episode_id="case")
+    assert scheduler.calls == 1
+    assert (tmp_path / "request_00.json").exists()
+    assert not (tmp_path / "proposal_00.json").exists()
+    assert scheduler.active is None
+
+
+def test_history_must_not_claim_unrecorded_proprioception():
+    obs = observation()
+    historic = {
+        "origin": "prior_native_failure",
+        "step": 1500,
+        "state": [0] * 16,
+        "images": {
+            "left_right_wrist_panorama": teacher.png_wire(obs["observation/image"])
+        },
+    }
+    with pytest.raises(ValueError, match="does not supply robot state"):
+        teacher.build_request(
+            episode_id="case",
+            request_index=0,
+            step=0,
+            snapshots=[historic, teacher.live_snapshot(obs, 0)],
+            context={
+                "original_instruction": obs["prompt"],
+                "remaining_calls_including_this": 16,
+            },
+        )
+
+
+def test_render_rounding_allowance_cannot_hide_state_or_meaningful_image_changes():
+    expected = observation()
+    for key in teacher.CAMERAS.values():
+        expected[key] = np.full((224, 224, 3), 100, np.uint8)
+    actual = copy.deepcopy(expected)
+    actual["observation/wrist_image"][0, 0, 0] += 1
+    reference = {
+        "observation_sha256": digest(expected),
+        "state_sha256": "same",
+        "model_sha256": "same",
+    }
+
+    def check():
+        reset = {**reference, "observation_sha256": digest(actual)}
+        return check_reset(reset, reference, actual, expected)
+
+    receipt = check()
+    assert receipt["observation_match"] == "bounded_uint8_render_rounding"
+    assert (
+        receipt["pixel_differences"]["observation/wrist_image"]["changed_color_values"]
+        == 1
+    )
+    actual["observation/wrist_image"][0, 0, 0] += 1
+    with pytest.raises(ValueError, match="render-rounding"):
+        check()
+    actual = copy.deepcopy(expected)
+    actual["observation/wrist_image"].reshape(-1)[:17] += 1
+    with pytest.raises(ValueError, match="render-rounding"):
+        check()
+    actual = copy.deepcopy(expected)
+    actual["observation/state"][0] = 0.001
+    with pytest.raises(ValueError, match="observation/state"):
+        check()
+
+
+def test_continuation_schedule_omits_completed_pair_and_rejects_duplicates(tmp_path):
+    tasks, seeds = ["LoadPreparedFood", "PackIdenticalLunches"], [0, 1, 2]
+    planned = episode_schedule(tasks, seeds)[1:]
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(planned))
+    assert episode_schedule(tasks, seeds, path) == planned
+    assert len(planned) == 5 and ["LoadPreparedFood", 0] not in planned
+    path.write_text(json.dumps(planned + planned[:1]))
+    with pytest.raises(ValueError, match="repeat reset"):
+        episode_schedule(tasks, seeds, path)
+
+
+def test_redundant_obj_format_can_match_without_ignoring_geometry():
+    reference_xml = b'<mujoco><asset><mesh name="fruit" content_type="model/obj" file="fruit.obj" scale="1 1 1"/></asset></mujoco>'
+    actual_xml = reference_xml.replace(b' content_type="model/obj"', b"")
+    reference = {
+        "model_sha256": hashlib.sha256(reference_xml).hexdigest(),
+        "observation_sha256": "same",
+    }
+
+    def compare(xml):
+        return check_reset(
+            {**reference, "model_sha256": hashlib.sha256(xml).hexdigest()},
+            reference,
+            actual_xml=xml,
+            expected_xml=reference_xml,
+        )
+
+    result = compare(actual_xml)
+    assert result["model_match"] == "equivalent_obj_content_type"
+    assert result["baseline_normalized_obj_meshes"] == ["fruit"]
+    assert result["actual_normalized_obj_meshes"] == []
+    for changed in (
+        actual_xml.replace(b"1 1 1", b"1 1 2"),
+        actual_xml.replace(b"fruit.obj", b"other.obj"),
+        reference_xml.replace(b"model/obj", b"model/stl"),
+    ):
+        with pytest.raises(ValueError, match="geometry or configuration"):
+            compare(changed)

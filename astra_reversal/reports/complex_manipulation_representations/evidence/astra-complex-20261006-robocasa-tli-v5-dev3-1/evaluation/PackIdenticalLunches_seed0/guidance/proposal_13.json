@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The gripper fingers are visibly open beside the refrigerator drawer.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Stronger withdrawal guidance has not produced visible clearance. Side views remain nearly unchanged, the wrist camera remains obstructed by the arm, and the end-effector position's third component decreased from 0.176 to 0.148. Gripper positions remain near zero; no food grasp is visible.",
+  "subgoal": "Open the gripper beside the refrigerator drawer.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0:1300:guide:13",
+  "request_fingerprint": "2dda222a5dc36947eb74a02f896018e1ebd51b7dd93beae54e024d89891ab33b",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tli:attempt0",
+  "request_index": 13,
+  "observation_step": 1300
+}

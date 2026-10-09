@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The tupperware is visibly lifted off the counter and travels with the gripper toward the fridge.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The current and previous views show little progress: the tupperware remains near the counter, with no confirmed lift. Repeated grasp corrections have not visibly helped; the failed rollout also spent too long here.",
+  "subgoal": "Pick up the tupperware containing the fish and lime, then carry it level to the fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:450:guide:3",
+  "request_fingerprint": "3219e5eedb1191311603b771b410d711c515a9140e68bce72218d02522d60db6",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 3,
+  "observation_step": 450
+}

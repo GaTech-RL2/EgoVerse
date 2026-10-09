@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "One steak rests beside the broccoli in the nearer tupperware after the gripper withdraws; the broccoli remains inside.",
+  "method": "tei",
+  "next_review_controls": 500,
+  "observed_evidence": "Since step 1700, the gripper has opened and withdrawn, leaving the broccoli visibly resting inside the nearer tupperware. The farther tupperware appears empty. No steak is visible in the current cameras; historical steak locations do not establish its current location.",
+  "subgoal": "Place one steak beside the broccoli in the nearer tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0:1800:guide:15",
+  "request_fingerprint": "858382c04bb3a86816a22b26bfafb9e4e9ffeaf41951af3122b3a3c1473e2805",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "request_index": 15,
+  "observation_step": 1800
+}

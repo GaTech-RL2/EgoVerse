@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Tupperware is visibly lifted clear of the counter and held level.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The food-filled tupperware rests on the counter; no grasp is established. The prior failed rollout spent many controls near this counter before reaching the fridge.",
+  "subgoal": "Grasp the rim of the food-filled tupperware and lift it clear of the counter, keeping it level.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "554ddd480caf05aa5c99f21c3a143586ee5acb212d8ff004a5c13c39614c9e9f",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains one corn and one chicken drumstick, with all ingredients released.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has returned to the open refrigerator and is approaching the remaining drumstick, visible resting on the shelf in the wrist view. No grasp is confirmed yet. Previous live views confirmed green corn beside chicken in one tupperware and yellow corn alone in the other. Fetching the remaining chicken is useful progress; no visible failure warrants intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra2:1792:guide:12",
+  "request_fingerprint": "7fd571dad7243bb1c8f8059847f7b060ed1c001235b9f7b08a35a3157c74bb52",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra2",
+  "attempt_id": "PackIdenticalLunches_seed2-astra2",
+  "request_index": 12,
+  "observation_step": 1792
+}

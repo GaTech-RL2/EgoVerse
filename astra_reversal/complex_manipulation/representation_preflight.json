@@ -1,0 +1,40 @@
+{
+  "status": "accepted",
+  "availability_reason": null,
+  "configured_model": "gpt-6-astra",
+  "reasoning_effort": "medium",
+  "provider_call": true,
+  "token_usage": {
+    "input_tokens": 17868,
+    "output_tokens": 118,
+    "reasoning_tokens": 0,
+    "total_tokens": 17986
+  },
+  "latency_seconds": 17.47326212504413,
+  "proposal": {
+    "alpha": 0.5,
+    "completion_signal": "The tupperware visibly lifts clear of the countertop and stays held by the gripper.",
+    "method": "tei",
+    "next_review_controls": 100,
+    "observed_evidence": "Current cameras show the food-filled tupperware on the countertop beside the microwave, below the gripper; no grasp is established. Historical failed-rollout images show it remaining on the counter. No previous live observation is available.",
+    "subgoal": "Grasp the tupperware beside the microwave and lift it off the countertop.",
+    "decision_id": "complex-representation-cpu-contract-probe-1:0:guide:0",
+    "request_fingerprint": "b7728d77d1d112c647f47b327b486304eaad4902d4c4e1ecf4a3991f7a0d86bd",
+    "schema_version": "complex-representation-teacher-1",
+    "role": "guide",
+    "episode_id": "complex-representation-cpu-contract-probe-1",
+    "attempt_id": "complex-representation-cpu-contract-probe-1",
+    "request_index": 0,
+    "observation_step": 0
+  },
+  "environment_resets": 0,
+  "environment_actions": 0,
+  "transformer_cpu_checks": {
+    "source_revision": "5a6beda9ff99da30b4e1b59320f6a32971d7c397",
+    "jax": "0.5.3",
+    "flax": "0.10.2",
+    "test_file": "tests/integration/astra/test_complex_jax_interpolation.py",
+    "passed": 2,
+    "scope": "Small upstream Gemma module and exact released tokenizer. Full checkpoint GPU preflight still required."
+  }
+}

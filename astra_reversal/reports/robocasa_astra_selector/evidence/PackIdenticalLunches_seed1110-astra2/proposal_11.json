@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The drumstick remains with the gripper during transport and is released into the tupperware missing chicken; ultimately each container holds one tomato and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The drumstick has moved from the shelf to the gripper as the robot withdraws from the refrigerator, supporting pickup and transition to transport. Current motion shows progress rather than the prior attempt's stall. The previously reported tomato imbalance remains unresolved.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:1792:guide:11",
+  "request_fingerprint": "885c4cef0da539254eeed3a2614f3fe1c895b5e0bb57db4603645c14ef9532b3",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 11,
+  "observation_step": 1792
+}

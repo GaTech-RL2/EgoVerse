@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The carrot between the two fish visibly lifts clear of the refrigerator shelf in the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Native controls from step 400 to 500 produced little visible change. End-effector height relative to base changed from 0.407 to 0.409; the wrist view remains below the shelf. Both carrots and both fish remain visible in the refrigerator, with no confirmed grasp.",
+  "subgoal": "Pick up the carrot between the two fish on the lower refrigerator shelf.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0:500:guide:5",
+  "request_fingerprint": "13c4f6c9afd2c18675b436908c4800c6822bb8fc06b5a352e3d09648749e8a90",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tli:attempt0",
+  "request_index": 5,
+  "observation_step": 500
+}

@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The open refrigerator and its lower-shelf chicken drumstick are visible within reach of the gripper.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1300, the robot moved away from the open refrigerator to face the stove and coffee maker. The wrist view shows the oven, and no held food is visible. Base position changed from [1.564,-2.211,0.701] to [2.076,-1.240,0.701]. The lower-shelf drumstick was visible in the previous live observation; the tupperwares are currently out of view.",
+  "subgoal": "Return to the open refrigerator and approach the chicken drumstick on its lower shelf, preserving the corn already placed in the tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:1400:guide:8",
+  "request_fingerprint": "955e017f38326b1af0f3c9f6fabdfec13ad5abda47ecedba671e0ca1a1484da5",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 8,
+  "observation_step": 1400
+}

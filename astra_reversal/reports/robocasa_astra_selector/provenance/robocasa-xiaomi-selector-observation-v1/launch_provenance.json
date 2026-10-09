@@ -1,0 +1,95 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-observation-v1-1",
+  "source_revision": "9ab4c96b695e65a955e52144c94b68c48530876e",
+  "scope": "Zero-action native-EGL observation reset audit. Restore the exact PackIdenticalLunches seed1108 anchor from the closed v4 archive; compare nine measured restores across three fresh constructors, after two warmups each. Three constructor resets, three seeded setup resets and15 explicit diagnostic restores; zero policy inference, controls, teacher jobs and SR trials. Save all actual observations and per-key pixel/state differences. No fingerprint relaxation; skip restoring policy weights. LOW-priority borrowing with no automatic reschedule.",
+  "files": [
+    {
+      "file": "astra_reversal/__init__.py",
+      "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+    },
+    {
+      "file": "astra_reversal/records.py",
+      "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+    },
+    {
+      "file": "astra_reversal/agent.py",
+      "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+    },
+    {
+      "file": "astra_reversal/astra_client.py",
+      "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+    },
+    {
+      "file": "astra_reversal/intervention_agent.py",
+      "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+    },
+    {
+      "file": "astra_reversal/codex_relay.py",
+      "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+    },
+    {
+      "file": "astra_reversal/codex_accounting.py",
+      "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/__init__.py",
+      "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/worker.py",
+      "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_worker.py",
+      "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_eval.py",
+      "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/language_teacher.py",
+      "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_teacher.py",
+      "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_observation_audit.py",
+      "sha256": "0665469134069e30e92e00dae05367df658c3e3e175d1e54798f3c9257b0673e"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_resume.py",
+      "sha256": "e0e079eecdf9daad3c32fb11b270a4f774198faf1079aa7601dd5b754843eb18"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_interventions.py",
+      "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_worker.py",
+      "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_selector_eval.py",
+      "sha256": "561b04a47717a81f97c712da9f9944169ed4086d7e2b092db11e0d1572d4dd09"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_observation_bootstrap.sh",
+      "sha256": "a42c1a37569f66997ae98ac33783c591c406cb23bd8ae7d79f0b9155f381169e"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_manifest.json",
+      "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_observation_protocol.json",
+      "sha256": "3bdb59787265f68bf944f778b66af96f7a0ca4726bf513ae459b167db4a25ede"
+    },
+    {
+      "file": "controller/submit_xiaomi_selector_low_guarded.py",
+      "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+    }
+  ]
+}

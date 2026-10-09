@@ -1,0 +1,15 @@
+{
+  "complete": true,
+  "counts": {
+    "constructor_setup_resets": 3,
+    "anchor_selection_resets": 3,
+    "diagnostic_restore_resets": 15,
+    "controls": 0,
+    "policy_queries": 0,
+    "teacher_jobs": 0,
+    "policy_success_trial_denominator_contribution": 0
+  },
+  "comparisons": 9,
+  "exact_fingerprint_matches": 8,
+  "exact_policy_state_matches": 9
+}

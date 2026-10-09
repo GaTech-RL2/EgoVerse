@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The lower-shelf corn is visibly released inside a counter tupperware.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Current wrist view shows corn beside a drumstick on the refrigerator's lower shelf, with no established grasp. Historical failure shows corn and chicken placed in separate containers instead of paired lunches; no previous live observation is available.",
+  "subgoal": "Place the corn from the refrigerator's lower shelf into one tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:0:guide:0",
+  "request_fingerprint": "9b6462a1953b89082d479a2cbd6eeafdbc428dba6dd641714cebb01beb83ac2d",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

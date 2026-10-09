@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The lower-shelf carrot is visibly lifted and then released inside a tupperware.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The gripper has reached farther into the refrigerator since the previous review. The lower carrot is clearly visible beneath the open gripper but remains on the shelf; the upper carrot also remains. The failed rollout likewise left carrots behind.",
+  "subgoal": "Grasp the lower-shelf carrot beneath the open gripper, lift it clear, and place it in one tupperware on the counter. Preserve the fish.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:3350:guide:14",
+  "request_fingerprint": "eb7d60cce003f7a55fece94934f3150f99ae0c3b0dd64fb9ccde2621711ddf81",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 14,
+  "observation_step": 3350
+}

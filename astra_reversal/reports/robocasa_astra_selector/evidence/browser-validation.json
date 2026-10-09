@@ -1,0 +1,218 @@
+{
+  "videos": [
+    {
+      "src": "media/PackIdenticalLunches_seed2-native1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed2-astra1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed2-native2.mp4",
+      "duration": 114.7,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed2-astra2.mp4",
+      "duration": 107.3,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1107-native1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1107-astra1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1107-native2.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1107-astra2.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1108-native1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1108-astra1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1108-native2.mp4",
+      "duration": 139.3,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1108-astra2.mp4",
+      "duration": 167.4,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1110-native1.mp4",
+      "duration": 104.7,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1110-astra1.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1110-astra2.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1111-native1.mp4",
+      "duration": 128.7,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/PackIdenticalLunches_seed1111-astra1.mp4",
+      "duration": 145.7,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/ArrangeBreadBasket_seed1711-native1.mp4",
+      "duration": 217.6,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/ArrangeBreadBasket_seed1711-astra1.mp4",
+      "duration": 217.6,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/ArrangeBreadBasket_seed1711-native2.mp4",
+      "duration": 217.6,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/ArrangeBreadBasket_seed1711-astra2.mp4",
+      "duration": 217.6,
+      "width": 768,
+      "height": 256
+    }
+  ],
+  "views": [
+    {
+      "width": 1440,
+      "body": 1440,
+      "rows": 6,
+      "completed": "21",
+      "images": [
+        {
+          "complete": true,
+          "width": 768
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "body": 390,
+      "rows": 6,
+      "completed": "21",
+      "images": [
+        {
+          "complete": true,
+          "width": 768
+        }
+      ]
+    }
+  ],
+  "methodChecks": [
+    {
+      "method": "native",
+      "selected": "true",
+      "title": "Keep the original policy",
+      "nodes": 5
+    },
+    {
+      "method": "phase_prompt",
+      "selected": "true",
+      "title": "Append the current phase",
+      "nodes": 5
+    },
+    {
+      "method": "tei",
+      "selected": "true",
+      "title": "Text embedding interpolation",
+      "nodes": 5
+    },
+    {
+      "method": "tli",
+      "selected": "true",
+      "title": "Text latent interpolation",
+      "nodes": 5
+    },
+    {
+      "method": "image",
+      "selected": "true",
+      "title": "Perturb the actual camera input",
+      "nodes": 5
+    },
+    {
+      "method": "vei",
+      "selected": "true",
+      "title": "Vision embedding interpolation",
+      "nodes": 5
+    },
+    {
+      "method": "vli",
+      "selected": "true",
+      "title": "Vision latent interpolation",
+      "nodes": 5
+    },
+    {
+      "method": "frs",
+      "selected": "true",
+      "title": "Full learned-field flow reversal",
+      "nodes": 5
+    }
+  ],
+  "visionChecks": [
+    {
+      "id": "visionObserved",
+      "width": 768
+    },
+    {
+      "id": "visionSource",
+      "width": 768
+    }
+  ],
+  "localLinksVerified": true,
+  "endFramesDecoded": true
+}

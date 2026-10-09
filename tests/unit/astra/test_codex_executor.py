@@ -54,6 +54,8 @@ def mock_cli(
     invalid=False,
     incomplete=False,
     timeout=False,
+    notice=None,
+    notice_after_start=False,
 ):
     calls = []
 
@@ -73,6 +75,14 @@ def mock_cli(
         final = Path(args[args.index("--output-last-message") + 1])
         final.write_text("broken" if malformed else json.dumps(output))
         events = [{"type": "thread.started", "thread_id": "synthetic"}]
+        if notice_after_start:
+            events.append({"type": "turn.started"})
+        if notice:
+            events.append(
+                {"type": "item.completed", "item": {"type": "error", "message": notice}}
+            )
+        if not notice_after_start:
+            events.append({"type": "turn.started"})
         if tool:
             events.append(
                 {
@@ -123,6 +133,26 @@ def test_success_usage_and_recovery(tmp_path, monkeypatch):
     assert len(receipt["image_hashes"]) == 1
     assert executor.execute_request(req, tmp_path / "job") == result
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "late,unknown,accepted",
+    [(False, False, True), (True, False, False), (False, True, False)],
+)
+def test_only_known_preturn_compatibility_notice_is_nonfatal(
+    tmp_path, monkeypatch, late, unknown, accepted
+):
+    req = request()
+    notice = (
+        "Unrecognized execution failure"
+        if unknown
+        else "Ignoring unknown `features` requirement `ultrafast_mode` from requirements layers: synthetic"
+    )
+    mock_cli(monkeypatch, req, notice=notice, notice_after_start=late)
+    result = executor.execute_request(req, tmp_path / "job")
+    assert result["receipt"]["accepted"] == accepted
+    assert len(result["receipt"]["startup_notices"]) == int(accepted)
+    assert notice not in json.dumps(result)
 
 
 @pytest.mark.parametrize(

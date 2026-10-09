@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Dark fish rests inside the previously empty tupperware after the gripper releases and withdraws.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The arm has withdrawn since step 1350; the dark fish remains close in the wrist view while the carrot stays on the shelf, suggesting a fish grasp. The red fish remains in the other tupperware.",
+  "subgoal": "Carry the dark fish out of the refrigerator to the empty tupperware on the counter, lower it inside, and release. Preserve the packed red fish.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:1600:guide:7",
+  "request_fingerprint": "72a97776ba31701ee6c4431088c66f5b0df0e7a77edb4f1f19954fabacd33e74",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 7,
+  "observation_step": 1600
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both tupperwares contain one sweet potato and one steak, released and resting inside after the gripper withdraws.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 64,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has withdrawn from the counter with an open, empty gripper. Food remains in both tupperwares; the previous close wrist view established the pair in the gray container, and the white container still shows two pieces. This is consistent with completed placement and withdrawal, with no visible failure requiring intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1111-astra1:2496:guide:12",
+  "request_fingerprint": "7e9d40fbd48e4c6640c6b9137674ea9d5b17c64a6dad8fc76c84078ad8100f9d",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1111-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1111-astra1",
+  "request_index": 12,
+  "observation_step": 2496
+}

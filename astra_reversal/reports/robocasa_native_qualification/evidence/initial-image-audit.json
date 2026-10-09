@@ -1,0 +1,44 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "pixel_identical": true,
+    "mean_absolute_difference": 0.0,
+    "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc"
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "pixel_identical": false,
+    "mean_absolute_difference": 2.3735894097222223e-05,
+    "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "pixel_identical": true,
+    "mean_absolute_difference": 0.0,
+    "sha256": "fd9e23131d95779f99d6bb6c58696934b62c6f84bc6f946f8c45a6662af31495"
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "pixel_identical": true,
+    "mean_absolute_difference": 0.0,
+    "sha256": "566a8a2e443626aeac427b79fe2bab4d0e888a483caad12abb258c396f2e3cff"
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "pixel_identical": true,
+    "mean_absolute_difference": 0.0,
+    "sha256": "712c68395702a1445856dd4b85f9211ff2a379f43d853ecbfd3567441a5d0723"
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "pixel_identical": true,
+    "mean_absolute_difference": 0.0,
+    "sha256": "140c781286cab5b17e9c494e365dcea6ceb8fe31cbd8777c8097f15c12b456cb"
+  }
+]

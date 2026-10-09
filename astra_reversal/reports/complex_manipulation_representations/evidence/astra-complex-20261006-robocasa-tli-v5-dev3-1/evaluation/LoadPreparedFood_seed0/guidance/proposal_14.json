@@ -1,0 +1,16 @@
+{
+  "alpha": 0,
+  "completion_signal": "The gripper reaches the tupperware rim and the container visibly lifts clear of the countertop.",
+  "method": "native",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1200, native control raised the arm toward the countertop; the end-effector position's third component increased from 0.0364 to 0.2060. The tupperware remains beside the microwave, the gripper remains open, and the wrist view is obstructed. Continue native following this visible recovery.",
+  "subgoal": "",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:1300:guide:14",
+  "request_fingerprint": "c26ff1ce5f4c4268e0a7e4285c7e7715bc305997120e4d8a760d2263b044a37e",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 14,
+  "observation_step": 1300
+}

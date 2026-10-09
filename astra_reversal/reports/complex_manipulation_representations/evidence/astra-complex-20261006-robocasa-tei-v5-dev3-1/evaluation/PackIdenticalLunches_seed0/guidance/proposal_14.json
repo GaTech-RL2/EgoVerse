@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The broccoli remains inside the nearer tupperware after the gripper opens and withdraws.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 1450, the robot has reached the sink counter and lowered the broccoli over the nearer tupperware. The wrist view shows broccoli within its rim, but release and independent support are not yet established; gripper positions remain nearly unchanged.",
+  "subgoal": "Release the broccoli into the nearer tupperware and withdraw the gripper.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0:1700:guide:14",
+  "request_fingerprint": "8b8f0c412fd1834dcbce39da667ffb5dc1b2d644e8a82f9c4cce3584200bcbf7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed0:tei:attempt0",
+  "request_index": 14,
+  "observation_step": 1700
+}

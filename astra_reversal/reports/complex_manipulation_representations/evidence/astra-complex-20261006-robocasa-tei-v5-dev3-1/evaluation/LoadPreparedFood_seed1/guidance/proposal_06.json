@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The tupperware visibly clears the counter and moves with the gripper, retaining the fish and lime.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 500, end-effector position changed from [0.280, -0.123, 0.348] to [0.223, -0.117, 0.383], with the base nearly unchanged. Fish and lime remain similarly positioned in the wrist view, but the side views still do not clearly establish container clearance from the counter.",
+  "subgoal": "Lift the tupperware containing fish and lime clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0:600:guide:6",
+  "request_fingerprint": "2bddfaac242687edd5c0a24c81de40766eb074e7559649744cec01149108da56",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "request_index": 6,
+  "observation_step": 600
+}

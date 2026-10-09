@@ -1,0 +1,88 @@
+{
+  "dashboard": "/Users/rpunamiya/Downloads/robocasa-native-baseline-20261009/index.html",
+  "zip": "/Users/rpunamiya/Downloads/robocasa-native-baseline-20261009.zip",
+  "zip_bytes": 111868287,
+  "zip_sha256": "31c3573b980891f6cada999d0b44f90ccdbfa3197a86eae17d844c3db709f4c5",
+  "manifest_files_verified": 104,
+  "zip_crc_checked": true,
+  "csv_rows": 21,
+  "rollout_videos": 21,
+  "video_end_frames_decoded": true,
+  "browser_viewports": [
+    1440,
+    390
+  ],
+  "branch": "astra/complex-manipulation-20261006",
+  "pr": 706,
+  "experiment_source_revision": "da5ee5617497cd3db1d9e24680c51cb7a0e3b258",
+  "qualification_gpu_hours": 1.0934833872222223,
+  "reset_diagnostic_gpu_hours": 0.13968073027777778,
+  "campaign_gpu_hours_as_of_delivery": 28.395290448333334,
+  "authorized_gpu_hours": 48,
+  "remaining_authorized_gpu_hours": 19.604709551666666,
+  "unit_tests": {
+    "passed": 1831,
+    "skipped": 6,
+    "seconds": 164.56,
+    "log": "xiaomi-final-unit-v2.log"
+  },
+  "results": [
+    {
+      "cohort": "reference_first5",
+      "task": "CloseFridge",
+      "successes": 5,
+      "episodes": 5,
+      "minutes": 1.2403569999927033,
+      "controls": 1150,
+      "queries": 73,
+      "query_seconds": 19.966876287944615,
+      "paired_resets": 0
+    },
+    {
+      "cohort": "previous_pi05_seeds",
+      "task": "LoadPreparedFood",
+      "successes": 3,
+      "episodes": 3,
+      "minutes": 3.490296090883203,
+      "controls": 2267,
+      "queries": 143,
+      "query_seconds": 45.342965953052044,
+      "paired_resets": 0
+    },
+    {
+      "cohort": "previous_pi05_seeds",
+      "task": "PackIdenticalLunches",
+      "successes": 2,
+      "episodes": 3,
+      "minutes": 10.471632900795278,
+      "controls": 8104,
+      "queries": 508,
+      "query_seconds": 167.78806154895574,
+      "paired_resets": 0
+    },
+    {
+      "cohort": "reference_first5",
+      "task": "PackIdenticalLunches",
+      "successes": 1,
+      "episodes": 5,
+      "minutes": 24.293282050352232,
+      "controls": 19448,
+      "queries": 1217,
+      "query_seconds": 402.89285725168884,
+      "paired_resets": 0
+    },
+    {
+      "cohort": "reference_first5",
+      "task": "ArrangeBreadBasket",
+      "successes": 4,
+      "episodes": 5,
+      "minutes": 14.271295778251563,
+      "controls": 10674,
+      "queries": 670,
+      "query_seconds": 218.37984899617732,
+      "paired_resets": 0
+    }
+  ],
+  "strict_cross_policy_pairing_verified": false,
+  "repo_media_delivery": "Video and image binaries are supplied in the ZIP; repository copy contains HTML, tables, provenance and evidence."
+}

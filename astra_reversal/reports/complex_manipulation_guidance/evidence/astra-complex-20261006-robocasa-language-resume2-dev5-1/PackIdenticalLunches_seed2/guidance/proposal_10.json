@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Drumstick visibly lifts clear of the right tupperware between the fingers.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "Corn remains in the left tupperware and the drumstick still appears in the right, as previously. The gripper has shifted toward the rim; no lifted grasp is visible. The failed rollout also left foods separated.",
+  "subgoal": "Open the gripper, center the fingers around the drumstick inside the right tupperware, grasp it, and lift it clear of the rim.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:2150:guide:10",
+  "request_fingerprint": "02171c44fb009b9bbcdf603e4bed2fb792dac2d708e53b0264685deba5f47392",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 10,
+  "observation_step": 2150
+}

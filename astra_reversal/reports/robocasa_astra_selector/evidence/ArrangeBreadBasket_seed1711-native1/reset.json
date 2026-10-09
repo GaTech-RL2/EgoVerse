@@ -1,0 +1,12 @@
+{
+  "task": "ArrangeBreadBasket",
+  "seed": 1711,
+  "instruction": "Open the cabinet, pick up the bread from the cabinet and place it in the basket. Then move the basket to the dining counter.",
+  "raw_observation_sha256": "092198337c4fcfd0387ba6b15dcbad84a2e291b4078d92563635f925d3b754a5",
+  "state_sha256": "92cb16d97e3897cc3614dcf9879795580f9ad38145f82fd514b2aceaf447fba8",
+  "model_sha256": "0eb513ded51177a6c7aeccb7ecbb7c770417f030625158ea5400edd14d7b3779",
+  "initial_success": false,
+  "horizon": 4350,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

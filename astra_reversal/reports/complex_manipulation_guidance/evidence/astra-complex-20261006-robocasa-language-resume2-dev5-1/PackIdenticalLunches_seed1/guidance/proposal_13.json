@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The lower-shelf carrot is visibly held clear of the shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The refrigerator is now more directly ahead and its lower carrot is visible in the wrist camera. Both carrots remain on the shelves; no grasp is visible. The failed rollout also left carrots behind.",
+  "subgoal": "Reach into the open refrigerator, grasp the carrot on the lower shelf, and lift it clear. Leave the fish in their containers.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:3100:guide:13",
+  "request_fingerprint": "6a0d927fd51482486e1c1b17cc1bf1068175f4972b8f30abdb61dfdc3c401a98",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 13,
+  "observation_step": 3100
+}

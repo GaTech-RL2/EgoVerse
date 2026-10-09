@@ -1,0 +1,50 @@
+{
+  "verified": true,
+  "model_sha256": "89175591c55ff9deb1b82e474c5895067c3556ff45956da021939af4f4e82393",
+  "state_sha256": "5bd71aaa23f3f9b2985027dc17aa54c425891c649b50d8849bd6d6cfa4912ebe",
+  "integration_state_sha256": "f66077036b13007b89135071fbb7ac7b68311be040d12bb8a6fdb44a4360a2b5",
+  "environment_rng_sha256": "44715842691da62b10b166fc5358666affd74f532c83832ea9bf4dd6e6bb2297",
+  "observation_sha256": "2d40564cbda0c5a19c6b6cdbc701645dcf2d692d85557a8f12b0ff1185dddc64",
+  "instruction": "Place one tomato and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",
+  "reference_fingerprint": {
+    "model_sha256": "89175591c55ff9deb1b82e474c5895067c3556ff45956da021939af4f4e82393",
+    "state_sha256": "5bd71aaa23f3f9b2985027dc17aa54c425891c649b50d8849bd6d6cfa4912ebe",
+    "integration_state_sha256": "f66077036b13007b89135071fbb7ac7b68311be040d12bb8a6fdb44a4360a2b5",
+    "environment_rng_sha256": "44715842691da62b10b166fc5358666affd74f532c83832ea9bf4dd6e6bb2297",
+    "observation_sha256": "e68b43b75080b86fe2aa1863c80f67b76cfbb14ff1cf292fee2a1ff7c973bae0",
+    "instruction": "Place one tomato and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+  },
+  "comparison": {
+    "exact": false,
+    "physical_fingerprints_exact": true,
+    "noncamera_observations_exact": true,
+    "cameras": {
+      "video.robot0_agentview_left": {
+        "exact": true,
+        "maximum_channel_difference": 0,
+        "changed_pixels": 0,
+        "pixels": 65536,
+        "accepted": true
+      },
+      "video.robot0_agentview_right": {
+        "exact": false,
+        "maximum_channel_difference": 1,
+        "changed_pixels": 12,
+        "pixels": 65536,
+        "accepted": true
+      },
+      "video.robot0_eye_in_hand": {
+        "exact": true,
+        "maximum_channel_difference": 0,
+        "changed_pixels": 0,
+        "pixels": 65536,
+        "accepted": true
+      }
+    },
+    "allowance": {
+      "maximum_channel_difference": 1,
+      "maximum_changed_pixels_per_camera": 64
+    },
+    "accepted": true
+  }
+}

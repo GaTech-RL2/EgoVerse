@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "A drumstick remains visibly held during transport and is released inside a tupperware. Final verification shows one garlic and one drumstick in each container.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has withdrawn from the counter toward the refrigerator with an open, apparently empty gripper. The gray container remains partly visible without a clearly visible garlic; the blue container is out of view, so correct garlic placement is unconfirmed. There is no visible motion stall. Restore the original instruction as the robot transitions away from placement.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:1536:guide:7",
+  "request_fingerprint": "6d743482ba26897e66005aca9287070688cb74388a6d2426978d174525d0879a",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 7,
+  "observation_step": 1536
+}

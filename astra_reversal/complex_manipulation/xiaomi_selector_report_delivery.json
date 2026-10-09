@@ -1,0 +1,78 @@
+{
+  "dashboard": "/Users/rpunamiya/Downloads/robocasa-astra-selector-20261009/index.html",
+  "zip": "/Users/rpunamiya/Downloads/robocasa-astra-selector-20261009.zip",
+  "zip_bytes": 392299540,
+  "zip_sha256": "8b520838fcbd5d35684376ea9b790a70757415b24faa6bc867a626fe2014dc50",
+  "manifest_files_verified": 944,
+  "zip_crc_checked": true,
+  "csv_rows": 21,
+  "rollout_videos": 21,
+  "video_end_frames_decoded": true,
+  "browser_viewports": [
+    1440,
+    390
+  ],
+  "method_diagrams_checked": 8,
+  "branch": "astra/complex-manipulation-20261006",
+  "pr": 706,
+  "experiment_source_revision": "e398bd57ec7ef9ac192b77363d151faa197cf6e9",
+  "campaign_gpu_hours_as_of_delivery": 32.36157145083334,
+  "authorized_gpu_hours": 48,
+  "remaining_authorized_gpu_hours": 15.638428549166662,
+  "results": [
+    {
+      "arm": "native",
+      "cases": 6,
+      "first_successes": 2,
+      "within_two_successes": 4,
+      "successes": 4,
+      "episodes": 10,
+      "controls": 34037,
+      "chunks": 2130,
+      "wall_seconds": 2526.963915962726,
+      "policy_seconds": 414.4138841587119,
+      "teacher_seconds": 0,
+      "calls": 0,
+      "tokens": 0
+    },
+    {
+      "arm": "astra",
+      "cases": 6,
+      "first_successes": 1,
+      "within_two_successes": 3,
+      "successes": 3,
+      "episodes": 11,
+      "controls": 40500,
+      "chunks": 2534,
+      "wall_seconds": 6245.016867212951,
+      "policy_seconds": 564.9391508926637,
+      "teacher_seconds": 3121.74566079583,
+      "calls": 174,
+      "tokens": 3747692
+    }
+  ],
+  "initial_reset_pairing_verified": true,
+  "initial_reset_physics_exact": true,
+  "initial_reset_images_all_exact": false,
+  "initial_camera_rounding_allowance": {
+    "maximum_channel_difference": 1,
+    "maximum_changed_pixels_per_camera": 64
+  },
+  "bitwise_trajectory_replay_verified": false,
+  "teacher_tokens_completed_episodes": 3747692,
+  "teacher_tokens_including_interruption": 3931300,
+  "teacher_tokens_including_interruption_and_calibration": 3949930,
+  "physical_accounting": {
+    "completed_policy_episodes": 21,
+    "incomplete_policy_episodes": 1,
+    "zero_action_incomplete_starts": 2,
+    "rejected_reset_starts": 2,
+    "total_policy_controls": 75689,
+    "total_policy_chunks": 4736,
+    "policy_restore_resets": 24,
+    "additional_verification_restore_resets": 3,
+    "total_restores_for_policy_starts": 27
+  },
+  "provider_calibration_tokens": 18630,
+  "repo_media_delivery": "The portable ZIP includes video and image binaries. The repository copy contains the HTML, tables, provenance and lightweight evidence. Videos, images and compressed per-review image payloads are in the portable ZIP."
+}

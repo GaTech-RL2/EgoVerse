@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The lower-shelf corn is visibly released inside one counter tupperware.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with the previous live view, the lower-shelf corn now fills the wrist foreground near the gripper; the drumstick remains on the shelf. This suggests manipulation progress but does not establish a secure grasp or completed transfer. No corn placement in a tupperware is visible.",
+  "subgoal": "Place the corn from the refrigerator's lower shelf into one tupperware on the nearby counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0:250:guide:1",
+  "request_fingerprint": "41c4b7c579cda7344f7ef0115a8bc6a543a4b49627577d4303cbb783f5bab1ef",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed2:tei:attempt0",
+  "request_index": 1,
+  "observation_step": 250
+}

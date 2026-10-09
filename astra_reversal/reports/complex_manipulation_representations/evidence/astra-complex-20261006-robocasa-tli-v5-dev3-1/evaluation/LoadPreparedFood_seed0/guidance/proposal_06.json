@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The open gripper visibly straddles the tupperware rim while the container remains on the counter.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 450, the end-effector height component decreased from 0.3378 to 0.2949 despite stronger raising guidance. The wrist still faces the robot and cabinets. The tupperware remains visible beside the microwave, with no confirmed grasp or lift.",
+  "subgoal": "Open the gripper and position it around the rim of the food-filled tupperware beside the microwave.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0:550:guide:6",
+  "request_fingerprint": "81c99a1d7f10e96bceaa6981f89ef9c780502666b9a44b3868ffa6047bcfd018",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tli:attempt0",
+  "request_index": 6,
+  "observation_step": 550
+}

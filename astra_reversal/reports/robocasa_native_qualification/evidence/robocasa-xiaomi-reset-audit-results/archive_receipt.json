@@ -1,0 +1,23 @@
+{
+  "files": {
+    "inspection.log": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-reset-audit-1/results/inspection.log",
+      "bytes": 1610,
+      "sha256": "9152c8c05ee5543f22f53482fd2ca393de968ddba2ba78a99a0cb8d6c2dc2576",
+      "stamp": [
+        1610,
+        1791506230058794412
+      ]
+    },
+    "scope.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-reset-audit-1/results/scope.json",
+      "bytes": 211,
+      "sha256": "b74f9dbca1eb6b0359daae20874acaf20df66ff7cb8655eee20d0fefe737c423",
+      "stamp": [
+        211,
+        1791505961812838196
+      ]
+    }
+  },
+  "updated_unix": 1791506235.6133072
+}

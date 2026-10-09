@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Tupperware bottom clears the top shelf's front edge, aligned with space beside the jar.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The tupperware has risen since step 950 and remains visible at the wrist, but its bottom has not visibly cleared the top shelf. Support is unconfirmed; the failed rollout lost sight of it before verified placement.",
+  "subgoal": "Raise the tupperware until its bottom clears the top shelf edge, then move it into the space beside the jar, opening upward. Keep holding it.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:1050:guide:6",
+  "request_fingerprint": "de943e3de712c63d1edad67cd32686f1aedeed94312bab41b9db9f929c4b893a",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 6,
+  "observation_step": 1050
+}

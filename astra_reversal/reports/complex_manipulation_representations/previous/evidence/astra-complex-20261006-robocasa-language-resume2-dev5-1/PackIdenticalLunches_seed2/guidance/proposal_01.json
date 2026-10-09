@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Green corn rests inside a counter tupperware after release.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Green corn has moved from the lower shelf into the wrist foreground, consistent with a grasp, but secure retention is unclear. Prior failure separated corn and chicken.",
+  "subgoal": "Carry the green corn clear of the open fridge door and release it inside one counter tupperware; use that same container for the next drumstick.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:250:guide:1",
+  "request_fingerprint": "2b84a90840e58021e2e3dbc67ebb0d693c64e6e80bbf380debfa1e727d9d83dc",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 1,
+  "observation_step": 250
+}

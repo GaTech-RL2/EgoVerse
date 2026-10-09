@@ -1,0 +1,7 @@
+{
+  "queries": 72,
+  "control_steps": 1136,
+  "teacher_calls": 8,
+  "method": "native",
+  "elapsed_seconds": 184.71559258876368
+}

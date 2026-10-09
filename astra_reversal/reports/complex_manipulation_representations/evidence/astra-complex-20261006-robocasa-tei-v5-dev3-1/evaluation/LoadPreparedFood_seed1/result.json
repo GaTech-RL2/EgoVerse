@@ -1,0 +1,86 @@
+{
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "action_limit": 1500,
+  "execution_prefix": 5,
+  "reset_episodes_started": 1,
+  "executed_actions": 1500,
+  "reset_free_segments": 300,
+  "assisted_segments": 300,
+  "generated_chunks": 300,
+  "generated_candidates": 0,
+  "success": false,
+  "stop_reason": "horizon",
+  "episode_complete": true,
+  "eligible_for_completed_episode_sr": true,
+  "physical_candidate_retries": 0,
+  "task": "LoadPreparedFood",
+  "split": "pretrain",
+  "seed": 1,
+  "method": "astra_tei_pi05",
+  "wall_seconds": 355.9521017059742,
+  "policy_seconds": 39.981900890823454,
+  "teacher_calls": 16,
+  "teacher_tokens": 313123,
+  "teacher_usage": {
+    "backend": "codex_relay",
+    "provider_calls": 16,
+    "codex_jobs": 16,
+    "counter_semantics": "provider_calls counts started Codex CLI jobs, not raw provider HTTP requests",
+    "internal_provider_requests": null,
+    "internal_provider_retries": null,
+    "provider_call_count_is_lower_bound": false,
+    "unknown_job_start_attempts": 0,
+    "unknown_job_start_latency_seconds": 0,
+    "accepted_proposals": 16,
+    "failed_calls": 0,
+    "tokens": {
+      "input_tokens": {
+        "sum": 310581,
+        "available_calls": 16,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "output_tokens": {
+        "sum": 2542,
+        "available_calls": 16,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "reasoning_tokens": {
+        "sum": 227,
+        "available_calls": 16,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      },
+      "total_tokens": {
+        "sum": 313123,
+        "available_calls": 16,
+        "missing_calls": 0,
+        "complete": true,
+        "lower_bound_calls": 0
+      }
+    },
+    "usage_available_calls": 16,
+    "usage_unavailable_calls": 0,
+    "reasoning_tokens_are_subset_of_output_tokens": true,
+    "total_tokens_semantics": "Reported total when available; otherwise derived input_tokens + output_tokens",
+    "derived_total_jobs": 16,
+    "latency_seconds": 224.95483750390122,
+    "actual_models": {
+      "unavailable": 16
+    },
+    "errors": {},
+    "client_attempts": 16,
+    "preflight_failures": 0,
+    "preflight_errors": {},
+    "preflight_latency_seconds": 0,
+    "monetary_cost": null,
+    "monetary_cost_unavailable_reason": "ChatGPT plan usage is not a verified per-token API price."
+  },
+  "teacher_seconds": 224.95483750390122,
+  "guidance_budget_exhausted": false,
+  "policy_updates": 0
+}

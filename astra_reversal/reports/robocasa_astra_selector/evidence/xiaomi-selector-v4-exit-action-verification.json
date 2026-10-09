@@ -1,0 +1,14 @@
+{
+  "verified": true,
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v4-1",
+  "priority": "LOW",
+  "exit_actions": [
+    {
+      "path": "/workflow/groups/0/tasks/0/exitActions",
+      "value": {
+        "COMPLETE": "0",
+        "FAIL": "1-65535"
+      }
+    }
+  ]
+}

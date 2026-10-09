@@ -1,0 +1,454 @@
+{
+  "schema": "xiaomi-selector-study-1",
+  "registered_utc": "2026-10-09T16:56:00.247029+00:00",
+  "purpose": "Astra chooses and revises an intervention mechanism on the six previously failed native task/seed cases. Conditional failure-rescue pilot; not all-task SR.",
+  "parent_native_workflow": "astra-complex-20261006-robocasa-xiaomi-native-v1-1",
+  "checkpoint_revision": "3a6d0293bfa90759d34a7fc48c2c62413cd7bcf4",
+  "upstream_source_revision": "0dd7aef8dc87296246aae812a1f59ccb708e5546",
+  "cases": [
+    {
+      "id": "PackIdenticalLunches_seed2",
+      "task": "PackIdenticalLunches",
+      "seed": 2,
+      "constructor_seed": 2,
+      "horizon": 3900,
+      "old_steps": 3900,
+      "old_cohort": "previous_pi05_seeds",
+      "old_model_sha256": "062caf8c5bd888b82f7a48d6f0d33c040b8b931b48de86d7946075e08f820714"
+    },
+    {
+      "id": "PackIdenticalLunches_seed1107",
+      "task": "PackIdenticalLunches",
+      "seed": 1107,
+      "constructor_seed": 7,
+      "horizon": 3900,
+      "old_steps": 3900,
+      "old_cohort": "reference_first5",
+      "old_model_sha256": "927450270d9ebfb019b942419caf383e7c8ec4c4417a8c46024a05b63205a7d1"
+    },
+    {
+      "id": "PackIdenticalLunches_seed1108",
+      "task": "PackIdenticalLunches",
+      "seed": 1108,
+      "constructor_seed": 7,
+      "horizon": 3900,
+      "old_steps": 3900,
+      "old_cohort": "reference_first5",
+      "old_model_sha256": "512a403e61d27b5c48d3be296037d8700600440e1fd871d695d0bab9dcca436c"
+    },
+    {
+      "id": "PackIdenticalLunches_seed1110",
+      "task": "PackIdenticalLunches",
+      "seed": 1110,
+      "constructor_seed": 7,
+      "horizon": 3900,
+      "old_steps": 3900,
+      "old_cohort": "reference_first5",
+      "old_model_sha256": "deddce377bdd226427ba12a65e8ba9d93faf060004b77e8500dbd75499a0a54f"
+    },
+    {
+      "id": "PackIdenticalLunches_seed1111",
+      "task": "PackIdenticalLunches",
+      "seed": 1111,
+      "constructor_seed": 7,
+      "horizon": 3900,
+      "old_steps": 3900,
+      "old_cohort": "reference_first5",
+      "old_model_sha256": "101ecbe8ce13b0591ee28b63f8864c97fbc4e96615721dce35ed00ab4e0b5210"
+    },
+    {
+      "id": "ArrangeBreadBasket_seed1711",
+      "task": "ArrangeBreadBasket",
+      "seed": 1711,
+      "constructor_seed": 7,
+      "horizon": 4350,
+      "old_steps": 4350,
+      "old_cohort": "reference_first5",
+      "old_model_sha256": "f5976ce871d5b284e4b9622056549751e0c3fa7e036fdb24af81a491e63961bf"
+    }
+  ],
+  "arms": [
+    "native",
+    "astra"
+  ],
+  "maximum_attempts_per_arm_per_case": 2,
+  "stop_arm_after_success": true,
+  "maximum_policy_episodes": 24,
+  "maximum_teacher_calls_per_episode": 16,
+  "maximum_teacher_calls": 192,
+  "methods": [
+    "native",
+    "phase_prompt",
+    "tei",
+    "tli",
+    "image",
+    "vei",
+    "vli",
+    "frs"
+  ],
+  "teacher": {
+    "backend": "codex_relay",
+    "configured_model": "gpt-6-astra",
+    "reasoning_effort": "medium",
+    "tools_allowed": false,
+    "actual_serving_model": "not disclosed by CLI"
+  },
+  "paired_policy_noise": "seed=20261009 + case_index*10000 + attempt*1000 + query_index; identical native/Astra seed per case,attempt,query",
+  "paired_resets": "Same per-case serialized model and full MuJoCo integration state; require exact model,state,integration-state,observation and instruction fingerprints before each policy episode. Two reset-only replays canonicalize and verify model serialization; these are counted separately. Environment,NumPy andPython RNG states are restored as well.",
+  "historical_feedback": "The first guided attempt sees the archived native failure from the same task/seed. Previous-run model XML equivalence remains uncertified. The second guided attempt, if needed, sees its own first failure at the current verified reset. Fresh native retry outcomes are not fed to Astra.",
+  "success": "Original environment info.success. No visual/model-judged substitute. Initially successful anchors are rejected.",
+  "incomplete": "Provider,reset orworker errors are incomplete; retain controls/calls/resets and never count as completed failure. No implicit retries.",
+  "policy_settings": {
+    "replan_steps": 16,
+    "history": 4,
+    "history_interval": 2,
+    "crop_ratio": 0.95,
+    "flow_steps": 5,
+    "frs_reverse_steps": 5,
+    "frs_forward_steps": 5,
+    "weights_frozen": true,
+    "policy_updates": 0
+  },
+  "review_intervals_controls": [
+    64,
+    128,
+    256,
+    512,
+    1024
+  ],
+  "representation_sources": "Online subgoal or perturbed live/previous-review camera; no training-demonstration donor bank.",
+  "primary_results": "First-attempt SR and success within at most two attempts, separately for native and adaptive Astra. Report rescue fraction over6 selected cases, actual episodes, controls, action chunks, method counts, tokens and latency. Do not add rescues to15/21 as an independently measured full-suite SR.",
+  "gpu_execution_limit_hours": 6,
+  "historical_prefix": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/",
+  "historical_artifacts": [
+    {
+      "relative": "PackIdenticalLunches_seed2/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/previous-PackIdenticalLunches-seed2/PackIdenticalLunches/episode_000_seed_2_failure.mp4",
+      "bytes": 10644196,
+      "sha256": "f47da95c8167e958fb268e6bd0891738e5578d986e94719c34967c63288aad18"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed2/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/previous-PackIdenticalLunches-seed2/seed2/initial_observation.npz",
+      "bytes": 129004,
+      "sha256": "c62df0302018a122edb95087a3b9d32e55f353a39ddf9ef18ecde0fed4bc1e31"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed2/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/previous-PackIdenticalLunches-seed2/seed2/reset.json",
+      "bytes": 559,
+      "sha256": "cc0e9d8694bf618d548e0b2badd979a92907537438885acae2bc7ca8b25c9c48"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1107/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/PackIdenticalLunches/episode_000_seed_1107_failure.mp4",
+      "bytes": 11181612,
+      "sha256": "6fbef3a2fcb11aab665b212d5b4a000f8d7113bc0398e30b54d8870c50ced267"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1107/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1107/initial_observation.npz",
+      "bytes": 129998,
+      "sha256": "d89a1092a2f811fe4b8382f54da86c16a144abe5c993b5c68b1c7a1078c346b4"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1107/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1107/reset.json",
+      "bytes": 562,
+      "sha256": "a2d7056cf2baffc23ff90f864096799b266f9b46a7ddcdb44d65afb95e030a4a"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1108/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/PackIdenticalLunches/episode_001_seed_1108_failure.mp4",
+      "bytes": 8546580,
+      "sha256": "f74d1d58e383aa464fb08ca1c0881613e4a1931c7a4f419436c5f8c0b6000105"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1108/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1108/initial_observation.npz",
+      "bytes": 109850,
+      "sha256": "817b8c315fde95c731646fae1c3692e83f1eb18546ecfe43efd829a1caef0cea"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1108/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1108/reset.json",
+      "bytes": 564,
+      "sha256": "f0141a345bac5afe037047edf295aeb7053ce0c1c7ff7be3958cb79ad1928e37"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1110/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/PackIdenticalLunches/episode_003_seed_1110_failure.mp4",
+      "bytes": 7595527,
+      "sha256": "50dfdec6b577701988c434ccab562352546084e544149517a827e9c223c765b8"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1110/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1110/initial_observation.npz",
+      "bytes": 158781,
+      "sha256": "c1af8a8c927db8c893ce4b2bf214e21ac3743418bbb98a59a2e910a01bd12070"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1110/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1110/reset.json",
+      "bytes": 564,
+      "sha256": "a53ce74b42261f5384ff672f36a853a955c44e7c48c77fdbeaa21675c131f85e"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1111/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/PackIdenticalLunches/episode_004_seed_1111_failure.mp4",
+      "bytes": 7836083,
+      "sha256": "1703eeaee8844bb13007bdd2aa20ea38f3c65c3b5bb1dd1ad33b973e56b7f132"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1111/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1111/initial_observation.npz",
+      "bytes": 160851,
+      "sha256": "9a33dabcd2d0cf272bb5191be73c8d570da985f13456d519e04f468e41973422"
+    },
+    {
+      "relative": "PackIdenticalLunches_seed1111/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-PackIdenticalLunches/seed1111/reset.json",
+      "bytes": 558,
+      "sha256": "7965d910d23679bd8c7de0f31455c7eb45f794a765d7587959298f9558534048"
+    },
+    {
+      "relative": "ArrangeBreadBasket_seed1711/rollout.mp4",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-ArrangeBreadBasket/ArrangeBreadBasket/episode_004_seed_1711_failure.mp4",
+      "bytes": 13745004,
+      "sha256": "efd7ef4419fa58511ede3cbb83f28890aaaea6f8f7b828373d325fa3e587fe70"
+    },
+    {
+      "relative": "ArrangeBreadBasket_seed1711/initial_observation.npz",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-ArrangeBreadBasket/seed1711/initial_observation.npz",
+      "bytes": 306066,
+      "sha256": "faea9a9b265263bed09c939284fc6019854641d4e338b40b3be651b899234eea"
+    },
+    {
+      "relative": "ArrangeBreadBasket_seed1711/reset.json",
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-native-v1-1/results/evaluation/reference-ArrangeBreadBasket/seed1711/reset.json",
+      "bytes": 571,
+      "sha256": "74f5b0937a3353e26e128f08622e14dac179fd1d78b2c309dbb92ffc875606f9"
+    }
+  ],
+  "continuation": {
+    "registered_utc": "2026-10-09T20:40:28.213136+00:00",
+    "protocol_source_file": "xiaomi_selector_continuation3_protocol.json",
+    "parent_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+    "parent_source_revision": "6094883cbc29aeb283c72b29dc8217be21646d6c",
+    "parent_receipt_sha256": "1dee1489e4ec3f904086813d0053789d6821835a2889c73b2174a7d09a9b0762",
+    "parent_protocol_sha256": "f856cd93ffdc803093c9cc0e805a526f1f931b27810cf1fd56b745d6d7221314",
+    "retained_completed_trials": [
+      [
+        "PackIdenticalLunches_seed2",
+        "native",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed2",
+        "astra",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed2",
+        "native",
+        2
+      ],
+      [
+        "PackIdenticalLunches_seed2",
+        "astra",
+        2
+      ],
+      [
+        "PackIdenticalLunches_seed1107",
+        "native",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed1107",
+        "astra",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed1107",
+        "native",
+        2
+      ],
+      [
+        "PackIdenticalLunches_seed1107",
+        "astra",
+        2
+      ],
+      [
+        "PackIdenticalLunches_seed1108",
+        "native",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed1108",
+        "astra",
+        1
+      ],
+      [
+        "PackIdenticalLunches_seed1108",
+        "native",
+        2
+      ]
+    ],
+    "interrupted_trial": {
+      "case": "PackIdenticalLunches_seed1108",
+      "arm": "astra",
+      "attempt": 2
+    },
+    "reason": "All three bounded restores differed at the same three right-camera pixels by one intensity level. Physical fingerprints, non-camera observations and instruction matched exactly. The guided start was rejected before actions, policy queries or teacher jobs. All375 archive files were verified.",
+    "replacement": "Preserve all11 completed episodes, the v2 executed partial episode and both v4/v5 zero-action rejected starts. Replace only the rejected Astra attempt2 from its saved anchor, supplying its own retained Astra attempt1 failure and decisions. Never supply the newly successful native attempt2 outcome to the teacher. Continue original case/attempt/noise indexes and stop each arm after success.",
+    "maximum_new_completed_episodes": 13,
+    "maximum_completed_episodes_across_allocations": 24,
+    "maximum_physical_episodes_including_interruption": 25,
+    "retained_zero_action_rejected_starts": 2,
+    "maximum_policy_restore_resets_including_rejected_start": 27,
+    "maximum_reset_verification_attempts": 3,
+    "maximum_additional_verification_restore_resets": 29,
+    "maximum_total_policy_start_restores": 56,
+    "maximum_new_teacher_jobs": 112,
+    "consumed_parent_teacher_jobs": 88,
+    "maximum_teacher_jobs_including_interruption": 200,
+    "provider_calibration_jobs_separate": 1,
+    "relay_timeout_seconds": 1200,
+    "observability_grace_seconds": 1200,
+    "fresh_environment_per_episode": true,
+    "reset_lifecycle_amendment": "Keep fresh environments and two counted anchor warmups for pending episodes. Verify exact model, full simulator state, integration state, environment RNG, instruction and every non-camera observation. Actual camera inputs are retained unchanged; compare uint8RGB arrays with the saved anchor. Permit maximum channel error1 on at most64pixels per256x256camera (0.09765625%). A candidate exceeding this bound may use at most three total zero-action restores; any physical or non-camera mismatch stops immediately. Count extra restores and retain rejected arrays. Log exact-versus-bounded acceptance and per-camera pixel differences. This camera clause explicitly amends the original exact observation-hash requirement before any new policy outcomes.",
+    "diagnostic": {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-observation-v1-1",
+      "source_revision": "9ab4c96b695e65a955e52144c94b68c48530876e",
+      "archive_receipt_sha256": "658bbfb6c93a117c2c514ed8f31bc3449233b3279a38d5ece275c4eb026010e8",
+      "summary_sha256": "ff3dd6889c2b2f974ce447799629b9d8b66c92c7232b9124e117d058d24c1a8e",
+      "complete": true,
+      "counts": {
+        "constructor_setup_resets": 3,
+        "anchor_selection_resets": 3,
+        "diagnostic_restore_resets": 15,
+        "controls": 0,
+        "policy_queries": 0,
+        "teacher_jobs": 0,
+        "policy_success_trial_denominator_contribution": 0
+      },
+      "comparisons": 9,
+      "exact_fingerprint_matches": 8,
+      "exact_policy_state_matches": 9
+    },
+    "trajectory_limit": "The original11 completed starts matched observations exactly; new starts may use the explicitly measured and bounded camera-rounding allowance. Physics, robot state and instruction remain exact. Earlier native replay found wrist-camera history divergence despite matching recorded physical/controller inputs, with40/40 duplicate same-input forwards identical. Common noise does not ensure identical closed-loop trajectories. Environment lifetimes and camera verification differ across registered continuations, so report descriptive system outcomes, not an isolated causal effect of an individual intervention.",
+    "maximum_new_additional_verification_restore_resets": 26,
+    "camera_rounding_allowance": {
+      "maximum_channel_difference": 1,
+      "maximum_changed_pixels_per_camera": 64
+    },
+    "camera_calibration_evidence": {
+      "parent_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+      "case": "PackIdenticalLunches_seed1108",
+      "trial": "astra2",
+      "comparisons": [
+        {
+          "exact": false,
+          "physical_fingerprints_exact": true,
+          "noncamera_observations_exact": true,
+          "cameras": {
+            "video.robot0_agentview_left": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_agentview_right": {
+              "exact": false,
+              "maximum_channel_difference": 1,
+              "changed_pixels": 3,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_eye_in_hand": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            }
+          },
+          "allowance": {
+            "maximum_channel_difference": 1,
+            "maximum_changed_pixels_per_camera": 64
+          },
+          "accepted": true
+        },
+        {
+          "exact": false,
+          "physical_fingerprints_exact": true,
+          "noncamera_observations_exact": true,
+          "cameras": {
+            "video.robot0_agentview_left": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_agentview_right": {
+              "exact": false,
+              "maximum_channel_difference": 1,
+              "changed_pixels": 3,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_eye_in_hand": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            }
+          },
+          "allowance": {
+            "maximum_channel_difference": 1,
+            "maximum_changed_pixels_per_camera": 64
+          },
+          "accepted": true
+        },
+        {
+          "exact": false,
+          "physical_fingerprints_exact": true,
+          "noncamera_observations_exact": true,
+          "cameras": {
+            "video.robot0_agentview_left": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_agentview_right": {
+              "exact": false,
+              "maximum_channel_difference": 1,
+              "changed_pixels": 3,
+              "pixels": 65536,
+              "accepted": true
+            },
+            "video.robot0_eye_in_hand": {
+              "exact": true,
+              "maximum_channel_difference": 0,
+              "changed_pixels": 0,
+              "pixels": 65536,
+              "accepted": true
+            }
+          },
+          "allowance": {
+            "maximum_channel_difference": 1,
+            "maximum_changed_pixels_per_camera": 64
+          },
+          "accepted": true
+        }
+      ],
+      "reference_observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+      "actual_observation_sha256": "cefb88157f6e15906cde6cd34b291a197290b7d44b5aca25a40e194b9037e169"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Bread visibly lifts clear of the shelf, is released into the basket, and remains inside as the gripper withdraws.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The cabinet is open and bread remains on its shelf. The wrist view now clearly faces the bread rather than the door handle, and the open gripper has repositioned toward the shelf. The basket remains empty on the source counter. Approach progress is visible; no current failed grasp or repeated stall is established.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:768:guide:2",
+  "request_fingerprint": "88c623cadbcac65e0d0f5762d08afbb4a4f4effba7dd701829fb19683548f08d",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 2,
+  "observation_step": 768
+}

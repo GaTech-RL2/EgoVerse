@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Robot faces the open refrigerator with a carrot visibly grasped and lifted off its shelf.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The robot has backed away from the counter since the previous view but still faces it. Both fish remain in their containers; no carrot is visibly held. The open refrigerator is to the left. The prior failed rollout left carrots on its shelves.",
+  "subgoal": "Leave both fish in their containers. Turn left toward the open refrigerator, approach its shelves, and grasp and lift one carrot.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0:2350:guide:10",
+  "request_fingerprint": "37fc4a363fb9e257226d5febfd76ab36df4ec47d03db3139d5b709437d6c9e3b",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed1:phase_prompt:attempt0",
+  "request_index": 10,
+  "observation_step": 2350
+}

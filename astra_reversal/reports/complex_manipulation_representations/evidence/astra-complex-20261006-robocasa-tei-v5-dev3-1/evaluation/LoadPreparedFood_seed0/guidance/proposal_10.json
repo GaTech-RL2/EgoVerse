@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The fingers straddle and grip the container rim, and the container lifts clear of the counter with the gripper.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 850, the gripper has closed further and risen. The container appears tipped beside the microwave, but no secure grasp or lift is visible. Pickup also stalled in the previous failed native rollout.",
+  "subgoal": "Grasp the rim of the tupperware containing corn and lift the container upright off the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0:950:guide:10",
+  "request_fingerprint": "091d63df1f0f152229279717ba1c1fd89e47b0f146e187b7fdb4bfa38359bc8c",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "request_index": 10,
+  "observation_step": 950
+}

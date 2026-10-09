@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "A remaining food item visibly lifts off the refrigerator shelf and stays with the gripper during withdrawal toward the counter.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has returned from the counter to the open refrigerator. A tomato and chicken remain on the shelf; the gripper is open with no food visibly held. Retrieval is underway without an established stall. The earlier tomato placement cannot be confirmed from these current refrigerator views.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:512:guide:2",
+  "request_fingerprint": "4cf81f3a002246b9453469ac11bff6ed8cd98a889c2a44f531818b7aefcb4396",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 2,
+  "observation_step": 512
+}

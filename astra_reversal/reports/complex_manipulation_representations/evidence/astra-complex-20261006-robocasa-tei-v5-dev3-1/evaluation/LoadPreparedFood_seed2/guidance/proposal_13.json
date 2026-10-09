@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The tupperware is visibly secured between the fingers and rises with the gripper.",
+  "method": "tei",
+  "next_review_controls": 50,
+  "observed_evidence": "Compared with step 1200, the tupperware is no longer clearly visible above the gripper in the wrist view. End-effector height remains nearly unchanged at 0.525 versus 0.523, and the side views show no placement on the top shelf. The fridge remains open; a retained grasp is not established.",
+  "subgoal": "Regrasp the food-filled tupperware below the open fridge shelves.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0:1300:guide:13",
+  "request_fingerprint": "343103b8c4a67b2f9054c39364c5e5cdb7eb97b22cc2be76d84a7e03d25be41a",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tei:attempt0",
+  "request_index": 13,
+  "observation_step": 1300
+}

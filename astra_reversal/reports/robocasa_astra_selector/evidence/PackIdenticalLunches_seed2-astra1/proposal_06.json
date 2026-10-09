@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one corn and one chicken drumstick each, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The green husked ingredient remains visible at the gripper after the robot moved away from the refrigerator toward the stove and counter, supporting successful pickup and transport. No visible drop or stall warrants intervention; placement is still pending.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra1:1408:guide:6",
+  "request_fingerprint": "eee909c905d1091144ad4a32be100d408824dcc49a83ed8ff1a9fe5c60d34768",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra1",
+  "attempt_id": "PackIdenticalLunches_seed2-astra1",
+  "request_index": 6,
+  "observation_step": 1408
+}

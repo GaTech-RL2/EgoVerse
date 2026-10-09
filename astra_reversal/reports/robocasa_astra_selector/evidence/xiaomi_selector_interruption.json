@@ -1,0 +1,673 @@
+{
+  "status": "recovered_and_registered_for_continuation",
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v2-1",
+  "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+  "recorded_utc": "2026-10-09T18:29:54.138560+00:00",
+  "cause": "During the outage, the OSMO AWS load balancer returnedHTTP403 despite a valid SSO token and an existing local VPN route. Status queries and cancellation requests were rejected. The local relay stopped after the guarded controller exited. Service subsequently recovered; the allocation closed and all176 archived files were verified.",
+  "remote_allocation_closed": true,
+  "allocation_reservation_retained": false,
+  "full_six_case_results_available": false,
+  "score_interrupted_episode_as_completed_failure": false,
+  "first_case_results_observed_via_live_monitor": [
+    {
+      "arm": "native",
+      "attempt": 1,
+      "success": false,
+      "steps": 3900,
+      "wall_seconds": 320.7858854639344
+    },
+    {
+      "arm": "astra",
+      "attempt": 1,
+      "success": false,
+      "steps": 3900,
+      "wall_seconds": 588.9306302322075,
+      "teacher_calls": 16,
+      "tokens": 327713
+    },
+    {
+      "arm": "native",
+      "attempt": 2,
+      "success": true,
+      "steps": 2291,
+      "wall_seconds": 180.04520586133003
+    },
+    {
+      "arm": "astra",
+      "attempt": 2,
+      "success": true,
+      "steps": 2144,
+      "wall_seconds": 395.8194533358328,
+      "teacher_calls": 15,
+      "tokens": 338761
+    }
+  ],
+  "completed_local_cli_jobs": 40,
+  "known_local_job_tokens": {
+    "input_tokens": 843041,
+    "output_tokens": 7041,
+    "reasoning_tokens": 345,
+    "total_tokens": 850082
+  },
+  "job_records": [
+    {
+      "request_fingerprint": "491767c5d9e627eeb723dcde94cb139f0adcbec9cfb56bae23e7b9e30bbdafae",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 2816,
+      "method": "tli",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 21624,
+        "output_tokens": 243,
+        "reasoning_tokens": 50,
+        "total_tokens": 21867
+      },
+      "cli_latency_seconds": 12.31045420805458,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "943ada7a8b86bb5c46493471dc05d8b24192220818fd968065bf5036a00e8974",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1280,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20259,
+        "output_tokens": 158,
+        "reasoning_tokens": 0,
+        "total_tokens": 20417
+      },
+      "cli_latency_seconds": 9.8680725840386,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "71eb0b30a36dd131e844aa13a7b8f4727791cbc58df1cd9de1aa7614bb3937f1",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1024,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22317,
+        "output_tokens": 168,
+        "reasoning_tokens": 0,
+        "total_tokens": 22485
+      },
+      "cli_latency_seconds": 9.670962249976583,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "74b6508470967f878edb7d13d0e9f35b8f2a8957b863f4a3b859cf1294ad3739",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 384,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20160,
+        "output_tokens": 144,
+        "reasoning_tokens": 0,
+        "total_tokens": 20304
+      },
+      "cli_latency_seconds": 8.355312875006348,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "7e4726408e260cd8f248ed4388e2a9abe89eec06506f5e73a777e943b90431fb",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 768,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20289,
+        "output_tokens": 159,
+        "reasoning_tokens": 0,
+        "total_tokens": 20448
+      },
+      "cli_latency_seconds": 10.768884083954617,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "70a6601132f8adc50a419975a301effdc53ff570c42580bc1d2576f9182c91e6",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1344,
+      "method": "phase_prompt",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22359,
+        "output_tokens": 250,
+        "reasoning_tokens": 53,
+        "total_tokens": 22609
+      },
+      "cli_latency_seconds": 12.510791207896546,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "d022878581cb4d94c70fc3fa981f85a81adce43d63e13de3caefb1bf931dfea6",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1536,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22391,
+        "output_tokens": 166,
+        "reasoning_tokens": 0,
+        "total_tokens": 22557
+      },
+      "cli_latency_seconds": 11.08435887505766,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "c8fc0b7d05aaab097964f79512c83df4e30d1afca847b435ec8dcab359d01eab",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 256,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20076,
+        "output_tokens": 156,
+        "reasoning_tokens": 0,
+        "total_tokens": 20232
+      },
+      "cli_latency_seconds": 10.074623125023209,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "9be45fc3676730087e0000e1222dc32a0ab8aba85574fe21231444d79faa44e1",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 640,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20254,
+        "output_tokens": 156,
+        "reasoning_tokens": 0,
+        "total_tokens": 20410
+      },
+      "cli_latency_seconds": 9.634421083028428,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "8887545acc660ccc821d31f572ffe37ca4171543378ddfb381fb4a3ece7db03f",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 896,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20279,
+        "output_tokens": 162,
+        "reasoning_tokens": 0,
+        "total_tokens": 20441
+      },
+      "cli_latency_seconds": 8.747109041083604,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "ff43a3135ba7a0e0c081927e547e5328de1de5331bff045fe42f1c24a7695446",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1280,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 23621,
+        "output_tokens": 161,
+        "reasoning_tokens": 0,
+        "total_tokens": 23782
+      },
+      "cli_latency_seconds": 10.03695316601079,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "6444d6631fea16669ce2d500fa5fee25455df175fa3325537338b266eb239b93",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 1024,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20246,
+        "output_tokens": 159,
+        "reasoning_tokens": 0,
+        "total_tokens": 20405
+      },
+      "cli_latency_seconds": 10.062031332985498,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "42314ff0bb77a766cc840cda0c340ab05037365d1936fed7a4ff0ab74930cede",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1408,
+      "method": "phase_prompt",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22372,
+        "output_tokens": 193,
+        "reasoning_tokens": 0,
+        "total_tokens": 22565
+      },
+      "cli_latency_seconds": 10.932625207933597,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "5e006a8bde46eaba95de08aaa80e211a6951f75912ef8091ef81b4a5a234bd16",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1024,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20258,
+        "output_tokens": 165,
+        "reasoning_tokens": 0,
+        "total_tokens": 20423
+      },
+      "cli_latency_seconds": 13.062066458980553,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "6b83391089eb68933a31f344438d85220e2d3c9793421f48492b008e9d65a457",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 256,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22069,
+        "output_tokens": 163,
+        "reasoning_tokens": 0,
+        "total_tokens": 22232
+      },
+      "cli_latency_seconds": 9.341389333945699,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "ee1cbd5134f33e5b5b76dd1e83d12747a1129f5fce846d81e4f8a1fd400b8252",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1152,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22351,
+        "output_tokens": 167,
+        "reasoning_tokens": 0,
+        "total_tokens": 22518
+      },
+      "cli_latency_seconds": 9.514648209093139,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "9a5a8c6ab0b5da108c81cf0a9a7f2e7b6a2398ae79a0b2fe8d909b2b0aa01764",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 3072,
+      "method": "tei",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20406,
+        "output_tokens": 212,
+        "reasoning_tokens": 26,
+        "total_tokens": 20618
+      },
+      "cli_latency_seconds": 10.894850334036164,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "f59b95658816156a1ecdd98aac6e449c6266f5efe4b9332d49d31069a7140ec8",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1920,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22407,
+        "output_tokens": 167,
+        "reasoning_tokens": 0,
+        "total_tokens": 22574
+      },
+      "cli_latency_seconds": 11.018892040941864,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "4cf95b14b416657e7cc73499e844300ef779334d7bb14897c7f0b4221d6f3447",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 256,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20038,
+        "output_tokens": 147,
+        "reasoning_tokens": 0,
+        "total_tokens": 20185
+      },
+      "cli_latency_seconds": 8.545592959038913,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "38b0cf5f00159077c945b49a59159e3e742ce25bf3030205098531440ba2fe6b",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 512,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22191,
+        "output_tokens": 160,
+        "reasoning_tokens": 0,
+        "total_tokens": 22351
+      },
+      "cli_latency_seconds": 8.443196916021407,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "678849983f326136c4805f1baf86d0117d709e5e981be1f121fe53c03aa37942",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 2176,
+      "method": "tli",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20353,
+        "output_tokens": 182,
+        "reasoning_tokens": 0,
+        "total_tokens": 20535
+      },
+      "cli_latency_seconds": 12.54817195807118,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "56f4deb08a2366456b9fd5896e9448d8ca7c81703ccbc2ec25e315035b9bc536",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 512,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20111,
+        "output_tokens": 164,
+        "reasoning_tokens": 0,
+        "total_tokens": 20275
+      },
+      "cli_latency_seconds": 9.004890874959528,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "59a851cfb56b1e949047b2db55759e0e14c1fb978e5e111d8dbfb882baa8e58d",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 0,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 21108,
+        "output_tokens": 148,
+        "reasoning_tokens": 0,
+        "total_tokens": 21256
+      },
+      "cli_latency_seconds": 7.352810707991011,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "0a29733830702f9d7ce1e6ce231dc93a153c14c8663f272600cff72029efd314",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1664,
+      "method": "tei",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20344,
+        "output_tokens": 288,
+        "reasoning_tokens": 97,
+        "total_tokens": 20632
+      },
+      "cli_latency_seconds": 13.3842434999533,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "e19625a744f5698c8952b09eb5a65417e03b3200a9ad7d19fdb553c1504338d1",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1920,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20345,
+        "output_tokens": 156,
+        "reasoning_tokens": 0,
+        "total_tokens": 20501
+      },
+      "cli_latency_seconds": 10.238326583057642,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "4cd3f9fce83fd82a5f660af84c8caacc3b2d60706c7c34b78cc68d628b0a79d1",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 768,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20229,
+        "output_tokens": 156,
+        "reasoning_tokens": 0,
+        "total_tokens": 20385
+      },
+      "cli_latency_seconds": 10.169266542070545,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "49eaf9107c573611348854d1622ea23f055eec0358601d1732ea85ec73e5ee40",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1536,
+      "method": "phase_prompt",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20272,
+        "output_tokens": 213,
+        "reasoning_tokens": 21,
+        "total_tokens": 20485
+      },
+      "cli_latency_seconds": 10.889290083083324,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "7fd571dad7243bb1c8f8059847f7b060ed1c001235b9f7b08a35a3157c74bb52",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1792,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22380,
+        "output_tokens": 169,
+        "reasoning_tokens": 0,
+        "total_tokens": 22549
+      },
+      "cli_latency_seconds": 11.490908875013702,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "a46683ba44335ca82aecbc9cd6882ac9090982b9b87d4921578b459165741967",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 896,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 23566,
+        "output_tokens": 167,
+        "reasoning_tokens": 0,
+        "total_tokens": 23733
+      },
+      "cli_latency_seconds": 10.767097250092775,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "eee909c905d1091144ad4a32be100d408824dcc49a83ed8ff1a9fe5c60d34768",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 1408,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20249,
+        "output_tokens": 147,
+        "reasoning_tokens": 0,
+        "total_tokens": 20396
+      },
+      "cli_latency_seconds": 7.876502542058006,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "190ffa5a90a89a5b679480e1910c9e899fc129ab8ada8721cfd76c212b4ba61c",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 512,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 21518,
+        "output_tokens": 152,
+        "reasoning_tokens": 0,
+        "total_tokens": 21670
+      },
+      "cli_latency_seconds": 8.80659149994608,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "84737b6bf7ec7792ea2e78814e0e7db7799fd9bac8a39135650761e74e177113",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 1472,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22402,
+        "output_tokens": 170,
+        "reasoning_tokens": 0,
+        "total_tokens": 22572
+      },
+      "cli_latency_seconds": 11.70030987507198,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "3b09410b1c082c89a7bfa0191f0fb42d70d93ec8e7b39248bab397a6093e4ebc",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 0,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 19066,
+        "output_tokens": 154,
+        "reasoning_tokens": 0,
+        "total_tokens": 19220
+      },
+      "cli_latency_seconds": 8.97870795801282,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "2258df9974e6d5506dd229678135d4a48ecf34392383a86f1ed35122fc25df1d",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 2048,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22372,
+        "output_tokens": 168,
+        "reasoning_tokens": 0,
+        "total_tokens": 22540
+      },
+      "cli_latency_seconds": 9.027860458008945,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "c9ca70e287bb98ab0c927f20090fb6ae44620d9b5dbc6184bc76e48e3a6e11ab",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 0,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 19070,
+        "output_tokens": 146,
+        "reasoning_tokens": 0,
+        "total_tokens": 19216
+      },
+      "cli_latency_seconds": 10.117656041984446,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "3f0df8a94e7004aac9163759c9ea9ec5ecbed5d3490c8030e35f0110b6dbf383",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 2560,
+      "method": "phase_prompt",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20413,
+        "output_tokens": 192,
+        "reasoning_tokens": 0,
+        "total_tokens": 20605
+      },
+      "cli_latency_seconds": 13.283792875008658,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "0db7c7ada2897fe63ccda56bcc407a0c6fcff650692ee5e9c0815c2b506ad06a",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 2048,
+      "method": "tei",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20335,
+        "output_tokens": 247,
+        "reasoning_tokens": 59,
+        "total_tokens": 20582
+      },
+      "cli_latency_seconds": 12.390927750035189,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "19f0a6dd760d26ff7c06d246d68ae4555747a961a0ec664b0a62f77ec985e123",
+      "episode_id": "PackIdenticalLunches_seed1107-astra1",
+      "observation_step": 1152,
+      "method": "phase_prompt",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20307,
+        "output_tokens": 171,
+        "reasoning_tokens": 0,
+        "total_tokens": 20478
+      },
+      "cli_latency_seconds": 8.59994016692508,
+      "delivered_and_accepted_by_worker": false
+    },
+    {
+      "request_fingerprint": "4ac4f9cc3c46c76e8ed3c0899555cb9aff554a1e89d050ae57f560f33efecff3",
+      "episode_id": "PackIdenticalLunches_seed2-astra2",
+      "observation_step": 768,
+      "method": "native",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 22275,
+        "output_tokens": 163,
+        "reasoning_tokens": 0,
+        "total_tokens": 22438
+      },
+      "cli_latency_seconds": 11.518370874924585,
+      "delivered_and_accepted_by_worker": true
+    },
+    {
+      "request_fingerprint": "eff3b62abd1f84c947d70c3f2c19e94411913a3ff243343fe988525bc2d956f0",
+      "episode_id": "PackIdenticalLunches_seed2-astra1",
+      "observation_step": 2432,
+      "method": "tli",
+      "accepted_by_local_schema": true,
+      "token_usage": {
+        "input_tokens": 20359,
+        "output_tokens": 232,
+        "reasoning_tokens": 39,
+        "total_tokens": 20591
+      },
+      "cli_latency_seconds": 10.821611999999732,
+      "delivered_and_accepted_by_worker": true
+    }
+  ],
+  "delivery_caveat": "Local CLI proposal acceptance does not prove delivery to the GPU worker. Reconcile these receipts against the remote provider ledger before final scoring. The first-case results were seen in the live worker summary; its full raw result archive is still remote.",
+  "preflight_calibration_tokens_excluded": 18630,
+  "action": "A bounded20minute watcher will query only this owned workflow, reconcile closure/cancel if still live, and recover the result archive if service access returns. No policy resubmission before closure is verified.",
+  "actual_gpu_hours": 0.749587118611111,
+  "archive_receipt_sha256": "caf64b8178a1c05fdd57cc83bb6d6e6cb33e8ffb9faf5c4d9bd3a05a85aba7f7",
+  "archive_files_verified": 176,
+  "completed_policy_episodes": 5,
+  "incomplete_policy_episodes": 1,
+  "completed_controls": 16135,
+  "incomplete_controls": 1152,
+  "completed_chunks": 1010,
+  "incomplete_chunks": 72,
+  "delivered_teacher_proposals": 39,
+  "undelivered_completed_local_jobs": 1,
+  "incomplete_attempt_teacher_jobs": 9,
+  "incomplete_attempt_tokens": 183608,
+  "completed_episode_tokens": 666474,
+  "undelivered_completed_local_job_tokens": 20478,
+  "token_reconciliation": "Join remote provider receipts to local completed CLI receipts by request_fingerprint. Remote acceptance remains false for the undelivered job; all 40 actual local jobs and 850082 tokens are charged. Reasoning tokens are a subset of output tokens."
+}

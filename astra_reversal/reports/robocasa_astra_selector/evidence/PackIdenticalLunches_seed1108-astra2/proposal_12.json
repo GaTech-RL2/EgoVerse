@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "One garlic visibly lifts clear of gray, is released into blue, and remains there after withdrawal, leaving one garlic in each container.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The gripper has lowered into the gray container toward the nearer garlic. Both garlics remain visible over gray, and blue remains empty. Corrective pickup is progressing, but no lift or transfer is confirmed yet.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Pick up one garlic from the gray tupperware and place it inside the empty blue tupperware nearer the sink. Leave the other garlic in gray.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:1984:guide:12",
+  "request_fingerprint": "f7e374dbdc22cd71b06219578d9c916e8ca16ef54c665c0cce8f9cdde7c583cd",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 12,
+  "observation_step": 1984
+}

@@ -1,0 +1,200 @@
+{
+  "allocations": [
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v1-1",
+      "status": "FAILED_CANCELED",
+      "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+      "issue": "Initial OSMO port-forward returnedHTTP503; controller cancelled before evaluator started. v2 uses bounded tunnel reconnects.",
+      "actual_gpu_hours": 0.10061609611111111,
+      "completed_policy_episodes": 0,
+      "policy_controls": 0,
+      "teacher_jobs": 0,
+      "archive_files": [
+        "protocol.json",
+        "worker_started.json"
+      ],
+      "role": "startup_failure_excluded_from_policy_SR"
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-replay-v1-1",
+      "status": "COMPLETED",
+      "source_revision": "6e0f90e6ed995ddb3636d7528e0e09bc9822dfef",
+      "actual_gpu_hours": 0.1438342572222222,
+      "completed_policy_episodes": 0,
+      "partial_diagnostic_episodes": 5,
+      "policy_controls": 640,
+      "teacher_jobs": 0,
+      "role": "native_replay_diagnostic_excluded_from_policy_SR",
+      "issue": "Camera-history divergence identified at identical recorded physics/controller state."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v2-1",
+      "status": "FAILED",
+      "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+      "actual_gpu_hours": 0.749587118611111,
+      "completed_policy_episodes": 5,
+      "incomplete_policy_episodes": 1,
+      "policy_controls": 17287,
+      "policy_chunks": 1082,
+      "teacher_jobs": 40,
+      "teacher_tokens": 850082,
+      "role": "parent_policy_execution_retained_in_final_results",
+      "issue": "OSMO403 transport outage. Five completed episodes retained; one partial episode remains outside SR. All40 actual jobs charged, including one completed but undelivered response."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v3-1",
+      "status": "FAILED_CANCELED",
+      "source_revision": "ed9aec68ed7f8dd3eca80cc32c0a86b44892a803",
+      "actual_gpu_hours": 0,
+      "completed_policy_episodes": 0,
+      "policy_controls": 0,
+      "teacher_jobs": 0,
+      "role": "queue_only_no_gpu_assignment",
+      "issue": "Normal-priority quota full. Cancelled while scheduling before node assignment; null runtime verified as zero. Replaced by LOW-priority borrowing with all nonzero exit codes configured to fail without automatic rescheduling."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v4-1",
+      "status": "ended",
+      "source_revision": "ed9aec68ed7f8dd3eca80cc32c0a86b44892a803",
+      "actual_gpu_hours": 0.6752253483333334,
+      "completed_policy_episodes": 4,
+      "policy_controls": 15600,
+      "policy_chunks": 976,
+      "teacher_jobs": 32,
+      "teacher_tokens": 691208,
+      "role": "policy_execution_retained_in_final_results",
+      "reset_accounting": [
+        {
+          "case": "PackIdenticalLunches_seed1107",
+          "constructor_started": 1,
+          "constructor_setup_resets": 1,
+          "anchor_selection_resets": 1,
+          "diagnostic_restore_resets": 2,
+          "policy_restore_resets": 3,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v4-1",
+          "reused_parent_anchor": true
+        },
+        {
+          "case": "PackIdenticalLunches_seed1108",
+          "constructor_started": 1,
+          "constructor_setup_resets": 1,
+          "anchor_selection_resets": 1,
+          "diagnostic_restore_resets": 2,
+          "policy_restore_resets": 2,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v4-1",
+          "reused_parent_anchor": false
+        }
+      ],
+      "rejected_zero_action_starts": 1,
+      "issue": "One guided start rejected on an observation-only hash mismatch before any controls or teacher jobs; all nine total completed episodes preserved for v5."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-observation-v1-1",
+      "status": "completed",
+      "source_revision": "9ab4c96b695e65a955e52144c94b68c48530876e",
+      "actual_gpu_hours": 0.24036026972222221,
+      "completed_policy_episodes": 0,
+      "policy_controls": 0,
+      "teacher_jobs": 0,
+      "diagnostic_observation_comparisons": 9,
+      "exact_observation_matches": 8,
+      "setup_and_diagnostic_resets": {
+        "constructor_setup_resets": 3,
+        "anchor_selection_resets": 3,
+        "diagnostic_restore_resets": 15,
+        "controls": 0,
+        "policy_queries": 0,
+        "teacher_jobs": 0,
+        "policy_success_trial_denominator_contribution": 0
+      },
+      "role": "zero_action_observation_diagnostic_excluded_from_policy_SR",
+      "issue": "One of nine fresh-environment restores differed at three right-camera pixels by one level; physical state matched in all nine."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+      "status": "ended",
+      "source_revision": "6094883cbc29aeb283c72b29dc8217be21646d6c",
+      "actual_gpu_hours": 0.47714873166666666,
+      "completed_policy_episodes": 2,
+      "policy_controls": 6684,
+      "policy_chunks": 418,
+      "teacher_jobs": 16,
+      "teacher_tokens": 330921,
+      "role": "policy_execution_retained_in_final_results",
+      "reset_accounting": [
+        {
+          "case": "PackIdenticalLunches_seed1108",
+          "constructor_started": 4,
+          "constructor_setup_resets": 4,
+          "anchor_selection_resets": 4,
+          "diagnostic_restore_resets": 8,
+          "policy_restore_resets": 3,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v5-1",
+          "reused_parent_anchor": true,
+          "additional_verification_restore_resets": 3
+        }
+      ],
+      "rejected_zero_action_starts": 1,
+      "issue": "Three consecutive restores had the same three right-camera pixels differ by one level; all physical fingerprints and non-camera observations matched. Zero actions/jobs on the rejected start; eleven completed episodes retained for v6."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+      "status": "completed",
+      "source_revision": "e398bd57ec7ef9ac192b77363d151faa197cf6e9",
+      "actual_gpu_hours": 1.5795091808333335,
+      "completed_policy_episodes": 10,
+      "policy_controls": 36118,
+      "policy_chunks": 2260,
+      "teacher_jobs": 95,
+      "teacher_tokens": 2059089,
+      "role": "policy_execution_retained_in_final_results",
+      "reset_accounting": [
+        {
+          "case": "PackIdenticalLunches_seed1108",
+          "constructor_started": 2,
+          "constructor_setup_resets": 2,
+          "anchor_selection_resets": 2,
+          "diagnostic_restore_resets": 4,
+          "policy_restore_resets": 1,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+          "reused_parent_anchor": true
+        },
+        {
+          "case": "PackIdenticalLunches_seed1110",
+          "constructor_started": 4,
+          "constructor_setup_resets": 4,
+          "anchor_selection_resets": 4,
+          "diagnostic_restore_resets": 8,
+          "policy_restore_resets": 3,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+          "reused_parent_anchor": false
+        },
+        {
+          "case": "PackIdenticalLunches_seed1111",
+          "constructor_started": 3,
+          "constructor_setup_resets": 3,
+          "anchor_selection_resets": 3,
+          "diagnostic_restore_resets": 6,
+          "policy_restore_resets": 2,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+          "reused_parent_anchor": false
+        },
+        {
+          "case": "ArrangeBreadBasket_seed1711",
+          "constructor_started": 5,
+          "constructor_setup_resets": 5,
+          "anchor_selection_resets": 5,
+          "diagnostic_restore_resets": 10,
+          "policy_restore_resets": 4,
+          "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+          "reused_parent_anchor": false
+        }
+      ],
+      "issue": "Completed continuation. Pending episodes use fresh environments and bounded zero-action verification restores; every actual policy start matches physical and non-camera fingerprints exactly and camera values within the registered rounding allowance; original images are retained."
+    }
+  ],
+  "recorded_utc": "2026-10-09T22:25:29.210224+00:00",
+  "selector_total_gpu_hours": 3.9662810025,
+  "campaign_total_gpu_hours": 32.36157145083334,
+  "campaign_authorized_gpu_hours": 48
+}

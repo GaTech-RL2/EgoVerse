@@ -1,0 +1,12 @@
+{
+  "task": "PackIdenticalLunches",
+  "seed": 0,
+  "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+  "raw_observation_sha256": "52c66d4dda3f27c4ed49c723810f3d0990247fddc800a057349ad41d316fe810",
+  "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913",
+  "model_sha256": "76e1038bccb77b38a9bdcaee12b9eb83dbda11e23ece5d5277d674b9a940a967",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

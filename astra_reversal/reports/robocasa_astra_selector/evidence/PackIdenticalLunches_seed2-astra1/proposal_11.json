@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains one corn and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tli",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot returned to the open refrigerator without a visibly held ingredient after the TEI intervention. The previous live counter view showed both corn together in the left tupperware and a drumstick in the right; redistribution remains unconfirmed.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Return to the counter. Pick up the green husked corn from the left tupperware and place it beside the chicken in the right tupperware.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra1:2176:guide:11",
+  "request_fingerprint": "678849983f326136c4805f1baf86d0117d709e5e981be1f121fe53c03aa37942",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra1",
+  "attempt_id": "PackIdenticalLunches_seed2-astra1",
+  "request_index": 11,
+  "observation_step": 2176
+}

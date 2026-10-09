@@ -1,0 +1,68 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "video_sha256": "c4803377b04c6bbc91826e4c3bbf338cb5ed0f65a09f0781f1c435dc97c0704f",
+    "frame_steps": [
+      376,
+      750,
+      1124,
+      1500
+    ]
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "video_sha256": "e1313635cb5ed7602f6d1f364d9be0299d077d6c3760eedbe0a3f044541fc9c2",
+    "frame_steps": [
+      376,
+      750,
+      1124,
+      1500
+    ]
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "video_sha256": "d965cc7267b6e1cc059b57cc4da329316fc93ed7c705f9b05022227a38f4a582",
+    "frame_steps": [
+      376,
+      750,
+      1124,
+      1500
+    ]
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "video_sha256": "4e98afd3157dacfb58628d14681c6a742d1a2629e2814108274f965884fd0205",
+    "frame_steps": [
+      976,
+      1950,
+      2924,
+      3900
+    ]
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "video_sha256": "5133aa576c7cae80c7dce8154927ce7541b24c3ba68ff1a118bc7eee0bcc4960",
+    "frame_steps": [
+      976,
+      1950,
+      2924,
+      3900
+    ]
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "video_sha256": "8fd4ef0c0f3033b93b367d7896d9a4fc84a3e5582a2863f887115ccb416e6d1d",
+    "frame_steps": [
+      976,
+      1950,
+      2924,
+      3900
+    ]
+  }
+]

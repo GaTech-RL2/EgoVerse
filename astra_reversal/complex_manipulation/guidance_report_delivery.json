@@ -1,0 +1,179 @@
+{
+  "dashboard": "/Users/rpunamiya/Downloads/complex-manipulation-guidance-20261007/index.html",
+  "zip": "/Users/rpunamiya/Downloads/complex-manipulation-guidance-20261007.zip",
+  "zip_bytes": 215995409,
+  "zip_sha256": "02ea773b6159310e4baef160afdc639f4774aa393d520b1a0a0e8608c1fc57a2",
+  "manifest_files_verified": 514,
+  "local_links_verified": 119,
+  "guided_original_files_verified": 254,
+  "paired_policy_episodes": 6,
+  "teacher_tokens": 1592255,
+  "browser_validation": [
+    {
+      "width": 1440,
+      "body": 1440,
+      "title": "Astra phase guidance \u00b7 Paired RoboCasa pilot",
+      "videos": [
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        }
+      ],
+      "images": [
+        {
+          "complete": true,
+          "width": 300
+        }
+      ],
+      "tables": [
+        6,
+        6,
+        11,
+        12,
+        10,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "width": 390,
+      "body": 390,
+      "title": "Astra phase guidance \u00b7 Paired RoboCasa pilot",
+      "videos": [
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 75,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        },
+        {
+          "duration": 195,
+          "width": 768,
+          "height": 256
+        }
+      ],
+      "images": [
+        {
+          "complete": true,
+          "width": 360
+        }
+      ],
+      "tables": [
+        6,
+        6,
+        11,
+        12,
+        10,
+        16,
+        16,
+        16
+      ]
+    }
+  ]
+}

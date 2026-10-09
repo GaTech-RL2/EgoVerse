@@ -1,0 +1,8 @@
+{
+  "actual_gpu_hours": 0,
+  "null_duration_normalized_to_zero": true,
+  "node_assigned": false,
+  "worker_initialized": false,
+  "policy_episodes": 0,
+  "reason": "Normal quota exhausted; replaced by registered LOW priority continuation."
+}

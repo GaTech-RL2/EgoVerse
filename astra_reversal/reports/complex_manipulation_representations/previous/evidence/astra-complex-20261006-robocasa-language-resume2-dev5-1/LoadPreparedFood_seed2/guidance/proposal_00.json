@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Tupperware is visibly held clear of the counter with its opening facing upward.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "Current cameras show the filled tupperware resting beside the stove; no grasp is established. The prior failed rollout carried it steeply tilted and did not finish closing the fridge.",
+  "subgoal": "Grasp the filled tupperware beside the stove by its rim and lift it clear of the counter, keeping its opening facing upward.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "7544d72d2c25e901a5f7b528ed136b425d98aa1c13f1480cc9ce5be1500158e8",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:LoadPreparedFood:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

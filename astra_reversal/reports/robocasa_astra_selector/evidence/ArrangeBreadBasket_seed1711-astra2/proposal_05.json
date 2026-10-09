@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Basket visibly lifts clear of the source counter with bread retained, then rests upright on the dining counter after release and gripper withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 64,
+  "noise_sigma": 0,
+  "observed_evidence": "Bread remains inside the basket. The wrist has moved toward the basket side and the fingers have closed since the previous live observation, indicating a new grasp attempt. The basket remains near the source counter; secure attachment and lift are unconfirmed. No repeated current stall is established; review shortly for basket motion.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:1280:guide:5",
+  "request_fingerprint": "dd23601a3238fd7daa8bb6c12376b91b06b1b0ad1b44edf7d48d6a5393616039",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 5,
+  "observation_step": 1280
+}

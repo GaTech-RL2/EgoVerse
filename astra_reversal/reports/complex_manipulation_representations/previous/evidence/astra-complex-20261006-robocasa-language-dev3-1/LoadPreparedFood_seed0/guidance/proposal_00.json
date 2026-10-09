@@ -1,0 +1,15 @@
+{
+  "completion_signal": "The entire tupperware lifts clear of the countertop and stays held.",
+  "method": "phase_prompt",
+  "next_review_controls": 250,
+  "observed_evidence": "The tupperware rests beside the microwave; no grasp is established. The prior failed rollout remained at this counter with the container still on it.",
+  "subgoal": "Grasp the tupperware container by its rim, avoiding the food inside, and lift it clear of the countertop.",
+  "decision_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0:0:guide:0",
+  "request_fingerprint": "c4a594f3b1374f44603938d232bcc3fbd88c4662e839836713d160d6ba7e7fa3",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:phase_prompt:attempt0",
+  "request_index": 0,
+  "observation_step": 0
+}

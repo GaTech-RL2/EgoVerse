@@ -1,0 +1,3778 @@
+{
+  "README.txt": {
+    "bytes": 1539,
+    "sha256": "e28c442a9991012677a7ebc73d4fb7a658757eaafe350cfcb89a0f4a9d7fb8f6"
+  },
+  "cases.csv": {
+    "bytes": 1485,
+    "sha256": "55a1143ebd68bf6913b228865a5948e3ac4e2d499ef883f3e20caee7310c2815"
+  },
+  "episodes.csv": {
+    "bytes": 5067,
+    "sha256": "d9ba87061c46ff9067dcdd891eb0cc988b64ed495dd2592d33133454e4d6e1d7"
+  },
+  "evidence/ArrangeBreadBasket_seed1711/anchor.json": {
+    "bytes": 606,
+    "sha256": "df0bc4489181dd73c1fd5798b73169a1adf279d6f41669c6d3283bd4bc07eb95"
+  },
+  "evidence/ArrangeBreadBasket_seed1711/anchor_model.xml.gz": {
+    "bytes": 45043,
+    "sha256": "95adba25be5799f32ea986a43badc375a6af90fb07052e6d2017595d4d577437"
+  },
+  "evidence/ArrangeBreadBasket_seed1711/anchor_observation.npz": {
+    "bytes": 304687,
+    "sha256": "7daab9f1c465cf52902a716ce2bfe6d7bcfd5aa7dc0a08ee46b96a0391417149"
+  },
+  "evidence/ArrangeBreadBasket_seed1711/anchor_rng.json": {
+    "bytes": 22497,
+    "sha256": "b2583977be378b20281253dd4b76e763e126843318eee4e058dbbcc06ad43362"
+  },
+  "evidence/ArrangeBreadBasket_seed1711/anchor_state.npz": {
+    "bytes": 2012,
+    "sha256": "eadf6c557a88f2e95f4fe0bfa727dfbc6d66a4bfcbb5d5fccd4d3daa47bac819"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/episode.json": {
+    "bytes": 643,
+    "sha256": "f2141c8f8d1bd377fef3239ddd84e08931a002b49f4f26e1ec2bc9482079e89f"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/initial_model.xml.gz": {
+    "bytes": 45038,
+    "sha256": "f181ac6b0994955a2b7bfbce1f082990f51e46d4358a8f566d9676406b4b258b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/initial_observation.npz": {
+    "bytes": 305992,
+    "sha256": "1006020bdce1ffd0b5181d6cdf381e1b0e9ab6c9db36499f232a82adee1885e0"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/paired_reset.json": {
+    "bytes": 2125,
+    "sha256": "7d656e7f965a17ee1978c064d00d9c5c65c7fe7990858110f3026bb3ce1b288b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/policy_queries.jsonl": {
+    "bytes": 59958,
+    "sha256": "198048b9b182c75359934a7366ec4d1b146c6e9cff506b8a07af3a1b600f9f7f"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_00.json": {
+    "bytes": 1143,
+    "sha256": "e32cb8cdb2ebc6336aed44dc15ab21c2369dc55119928cc81edf128a921f2d40"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_01.json": {
+    "bytes": 1160,
+    "sha256": "13f9a89e6f3db0e38d7c16d0e446d458844ae7853f091b34fdc14c1e7d26085d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_02.json": {
+    "bytes": 1137,
+    "sha256": "59287c2a2244198e5623c45f7591577b8992a2123be1caf0fa6ce86b162a2057"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_03.json": {
+    "bytes": 1135,
+    "sha256": "f3341285aec868a5167f687d06c01d577a1ad413c4e05d0e2705b5694ef9caf9"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_04.json": {
+    "bytes": 1151,
+    "sha256": "fdba653b2916d84b30a6a09ea10920753f7a129290d130df4d69577e1d29cef1"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_05.json": {
+    "bytes": 1177,
+    "sha256": "2d21e2af27ab7852a4cb44ed8bf4f02b11e149ab38118021ef2beaaeb508f1f2"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_06.json": {
+    "bytes": 1182,
+    "sha256": "4d2d708bb188ed99aded55b8e6ee0817b96cb5c4f52f156160083a599f59abcd"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_07.json": {
+    "bytes": 1270,
+    "sha256": "f69980d12341fce8fe598c7f8fbd0a88bc0571addef9d5de213024ba686cb3e2"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_08.json": {
+    "bytes": 1254,
+    "sha256": "b8afce1940581e5e345c6f47ad9d8983ab1fa8453589584581a84e3f6cf91663"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_09.json": {
+    "bytes": 1236,
+    "sha256": "9a7ae5726092f7fb3ae7c39dc3e3ffa17cc86bdc689c838d9eb6a369830b0cca"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_10.json": {
+    "bytes": 1264,
+    "sha256": "1365bfff0e5a847aa1348846989f940b22a970b455d68995306879e942512f8b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_11.json": {
+    "bytes": 1083,
+    "sha256": "3130b33a53eb1fc98ff778fce0f134c12c49862cce369f42bd1a56a1a650fc2a"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_12.json": {
+    "bytes": 1291,
+    "sha256": "9a37e6edd5b9419d3d296103938d42400fcb10a0402d48770fb397c886e4cfee"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_13.json": {
+    "bytes": 1217,
+    "sha256": "81752bb901663b602f9dab6486a64ad0944a3a25d1a250002e263f353a9babdb"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_14.json": {
+    "bytes": 1298,
+    "sha256": "002ff5afdf08f6822be9dd39c362afffb69f5cb978ebd039b74441005da2b753"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/proposal_15.json": {
+    "bytes": 1306,
+    "sha256": "9d48c8d8142a11d6b64acc183573c48b663466c1c9a6dd099a63cbb88c878f82"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/provider.jsonl": {
+    "bytes": 84645,
+    "sha256": "fec89e4dbaae706a6a6e4b246d3beac40efd5c4105b64eb74dcdd7fbfef4e57a"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_00.json.gz": {
+    "bytes": 1259864,
+    "sha256": "facdcb755bd596bffbfab8cd45253eb6a3d642f7a6820219ae13c322830100b3"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_01.json.gz": {
+    "bytes": 1485555,
+    "sha256": "027942e96bd1dfb25f07be8c29f94c8dcb8c1e98e832461613f8c9fc1c1e1bcc"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_02.json.gz": {
+    "bytes": 1488552,
+    "sha256": "61e7ed941be955af8dc75a9beb366817388488df93755c5a265de5adf0ef77be"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_03.json.gz": {
+    "bytes": 1496766,
+    "sha256": "daad0181c6344e4d20266324a73cf0c8c6b4e0ed35afb4ea288901faea2d2810"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_04.json.gz": {
+    "bytes": 1510099,
+    "sha256": "bf4c06abeac7756834477c1881579a517609d99b94b5f72f043c0d1c5f4720fa"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_05.json.gz": {
+    "bytes": 1542365,
+    "sha256": "9465323d7ffaf86027047fe61db397d7d9512c65900a03e2bff6006a424ba06e"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_06.json.gz": {
+    "bytes": 1558877,
+    "sha256": "db7a2b174b3a46736e043e9cf60bb4d7da6a53c8bc5aac0cb2ee9b2711068f59"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_07.json.gz": {
+    "bytes": 1555761,
+    "sha256": "542941ae2dcd6479a742c81d7d823e391185ed53eb46f50daec9c7b007986c93"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_08.json.gz": {
+    "bytes": 1547437,
+    "sha256": "3923b2c98fae585fdaedff3099a24a7dadb8b018f00592aa9341d30c99f2ee4d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_09.json.gz": {
+    "bytes": 1535767,
+    "sha256": "c6cfbf5833f848ad5cfb795fb889bb61e41f6fc6b90daf34996b9486fb351847"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_10.json.gz": {
+    "bytes": 1524797,
+    "sha256": "038dc706fe26f3a7eba350300081c7e6f330d85e4e59223fdfa5a1337d2297d2"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_11.json.gz": {
+    "bytes": 1519858,
+    "sha256": "91812ac2af36aff0bf0a155ad0767e6247717f0486b55fbc6fa1b6e8e41b4acf"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_12.json.gz": {
+    "bytes": 1524060,
+    "sha256": "cece3c23a16b8b74d2f4571648b049c8289b2688a15e52b84620e8e724fa015d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_13.json.gz": {
+    "bytes": 1530148,
+    "sha256": "a845a7468f0259d1b0b8ac7642e78d0fe897baf3ecde679beaa44b8975c67da3"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_14.json.gz": {
+    "bytes": 1546984,
+    "sha256": "8b8a5158d873ea6a0daac88796749367824e725998e2eb22c88529f94281ff93"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/request_15.json.gz": {
+    "bytes": 1562608,
+    "sha256": "27fc36b7bad7d8a965ab0fb33d921c6735e6dae56c1b085e689467de465a22e8"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/reset.json": {
+    "bytes": 571,
+    "sha256": "da6e66f9f23e11d6b0d6e77f552921a97802ca46293969e0b67d3f524c1f5841"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/reset_verification.json": {
+    "bytes": 2396,
+    "sha256": "d72cd4e6eb3626bc6a68769074d9b01ae407097f90053937231c90128c00b390"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/result.json": {
+    "bytes": 396,
+    "sha256": "d141ae4a2fdd4390c48e469dd3e761ea52b0c2247c897f562ad6c75d10812d2f"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra1/usage.json": {
+    "bytes": 1673,
+    "sha256": "e17d6c2fe6432ebca4a46ca3a5cbb11b41ab55bbae431ddef5e521655ae2429f"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/episode.json": {
+    "bytes": 643,
+    "sha256": "fb2246748df057ab03d492f3cfce2b80587c94817b59edd8a598ad58f8d3a6dd"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/initial_model.xml.gz": {
+    "bytes": 45038,
+    "sha256": "745f8ac6cd1d696383084176b7b15d223f385bac8f4aa2aefa4083b08cc9248d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/initial_observation.npz": {
+    "bytes": 305992,
+    "sha256": "1006020bdce1ffd0b5181d6cdf381e1b0e9ab6c9db36499f232a82adee1885e0"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/paired_reset.json": {
+    "bytes": 2125,
+    "sha256": "7d656e7f965a17ee1978c064d00d9c5c65c7fe7990858110f3026bb3ce1b288b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/policy_queries.jsonl": {
+    "bytes": 59346,
+    "sha256": "4343af6279e1f9ebf8862ee6cbb01bfe4461a29b0c891628e80bee243447fd3f"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_00.json": {
+    "bytes": 1145,
+    "sha256": "d877c278c24d3f27eaa45f7d2c3b87189a4cf4b10303050d48e002b6a4cf5ba7"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_01.json": {
+    "bytes": 1168,
+    "sha256": "ce01052d83537f4aa0225127b6f59e7acea38c89f4b6191b8e4ca80609f696e5"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_02.json": {
+    "bytes": 1156,
+    "sha256": "338f275a751709176237a630ac496bd7f4ebcf75fc7c79b801fb544ee3d119c8"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_03.json": {
+    "bytes": 1159,
+    "sha256": "6f0379008ae48265235eeb55cd7f5d23d61f745f9877a39cba1f83ecb28c13d5"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_04.json": {
+    "bytes": 1202,
+    "sha256": "62e4ca98123c2f24a256bf4a8b5d9e9ee6cd76ad9e6504ab069be2c74cabd40c"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_05.json": {
+    "bytes": 1213,
+    "sha256": "febc51e7f38a6ebcadbdd641f33021bcdeb8b348e44e283f2cd76420e068382e"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_06.json": {
+    "bytes": 1279,
+    "sha256": "e60bb4a08d2991538a707ca40afe2b49d8b7fb3820334d429c3e3efe4076198b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_07.json": {
+    "bytes": 1302,
+    "sha256": "f5f445585b7f94b437eabdbd92aa8e7cdd1b090ccf43fd3504f9297199b28649"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_08.json": {
+    "bytes": 1304,
+    "sha256": "291d6295f37a653ad077174cb16ef261f4d9691268dd0b95bd8582bcfbc30ce7"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_09.json": {
+    "bytes": 1286,
+    "sha256": "950140608157be55c6f15a79b5ff01668859c0a6497180c6f1f08ba7b3ea2c6d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_10.json": {
+    "bytes": 1157,
+    "sha256": "ce8ab085c5b12e4160186df2f64ac6d8842b852984a7aed15eadad047d7fde1c"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_11.json": {
+    "bytes": 1173,
+    "sha256": "05e7291336c4cd02a1b101ea5b2b12c4b87a94f20a6d66da13c0fe0517ce5ff9"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_12.json": {
+    "bytes": 1199,
+    "sha256": "79e8a8147293ee26672620cc17eea2e661c27c21a470bc7ce7f2b29db1cb7c66"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_13.json": {
+    "bytes": 1239,
+    "sha256": "39f7ba836ebb8a55d6ff5669937d663468d558d9bbae3e9c20cdf7189372d573"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_14.json": {
+    "bytes": 1160,
+    "sha256": "93653256728e89cf33f6d0ab86095d397a78527fce3d587e948f634bc773544b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/proposal_15.json": {
+    "bytes": 1269,
+    "sha256": "4cba74afbffc3b2c15ecab1586363a5291f2eca7a9a387d9b47874579aa76c4d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/provider.jsonl": {
+    "bytes": 84698,
+    "sha256": "108aa29026a4fce73a86d7c739ba40c124f7defd4e10c8217534608f7a5ff372"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_00.json.gz": {
+    "bytes": 1269451,
+    "sha256": "3a7a096d12fcd367f2a74748f6ef9b812e472115bf41450ff767d5f6bf09593d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_01.json.gz": {
+    "bytes": 1510719,
+    "sha256": "fdb4eece9ba1f53815850dfe26f72f6ad0317c8215c80d77b7d916bdbb6354fc"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_02.json.gz": {
+    "bytes": 1508891,
+    "sha256": "622d47dacb613c20aee304ced17be16ca7295b0432af9c5106f7b16e8e3bba5d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_03.json.gz": {
+    "bytes": 1532960,
+    "sha256": "085b4595abfaec3ecd8aa15c97079cc49a542e22412cf85d4a659f37cc2418d5"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_04.json.gz": {
+    "bytes": 1572750,
+    "sha256": "f48cb41437f48ba835953e302e12b0cd2c185a971e37e29c06259fa8818a28d4"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_05.json.gz": {
+    "bytes": 1569811,
+    "sha256": "a2ee9d6ea0941b1018d29c342ed2ba802608eef1497f76aec404893ef1e02f58"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_06.json.gz": {
+    "bytes": 1564140,
+    "sha256": "844774903f1d4640dc1571fad566b137a875e5e9a5c7cc33d3a0ea67604d339a"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_07.json.gz": {
+    "bytes": 1565698,
+    "sha256": "7cc7963952c42b327d29f04c15cd8727ebfc284b14ac470dbc8781b4b59f1d39"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_08.json.gz": {
+    "bytes": 1555157,
+    "sha256": "5fd0791fc4e3051c8311f251685aaec56b0d3551c4fc4aae201a96e1c73d2eff"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_09.json.gz": {
+    "bytes": 1538605,
+    "sha256": "f6e216d63dc4d0cc5fb5877559fdf24233e55d06a496e19ce3f2805a0973b58b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_10.json.gz": {
+    "bytes": 1532333,
+    "sha256": "c7328561f8cbc89bbe2e4e9b2413fa805d9c0fdd6c63a9d9baa38106162905b2"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_11.json.gz": {
+    "bytes": 1530298,
+    "sha256": "0dc891a3ffa085d365b5e91b54821623a67f7942181fd1da13565f3d7a2316c4"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_12.json.gz": {
+    "bytes": 1528587,
+    "sha256": "641179f13d1340748f05ab9aeb16b298d4ac600aac4fc7a1f2c2d5e7132a62e6"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_13.json.gz": {
+    "bytes": 1534557,
+    "sha256": "c37008a30e660a6aad458534822e6011663ce7ac176bfa16e5e4fb4aa0015e54"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_14.json.gz": {
+    "bytes": 1541667,
+    "sha256": "a08661f90c40d2e1cd96fe48e4a1417f1c4b0b2fd629af021db0f5cd8149f7f6"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/request_15.json.gz": {
+    "bytes": 1539658,
+    "sha256": "5c79160324b864931c3f5c651e54c09a850726b18ab89c9d2916c6a86ebbb32d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/reset.json": {
+    "bytes": 571,
+    "sha256": "da6e66f9f23e11d6b0d6e77f552921a97802ca46293969e0b67d3f524c1f5841"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/reset_verification.json": {
+    "bytes": 2396,
+    "sha256": "d72cd4e6eb3626bc6a68769074d9b01ae407097f90053937231c90128c00b390"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/result.json": {
+    "bytes": 396,
+    "sha256": "d1392d5adc9ebc33afdb0f883a31c412a6d87bb7f165eba933ca45b023b37dc1"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-astra2/usage.json": {
+    "bytes": 1673,
+    "sha256": "fbaa77d7daea292b06d3e72a6503c1e7ff926519a6e810232698d4a2cfaeb959"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/episode.json": {
+    "bytes": 647,
+    "sha256": "14a6960db6975fcac9de24f5733ff984c3f7026c9aa681fa436544d9cbf8d0aa"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/initial_model.xml.gz": {
+    "bytes": 45038,
+    "sha256": "ec982027b6f26d0fda9883a2743064fc6f453485b4b261ac9a7a300f63f8fcf3"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/initial_observation.npz": {
+    "bytes": 305992,
+    "sha256": "1006020bdce1ffd0b5181d6cdf381e1b0e9ab6c9db36499f232a82adee1885e0"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/paired_reset.json": {
+    "bytes": 2125,
+    "sha256": "7d656e7f965a17ee1978c064d00d9c5c65c7fe7990858110f3026bb3ce1b288b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/policy_queries.jsonl": {
+    "bytes": 53875,
+    "sha256": "5b3b66fec9a7d1308a354f90a61893a5a3c800f023f2e6198dc7e7846397d012"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/reset.json": {
+    "bytes": 571,
+    "sha256": "da6e66f9f23e11d6b0d6e77f552921a97802ca46293969e0b67d3f524c1f5841"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/reset_verification.json": {
+    "bytes": 2396,
+    "sha256": "d72cd4e6eb3626bc6a68769074d9b01ae407097f90053937231c90128c00b390"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/result.json": {
+    "bytes": 400,
+    "sha256": "b5b7b3da5997b29d07bdf9520ab101b2399bb0101b7ce7650ce156de556df8ab"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/episode.json": {
+    "bytes": 645,
+    "sha256": "41308193af930b0267ade9ac7ed233779c0275e28bd716c045b7ddc011e287aa"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/initial_model.xml.gz": {
+    "bytes": 45038,
+    "sha256": "6edf0868adeec699689f850418e09a9a5c7f3ffa83fdf4c95494528c027c19d1"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/initial_observation.npz": {
+    "bytes": 305992,
+    "sha256": "1006020bdce1ffd0b5181d6cdf381e1b0e9ab6c9db36499f232a82adee1885e0"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/paired_reset.json": {
+    "bytes": 2125,
+    "sha256": "7d656e7f965a17ee1978c064d00d9c5c65c7fe7990858110f3026bb3ce1b288b"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/policy_queries.jsonl": {
+    "bytes": 53860,
+    "sha256": "114414e1b149ddb02f1358c25c925728542f45ad61de15366c1302f2acd7140d"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/reset.json": {
+    "bytes": 571,
+    "sha256": "da6e66f9f23e11d6b0d6e77f552921a97802ca46293969e0b67d3f524c1f5841"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/reset_verification.json": {
+    "bytes": 2396,
+    "sha256": "d72cd4e6eb3626bc6a68769074d9b01ae407097f90053937231c90128c00b390"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/result.json": {
+    "bytes": 398,
+    "sha256": "6cc4291ddf2234378735ebdc96a00f1ab58a968e40bd1250dfdbc74ab256a3a7"
+  },
+  "evidence/ArrangeBreadBasket_seed1711-native2/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1107/anchor.json": {
+    "bytes": 595,
+    "sha256": "a6a97c61847e8565931497b0056a4ef964b67a5d4b25b9ece185d982e0197b3e"
+  },
+  "evidence/PackIdenticalLunches_seed1107/anchor_model.xml.gz": {
+    "bytes": 33826,
+    "sha256": "36dd6eca005a68a75da0053efb99f619544c4e574a0bba13355eb1fe89f93b60"
+  },
+  "evidence/PackIdenticalLunches_seed1107/anchor_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/PackIdenticalLunches_seed1107/anchor_rng.json": {
+    "bytes": 22497,
+    "sha256": "bbd9a8aef930695ca5805eac62f316dc51b2116f225ad26a876e8b0d8509b1e9"
+  },
+  "evidence/PackIdenticalLunches_seed1107/anchor_state.npz": {
+    "bytes": 2207,
+    "sha256": "a3d4ee912c57de5d1c4ea81db2d688c119663208c6efaa63e36d4201f4de3b3c"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/episode.json": {
+    "bytes": 646,
+    "sha256": "866d4e9f1efbe825858d0e3823f2252115fb95da1183ed3be64340b3db57572a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/initial_model.xml.gz": {
+    "bytes": 33821,
+    "sha256": "9366d6a01a80b0a80653d90f7b2a707befce999f6a93c71cc961c69d0edd5aae"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/initial_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/policy_queries.jsonl": {
+    "bytes": 48917,
+    "sha256": "d0304ac1297c298d1f83b26ecafdef4ecd1018fd41e3cecd2e81dd693b575858"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_00.json": {
+    "bytes": 1115,
+    "sha256": "2b5dc0d1749d1d53d4838a170c7be9697873f7c1b747fc3e5e4e77f226a46ae2"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_01.json": {
+    "bytes": 1076,
+    "sha256": "3f8a213d9c6e7de827b39c077e827212cccb70e426d37a732dbe9fb9f4119552"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_02.json": {
+    "bytes": 1096,
+    "sha256": "4afd8156e89e93d2fd7294e8ca9f0fdcb2b3f5ae2854168b3f434d4e434d5937"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_03.json": {
+    "bytes": 1113,
+    "sha256": "45797bf13fe4bcc24605dc769fa75935faa677d33a95221dc36a8d33cfeaf92d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_04.json": {
+    "bytes": 1142,
+    "sha256": "b574b7baf5bf6d93519e5a73b5b208d3865b78ddaa101620843a315603b4ba1a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_05.json": {
+    "bytes": 1140,
+    "sha256": "47b786efa79755d15229f05b2b1af7d65dbac9de4ef4844a3232807dbf5d49c1"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_06.json": {
+    "bytes": 1108,
+    "sha256": "487a8c91d8db654a9caae73e897a7ba97f06b738c8255ad12f1cb20a5c165545"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_07.json": {
+    "bytes": 1156,
+    "sha256": "29926bca1e1569fcca34d53c3604311579cc5df91c23ac1f0916f321ce8046b2"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_08.json": {
+    "bytes": 1151,
+    "sha256": "7f35996d22ef686fe9dce71b91e5aca67b1ea811dae18127eccf4939fb46dbc3"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_09.json": {
+    "bytes": 1161,
+    "sha256": "8a6a9b06f01183a0675cdc0fc201919292c9fad4c7c2ed973e3cb83248bdcd1f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_10.json": {
+    "bytes": 1212,
+    "sha256": "2ee335e41aeb6c9447c1dd2b3bb852381adadd58344a76a85fba34592cd2272f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_11.json": {
+    "bytes": 1257,
+    "sha256": "073c1b10ae95b896a8120baf7f0e8dc853814c0739800c2af0a0724cd9469695"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_12.json": {
+    "bytes": 1120,
+    "sha256": "7fea71c478bee2ba5e25ba38080d2361dd07270e415ab64ce4aa009311115403"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_13.json": {
+    "bytes": 1240,
+    "sha256": "85052a37db500c497c4e46ef44b95589a064b34c3396c50d2f12824e259a6aa5"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_14.json": {
+    "bytes": 1193,
+    "sha256": "cc7e45ff12fd9fa09f763f8ea121c3d2872992da81e446e75811f6aa2b5ee6f4"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/proposal_15.json": {
+    "bytes": 1284,
+    "sha256": "2dcc7c7d7de86982a70b3202a187738fdda9d2189433383037f58fbb5253c449"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/provider.jsonl": {
+    "bytes": 84718,
+    "sha256": "c299a88ddee3dc87e5f52a2438104c2ab4a47b98a294251cdabc55cc156fe52a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_00.json.gz": {
+    "bytes": 752420,
+    "sha256": "807449f555bd4ae474c622b6dc3ffb6f7c05a5bb560275ce984e6e56d415025e"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_01.json.gz": {
+    "bytes": 851218,
+    "sha256": "e6f59a69f23e1cb484e4ed14e211afe6ea3a0bcf4ea0ee0c430574d76c524bf2"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_02.json.gz": {
+    "bytes": 929166,
+    "sha256": "1ea08cf752b33a39df03c3331ff22ae7c8fa645411bf1b9ac1f810ac192b29f3"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_03.json.gz": {
+    "bytes": 1036519,
+    "sha256": "9de017d3a6d6488eb7f00697f733c3883d5300839e909d7d71921e0c37c31278"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_04.json.gz": {
+    "bytes": 954406,
+    "sha256": "84ebdcacb4ce07a9a48877077fb14ec9f0626f8949c19aac058945e57257f956"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_05.json.gz": {
+    "bytes": 922781,
+    "sha256": "000593f775ad17394c657576c116579f16b7925bd72a6ddcf38adce9b8d037bb"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_06.json.gz": {
+    "bytes": 958501,
+    "sha256": "4cc61927fb720b771a860d89b16734a776d3b0497b89c8e5c5511bb060c50661"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_07.json.gz": {
+    "bytes": 884303,
+    "sha256": "41a61e954cfd92e5e7d9701a92f9a9c94c880d31d486812d9ff5c3e9868f82f4"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_08.json.gz": {
+    "bytes": 854956,
+    "sha256": "1bc7097cebd449547f72cde05bb5f0954cbcb91c1e64650c99f3ad67ec353b51"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_09.json.gz": {
+    "bytes": 899176,
+    "sha256": "38ac448d9e81ca6867c157a855784b9125176416dff8713130dc022c99821773"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_10.json.gz": {
+    "bytes": 918187,
+    "sha256": "369d367369eb934c144336a481866c32ea4e8b74377837fca943e4cb058da671"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_11.json.gz": {
+    "bytes": 950031,
+    "sha256": "866c39fc41f7d290f5ce867db5e4dc1393deda0c43c689aac5ee7a12656c222b"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_12.json.gz": {
+    "bytes": 912701,
+    "sha256": "ff657c791d6333027d9b3a6b27bf0b5bb52a797afe891c4326f9a1cb688f7cf1"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_13.json.gz": {
+    "bytes": 887084,
+    "sha256": "0aaecf62a1075795b1a8af94bba5e48118f75194684a911eeb4524c290f8e27d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_14.json.gz": {
+    "bytes": 934481,
+    "sha256": "6fa1e38f49e1a7a839a53035e814e318fea4794833669e96e40351ec9e2586f2"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/request_15.json.gz": {
+    "bytes": 927490,
+    "sha256": "ea4ec48d947605ea7d626ac32290aaabad96f641e09f1684fd248977ecdbc9ab"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/reset.json": {
+    "bytes": 562,
+    "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/result.json": {
+    "bytes": 397,
+    "sha256": "6368163ee297d6a13b9322a7ef1b2c9de4914e9dcf5a5b7562ec04395d4ed1f0"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra1/usage.json": {
+    "bytes": 1671,
+    "sha256": "6f7a54b5e816504590b27010830e3b941a75be46f0783078ea5a278a508aa45c"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/episode.json": {
+    "bytes": 647,
+    "sha256": "9a017b6eeedca6f7372c86177f2f53f5a1ea057e360893395b376a565e71ede3"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/initial_model.xml.gz": {
+    "bytes": 33821,
+    "sha256": "3e76e699ba78f9c53b52aba526b8f7a2e0a4b336873aed80fb46d02dedcd7e41"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/initial_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/policy_queries.jsonl": {
+    "bytes": 58624,
+    "sha256": "68efa9973744c47c001083b55f8154224fa46427569e0c7587d5b89231b2def6"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_00.json": {
+    "bytes": 1174,
+    "sha256": "65e1f64596eb4a4f3d6823c8e5b5c2cca71974658377bc926337410ccca1d633"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_01.json": {
+    "bytes": 1136,
+    "sha256": "347bba8f8f4716e87f55b904da4b9914188ade2f2b4d9c7f657c6d85a2dc7055"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_02.json": {
+    "bytes": 1138,
+    "sha256": "6f6ec27414e8459370b432ce5c5d956984e04f60ba9aab7678a6f92496ef4710"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_03.json": {
+    "bytes": 1283,
+    "sha256": "d29b8abbf7490ad60ccbe753a8172e73a0c5e7866d67f086ae9e14fdf7952fa0"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_04.json": {
+    "bytes": 1257,
+    "sha256": "f8f90bae6fdff9d1c0a24bb206ed775fba6755f6cd10ddf968055de641aab32d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_05.json": {
+    "bytes": 1227,
+    "sha256": "ba340db7c12c59857ef4b5f24451054b680d20e09efda16166ab8737f27a0549"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_06.json": {
+    "bytes": 1267,
+    "sha256": "0eb609866a1c1fa6de5adb6ae7b82e9e10cf85aa2ba96a03694a5f220d105532"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_07.json": {
+    "bytes": 1289,
+    "sha256": "3d760801a4c647316d9e3dbb3bb23f0f251e87a484d24e0dbb0a94dd6e0677d5"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_08.json": {
+    "bytes": 1159,
+    "sha256": "c0479993e39c632103cb17cfef591dfe2f5ee7a444da51cda2393d171d95ee70"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_09.json": {
+    "bytes": 1152,
+    "sha256": "b7de145e56e5a8d18e92fe5c668870e010a258a4545c4b333a74fdb2344fba7e"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_10.json": {
+    "bytes": 1273,
+    "sha256": "ccbfce1c1d3ba80acbce44a32be2bf20bfe5d80da1b52987e6968c6c983f7349"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_11.json": {
+    "bytes": 1227,
+    "sha256": "d125e8775e5f9d18527302fa96acc2ea19ff21038439c4d0250a1b380600bb7e"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_12.json": {
+    "bytes": 1207,
+    "sha256": "23ba34a0553ed0a453c8915cb4c045a32ff33d1b44460d3f0c8239ea02c103d9"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_13.json": {
+    "bytes": 1266,
+    "sha256": "59b4c904efda65269905c484ca838af828d37568cb1c8e47a0db7a1c037b5513"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_14.json": {
+    "bytes": 1274,
+    "sha256": "d452764ae3447911fa2b5c805469ba6e478f9efdf0be115452adace93450e873"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/proposal_15.json": {
+    "bytes": 1276,
+    "sha256": "458284d83636b1072e9d9748b128211df9d8452cadb0b95a0a4582f0ba45a360"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/provider.jsonl": {
+    "bytes": 84747,
+    "sha256": "a5957997be08791f5261de4c47c445e82a84200c3343751d60d9300dc3becd7d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_00.json.gz": {
+    "bytes": 915692,
+    "sha256": "2908a3607cb6a17d462630c4430f13a99c722eb76cf17f595ae13404b6c15a59"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_01.json.gz": {
+    "bytes": 1070102,
+    "sha256": "cb6f69d5d11a1a27ed2db6d480beaef8c78c51f675c1d3b34aee38a34c80724c"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_02.json.gz": {
+    "bytes": 1058776,
+    "sha256": "290ae7082341c2de6580f276fb6ad73e2f9e77a629fca9b03b82d8ed220cdb7a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_03.json.gz": {
+    "bytes": 1083133,
+    "sha256": "a450443cc1ff583f39c7b0a54ccdfb07ab86e4cc56120f0305ee5975e56b46c3"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_04.json.gz": {
+    "bytes": 1130806,
+    "sha256": "a816546dade4725d6f8d07f44de0dfdc7918db085b1f3db29f3ec395599d8770"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_05.json.gz": {
+    "bytes": 1079104,
+    "sha256": "4d0a4c881625984a0ab1a62db699e1bf99efc54aded67851824baedd51897f09"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_06.json.gz": {
+    "bytes": 1145939,
+    "sha256": "1b682b78e12fd43bb7dd60b7987f15bb1e037f7ea00e62daefb3518b9099d675"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_07.json.gz": {
+    "bytes": 1131973,
+    "sha256": "89b330ee79a60b067b594fb95ddeb789415a7656bb970e72cfd9d69d91d33b7a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_08.json.gz": {
+    "bytes": 1008735,
+    "sha256": "855e265fb7be810307e7e67c17ab99637c4856dd85e1220c4a6b36932aaffa38"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_09.json.gz": {
+    "bytes": 1086944,
+    "sha256": "6302176ee3cd05f4e85eece5577e37b162c585181b42872ab3aa00ae2b97e5df"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_10.json.gz": {
+    "bytes": 1135403,
+    "sha256": "8adb25914087de04d238775bca699b60ea2787731f589031b24cd07e18e2aee3"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_11.json.gz": {
+    "bytes": 1159311,
+    "sha256": "39f607d91a7e4d049d442b7791be3d46ef9716566fb294c182b2aed84044ed87"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_12.json.gz": {
+    "bytes": 1172537,
+    "sha256": "60f2a4ac488c4a7bb34437c59aeb1326f23377fa829c425e1ca4132e10922d28"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_13.json.gz": {
+    "bytes": 1107790,
+    "sha256": "b5aeeac5f185ab5d23f824db8e6779aca202eb32b3c5d220c42de01459847f2b"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_14.json.gz": {
+    "bytes": 1165021,
+    "sha256": "bef88160c1070db99840d6ac5ba08eeb9cd2c0d17f849e15922ae2b9e8135363"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/request_15.json.gz": {
+    "bytes": 1219269,
+    "sha256": "14f443ab423a4539c1a9ff22eac497dddd0fca18e5afb6a10927fec518021735"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/reset.json": {
+    "bytes": 562,
+    "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/result.json": {
+    "bytes": 398,
+    "sha256": "870dddb65b36cb2a2388c690711204825b15571526de876093bb2c57b9f1ffd8"
+  },
+  "evidence/PackIdenticalLunches_seed1107-astra2/usage.json": {
+    "bytes": 1673,
+    "sha256": "8ec031c4a778aaf63f6399fd1e8e9282c6a1555168aaa1b58546530cf283d486"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/episode.json": {
+    "bytes": 501,
+    "sha256": "29b153b0469f91fcbe374c19987c106a9b43d693cb15760792a653cc22479606"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/initial_model.xml.gz": {
+    "bytes": 33821,
+    "sha256": "d46aed7487c7fb5b0f442e0908a463f0dca21ff7fd57b24c89a05fe14768c5c7"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/initial_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/policy_queries.jsonl": {
+    "bytes": 48309,
+    "sha256": "7145d77611373783be62123bfc8899fc62281d9f034dda8d281f74f921681157"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/reset.json": {
+    "bytes": 562,
+    "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/result.json": {
+    "bytes": 401,
+    "sha256": "a593d623dc2fcdb467ee143556726e3267c07049f8fd0602dc372c1acddca2d0"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/episode.json": {
+    "bytes": 650,
+    "sha256": "b720c2387b1c25f71dab86ed19375fa3286fb8f13e70cac2cc68f65ce6362d3b"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/initial_model.xml.gz": {
+    "bytes": 33821,
+    "sha256": "a37f21665d845042544d18279133647017364ac7a2622db77437c0f9cdb4a91b"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/initial_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/policy_queries.jsonl": {
+    "bytes": 48308,
+    "sha256": "ff641f6b38b791080185a3e00fe2306fd942c40bfdcf999a45f6865fd361186a"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/reset.json": {
+    "bytes": 562,
+    "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/result.json": {
+    "bytes": 401,
+    "sha256": "0067123912645b04ced99c67572becca2a87893f767f6c46748dd95a6f3589f4"
+  },
+  "evidence/PackIdenticalLunches_seed1107-native2/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1108/anchor.json": {
+    "bytes": 597,
+    "sha256": "c6a730bf0c5dd9b4844b0c6b368d64fb3461c6a333aa35fbc0a12db669f2f2a5"
+  },
+  "evidence/PackIdenticalLunches_seed1108/anchor_model.xml.gz": {
+    "bytes": 39243,
+    "sha256": "b608a6298f4bbedd968493fbb5133be98ee213198be36b392fbfcefcbe56ed7f"
+  },
+  "evidence/PackIdenticalLunches_seed1108/anchor_observation.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/PackIdenticalLunches_seed1108/anchor_rng.json": {
+    "bytes": 22499,
+    "sha256": "22cfbaecefa3505d35b7859f1ea2eb74877916f90a3e25abc9ae7f59bdea1c8e"
+  },
+  "evidence/PackIdenticalLunches_seed1108/anchor_state.npz": {
+    "bytes": 2360,
+    "sha256": "d88d1978489b39a416bbcc497d4d1a141c3c444ddecdff4b702e42dd7ab00a70"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/episode.json": {
+    "bytes": 648,
+    "sha256": "21555d23378809effad641290054161f7c15934ea873f569c5f896b07102a5e3"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/initial_model.xml.gz": {
+    "bytes": 39238,
+    "sha256": "bb434ee8c9b6acfe4566656dda8624839f415602f7448ce7f3316fff1faa288a"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/initial_observation.npz": {
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/paired_reset.json": {
+    "bytes": 617,
+    "sha256": "02414cbc67647bb9d6c01d7d5ba6f971b4ef980b92abda7c82c64f83235d4304"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/policy_queries.jsonl": {
+    "bytes": 48522,
+    "sha256": "35cd0f33a9e509368f09a3b9422c7566fb7a2b47102c426e07fceb970a45c996"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_00.json": {
+    "bytes": 1170,
+    "sha256": "0a50e555de4ecc02ec138abacc5fb7b0f3f9bfa46c0a291976b8c64e30567dde"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_01.json": {
+    "bytes": 1152,
+    "sha256": "222e53ae5320e1a553fc16d3f64c4da5ee56f4429a8ddb1ffd4e7e55843b436d"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_02.json": {
+    "bytes": 1203,
+    "sha256": "9f2531a2999f91f3542e243eb6270d4d66fcb1d5b642aaeb50ab7d6c7306ca26"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_03.json": {
+    "bytes": 1157,
+    "sha256": "373f2a0801c77dabbbdc64771634391eed37178443ea0cbb96ffff3e769820cf"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_04.json": {
+    "bytes": 1168,
+    "sha256": "d33d8879e38a1c3004620376cf3367cbc4704e49699fa9812c154d2b9ca6f540"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_05.json": {
+    "bytes": 1208,
+    "sha256": "bfbfcdc243ed97ae9e083aae74a9002b055cf31bd0eaf6ac8782336c130ec849"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_06.json": {
+    "bytes": 1271,
+    "sha256": "85cd8ff0d64c6f0d4e2c800491948f6bff79ac92c984f88b07267c9551c8f090"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_07.json": {
+    "bytes": 1267,
+    "sha256": "fef0b1cf36afc9cf33cd082a168f07137d3dd9582f0b50bac55a87b2c1e5d919"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_08.json": {
+    "bytes": 1128,
+    "sha256": "659c51499fe4751bf0995f5095c7a8e2208446872166748c3c89c06c72f63a9f"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_09.json": {
+    "bytes": 1154,
+    "sha256": "f6a8d458eb75200798274f67d96bb3b5ccd4a6062667d396711ef14170c7d509"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_10.json": {
+    "bytes": 1123,
+    "sha256": "4ed2215e06c949a7528035202816a7243aa7575581b1e76efdfdc69ea8607e24"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_11.json": {
+    "bytes": 1150,
+    "sha256": "41950f079fb37237bb3c9e6d3019736d530231c0a488e0e62e7c4dc043745979"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_12.json": {
+    "bytes": 1221,
+    "sha256": "4852ca771bcc88f648e04ab5eba735fa4b63b563bfc9209cd17a8af31f3e45b5"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_13.json": {
+    "bytes": 1211,
+    "sha256": "56d72df437fa0e04d3a81b629fa111ea0c953ecc6c715922b321011a4aa1286c"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_14.json": {
+    "bytes": 1199,
+    "sha256": "a5e77469fbf130ae36a748fda032f5b5685ff5590f04ae2e6df4cff3ea4f8f7c"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/proposal_15.json": {
+    "bytes": 1336,
+    "sha256": "2f95828467c324b50f20dce717d5a14b63c690e507c35133cff1767449f7a0b5"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/provider.jsonl": {
+    "bytes": 84732,
+    "sha256": "27fa564c0681becb2f92d4b58faeea361313b0a0a3b595bcbb3f036016426c53"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_00.json.gz": {
+    "bytes": 708742,
+    "sha256": "db09f6bbc3c4f84203c1b5b9ecd9336ecd490b023674750e9fb13578dac40bf8"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_01.json.gz": {
+    "bytes": 875979,
+    "sha256": "a35eb046317e0857ee5843106c7f858982ab2f95176c7520492624aa0e1ed790"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_02.json.gz": {
+    "bytes": 967623,
+    "sha256": "20c420c2df4ab0d88ac404286b724a2d3ca9ebdc7fbf30426a407e7017fc7750"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_03.json.gz": {
+    "bytes": 887013,
+    "sha256": "6719734909c261ad48ccfba4ef444f10d4308854f997d77ecbb71495a634cb8c"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_04.json.gz": {
+    "bytes": 835970,
+    "sha256": "c08241058cfc3257c02dbe086b67834129a0fe56b466b21d332645c3400f953a"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_05.json.gz": {
+    "bytes": 948858,
+    "sha256": "8555a47c8ca9cf0058ca855a5b689be606bfeee67e5e3e524c586b4fa528cabb"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_06.json.gz": {
+    "bytes": 940997,
+    "sha256": "ed92565e00b9f2924375d91a8db68f0eb98dd337763b4617b74b59b63ac58ca4"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_07.json.gz": {
+    "bytes": 942031,
+    "sha256": "6085246f92e10e67de50fb588233311c1a6ab8b9fbc04c2723d8a3d3f43f360a"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_08.json.gz": {
+    "bytes": 900016,
+    "sha256": "876b2a7eae4aba863ed3198beb444b1ff37924ac152e19083a16102fe7533eaf"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_09.json.gz": {
+    "bytes": 852240,
+    "sha256": "763c02f79d863db07527627ea1cd206a30be5c0b05c39c05413355deea520bdd"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_10.json.gz": {
+    "bytes": 930862,
+    "sha256": "facff898620931dd42d286b7c00ee06530aba693f5f3b37742fec301ee1f0101"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_11.json.gz": {
+    "bytes": 862871,
+    "sha256": "46577e954aa250a4ef4163e444d355b578e3ceaa0ee4f10c22499fc2288371a5"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_12.json.gz": {
+    "bytes": 884884,
+    "sha256": "bfb1a373ef256d4fe59948f8d3f6988c36ee8a9b4c210ca2948797d7dce00336"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_13.json.gz": {
+    "bytes": 988629,
+    "sha256": "6cfdcd2d645155eae31f0a66744c3c2bc179b51dbcd73a52304655b5f462f9aa"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_14.json.gz": {
+    "bytes": 872995,
+    "sha256": "232e25cd3adff1eabeefb1d93efe37f7426143d0a8b0fe5af1baecf1fc211ffb"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/request_15.json.gz": {
+    "bytes": 754002,
+    "sha256": "a4b4b0e8eef275d97288388200a3e1cbc484af6b28488825bfd203022fa71b33"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/reset.json": {
+    "bytes": 564,
+    "sha256": "dc7e7a1bbee5ed7bd5bf20ae97d468d55ee03b366805098f59498ae2fa03f268"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/reset_verification.json": {
+    "bytes": 2111,
+    "sha256": "258fafdee6324d8bced0f248f6fdd4ecbd80cb0bb761042050fbb9fe688f4242"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/reset_verification_0_observation.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/result.json": {
+    "bytes": 399,
+    "sha256": "1295582310bbdd7dee994e6230c95018e37a1776a56d4f71e387f3a7e99aee3e"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra1/usage.json": {
+    "bytes": 1671,
+    "sha256": "a97419989cf1d35d91dd06f0ac14b5c4862cc2e6b47a6718f76bb360d68c65f8"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/episode.json": {
+    "bytes": 648,
+    "sha256": "795e646f97902cb42277e113887db6622d39b99fe93223d90c451b9fcc9ea2ec"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/initial_model.xml.gz": {
+    "bytes": 39238,
+    "sha256": "5d11311aef23d053a66cc7ca7c7ac962779938a265af4504b8cc2dae17f65859"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/initial_observation.npz": {
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/paired_reset.json": {
+    "bytes": 2107,
+    "sha256": "c81ef30d60ae9b4acab55a200a36d692658d7be15a76583bbd39ceb44747f200"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/policy_queries.jsonl": {
+    "bytes": 44357,
+    "sha256": "9be1d5b94455160ecdbba17320c28cd3b665aef6c7356ff29fb3bfd5e61c2022"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_00.json": {
+    "bytes": 1162,
+    "sha256": "d88d0ac0563a6d430d87fe31c20742feebe5a21ee17f549f1ea643871ec2028b"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_01.json": {
+    "bytes": 1210,
+    "sha256": "027037bafefe21a95058a0bbe206845a6099795181c5e0f3948c5d0ff07ab4da"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_02.json": {
+    "bytes": 1185,
+    "sha256": "82a6df850921a2bd3a26042359180f66f34a974325b0ef8577210045bd1935cc"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_03.json": {
+    "bytes": 1112,
+    "sha256": "0230a2e4522f0f1acf6cd52a1bb3f1552f1f590436d8f7835f7ed1cd9c0db927"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_04.json": {
+    "bytes": 1240,
+    "sha256": "74a471c9284413898e739e8f00169bedf6aabb063711f982c84235782a68c2db"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_05.json": {
+    "bytes": 1174,
+    "sha256": "b87abf53fd00236fb6b30cd9fe6f246d3222a6ee6ea35b527d792724524a16ba"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_06.json": {
+    "bytes": 1296,
+    "sha256": "1dc17cc451f16abe307c095e3cb43d7639e70828e5a5bb47fe742303b29c20ef"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_07.json": {
+    "bytes": 1263,
+    "sha256": "2f86f3becfd7b65f47e94dc02e1944039da6c08d2a9bbdf3ca353d75d173d7b1"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_08.json": {
+    "bytes": 1279,
+    "sha256": "e615a2e677c1e040086e12694e930bdaab1e65fd35b152e313dc1b1e73c04669"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_09.json": {
+    "bytes": 1335,
+    "sha256": "0ff64fa8b1a48e1017332b29c834a81fe967faf7746c5692e68282f59344e1c3"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_10.json": {
+    "bytes": 1284,
+    "sha256": "c66fada5b9d1b65356d557c15818679deef50c9a0196eb486c09de3c718d0112"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_11.json": {
+    "bytes": 1231,
+    "sha256": "975bc6c2dbbbf01ba378a06ce10b1ee4646de7c7ac2b59b4508714f08688ce3c"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_12.json": {
+    "bytes": 1223,
+    "sha256": "29e449a662d110d392f7ff82de63bd3e36ac134621b9a4436675d5f6c19d9f94"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_13.json": {
+    "bytes": 1158,
+    "sha256": "a793259b6d6aed8bea45684dab56b1b512834d0231ce45e1a20a2a180cd0150d"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_14.json": {
+    "bytes": 1183,
+    "sha256": "b3c8e85c9f1d755db218ae209424af15482eeb93f945cbf48e0e3385be099932"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/proposal_15.json": {
+    "bytes": 1323,
+    "sha256": "93bb48380f2cd87a6eb6b1c5b9e51169e7cb3dc49570a33f0bdbcfbfed5dd377"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/provider.jsonl": {
+    "bytes": 84720,
+    "sha256": "c76f27746b0bb311fd44a7103528ddc56e21999b7ae1772b23fc70755219dc57"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_00.json.gz": {
+    "bytes": 791472,
+    "sha256": "ac9e62675052822b7c5929d29c24cd4a137833b278c7ea11dfd067ea1724f54f"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_01.json.gz": {
+    "bytes": 943943,
+    "sha256": "93b9cea62f1b9ba5e04feea4dae40930873142f269447ffbd7af4a9ad4c92543"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_02.json.gz": {
+    "bytes": 986874,
+    "sha256": "0bf660bf392d7e463511ca9b2d81520d8257fb596d5ed41c8c354ee9db6d14a1"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_03.json.gz": {
+    "bytes": 971083,
+    "sha256": "a478572968ea4789a588a4d5b998a310857d0735ac52b080472c36f8cc1cbd09"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_04.json.gz": {
+    "bytes": 977676,
+    "sha256": "ad38b9e8b98b4dbaa96e7383ce913307106d81a14d963c13b8c01b6dcb63d4f7"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_05.json.gz": {
+    "bytes": 931113,
+    "sha256": "fef6ed5ce0ac37c474d7afc1a24d51576e13da55e16a795e556ed3e405616996"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_06.json.gz": {
+    "bytes": 1005317,
+    "sha256": "87f1b5f84ea85a43aa0e7f62154c95456df6dc20e70db245a8eafa73054c878c"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_07.json.gz": {
+    "bytes": 1072383,
+    "sha256": "b68a4a9fb2f5082f7775ffb2a6038fa088727e6476ce12811c5fdc1281ca91fd"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_08.json.gz": {
+    "bytes": 1054818,
+    "sha256": "9d7fdd31a02b0ef2dfb6e06a649a5c5245cbdbe44a99ad41b8d45094cf865593"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_09.json.gz": {
+    "bytes": 1064297,
+    "sha256": "526243af1b7ddcbb08daea1b119ca41fbb83b9e5316129ebee7a80baaaf2482f"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_10.json.gz": {
+    "bytes": 1106527,
+    "sha256": "a4417379bbf3d78375ff65b90ec968339aa4530d98b1d6e0e4b81ad4de38b811"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_11.json.gz": {
+    "bytes": 1092916,
+    "sha256": "5f17a890ae85e442977b55af58271f2a062d011a80765bd1e393640482e9f523"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_12.json.gz": {
+    "bytes": 976199,
+    "sha256": "5930f8f7cb41bdcea17e41f343d388d7f5bd3a35d94610604a5a6aa35a487ee3"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_13.json.gz": {
+    "bytes": 978323,
+    "sha256": "28ce5f6de8ee89564060d317d3811dd0281870e0f9605ca94d8901202d4f3440"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_14.json.gz": {
+    "bytes": 1090337,
+    "sha256": "6a5d05a84a12aa551bb8e317578c1ab2a4822ad96cf3b54cc33098b06f4a040e"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/request_15.json.gz": {
+    "bytes": 1085373,
+    "sha256": "8bcfb6ebe19d306fb20f9b144faa101d9375550fdd0825fdec832568c2e1a4a9"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/reset.json": {
+    "bytes": 564,
+    "sha256": "dc7e7a1bbee5ed7bd5bf20ae97d468d55ee03b366805098f59498ae2fa03f268"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/reset_verification.json": {
+    "bytes": 2378,
+    "sha256": "40ee47e4131804441ec379c2fd4df9c02bf456b4547d7234d9aad28d40099b45"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/result.json": {
+    "bytes": 399,
+    "sha256": "b26d79d3faeb30174c8d816d1e6f0c76750d02081730bcb3db23eff7512e5e53"
+  },
+  "evidence/PackIdenticalLunches_seed1108-astra2/usage.json": {
+    "bytes": 1673,
+    "sha256": "8722d481620dfa5f8d35af79366d721bf00ba7edfdb440281d85220094166756"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/episode.json": {
+    "bytes": 649,
+    "sha256": "6edb1807434d1351d2bd33b3217b706638a9618621c398ee6dde89aefc7876c6"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/initial_model.xml.gz": {
+    "bytes": 39238,
+    "sha256": "ccb336a736036cf036de71f54e6eed0b635a754280fcfe7018b9de395000a0a0"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/initial_observation.npz": {
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/paired_reset.json": {
+    "bytes": 617,
+    "sha256": "02414cbc67647bb9d6c01d7d5ba6f971b4ef980b92abda7c82c64f83235d4304"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/policy_queries.jsonl": {
+    "bytes": 48297,
+    "sha256": "b6cf5939b720a29140c48804493aabad4a9a0b04103ee00568d120fa18253de7"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/reset.json": {
+    "bytes": 564,
+    "sha256": "dc7e7a1bbee5ed7bd5bf20ae97d468d55ee03b366805098f59498ae2fa03f268"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/result.json": {
+    "bytes": 400,
+    "sha256": "575b84846ec30c0f9bb5239d79347ad4df6a67cb08e6c58001d1340c0f080ea3"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/episode.json": {
+    "bytes": 649,
+    "sha256": "0026709eaa2e5e3e93c2713ec76603754aa52e970b0d69d697d39b0cf479f8a5"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/initial_model.xml.gz": {
+    "bytes": 39238,
+    "sha256": "cdb8e64b1863b9d0c928433b2bff7090cdab9e20da443ebcdc387d9cc19e33cc"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/initial_observation.npz": {
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/paired_reset.json": {
+    "bytes": 617,
+    "sha256": "02414cbc67647bb9d6c01d7d5ba6f971b4ef980b92abda7c82c64f83235d4304"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/policy_queries.jsonl": {
+    "bytes": 34399,
+    "sha256": "de92bfcf9b8ba909868d77645c3df8b157ffbde9bdbfe731538a39fea8f52ffa"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/reset.json": {
+    "bytes": 564,
+    "sha256": "dc7e7a1bbee5ed7bd5bf20ae97d468d55ee03b366805098f59498ae2fa03f268"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/reset_verification.json": {
+    "bytes": 1395,
+    "sha256": "d1aad5cf4cdd62ed0f50844629ce8360838ee37f06d58777f7443e6db7c00cef"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/result.json": {
+    "bytes": 400,
+    "sha256": "3e530cc74293c2604e1dfd34c2c1bbf046766880be01e6ab7b0984531d63965f"
+  },
+  "evidence/PackIdenticalLunches_seed1108-native2/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1110/anchor.json": {
+    "bytes": 597,
+    "sha256": "ed5fcb0990311730fe245a8a24304ab6e42ab7baa5c98c0f03ecf31cf9c6f6a9"
+  },
+  "evidence/PackIdenticalLunches_seed1110/anchor_model.xml.gz": {
+    "bytes": 32399,
+    "sha256": "518eb69177c30ba8f331619534d8dbea087377c1b31298a988f6cd1e71b76daa"
+  },
+  "evidence/PackIdenticalLunches_seed1110/anchor_observation.npz": {
+    "bytes": 157475,
+    "sha256": "e09acef8f232657351a6300d7b1cf864c485663ca5159334533d67847374e7d6"
+  },
+  "evidence/PackIdenticalLunches_seed1110/anchor_rng.json": {
+    "bytes": 22498,
+    "sha256": "66cc616a57b69a30f84f85ebe141eafd20b340f5307538ea5e5a66336e7c6292"
+  },
+  "evidence/PackIdenticalLunches_seed1110/anchor_state.npz": {
+    "bytes": 2200,
+    "sha256": "8c7832a02224b99a5be7d18d3dfa19bae970ea924f026e49f8d22a516dbc923b"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/episode.json": {
+    "bytes": 648,
+    "sha256": "f14bb5948e2e128a8e342ef011f1e9e76c3267cce50170d46e23edc604f06ab3"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/initial_model.xml.gz": {
+    "bytes": 32393,
+    "sha256": "9afc773fe9b11ccdda80ddbf52901e2ebdabed32c098505a8bb1b6f9d5de8b2d"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/initial_observation.npz": {
+    "bytes": 158929,
+    "sha256": "90c3811c25746304a0708d20474e370239f2430c7831744cacc3457ad725543f"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/paired_reset.json": {
+    "bytes": 2107,
+    "sha256": "00798fb7e5c6501d8227a4370d95a86e09f790e8db8f5b1d26b48ce12e36709c"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/policy_queries.jsonl": {
+    "bytes": 52738,
+    "sha256": "64f4ce6ee126b7adc6f14a8156782f531b758407891e067aa5979fada95d3306"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_00.json": {
+    "bytes": 1211,
+    "sha256": "28bcd1c50476cc06d3f1a57af28f917a4db9a35b1a8acfac0682c2b291b53859"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_01.json": {
+    "bytes": 1126,
+    "sha256": "10a9f61fe6139512b6c02d09c0a4571a669a6be6a0d506bf6bd8910bc8143e1a"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_02.json": {
+    "bytes": 1136,
+    "sha256": "b7dbaaf65b8ad33a1b69f785b1bb9adbe1c443f3f29aa7f262a9cdd8268d6261"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_03.json": {
+    "bytes": 1151,
+    "sha256": "811717bb51993eb7606f302fef52992ad67bc9c4f48fb7ad23f961f46fc0d0b9"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_04.json": {
+    "bytes": 1144,
+    "sha256": "5dd63e57f6a4ac2ddcd69afcf817578910bbf143e9b60cee6c049e9bdb4e9f21"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_05.json": {
+    "bytes": 1102,
+    "sha256": "a9f827ada6013bea67a83c44d8a72457bbcc97de0c3e6256fe03df69f37a62b6"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_06.json": {
+    "bytes": 1139,
+    "sha256": "0197994dc4dfb68cf3ef16eb8a79cfd48a3605f13f98f665236e07c688402449"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_07.json": {
+    "bytes": 1136,
+    "sha256": "ca1842e1029831a7a5e7f3f2f774cc3a51c62b41ae41d3f7fc407a4a930b52be"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_08.json": {
+    "bytes": 1144,
+    "sha256": "c43ebbae04113b6462476b3e14e8542b81e22cb49ad774cd21eb4b5257a00dca"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_09.json": {
+    "bytes": 1190,
+    "sha256": "8045a7b6f3f0d60bd35899f7600c5e4eca38c19ded7bfa31d56593f4dec651c0"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_10.json": {
+    "bytes": 1109,
+    "sha256": "351702b9eec5a5d286a83fa2c3100613f3b3a68951807e6e4f189fd48bca5d18"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_11.json": {
+    "bytes": 1148,
+    "sha256": "c1feff63b980140fd89dd2ba2140a1a223d19f0cd1da7836ab0df056f5f6bb88"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_12.json": {
+    "bytes": 1274,
+    "sha256": "c3e35a274e56331c599f1bb013c2fd7dee94c73875aa93b78723d3c5e8b3f594"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_13.json": {
+    "bytes": 1205,
+    "sha256": "d70e6145b2008ead6a46ec29e279a07d209dfa839f824d3cf84655d80f1db441"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_14.json": {
+    "bytes": 1275,
+    "sha256": "68c61bb009a021331d69117fabc75399a066d59e92774d853c3b0d4564de7454"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/proposal_15.json": {
+    "bytes": 1313,
+    "sha256": "4eb2a83180d05b7b000138a1717798332c6c2ecb3f63f1ef864bae85c960550a"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/provider.jsonl": {
+    "bytes": 84676,
+    "sha256": "0db3fb94bd21475f2bc94894844d63a6275f98853419ecc1ed087b5cf48bbebe"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_00.json.gz": {
+    "bytes": 621301,
+    "sha256": "a143526f3193f0e95a09ed00499c69f4f565748d61a18db8369cf73ef5b6a7db"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_01.json.gz": {
+    "bytes": 758352,
+    "sha256": "4415ee3972a17d21cac3b24de78f28669302858cfe623f1a8686a9a0151e5aa9"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_02.json.gz": {
+    "bytes": 820459,
+    "sha256": "9bf9dcc4be5bb56b1d179ec143de7cd7b1f438b3c43de054d1fe0409507a2148"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_03.json.gz": {
+    "bytes": 835555,
+    "sha256": "bbbc8129a9f9516faa6ba180052b854f234429a2e4551e46903254b8d09d887c"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_04.json.gz": {
+    "bytes": 755679,
+    "sha256": "5f7a52d440da01d9e769002e57418a0f36156757360fcd2087344fee69d28732"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_05.json.gz": {
+    "bytes": 723726,
+    "sha256": "89620fc6d5c079bfdf97267854289dc9042a0a4198cbf02bed6da0af25523caf"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_06.json.gz": {
+    "bytes": 753790,
+    "sha256": "0640ab682b00e937521df47bf1c681b8fc95442945f4c5e8fc1b12dcf94c9edb"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_07.json.gz": {
+    "bytes": 800135,
+    "sha256": "87be536a3970b6dcd7e9ebf8da2e894642fd6ebb60e291b1413e62d66a594089"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_08.json.gz": {
+    "bytes": 827870,
+    "sha256": "6e43ce8f4293d1a67743c00d46462988cd6a2a31a257ce0ba740209edb2ca48d"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_09.json.gz": {
+    "bytes": 791157,
+    "sha256": "d8dfd86bda6553b1bbfbfa53dd5d173464a98d96d067f44743b2d7f8176e912e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_10.json.gz": {
+    "bytes": 758699,
+    "sha256": "fc51c70218282d79984df559555532ee7b09955a55c5abdd0264ebed10eb8d94"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_11.json.gz": {
+    "bytes": 827914,
+    "sha256": "fdfa021274932be8ee1217ece45e613822606c38b36c807c835ef8335e2f18c4"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_12.json.gz": {
+    "bytes": 882659,
+    "sha256": "b89a21e196697ee8f9e7d033faa622f28dd7baad3d2240026d3fc5405273237a"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_13.json.gz": {
+    "bytes": 874708,
+    "sha256": "d053bda8f7ef43d39f19ed9ecf30322ece03a3f925982ed82508d10d069013db"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_14.json.gz": {
+    "bytes": 861663,
+    "sha256": "e4324c8a6c7e69c45d758bd4267226f6b8cd7745a07665ccf604c41a5603086e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/request_15.json.gz": {
+    "bytes": 854238,
+    "sha256": "3183729d67d5354c33188eaac742442853b31dd6b2a0ff74bf9b6bb172a52f2c"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/reset.json": {
+    "bytes": 564,
+    "sha256": "bc2d5f838425947fa8cadff3ab9e66cc9ac421bf97506027dd17ba3b9abdb1d6"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/reset_verification.json": {
+    "bytes": 2378,
+    "sha256": "40b16ced1195f3d59d6ebd591f0a9012564fe9926cc8dc40c5e65658b4be6d37"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/result.json": {
+    "bytes": 399,
+    "sha256": "7677415a4ae085a6b510d8a493b3b9e9c4f10f6d2750ffd88b547e616ce4b145"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra1/usage.json": {
+    "bytes": 1672,
+    "sha256": "ee3878a42fd48b9d1efcc79acbc6be5aa080866d207b4af0cb13ba27e70f1844"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/episode.json": {
+    "bytes": 647,
+    "sha256": "183cc246c0e0f6fc714ee494fcc55b08763e05b15f9744b3b345b417c5ef842e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/initial_model.xml.gz": {
+    "bytes": 32393,
+    "sha256": "217955d817fdffbb03674d83aae08779eb2a19832c24606ba91604a49d355f41"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/initial_observation.npz": {
+    "bytes": 158927,
+    "sha256": "c5d0ce7f2b49be76ab7203bc8b87d3ff907bf1f796450175452831229c454f29"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/paired_reset.json": {
+    "bytes": 2110,
+    "sha256": "f2501276674c51c1829c2dc9f893fce63e83de6243247a0ea873db459afb14a3"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/policy_queries.jsonl": {
+    "bytes": 56896,
+    "sha256": "a19c78a531d3fa900fafbbf9a61b29d2964d2aeb5de15f78dd1849bc93985ff5"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_00.json": {
+    "bytes": 1140,
+    "sha256": "d3fa34fdaed8c4724165276166ea9c2c098e097aee861c336a0cb08c34cddb01"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_01.json": {
+    "bytes": 1088,
+    "sha256": "a8e17aaadabc0f1e34db1301d67c065b1eb381e4111aa67a8d497e486d790921"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_02.json": {
+    "bytes": 1155,
+    "sha256": "b03bd6427f270a9ab5632163b01487b02819f7cfa26cb47ce5e3bf54455e85cd"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_03.json": {
+    "bytes": 1168,
+    "sha256": "d301f82fda99c17c8d2156c60acea4c079f2dbc5a6db4fedfa2fad185b5fc43e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_04.json": {
+    "bytes": 1215,
+    "sha256": "29a19852f1a931b2b4b9b18a524e27462d89bd483f6fde6a866547738bad53a2"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_05.json": {
+    "bytes": 1305,
+    "sha256": "4bd6c42963a2f27be2105a2d5357d07307316056552f9ed5f879f1df6b563767"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_06.json": {
+    "bytes": 1203,
+    "sha256": "5ee1c5e3ee4ca6924f7d7d818365b96ee953981567289cf3f6699bc706b15f86"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_07.json": {
+    "bytes": 1236,
+    "sha256": "1d096c1c2d4b39ec29e7d3f565980f3dfec965db19f0ceb383b291de5ccf33b5"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_08.json": {
+    "bytes": 1285,
+    "sha256": "2aadbc1bf7d340d05435884e18de461c9572f84d486bdbf0cc68ca434437790e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_09.json": {
+    "bytes": 1226,
+    "sha256": "f9492352bcb6faf113e3c5be589d37e6359013aa84c36c6bc8246ecc49f90d84"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_10.json": {
+    "bytes": 1183,
+    "sha256": "976a2d06f0fa6e392ecfb75cde692a7e9ce815959ad7a36c855277cedc3b5d94"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_11.json": {
+    "bytes": 1184,
+    "sha256": "f6781d6880051d9263cc7b543e0acf4fbac6af2f1892c09fd542ed341a77adda"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_12.json": {
+    "bytes": 1362,
+    "sha256": "e20a0d757ebe9389aad1e98ab0b7c2980cf9a90ab1893253c6ed08191d7fd78d"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_13.json": {
+    "bytes": 1214,
+    "sha256": "3aa11c12abeb7543027357884f54eae2b1777f9a9d94547978e6dd8b52f1ce12"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_14.json": {
+    "bytes": 1207,
+    "sha256": "62ef4261e62255fdf030efa1aeba1c87182a09b402198583089267f672ea4d22"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/proposal_15.json": {
+    "bytes": 1350,
+    "sha256": "05e2accef2f41ced3ff7c82ab34f8253e18c7d7f10298d547b2afd908da322a2"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/provider.jsonl": {
+    "bytes": 84755,
+    "sha256": "1a22cd01a405d2efcc5bb4466823db8b24a673e4854c84428b887fa71c0045fd"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_00.json.gz": {
+    "bytes": 863071,
+    "sha256": "dc1040691129c4d7b93414d5f4efa67ca8d0c4d3b584741d5b4c88581810e989"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_01.json.gz": {
+    "bytes": 1077302,
+    "sha256": "c30712537bb3d0dd3a8c3bb3b8387381c7e3740c96d91e16a045d04dc67786f0"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_02.json.gz": {
+    "bytes": 1049125,
+    "sha256": "c31677d0ac071d2dc6bb36a5e50bbf500464e036e422fdbabf505fc4d7013740"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_03.json.gz": {
+    "bytes": 1006131,
+    "sha256": "a54d19351f9926ddc3a7cf330aa6041f79c64f64268203d66526a3120beed856"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_04.json.gz": {
+    "bytes": 1072713,
+    "sha256": "6e08caf9153b797ca6dbaef42581c8cf0bf774e0a6bf9169a36790a4abe2dcaf"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_05.json.gz": {
+    "bytes": 996736,
+    "sha256": "0234ef5612c72e82ef11e0035f85d40fbae7c10a841204b080b47490d33813e7"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_06.json.gz": {
+    "bytes": 929888,
+    "sha256": "bb5bb4b2f46ab3d0931c9aff8e5346f9b1074a7ecfc5201971b558b6d0212503"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_07.json.gz": {
+    "bytes": 1042891,
+    "sha256": "2576f54201a533dafdf0ff63c2213e051e1b0c2de0498623be21740236e689e1"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_08.json.gz": {
+    "bytes": 1095904,
+    "sha256": "a11c4442e729fd83789d1a6a52fee1bc0cc83bc209655940b09e5b8ffc6b2061"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_09.json.gz": {
+    "bytes": 1110635,
+    "sha256": "4d8757f66eeca2064551e9eb8e0b0cee663f777655b345c2438de5169e25d2c4"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_10.json.gz": {
+    "bytes": 1049733,
+    "sha256": "9f6f4951488001e74d86b9420dc6714d69c0c912d6f232b3c12352f79870cd80"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_11.json.gz": {
+    "bytes": 999349,
+    "sha256": "e7d0e346003dcd3253135926803bfca646dbd55ceec428d7d321ac941c541b06"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_12.json.gz": {
+    "bytes": 1089207,
+    "sha256": "002c3d6c046bfd3ace9f91d07f9a6488b43caee4ff2d7ecf95c206a9a10c19f9"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_13.json.gz": {
+    "bytes": 1100652,
+    "sha256": "84abd0f3826970aa3409785784ec34e7a2ec096b5af5def87b4b5689e54d0070"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_14.json.gz": {
+    "bytes": 1093544,
+    "sha256": "43444284017d07e8fa4677ff07ad846183b5f3f5b98e86dc9d65a8272b502aa7"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/request_15.json.gz": {
+    "bytes": 1013430,
+    "sha256": "9e251a6113318b47f93c10309b8c7318611c9fdabd175f0a1a7c37177823217e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/reset.json": {
+    "bytes": 564,
+    "sha256": "424bd124036e66c3faee09fccaefa2a78f0b5b75351480c1baa2f0ebe094ebfd"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/reset_verification.json": {
+    "bytes": 2382,
+    "sha256": "9bb6890f427f7055dbfd4e503d77a3f593887e341a8fb37f2bac811ae78714f1"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/result.json": {
+    "bytes": 398,
+    "sha256": "a14da5a268c1970a3b1f1d308a06d07eaf64ba91a8690eb5f6ba00f9624e3f28"
+  },
+  "evidence/PackIdenticalLunches_seed1110-astra2/usage.json": {
+    "bytes": 1672,
+    "sha256": "b787e2b6c33ec430be88984a7b4a249ef2619556be5270bdc170e225516d74f5"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/episode.json": {
+    "bytes": 649,
+    "sha256": "79d2966ce82d231575e3a9080dd62a88c5b2561707e44b1c7dac740e705cc4b8"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/initial_model.xml.gz": {
+    "bytes": 32393,
+    "sha256": "9a5dd7484c1ec782695bcec3c8e3d6902967df2452de375a31e76c53e7b959a5"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/initial_observation.npz": {
+    "bytes": 158929,
+    "sha256": "90c3811c25746304a0708d20474e370239f2430c7831744cacc3457ad725543f"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/paired_reset.json": {
+    "bytes": 2107,
+    "sha256": "00798fb7e5c6501d8227a4370d95a86e09f790e8db8f5b1d26b48ce12e36709c"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/policy_queries.jsonl": {
+    "bytes": 25853,
+    "sha256": "ee3b3a1b0b875fd3d9f1c2fbc07c53e308d97de16c5cc344bdc565acb5b7a27e"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/reset.json": {
+    "bytes": 564,
+    "sha256": "bc2d5f838425947fa8cadff3ab9e66cc9ac421bf97506027dd17ba3b9abdb1d6"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/reset_verification.json": {
+    "bytes": 2378,
+    "sha256": "40b16ced1195f3d59d6ebd591f0a9012564fe9926cc8dc40c5e65658b4be6d37"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/result.json": {
+    "bytes": 400,
+    "sha256": "61255a4a82791f497d59dbc37c10ed7c23a41c9304ef8b051fca4fbdd292b1f4"
+  },
+  "evidence/PackIdenticalLunches_seed1110-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed1111/anchor.json": {
+    "bytes": 591,
+    "sha256": "c4535e378a5a5fa11ab24f6ceab7c9725139a92cfbde038440aae567d6e0919d"
+  },
+  "evidence/PackIdenticalLunches_seed1111/anchor_model.xml.gz": {
+    "bytes": 33274,
+    "sha256": "c23c1826471032e4256da228b5c3bce21a96732b0e978328a5a801639a1065e2"
+  },
+  "evidence/PackIdenticalLunches_seed1111/anchor_observation.npz": {
+    "bytes": 159404,
+    "sha256": "1462d7bba8a49840a457ea0f0afdfdf31d8714130e257b36528ee62c1ba9f9cd"
+  },
+  "evidence/PackIdenticalLunches_seed1111/anchor_rng.json": {
+    "bytes": 22497,
+    "sha256": "d32b17b80772d8ff6875492b9bd4932dd789fda55121683ae349865293af94d8"
+  },
+  "evidence/PackIdenticalLunches_seed1111/anchor_state.npz": {
+    "bytes": 2225,
+    "sha256": "1849eeade5a4ab4db12ce3970f1261e3f0bee176e9ec23e721a9b16dfee42a61"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/episode.json": {
+    "bytes": 647,
+    "sha256": "b03d08b066e6b1ecc12e2d9b01f2d493a3bae384570687dae712d2f5f4d6c845"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/initial_model.xml.gz": {
+    "bytes": 33268,
+    "sha256": "618a3c1a06d62c3e309f177251efbac466e4e7e51e7667c2b2efc00a81af66ad"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/initial_observation.npz": {
+    "bytes": 160879,
+    "sha256": "bc4ebacacf9583e58ff92f324a719dfc0480bb2ba10102ae075e5bfe7b488699"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/paired_reset.json": {
+    "bytes": 2095,
+    "sha256": "15960edf7dd0e70582a640104459baaa8b30add1c788d7c9a8a7d44365991311"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/policy_queries.jsonl": {
+    "bytes": 36095,
+    "sha256": "cc5ab5a511a9877bdaddd5b9b904d3e67885118efb09ec21490c38477dbf79b1"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_00.json": {
+    "bytes": 1144,
+    "sha256": "68be2dd517445913d334f9b3d58b42c073e01c1049124978fbe7a3438edd04a9"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_01.json": {
+    "bytes": 1129,
+    "sha256": "ee50a15da2def93aeb5f84157ada5ece6fb3d133d0054e02265552afe6416833"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_02.json": {
+    "bytes": 1155,
+    "sha256": "d5ad7134d555e34f01f08cb0a8cca6d1394255d101dd4a8a4693f6ee25053859"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_03.json": {
+    "bytes": 1068,
+    "sha256": "0a07609f7ae717c29d23f7587ea8b60b96b9ebecc06e3f52776fb6855552ae19"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_04.json": {
+    "bytes": 1108,
+    "sha256": "ee464f2105a23c76a241df46fd06ea8e6598dfdacf59ce3ab32715ab16cde5df"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_05.json": {
+    "bytes": 1099,
+    "sha256": "d6b893bb146256c032e3819b1a944a774d4e49bacc5eb14dec552b9e57d4924b"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_06.json": {
+    "bytes": 1109,
+    "sha256": "10b79bde6d9808be6d29132ee480dfd7dd7d644561df69f9358216f9b05a2977"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_07.json": {
+    "bytes": 1088,
+    "sha256": "04be051c3bd1ed42fc4d32f69e4cbd76a4b5339fa390599307fc326a49933287"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_08.json": {
+    "bytes": 1100,
+    "sha256": "67cd037964038dee67b05ad2b80b9ff2ad93b3ca161fd53d294e8b86809747d5"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_09.json": {
+    "bytes": 1089,
+    "sha256": "6bc56746fae6061c04c4b945cbc111ef52370025a0fad271a5ef908035b8198d"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_10.json": {
+    "bytes": 1121,
+    "sha256": "d954861d25343fbccdb7517e34a027b49eacd68b7a14524c0654534bdf8ef954"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_11.json": {
+    "bytes": 1198,
+    "sha256": "3ce5edc12d547367611ace86bca7780b399f4eb69e8e45d626fd0fba366cc4c9"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_12.json": {
+    "bytes": 1183,
+    "sha256": "2c1ed53f727a00c76f83ee3aa8cfe25bbb7afdf19dc2db46b9f719459e3504a7"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_13.json": {
+    "bytes": 1320,
+    "sha256": "6443783aaf0bdbfb050918933bf47c21c2f6eaaf4b6da1720349bb1e71bea390"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/proposal_14.json": {
+    "bytes": 1298,
+    "sha256": "9fdf8424600ef073b534ed259bcae61742fd29353dfa6ee11567195d2210f23a"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/provider.jsonl": {
+    "bytes": 79383,
+    "sha256": "e3ae6a9513388f011e95737753959e744de3298c960c96a8622b0111d6a89608"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_00.json.gz": {
+    "bytes": 730690,
+    "sha256": "c3df14dc75793a8578dda42acb6a23a6c962e7685ca696a51a55f9de2a499b0b"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_01.json.gz": {
+    "bytes": 930158,
+    "sha256": "a33a2d6f4714a353f2cc999790e5c4cf67e0a43f45fdee566e90c1e40c254fbc"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_02.json.gz": {
+    "bytes": 995962,
+    "sha256": "2df79494c8c93367e767fcb2e733e8748aa3df72fc50ccebf82f6bb71ed08d56"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_03.json.gz": {
+    "bytes": 929031,
+    "sha256": "e9af72415c622da31af4c15f24d8c25b2c366984c44d2ff52bcd122d85306613"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_04.json.gz": {
+    "bytes": 898541,
+    "sha256": "0555d7d3fd079c8099c750a19d39d024e969e956281bff2eb73f363d3ba32343"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_05.json.gz": {
+    "bytes": 873081,
+    "sha256": "a28252fde19e175cf398e44e31865e3faea341bd5131b3fa9ebdea8dc069a7d5"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_06.json.gz": {
+    "bytes": 910930,
+    "sha256": "38f998e885110efc3d51e083f8321166e6f6bdd888db4c1b5cb0993a1dc69a1f"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_07.json.gz": {
+    "bytes": 999400,
+    "sha256": "df29933b9d69b1dc9cc3ad6c66c01a848590ec0235af9f3d0e1d70493e035e79"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_08.json.gz": {
+    "bytes": 924204,
+    "sha256": "e9c6695ff2d9c5ef1089cd5c8f08d80250dafff6666548ddf87fe8a2421e9710"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_09.json.gz": {
+    "bytes": 857008,
+    "sha256": "f72b6a489a59be3381eb2362f88b51f3fc59cec481aa67b7788336c7975900c0"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_10.json.gz": {
+    "bytes": 884508,
+    "sha256": "40c5481a12bf49741fd54f5495b1499809c1baa7d7d5e780a8e628a0e3357e49"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_11.json.gz": {
+    "bytes": 945614,
+    "sha256": "00ca72433d2daf0e940857d5509655a8413fd9e9df034253c32cc7750122208e"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_12.json.gz": {
+    "bytes": 989949,
+    "sha256": "55e891c8b4eeea0f9336dc53325f9c8a8c4b000c6b0b4a61c5a8360af6f863ad"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_13.json.gz": {
+    "bytes": 987851,
+    "sha256": "f745b1fb55360c74aab991078682c98cf8d8c0d9676ef994eaa2cc2b043ae153"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/request_14.json.gz": {
+    "bytes": 925780,
+    "sha256": "b890b659fc948613acb8dd1a171946f5268ec270baacfd06ab58d9daf95b1ce5"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/reset.json": {
+    "bytes": 558,
+    "sha256": "c25233fb4b991b941fb74264d5a66f41162c035ef7bbaf16c1246483ebcf1282"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/reset_verification.json": {
+    "bytes": 2366,
+    "sha256": "eb2d14c60bf4e2b6cd17f958810f4b07d8a6ca4b72d24bc3d52ef65560fd9581"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/result.json": {
+    "bytes": 398,
+    "sha256": "f87a1e4ab570075cadbbd8bc55678cd65016b18b99ceeb97ec16324f34968925"
+  },
+  "evidence/PackIdenticalLunches_seed1111-astra1/usage.json": {
+    "bytes": 1672,
+    "sha256": "3c774178a3268932e5d767ad4b7d2c18c69c5818e8c1a268f3358ee652f0eaf9"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/episode.json": {
+    "bytes": 650,
+    "sha256": "072ee828276ce9a84cfec6902fccd34bb1730293b5d863ab18887a6b6c81f624"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/initial_model.xml.gz": {
+    "bytes": 33268,
+    "sha256": "d898ca33379077d5119542e8adb4750622e8f5f759e819011ed42469e5046d90"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/initial_observation.npz": {
+    "bytes": 160879,
+    "sha256": "bc4ebacacf9583e58ff92f324a719dfc0480bb2ba10102ae075e5bfe7b488699"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/paired_reset.json": {
+    "bytes": 2095,
+    "sha256": "15960edf7dd0e70582a640104459baaa8b30add1c788d7c9a8a7d44365991311"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/policy_queries.jsonl": {
+    "bytes": 31818,
+    "sha256": "1aa3d91b0308f31f304608582d00bb8a612f0ac8bd4f311740a377fea26665dd"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/reset.json": {
+    "bytes": 558,
+    "sha256": "c25233fb4b991b941fb74264d5a66f41162c035ef7bbaf16c1246483ebcf1282"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/reset_verification.json": {
+    "bytes": 2366,
+    "sha256": "eb2d14c60bf4e2b6cd17f958810f4b07d8a6ca4b72d24bc3d52ef65560fd9581"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/result.json": {
+    "bytes": 401,
+    "sha256": "9ebc49e18378a84126fded9d8e142c0d39c020ab934ac08203c8993ee5713131"
+  },
+  "evidence/PackIdenticalLunches_seed1111-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed2/anchor.json": {
+    "bytes": 595,
+    "sha256": "e4b0d1403e84c942d051b66b732edfc2f6128bf4f6e7739fe86a629a086068fa"
+  },
+  "evidence/PackIdenticalLunches_seed2/anchor_model.xml.gz": {
+    "bytes": 32846,
+    "sha256": "298625824d40568add4aa1a1f023b1858530a5d160908be85fc423252f6f07cf"
+  },
+  "evidence/PackIdenticalLunches_seed2/anchor_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/PackIdenticalLunches_seed2/anchor_rng.json": {
+    "bytes": 22519,
+    "sha256": "e6ae61b286ed44c5bffa3546f2c462f3106ab697fa6bba45983332a64329c1ab"
+  },
+  "evidence/PackIdenticalLunches_seed2/anchor_state.npz": {
+    "bytes": 2191,
+    "sha256": "a03f602d3dcebabbc744879707307b8f5d4156d5059f12f5062caa895d892f21"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/episode.json": {
+    "bytes": 491,
+    "sha256": "bb37f07d75c5d78fad1f9e375360d288427cc3bb3e4b435b38a40effe0cd3fea"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "1b3656e3c59ce7fc1db6252c3ba2948cf5250f6a596393bb4bdcc17e20463544"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/policy_queries.jsonl": {
+    "bytes": 56097,
+    "sha256": "ad4bf4da7b7a91d3680306a01e78bb469f9f89cc686ac0b28c5529ad8d6ab75f"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_00.json": {
+    "bytes": 1088,
+    "sha256": "d97fcfca3dcaca1e91e667ce6c040ad51007c86b57b27b224d052b35bf601922"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_01.json": {
+    "bytes": 1071,
+    "sha256": "7394608f39eb1908ea178b8618110b383b702f703acdbe36f1b10fb8037cd187"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_02.json": {
+    "bytes": 1182,
+    "sha256": "b3c78f1d6af509242b639d1fcd13a92351036aa731086902e77c1729c17de2b0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_03.json": {
+    "bytes": 1115,
+    "sha256": "9ea9b54666bb6a65497436c5703882d2b4485a309324dd65357083fd96d51b96"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_04.json": {
+    "bytes": 1159,
+    "sha256": "94c48c51d4a64acf99cbd931871c33314526adde3256cd675b4eabf19683a9f6"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_05.json": {
+    "bytes": 1124,
+    "sha256": "20d2fa8b5c8ec9064d6be6d1617b0238b80d6956ccd2439d5dec6187975cfbd0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_06.json": {
+    "bytes": 1092,
+    "sha256": "3d663902a79d76325513b191adbb586cc76f3c020b2415352ace3f4bc2511bee"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_07.json": {
+    "bytes": 1258,
+    "sha256": "f082d099a594303c2f55ef5587a8c150ce0c4ccf2574908a8dd119fdc3a20a6b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_08.json": {
+    "bytes": 1260,
+    "sha256": "11567caef503a5e17ef13d5e51823632f9a6f4191a1f31cc43fe649779c09c00"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_09.json": {
+    "bytes": 1148,
+    "sha256": "13e701790de53ed41d2ba1057365253a635bbf307d88eb4bd361734efa879acc"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_10.json": {
+    "bytes": 1237,
+    "sha256": "fde7fed4dc99b357a6840b5a4f640eba86e98383b1c4ac32c5f27a987333c6f0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_11.json": {
+    "bytes": 1216,
+    "sha256": "fa6d9d6294cc58b1e6ed45bb04d78d3c7175d30dfa390c8eeab9974dafe42f05"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_12.json": {
+    "bytes": 1233,
+    "sha256": "36ed496745df0b57e9c829d1aac17418fa4764e47800424950de3e6c7eb198fc"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_13.json": {
+    "bytes": 1262,
+    "sha256": "b69e72ef01d297694749cbf52703401ed05731b6eaeb1ddc9ec4b6655d005e56"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_14.json": {
+    "bytes": 1255,
+    "sha256": "dc0d966f63c684bc4beb65983bfbcffa810841fabcfa6e3ed03b38d51500bab4"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/proposal_15.json": {
+    "bytes": 1254,
+    "sha256": "0c8c2c474f89d5a6d9b47e747f9d23ce094cf2520a578ad8a9795f6faf35aa7b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/provider.jsonl": {
+    "bytes": 84414,
+    "sha256": "fa751bd67811d70ec414557acd858138cec7ecfcafef03d5b27268dba7b51e61"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_00.json.gz": {
+    "bytes": 704995,
+    "sha256": "f533b65cabfd47793e463e2924395d12ef04c1c6c8e4c20e8b2d9507df95ac21"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_01.json.gz": {
+    "bytes": 872123,
+    "sha256": "9f43eb338ea629f794be30dbd08322f522ff33deda177fa8fbe2828e624b8b11"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_02.json.gz": {
+    "bytes": 888529,
+    "sha256": "9bce05b154527a7ee00c4c25e4d52af61484451e47a40032190f2f9b574cd2e5"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_03.json.gz": {
+    "bytes": 912002,
+    "sha256": "9f1164c0c1b3720bbed81ab0c12aff906c3d6ca381f4959bd38b6d61e907f544"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_04.json.gz": {
+    "bytes": 977184,
+    "sha256": "75c9c90d15c3c462a87020ecbdf26402e9a524b5dc9547be2f646b943e1aff6f"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_05.json.gz": {
+    "bytes": 901087,
+    "sha256": "6b09cf1d2f718c138b02f5c12597f716dcd979e5372d769644916d67c2a14c72"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_06.json.gz": {
+    "bytes": 896824,
+    "sha256": "34b4281b5c5e101d5360b677e3b84c5672b8d00eda8d6d5ae420f69eed135256"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_07.json.gz": {
+    "bytes": 935399,
+    "sha256": "9dcc68b6fff586d1691801d7137ea75a7268c836c23b29e274a8ce5da3a05428"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_08.json.gz": {
+    "bytes": 936785,
+    "sha256": "d276ac7d6be93fdbb4c1199969c3ae1e29bc6dbee810952268c2906dd43c1a59"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_09.json.gz": {
+    "bytes": 1016541,
+    "sha256": "1d8bef0eda6e617ba0a10914fcd3de65f65595916a8e10a0fca2fd1ed664e47e"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_10.json.gz": {
+    "bytes": 972426,
+    "sha256": "993ffbd32476b59fb0c143391040aed59538d43c7970492d5435aad6302ea89c"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_11.json.gz": {
+    "bytes": 865214,
+    "sha256": "8196555ee81b2fa4013d41f7c794b9721f673b8402028b136b7a6d952b78484b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_12.json.gz": {
+    "bytes": 873086,
+    "sha256": "156f4326658d6ffdd99948b0670c71ae46e1a959d270471d78093fdcd995174b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_13.json.gz": {
+    "bytes": 923405,
+    "sha256": "6156610773cfebffb122169e98e8462770a03c7fc357b5b36c2dad530833b115"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_14.json.gz": {
+    "bytes": 852211,
+    "sha256": "5b8bcfd9116d6aca94bd3741f0ceb6fb85056b2fafdce06c635e18064efd4f41"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/request_15.json.gz": {
+    "bytes": 827165,
+    "sha256": "0807722b80a4cebe8783c3cf95c32ec55a9c7da541140f094140f72e9a5778b1"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/reset.json": {
+    "bytes": 559,
+    "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/result.json": {
+    "bytes": 394,
+    "sha256": "b716027d1af8b6cc192df29798d05a9f9268eb60fc394e814bd767d9d6e0a20d"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra1/usage.json": {
+    "bytes": 1672,
+    "sha256": "e57b628daa9220a079a8eef963c5fbfbc54d504ac0f4fe4d20ea432960dcd0bb"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/episode.json": {
+    "bytes": 493,
+    "sha256": "62b3a78a69f4d5b907bb3058f3ba751e987119477742407628ca216a0ade99e3"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "7eea88378b6d5850ec0785f401ec22ae4f7ea1019375ab3ed135b9f3af1486ac"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/policy_queries.jsonl": {
+    "bytes": 26489,
+    "sha256": "496cea2d84dd4d14c12f31ee7d79f1a71aea229ed853b72b47f152200f40bd7f"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_00.json": {
+    "bytes": 1092,
+    "sha256": "6c3b222f9e9014c719eb11f1217cc38179d5ca54e1d829383bf6b7ce9ef53e0b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_01.json": {
+    "bytes": 1152,
+    "sha256": "85c73a394e0b5f407c6d0be792ad1127865b45732f8b70accc93b83a20bbd39c"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_02.json": {
+    "bytes": 1127,
+    "sha256": "d107702ed6e655bad3d721cf518a714eb353970e1c9a611e976773f53fffb425"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_03.json": {
+    "bytes": 1139,
+    "sha256": "1df352fbd8d9c59b74e745c932e98bb4ae20b2915fe1e9698f3a46876d721f6d"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_04.json": {
+    "bytes": 1149,
+    "sha256": "5d0fa21f9ec50a44fd5114f1c8741ee516841002e98d4d8679283d16fb3ca00a"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_05.json": {
+    "bytes": 1187,
+    "sha256": "e5580b2778edd8afb286ed4e0af4a8d2e46069d840f4b9c4454f259f05edec21"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_06.json": {
+    "bytes": 1190,
+    "sha256": "c7431f4fec01ebd09beff35075d56e116a843127eca2dcec9ea23a2644e90a26"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_07.json": {
+    "bytes": 1174,
+    "sha256": "50e349c561f78b74e9806e1abfec6de6324baea9b50edaa51bb6e1bed84137b0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_08.json": {
+    "bytes": 1313,
+    "sha256": "f76016ff8375e1cce78a8c98d6eeaf5124e72c2428e4d7a97b87f4771b2fa170"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_09.json": {
+    "bytes": 1298,
+    "sha256": "c5adcba9c9e68e01b8ea22a67a343221ed8eaca938fc9f43e0b209aae05120f7"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_10.json": {
+    "bytes": 1204,
+    "sha256": "659c21f226e1ff1a7b8051bd9ddc5a73305153ab473566d1eca5f53591188f69"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_11.json": {
+    "bytes": 1179,
+    "sha256": "0ff15ac79210ee1453e80acbd8bd66b8e0349185063ed7cb33fe284e998c7343"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_12.json": {
+    "bytes": 1205,
+    "sha256": "d0af8ed637ec920db12de7b54f5e1a07686167e5347ac14df1c3032f8d4866b2"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_13.json": {
+    "bytes": 1208,
+    "sha256": "4d34a08bbfabed65ee2548abfb2986379e77f91da7975641384f2066616243ac"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/proposal_14.json": {
+    "bytes": 1153,
+    "sha256": "761b10a70944cc78a7f53523b8f3e7ed6c6830da188e358bd0be1e73a047429c"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/provider.jsonl": {
+    "bytes": 79189,
+    "sha256": "f8774df4a6367f7d628fa2ef76a6fc1a706933559fda2567e040d369af598d55"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_00.json.gz": {
+    "bytes": 789330,
+    "sha256": "e9d7426cb0e1cd7640dd7d49c27362459d0bada57e4185ba86b31b398d9ab295"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_01.json.gz": {
+    "bytes": 949231,
+    "sha256": "2b88fd52ff00b80ebff5550b746df616e77e60bd79150bfad50f5eeb708ebc63"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_02.json.gz": {
+    "bytes": 1004081,
+    "sha256": "33e5511243057b3b179f14731e01a9006fff00788eda8c8971a876d4af9af3df"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_03.json.gz": {
+    "bytes": 1042625,
+    "sha256": "a166f7e9b68165e69af1ae06d756c191705b6bbe6b29bacad54efe0a01ee71d2"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_04.json.gz": {
+    "bytes": 1035690,
+    "sha256": "c10f4741b2fb9353eeb359e00af59a4926ce712efdfd46a04cae43aad4abeedb"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_05.json.gz": {
+    "bytes": 1023271,
+    "sha256": "d4595186e6542605f924da8e47734375be8524b0bd05128c1d31f50f2b20ce38"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_06.json.gz": {
+    "bytes": 961599,
+    "sha256": "ec67b8db11a36c82b37b9958b91fa8401edae35026d1bf2cb304ea94ad233f9b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_07.json.gz": {
+    "bytes": 896882,
+    "sha256": "dda3d2bb91895e3927f2373a4dd481dd066b2cb922d428036184512bce298305"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_08.json.gz": {
+    "bytes": 1005856,
+    "sha256": "4603c9de1ad315185139f46adad150f7132725cd7712baad09bbfe7c2c85eabb"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_09.json.gz": {
+    "bytes": 1030179,
+    "sha256": "154ee32757cdd39df33737425289c9f0d3ed4c2f1ef67bdaac675ed3d2e63f23"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_10.json.gz": {
+    "bytes": 973295,
+    "sha256": "807201948dbaee69b58e8909ca5fec163b06d17b537e389dd734592cb53d2fef"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_11.json.gz": {
+    "bytes": 965913,
+    "sha256": "2c786836188eb9c8e8e52a2397be391ad890af53b110040cf0d27e41fed76cf0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_12.json.gz": {
+    "bytes": 911006,
+    "sha256": "ed21243344451df352225144fbca858583777a0f04ce70f75e188198b110bba7"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_13.json.gz": {
+    "bytes": 946905,
+    "sha256": "ca71a631eb1f2163c0472fdae3bc1b322a8d9503d704fb6069a05801b6173c1b"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/request_14.json.gz": {
+    "bytes": 1010863,
+    "sha256": "6bb181693f998a0a548bcead47bc09df289171e70a0343d48ab6a9cf6a13c710"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/reset.json": {
+    "bytes": 559,
+    "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/result.json": {
+    "bytes": 396,
+    "sha256": "e61279d93618a93f41cc84a586243234cf61e295a859d166efd6b36119716452"
+  },
+  "evidence/PackIdenticalLunches_seed2-astra2/usage.json": {
+    "bytes": 1672,
+    "sha256": "67b9962665e5108607b52e6648800cc899695dec0fd6d837d146095ca533acd9"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/episode.json": {
+    "bytes": 493,
+    "sha256": "881ffa04312e27f49d53c986cda0f00b1d02eeca2fd0d5529dbb78a807885ad2"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "0edf9f22fd4d03dac570d689ee5f6e013b619806ea65e17bda7a649032741e6b"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/policy_queries.jsonl": {
+    "bytes": 48305,
+    "sha256": "0e8a6152214bbbd19cd410b4d5d729dcdfac5c4f3132126de80cf0a0e8919ecc"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/reset.json": {
+    "bytes": 559,
+    "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/result.json": {
+    "bytes": 396,
+    "sha256": "e843474533bf27f65c89de3243154e2244edd3fd878a14faf9538b1f690c8f6d"
+  },
+  "evidence/PackIdenticalLunches_seed2-native1/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/episode.json": {
+    "bytes": 495,
+    "sha256": "c5f3e913fe08dd3dadf01321824832660a0d67f963ec9e9b6b5dc3ff818857e7"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "6ded5c7d942e19be85e1618d93157dd64740eecbf70b9502e03c9ce3e512eed0"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/policy_queries.jsonl": {
+    "bytes": 28430,
+    "sha256": "b850e106d550837f42dddcecddcb6baf3fbd95bc3650bceabf570616d6094db4"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/reset.json": {
+    "bytes": 559,
+    "sha256": "733730d60acceb5c8731a9e05e1d17ee2c9c00d3d0cf5e6e797b5c4b21ba6ee0"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/result.json": {
+    "bytes": 398,
+    "sha256": "f9e9f6b0836a0b97ebe227f5e15d304bbccb0fdaa0794001120c00487949e7d9"
+  },
+  "evidence/PackIdenticalLunches_seed2-native2/usage.json": {
+    "bytes": 1606,
+    "sha256": "b2e427942661704ab5a8181775e609e47b69df0606c4d788c145a5ef87283145"
+  },
+  "evidence/archive_receipt.json": {
+    "bytes": 322157,
+    "sha256": "e681e7f0ecc85559d8088a0c8f1b34aaed0f8bf35cc7505c0d38b2dba235289b"
+  },
+  "evidence/browser-validation.json": {
+    "bytes": 4620,
+    "sha256": "79d213393c6e66e667b821784a117fb387066d8aa85dd0d443c9d264dfa880de"
+  },
+  "evidence/continuation/parent/evaluation/intervention_preflight.json": {
+    "bytes": 2386,
+    "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256"
+  },
+  "evidence/continuation/parent/evaluation/preflight_progress.json": {
+    "bytes": 1709,
+    "sha256": "6b4ee29b8fc19b9a974e03c801393212389136caf886ef6d2ea2a715b3f534f8"
+  },
+  "evidence/continuation/parent/evaluation/summary.json": {
+    "bytes": 10066,
+    "sha256": "4ebc15d4941c8718c8763e6f079504b60f4cb72bd09b8ae51009a1546aa4f809"
+  },
+  "evidence/continuation/parent/evaluation.log": {
+    "bytes": 4877,
+    "sha256": "e82187bd31ef5224181b77b4dc42dabb0ff4e1ac7f38afa1daed63c0b17359df"
+  },
+  "evidence/continuation/parent/evaluation_command.json": {
+    "bytes": 260,
+    "sha256": "defe6a8775b2ac43ba5bc968dc2e7a761bb43af162bce329208f662636ce87be"
+  },
+  "evidence/continuation/parent/protocol.json": {
+    "bytes": 16792,
+    "sha256": "f856cd93ffdc803093c9cc0e805a526f1f931b27810cf1fd56b745d6d7221314"
+  },
+  "evidence/continuation/parent/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/continuation/parent/worker_error.json": {
+    "bytes": 85,
+    "sha256": "a76391e60ae9f2e0c6f2d9c9def5502c4c407abef045e5c4a90e2026ec5d7b4c"
+  },
+  "evidence/continuation/parent/worker_finished.json": {
+    "bytes": 63,
+    "sha256": "8e5fdb2fae0e676ed1155795a1b7b0d929e7d6fd2865b308d9c29d33925632cb"
+  },
+  "evidence/continuation/parent/worker_started.json": {
+    "bytes": 270,
+    "sha256": "de27295da6ef989911dca0976f68ace8899e8fcec2146a3a5886ed034eb975cb"
+  },
+  "evidence/continuation/parent_archive_receipt.json": {
+    "bytes": 169325,
+    "sha256": "1dee1489e4ec3f904086813d0053789d6821835a2889c73b2174a7d09a9b0762"
+  },
+  "evidence/continuation/retained_files.json": {
+    "bytes": 202431,
+    "sha256": "c87665551562928bff0bdb56d9f19c64f099dd30d4723075cefb44e1c0fc5381"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_00.json": {
+    "bytes": 1120,
+    "sha256": "82c59b82d03091c76738682b1e5c3883e46346ed7adaa5c1eae80c5177b9e138"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_01.json": {
+    "bytes": 1111,
+    "sha256": "8be17fc45d9d183f62aac87813e264e0480949e0d26b347a17fca9113d5b29fa"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_02.json": {
+    "bytes": 1071,
+    "sha256": "875f430fe5255e8873ed354f4d63485e6dee9fe55beab473678284c5d14cc8a2"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_03.json": {
+    "bytes": 1115,
+    "sha256": "7f5070e1292c6c4a9aa6f3d26d58ac785e637493f08f3263319c9bc8b0601d5c"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_04.json": {
+    "bytes": 1127,
+    "sha256": "392fdec759f8449b0ed44d5fe7f55625fc48daa632c8af09e57dcfe30053d5c7"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_05.json": {
+    "bytes": 1143,
+    "sha256": "aaf28412c60d25f25d70190380824cbfb1a1ddb0448c3832df48db7a8ffca054"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_06.json": {
+    "bytes": 1150,
+    "sha256": "1c69c945cf794faf27cd8d33b9b9283add5faf73989538844481810df9090f53"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/proposal_07.json": {
+    "bytes": 1150,
+    "sha256": "c31a6cbcb844ae03e085236ce70810c0cc1045d7391277be8a494f2194adfbe5"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_00.json.gz": {
+    "bytes": 752420,
+    "sha256": "d4f703008f5b7654c7032360102b0466f0fc22f27823467ad3edcd23664001fb"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_01.json.gz": {
+    "bytes": 847196,
+    "sha256": "64e3070da9fddbee7c37b7cb9933828538df898c38e571dc3fcffa02b9dc4870"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_02.json.gz": {
+    "bytes": 843584,
+    "sha256": "7dcb508269d8ade8b706911edd36c32336e522f618fbf0013025154c664f04c8"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_03.json.gz": {
+    "bytes": 884133,
+    "sha256": "02451f259876d128f389bc4a6b05799359ceef49237f1eda5f16d63d8c3d538b"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_04.json.gz": {
+    "bytes": 937145,
+    "sha256": "967d71a2812bc73be7ff421ec20c923fbe2f89d1831ee2a862ffe4736f8aa76d"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_05.json.gz": {
+    "bytes": 895694,
+    "sha256": "72c9e7b5b699220637f21165308b92a2b4cb3965e96d9e31613d9bc1108f4c5a"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_06.json.gz": {
+    "bytes": 831249,
+    "sha256": "f1ca0812e84f8ddebbe6b8aecb95948e3fddb3ab512930293bf48466a7fdc3e1"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_07.json.gz": {
+    "bytes": 869239,
+    "sha256": "28e25dfd55dd3e7f477baa119b368ab569bc69f2b602fe3f22f99f079b7bb15c"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/guidance/request_08.json.gz": {
+    "bytes": 900786,
+    "sha256": "f67e3e49c528549518d0dd598384d2faa892bfbe0608b42abd6807ebe0ae7d9d"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/incomplete.json": {
+    "bytes": 189,
+    "sha256": "36f656362ab2f2662b3190f6f965bbefea50db268542b2ed54bbf433221ff52f"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/provider.jsonl": {
+    "bytes": 43528,
+    "sha256": "def0c2be7a066c58fa9031d899801504bde935bf27f0b65721479dc3dd6e6737"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_model.xml.gz": {
+    "bytes": 33821,
+    "sha256": "35043a22d38d1de68721f02ac57d21198a5e335ad5ae97d1d6d4a6eab4938606"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/initial_observation.npz": {
+    "bytes": 129932,
+    "sha256": "b912c0c2e091e851f4222fad5e23331e0122117ab36d136abaa799076a3e2e12"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "e6a3999812435ba2dc23423a19aacbcc086a2fc2c42f3443aca265071429c54d"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/policy_queries.jsonl": {
+    "bytes": 14160,
+    "sha256": "e35adbc30870d961f59f73795c6360a2319a5c4ee2b236b53d357d39799d6edc"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/progress.json": {
+    "bytes": 130,
+    "sha256": "fc5fac7cd20a1267d8d1ef7c48d1eb1355e634201f2e536621e96e30abe6f4c3"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/reset.json": {
+    "bytes": 562,
+    "sha256": "4dcefecc1ea0cb4b2aca2e2b78c3b3222991ca6ec1d90db6ae876754ca95f75f"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v2-1/PackIdenticalLunches_seed1107/astra1/seed1107/starting_image.png": {
+    "bytes": 113746,
+    "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/PackIdenticalLunches_seed1108/astra1/incomplete.json": {
+    "bytes": 192,
+    "sha256": "90f0a6a1bcd6fa9e95eea14fa48c6a9e96898b26570606a54f1c7c0facd8b192"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/PackIdenticalLunches_seed1108/astra1/reset_mismatch.json": {
+    "bytes": 1253,
+    "sha256": "9b6a18e90e6ad06c68548b69cf0cef0b4dfaba72c86a814cd4b54eec53e54d12"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/incomplete.json": {
+    "bytes": 192,
+    "sha256": "90f0a6a1bcd6fa9e95eea14fa48c6a9e96898b26570606a54f1c7c0facd8b192"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_mismatch.json": {
+    "bytes": 1253,
+    "sha256": "9b6a18e90e6ad06c68548b69cf0cef0b4dfaba72c86a814cd4b54eec53e54d12"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_mismatch_observation.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_verification.json": {
+    "bytes": 2828,
+    "sha256": "c319ed2774ac6b521cc5ed33561c6c2b4d96284cf2a3912605b8698741281093"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_verification_0_observation.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_verification_1_observation.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/interrupted/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/PackIdenticalLunches_seed1108/astra2/reset_verification_2_observation.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/intervention_preflight.json": {
+    "bytes": 2386,
+    "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/evaluation/intervention_preflight.json": {
+    "bytes": 2386,
+    "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/evaluation/preflight_progress.json": {
+    "bytes": 1709,
+    "sha256": "6b4ee29b8fc19b9a974e03c801393212389136caf886ef6d2ea2a715b3f534f8"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/evaluation/summary.json": {
+    "bytes": 3560,
+    "sha256": "ad889c802ffa9b1d2692b9af0f5ba01aebf4841d0a071b3b719663c1ec847ac4"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/evaluation.log": {
+    "bytes": 3564,
+    "sha256": "ca3439375040ea5f479a8b98572a4f596222edf394933be1f9fd7632519e4567"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/evaluation_command.json": {
+    "bytes": 260,
+    "sha256": "defe6a8775b2ac43ba5bc968dc2e7a761bb43af162bce329208f662636ce87be"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/protocol.json": {
+    "bytes": 11771,
+    "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/worker_error.json": {
+    "bytes": 85,
+    "sha256": "a76391e60ae9f2e0c6f2d9c9def5502c4c407abef045e5c4a90e2026ec5d7b4c"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/worker_finished.json": {
+    "bytes": 63,
+    "sha256": "2a41743a5fce77055e73258914b8f2436e450fa71531a99bc737a5366d78143b"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent/worker_started.json": {
+    "bytes": 270,
+    "sha256": "56a9b5a14635a95659ee262522fc59cbbacb0c37f9d246528541a1e3b967be88"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/parent_archive_receipt.json": {
+    "bytes": 76621,
+    "sha256": "caf64b8178a1c05fdd57cc83bb6d6e6cb33e8ffb9faf5c4d9bd3a05a85aba7f7"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v4-1/continuation/retained_files.json": {
+    "bytes": 91673,
+    "sha256": "f637a32db20fd0913cf0ffc62e4a7c556f8c9c05aac80bb4ed6e43825383c246"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/evaluation/intervention_preflight.json": {
+    "bytes": 2386,
+    "sha256": "40a2b150708b9720c57ae7bed3ac5790e5b49b6f9509200f540a23a18ca25256"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/evaluation/preflight_progress.json": {
+    "bytes": 1709,
+    "sha256": "6b4ee29b8fc19b9a974e03c801393212389136caf886ef6d2ea2a715b3f534f8"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/evaluation/summary.json": {
+    "bytes": 8178,
+    "sha256": "3f56de6a3e34b282a6bde028e6cbab66205d1a36dd74c0086631cc9105e19d97"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/evaluation.log": {
+    "bytes": 3275,
+    "sha256": "18e86856896b609a05d9c3bfb90fd25a743aaf1a5eff38342b4af3a4132d007b"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/evaluation_command.json": {
+    "bytes": 260,
+    "sha256": "defe6a8775b2ac43ba5bc968dc2e7a761bb43af162bce329208f662636ce87be"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/protocol.json": {
+    "bytes": 13833,
+    "sha256": "101a7983976bb4c0c6d31efb2dd6e1a75dca88774a0de82fd775263beb4c1c2f"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/worker_error.json": {
+    "bytes": 85,
+    "sha256": "a76391e60ae9f2e0c6f2d9c9def5502c4c407abef045e5c4a90e2026ec5d7b4c"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/worker_finished.json": {
+    "bytes": 63,
+    "sha256": "9bbf7a83bc5a803e7a1b2e8651f945756998ff81e77b4cbf021f5344ae7647f0"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent/worker_started.json": {
+    "bytes": 269,
+    "sha256": "006942bc0b36a4619d8b22aa3bc5bb639dd36a1532a11e24cbc292550c0bacbd"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/parent_archive_receipt.json": {
+    "bytes": 134521,
+    "sha256": "bfd1723e66290415b9e457194f1422b5dd69097a00d738668c3376d7953621dc"
+  },
+  "evidence/lineage/astra-complex-20261006-robocasa-xiaomi-selector-v5-1/continuation/retained_files.json": {
+    "bytes": 160503,
+    "sha256": "1a823ca1bc15dccb2f837790674188c7f3e563b0783ae67e21d063058bc1f30d"
+  },
+  "evidence/protocol.json": {
+    "bytes": 20750,
+    "sha256": "c58f6961da85fae1e1664598f3bae9a69e1b67e29a34978e7ac45108a4dbc9df"
+  },
+  "evidence/queue-only-reconciliation.json": {
+    "bytes": 242,
+    "sha256": "89c4a08f3e216880ac5061b7c53c0633ddb0bba33b2049a224b627ae32e95e43"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/archive_receipt.json": {
+    "bytes": 8679,
+    "sha256": "658bbfb6c93a117c2c514ed8f31bc3449233b3279a38d5ece275c4eb026010e8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/completed.json": {
+    "bytes": 359,
+    "sha256": "c8d74f0e9543116fc53e7cfe8aa3256a5529214b72819c944b1442a82c5647c0"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor0_restore0.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor0_restore1.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor0_restore2.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor1_restore0.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor1_restore1.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor1_restore2.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor2_restore0.npz": {
+    "bytes": 108297,
+    "sha256": "ce70441a1b362d614bff55d41efc2cde071826d46b8636d59a1d9005c66725dd"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor2_restore1.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/constructor2_restore2.npz": {
+    "bytes": 108296,
+    "sha256": "89663c0d1c40354ee20ea9885d5f5572ec0150cbd81822fb904684a6937b4ff8"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation/summary.json": {
+    "bytes": 50394,
+    "sha256": "ff3dd6889c2b2f974ce447799629b9d8b66c92c7232b9124e117d058d24c1a8e"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation.log": {
+    "bytes": 2094,
+    "sha256": "80f83bdd037854743b9a87aed4ace6e2bfe1787616d9f3685d22fed970943710"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/evaluation_command.json": {
+    "bytes": 267,
+    "sha256": "b0f95f9610f21e6baba39d1dbac5dfc6108434ca06ea640e0bccf6939206cb33"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/protocol.json": {
+    "bytes": 983,
+    "sha256": "3bdb59787265f68bf944f778b66af96f7a0ca4726bf513ae459b167db4a25ede"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/anchor.json": {
+    "bytes": 597,
+    "sha256": "c6a730bf0c5dd9b4844b0c6b368d64fb3461c6a333aa35fbc0a12db669f2f2a5"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/anchor_model.xml.gz": {
+    "bytes": 39243,
+    "sha256": "b608a6298f4bbedd968493fbb5133be98ee213198be36b392fbfcefcbe56ed7f"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/anchor_rng.json": {
+    "bytes": 22499,
+    "sha256": "22cfbaecefa3505d35b7859f1ea2eb74877916f90a3e25abc9ae7f59bdea1c8e"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/anchor_state.npz": {
+    "bytes": 2360,
+    "sha256": "d88d1978489b39a416bbcc497d4d1a141c3c444ddecdff4b702e42dd7ab00a70"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/native1/seed1108/initial_observation.npz": {
+    "bytes": 109857,
+    "sha256": "4e31b1e6e7e3c6decfa215f35d23e29abcdcd631f91440861bfaaef2a8395412"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/replay_parent/receipt_excerpt.json": {
+    "bytes": 2041,
+    "sha256": "6cc1edb2129e5aab588596186274f1a0a17d47cd3d5c64d790264f96784b8999"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/worker_finished.json": {
+    "bytes": 62,
+    "sha256": "74d0ee4ebd7b1bcc25a3565090f2694b0fc4d2e9e7890c074faa9214a1d1ae43"
+  },
+  "evidence/robocasa-xiaomi-selector-observation-v1-results/worker_started.json": {
+    "bytes": 281,
+    "sha256": "6878c5475fd46de7e9737995b681a63eacea9e4991dc2a429dd255f05e7d6238"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/archive_receipt.json": {
+    "bytes": 24351,
+    "sha256": "92200992a2bd3743d7f2e908908fd5d6b4bf676c7521750cccfa5389101cb01b"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/comparisons.json": {
+    "bytes": 1754,
+    "sha256": "24f0a99ab4f120e751af1230e8dea13bf291eb64fcb73bb171ca220f837f9139"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/completed.json": {
+    "bytes": 360,
+    "sha256": "fe3366abf659a53d45a5eec044bc2115094ecd0072083091dda06231d0764540"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/controllers.json": {
+    "bytes": 222782,
+    "sha256": "264da33c68cbb1b0c030f21522c64ea6d49100012c8c483953bdb13904d58f62"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/rng_trace.json": {
+    "bytes": 2325,
+    "sha256": "2ca4b73d5a3bcd777f8a04c41f9acdffadc1178520fe8272890c92059efe92ae"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "4e75eadd89ce75709758b599933169b8a744059781388ade51dd341a35a90691"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/policy_queries.jsonl": {
+    "bytes": 5704,
+    "sha256": "f0dcbbaca0578ec3c04f44f3cfc36bdd7ab2e1e44fec4509d149d6cadaa6c44a"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/reset.json": {
+    "bytes": 558,
+    "sha256": "a2e1d152147c919e918fb7c7aa4c340757db186258d0d45cc28a85fcf5239896"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/result.json": {
+    "bytes": 397,
+    "sha256": "8cfebfe491c8cffb6ca722cdc05973f9466e81482f0bafdb207282a99c1e6828"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/seed2/starting_image.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh1/trace.npz": {
+    "bytes": 214119,
+    "sha256": "16cea507d34c4356b9177b5891678696b5d3c2711bed99ed473d7f018b6a8d5a"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/controllers.json": {
+    "bytes": 222758,
+    "sha256": "1f856a751f39cf7b738c15a0897204cc950a76e8a345a90876c84e5b039f4db8"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/rng_trace.json": {
+    "bytes": 2325,
+    "sha256": "2ca4b73d5a3bcd777f8a04c41f9acdffadc1178520fe8272890c92059efe92ae"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "14e77558a9b1e6d8a697451cccd982060cdbc5a0fa1f826c4d6eef176df433da"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/policy_queries.jsonl": {
+    "bytes": 5704,
+    "sha256": "c87874a65c6e39ee837cebeee4b5f48fbc4140c59f32738b71c62d673af255fd"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/reset.json": {
+    "bytes": 558,
+    "sha256": "a2e1d152147c919e918fb7c7aa4c340757db186258d0d45cc28a85fcf5239896"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/result.json": {
+    "bytes": 398,
+    "sha256": "462f9636bd104109a10cb111cacd45a2faa53fe756b65c4cfd19c8ef504cf881"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/seed2/starting_image.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/fresh2/trace.npz": {
+    "bytes": 214113,
+    "sha256": "42334d46b984fe2e1a56dc7a5c6182a01a5879cff2ba32ee4c10f59c62310e1b"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/controllers.json": {
+    "bytes": 222748,
+    "sha256": "531c7c08866a301120529c0fa0552249387b432376b878e2864c9dfba78fb93c"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/rng_trace.json": {
+    "bytes": 2325,
+    "sha256": "2ca4b73d5a3bcd777f8a04c41f9acdffadc1178520fe8272890c92059efe92ae"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "587a9d7f58ae6a24293f1fdc4fba3845c5a01cf27ee472dffde667218d1e401f"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/policy_queries.jsonl": {
+    "bytes": 5704,
+    "sha256": "07c3ab4df384c69b1d524474d3cf5cbb1863c71d950e1b11b6d4c656b4c5c5ec"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/reset.json": {
+    "bytes": 558,
+    "sha256": "a2e1d152147c919e918fb7c7aa4c340757db186258d0d45cc28a85fcf5239896"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/result.json": {
+    "bytes": 398,
+    "sha256": "447acacdf84c293b31f52a8d340c39bbfe40082f28fc6a810e5fe9301655b69b"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/seed2/starting_image.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same1/trace.npz": {
+    "bytes": 214130,
+    "sha256": "1f20f9e5192e563125d2675a5229a3f6e16508608b7152de5c5dca84e05c86b2"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/controllers.json": {
+    "bytes": 222779,
+    "sha256": "2ad98f7138afccaff2dd373e868446b176f1cbc758aea70d8cb7e6816f3bd473"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/rng_trace.json": {
+    "bytes": 2325,
+    "sha256": "2ca4b73d5a3bcd777f8a04c41f9acdffadc1178520fe8272890c92059efe92ae"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "139ee0c6274e858ef0d6730aa0e07cf10d230f76e51181e556e86305c814d173"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/policy_queries.jsonl": {
+    "bytes": 5704,
+    "sha256": "1fef38c93f10cdd36b2f855f43b5e5e5dfa4edc8e4ced5099b82e6de5df49ad9"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/reset.json": {
+    "bytes": 558,
+    "sha256": "a2e1d152147c919e918fb7c7aa4c340757db186258d0d45cc28a85fcf5239896"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/result.json": {
+    "bytes": 398,
+    "sha256": "3ae4f1cde02be2a5d085595ec0b6d62d7503cd169004a74a6ed3b3c51c948893"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/seed2/starting_image.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same2/trace.npz": {
+    "bytes": 214264,
+    "sha256": "c7eb8d2d9fd32ba992b71f61efd1ff8b826187fc71a792fd3387e317d3f9b3dd"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/controllers.json": {
+    "bytes": 222815,
+    "sha256": "18e31a3248ae7661560a6877b060917b207659d961efe4258bd6202a820e32cd"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/rng_trace.json": {
+    "bytes": 2325,
+    "sha256": "2ca4b73d5a3bcd777f8a04c41f9acdffadc1178520fe8272890c92059efe92ae"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/initial_model.xml.gz": {
+    "bytes": 32840,
+    "sha256": "7182429ae5f2c4157226e064d36c51dd34e166d3e3b166e8caea334475dcc314"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/initial_observation.npz": {
+    "bytes": 128894,
+    "sha256": "b87041328ac8cf9f8ce6ff177947d34c60799a7d90b81c7bcf7730d6fb3f9642"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/paired_reset.json": {
+    "bytes": 615,
+    "sha256": "c2b32d01a3fa951500ccf431cda1debc02e31d165defe2d3f838691f7aae62a3"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/policy_queries.jsonl": {
+    "bytes": 5704,
+    "sha256": "83092b76ea3ccd5a9a7938622647ec12bebeab1dc00adfb4f34f64a48f1580d0"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/reset.json": {
+    "bytes": 558,
+    "sha256": "a2e1d152147c919e918fb7c7aa4c340757db186258d0d45cc28a85fcf5239896"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/result.json": {
+    "bytes": 398,
+    "sha256": "de839f2d3b76e35dc1848b388064ad8e551cc2327295dd14f6cfab53d0872f90"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/seed2/starting_image.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/same_png/trace.npz": {
+    "bytes": 214110,
+    "sha256": "ca6ec5c432ddf4f16ee68387979ea2bc3e4d5b8e103aa7950dfc1a3a24f0dac0"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation/summary.json": {
+    "bytes": 3332,
+    "sha256": "03c7686b6fb33b24725a0fe5193ddb8e656028cd507d208610778d5f7871c91f"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation.log": {
+    "bytes": 2414,
+    "sha256": "03304406cde5d4c45d693bcf2c3fa02490380384dc5ff955dcd9df4c605a7932"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/evaluation_command.json": {
+    "bytes": 257,
+    "sha256": "0122867c6d287bbc2314cd0f23a53e4827a4a4db0d861b8bafc5ab0c0ff45e86"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/protocol.json": {
+    "bytes": 1778,
+    "sha256": "56ef3e38373edd4dade6b74589a98d5a4ad14a618d2b756e22645618240a2913"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/replay_parent/anchor.json": {
+    "bytes": 595,
+    "sha256": "e4b0d1403e84c942d051b66b732edfc2f6128bf4f6e7739fe86a629a086068fa"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/replay_parent/anchor_model.xml.gz": {
+    "bytes": 32846,
+    "sha256": "298625824d40568add4aa1a1f023b1858530a5d160908be85fc423252f6f07cf"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/replay_parent/anchor_rng.json": {
+    "bytes": 22519,
+    "sha256": "e6ae61b286ed44c5bffa3546f2c462f3106ab697fa6bba45983332a64329c1ab"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/replay_parent/anchor_state.npz": {
+    "bytes": 2191,
+    "sha256": "a03f602d3dcebabbc744879707307b8f5d4156d5059f12f5062caa895d892f21"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/replay_parent/receipt_excerpt.json": {
+    "bytes": 1567,
+    "sha256": "4ad4a9481a874da318afcdde5b8a3ddaa8f959c7024c97d765c010e159f7ef09"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/worker_finished.json": {
+    "bytes": 62,
+    "sha256": "d3557b49a989507019ee2a61ca3614673fb586b6e7554465d5f698db6cb06408"
+  },
+  "evidence/robocasa-xiaomi-selector-replay-v1-results/worker_started.json": {
+    "bytes": 276,
+    "sha256": "012ffe75e0eda2c89a2245e2d25971decf686ccdc37a4319997395c297ad6bbd"
+  },
+  "evidence/robocasa-xiaomi-selector-v1-results/archive_receipt.json": {
+    "bytes": 724,
+    "sha256": "ba8ce084951cb01b87ddeb5c69ee4ce5b262788f685cb8f020cfdab2e2afc1fe"
+  },
+  "evidence/robocasa-xiaomi-selector-v1-results/protocol.json": {
+    "bytes": 11771,
+    "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0"
+  },
+  "evidence/robocasa-xiaomi-selector-v1-results/worker_started.json": {
+    "bytes": 270,
+    "sha256": "e119efdb0bbce8008cb8553a046b9e59965812732a0cd7b27402bfd23561b145"
+  },
+  "evidence/stage_receipt.json": {
+    "bytes": 9094,
+    "sha256": "a1c4d49fe80a0a245c68aa2a9e32c6cb0fb75811917af277f1e01a3ac82b545c"
+  },
+  "evidence/worker_finished.json": {
+    "bytes": 63,
+    "sha256": "d735003e511a757ea607fe1de6bc5249329ad8ca8645a4067a8e9c22ae9a756d"
+  },
+  "evidence/worker_started.json": {
+    "bytes": 270,
+    "sha256": "3d985159b4488950b1e326dad99587985424e1dea7ba8e3e381489cc60162607"
+  },
+  "evidence/xiaomi-selector-v4-exit-action-verification.json": {
+    "bytes": 283,
+    "sha256": "b989e370d9ff29848a17a80acedeb8c1d827813856df6a868bde952e1a5b0c2b"
+  },
+  "evidence/xiaomi_observation_audit_summary.json": {
+    "bytes": 1803,
+    "sha256": "9911eb624291b93228e9cfcc4c7ea20cd22ddb80e2ce38138881e0e198d1179d"
+  },
+  "evidence/xiaomi_replay_audit_summary.json": {
+    "bytes": 4764,
+    "sha256": "03962a489f54e2ec4ce537f16f7b24cacb038925de88104a53b81d8aff56a797"
+  },
+  "evidence/xiaomi_selector_infrastructure.json": {
+    "bytes": 8644,
+    "sha256": "e278617a918a361a82c06e9a7930e45d725b912695f480fa66762cb8be00d424"
+  },
+  "evidence/xiaomi_selector_interruption.json": {
+    "bytes": 23738,
+    "sha256": "1168d6d6354c26f59f390211e2ef621e80c99c0bf5f49fca7bb861a87e3be589"
+  },
+  "index.html": {
+    "bytes": 2027697,
+    "sha256": "a06d10ccb3a5c35de010d692384e7b0152e22d7cc9ba8f3aec44d8af9f4f0f95"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra1.mp4": {
+    "bytes": 11365426,
+    "sha256": "5f068af09eca876a5c308a6bfc7fd4a02f2d0dc9d30190ace3200c01c0390264"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra1.png": {
+    "bytes": 230584,
+    "sha256": "54b1e7ef91eb889b7e8e1f11dea4d2c4fc3c4c3afa1e101075f51bd359df70d2"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra2-review14-applied.png": {
+    "bytes": 260371,
+    "sha256": "d5d92c2a152aa938ad794dbf67a9e33962dcf0e51ff24013b469774f6b5e575b"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra2-review14-observed.png": {
+    "bytes": 251610,
+    "sha256": "a34c1801f46540ff050b6d79a1c8516bd1566897bf81cf9134f68dc2b723c856"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra2-review14-source.png": {
+    "bytes": 235812,
+    "sha256": "e56a1b7532bd96e9c46204144ee598ef06f615fc4dd715487ae9f1721d0abff2"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra2.mp4": {
+    "bytes": 10517364,
+    "sha256": "30e4b9e5dfbebc1e05763f4e1b859c5a5eb62d136049a84b0d23a77672f969a9"
+  },
+  "media/ArrangeBreadBasket_seed1711-astra2.png": {
+    "bytes": 230584,
+    "sha256": "54b1e7ef91eb889b7e8e1f11dea4d2c4fc3c4c3afa1e101075f51bd359df70d2"
+  },
+  "media/ArrangeBreadBasket_seed1711-native1.mp4": {
+    "bytes": 12634001,
+    "sha256": "3c89684d6e384814016edcdfc95c1be05b3b2e4ca0c998f0eae35b820ca3d769"
+  },
+  "media/ArrangeBreadBasket_seed1711-native1.png": {
+    "bytes": 230584,
+    "sha256": "54b1e7ef91eb889b7e8e1f11dea4d2c4fc3c4c3afa1e101075f51bd359df70d2"
+  },
+  "media/ArrangeBreadBasket_seed1711-native2.mp4": {
+    "bytes": 11075286,
+    "sha256": "999dd6759f2f579ee132fffef95b4784773999cc8a142da330617270fad86e64"
+  },
+  "media/ArrangeBreadBasket_seed1711-native2.png": {
+    "bytes": 230584,
+    "sha256": "54b1e7ef91eb889b7e8e1f11dea4d2c4fc3c4c3afa1e101075f51bd359df70d2"
+  },
+  "media/PackIdenticalLunches_seed1107-astra1.mp4": {
+    "bytes": 10702911,
+    "sha256": "2feae09a3da8fa12c794ad2ab6cfa8a861d3546dafcd095bc253808b181f5822"
+  },
+  "media/PackIdenticalLunches_seed1107-astra1.png": {
+    "bytes": 113746,
+    "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1"
+  },
+  "media/PackIdenticalLunches_seed1107-astra2.mp4": {
+    "bytes": 10212452,
+    "sha256": "c64536e55c38cc54222e73ebc81d61ce922d30879c83b37ff7279cc52b022d46"
+  },
+  "media/PackIdenticalLunches_seed1107-astra2.png": {
+    "bytes": 113746,
+    "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1"
+  },
+  "media/PackIdenticalLunches_seed1107-native1.mp4": {
+    "bytes": 10245750,
+    "sha256": "e5fa97a29f66580716041f5ed3a4a453bb83e61dda69aa8f91900eeaf328f307"
+  },
+  "media/PackIdenticalLunches_seed1107-native1.png": {
+    "bytes": 113746,
+    "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1"
+  },
+  "media/PackIdenticalLunches_seed1107-native2.mp4": {
+    "bytes": 9240626,
+    "sha256": "51122f2b3cc034338cd3b62992a4ca9d1137d42b6d4e6a7571ad800799964386"
+  },
+  "media/PackIdenticalLunches_seed1107-native2.png": {
+    "bytes": 113746,
+    "sha256": "710cce4f8479622ee4c30f6709eab069a3f801be760a56ea26f482e27221dec1"
+  },
+  "media/PackIdenticalLunches_seed1108-astra1.mp4": {
+    "bytes": 8792956,
+    "sha256": "dc34c31b5a0165fa6484db24ed9cc3023371eff5d0344807a57f788d4408166f"
+  },
+  "media/PackIdenticalLunches_seed1108-astra1.png": {
+    "bytes": 97281,
+    "sha256": "7f60a82efb3c4f1e0db960bdfd7dad45f016d5312dee9d85b6126d1eac0f35b4"
+  },
+  "media/PackIdenticalLunches_seed1108-astra2.mp4": {
+    "bytes": 8531713,
+    "sha256": "c665b10f24adf83c4bd858c5f200c0e97004ae9e02ec17fca7f0c358f8ef32d7"
+  },
+  "media/PackIdenticalLunches_seed1108-astra2.png": {
+    "bytes": 97281,
+    "sha256": "7f60a82efb3c4f1e0db960bdfd7dad45f016d5312dee9d85b6126d1eac0f35b4"
+  },
+  "media/PackIdenticalLunches_seed1108-native1.mp4": {
+    "bytes": 7584447,
+    "sha256": "19d7bb1cf16adda6a53d0a9dc48484f432554d4bc2afc58632703ec0c78cbb81"
+  },
+  "media/PackIdenticalLunches_seed1108-native1.png": {
+    "bytes": 97281,
+    "sha256": "7f60a82efb3c4f1e0db960bdfd7dad45f016d5312dee9d85b6126d1eac0f35b4"
+  },
+  "media/PackIdenticalLunches_seed1108-native2.mp4": {
+    "bytes": 6943238,
+    "sha256": "86b94378d8a6ef9ca2a6cf19ffee564e3c06360f464a75dd9b254b510a5134e5"
+  },
+  "media/PackIdenticalLunches_seed1108-native2.png": {
+    "bytes": 97281,
+    "sha256": "7f60a82efb3c4f1e0db960bdfd7dad45f016d5312dee9d85b6126d1eac0f35b4"
+  },
+  "media/PackIdenticalLunches_seed1110-astra1.mp4": {
+    "bytes": 8074032,
+    "sha256": "50678b14d8b2e4d3f38a39292e60b039801da40ebdd929f1b6dca29876992516"
+  },
+  "media/PackIdenticalLunches_seed1110-astra1.png": {
+    "bytes": 135952,
+    "sha256": "bf245364ee5b56d5f6fd3d509d0091ecce008ae8f6fa3c780aadc6c35002b7fa"
+  },
+  "media/PackIdenticalLunches_seed1110-astra2.mp4": {
+    "bytes": 9161810,
+    "sha256": "a8ead1597a4727dbdf73ffecd0289516302156f3b2bcc7a3c2dca1dcb3598bb0"
+  },
+  "media/PackIdenticalLunches_seed1110-astra2.png": {
+    "bytes": 135953,
+    "sha256": "ecdefd08a69348f9ac183945ec54c084ec429df6a157d63e201ec5b928f9e31a"
+  },
+  "media/PackIdenticalLunches_seed1110-native1.mp4": {
+    "bytes": 4705973,
+    "sha256": "97de9ee9136526780372b67069d6f92cb317c79360e14aea1e6187a1be4d81b5"
+  },
+  "media/PackIdenticalLunches_seed1110-native1.png": {
+    "bytes": 135952,
+    "sha256": "bf245364ee5b56d5f6fd3d509d0091ecce008ae8f6fa3c780aadc6c35002b7fa"
+  },
+  "media/PackIdenticalLunches_seed1111-astra1.mp4": {
+    "bytes": 6650499,
+    "sha256": "7b892abfa81b17a830abdd4c3a47afcec2852f3af5aad8ecfc6d8ccd863bcbb0"
+  },
+  "media/PackIdenticalLunches_seed1111-astra1.png": {
+    "bytes": 130404,
+    "sha256": "3e3f4a707a33fd3b3fdbc8440caf58678ad4f52ab7ff6e68013839f46a05d871"
+  },
+  "media/PackIdenticalLunches_seed1111-native1.mp4": {
+    "bytes": 5717571,
+    "sha256": "a37e9fae3e0beca7bf29e1e66c4194e038ecd8c4d77a87f0352e328e8e908f1b"
+  },
+  "media/PackIdenticalLunches_seed1111-native1.png": {
+    "bytes": 130404,
+    "sha256": "3e3f4a707a33fd3b3fdbc8440caf58678ad4f52ab7ff6e68013839f46a05d871"
+  },
+  "media/PackIdenticalLunches_seed2-astra1.mp4": {
+    "bytes": 10473000,
+    "sha256": "88012a6a044c7566f203d51dfafed0bc80182b1a4a35f5bc98e7946cef2952b3"
+  },
+  "media/PackIdenticalLunches_seed2-astra1.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "media/PackIdenticalLunches_seed2-astra2.mp4": {
+    "bytes": 5910898,
+    "sha256": "03a6624e1317ac8144bec4d3f9b89def3c6a2d084fc3de18cb45b7113bc44776"
+  },
+  "media/PackIdenticalLunches_seed2-astra2.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "media/PackIdenticalLunches_seed2-native1.mp4": {
+    "bytes": 10903070,
+    "sha256": "809370411b0ec63fcf986bc218b5a8fd13eb3790b6f68c08beb44e3f7c410623"
+  },
+  "media/PackIdenticalLunches_seed2-native1.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "media/PackIdenticalLunches_seed2-native2.mp4": {
+    "bytes": 6099407,
+    "sha256": "a26bcf52d219125c0bffda27c4e8f7384f0143aa29fa9d27411799065e180c15"
+  },
+  "media/PackIdenticalLunches_seed2-native2.png": {
+    "bytes": 115302,
+    "sha256": "1871a0db0d49e9e988df9995e05f035abb679601ef5498809aa524e0d5cd800e"
+  },
+  "provenance/report_generator/xiaomi_selector_dashboard.html": {
+    "bytes": 35808,
+    "sha256": "bd00f28887fe936fea0340026ca7e975944e4060f08f4b6b58e79c1176b2a74e"
+  },
+  "provenance/report_generator/xiaomi_selector_report.py": {
+    "bytes": 25899,
+    "sha256": "7c08956766d226a6f7eb8bd61c40505209f73128f2260c07d81c4a85755a582d"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_observation_audit.py": {
+    "bytes": 4152,
+    "sha256": "0665469134069e30e92e00dae05367df658c3e3e175d1e54798f3c9257b0673e"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_observation_bootstrap.sh": {
+    "bytes": 677,
+    "sha256": "a42c1a37569f66997ae98ac33783c591c406cb23bd8ae7d79f0b9155f381169e"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_observation_protocol.json": {
+    "bytes": 983,
+    "sha256": "3bdb59787265f68bf944f778b66af96f7a0ca4726bf513ae459b167db4a25ede"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 20228,
+    "sha256": "561b04a47717a81f97c712da9f9944169ed4086d7e2b092db11e0d1572d4dd09"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_selector_resume.py": {
+    "bytes": 6392,
+    "sha256": "e0e079eecdf9daad3c32fb11b270a4f774198faf1079aa7601dd5b754843eb18"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 6464,
+    "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/controller/submit_xiaomi_selector_low_guarded.py": {
+    "bytes": 6482,
+    "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+  },
+  "provenance/robocasa-xiaomi-selector-observation-v1/launch_provenance.json": {
+    "bytes": 4281,
+    "sha256": "136e9f7c0f486fd163e6ffa66bc719bbc717a3e830f9881ebffb25b2ba4b95d2"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_replay_audit.py": {
+    "bytes": 9603,
+    "sha256": "40d00aedfb0feceeedc64c11dd3e1fe5c47b0d04c724366e23fadbe282d47706"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_replay_bootstrap.sh": {
+    "bytes": 667,
+    "sha256": "1537b0ab761333a63c9c46145dd7fec988af31dd3620f7b9e1ba3e1c382f9d26"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_replay_protocol.json": {
+    "bytes": 1778,
+    "sha256": "56ef3e38373edd4dade6b74589a98d5a4ad14a618d2b756e22645618240a2913"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 18795,
+    "sha256": "66339be883c6d0ff90fbc232fbb4ad2e07c4c67823511156b9316c9efa2150a1"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 5618,
+    "sha256": "60ee2f762bf3d7e4f4fcd3ecb9176f2055df0952040c13bdf84bdb2865518e4f"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-replay-v1/launch_provenance.json": {
+    "bytes": 3839,
+    "sha256": "ab36f30a640461e640d70919a81c459c4ff2e003a9bcaa9ac7d1383e10d85be5"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_selector_bootstrap.sh": {
+    "bytes": 615,
+    "sha256": "d431bd1e61b0ec5509a27ddc0ff38e88a66e592826b684058bae51e6d2ea7d42"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 18795,
+    "sha256": "66339be883c6d0ff90fbc232fbb4ad2e07c4c67823511156b9316c9efa2150a1"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_selector_protocol.json": {
+    "bytes": 11771,
+    "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 4153,
+    "sha256": "463b8ef2e74c1b937ef5b1841336bf56557b4aa60016ed3e170c197d170969b9"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-v2/launch_provenance.json": {
+    "bytes": 3936,
+    "sha256": "111018944115fbd1f7de86a7302cef956006b9deb3930e32a4d7d8feca862143"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_selector_bootstrap.sh": {
+    "bytes": 615,
+    "sha256": "d431bd1e61b0ec5509a27ddc0ff38e88a66e592826b684058bae51e6d2ea7d42"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_selector_continuation_protocol.json": {
+    "bytes": 13833,
+    "sha256": "101a7983976bb4c0c6d31efb2dd6e1a75dca88774a0de82fd775263beb4c1c2f"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 20228,
+    "sha256": "561b04a47717a81f97c712da9f9944169ed4086d7e2b092db11e0d1572d4dd09"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_selector_resume.py": {
+    "bytes": 6392,
+    "sha256": "e0e079eecdf9daad3c32fb11b270a4f774198faf1079aa7601dd5b754843eb18"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 5771,
+    "sha256": "b4b489c25ea179ff66aec0bea38894c7eff9e7b782a2ba0b36a8654f47bf375a"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/controller/reconnect_xiaomi_selector_v4_tunnel.py": {
+    "bytes": 1287,
+    "sha256": "8e0d8d93b00c027e4a02993089ef1486ecac38974a201251aa3078478fa6b278"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/controller/run_xiaomi_selector_v4.py": {
+    "bytes": 5028,
+    "sha256": "fd7548b34ce5f18365a5abb39de637729b33e8a7a084798b258142684e83162e"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/controller/submit_xiaomi_selector_low_guarded.py": {
+    "bytes": 6482,
+    "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+  },
+  "provenance/robocasa-xiaomi-selector-v4/launch_provenance.json": {
+    "bytes": 4648,
+    "sha256": "7121bdf7b71d9d1f952f0b3bbe4caca86b47b214eb486876f0101b68e7dbec28"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_selector_bootstrap.sh": {
+    "bytes": 615,
+    "sha256": "d431bd1e61b0ec5509a27ddc0ff38e88a66e592826b684058bae51e6d2ea7d42"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_selector_continuation2_protocol.json": {
+    "bytes": 16792,
+    "sha256": "f856cd93ffdc803093c9cc0e805a526f1f931b27810cf1fd56b745d6d7221314"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 23945,
+    "sha256": "62e50dbbd58d45b8fde6a898b6eebc628524954ab044c4c7c820e89efa24a2f4"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_selector_resume.py": {
+    "bytes": 6987,
+    "sha256": "c6fe9ce4d1e122ff6e7c9525ee4f973f6f36b260d65e3da00de5e3eb93028b73"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 6464,
+    "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/controller/reconnect_xiaomi_selector_v5_tunnel.py": {
+    "bytes": 1287,
+    "sha256": "7c092560b179e386a3bd3df37c6f47500a364244a531136efec65e7e4138282e"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/controller/run_xiaomi_selector_v5.py": {
+    "bytes": 5028,
+    "sha256": "c317c0c7fa06f2a73cc57226e78348bedb86593458693ed9cdfcc9cfdf4ee8a1"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/controller/submit_xiaomi_selector_low_guarded.py": {
+    "bytes": 6482,
+    "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+  },
+  "provenance/robocasa-xiaomi-selector-v5/launch_provenance.json": {
+    "bytes": 5146,
+    "sha256": "7892ea49373941621ada3dddd757fafc70a8d185aef4ad723f18bd99ed86a6c6"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/agent.py": {
+    "bytes": 13985,
+    "sha256": "75bfd7fb833830927f56810cbbe18101d4dc42a7cba2ba52438a5a0ed8c4e741"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/astra_client.py": {
+    "bytes": 21911,
+    "sha256": "8fa73081721bcf49562919b05bd304f25d912fd6e01ce0645e7604c8c57a3e1f"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/codex_accounting.py": {
+    "bytes": 7753,
+    "sha256": "2f524f52b9f103b15e008534f19c4d0fb30fe1bd1978d6e32c6839459c7eef96"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/codex_relay.py": {
+    "bytes": 36455,
+    "sha256": "e05f8db7a62d144c672faa9a37967bbd4c9e77a15e050c9d113d74f67c18f65e"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/language_teacher.py": {
+    "bytes": 11712,
+    "sha256": "2b61d02b3c71d465b212c03f969272446be066c1f902aa7afc5c39f6571a58c5"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9848,
+    "sha256": "86d1209ba0bc0b321e3d5b85fd80d8b32dc7de98e73895520fcf2542bb613afd"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_reset_match.py": {
+    "bytes": 3224,
+    "sha256": "4d9b178c0d5c520db77b8959ca211ca3a7e01b16fc73e07a1a472918cf0be61d"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_selector_bootstrap.sh": {
+    "bytes": 615,
+    "sha256": "d431bd1e61b0ec5509a27ddc0ff38e88a66e592826b684058bae51e6d2ea7d42"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_selector_continuation3_protocol.json": {
+    "bytes": 20750,
+    "sha256": "c58f6961da85fae1e1664598f3bae9a69e1b67e29a34978e7ac45108a4dbc9df"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_selector_eval.py": {
+    "bytes": 25311,
+    "sha256": "7825fc01ee3ee2058ce865a7688ae7b6f15fc500ee7f2c5f3cb6339094e2b8b8"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_selector_resume.py": {
+    "bytes": 6987,
+    "sha256": "c6fe9ce4d1e122ff6e7c9525ee4f973f6f36b260d65e3da00de5e3eb93028b73"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_selector_worker.py": {
+    "bytes": 6464,
+    "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 8050,
+    "sha256": "42bcaf358a10c2b31930edcbd438bc0a5453118984f7bb1441a8b0e78c436699"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/intervention_agent.py": {
+    "bytes": 33521,
+    "sha256": "33793cee91f0e540a2508f7bec65527f36afa418ab86a4e181db70e7d6966804"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/controller/reconnect_xiaomi_selector_v6_tunnel.py": {
+    "bytes": 1287,
+    "sha256": "bcd5c6f10d3eb82ae18fd3703eb009ccd9d65bf6662ca02870e6b5fa8888b260"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/controller/run_xiaomi_selector_v6.py": {
+    "bytes": 5028,
+    "sha256": "a21472d9cb692ab1a9d23ada1aeede0ff3e1686d032d67d10c71f84dc6e9a519"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/controller/submit_xiaomi_selector_low_guarded.py": {
+    "bytes": 6482,
+    "sha256": "98b749ae261f596dce23a12ed02b3df719b66c3efe42204ebf8180a8e54ef2ef"
+  },
+  "provenance/robocasa-xiaomi-selector-v6/launch_provenance.json": {
+    "bytes": 4920,
+    "sha256": "fc05894d84fa52e5cbc47e11e3a18342208d69580f9ef86dd589d425f66a5f17"
+  },
+  "provenance/xiaomi_interventions.py": {
+    "bytes": 12877,
+    "sha256": "88d0c65c9ba6ac36c603d1dcd1b373d025ae83059c7a5f0908c5eab31ce96b61"
+  },
+  "provenance/xiaomi_reset_match.py": {
+    "bytes": 3224,
+    "sha256": "4d9b178c0d5c520db77b8959ca211ca3a7e01b16fc73e07a1a472918cf0be61d"
+  },
+  "provenance/xiaomi_selector_continuation3_protocol.json": {
+    "bytes": 20750,
+    "sha256": "c58f6961da85fae1e1664598f3bae9a69e1b67e29a34978e7ac45108a4dbc9df"
+  },
+  "provenance/xiaomi_selector_eval.py": {
+    "bytes": 25311,
+    "sha256": "7825fc01ee3ee2058ce865a7688ae7b6f15fc500ee7f2c5f3cb6339094e2b8b8"
+  },
+  "provenance/xiaomi_selector_protocol.json": {
+    "bytes": 11771,
+    "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0"
+  },
+  "provenance/xiaomi_selector_provider_preflight.json": {
+    "bytes": 1909,
+    "sha256": "7c6eaeea6310c0a8b48c80b445325465d4314cd473e7d0f5471e6906600bcc29"
+  },
+  "provenance/xiaomi_selector_resume.py": {
+    "bytes": 6987,
+    "sha256": "c6fe9ce4d1e122ff6e7c9525ee4f973f6f36b260d65e3da00de5e3eb93028b73"
+  },
+  "provenance/xiaomi_selector_worker.py": {
+    "bytes": 6464,
+    "sha256": "d965b8b743a6e61b3a9ce09db931898612bb25c570665c6ca0c6d3d3982773e8"
+  },
+  "provenance/xiaomi_teacher.py": {
+    "bytes": 11781,
+    "sha256": "37cb0b0f988b1ae3e2a1c30e2b458e42be050d8a313853afae24c04cf58133ec"
+  },
+  "results.json": {
+    "bytes": 2699128,
+    "sha256": "32eb9d4d4106caa85381f45bead7f2c8a1e27a747a133af994d3c1745c63d425"
+  }
+}

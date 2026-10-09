@@ -1,0 +1,31 @@
+{
+  "schema": "xiaomi-native-replay-diagnostic-1",
+  "purpose": "Investigate native-prefix divergence after exact observable reset matching; no success-rate claims",
+  "replay_parent_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v2-1",
+  "replay_task": "PackIdenticalLunches",
+  "replay_seed": 2,
+  "historical_artifacts": [],
+  "historical_prefix": "unused_no_historical_demonstration_download",
+  "maximum_diagnostic_episodes": 5,
+  "controls_per_episode": 128,
+  "maximum_executed_controls": 640,
+  "maximum_action_chunks": 40,
+  "forward_evaluations_per_chunk": 2,
+  "teacher_jobs": 0,
+  "policy_success_trial_denominator_contribution": 0,
+  "conditions": [
+    "same1: fresh constructor, normal native inputs",
+    "same2: same environment, restore identical anchor",
+    "same_png: same environment, restore anchor, serialize current camera PNGs and wait two seconds once",
+    "fresh1: recreate the environment, restore identical anchor",
+    "fresh2: recreate the environment again, restore identical anchor"
+  ],
+  "observations": [
+    "Exact parent XML, integration-state, RNG, image/state and instruction fingerprint before each partial episode",
+    "Two consecutive native forwards with identical data and noise seed at every query",
+    "Per-query input, camera, state and action fingerprints",
+    "All predicted actions, policy states and MuJoCo integration states after every control",
+    "Small numeric robot/controller/buffer state before execution and every action chunk"
+  ],
+  "comparison_policy": "Keep all failures and reset mismatches. No relaxation of the parent fingerprint. Compare same-environment replay, PNG/wall-time handling and fresh constructors separately. Diagnostic episodes are not counted as completed policy failures."
+}

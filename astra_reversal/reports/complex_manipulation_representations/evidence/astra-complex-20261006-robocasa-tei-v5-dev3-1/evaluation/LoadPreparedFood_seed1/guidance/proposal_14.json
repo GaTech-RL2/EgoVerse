@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The tupperware rests on the second highest fridge shelf with fish and lime inside and the gripper withdrawn.",
+  "method": "tei",
+  "next_review_controls": 50,
+  "observed_evidence": "The open fridge is now visible in both live side views, unlike step 1300. Base position changed from [3.256,-3.392,0.700] to [2.768,-4.070,0.700], while the tupperware and contents remained visible near the wrist, supporting successful transport to the fridge. Shelf placement is not yet visible.",
+  "subgoal": "Place the tupperware containing fish and lime on the second highest shelf of the open fridge.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0:1400:guide:14",
+  "request_fingerprint": "3c9d520ff3cd09368f5d14314224e1fcb9a6398c19958f6710e0c8435edd698b",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed1:tei:attempt0",
+  "request_index": 14,
+  "observation_step": 1400
+}

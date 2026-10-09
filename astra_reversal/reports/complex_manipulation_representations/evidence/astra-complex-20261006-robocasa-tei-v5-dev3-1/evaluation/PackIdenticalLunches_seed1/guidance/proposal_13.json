@@ -1,0 +1,16 @@
+{
+  "alpha": 0.75,
+  "completion_signal": "The open refrigerator and its lower-shelf carrot are again visible within reach.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Since step 1500, the robot has moved away from the refrigerator toward the stove counter. Current cameras show an open, empty gripper and the red fish remaining in its tupperware; no carrot pickup is established.",
+  "subgoal": "Return to the open refrigerator and approach the lower-shelf carrot beside the dark fish, leaving the packed red fish in its tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:1750:guide:13",
+  "request_fingerprint": "b9de4ca80ae6ee82e1735ce893a3ee655e5b6d2c7d68aee995d55e0242c45494",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 13,
+  "observation_step": 1750
+}

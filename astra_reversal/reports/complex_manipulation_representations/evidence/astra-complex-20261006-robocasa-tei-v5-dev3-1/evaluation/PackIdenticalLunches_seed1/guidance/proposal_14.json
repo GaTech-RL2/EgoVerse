@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The refrigerator shelves and a remaining carrot come into view within reach.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 1750, the viewpoint has shifted along the counter, but the robot still faces the toaster and stove. The refrigerator remains out of view, the gripper is open and empty, and the red fish remains visible in its tupperware.",
+  "subgoal": "Return to the refrigerator to retrieve a carrot, leaving the fish in its tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:2000:guide:14",
+  "request_fingerprint": "e53bde8bc24269ec159832fe1bd4cd981a41ea44e28ac786f6d366ff76670724",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 14,
+  "observation_step": 2000
+}

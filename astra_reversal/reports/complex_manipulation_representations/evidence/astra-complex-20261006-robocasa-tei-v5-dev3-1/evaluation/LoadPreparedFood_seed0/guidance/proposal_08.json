@@ -1,0 +1,16 @@
+{
+  "alpha": 1,
+  "completion_signal": "The gripper visibly opens and straddles the tupperware rim.",
+  "method": "tei",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 650, the end effector has risen while the fingers remain nearly closed. The tupperware remains on the counter beside the microwave; no lift is established. Pickup also stalled in the failed native rollout.",
+  "subgoal": "Open the gripper and lower the fingers around the tupperware rim beside the microwave.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0:750:guide:8",
+  "request_fingerprint": "d165e29315ea77d27814eb2cfa5eb9766f024b330da87898651a52e7e6c78787",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed0:tei:attempt0",
+  "request_index": 8,
+  "observation_step": 750
+}

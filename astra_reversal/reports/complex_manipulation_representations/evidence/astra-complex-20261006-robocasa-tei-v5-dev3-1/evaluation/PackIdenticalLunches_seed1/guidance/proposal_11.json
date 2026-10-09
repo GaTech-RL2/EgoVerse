@@ -1,0 +1,16 @@
+{
+  "alpha": 0.5,
+  "completion_signal": "The open refrigerator shelves and a remaining carrot are visible within reach.",
+  "method": "tei",
+  "next_review_controls": 250,
+  "observed_evidence": "Compared with step 1150, the gripper has opened and withdrawn upward. The red fish now rests inside the right-hand light-gray tupperware, clearly separated from the gripper. No carrot is visible in that container.",
+  "subgoal": "Return to the open refrigerator to retrieve a carrot, leaving the red fish in the right-hand tupperware.",
+  "decision_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0:1250:guide:11",
+  "request_fingerprint": "7af9b8d7f8ba1cbfb1f2118b641473f5a812545f13df81621115010b16a008a7",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tei-v5-dev3-1:robocasa:PackIdenticalLunches:pretrain:seed1:tei:attempt0",
+  "request_index": 11,
+  "observation_step": 1250
+}

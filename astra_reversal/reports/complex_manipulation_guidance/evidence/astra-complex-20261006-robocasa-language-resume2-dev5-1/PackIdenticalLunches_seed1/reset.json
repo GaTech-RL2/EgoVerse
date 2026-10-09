@@ -1,0 +1,11 @@
+{
+  "seed": 1,
+  "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches.",
+  "observation_sha256": "8420df37aa4c88adcbc099b4a688eeb033eae4d50967da0f923493263f27dbdb",
+  "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b",
+  "model_sha256": "cbe981c948d32f48de09773c7485e00b8fa77a4884455d104fb1e5a0d9123b52",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 5,
+  "extra_libero_stabilization_steps": 0
+}

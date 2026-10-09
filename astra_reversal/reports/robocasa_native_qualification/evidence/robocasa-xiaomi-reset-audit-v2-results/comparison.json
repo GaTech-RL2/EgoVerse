@@ -1,0 +1,80 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      3855,
+      3855
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      3794,
+      3794
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      3294,
+      3294
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      2899,
+      2899
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      3124,
+      3124
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "reconstructed_xml_matches_actual_gpu": false,
+    "reconstructed_state_matches_actual_gpu": true,
+    "xml_elements": [
+      2561,
+      2561
+    ],
+    "changed_elements": 0,
+    "differences": [],
+    "diff_lines": 0
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "alpha": 0.25,
+  "completion_signal": "The tupperware visibly clears the counter and moves with the gripper.",
+  "method": "tli",
+  "next_review_controls": 100,
+  "observed_evidence": "Since step 100, the end effector has lowered further and the container rim appears closer in the wrist camera. The side cameras still show the tupperware at the counter; near-zero gripper positions do not establish a grasp.",
+  "subgoal": "Grasp the rim of the food-filled tupperware beside the stove and lift it clear of the counter.",
+  "decision_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0:200:guide:2",
+  "request_fingerprint": "e8035b293bc0b8c8e0fe4d8fabe5d7742fd95eb562fd1fca58576023b9f66660",
+  "schema_version": "complex-representation-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-tli-v5-dev3-1:robocasa:LoadPreparedFood:pretrain:seed2:tli:attempt0",
+  "request_index": 2,
+  "observation_step": 200
+}

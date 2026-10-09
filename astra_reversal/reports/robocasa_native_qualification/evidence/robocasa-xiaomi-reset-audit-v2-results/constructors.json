@@ -1,0 +1,56 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "status": "ready",
+    "setup_resets": 1,
+    "explicit_audit_resets_completed": 1,
+    "policy_calls": 0,
+    "control_actions": 0
+  }
+]

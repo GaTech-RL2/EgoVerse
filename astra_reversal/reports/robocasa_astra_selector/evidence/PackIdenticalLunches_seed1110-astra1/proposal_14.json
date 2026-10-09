@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "The drumstick stays with the gripper as the arm clears the refrigerator and moves to the counter, then is released inside the tupperware missing chicken.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tli",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The drumstick remains visible between the fingers across both wrist views, but the arm and base remain nearly unchanged beside the refrigerator after 256 controls. TEI has not resolved the transport stall; switch to instruction steering at layer 12.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Keep holding the drumstick. Withdraw from the refrigerator and carry it to the counter tupperware missing chicken, then place it inside.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:2176:guide:14",
+  "request_fingerprint": "aa43279f50d04366e89eda7571ef078664e16d4c26a18d05e6b88691745fa0f3",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 14,
+  "observation_step": 2176
+}

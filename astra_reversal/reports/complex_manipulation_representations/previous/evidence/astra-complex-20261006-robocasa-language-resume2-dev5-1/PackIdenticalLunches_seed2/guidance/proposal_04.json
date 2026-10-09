@@ -1,0 +1,15 @@
+{
+  "completion_signal": "Corn remains inside the left tupperware as the open gripper lifts clear.",
+  "method": "phase_prompt",
+  "next_review_controls": 100,
+  "observed_evidence": "The gripper is lower over the left tupperware than at step 600. Corn still fills the wrist view, so release is unconfirmed. Prior failure left corn and chicken in separate containers.",
+  "subgoal": "Release the corn fully inside the left tupperware, then lift the open gripper clear. This container must also receive a drumstick.",
+  "decision_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0:700:guide:4",
+  "request_fingerprint": "480ffaf6f6b83c867da2b9ebc6541c6251814c2471853f77ed454064139f602e",
+  "schema_version": "complex-language-teacher-1",
+  "role": "guide",
+  "episode_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "attempt_id": "astra-complex-20261006-robocasa-language-resume2-dev5-1:robocasa:PackIdenticalLunches:pretrain:seed2:phase_prompt:attempt0",
+  "request_index": 4,
+  "observation_step": 700
+}
