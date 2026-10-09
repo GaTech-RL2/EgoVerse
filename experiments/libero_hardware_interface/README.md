@@ -55,6 +55,10 @@ restore them to null. The loader now restores only those nullable fields, and
 regression tests cover full capped and uncapped schedule round trips. The exact
 archived 450-row schedule also passes the corrected comparison. These smoke
 checks have zero successes and establish execution only, not task performance.
+The replacement `libero-hardware-interface-20261008-uncapped-2`, source
+`e26ac4deca7e7ba1e818502f538131c74fe6636a`, passed all 40 Linux tests and all nine
+startup gates, and entered the actual pilot on 2026-10-09 UTC. Its first trial
+is `pilot-t05-i02-r0-F`; no completed pilot results were available at startup.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.
