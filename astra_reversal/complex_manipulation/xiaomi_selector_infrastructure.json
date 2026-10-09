@@ -14,6 +14,18 @@
         "worker_started.json"
       ],
       "role": "startup_failure_excluded_from_policy_SR"
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-replay-v1-1",
+      "status": "COMPLETED",
+      "source_revision": "6e0f90e6ed995ddb3636d7528e0e09bc9822dfef",
+      "actual_gpu_hours": 0.1438342572222222,
+      "completed_policy_episodes": 0,
+      "partial_diagnostic_episodes": 5,
+      "policy_controls": 640,
+      "teacher_jobs": 0,
+      "role": "native_replay_diagnostic_excluded_from_policy_SR",
+      "issue": "Camera-history divergence identified at identical recorded physics/controller state."
     }
   ]
 }

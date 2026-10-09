@@ -138,6 +138,22 @@ def build(results, output):
         # Provider receipt data is public evidence; local CLI events/reasoning are not copied.
         (output / 'evidence' / identity / 'usage.json').write_text(json.dumps(accounting, indent=2) + '\n')
     arms = aggregate(rows, protocol['cases'])
+    prefix_checks = []
+    for guided in (r for r in rows if r['arm'] == 'astra'):
+        native = next((r for r in rows if r['arm'] == 'native' and r['case'] == guided['case']
+                       and r['attempt'] == guided['attempt']), None)
+        if native is None:
+            continue
+        matches = []
+        for first, second in zip(native['queries'], guided['queries']):
+            if second['method'] != 'native':
+                break
+            if (first['noise_seed'],first['control_step']) != (second['noise_seed'],second['control_step']):
+                raise ValueError('Claimed common noise schedule differs')
+            matches.append(first['actions_sha256'] == second['actions_sha256'])
+        if matches:
+            prefix_checks.append(dict(case=guided['case'],attempt=guided['attempt'],chunks_compared=len(matches),
+                identical_chunks=sum(matches),first_difference_query=next((i+1 for i,v in enumerate(matches) if not v),None)))
     method_stats = []
     for method in METHODS:
         samples = [q for q in queries if q['arm'] == 'astra' and q['method'] == method]
@@ -159,7 +175,8 @@ def build(results, output):
             native_attempts=sum(r['arm'] == 'native' for r in group), astra_attempts=sum(r['arm'] == 'astra' for r in group)))
     report = dict(schema='astra-xiaomi-selector-report-1', complete=True, protocol=protocol, arms=arms,
         cases=pairings, episodes=rows, method_stats=method_stats, preflight=preflight, resets=summary['resets'],
-        accounting=summarize_codex_calls(provider), source=read(results / 'worker_started.json'),
+        accounting=summarize_codex_calls(provider), native_prefix_checks=prefix_checks,
+        source=read(results / 'worker_started.json'),
         worker=read(results / 'worker_finished.json'), archive_files_verified=len(receipt['files']),
         archive_receipt_sha256=sha256(results / 'archive_receipt.json'), prompt=SYSTEM_PROMPT)
     for path in (results / 'archive_receipt.json', results / 'protocol.json', results / 'worker_started.json',
@@ -178,6 +195,10 @@ def build(results, output):
     if infrastructure.exists():
         report['infrastructure'] = read(infrastructure)
         copy(infrastructure, 'evidence/' + infrastructure.name)
+    replay_audit = Path(__file__).parent / 'xiaomi_replay_audit_summary.json'
+    if replay_audit.exists():
+        report['replay_audit'] = read(replay_audit)
+        copy(replay_audit, 'evidence/' + replay_audit.name)
     (output / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
     columns = ['case', 'arm', 'attempt', 'success', 'steps', 'policy_queries', 'teacher_calls', 'tokens',
                'input_tokens', 'output_tokens', 'wall_seconds', 'policy_seconds', 'teacher_seconds', 'instruction']

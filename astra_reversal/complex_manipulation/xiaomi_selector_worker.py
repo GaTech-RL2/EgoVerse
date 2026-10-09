@@ -73,6 +73,9 @@ def main():
             client.download_file("rldb",item["key"],str(target))
             if target.stat().st_size != item["bytes"] or sha256(target) != item["sha256"]:
                 raise ValueError("Historical evidence checksum differs")
+        if "continuation" in protocol:
+            from .xiaomi_selector_resume import restore_parent
+            restore_parent(client,protocol,output)
         env = {k:v for k,v in os.environ.items() if not k.startswith("R2_")}
         env.update(HF_HUB_OFFLINE="1",TRANSFORMERS_OFFLINE="1",TOKENIZERS_PARALLELISM="false",
                    OMP_NUM_THREADS="2",OPENBLAS_NUM_THREADS="1",MKL_NUM_THREADS="2",PYTHONUNBUFFERED="1")

@@ -5,6 +5,7 @@ import copy
 import gzip
 import hashlib
 import json
+import os
 import random
 import sys
 import time
@@ -218,8 +219,11 @@ def main():
     parser.add_argument("--protocol",type=Path,required=True)
     parser.add_argument("--output",type=Path,required=True)
     args = parser.parse_args()
-    args.output.mkdir(parents=True,exist_ok=False)
     protocol = json.loads(args.protocol.read_text())
+    args.output.mkdir(parents=True,exist_ok="continuation" in protocol)
+    from .xiaomi_selector_resume import load_anchor, load_parent, pending_trials
+    rows, resets = load_parent(args.output,protocol)
+    pending = set(pending_trials(protocol['cases'],rows))
     sys.path.insert(0,"/opt/astra-xiaomi/sources/xiaomi/eval_robocasa365")
     import entry
     import torch
@@ -246,7 +250,6 @@ def main():
     with np.load(Path("/opt/astra-results/history")/protocol["cases"][0]["id"]/"initial_observation.npz",allow_pickle=False) as archive:
         initial = {k:archive[k] for k in archive.files if k!="simulator_state"}
     preflight(engine,entry,initial,args.output)
-    rows, resets = [], []
 
     def save_summary():
         write_json(args.output / "summary.json",{"cases":len(protocol["cases"]),"maximum_episodes":24,
@@ -255,12 +258,16 @@ def main():
             "teacher_calls":sum(r["teacher_calls"] for r in rows)})
 
     for case_index, case in enumerate(protocol["cases"]):
+        if not any(key[0] == case['id'] for key in pending):
+            continue
         root = args.output / case["id"]
-        root.mkdir()
+        reuse_anchor = root.exists()
+        root.mkdir(exist_ok=reuse_anchor)
         if get_task_horizon(case["task"]) != case["horizon"]:
             raise ValueError("Native task horizon differs from the protocol")
         counts = {"case":case["id"],"constructor_started":1,"constructor_setup_resets":None,
-                  "anchor_selection_resets":0,"diagnostic_restore_resets":0,"policy_restore_resets":0}
+                  "anchor_selection_resets":0,"diagnostic_restore_resets":0,"policy_restore_resets":0,
+                  "origin_workflow":os.environ['ASTRA_RUN_ID'],"reused_parent_anchor":reuse_anchor}
         resets.append(counts)
         save_summary()
         np.random.seed(case["constructor_seed"])
@@ -272,36 +279,48 @@ def main():
             raw = env.unwrapped.env
             if raw._check_success():
                 raise ValueError("Initially successful anchor is not a valid trial")
-            anchor = {"xml":raw.sim.model.get_xml(),"integration_state":integration_state(raw),
-                      "environment_rng":copy.deepcopy(raw.rng.bit_generator.state),
-                      "numpy_rng":np.random.get_state(),"python_rng":random.getstate()}
-            restore_anchor(env,anchor)
-            counts["diagnostic_restore_resets"] += 1
-            # Save the simulator's canonical serialization after its first replay.
-            anchor["xml"] = raw.sim.model.get_xml()
-            obs = restore_anchor(env,anchor)
-            counts["diagnostic_restore_resets"] += 1
-            expected = fingerprint(env,obs)
-            with gzip.open(root/"anchor_model.xml.gz","wt") as stream:stream.write(anchor["xml"])
-            np.savez_compressed(root/"anchor_state.npz",integration_state=anchor["integration_state"])
-            write_json(root/"anchor_rng.json",{"environment_rng":anchor["environment_rng"],
-                "numpy_rng":[anchor["numpy_rng"][0],anchor["numpy_rng"][1].tolist(),*anchor["numpy_rng"][2:]],
-                "python_rng":anchor["python_rng"]})
-            write_json(root/"anchor.json",expected)
-            completed = {"native":False,"astra":False}
+            if reuse_anchor:
+                anchor, expected = load_anchor(root)
+                for _ in range(2):
+                    obs = restore_anchor(env,anchor)
+                    counts['diagnostic_restore_resets'] += 1
+                    if fingerprint(env,obs) != expected:
+                        raise ValueError('Continuation did not reproduce the saved initial fingerprint')
+                if raw._check_success():
+                    raise ValueError('Saved anchor is already successful')
+            else:
+                anchor = {"xml":raw.sim.model.get_xml(),"integration_state":integration_state(raw),
+                          "environment_rng":copy.deepcopy(raw.rng.bit_generator.state),
+                          "numpy_rng":np.random.get_state(),"python_rng":random.getstate()}
+                restore_anchor(env,anchor)
+                counts["diagnostic_restore_resets"] += 1
+                # Save the simulator's canonical serialization after its first replay.
+                anchor["xml"] = raw.sim.model.get_xml()
+                obs = restore_anchor(env,anchor)
+                counts["diagnostic_restore_resets"] += 1
+                expected = fingerprint(env,obs)
+                with gzip.open(root/"anchor_model.xml.gz","wt") as stream:stream.write(anchor["xml"])
+                np.savez_compressed(root/"anchor_state.npz",integration_state=anchor["integration_state"])
+                write_json(root/"anchor_rng.json",{"environment_rng":anchor["environment_rng"],
+                    "numpy_rng":[anchor["numpy_rng"][0],anchor["numpy_rng"][1].tolist(),*anchor["numpy_rng"][2:]],
+                    "python_rng":anchor["python_rng"]})
+                write_json(root/"anchor.json",expected)
+            completed = {arm:any(r['case']==case['id'] and r['arm']==arm and r['success'] for r in rows)
+                         for arm in ('native','astra')}
             astra_history = history[case["id"]]
             history_context = {"source":"historical qualification failure","success":False,
                                "steps":case["old_steps"],"exact_model_equivalence_to_current_anchor":False}
             for attempt in (1,2):
                 for arm in ("native","astra"):
-                    if completed[arm]:continue
+                    if completed[arm] or (case['id'],arm,attempt) not in pending:continue
                     folder = root/f"{arm}{attempt}"
                     folder.mkdir()
                     record = Recorder(folder,arm,case["task"],case["horizon"])
                     guide = None
                     if arm == "astra":
                         client = CodexRelayClient(model="gpt-6-astra",family="xiaomi_selector",
-                            reasoning_effort="medium",response_log=str(folder/"provider.jsonl"),timeout=300)
+                            reasoning_effort="medium",response_log=str(folder/"provider.jsonl"),
+                            timeout=protocol.get('continuation',{}).get('relay_timeout_seconds',300))
                         guide = Guide(client,folder,astra_history,history_context,f"{case['id']}-astra{attempt}")
                     wrapped = ReplayEnvironment(env,record,anchor,expected,counts)
                     class GymProxy:
@@ -320,7 +339,9 @@ def main():
                         save_summary()
                         raise
                     row = record.finish(result["episodes"][0])
-                    row.update(case=case["id"],arm=arm,attempt=attempt,teacher_calls=guide.calls if guide else 0)
+                    row.update(case=case["id"],arm=arm,attempt=attempt,teacher_calls=guide.calls if guide else 0,
+                               origin_workflow=os.environ['ASTRA_RUN_ID'],
+                               origin_source_revision=os.environ['ASTRA_SOURCE_REVISION'])
                     write_json(folder/"episode.json",row)
                     rows.append(row)
                     completed[arm] = row["success"]
