@@ -3,7 +3,7 @@
   "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v2-1",
   "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
   "recorded_utc": "2026-10-09T18:29:54.138560+00:00",
-  "cause": "OSMO AWS load balancer returns HTTP403, including unauthenticated endpoints. Current SSO token is valid and the local VPN route exists. Allocation status queries and cancellation requests were rejected. The local relay stopped after the guarded controller exited.",
+  "cause": "During the outage, the OSMO AWS load balancer returnedHTTP403 despite a valid SSO token and an existing local VPN route. Status queries and cancellation requests were rejected. The local relay stopped after the guarded controller exited. Service subsequently recovered; the allocation closed and all176 archived files were verified.",
   "remote_allocation_closed": true,
   "allocation_reservation_retained": false,
   "full_six_case_results_available": false,

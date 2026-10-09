@@ -26,6 +26,31 @@
       "teacher_jobs": 0,
       "role": "native_replay_diagnostic_excluded_from_policy_SR",
       "issue": "Camera-history divergence identified at identical recorded physics/controller state."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v2-1",
+      "status": "FAILED",
+      "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+      "actual_gpu_hours": 0.749587118611111,
+      "completed_policy_episodes": 5,
+      "incomplete_policy_episodes": 1,
+      "policy_controls": 17287,
+      "policy_chunks": 1082,
+      "teacher_jobs": 40,
+      "teacher_tokens": 850082,
+      "role": "parent_policy_execution_retained_in_final_results",
+      "issue": "OSMO403 transport outage. Five completed episodes retained; one partial episode remains outside SR. All40 actual jobs charged, including one completed but undelivered response."
+    },
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v3-1",
+      "status": "FAILED_CANCELED",
+      "source_revision": "ed9aec68ed7f8dd3eca80cc32c0a86b44892a803",
+      "actual_gpu_hours": 0,
+      "completed_policy_episodes": 0,
+      "policy_controls": 0,
+      "teacher_jobs": 0,
+      "role": "queue_only_no_gpu_assignment",
+      "issue": "Normal-priority quota full. Cancelled while scheduling before node assignment; null runtime verified as zero. Replaced by LOW-priority borrowing with all nonzero exit codes configured to fail without automatic rescheduling."
     }
   ]
 }

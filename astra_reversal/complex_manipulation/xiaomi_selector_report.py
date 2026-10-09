@@ -23,6 +23,36 @@ def jsonl(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
 
 
+def reconcile_interrupted_jobs(records, jobs):
+    """Charge completed local jobs even if their response did not reach the robot."""
+    indexed = {job['request_fingerprint']: job for job in jobs}
+    if len(indexed) != len(jobs) or len(records) != len(jobs):
+        raise ValueError('Interrupted job receipts are incomplete or duplicated')
+    seen, tokens, rows = set(), dict.fromkeys(('input_tokens','output_tokens','reasoning_tokens','total_tokens'),0), []
+    for record in records:
+        key = record['request_fingerprint']
+        if key in seen or key not in indexed:
+            raise ValueError('Interrupted request does not match a unique local completion')
+        seen.add(key)
+        job = indexed[key]
+        if job['delivered_and_accepted_by_worker'] is not record['accepted']:
+            raise ValueError('Local receipt cannot change worker acceptance')
+        usage = job['token_usage']
+        if record['accepted'] and usage != record['token_usage']:
+            raise ValueError('Local and remote token receipts disagree')
+        if any(type(usage[k]) is not int or usage[k] < 0 for k in tokens):
+            raise ValueError('Cannot silently fill unknown interrupted token usage')
+        if usage['total_tokens'] != usage['input_tokens'] + usage['output_tokens']:
+            raise ValueError('Reasoning must not be added twice to total tokens')
+        for key in tokens:
+            tokens[key] += usage[key]
+        rows.append(dict(request_fingerprint=record['request_fingerprint'],
+                         delivered=record['accepted'], token_usage=usage))
+    return dict(completed_local_jobs=len(jobs), delivered_proposals=sum(r['accepted'] for r in records),
+                undelivered_completed_jobs=sum(not r['accepted'] for r in records),token_usage=tokens,
+                worker_wait_seconds=sum(r['latency_seconds'] for r in records),receipts=rows)
+
+
 def aggregate(rows, cases):
     """Distinguish per-episode SR from paired first-attempt and within-two SR."""
     groups = defaultdict(list)
@@ -191,6 +221,59 @@ def build(results, output):
             ':astra_reversal/complex_manipulation/' + name], cwd=Path(__file__).resolve().parents[2])
         (output / 'provenance' / name).write_bytes(content)
     report['provider_probe'] = read(output / 'provenance/xiaomi_selector_provider_preflight.json')
+    completed_tokens = report['accounting']['tokens']['total_tokens']['sum']
+    report['spending'] = dict(completed_episode_tokens=completed_tokens,
+                             completed_episode_jobs=len(provider),interrupted_tokens=0,interrupted_jobs=0,
+                             rollout_tokens_including_interruption=completed_tokens,
+                             rollout_jobs_including_interruption=len(provider),
+                             calibration_tokens=18630,calibration_jobs=1,
+                             all_teacher_tokens_including_calibration=completed_tokens+18630)
+    if 'continuation' in protocol:
+        amendment = protocol['continuation']
+        interruption_path = Path(__file__).parent / 'xiaomi_selector_interruption.json'
+        interruption = read(interruption_path)
+        if interruption['archive_receipt_sha256'] != sha256(results / 'continuation/parent_archive_receipt.json'):
+            raise ValueError('Interruption evidence is from a different parent archive')
+        case = amendment['interrupted_trial']
+        identity = f"{case['case']}-{case['arm']}{case['attempt']}"
+        folder = results / 'interrupted' / amendment['parent_workflow'] / case['case'] / f"{case['arm']}{case['attempt']}"
+        partial = read(folder / 'incomplete.json')
+        if partial['counts_as_completed_failure'] is not False:
+            raise ValueError('Interrupted trial cannot enter the success-rate denominator')
+        local = [r for r in interruption['job_records'] if r['episode_id'] == identity]
+        overhead = reconcile_interrupted_jobs(jsonl(folder / 'provider.jsonl'),local)
+        overhead.update(case=case['case'],physical_episodes=1,controls=partial['steps'],chunks=partial['queries'],
+                        incomplete=partial,workflow=amendment['parent_workflow'])
+        if overhead['completed_local_jobs'] != partial['teacher_calls']:
+            raise ValueError('Interrupted call count differs from local receipt reconciliation')
+        report['interruption'] = overhead
+        report['spending'].update(interrupted_tokens=overhead['token_usage']['total_tokens'],
+            interrupted_jobs=overhead['completed_local_jobs'],
+            rollout_tokens_including_interruption=completed_tokens+overhead['token_usage']['total_tokens'],
+            rollout_jobs_including_interruption=len(provider)+overhead['completed_local_jobs'],
+            all_teacher_tokens_including_calibration=completed_tokens+overhead['token_usage']['total_tokens']+18630)
+        for item in report['cases']:
+            item['interrupted_tokens'] = overhead['token_usage']['total_tokens'] if item['case']==case['case'] else 0
+            item['astra_tokens_including_interruption'] = item['astra_tokens']+item['interrupted_tokens']
+        for path in folder.rglob('*'):
+            if path.is_file():
+                copy(path,'evidence/interrupted/'+str(path.relative_to(folder)))
+        for path in (results/'continuation').rglob('*'):
+            if path.is_file():
+                copy(path,'evidence/continuation/'+str(path.relative_to(results/'continuation')))
+        copy(interruption_path,'evidence/'+interruption_path.name)
+        for name in ('xiaomi_selector_continuation_protocol.json','xiaomi_selector_resume.py'):
+            (output/'provenance'/name).write_bytes(subprocess.check_output(['git','show',
+                report['source']['source_revision']+':astra_reversal/complex_manipulation/'+name],
+                cwd=Path(__file__).resolve().parents[2]))
+    report['physical_accounting'] = dict(completed_policy_episodes=len(rows),
+        incomplete_policy_episodes=report.get('interruption',{}).get('physical_episodes',0),
+        total_policy_controls=sum(r['steps'] for r in rows)+report.get('interruption',{}).get('controls',0),
+        total_policy_chunks=sum(r['policy_queries'] for r in rows)+report.get('interruption',{}).get('chunks',0),
+        policy_restore_resets=sum(r['policy_restore_resets'] for r in summary['resets']))
+    physical = report['physical_accounting']
+    if physical['policy_restore_resets'] != physical['completed_policy_episodes']+physical['incomplete_policy_episodes']:
+        raise ValueError('A physical policy reset is missing from episode accounting')
     infrastructure = Path(__file__).parent / 'xiaomi_selector_infrastructure.json'
     if infrastructure.exists():
         report['infrastructure'] = read(infrastructure)
