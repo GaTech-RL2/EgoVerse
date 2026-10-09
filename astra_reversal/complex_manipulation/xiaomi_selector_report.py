@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import gzip
 import json
 import shutil
 import subprocess
@@ -12,7 +13,7 @@ import numpy as np
 
 from astra_reversal.codex_accounting import summarize_codex_calls
 from .worker import safe_relative, sha256
-from .xiaomi_teacher import METHODS, SYSTEM_PROMPT
+from .xiaomi_teacher import METHODS, SYSTEM_PROMPT, _validate_request
 
 
 def read(path):
@@ -164,6 +165,13 @@ def build(results, output):
             usage_record = records[index]
             if usage_record['request_fingerprint'] != proposal['request_fingerprint']:
                 raise ValueError('Per-review proposal and usage are not bound to the same observation')
+            request_path = path.parent/f'request_{index:02d}.json.gz'
+            with gzip.open(request_path,'rt') as stream:
+                request = json.load(stream)
+            _validate_request(request)
+            if request['request_fingerprint'] != proposal['request_fingerprint']:
+                raise ValueError('Archived input does not match its proposal and token receipt')
+            decision['request_payload'] = copy(request_path,f'evidence/{identity}/{request_path.name}')
             decision.update(tokens=usage_record['token_usage']['total_tokens'],
                             teacher_seconds=usage_record['latency_seconds'])
             for name in ('observed', 'source', 'applied'):
