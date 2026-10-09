@@ -21,7 +21,8 @@ to decide which requirements can be relaxed for Sharpa and which must stay.
   - EgoVerse derived one static top-camera transform from the published i2rt station model,
     plus a 4.3 cm correction fitted by hand to two marked gripper positions (residual
     ~18 px → ~4 px). It covers RealSense D405 stations only; ZED-X episodes have none.
-  - ABC training used `eef_frame` cartesian and joint-space modes. Neither reads extrinsics.
+  - The ABC training configs checked read no extrinsics: Yam cartesian in `eef_frame`
+    (`aniketh/abc`), and Eva `cartesian_wristframe_6d` and joint-space (`aidan/*`).
 - **ABC never met the v3.1 contract.** It trains because an episode with no `data_status`
   defaults to `complete` (`egomimic/rldb/zarr/episode_attrs.py`). Its first ingest wrote no
   camera metadata at all.
@@ -32,9 +33,11 @@ to decide which requirements can be relaxed for Sharpa and which must stay.
 - `origin/aidan/abc-sim-pipeline`, `origin/aidan/abc-stationery-pi`.
 - ABC's own `docs/YAM_DATA_FORMAT.md` and README (`XDOF/ABC-130k` on Hugging Face).
 
-Whether the metadata backfill was ever applied to the R2 copies is **unknown**. Aidan's
-2026-10 data config says those zarrs still read `eva_bimanual`, although SQL was relabelled to
-`yam_bimanual` on 2026-09-01.
+Whether the metadata backfill was ever applied to the R2 copies is **unknown**, and the sources
+disagree:
+- Commit `9588f1d12` says the Lambda (R2) copies "say yam_bimanual since the 2026-09-01 SQL
+  relabel".
+- The comment in `abc_real_joints.yaml` says the zarrs still read `eva_bimanual`.
 
 ## How ABC was ingested
 
@@ -101,9 +104,13 @@ Options, none applied:
    for experiments now, but it bypasses the gate rather than refining it.
 
 Relaxing these requirements alone recovers little:
-- **Joint limits still block 94% of episodes.** The limit check is an integrity error whatever
-  the status, so at most the 311 in-limit episodes pass validation until the conflict is
-  resolved.
+- **Joint limits still decide most episodes.** The resolver and staging gate only on
+  `data_status`; neither runs the validator.
+  - The converter marks every out-of-limit episode `structural_sample`, so under options 1 and
+    2 only the 311 in-limit episodes would load.
+  - Under option 3, the out-of-limit episodes would load and train on FK labels computed from
+    joints the model says are impossible.
+  - Their delivery validation fails either way, because the limit check is an integrity error.
 - **Dexmate training still needs `obs_head_pose`.** `Dexmate` supports only head-frame keypoint
   modes, so it cannot load episodes without a per-frame camera pose.
 - **A sidestep exists.** A joint-space Dexmate mode, like ABC's joints mode, would need neither
@@ -137,7 +144,9 @@ POC22061).
 
 **Evidence.**
 - **Joint limits.** 94% of episodes leave the Wave V3.0.4 limits.
-  - Commands clamp DIP joints at exactly π/2, against a URDF limit of 1.3963 rad.
+  - Commanded DIP joints mostly clamp at exactly π/2 (5,530 of the 14,331 over-limit
+    episode-joint pairs), against a URDF limit of 1.3963 rad. A few go higher: commanded
+    `right_ring_DIP` reaches 1.798.
   - Observed DIP reaches 1.617 rad, above even π/2. So a revised limit alone cannot explain the
     data; zero offsets or a different hand model must also be involved.
   - Pinky CMC reaches 0.49 rad (limit 0.2618) and thumb MCP_AA ±0.415 (limit ±0.349).
