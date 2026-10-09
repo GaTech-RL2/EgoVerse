@@ -1,0 +1,15 @@
+flowchart LR
+    Task[Official task instruction] --> Actor[Fresh Astra actor\nLive closed-loop policy]
+    Source[Audited robotics source\nIsolated scratch workspace] <--> Actor
+    Actor <--> F[F: typed hardware interface\nDescribe · read · act]
+    Actor <--> B0[B0: native codebase interface\nObserve · step]
+    Actor <--> B[B: native interface +\nimage-only Astra observer]
+    F <--> Proxy[Shared execution proxy\nAction validation + sensor allowlist]
+    B0 <--> Proxy
+    B <--> Proxy
+    Proxy -->|Native actions| Sim[Robot simulator\nLIBERO tested; RoboCasa being added]
+    Sim -->|Cameras + robot sensors| Proxy
+    Sim --> Evaluator[Private official success check\nAfter every native step]
+    Proxy --> Log[Action + observation + usage logs]
+    Log --> Replay[Independent replay audit\nSame reset and saved actions; zero model calls]
+    Evaluator --> Replay

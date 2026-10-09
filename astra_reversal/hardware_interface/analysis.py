@@ -280,7 +280,7 @@ def analyze(outcomes, manifest, *, split):
             "task_cluster_sensitivity_95pct": np.quantile(
                 task_bootstrap, [0.025, 0.975]
             ).tolist(),
-            "task_cluster_sensitivity_caveat": "Only ten tasks; exploratory generalization, separate from the fixed-suite primary interval.",
+            "task_cluster_sensitivity_caveat": f"{len(by_task)} observed tasks; exploratory generalization, separate from the fixed-suite primary interval.",
             "median_resource_reduction_fraction": efficiency,
             "efficiency_gain_with_noninferior_completion": bool(efficiency_gain),
             "mcnemar_exact_p": p if manifest["replicates"] == 1 else None,

@@ -9,7 +9,7 @@ import jsonschema
 from .common import digest, strict_json, write_json
 from .protocol import SHARED_PROMPT
 from .provider import BudgetEnd, Meter, ModelFailure, Observer, Session
-from .proxy import SENSORS, CommandError
+from .proxy import CommandError
 
 
 def obj(properties):
@@ -21,13 +21,13 @@ def obj(properties):
     }
 
 
-def tools_for(condition):
+def tools_for(condition, action_dim=7):
     integer, string = {"type": "integer"}, {"type": "string"}
     vector = {
         "type": "array",
         "items": {"type": "number"},
-        "minItems": 7,
-        "maxItems": 7,
+        "minItems": action_dim,
+        "maxItems": action_dim,
     }
     definitions = [
         (
@@ -168,7 +168,7 @@ class Router:
     def __init__(self, proxy, source, condition, *, scratch=None, observer=None):
         self.proxy, self.source, self.condition = proxy, source, condition
         self.scratch, self.observer = scratch, observer
-        self.tools = tools_for(condition)
+        self.tools = tools_for(condition, proxy.action_dim)
         self.schemas = {t["name"]: t["parameters"] for t in self.tools}
         self.calls, self.invalid_commands, self.recoveries = 0, 0, 0
         self.previous_rejected = False
@@ -198,7 +198,9 @@ class Router:
             elif tool == "read":
                 result = self.proxy.read(**arguments)
             elif tool == "read_latest":
-                result = [self.proxy.read(channel, 1000) for channel in SENSORS]
+                result = [
+                    self.proxy.read(channel, 1000) for channel in self.proxy.sensors
+                ]
             elif tool == "act":
                 result = self.proxy.act(**arguments)
             elif tool == "observe":
@@ -221,9 +223,7 @@ class Router:
             elif tool == "describe_visible":
                 if self.observer is None:
                     raise RuntimeError("observer_unavailable")
-                visible = self.proxy.observe(
-                    ["agentview_image", "robot0_eye_in_hand_image"]
-                )
+                visible = self.proxy.observe(self.proxy.camera_keys)
                 remaining = self.proxy.remaining_wall_seconds()
                 result = self.observer.describe(
                     arguments["request_kind"], visible, timeout=remaining
@@ -254,7 +254,18 @@ class Router:
         return result
 
 
-def run_trial(proxy, source, condition, task_instruction, model, *, scratch, post=None):
+def run_trial(
+    proxy,
+    source,
+    condition,
+    task_instruction,
+    model,
+    *,
+    scratch,
+    post=None,
+    shared_prompt=SHARED_PROMPT,
+    source_entry="libero/libero/envs/env_wrapper.py",
+):
     meter = Meter(proxy.limits.workflow_tokens)
     actor = Session(model, proxy.limits, meter, proxy.events, post=post)
     observer = (
@@ -268,7 +279,7 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
     )
     router = Router(proxy, source, condition, scratch=scratch, observer=observer)
     common = (
-        "Shared source entry point: libero/libero/envs/env_wrapper.py. "
+        "Shared source entry point: " + source_entry + ". "
         "Inspect native controller and observation conventions through source tools. "
         "Only normalized controller inputs within [-1,1] are accepted. Physics advances only on accepted steps and pauses during reasoning. "
         "Camera images are delivered upright in every arm. "
@@ -277,7 +288,7 @@ def run_trial(proxy, source, condition, task_instruction, model, *, scratch, pos
         "No hidden simulator objects exist there. Usage is recorded. A null resource setting means no experiment cap.\nEpisode and request settings: "
         + json.dumps(asdict(proxy.limits))
     )
-    instructions = SHARED_PROMPT + "\n\n" + common
+    instructions = shared_prompt + "\n\n" + common
     # Keep the goal in every request even if the provider needs to truncate old
     # conversation items at its actual context-window boundary.
     if model.get("context_truncation") == "auto":

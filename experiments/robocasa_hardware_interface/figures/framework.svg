@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980" role="img" aria-labelledby="title desc">
+  <title id="title">Astra universal robot hardware interface experiment</title>
+  <desc id="desc">A fresh Astra actor controls a simulated robot through one of three interfaces. F adds typed hardware channels; B0 uses audited robotics source and native tools; B adds an image-only observer. All interfaces share a validated execution proxy, cameras, robot sensors, native actions and a private success evaluator. Recorded actions are independently replayed for audit. LIBERO has been tested; the RoboCasa extension is in progress.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#526579"/></marker>
+    <marker id="blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#356db2"/></marker>
+    <style>
+      text {font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;fill:#172a3d}
+      .title {font-size:34px;font-weight:750;letter-spacing:-.6px}
+      .head {font-size:21px;font-weight:700}
+      .body {font-size:17px}
+      .small {font-size:15px;fill:#526579}
+      .label {font-size:13px;letter-spacing:1.6px;font-weight:700;fill:#526579}
+      .wire {fill:none;stroke:#526579;stroke-width:2.3;marker-end:url(#arrow)}
+      .both {fill:none;stroke:#526579;stroke-width:2;marker-start:url(#arrow);marker-end:url(#arrow)}
+      .sensor {fill:none;stroke:#356db2;stroke-width:2.3;marker-end:url(#blue)}
+      .box {fill:white;stroke:#d5dee8;stroke-width:1.5}
+    </style>
+  </defs>
+  <rect width="1500" height="980" fill="#f6f8fb"/>
+  <text x="56" y="59" class="title">How Astra controls the robot</text>
+  <text x="56" y="93" class="body" fill="#526579">A matched experiment: the same model and robot, with different interfaces.</text>
+  <text x="60" y="139" class="label">LIVE POLICY</text>
+  <text x="400" y="139" class="label">ONE INTERFACE PER ROLLOUT</text>
+  <text x="819" y="139" class="label">SHARED EXECUTION AND EVALUATION</text>
+
+  <rect x="60" y="175" width="260" height="90" rx="15" class="box"/>
+  <text x="82" y="210" class="head">Task instruction</text>
+  <text x="82" y="240" class="body">Official benchmark wording</text>
+  <path d="M190 265 V330" class="wire"/>
+  <rect x="60" y="330" width="260" height="190" rx="17" fill="#172f49"/>
+  <text x="82" y="369" class="head" style="fill:white">Fresh Astra actor</text>
+  <text x="82" y="404" class="body" style="fill:#e0e9f3">Reads cameras and sensors</text>
+  <text x="82" y="434" class="body" style="fill:#e0e9f3">Chooses actions online</text>
+  <text x="82" y="473" class="small" style="fill:#d0deee">Fixed model weights</text>
+  <text x="82" y="497" class="small" style="fill:#d0deee">New session for every rollout</text>
+
+  <path d="M320 425 H354 V247 H393" class="both"/>
+  <path d="M354 425 H393" class="both"/>
+  <path d="M354 425 V609 H393" class="both"/>
+
+  <g id="arm-F">
+    <rect x="400" y="176" width="348" height="142" rx="15" fill="#edf8f5" stroke="#25977e" stroke-width="2"/>
+    <rect x="419" y="194" width="32" height="28" rx="6" fill="#167c66"/>
+    <text x="429" y="214" style="fill:white;font-size:17px;font-weight:700">F</text>
+    <text x="462" y="215" class="head">Typed hardware interface</text>
+    <text x="421" y="253" class="body">Describe device · read channels · act</text>
+    <text x="421" y="283" class="small">Explicit units, frames, shapes and bounds</text>
+  </g>
+  <g id="arm-B0">
+    <rect x="400" y="360" width="348" height="130" rx="15" fill="#fff6ed" stroke="#cc8948" stroke-width="2"/>
+    <rect x="419" y="378" width="42" height="28" rx="6" fill="#ac6a2c"/>
+    <text x="426" y="398" style="fill:white;font-size:16px;font-weight:700">B0</text>
+    <text x="472" y="399" class="head">Codebase interface</text>
+    <text x="421" y="438" class="body">Observe native keys · step vector</text>
+    <text x="421" y="467" class="small">Discover conventions from audited source</text>
+  </g>
+  <g id="arm-B">
+    <rect x="400" y="536" width="348" height="146" rx="15" fill="#f4effb" stroke="#9975be" stroke-width="2"/>
+    <rect x="419" y="554" width="32" height="28" rx="6" fill="#7951a1"/>
+    <text x="428" y="574" style="fill:white;font-size:17px;font-weight:700">B</text>
+    <text x="462" y="575" class="head">Codebase + observer</text>
+    <text x="421" y="614" class="body">Same native tools as B0</text>
+    <text x="421" y="643" class="small">Extra Astra observer describes images only</text>
+    <text x="421" y="665" class="small">Observer supplies no plans or commands</text>
+  </g>
+
+  <path d="M753 247 H780 V425 H813" class="both"/>
+  <path d="M753 425 H813" class="both"/>
+  <path d="M753 609 H780 V425" class="both"/>
+
+  <rect x="820" y="330" width="270" height="190" rx="16" class="box"/>
+  <text x="842" y="370" class="head">Execution proxy</text>
+  <text x="842" y="407" class="body">Validate actions and freshness</text>
+  <text x="842" y="437" class="body">Execute bounded native steps</text>
+  <text x="842" y="467" class="body">Return allowed observations</text>
+  <text x="842" y="497" class="small">Same control authority in every arm</text>
+  <text x="824" y="300" class="small">Tool calls ⇄ sensor replies</text>
+
+  <path d="M1090 395 H1183" class="wire"/>
+  <text x="1101" y="381" class="small">Actions</text>
+  <path d="M1190 466 H1097" class="sensor"/>
+  <text x="1099" y="450" class="small">Images +</text>
+  <text x="1101" y="489" class="small">sensors</text>
+  <rect x="1190" y="330" width="254" height="190" rx="16" class="box"/>
+  <text x="1211" y="369" class="head">Robot simulator</text>
+  <text x="1211" y="409" class="body">LIBERO · tested</text>
+  <rect x="1206" y="430" width="220" height="37" rx="7" fill="#edf2f8" stroke="#99abc0" stroke-dasharray="5 4"/>
+  <text x="1217" y="454" class="body">RoboCasa · being added</text>
+  <text x="1211" y="496" class="small">Paused during model calls</text>
+
+  <rect x="60" y="604" width="260" height="102" rx="14" class="box"/>
+  <text x="80" y="637" class="head">Source + scratch tools</text>
+  <text x="80" y="667" class="small">Audited source + isolated scratch</text>
+  <text x="80" y="691" class="small">Available in all three arms</text>
+  <path d="M190 604 V527" class="both"/>
+
+  <path d="M955 520 V597" class="wire"/>
+  <rect x="820" y="604" width="270" height="102" rx="14" class="box"/>
+  <text x="842" y="640" class="head">Recorded rollout</text>
+  <text x="842" y="669" class="small">Actions, sensors, tokens, timing</text>
+  <text x="842" y="692" class="small">Separate actor / observer usage</text>
+
+  <path d="M1317 520 V597" class="wire"/>
+  <text x="1331" y="565" class="small">Each step</text>
+  <rect x="1190" y="604" width="254" height="102" rx="14" fill="#eaf0f7" stroke="#9dafc4"/>
+  <text x="1211" y="640" class="head">Private evaluator</text>
+  <text x="1211" y="669" class="small">Official task success check</text>
+  <text x="1211" y="692" class="small">Stops rollout on first success</text>
+
+  <text x="61" y="775" class="label">WHAT THE COMPARISON MEASURES</text>
+  <text x="61" y="811" class="body">F vs B0: effect of the typed interface</text>
+  <text x="61" y="842" class="body">F vs B: comparison including the extra observer</text>
+  <text x="61" y="886" class="small">No task implementations, hidden object state, expert demonstrations</text>
+  <text x="61" y="910" class="small">or success labels are exposed to the acting agent.</text>
+
+  <path d="M955 706 V775" class="wire"/>
+  <path d="M1317 706 V775" class="wire"/>
+  <rect x="820" y="782" width="624" height="106" rx="15" fill="#fff" stroke="#b4c1cf" stroke-dasharray="6 5"/>
+  <text x="842" y="819" class="head">Independent replay audit</text>
+  <text x="842" y="850" class="body">Re-execute saved actions from the same reset; verify the result.</text>
+  <text x="842" y="875" class="small">No Astra calls. Replay verifies the live policy; it does not choose actions.</text>
+  <text x="821" y="931" class="small">Simulation experiment · fixed model weights · no robot-policy training</text>
+</svg>

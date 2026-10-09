@@ -53,7 +53,7 @@ class CommandError(ValueError):
 
 
 def validate_action(action, repeat, observation_step, current_step, bounds, limits):
-    if type(action) is not list or len(action) != 7:
+    if type(action) is not list or len(action) != len(bounds[0]):
         raise CommandError("action_shape")
     if any(type(v) not in (int, float) or not math.isfinite(v) for v in action):
         raise CommandError("action_finite_numbers_required")
@@ -81,6 +81,7 @@ class Proxy:
         events,
         limits=Limits(),
         clock=time.monotonic,
+        sensors=None,
     ):
         self.env = environment
         self.observation = observation
@@ -96,9 +97,19 @@ class Proxy:
         self.simulator_seconds = 0.0
         self.invalid_actions = self.safety_attempts = self.applied_violations = 0
         self.bounds = (controller["input_min"], controller["input_max"])
-        if any(key not in observation for key in NATIVE_KEYS):
+        self.sensors = copy.deepcopy(SENSORS if sensors is None else sensors)
+        self.native_keys = {values[0] for values in self.sensors.values()}
+        self.camera_keys = [key for key in self.native_keys if key.endswith("_image")]
+        self.camera_keys.sort()
+        self.action_dim = len(self.bounds[0])
+        if any(key not in observation for key in self.native_keys):
             raise ValueError("required_sensor_unavailable")
-        if any(len(v) != 7 for v in self.bounds):
+        if any(
+            shape is not None and list(np.asarray(observation[key]).shape) != shape
+            for key, _, _, shape in self.sensors.values()
+        ):
+            raise ValueError("native_sensor_shape_changed")
+        if not self.action_dim or len(self.bounds[1]) != self.action_dim:
             raise ValueError("controller_shape")
 
     def remaining_wall_seconds(self):
@@ -138,7 +149,7 @@ class Proxy:
             type(keys) is not list
             or not keys
             or len(keys) != len(set(keys))
-            or not set(keys) <= NATIVE_KEYS
+            or not set(keys) <= self.native_keys
         ):
             raise CommandError("unknown_observation_key")
         self.observation = self.env.read_sensors()
@@ -162,7 +173,7 @@ class Proxy:
     def describe(self):
         self.available()
         channels = []
-        for channel, (key, unit, frame, shape) in SENSORS.items():
+        for channel, (key, unit, frame, shape) in self.sensors.items():
             shape = (
                 list(np.asarray(self.observation[key]).shape)
                 if shape is None
@@ -190,14 +201,17 @@ class Proxy:
             )
         return {
             "schema_version": "hardware-1",
-            "device_id": "libero-panda",
+            "device_id": self.controller.get("device_id", "libero-panda"),
             "observations": channels,
             "actions": [
                 {
                     "channel": "robot.controller_command",
                     "type": "float64[]",
-                    "shape": [7],
-                    "description": "Atomic normalized delta position xyz, rotation axis-angle xyz, gripper",
+                    "shape": [self.action_dim],
+                    "description": self.controller.get(
+                        "description",
+                        "Atomic normalized delta position xyz, rotation axis-angle xyz, gripper",
+                    ),
                     "units": "normalized_controller_input",
                     "frequency_hz": self.controller["frequency_hz"],
                     "control_frequency_hz": self.controller["frequency_hz"],
@@ -221,9 +235,9 @@ class Proxy:
             or max_age_ms < 0
         ):
             raise CommandError("max_age_ms")
-        if channel not in SENSORS:
+        if channel not in self.sensors:
             raise CommandError("unknown_channel")
-        key, unit, frame, _ = SENSORS[channel]
+        key, unit, frame, _ = self.sensors[channel]
         # Re-sample current paused sensors. A newly requested image is current
         # in simulation even when an API request took minutes of wall time.
         self.observation = self.env.read_sensors()

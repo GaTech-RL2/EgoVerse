@@ -281,23 +281,63 @@ class Session:
             body["max_output_tokens"] = cap
         # Evaluator-owned events are private; this includes context/response
         # bytes for audit. No credentials or provider request headers are logged.
+        logged_body = body
+        if self.model.get("request_logging", "full") == "input_hashes":
+            # Exact response/tool bytes already live in the event chain. Avoid
+            # copying the entire growing multimodal history into every request.
+            logged_body = {
+                **body,
+                "input": [{"sha256": digest(item)} for item in body["input"]],
+            }
         self.events.emit(
             "model_request",
             role=self.role,
-            request=body,
+            request=logged_body,
             request_sha256=digest(body),
+            request_logging=self.model.get("request_logging", "full"),
             input_tokens_counted=count,
             input_tokens_reserved=reserved,
             input_reservation=reservation,
         )
-        try:
-            response = self._post("responses", body, remaining_time)
-        except ModelFailure:
-            self.meter.unknown += 1
-            self.events.emit(
-                "error", role=self.role, error_class="ModelFailure", usage_unknown=True
-            )
-            raise
+        retries = self.model.get("retries", 0)
+        if type(retries) is not int or not 0 <= retries <= 5:
+            raise ValueError("invalid_transport_retry_count")
+        for attempt in range(retries + 1):
+            try:
+                response = self._post("responses", body, remaining_time)
+                break
+            except ModelFailure as error:
+                self.meter.unknown += 1
+                reason = str(error)
+                retryable = reason in {
+                    "provider_http_429",
+                    "provider_http_500",
+                    "provider_http_502",
+                    "provider_http_503",
+                    "provider_http_504",
+                    "provider_URLError",
+                    "provider_TimeoutError",
+                    "provider_ConnectionResetError",
+                }
+                self.events.emit(
+                    "error",
+                    role=self.role,
+                    error_class="ModelFailure",
+                    usage_unknown=True,
+                    reason=reason,
+                    attempt=attempt,
+                    will_retry=retryable and attempt < retries,
+                )
+                if not retryable or attempt == retries:
+                    raise
+                # No response has been dispatched: retrying cannot execute a robot
+                # action twice. Unknown provider usage remains in the receipt.
+                time.sleep(2 ** (attempt + 1))
+                remaining_time = self.limits.response_seconds
+                if self.limits.wall_seconds is not None:
+                    remaining_time = timeout - (time.monotonic() - start)
+                    if remaining_time <= 0:
+                        raise BudgetEnd("wall_limit")
         self.events.emit(
             "model_response",
             role=self.role,

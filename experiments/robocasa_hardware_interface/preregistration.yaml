@@ -1,0 +1,338 @@
+protocol_version: robocasa-direct-astra-transfer-1
+study_date: '2026-10-09'
+benchmark: robocasa365
+scene_split: target
+task_set: target50
+upstream:
+  robocasa: 456174f62b89b8fca99eaaf33949c29fec9cfc2a
+  robosuite: 5ce6643f3092639d08f7b0f90ed1c6a84f50552c
+python_version: 3.11.13
+container_digest: docker.io/library/python@sha256:cec9aa7aa96eea4fa036e9b82be1e6b325f2e3707f462d885868df51ec0a4b47
+model:
+  provider: responses
+  identifier: openai/openai/gpt-6-astra
+  serving_provider: nvidia-inference
+  snapshot_pinned: false
+  reasoning_effort: medium
+  sampling: {}
+  retries: 3
+  base_url: https://inference-api.nvidia.com/v1
+  input_reservation:
+    mode: usage_only
+  context_truncation: auto
+  request_logging: input_hashes
+conditions:
+- F
+- B0
+- B
+primary_contrast:
+- F
+- B0
+secondary_contrast:
+- F
+- B
+catalog:
+  tasks:
+  - task_id: 0
+    name: CloseBlenderLid
+    group: atomic_seen
+    horizon: 900
+  - task_id: 1
+    name: CloseFridge
+    group: atomic_seen
+    horizon: 900
+  - task_id: 2
+    name: CloseToasterOvenDoor
+    group: atomic_seen
+    horizon: 450
+  - task_id: 3
+    name: CoffeeSetupMug
+    group: atomic_seen
+    horizon: 600
+  - task_id: 4
+    name: NavigateKitchen
+    group: atomic_seen
+    horizon: 450
+  - task_id: 5
+    name: OpenCabinet
+    group: atomic_seen
+    horizon: 1050
+  - task_id: 6
+    name: OpenDrawer
+    group: atomic_seen
+    horizon: 750
+  - task_id: 7
+    name: OpenStandMixerHead
+    group: atomic_seen
+    horizon: 450
+  - task_id: 8
+    name: PickPlaceCounterToCabinet
+    group: atomic_seen
+    horizon: 750
+  - task_id: 9
+    name: PickPlaceCounterToStove
+    group: atomic_seen
+    horizon: 600
+  - task_id: 10
+    name: PickPlaceDrawerToCounter
+    group: atomic_seen
+    horizon: 750
+  - task_id: 11
+    name: PickPlaceSinkToCounter
+    group: atomic_seen
+    horizon: 900
+  - task_id: 12
+    name: PickPlaceToasterToCounter
+    group: atomic_seen
+    horizon: 600
+  - task_id: 13
+    name: SlideDishwasherRack
+    group: atomic_seen
+    horizon: 450
+  - task_id: 14
+    name: TurnOffStove
+    group: atomic_seen
+    horizon: 750
+  - task_id: 15
+    name: TurnOnElectricKettle
+    group: atomic_seen
+    horizon: 450
+  - task_id: 16
+    name: TurnOnMicrowave
+    group: atomic_seen
+    horizon: 450
+  - task_id: 17
+    name: TurnOnSinkFaucet
+    group: atomic_seen
+    horizon: 600
+  - task_id: 18
+    name: DeliverStraw
+    group: composite_seen
+    horizon: 2550
+  - task_id: 19
+    name: GetToastedBread
+    group: composite_seen
+    horizon: 3000
+  - task_id: 20
+    name: KettleBoiling
+    group: composite_seen
+    horizon: 1500
+  - task_id: 21
+    name: LoadDishwasher
+    group: composite_seen
+    horizon: 1800
+  - task_id: 22
+    name: PackIdenticalLunches
+    group: composite_seen
+    horizon: 3900
+  - task_id: 23
+    name: PreSoakPan
+    group: composite_seen
+    horizon: 2400
+  - task_id: 24
+    name: PrepareCoffee
+    group: composite_seen
+    horizon: 1800
+  - task_id: 25
+    name: RinseSinkBasin
+    group: composite_seen
+    horizon: 1350
+  - task_id: 26
+    name: ScrubCuttingBoard
+    group: composite_seen
+    horizon: 1200
+  - task_id: 27
+    name: SearingMeat
+    group: composite_seen
+    horizon: 4350
+  - task_id: 28
+    name: SetUpCuttingStation
+    group: composite_seen
+    horizon: 2400
+  - task_id: 29
+    name: StackBowlsCabinet
+    group: composite_seen
+    horizon: 2100
+  - task_id: 30
+    name: SteamInMicrowave
+    group: composite_seen
+    horizon: 2100
+  - task_id: 31
+    name: StirVegetables
+    group: composite_seen
+    horizon: 2400
+  - task_id: 32
+    name: StoreLeftoversInBowl
+    group: composite_seen
+    horizon: 2550
+  - task_id: 33
+    name: WashLettuce
+    group: composite_seen
+    horizon: 1650
+  - task_id: 34
+    name: ArrangeBreadBasket
+    group: composite_unseen
+    horizon: 4350
+  - task_id: 35
+    name: ArrangeTea
+    group: composite_unseen
+    horizon: 2250
+  - task_id: 36
+    name: BreadSelection
+    group: composite_unseen
+    horizon: 1950
+  - task_id: 37
+    name: CategorizeCondiments
+    group: composite_unseen
+    horizon: 1650
+  - task_id: 38
+    name: CuttingToolSelection
+    group: composite_unseen
+    horizon: 1200
+  - task_id: 39
+    name: GarnishPancake
+    group: composite_unseen
+    horizon: 2700
+  - task_id: 40
+    name: GatherTableware
+    group: composite_unseen
+    horizon: 2250
+  - task_id: 41
+    name: HeatKebabSandwich
+    group: composite_unseen
+    horizon: 2700
+  - task_id: 42
+    name: MakeIceLemonade
+    group: composite_unseen
+    horizon: 3000
+  - task_id: 43
+    name: PanTransfer
+    group: composite_unseen
+    horizon: 1800
+  - task_id: 44
+    name: PortionHotDogs
+    group: composite_unseen
+    horizon: 2250
+  - task_id: 45
+    name: RecycleBottlesByType
+    group: composite_unseen
+    horizon: 2850
+  - task_id: 46
+    name: SeparateFreezerRack
+    group: composite_unseen
+    horizon: 2400
+  - task_id: 47
+    name: WaffleReheat
+    group: composite_unseen
+    horizon: 4050
+  - task_id: 48
+    name: WashFruitColander
+    group: composite_unseen
+    horizon: 3150
+  - task_id: 49
+    name: WeighIngredients
+    group: composite_unseen
+    horizon: 3000
+  registry_sha256: 23e8e31bb56bae80de86c34eafadfe32dd1e1eba6608376152ba9fdda5532a4b
+task_ids:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+- 12
+- 13
+- 14
+- 15
+- 16
+- 17
+- 18
+- 19
+- 20
+- 21
+- 22
+- 23
+- 24
+- 25
+- 26
+- 27
+- 28
+- 29
+- 30
+- 31
+- 32
+- 33
+- 34
+- 35
+- 36
+- 37
+- 38
+- 39
+- 40
+- 41
+- 42
+- 43
+- 44
+- 45
+- 46
+- 47
+- 48
+- 49
+pilot_indices:
+- 0
+confirmatory_indices: []
+replicates: 1
+randomization_seed: 20261009
+horizon_policy: official_task_registry
+limits:
+  steps: null
+  wall_seconds: null
+  workflow_tokens: null
+  tool_calls: null
+  max_repeat: 10
+  observer_calls: null
+  actor_output_tokens: null
+  observer_output_tokens: null
+  context_tokens: null
+  response_seconds: 180
+image_size: 128
+robot: PandaOmron
+smoke:
+  name: CloseDrawer
+  seed: 1000003
+  horizon: 20
+video_task_ids:
+- 0
+- 18
+- 34
+power:
+  confirmation_frozen: false
+analysis:
+  bootstrap_samples: 10000
+  bootstrap_seed: 20261008
+  success_improvement: positive paired task-macro difference and 95% CI excludes zero
+  noninferiority_margin: 0.05
+  efficiency_improvement_fraction: 0.1
+  confirmatory_contrasts:
+  - F_minus_B0
+resolved: null
+notes:
+- Fresh Astra actor per rollout; no training or demonstration use.
+- All 50 official target tasks; one scenario seed each is an exploratory breadth pilot,
+  not a leaderboard submission.
+- Use official native mobile controller and private per-native-step success predicate.
+- Retain infrastructure failures; do not resample task scenarios or repeat completed
+  trials.
+- Three logged retries only for transient provider transport failures; no duplicate
+  action dispatch.
+- Record actual actor/observer usage with no experiment token, wall-time or call caps.
+- Store request history item hashes instead of duplicating full input history; exact
+  model responses and tool observations remain in private events.
+- Keep RoboCasa outcomes separate from historical LIBERO cohorts.
