@@ -102,6 +102,11 @@ def build(results, output):
             proposal = read(path)
             decision = dict(proposal, case=row['case'], arm=row['arm'], attempt=row['attempt'], episode_id=identity)
             index = int(path.stem.split('_')[-1])
+            usage_record = records[index]
+            if usage_record['request_fingerprint'] != proposal['request_fingerprint']:
+                raise ValueError('Per-review proposal and usage are not bound to the same observation')
+            decision.update(tokens=usage_record['token_usage']['total_tokens'],
+                            teacher_seconds=usage_record['latency_seconds'])
             for name in ('observed', 'source', 'applied'):
                 p = path.parent / f'vision_{index:02d}_{name}.png'
                 if p.exists():

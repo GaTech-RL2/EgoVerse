@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--manifest",type=Path,required=True)
     parser.add_argument("--protocol",type=Path,required=True)
     parser.add_argument("--maximum-worker-seconds",type=int,default=21240)
+    parser.add_argument("--evaluator",choices=("selector","replay_audit"),default="selector")
     args = parser.parse_args()
     started = time.monotonic()
     workflow = os.environ["ASTRA_RUN_ID"]
@@ -45,6 +46,24 @@ def main():
     try:
         receipt = restore(client,args.stage,args.manifest,root)
         write_json(output/"stage_receipt.json",receipt)
+        if args.evaluator == "replay_audit":
+            parent = protocol["replay_parent_workflow"]
+            if not parent.startswith("astra-complex-20261006-robocasa-xiaomi-selector-"):
+                raise ValueError("Unexpected replay parent")
+            parent_prefix = f"experiments/astra-complex-20261006/{parent}/results/"
+            parent_receipt = json.loads(client.get_object(Bucket="rldb",Key=parent_prefix+"archive_receipt.json")["Body"].read())
+            excerpt = {}
+            for name in ("anchor.json","anchor_model.xml.gz","anchor_state.npz","anchor_rng.json"):
+                relative = "evaluation/PackIdenticalLunches_seed2/"+name
+                item = parent_receipt["files"][relative]
+                if item["bytes"] > 16*1024**2:raise ValueError("Replay anchor too large")
+                target = output/"replay_parent"/name
+                target.parent.mkdir(exist_ok=True)
+                client.download_file("rldb",parent_prefix+relative,str(target))
+                if target.stat().st_size != item["bytes"] or sha256(target) != item["sha256"]:
+                    raise ValueError("Replay anchor checksum mismatch")
+                excerpt[relative] = item
+            write_json(output/"replay_parent/receipt_excerpt.json",excerpt)
         for item in protocol["historical_artifacts"]:
             relative = str(safe_relative(item["relative"]))
             if not item["key"].startswith(protocol["historical_prefix"]) or item["bytes"] > 64*1024**2:
@@ -57,8 +76,9 @@ def main():
         env = {k:v for k,v in os.environ.items() if not k.startswith("R2_")}
         env.update(HF_HUB_OFFLINE="1",TRANSFORMERS_OFFLINE="1",TOKENIZERS_PARALLELISM="false",
                    OMP_NUM_THREADS="2",OPENBLAS_NUM_THREADS="1",MKL_NUM_THREADS="2",PYTHONUNBUFFERED="1")
+        evaluator = "xiaomi_selector_eval" if args.evaluator == "selector" else "xiaomi_replay_audit"
         command = [str(root/"runtime/bin/python"),"-u","-m",
-                   "astra_reversal.complex_manipulation.xiaomi_selector_eval",
+                   "astra_reversal.complex_manipulation."+evaluator,
                    "--protocol",str(args.protocol),"--output",str(output/"evaluation")]
         write_json(output/"evaluation_command.json",{"argv":command})
         with (output/"evaluation.log").open("w") as log:
