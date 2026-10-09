@@ -85,9 +85,11 @@ python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/launch-artifacts --stage pilot
 ```
 
-The owned worker requests one L40S on OSMO pool `groot-l40s-01`. It does not use
-sky1 or sky2. No benchmark rollout should be described as launched until its
-workflow receipt and gate outputs are available.
+The owned worker requests one L40S on `groot-l40s-01`, or an L40 when prepared
+with `--pool groot-l40-05`. All arms of a cohort run on the same worker; hardware
+is recorded with the run. It does not use sky1 or sky2. No benchmark rollout
+should be described as launched until its workflow receipt and gate outputs
+are available.
 
 Upstream references: [installation](https://robocasa.ai/docs/build/html/introduction/installation.html),
 [task registry](https://github.com/robocasa/robocasa/blob/456174f62b89b8fca99eaaf33949c29fec9cfc2a/robocasa/utils/dataset_registry.py),

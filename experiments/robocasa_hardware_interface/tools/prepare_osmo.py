@@ -10,7 +10,8 @@ from pathlib import Path
 import yaml
 
 
-def prepare(destination, stage):
+def prepare(destination, stage, pool="groot-l40s-01"):
+    platform = {"groot-l40s-01": "ovx-l40s", "groot-l40-05": "ovx-l40"}[pool]
     root = Path(__file__).resolve().parents[3]
     paths = [
         "astra_reversal/__init__.py",
@@ -62,7 +63,7 @@ def prepare(destination, stage):
                     "gpu": 1,
                     "memory": "32Gi",
                     "storage": "200Gi",
-                    "platform": "ovx-l40s",
+                    "platform": platform,
                 }
             },
             "timeout": {"queue_timeout": "4h"},
@@ -94,7 +95,8 @@ def prepare(destination, stage):
     receipt = {
         "source_commit": head,
         "payload_sha256": sha,
-        "pool": "groot-l40s-01",
+        "pool": pool,
+        "platform": platform,
         "stage": stage,
         "image": manifest["container_digest"],
         "pilot_tasks": 50,
@@ -114,5 +116,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--stage", choices=("commission", "smoke", "pilot"), default="pilot"
     )
+    parser.add_argument(
+        "--pool", choices=("groot-l40s-01", "groot-l40-05"), default="groot-l40s-01"
+    )
     args = parser.parse_args()
-    print(json.dumps(prepare(args.destination, args.stage)))
+    print(json.dumps(prepare(args.destination, args.stage, args.pool)))
