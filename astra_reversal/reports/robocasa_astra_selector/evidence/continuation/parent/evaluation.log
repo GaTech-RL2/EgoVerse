@@ -1,0 +1,61 @@
+/opt/astra-xiaomi/sources/robocasa/robocasa/__init__.py:1030: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+/opt/astra-xiaomi/sources/robosuite/robosuite/__init__.py:45: SyntaxWarning: invalid escape sequence '\ '
+  __logo__ = """
+[robosuite WARNING] No private macro file found! (macros.py:57)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:58)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robosuite/robosuite/scripts/setup_macros.py (macros.py:59)
+[robosuite WARNING] Could not import robosuite_models. Some robots may not be available. If you want to use these robots, please install robosuite_models from source (https://github.com/ARISE-Initiative/robosuite_models) or through pip install. (__init__.py:30)
+[robosuite WARNING] Could not load the mink-based whole-body IK. Make sure you install related import properly (e.g. pip install mink==0.0.5), otherwise you will not be able to use the default IK controller setting for GR1 robot. (__init__.py:40)
+[robosuite WARNING] No private macro file found! (macros.py:28)
+[robosuite WARNING] It is recommended to use a private macro file (macros.py:29)
+[robosuite WARNING] To setup, run: python /opt/astra-xiaomi/sources/robocasa/robocasa/scripts/setup_macros.py (macros.py:30)
+WARNING: mimicgen environments not imported since mimicgen is not installed!
+You are attempting to use Flash Attention 2 without specifying a torch dtype. This might lead to unexpected behaviour
+Asked to sample `fps` frames per second but no video metadata was provided which is required when sampling with `fps`. Defaulting to `fps=24`. Please provide `video_metadata` for more accurate results.
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 49986)
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "/usr/lib/python3.12/socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "/usr/lib/python3.12/socketserver.py", line 761, in __init__
+    self.handle()
+  File "/usr/lib/python3.12/http/server.py", line 436, in handle
+    self.handle_one_request()
+  File "/usr/lib/python3.12/http/server.py", line 424, in handle_one_request
+    method()
+  File "/opt/astra-project/astra_reversal/codex_relay.py", line 297, in do_GET
+    self._send(200, pending or {"protocol": PROTOCOL_VERSION, "pending": None})
+  File "/opt/astra-project/astra_reversal/codex_relay.py", line 274, in _send
+    self.wfile.write(body)
+  File "/usr/lib/python3.12/socketserver.py", line 840, in write
+    self._sock.sendall(b)
+BrokenPipeError: [Errno 32] Broken pipe
+----------------------------------------
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+Creating PackIdenticalLunches with split=pretrain
+[robosuite INFO] Loading controller configuration from: /opt/astra-xiaomi/sources/robosuite/robosuite/controllers/config/robots/default_pandaomron.json (composite_controller_factory.py:121)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/astra-project/astra_reversal/complex_manipulation/xiaomi_selector_eval.py", line 413, in <module>
+    main()
+  File "/opt/astra-project/astra_reversal/complex_manipulation/xiaomi_selector_eval.py", line 379, in main
+    result = entry.evaluate_task(case["task"],0,native_args,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/astra-xiaomi/sources/xiaomi/eval_robocasa365/entry.py", line 224, in evaluate_task
+    observation, _ = reset_env(env, episode_seed)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/astra-xiaomi/sources/xiaomi/eval_robocasa365/entry.py", line 193, in reset_env
+    return env.reset(seed=seed)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/opt/astra-project/astra_reversal/complex_manipulation/xiaomi_selector_eval.py", line 178, in reset
+    raise ValueError("Prospective paired reset failed exact fingerprint checks")
+ValueError: Prospective paired reset failed exact fingerprint checks

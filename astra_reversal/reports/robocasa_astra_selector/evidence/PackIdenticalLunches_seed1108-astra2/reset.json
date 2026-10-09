@@ -1,0 +1,12 @@
+{
+  "task": "PackIdenticalLunches",
+  "seed": 1108,
+  "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",
+  "raw_observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+  "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+  "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "A food item visibly lifts from the shelf and remains held during withdrawal; ultimately each tupperware visibly contains one tomato and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show tomatoes and a drumstick on an open refrigerator shelf, with the gripper nearby but no confirmed grasp. This is the initial retrieval phase; no current execution failure is established. Historical views show prolonged refrigerator-side activity without demonstrated packing, but model equivalence is uncertified.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:0:guide:0",
+  "request_fingerprint": "5751ca4ebef6f1a763dccac1a96e46490e681a65ff8d03722aa3ff4328d6da71",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 0,
+  "observation_step": 0
+}

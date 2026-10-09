@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "One garlic remains inside the first tupperware as the robot withdraws; the robot then retrieves another needed ingredient. Ultimately both containers each hold one garlic and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "A garlic is visible inside the left tupperware on the counter, while the other container appears empty. The garlic is no longer visible in the wrist view, supporting a completed first placement. The robot has moved beside the counter; no current stall or clear failure is visible.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:512:guide:2",
+  "request_fingerprint": "3892d49d803ee56fac1e3ae8169a301469edea47ad49b3a343e147a025cd3f39",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 2,
+  "observation_step": 512
+}

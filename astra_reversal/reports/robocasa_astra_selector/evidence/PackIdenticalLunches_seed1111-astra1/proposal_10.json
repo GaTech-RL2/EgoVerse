@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one sweet potato and one steak, released inside.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has withdrawn from the refrigerator shelf, and the sweet potato is visible close to the gripper in both left and wrist views. This is consistent with successful retrieval and beginning transport, though continued retention remains to be verified. No visible stall warrants intervention.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1111-astra1:2176:guide:10",
+  "request_fingerprint": "2146c91a06644cc208e67623f180628385201f482ce0ed4d1ed41a726a4bf2af",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1111-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1111-astra1",
+  "request_index": 10,
+  "observation_step": 2176
+}

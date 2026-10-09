@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The remaining garlic is carried clear of the refrigerator and released into the gray tupperware; each container visibly retains one garlic and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 512,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has lowered within the open refrigerator since the previous review, but no garlic is visibly held or extracted. The wrist view is blocked by a refrigerator surface. Remaining-garlic retrieval is still unconfirmed after consecutive refrigerator intervals; earlier counter placements should be preserved.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Retrieve the remaining garlic from the refrigerator, lift it clear, and place it in the gray tupperware beside its drumstick.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:3456:guide:15",
+  "request_fingerprint": "47792b509d104294f390adba2c560a1e6fb6b94cb57851ff53fa1629a533e976",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 15,
+  "observation_step": 3456
+}

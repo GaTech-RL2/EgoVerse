@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains one corn and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show corn and drumsticks inside the open refrigerator; no grasp is confirmed. No current failure is visible. The prior attempt transported initial ingredients successfully but later grouped both corns together; monitor placement before that error recurs.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra2:0:guide:0",
+  "request_fingerprint": "59a851cfb56b1e949047b2db55759e0e14c1fb978e5e111d8dbfb882baa8e58d",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra2",
+  "attempt_id": "PackIdenticalLunches_seed2-astra2",
+  "request_index": 0,
+  "observation_step": 0
+}

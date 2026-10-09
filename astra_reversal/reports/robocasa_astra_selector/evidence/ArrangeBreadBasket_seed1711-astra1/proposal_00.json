@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Cabinet door opens and bread becomes accessible; subsequently bread rests in the basket and the basket is placed on the dining counter.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show closed upper cabinet doors and an empty basket on the counter. No current execution failure is established. Historical frames show bread in the basket but repeated basket handling near the source counter without completed transport; these are not live observations.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra1:0:guide:0",
+  "request_fingerprint": "55371c6d5d5d8ef9b607f2171dae09c2866366121da1bd0759ad54e89da68982",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra1",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra1",
+  "request_index": 0,
+  "observation_step": 0
+}

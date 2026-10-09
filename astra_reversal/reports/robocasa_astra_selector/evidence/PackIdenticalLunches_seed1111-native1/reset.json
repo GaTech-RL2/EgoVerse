@@ -1,0 +1,12 @@
+{
+  "task": "PackIdenticalLunches",
+  "seed": 1111,
+  "instruction": "Place one sweet potato and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+  "raw_observation_sha256": "e71c5030a14a66a549ff87bf1cea3bffa7fbe47e43b460bbb58c3673b81f1710",
+  "state_sha256": "641caf02d90354651c1256c6730271f2ba2a0279d0e309eb5b50deb5b92485a2",
+  "model_sha256": "45129e8fe04435d4e9c23609c2f8b1e618eef0b67e64a988aad38e93affd0381",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

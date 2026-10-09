@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "Basket lifts clear of the source counter with bread retained, then rests upright on the dining counter after release and gripper withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "Bread remains inside the basket on the source counter. The wrist has rotated beside the basket, but the fingers remain open and no lift or transport is visible after two approach prompts. Switch to instruction embedding interpolation to address the persistent rim-grasp stall.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Raise the open gripper above the basket rim. Lower one finger inside and one outside, close on the rim, and lift the bread-filled basket to the dining counter.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:1600:guide:8",
+  "request_fingerprint": "4a735de91eac5a9f5c1ecd0f6c656787d23f57923eff50d1a73afe21079fdbac",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 8,
+  "observation_step": 1600
+}

@@ -1,0 +1,7 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v1-1",
+  "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+  "worker_limit_seconds": 21240,
+  "stage": "astra-complex-20261006-robocasa-xiaomi-stage-1",
+  "started_unix": 1791566471.4754434
+}

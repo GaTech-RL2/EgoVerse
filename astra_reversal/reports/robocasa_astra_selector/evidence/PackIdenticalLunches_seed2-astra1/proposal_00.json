@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one corn and one chicken drumstick each, with the objects released.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show an open refrigerator with corn and chicken drumsticks available; no grasp or placement is yet confirmed. Historical views show separated ingredients and later refrigerator activity, but no current execution failure is established at step 0.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra1:0:guide:0",
+  "request_fingerprint": "c9ca70e287bb98ab0c927f20090fb6ae44620d9b5dbc6184bc76e48e3a6e11ab",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra1",
+  "attempt_id": "PackIdenticalLunches_seed2-astra1",
+  "request_index": 0,
+  "observation_step": 0
+}

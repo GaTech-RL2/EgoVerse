@@ -1,0 +1,7 @@
+Astra method selection on the frozen Xiaomi RoboCasa policy
+
+Extract the entire ZIP, then open index.html in Chrome. Keep the media and evidence folders beside it. Charts, source diagrams and all recorded videos work offline.
+
+This is a six-case rescue pilot, with up to two attempts per arm. Use within-two success and first-attempt success alongside the per-episode rate; they have different denominators. One infrastructure-interrupted partial episode is excluded from success rates but included in all-rollout tokens, controls and physical resets. Two later starts rejected before any actions are counted separately, with zero teacher cost. Eleven completed parent episodes are retained without rerunning. The separate native-only replay and zero-action observation diagnostics are excluded from policy SR. Physical reset fingerprints and robot observations match exactly. The final continuation allows at most one intensity level of difference at no more than 64 pixels per 256 × 256 camera; actual images remain unchanged and each comparison is recorded. Wrist-camera history can also differ during otherwise identical native execution. Read the replay limitation before interpreting intervention effects.
+
+CSV tables, complete JSON, exact prompts, source revisions and checksums are included. Each review links its compressed JSON input, including the actual camera images and prior feedback; private CLI reasoning traces are excluded. Subscription token usage is reported as tokens; it is not a verified per-token dollar invoice.

@@ -1,0 +1,32 @@
+{
+  "alpha": 0.75,
+  "camera": "left",
+  "completion_signal": "Each counter tupperware visibly contains exactly one lime and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tli",
+  "next_review_controls": 1024,
+  "noise_sigma": 0,
+  "observed_evidence": "Food remains clustered in the right tupperware while the left appears empty. The robot remains away from the containers with no food visibly held. The last TLI interval produced no visible redistribution; increase its strength to address the persistent transfer stall.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Approach the counter. Transfer one lime and one chicken drumstick from the right tupperware into the empty left tupperware. Leave the remaining food in place.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1107-astra2:2752:guide:15",
+  "request_fingerprint": "8638bc03aded19076ea4d928c5c5951ce08730bfaf2e434f58b8a3f230fb91c9",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1107-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1107-astra2",
+  "request_index": 15,
+  "observation_step": 2752
+}

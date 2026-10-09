@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Cabinet opens, bread is lifted from its shelf and released into the basket, remaining inside as the gripper withdraws.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 512,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show closed upper cabinet doors and an empty basket on the source counter. No current failure is established. The prior attempt progressed through cabinet opening and bread placement under native control, then stalled at basket transport; those historical frames are not the current state.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:0:guide:0",
+  "request_fingerprint": "3509abc243fad3ad41362e9b3675ecc2d38ba7fe01fe3ff1e2693573b6e8173c",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 0,
+  "observation_step": 0
+}

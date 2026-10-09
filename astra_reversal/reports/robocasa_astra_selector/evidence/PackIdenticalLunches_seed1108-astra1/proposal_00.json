@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "An ingredient visibly lifts clear of its refrigerator shelf and remains with the gripper during withdrawal; ultimately each tupperware contains one garlic and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show the robot at the open refrigerator, with garlic on the upper shelf and drumsticks below. No grasp or completed placement is yet confirmed. Historical views show prolonged refrigerator interaction, but no current execution failure has been observed.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:0:guide:0",
+  "request_fingerprint": "721f31b5d63fb3f9ac56111d128881b85e473b2c340f56c13d37608bb6a0900a",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 0,
+  "observation_step": 0
+}

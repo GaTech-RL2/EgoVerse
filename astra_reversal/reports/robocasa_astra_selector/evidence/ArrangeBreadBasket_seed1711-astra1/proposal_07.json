@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Basket lifts clear of the source counter with bread retained, then rests upright on the dining counter after release and gripper withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "Bread remains inside the basket on the source counter. Across recent reviews the gripper has repeatedly repositioned beside the rim without a visible basket lift or transport. The current gripper remains open near the basket; a secure grasp is unconfirmed.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Grasp the basket rim securely, lift the basket with the bread inside, and carry it to the dining counter. Set it down upright and release.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra1:1280:guide:7",
+  "request_fingerprint": "6bd987ffaa35c0a6616b128c856139151cbbbc068cfe9eb43bd656d87efb9665",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra1",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra1",
+  "request_index": 7,
+  "observation_step": 1280
+}

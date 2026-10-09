@@ -1,0 +1,20 @@
+{
+  "schema": "xiaomi-reset-observation-audit-1",
+  "purpose": "Measure exact observation restoration on fresh environments after an observation-only reset mismatch; zero policy actions and zero teacher jobs.",
+  "replay_parent_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v4-1",
+  "replay_parent_receipt_sha256": "bfd1723e66290415b9e457194f1422b5dd69097a00d738668c3376d7953621dc",
+  "replay_parent_case": "PackIdenticalLunches_seed1108",
+  "replay_task": "PackIdenticalLunches",
+  "replay_seed": 1108,
+  "constructor_seed": 7,
+  "historical_artifacts": [],
+  "historical_prefix": "unused",
+  "constructors": 3,
+  "warmup_restores_per_constructor": 2,
+  "measured_restores_per_constructor": 3,
+  "maximum_diagnostic_restore_resets": 15,
+  "maximum_executed_controls": 0,
+  "teacher_jobs": 0,
+  "policy_success_trial_denominator_contribution": 0,
+  "acceptance_policy": "Measure only. Do not relax any fingerprint or choose a numerical tolerance in this diagnostic."
+}

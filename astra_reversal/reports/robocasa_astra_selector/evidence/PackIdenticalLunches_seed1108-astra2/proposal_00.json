@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "A garlic lifts clear of the refrigerator shelf and remains visibly held during withdrawal, then is released inside a tupperware.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show garlic on the upper refrigerator shelf and drumsticks below; no ingredient is confirmed held. The prior attempt successfully transported the first garlic but later failed to confirm garlic in the gray container. That later placement problem is not present at this initial pickup phase.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:0:guide:0",
+  "request_fingerprint": "5f42a30af23df213c98ef45f9acfd3eefe246f4ffff3ca17b3c14d37feb38304",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 0,
+  "observation_step": 0
+}

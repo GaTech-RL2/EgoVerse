@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The remaining drumstick lifts clear of the refrigerator shelf and stays with the gripper during withdrawal toward the counter.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has returned from the counter to the open refrigerator. A remaining drumstick is visible on the shelf, while the open gripper approaches the refrigerator interior. The previously packed lunch remains visible on the counter. Retrieval is underway; no repeated stall or failed grasp is established by these observations.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:1280:guide:9",
+  "request_fingerprint": "39014c6e2c29541ce93846ab2d8bd211fbf4cd8a0a678a9e62c5fae457150c07",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 9,
+  "observation_step": 1280
+}

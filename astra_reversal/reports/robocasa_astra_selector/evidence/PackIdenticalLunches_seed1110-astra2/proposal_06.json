@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The drumstick lifts clear of the shelf and remains with the gripper during withdrawal, then reaches the counter for placement.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has advanced into the refrigerator and the drumstick now fills the wrist view near the open fingers; a secure grasp is not yet established. TEI did not produce the requested tomato redistribution. Restore native while this visibly progressing chicken pickup completes; the previously observed tomato imbalance still needs correction.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:1152:guide:6",
+  "request_fingerprint": "4d21668a9a46d600487d604cbc2184f5a8f724969d852d88642a9b17913f07e3",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 6,
+  "observation_step": 1152
+}

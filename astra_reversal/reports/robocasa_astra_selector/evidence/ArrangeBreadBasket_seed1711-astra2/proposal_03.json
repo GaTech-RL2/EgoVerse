@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Bread is released and remains inside the basket as the gripper withdraws; the basket subsequently lifts with bread retained and is placed on the dining counter.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has moved from the open cabinet shelf down toward the basket. Bread is visible close beneath the wrist camera beside the basket opening, indicating placement progress; release and support inside the basket are not yet confirmed. No current stall is established.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "ArrangeBreadBasket_seed1711-astra2:1024:guide:3",
+  "request_fingerprint": "a53c35b59328497e074e336023a36e13995f76cd19e903906c919854641dd88b",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "ArrangeBreadBasket_seed1711-astra2",
+  "attempt_id": "ArrangeBreadBasket_seed1711-astra2",
+  "request_index": 3,
+  "observation_step": 1024
+}

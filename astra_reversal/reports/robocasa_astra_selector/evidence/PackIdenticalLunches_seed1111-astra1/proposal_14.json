@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one sweet potato and one steak, released and resting inside after gripper withdrawal.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has shifted position but still faces the open refrigerator with an apparently empty, open gripper. Neither counter tupperware is visible, so packed contents cannot currently be verified. The previous return-to-counter prompt has not yet produced a visible return.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Withdraw the empty hand from the refrigerator, then turn and move to the counter tupperwares. Preserve packed food; place only any missing potato or steak.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1111-astra1:2688:guide:14",
+  "request_fingerprint": "409ba17eb6effa1c2d27188318a9f71531b5bd812368d13f391d66be43badb80",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1111-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1111-astra1",
+  "request_index": 14,
+  "observation_step": 2688
+}

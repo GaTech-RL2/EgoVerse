@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The held drumstick is released into the tomato-containing container, then one tomato is transferred so each container holds one tomato and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has reached the counter with the drumstick still visible at the gripper. The left container visibly holds two tomatoes; the right already holds a drumstick. The wrist view places the carried drumstick above the right container, risking duplicate chicken placement. Redistribution remains necessary.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Place the held drumstick into the left container with two tomatoes. Then move one tomato from that container into the right container containing a drumstick.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra2:1920:guide:12",
+  "request_fingerprint": "f0392ad0e8af89b2ec993caab7f3a5c9d5dd8c89732fc705ddefea0a0e3998b1",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra2",
+  "request_index": 12,
+  "observation_step": 1920
+}

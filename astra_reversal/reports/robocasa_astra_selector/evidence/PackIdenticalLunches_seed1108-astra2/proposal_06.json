@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The held garlic is released into the blue tupperware and remains there after withdrawal, leaving one garlic in each container.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has transported garlic from the refrigerator to the counter. Garlic remains visible at the fingers in the wrist view above the gray container, which already contains a garlic. The adjacent blue container appears empty; the current approach risks duplicating garlic in gray.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Place the held garlic inside the empty blue tupperware beside the gray one and release it. Leave the garlic already in the gray tupperware there.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:1280:guide:6",
+  "request_fingerprint": "400255a13e670c8f980eef2f99f5d0abcad5ba34963043c71044261a67cf35eb",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 6,
+  "observation_step": 1280
+}

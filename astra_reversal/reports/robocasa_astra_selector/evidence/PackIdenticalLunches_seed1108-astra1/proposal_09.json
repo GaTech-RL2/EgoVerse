@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The carried drumstick is released inside a tupperware and remains there as the gripper withdraws.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The arm has withdrawn from the refrigerator, and the drumstick remains visible at the gripper in both external and wrist views, supporting successful pickup and transport. Another drumstick remains on the refrigerator shelf. No visible stall or failure warrants intervention; container contents are currently out of view.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:1920:guide:9",
+  "request_fingerprint": "23eac318ca89100d957a81ae7967532d2cc57f8d57a1636ef7c98ac843a4f64b",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 9,
+  "observation_step": 1920
+}

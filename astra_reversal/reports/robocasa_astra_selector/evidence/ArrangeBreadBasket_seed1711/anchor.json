@@ -1,0 +1,8 @@
+{
+  "model_sha256": "0eb513ded51177a6c7aeccb7ecbb7c770417f030625158ea5400edd14d7b3779",
+  "state_sha256": "92cb16d97e3897cc3614dcf9879795580f9ad38145f82fd514b2aceaf447fba8",
+  "integration_state_sha256": "7c25223767db2d21620c8cb04d5e9e0629b5bf6c5ce29768c0aa429d49c7bf8b",
+  "environment_rng_sha256": "a689fd3c54ac3d233a071a7b8bc053230b4713bb886094a53ebf0fb9810640ea",
+  "observation_sha256": "092198337c4fcfd0387ba6b15dcbad84a2e291b4078d92563635f925d3b754a5",
+  "instruction": "Open the cabinet, pick up the bread from the cabinet and place it in the basket. Then move the basket to the dining counter."
+}

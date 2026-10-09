@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The gripper withdraws leaving the tomato inside its tupperware, then another food item visibly lifts from the refrigerator for the remaining lunches.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The tomato is now visibly inside the left tupperware beneath the open gripper; the neighboring tupperware is empty. This supports successful first-tomato placement and transition to retrieving remaining food. Current execution is progressing without a visible failure.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1110-astra1:384:guide:3",
+  "request_fingerprint": "e6a5638bad1ade354549b79920877082c35bfad9773a5e69f38430004a8273bd",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1110-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1110-astra1",
+  "request_index": 3,
+  "observation_step": 384
+}

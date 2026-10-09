@@ -1,0 +1,23 @@
+{
+  "files": {
+    "protocol.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v1-1/results/protocol.json",
+      "bytes": 11771,
+      "sha256": "758bbfebec704905c2ecf932d4166f8711c1336c6abf3d63a4845689c1c19ba0",
+      "stamp": [
+        11771,
+        1791566471474987260
+      ]
+    },
+    "worker_started.json": {
+      "key": "experiments/astra-complex-20261006/astra-complex-20261006-robocasa-xiaomi-selector-v1-1/results/worker_started.json",
+      "bytes": 270,
+      "sha256": "e119efdb0bbce8008cb8553a046b9e59965812732a0cd7b27402bfd23561b145",
+      "stamp": [
+        270,
+        1791566471474987260
+      ]
+    }
+  },
+  "updated_unix": 1791566502.207168
+}

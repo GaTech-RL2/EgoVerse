@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Green corn is released beside the chicken in its tupperware; ultimately each tupperware contains one corn and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "phase_prompt",
+  "next_review_controls": 64,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has reached the counter with green corn still visible at the gripper. Yellow corn and chicken remain in separate tupperwares. The wrist view shows the held corn approaching the containers, but release and destination are not yet confirmed. Continue the destination cue through placement.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Lower and release the held green husked corn into the tupperware containing the chicken drumstick. Leave the yellow corn in the other tupperware.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed2-astra2:1408:guide:9",
+  "request_fingerprint": "42314ff0bb77a766cc840cda0c340ab05037365d1936fed7a4ff0ab74930cede",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed2-astra2",
+  "attempt_id": "PackIdenticalLunches_seed2-astra2",
+  "request_index": 9,
+  "observation_step": 1408
+}

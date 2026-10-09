@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The carried garlic is released inside a tupperware and remains there after the gripper withdraws; ultimately each container holds one garlic and one drumstick.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has withdrawn and turned away from the refrigerator. Garlic remains visible between the fingers in the wrist view, clear of the shelf, supporting successful pickup and transport. No current stall or placement failure is visible; the prior attempt's later placement problem does not warrant intervention now.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra2:256:guide:1",
+  "request_fingerprint": "01b89565c49413d170f1f1c7fe6975ba24fac60c9c7fab3d330ea050c37e065a",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra2",
+  "request_index": 1,
+  "observation_step": 256
+}

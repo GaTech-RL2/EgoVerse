@@ -1,0 +1,9 @@
+{
+  "verified": true,
+  "model_sha256": "47ad3f07b0a5f972247811fc4f94ac440ef79ba6224f56df9e9f1262e03ff34d",
+  "state_sha256": "e9165713ef085f94442c2d9863086f6d1bc9f624a97fb023acf4b8e9e41a3b38",
+  "integration_state_sha256": "5f5abd864cb8996a8273c4724b2bf53bba0138d15760a350cf059a40c89349c5",
+  "environment_rng_sha256": "7866c1d025161cc46cf80ec5031d3b751d95ca94987508820c890234fb8376a2",
+  "observation_sha256": "9ee3de8cbc1b7a8563925ed25f4cecd0aacc2d69c3f2408607f4ac8dfbc304d0",
+  "instruction": "Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+}

@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "Both counter tupperwares visibly contain one sweet potato and one steak, with the food released inside.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "Current views show two sweet potatoes and two steaks on the open refrigerator shelf; no grasp or transfer is established. Historical views show food on counter containers followed by prolonged refrigerator interaction, but do not establish a current failure. Observe native initial retrieval before intervening.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1111-astra1:0:guide:0",
+  "request_fingerprint": "dfdf6e38b8ae57a2042f88e122c07c660be4693f14d3b32c17a735022cce6657",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1111-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1111-astra1",
+  "request_index": 0,
+  "observation_step": 0
+}

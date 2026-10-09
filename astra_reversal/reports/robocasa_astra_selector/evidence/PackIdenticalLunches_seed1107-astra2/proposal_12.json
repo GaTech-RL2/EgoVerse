@@ -1,0 +1,32 @@
+{
+  "alpha": 0.5,
+  "camera": "left",
+  "completion_signal": "Each tupperware visibly contains exactly one lime and one chicken drumstick, released from the gripper.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "tei",
+  "next_review_controls": 128,
+  "noise_sigma": 0,
+  "observed_evidence": "The robot has returned to the counter after TEI. The wrist view clearly shows two limes and two drumsticks in the right tupperware; the left tupperware is empty. Approach progressed, but no redistribution or lifted grasp is visible.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "Pick up one chicken drumstick from the right tupperware and release it inside the empty left tupperware. Leave the other food in place.",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1107-astra2:2112:guide:12",
+  "request_fingerprint": "379c1e54f02b626b6f81d3d2b1b0133234f49d6b668fc2845502ecc164ac8fa5",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1107-astra2",
+  "attempt_id": "PackIdenticalLunches_seed1107-astra2",
+  "request_index": 12,
+  "observation_step": 2112
+}

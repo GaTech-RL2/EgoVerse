@@ -1,0 +1,59 @@
+{
+  "backend": "codex_relay",
+  "provider_calls": 16,
+  "codex_jobs": 16,
+  "counter_semantics": "provider_calls counts started Codex CLI jobs, not raw provider HTTP requests",
+  "internal_provider_requests": null,
+  "internal_provider_retries": null,
+  "provider_call_count_is_lower_bound": false,
+  "unknown_job_start_attempts": 0,
+  "unknown_job_start_latency_seconds": 0,
+  "accepted_proposals": 16,
+  "failed_calls": 0,
+  "tokens": {
+    "input_tokens": {
+      "sum": 328657,
+      "available_calls": 16,
+      "missing_calls": 0,
+      "complete": true,
+      "lower_bound_calls": 0
+    },
+    "output_tokens": {
+      "sum": 3052,
+      "available_calls": 16,
+      "missing_calls": 0,
+      "complete": true,
+      "lower_bound_calls": 0
+    },
+    "reasoning_tokens": {
+      "sum": 286,
+      "available_calls": 16,
+      "missing_calls": 0,
+      "complete": true,
+      "lower_bound_calls": 0
+    },
+    "total_tokens": {
+      "sum": 331709,
+      "available_calls": 16,
+      "missing_calls": 0,
+      "complete": true,
+      "lower_bound_calls": 0
+    }
+  },
+  "usage_available_calls": 16,
+  "usage_unavailable_calls": 0,
+  "reasoning_tokens_are_subset_of_output_tokens": true,
+  "total_tokens_semantics": "Reported total when available; otherwise derived input_tokens + output_tokens",
+  "derived_total_jobs": 16,
+  "latency_seconds": 364.09991433052346,
+  "actual_models": {
+    "unavailable": 16
+  },
+  "errors": {},
+  "client_attempts": 16,
+  "preflight_failures": 0,
+  "preflight_errors": {},
+  "preflight_latency_seconds": 0,
+  "monetary_cost": null,
+  "monetary_cost_unavailable_reason": "ChatGPT plan usage is not a verified per-token API price."
+}

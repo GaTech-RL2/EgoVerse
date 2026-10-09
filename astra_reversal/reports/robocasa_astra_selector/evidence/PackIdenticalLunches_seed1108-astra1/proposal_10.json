@@ -1,0 +1,32 @@
+{
+  "alpha": 0,
+  "camera": "left",
+  "completion_signal": "The remaining ingredients are released into the gray tupperware; final views confirm one garlic and one drumstick in each container.",
+  "gripper_target": -1,
+  "image_operation": "occlude",
+  "layer": 12,
+  "method": "native",
+  "next_review_controls": 256,
+  "noise_sigma": 0,
+  "observed_evidence": "The transported drumstick now rests inside the blue tupperware beside visible garlic, and the open gripper has withdrawn. The gray tupperware appears empty. Placement has progressed without a visible stall; retain native control for the remaining lunch.",
+  "roi": [
+    0,
+    0,
+    1,
+    1
+  ],
+  "subgoal": "",
+  "translation_bias": [
+    0,
+    0,
+    0
+  ],
+  "decision_id": "PackIdenticalLunches_seed1108-astra1:2176:guide:10",
+  "request_fingerprint": "02c7dee48b0171ebfc43839e9dfdb68e042f64922bc7d9da514a1dbf58d1f41d",
+  "schema_version": "xiaomi-method-selector-1",
+  "role": "guide",
+  "episode_id": "PackIdenticalLunches_seed1108-astra1",
+  "attempt_id": "PackIdenticalLunches_seed1108-astra1",
+  "request_index": 10,
+  "observation_step": 2176
+}

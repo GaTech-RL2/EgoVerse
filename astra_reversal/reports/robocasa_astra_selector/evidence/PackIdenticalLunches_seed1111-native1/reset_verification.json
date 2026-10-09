@@ -1,0 +1,58 @@
+{
+  "maximum_restore_attempts": 3,
+  "expected": {
+    "model_sha256": "45129e8fe04435d4e9c23609c2f8b1e618eef0b67e64a988aad38e93affd0381",
+    "state_sha256": "641caf02d90354651c1256c6730271f2ba2a0279d0e309eb5b50deb5b92485a2",
+    "integration_state_sha256": "3f76892e486b0409a0f129d417c77fd3a0b1e3a06089aea7c4665c7ada8b247b",
+    "environment_rng_sha256": "8fcc332038ddf55c79032e67ad7d29d6811d39d810e70d5846083ef3d2019063",
+    "observation_sha256": "e71c5030a14a66a549ff87bf1cea3bffa7fbe47e43b460bbb58c3673b81f1710",
+    "instruction": "Place one sweet potato and one steak in each tupperware on the nearby counter, to pack two identical lunches."
+  },
+  "checks": [
+    {
+      "restore_index": 0,
+      "exact": true,
+      "actual": {
+        "model_sha256": "45129e8fe04435d4e9c23609c2f8b1e618eef0b67e64a988aad38e93affd0381",
+        "state_sha256": "641caf02d90354651c1256c6730271f2ba2a0279d0e309eb5b50deb5b92485a2",
+        "integration_state_sha256": "3f76892e486b0409a0f129d417c77fd3a0b1e3a06089aea7c4665c7ada8b247b",
+        "environment_rng_sha256": "8fcc332038ddf55c79032e67ad7d29d6811d39d810e70d5846083ef3d2019063",
+        "observation_sha256": "e71c5030a14a66a549ff87bf1cea3bffa7fbe47e43b460bbb58c3673b81f1710",
+        "instruction": "Place one sweet potato and one steak in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "comparison": {
+        "exact": true,
+        "physical_fingerprints_exact": true,
+        "noncamera_observations_exact": true,
+        "cameras": {
+          "video.robot0_agentview_left": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          },
+          "video.robot0_agentview_right": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          },
+          "video.robot0_eye_in_hand": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          }
+        },
+        "allowance": {
+          "maximum_channel_difference": 1,
+          "maximum_changed_pixels_per_camera": 64
+        },
+        "accepted": true
+      }
+    }
+  ]
+}

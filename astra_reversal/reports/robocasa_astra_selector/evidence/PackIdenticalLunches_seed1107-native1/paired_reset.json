@@ -1,0 +1,9 @@
+{
+  "verified": true,
+  "model_sha256": "af378cc3d2d834f6fa28ca001fc0eab80f0b75ad54b3643669082fc6bc9e6f46",
+  "state_sha256": "f0a21d39ce763f083fd90aea05d59281344d44f8adeb1044c0e1bc4682ee1e69",
+  "integration_state_sha256": "975a58bcfabd2b6425aede03716b1b76dc85206a1f2731056212838e3e850f02",
+  "environment_rng_sha256": "d5bfdfd6310603106ae20a7a047463cc0c685d6a0adedcf967b1b77cd6bcfc08",
+  "observation_sha256": "67017ad7be9a37e558843bdf809850a5467d9d9c8396ef9c7ab5960cd67b94e6",
+  "instruction": "Place one lime and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+}

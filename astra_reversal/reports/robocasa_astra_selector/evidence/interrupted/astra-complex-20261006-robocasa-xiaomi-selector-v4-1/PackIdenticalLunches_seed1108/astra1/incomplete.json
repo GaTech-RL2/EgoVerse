@@ -1,0 +1,8 @@
+{
+  "type": "ValueError",
+  "message": "Prospective paired reset failed exact fingerprint checks",
+  "steps": 0,
+  "queries": 0,
+  "teacher_calls": 0,
+  "counts_as_completed_failure": false
+}

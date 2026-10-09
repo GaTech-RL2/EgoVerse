@@ -1,0 +1,7 @@
+case,task,seed,instruction,native_first,astra_first,native_within_two,astra_within_two,astra_tokens,native_attempts,astra_attempts,interrupted_tokens,astra_tokens_including_interruption
+PackIdenticalLunches_seed2,PackIdenticalLunches,2,"Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",False,False,True,True,666474,2,2,0,666474
+PackIdenticalLunches_seed1107,PackIdenticalLunches,1107,"Place one lime and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",False,False,False,False,691208,2,2,183608,874816
+PackIdenticalLunches_seed1108,PackIdenticalLunches,1108,"Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",False,False,True,True,694211,2,2,0,694211
+PackIdenticalLunches_seed1110,PackIdenticalLunches,1110,"Place one tomato and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",True,False,True,False,689412,1,2,0,689412
+PackIdenticalLunches_seed1111,PackIdenticalLunches,1111,"Place one sweet potato and one steak in each tupperware on the nearby counter, to pack two identical lunches.",True,True,True,True,308606,1,1,0,308606
+ArrangeBreadBasket_seed1711,ArrangeBreadBasket,1711,"Open the cabinet, pick up the bread from the cabinet and place it in the basket. Then move the basket to the dining counter.",False,False,False,False,697781,2,2,0,697781

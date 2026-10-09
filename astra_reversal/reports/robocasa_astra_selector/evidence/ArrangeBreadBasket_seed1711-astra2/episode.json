@@ -1,0 +1,23 @@
+{
+  "episode": 0,
+  "global_episode_index": 0,
+  "seed": 1711,
+  "success": false,
+  "steps": 4350,
+  "cohort": "astra",
+  "task": "ArrangeBreadBasket",
+  "horizon": 4350,
+  "completed": true,
+  "policy_queries": 272,
+  "explicit_episode_resets": 1,
+  "physical_retries": 0,
+  "policy_seconds": 63.71195328840986,
+  "environment_seconds": 303.1713688187301,
+  "wall_seconds": 861.4519905629568,
+  "case": "ArrangeBreadBasket_seed1711",
+  "arm": "astra",
+  "attempt": 2,
+  "teacher_calls": 16,
+  "origin_workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v6-1",
+  "origin_source_revision": "e398bd57ec7ef9ac192b77363d151faa197cf6e9"
+}

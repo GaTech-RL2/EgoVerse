@@ -1,0 +1,58 @@
+{
+  "maximum_restore_attempts": 3,
+  "expected": {
+    "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+    "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+    "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+    "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+    "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+    "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+  },
+  "checks": [
+    {
+      "restore_index": 0,
+      "exact": true,
+      "actual": {
+        "model_sha256": "7185bb311f102663c30884edc0958f6eca7871e0811e07298d013969e63fbc84",
+        "state_sha256": "eadcd30f2e4fa896ea36d6335721a6ef45733cb00f646ffdd8e4c5f1f67f6ffa",
+        "integration_state_sha256": "1e23ec0e3ce2a119b326cccb347ff5e60f7c7304b92b190343275ca66dd9f42f",
+        "environment_rng_sha256": "085629b943996d4e013fe3cec66ec09144bcf75f571835dd0c62ca7e70862ba0",
+        "observation_sha256": "aa3097f0ea6d85205b1f802b80fa9046a58ee383c681fdb868a09f5f96589da6",
+        "instruction": "Place one garlic and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+      },
+      "comparison": {
+        "exact": true,
+        "physical_fingerprints_exact": true,
+        "noncamera_observations_exact": true,
+        "cameras": {
+          "video.robot0_agentview_left": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          },
+          "video.robot0_agentview_right": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          },
+          "video.robot0_eye_in_hand": {
+            "exact": true,
+            "maximum_channel_difference": 0,
+            "changed_pixels": 0,
+            "pixels": 65536,
+            "accepted": true
+          }
+        },
+        "allowance": {
+          "maximum_channel_difference": 1,
+          "maximum_changed_pixels_per_camera": 64
+        },
+        "accepted": true
+      }
+    }
+  ]
+}

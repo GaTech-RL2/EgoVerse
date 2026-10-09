@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/opt/astra-xiaomi/runtime/bin/python",
+    "-u",
+    "-m",
+    "astra_reversal.complex_manipulation.xiaomi_observation_audit",
+    "--protocol",
+    "/tmp/xiaomi_observation_protocol.json",
+    "--output",
+    "/opt/astra-results/evaluation"
+  ]
+}

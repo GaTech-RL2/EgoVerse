@@ -1,0 +1,21 @@
+{
+  "episode": 0,
+  "global_episode_index": 0,
+  "seed": 2,
+  "success": false,
+  "steps": 3900,
+  "cohort": "native",
+  "task": "PackIdenticalLunches",
+  "horizon": 3900,
+  "completed": true,
+  "policy_queries": 244,
+  "explicit_episode_resets": 1,
+  "physical_retries": 0,
+  "policy_seconds": 46.78349868953228,
+  "environment_seconds": 266.7305914736353,
+  "wall_seconds": 320.7858854639344,
+  "case": "PackIdenticalLunches_seed2",
+  "arm": "native",
+  "attempt": 1,
+  "teacher_calls": 0
+}
