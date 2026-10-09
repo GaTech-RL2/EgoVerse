@@ -1,0 +1,63 @@
+{
+  "recorded_utc": "2026-10-09T00:14:25.115795+00:00",
+  "status": "Declared during asset restoration, before native evaluation results",
+  "reason": "The same checksummed simulator assets are restored under a different installation directory. MuJoCo serialized XML includes absolute asset paths. Require byte-exact equality after this single declared path-prefix replacement, plus unchanged simulator state and instruction. Do not normalize any physics, object, geometry or placement fields.",
+  "old_prefix": "/opt/astra-complex/",
+  "new_prefix": "/opt/astra-xiaomi/",
+  "rows": [
+    {
+      "task": "LoadPreparedFood",
+      "seed": 0,
+      "state_sha256": "4cfb57b8bfaaacdbbc1f810df740f1f65b1be1ec69a2d0329f816890dd23b77f",
+      "original_model_sha256": "e4aaf6d2420cb0a896283a871b9f05d1a5c352eac6e6efc22788a7cd1791723d",
+      "model_sha256_under_xiaomi_root": "3f00eefec05f33fe36d82e4567435fcc1b21e2191abadf99b39d1d92be943eb9",
+      "replaced_asset_prefixes": 594,
+      "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished."
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 1,
+      "state_sha256": "8bc8b31863c87c88a4d3636611bb457ef5b75f3cc6162b72d57f745eb2b5901c",
+      "original_model_sha256": "cc4b4c66fc9da483934806949e48128837fe192b628d43eeab35672e4c32c48e",
+      "model_sha256_under_xiaomi_root": "13bff85e896499608a0a029f2d42a2e245d8a4fa760962584911abd4edf5a1cb",
+      "replaced_asset_prefixes": 462,
+      "instruction": "Place the tupperware on the second highest shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished."
+    },
+    {
+      "task": "LoadPreparedFood",
+      "seed": 2,
+      "state_sha256": "5d0b34b909ded373633188536a342e171d90cf1ed9d2cae8499e1393eca68996",
+      "original_model_sha256": "2c3103acb955d6f28f28ec824c4f5b26094bbc5a14a38e40e06fc0d559951114",
+      "model_sha256_under_xiaomi_root": "b56f38900cb63349660f96b7a1e7a2f58a8595e8e1807b61e28171c67af5745f",
+      "replaced_asset_prefixes": 479,
+      "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished."
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 0,
+      "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913",
+      "original_model_sha256": "8a325968def7473858e188b7b01bf5e6101a1b2f620b9639d370601dc300cf2c",
+      "model_sha256_under_xiaomi_root": "e58ec5cf2247f6518b9ed8c0becaa0565b53760a47f8c3b0d82d0977dbd34bcb",
+      "replaced_asset_prefixes": 440,
+      "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches."
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 1,
+      "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b",
+      "original_model_sha256": "6983c3b3f1a60e40c58f62f4e6a72c6441ed19e0e9e3f56cde58af5082678dac",
+      "model_sha256_under_xiaomi_root": "869caac6de224b4b7638e278eb366e7227c079e3049d5ed22f6fbd9cfd5810a1",
+      "replaced_asset_prefixes": 477,
+      "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches."
+    },
+    {
+      "task": "PackIdenticalLunches",
+      "seed": 2,
+      "state_sha256": "e9165713ef085f94442c2d9863086f6d1bc9f624a97fb023acf4b8e9e41a3b38",
+      "original_model_sha256": "cec3f6c8f38420f9eece7aae8557bc6a10057e6df896b5d57ab292917a6b9844",
+      "model_sha256_under_xiaomi_root": "fd010cf951671a628bcfbc72d08d2be6ef420aee518bd15c5cdb93bf8bb700f8",
+      "replaced_asset_prefixes": 360,
+      "instruction": "Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches."
+    }
+  ]
+}
