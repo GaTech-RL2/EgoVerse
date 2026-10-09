@@ -80,7 +80,7 @@ def generation_schema(value):
 
 def _module(request):
     from . import demo_skill_agent, frs_agent, representation_agent
-    from .complex_manipulation import language_teacher, representation_teacher
+    from .complex_manipulation import language_teacher, representation_teacher, xiaomi_teacher
     from .reasoning_learning import hindsight, teacher, visual_grounding
 
     for module in (
@@ -92,6 +92,7 @@ def _module(request):
         hindsight,
         language_teacher,
         representation_teacher,
+        xiaomi_teacher,
     ):
         if request.get("schema_version") == module.SCHEMA_VERSION:
             return module
