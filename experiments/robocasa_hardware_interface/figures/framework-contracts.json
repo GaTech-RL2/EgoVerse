@@ -1,0 +1,1956 @@
+{
+  "notice": "Synthetic documentation examples. No simulator, robot, model or evaluation was run to create them.",
+  "schema_version": "hardware-1",
+  "implementations": {
+    "LIBERO": {
+      "action_dimension": 7,
+      "channels": [
+        {
+          "channel": "robot.joint_position",
+          "native_key": "robot0_joint_pos",
+          "units": "rad",
+          "frame": "joint",
+          "shape": [
+            7
+          ]
+        },
+        {
+          "channel": "robot.joint_velocity",
+          "native_key": "robot0_joint_vel",
+          "units": "rad/s",
+          "frame": "joint",
+          "shape": [
+            7
+          ]
+        },
+        {
+          "channel": "robot.eef_position",
+          "native_key": "robot0_eef_pos",
+          "units": "m",
+          "frame": "world",
+          "shape": [
+            3
+          ]
+        },
+        {
+          "channel": "robot.eef_orientation",
+          "native_key": "robot0_eef_quat",
+          "units": "unitless",
+          "frame": "world_xyzw",
+          "shape": [
+            4
+          ]
+        },
+        {
+          "channel": "robot.gripper_position",
+          "native_key": "robot0_gripper_qpos",
+          "units": "m",
+          "frame": "joint",
+          "shape": [
+            2
+          ]
+        },
+        {
+          "channel": "robot.gripper_velocity",
+          "native_key": "robot0_gripper_qvel",
+          "units": "m/s",
+          "frame": "joint",
+          "shape": [
+            2
+          ]
+        },
+        {
+          "channel": "camera.front",
+          "native_key": "agentview_image",
+          "units": "RGB_uint8",
+          "frame": "agentview",
+          "shape": [
+            128,
+            128,
+            3
+          ]
+        },
+        {
+          "channel": "camera.wrist",
+          "native_key": "robot0_eye_in_hand_image",
+          "units": "RGB_uint8",
+          "frame": "robot0_eye_in_hand",
+          "shape": [
+            128,
+            128,
+            3
+          ]
+        }
+      ],
+      "tool_schemas": {
+        "F": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 7,
+                      "maxItems": 7
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          }
+        ],
+        "B0": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "observe",
+            "description": "Read native sensor keys discovered in the audited source. Nonempty keys required.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "keys"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "step",
+            "description": "Submit a native controller vector; discover conventions from source. The observation step must be current.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 7,
+                  "maxItems": 7
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "observation_step": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "observation_step"
+              ]
+            },
+            "strict": true
+          }
+        ],
+        "B": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "observe",
+            "description": "Read native sensor keys discovered in the audited source. Nonempty keys required.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "keys"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "step",
+            "description": "Submit a native controller vector; discover conventions from source. The observation step must be current.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 7,
+                  "maxItems": 7
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "observation_step": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "observation_step"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_visible",
+            "description": "Ask the observer for visible evidence from current cameras only; no advice or plans.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "request_kind": {
+                  "type": "string",
+                  "enum": [
+                    "scene",
+                    "gripper_and_objects",
+                    "occlusions"
+                  ]
+                }
+              },
+              "required": [
+                "request_kind"
+              ]
+            },
+            "strict": true
+          }
+        ]
+      },
+      "requests": {
+        "describe_device": {},
+        "read": {
+          "channel": "robot.eef_position",
+          "max_age_ms": 1000
+        },
+        "read_latest": {},
+        "act": {
+          "envelope": {
+            "channel": "robot.controller_command",
+            "value": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "duration_steps": 3,
+            "metadata": {
+              "mode": "configured_controller",
+              "units": "normalized_controller_input",
+              "episode_id": "example-episode",
+              "observation_step": 0
+            }
+          }
+        },
+        "observe": {
+          "keys": [
+            "robot0_eef_pos"
+          ]
+        },
+        "step": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 3,
+          "observation_step": 0
+        },
+        "describe_visible": {
+          "request_kind": "gripper_and_objects"
+        },
+        "source_search": {
+          "query": "use_delta"
+        },
+        "source_read": {
+          "path": "robosuite/controllers/osc.py",
+          "start": 1,
+          "lines": 40
+        },
+        "scratch_execute": {
+          "code": "result = read('robot.eef_position', 1000)"
+        },
+        "finish": {}
+      },
+      "responses": {
+        "describe_device": {
+          "schema_version": "hardware-1",
+          "device_id": "libero-panda",
+          "observations": [
+            {
+              "channel": "robot.joint_position",
+              "type": "float64[]",
+              "description": "robot joint_position",
+              "units": "rad",
+              "shape": [
+                7
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "joint",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.joint_velocity",
+              "type": "float64[]",
+              "description": "robot joint_velocity",
+              "units": "rad/s",
+              "shape": [
+                7
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "joint",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.eef_position",
+              "type": "float64[]",
+              "description": "robot eef_position",
+              "units": "m",
+              "shape": [
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "world",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.eef_orientation",
+              "type": "float64[]",
+              "description": "robot eef_orientation",
+              "units": "unitless",
+              "shape": [
+                4
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "world_xyzw",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.gripper_position",
+              "type": "float64[]",
+              "description": "robot gripper_position",
+              "units": "m",
+              "shape": [
+                2
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "joint",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.gripper_velocity",
+              "type": "float64[]",
+              "description": "robot gripper_velocity",
+              "units": "m/s",
+              "shape": [
+                2
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "joint",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "camera.front",
+              "type": "image",
+              "description": "camera front",
+              "units": "RGB_uint8",
+              "shape": [
+                128,
+                128,
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "agentview",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": "PNG; upright RGB"
+              }
+            },
+            {
+              "channel": "camera.wrist",
+              "type": "image",
+              "description": "camera wrist",
+              "units": "RGB_uint8",
+              "shape": [
+                128,
+                128,
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "robot0_eye_in_hand",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": "PNG; upright RGB"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "channel": "robot.controller_command",
+              "type": "float64[]",
+              "shape": [
+                7
+              ],
+              "description": "Illustrative native controller; read live metadata for order, scaling and frames.",
+              "units": "normalized_controller_input",
+              "frequency_hz": 20,
+              "control_frequency_hz": 20,
+              "limits": {
+                "min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "safe_range": {
+                "min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "metadata": {
+                "version": "documentation-fixture",
+                "device_id": "libero-panda",
+                "frequency_hz": 20,
+                "input_min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "input_max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "description": "Illustrative native controller; read live metadata for order, scaling and frames.",
+                "episode_id": "example-episode",
+                "max_duration_steps": 10,
+                "freshness": "observation_step must equal current simulator_step; physics pauses between calls"
+              }
+            }
+          ]
+        },
+        "read": {
+          "channel": "robot.eef_position",
+          "type": "float64[]",
+          "value": [
+            0.4,
+            0.1,
+            0.3
+          ],
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "units": "m",
+          "valid": true,
+          "metadata": {
+            "episode_id": "example-episode",
+            "simulator_step": 0,
+            "frame": "world",
+            "age_ms": 0,
+            "controller_version": "documentation-fixture"
+          }
+        },
+        "observe": {
+          "episode_id": "example-episode",
+          "simulator_step": 0,
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "observations": {
+            "robot0_eef_pos": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          }
+        },
+        "camera_read": {
+          "channel": "camera.front",
+          "type": "image",
+          "value": {
+            "encoding": "image/png",
+            "base64": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAARklEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABA9wbAgAABWam+hQAAAABJRU5ErkJggg==",
+            "shape": [
+              128,
+              128,
+              3
+            ]
+          },
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "units": "RGB_uint8",
+          "valid": true,
+          "metadata": {
+            "episode_id": "example-episode",
+            "simulator_step": 0,
+            "frame": "agentview",
+            "age_ms": 0,
+            "controller_version": "documentation-fixture"
+          }
+        },
+        "act_or_step": {
+          "accepted": true,
+          "applied_action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "applied_steps": 3,
+          "simulator_step": 3,
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "episode_ended": false
+        },
+        "rejected_stale_step": {
+          "accepted": false,
+          "applied_action": null,
+          "rejection_reason": "stale_observation_step",
+          "simulator_step": 3,
+          "timestamp": "2026-10-09T00:00:00+00:00"
+        },
+        "describe_visible": {
+          "frame_step": 0,
+          "visible_facts": [
+            "Gripper is visible above the counter."
+          ],
+          "uncertainties": [
+            "Contact cannot be confirmed from this image."
+          ],
+          "occlusions": []
+        }
+      }
+    },
+    "RoboCasa": {
+      "action_dimension": 12,
+      "channels": [
+        {
+          "channel": "robot.gripper_position",
+          "native_key": "robot0_gripper_qpos",
+          "units": "m",
+          "frame": "finger_joint",
+          "shape": [
+            2
+          ]
+        },
+        {
+          "channel": "robot.base_position",
+          "native_key": "robot0_base_pos",
+          "units": "m",
+          "frame": "world",
+          "shape": [
+            3
+          ]
+        },
+        {
+          "channel": "robot.base_orientation",
+          "native_key": "robot0_base_quat",
+          "units": "unitless",
+          "frame": "world_xyzw",
+          "shape": [
+            4
+          ]
+        },
+        {
+          "channel": "robot.eef_position",
+          "native_key": "robot0_base_to_eef_pos",
+          "units": "m",
+          "frame": "mobile_base_center",
+          "shape": [
+            3
+          ]
+        },
+        {
+          "channel": "robot.eef_orientation",
+          "native_key": "robot0_base_to_eef_quat",
+          "units": "unitless",
+          "frame": "mobile_base_center_xyzw",
+          "shape": [
+            4
+          ]
+        },
+        {
+          "channel": "camera.left",
+          "native_key": "robot0_agentview_left_image",
+          "units": "RGB_uint8",
+          "frame": "robot0_agentview_left",
+          "shape": [
+            128,
+            128,
+            3
+          ]
+        },
+        {
+          "channel": "camera.right",
+          "native_key": "robot0_agentview_right_image",
+          "units": "RGB_uint8",
+          "frame": "robot0_agentview_right",
+          "shape": [
+            128,
+            128,
+            3
+          ]
+        },
+        {
+          "channel": "camera.wrist",
+          "native_key": "robot0_eye_in_hand_image",
+          "units": "RGB_uint8",
+          "frame": "robot0_eye_in_hand",
+          "shape": [
+            128,
+            128,
+            3
+          ]
+        }
+      ],
+      "tool_schemas": {
+        "F": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 12,
+                      "maxItems": 12
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          }
+        ],
+        "B0": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "observe",
+            "description": "Read native sensor keys discovered in the audited source. Nonempty keys required.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "keys"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "step",
+            "description": "Submit a native controller vector; discover conventions from source. The observation step must be current.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 12,
+                  "maxItems": 12
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "observation_step": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "observation_step"
+              ]
+            },
+            "strict": true
+          }
+        ],
+        "B": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "observe",
+            "description": "Read native sensor keys discovered in the audited source. Nonempty keys required.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "keys": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "keys"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "step",
+            "description": "Submit a native controller vector; discover conventions from source. The observation step must be current.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 12,
+                  "maxItems": 12
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "observation_step": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "observation_step"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_visible",
+            "description": "Ask the observer for visible evidence from current cameras only; no advice or plans.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "request_kind": {
+                  "type": "string",
+                  "enum": [
+                    "scene",
+                    "gripper_and_objects",
+                    "occlusions"
+                  ]
+                }
+              },
+              "required": [
+                "request_kind"
+              ]
+            },
+            "strict": true
+          }
+        ]
+      },
+      "requests": {
+        "describe_device": {},
+        "read": {
+          "channel": "robot.eef_position",
+          "max_age_ms": 1000
+        },
+        "read_latest": {},
+        "act": {
+          "envelope": {
+            "channel": "robot.controller_command",
+            "value": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "duration_steps": 3,
+            "metadata": {
+              "mode": "configured_controller",
+              "units": "normalized_controller_input",
+              "episode_id": "example-episode",
+              "observation_step": 0
+            }
+          }
+        },
+        "observe": {
+          "keys": [
+            "robot0_base_to_eef_pos"
+          ]
+        },
+        "step": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 3,
+          "observation_step": 0
+        },
+        "describe_visible": {
+          "request_kind": "gripper_and_objects"
+        },
+        "source_search": {
+          "query": "input_ref_frame"
+        },
+        "source_read": {
+          "path": "robosuite/controllers/parts/arm/osc.py",
+          "start": 1,
+          "lines": 40
+        },
+        "scratch_execute": {
+          "code": "result = read('robot.eef_position', 1000)"
+        },
+        "finish": {}
+      },
+      "responses": {
+        "describe_device": {
+          "schema_version": "hardware-1",
+          "device_id": "robocasa-panda-omron",
+          "observations": [
+            {
+              "channel": "robot.gripper_position",
+              "type": "float64[]",
+              "description": "robot gripper_position",
+              "units": "m",
+              "shape": [
+                2
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "finger_joint",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.base_position",
+              "type": "float64[]",
+              "description": "robot base_position",
+              "units": "m",
+              "shape": [
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "world",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.base_orientation",
+              "type": "float64[]",
+              "description": "robot base_orientation",
+              "units": "unitless",
+              "shape": [
+                4
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "world_xyzw",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.eef_position",
+              "type": "float64[]",
+              "description": "robot eef_position",
+              "units": "m",
+              "shape": [
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "mobile_base_center",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "robot.eef_orientation",
+              "type": "float64[]",
+              "description": "robot eef_orientation",
+              "units": "unitless",
+              "shape": [
+                4
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "mobile_base_center_xyzw",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": null
+              }
+            },
+            {
+              "channel": "camera.left",
+              "type": "image",
+              "description": "camera left",
+              "units": "RGB_uint8",
+              "shape": [
+                128,
+                128,
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "robot0_agentview_left",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": "PNG; upright RGB"
+              }
+            },
+            {
+              "channel": "camera.right",
+              "type": "image",
+              "description": "camera right",
+              "units": "RGB_uint8",
+              "shape": [
+                128,
+                128,
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "robot0_agentview_right",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": "PNG; upright RGB"
+              }
+            },
+            {
+              "channel": "camera.wrist",
+              "type": "image",
+              "description": "camera wrist",
+              "units": "RGB_uint8",
+              "shape": [
+                128,
+                128,
+                3
+              ],
+              "frequency_hz": 20,
+              "metadata": {
+                "frame": "robot0_eye_in_hand",
+                "episode_id": "example-episode",
+                "simulator_step": 0,
+                "timestamp": "2026-10-09T00:00:00+00:00",
+                "valid": true,
+                "image_encoding": "PNG; upright RGB"
+              }
+            }
+          ],
+          "actions": [
+            {
+              "channel": "robot.controller_command",
+              "type": "float64[]",
+              "shape": [
+                12
+              ],
+              "description": "Illustrative native controller; read live metadata for order, scaling and frames.",
+              "units": "normalized_controller_input",
+              "frequency_hz": 20,
+              "control_frequency_hz": 20,
+              "limits": {
+                "min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "safe_range": {
+                "min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ]
+              },
+              "metadata": {
+                "version": "documentation-fixture",
+                "device_id": "robocasa-panda-omron",
+                "frequency_hz": 20,
+                "input_min": [
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0,
+                  -1.0
+                ],
+                "input_max": [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "description": "Illustrative native controller; read live metadata for order, scaling and frames.",
+                "episode_id": "example-episode",
+                "max_duration_steps": 10,
+                "freshness": "observation_step must equal current simulator_step; physics pauses between calls"
+              }
+            }
+          ]
+        },
+        "read": {
+          "channel": "robot.eef_position",
+          "type": "float64[]",
+          "value": [
+            0.4,
+            0.1,
+            0.3
+          ],
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "units": "m",
+          "valid": true,
+          "metadata": {
+            "episode_id": "example-episode",
+            "simulator_step": 0,
+            "frame": "mobile_base_center",
+            "age_ms": 0,
+            "controller_version": "documentation-fixture"
+          }
+        },
+        "observe": {
+          "episode_id": "example-episode",
+          "simulator_step": 0,
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "observations": {
+            "robot0_base_to_eef_pos": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          }
+        },
+        "camera_read": {
+          "channel": "camera.left",
+          "type": "image",
+          "value": {
+            "encoding": "image/png",
+            "base64": "iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAARklEQVR4nO3BAQEAAACCIP+vbkhAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABA9wbAgAABWam+hQAAAABJRU5ErkJggg==",
+            "shape": [
+              128,
+              128,
+              3
+            ]
+          },
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "units": "RGB_uint8",
+          "valid": true,
+          "metadata": {
+            "episode_id": "example-episode",
+            "simulator_step": 0,
+            "frame": "robot0_agentview_left",
+            "age_ms": 0,
+            "controller_version": "documentation-fixture"
+          }
+        },
+        "act_or_step": {
+          "accepted": true,
+          "applied_action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "applied_steps": 3,
+          "simulator_step": 3,
+          "timestamp": "2026-10-09T00:00:00+00:00",
+          "episode_ended": false
+        },
+        "rejected_stale_step": {
+          "accepted": false,
+          "applied_action": null,
+          "rejection_reason": "stale_observation_step",
+          "simulator_step": 3,
+          "timestamp": "2026-10-09T00:00:00+00:00"
+        },
+        "describe_visible": {
+          "frame_step": 0,
+          "visible_facts": [
+            "Gripper is visible above the counter."
+          ],
+          "uncertainties": [
+            "Contact cannot be confirmed from this image."
+          ],
+          "occlusions": []
+        }
+      }
+    }
+  },
+  "code_sha256": {
+    "astra_reversal/hardware_interface/runner.py": "d53d797bf0f86c4191b6f4a24585f3980c0a1b501e67db6037ee82b95aed2f4d",
+    "astra_reversal/hardware_interface/proxy.py": "a4a517658c444a4865a9368fcdfa41ba348c0a9c349fcfbccaa90292f462283e",
+    "astra_reversal/hardware_interface/schema.py": "6a04fb9e6bd37370667e4887fd5fce1a08e8b0157d1547e02aaf23caff0dc269",
+    "astra_reversal/hardware_interface/robocasa.py": "8ce8423860178ff30720cadfe035ce6f688b96ca5cff1fda29db0e9064ddb8f1",
+    "astra_reversal/hardware_interface/libero.py": "9f1c4f839858f8e63a2e0cbcbe8bafe127e855aac1906ea17b13818c6a7c94f7",
+    "astra_reversal/hardware_interface/provider.py": "77e3b06abd59373346f3f975499b0e92e023e8669620e2bec88f0d6b8dadb5fd",
+    "experiments/libero_hardware_interface/schemas/hardware.schema.json": "a453624d56ce04bf735665b067681f0d586c7ed1a48e2ed5a39a892043d835b9"
+  }
+}

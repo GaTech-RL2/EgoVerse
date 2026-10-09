@@ -63,9 +63,16 @@ was `pilot-t05-i02-r0-F`. It later stopped on an infrastructure failure after
 matched starting states, F succeeded 3/4, B0 1/4 and B 2/4. These states span only
 three tasks and are descriptive partial results, not the full ten-task score.
 The additional interrupted B0 trial remains in all-started counts (B0 1/5).
-See [replay progress](evidence/uncapped-2-replay-progress.json). Exact error
-diagnosis awaits archive retrieval; OSMO retrieval was still processing at the
-2026-10-09 status check. All existing results remain preserved.
+The recovered private archive confirms a provider HTTP 500 after 441 native
+steps in the additional B0 trial. All 13 action traces passed independent
+replay, including the interrupted trial. See the [verified final pilot receipt](evidence/uncapped-2-final.json)
+and [per-trial CSV](evidence/uncapped-2-trials.csv). This is 13 of the planned
+150 pilot trials; the broader evaluation has not completed. There are
+33,096,695 known workflow tokens and one failed request with unknown usage.
+The matched mean token counts are F 3.25M, B0 2.43M and B 2.17M per trial.
+Most input tokens are cached. On the only starting state solved by all three,
+F took 8.29 minutes, B0 4.89 and B 8.46; a solve-time advantage is not established.
+All historical artifacts remain preserved as separate cohorts.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.

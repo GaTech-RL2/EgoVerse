@@ -8,13 +8,33 @@ export PYTHONHASHSEED=0
 mkdir -p /workspace/hardware-study/artifacts/runtime /osmo/run/workspace
 cd /workspace/hardware-study
 exec > >(tee artifacts/runtime/bootstrap.log) 2>&1
+bootstrap_failure() {
+    local result=$?
+    if [[ "$result" != 0 ]]; then
+        echo "RoboCasa bootstrap/worker exited with code $result"
+        for log in apt-install.log dependency-install.log wheel-build.log unit-tests.log; do
+            if [[ -f "artifacts/runtime/$log" ]]; then
+                echo "Last diagnostic lines from $log"
+                tail -n 60 "artifacts/runtime/$log"
+            fi
+        done
+        if [[ ! -f artifacts/worker-entered.json && -f experiments/robocasa_hardware_interface/tools/archive_failure.py ]]; then
+            python experiments/robocasa_hardware_interface/tools/archive_failure.py || true
+        fi
+    fi
+    exit "$result"
+}
+trap bootstrap_failure EXIT
+# The digest-pinned image contains the 2025-09-29 Debian base. An older
+# snapshot provides libc6-dev deb12u10 against the image's libc6 deb12u13.
+# Both package resolutions were checked on OSMO before selecting this date.
 cat > /tmp/hardware-apt.list <<'APT'
-deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20250901T000000Z/ bookworm main
-deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20250901T000000Z/ bookworm-security main
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20251001T000000Z/ bookworm main
+deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20251001T000000Z/ bookworm-security main
 APT
 APT_OPTIONS=(-o Dir::Etc::sourcelist=/tmp/hardware-apt.list -o Dir::Etc::sourceparts=- -o Acquire::Retries=3)
 apt-get "${APT_OPTIONS[@]}" update -qq > artifacts/runtime/apt-install.log 2>&1
-apt-get "${APT_OPTIONS[@]}" install -y -qq --no-install-recommends git cmake g++ libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg unzip >> artifacts/runtime/apt-install.log 2>&1 || { tail -n 50 artifacts/runtime/apt-install.log; exit 1; }
+apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends git cmake g++ libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg unzip >> artifacts/runtime/apt-install.log 2>&1
 for attempt in $(seq 1 900); do
     if [[ -f /osmo/run/workspace/payload.tar.gz ]] && [[ "$(sha256sum /osmo/run/workspace/payload.tar.gz | cut -d' ' -f1)" == "$PAYLOAD_SHA256" ]]; then break; fi
     if [[ "$attempt" == 900 ]]; then exit 2; fi
@@ -24,14 +44,6 @@ tar xzf /osmo/run/workspace/payload.tar.gz
 python3 -m venv emimic
 source emimic/bin/activate
 python -m pip install pip==24.3.1 setuptools==75.8.0 wheel==0.45.1 boto3==1.34.162 pyyaml==6.0.2
-bootstrap_failure() {
-    local result=$?
-    if [[ "$result" != 0 && ! -f artifacts/worker-entered.json ]]; then
-        python experiments/robocasa_hardware_interface/tools/archive_failure.py || true
-    fi
-    exit "$result"
-}
-trap bootstrap_failure EXIT
 git init -q upstream-robosuite
 git -C upstream-robosuite remote add origin https://github.com/ARISE-Initiative/robosuite.git
 git -C upstream-robosuite fetch --depth 1 origin 5ce6643f3092639d08f7b0f90ed1c6a84f50552c

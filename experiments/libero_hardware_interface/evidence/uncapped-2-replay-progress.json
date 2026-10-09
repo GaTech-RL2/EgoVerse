@@ -168,11 +168,12 @@
       "independent_replay_status": "passed"
     }
   ],
-  "infrastructure_interruption": "pilot-t06-i04-r0-B0; exact underlying error pending private archive retrieval",
+  "infrastructure_interruption": "pilot-t06-i04-r0-B0; archived event log confirms provider_http_500 after 441 native steps",
   "limitations": [
     "Partial cohort: 13 of 150 planned trials; no confirmatory comparison.",
     "Matched subset spans four official initial states across only three tasks.",
     "The unmatched interrupted trial remains in all-started counts.",
     "These are raw descriptive counts, not the full ten-task macro success metric."
-  ]
+  ],
+  "final_verified_receipt": "uncapped-2-final.json"
 }

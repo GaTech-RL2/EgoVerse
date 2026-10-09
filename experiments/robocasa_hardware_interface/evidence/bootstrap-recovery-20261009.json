@@ -1,0 +1,20 @@
+{
+  "probe_workflow": "robocasa-hardware-apt-probe-20261009-1",
+  "status": "COMPLETED",
+  "gpus": 0,
+  "container": "docker.io/library/python@sha256:cec9aa7aa96eea4fa036e9b82be1e6b325f2e3707f462d885868df51ec0a4b47",
+  "old_snapshot": "20250901T000000Z",
+  "old_resolution_exit": 100,
+  "corrected_snapshot": "20251001T000000Z",
+  "corrected_resolution_exit": 0,
+  "log_sha256": "33ca68295ce6a8315abd172b441e2713dafa599d621f4decad62934d185f28cd",
+  "evidence": [
+    "2026/10/09 22:58:32 [probe]  libc6-dev : Depends: libc6 (= 2.36-9+deb12u10) but 2.36-9+deb12u13 is to be installed",
+    "2026/10/09 22:58:32 [probe]  perl : Depends: perl-base (= 5.36.0-7+deb12u2) but 5.36.0-7+deb12u3 is to be installed",
+    "2026/10/09 22:58:32 [probe] APT_PROBE snapshot=20250901T000000Z exit_code=100",
+    "2026/10/09 22:58:41 [probe] APT_PROBE snapshot=20251001T000000Z exit_code=0"
+  ],
+  "failed_gpu_workflow": "robocasa-hardware-interface-20261009-pilot-2",
+  "benchmark_rollouts_started": 0,
+  "scope": "apt-get install --simulate; verifies dependency resolution, not simulator execution"
+}

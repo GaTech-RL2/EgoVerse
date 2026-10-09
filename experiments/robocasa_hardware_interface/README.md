@@ -11,8 +11,15 @@ Historical LIBERO results remain a separate cohort.
 
 ![Framework](figures/framework.svg)
 
-[Standalone HTML diagram](figures/framework.html) · [PNG](figures/framework.png) ·
-[Editable Mermaid](figures/framework.mmd)
+[Standalone framework guide](figures/framework.html) · [PNG](figures/framework.png) ·
+[Editable Mermaid](figures/framework.mmd) · [Complete JSON contracts](figures/framework-contracts.json)
+
+The offline guide includes the architecture diagram, every LIBERO and RoboCasa
+sensor mapping, action semantics, tool request/response examples, generated JSON
+Schemas, code ownership and a complete control-cycle trace. Its examples are
+synthetic and schema-validated, not evaluation evidence. Regenerate the SVG,
+HTML, JSON and Mermaid sources with
+`python -m experiments.robocasa_hardware_interface.tools.build_framework`.
 
 ## Matched interfaces
 
@@ -76,6 +83,11 @@ official dependencies, downloads public simulation assets without demonstrations
 and records asset archive hashes, a dependency freeze and wheel hashes. CPU
 PyTorch satisfies upstream dependencies; inference runs through the existing
 NVIDIA Astra endpoint. Credentials are transferred separately from source.
+
+The Debian package snapshot is 2025-10-01, compatible with the image's
+2025-09-29 base. An OSMO CPU-only package-resolution probe reproduced the
+initial older-snapshot conflict and passed with this date. That check verifies
+system-package resolution, not simulator commissioning or benchmark success.
 
 ```bash
 source emimic/bin/activate
