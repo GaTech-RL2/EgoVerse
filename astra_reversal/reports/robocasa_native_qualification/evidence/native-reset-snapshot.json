@@ -1,0 +1,74 @@
+[
+  {
+    "task": "LoadPreparedFood",
+    "seed": 0,
+    "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+    "raw_observation_sha256": "12603b9390219eee3ac387679863a014b6a4167f926443321f0aa3546e487e26",
+    "state_sha256": "4cfb57b8bfaaacdbbc1f810df740f1f65b1be1ec69a2d0329f816890dd23b77f",
+    "model_sha256": "22d98f35eeac6af4c04b163dca642ff709d3504144d630e64bae456e6d7b5cd2",
+    "initial_success": false,
+    "horizon": 1500,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 1,
+    "instruction": "Place the tupperware on the second highest shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+    "raw_observation_sha256": "2749f7c73635208eb3f5607243a190080bec37c2e89767cf983aba5dcf91d26a",
+    "state_sha256": "8bc8b31863c87c88a4d3636611bb457ef5b75f3cc6162b72d57f745eb2b5901c",
+    "model_sha256": "9b4c3c5f8fcffe02cf7b789b1c2acddc8ff40692473e6bc3d6c14caff41339b1",
+    "initial_success": false,
+    "horizon": 1500,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  },
+  {
+    "task": "LoadPreparedFood",
+    "seed": 2,
+    "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+    "raw_observation_sha256": "39838a8fadf588cd4a5c3a222cc77a13e0607546dd64951d8acb3e22930e69b5",
+    "state_sha256": "5d0b34b909ded373633188536a342e171d90cf1ed9d2cae8499e1393eca68996",
+    "model_sha256": "c5cead621e2a99bf418344b9973334daec83f92262662f385b06038376923539",
+    "initial_success": false,
+    "horizon": 1500,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 0,
+    "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+    "raw_observation_sha256": "52c66d4dda3f27c4ed49c723810f3d0990247fddc800a057349ad41d316fe810",
+    "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913",
+    "model_sha256": "76e1038bccb77b38a9bdcaee12b9eb83dbda11e23ece5d5277d674b9a940a967",
+    "initial_success": false,
+    "horizon": 3900,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 1,
+    "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches.",
+    "raw_observation_sha256": "f705dcaf1f5a635a24f2c0b01378f232c009cd5f49e60cdc3ecff9ca882b296d",
+    "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b",
+    "model_sha256": "035dcf06a7c694e1e2738bad3b16aea38bcad364316639eb6c8cfc0c33965b86",
+    "initial_success": false,
+    "horizon": 3900,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  },
+  {
+    "task": "PackIdenticalLunches",
+    "seed": 2,
+    "instruction": "Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",
+    "raw_observation_sha256": "70d98f5c13761f61e0850f4135d8d17f094ce57155979c38f55a2f0b5b6e5132",
+    "state_sha256": "e9165713ef085f94442c2d9863086f6d1bc9f624a97fb023acf4b8e9e41a3b38",
+    "model_sha256": "062caf8c5bd888b82f7a48d6f0d33c040b8b931b48de86d7946075e08f820714",
+    "initial_success": false,
+    "horizon": 3900,
+    "execution_prefix": 16,
+    "extra_stabilization_steps": 0
+  }
+]

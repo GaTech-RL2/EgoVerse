@@ -1,0 +1,12 @@
+{
+  "task": "PackIdenticalLunches",
+  "seed": 1,
+  "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches.",
+  "raw_observation_sha256": "f705dcaf1f5a635a24f2c0b01378f232c009cd5f49e60cdc3ecff9ca882b296d",
+  "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b",
+  "model_sha256": "035dcf06a7c694e1e2738bad3b16aea38bcad364316639eb6c8cfc0c33965b86",
+  "initial_success": false,
+  "horizon": 3900,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

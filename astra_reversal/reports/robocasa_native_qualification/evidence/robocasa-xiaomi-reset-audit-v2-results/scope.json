@@ -1,0 +1,7 @@
+{
+  "gpu_count": 1,
+  "renderer": "egl",
+  "policy_rollouts": 0,
+  "reason": "Reconstruct six initial model XML documents to diagnose reset fingerprint differences",
+  "source_revision": "b38f6e7b12ee7eb526d9222cbed7e5c0d6d63e24"
+}

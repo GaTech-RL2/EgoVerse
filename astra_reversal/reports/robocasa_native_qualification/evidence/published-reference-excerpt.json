@@ -1,0 +1,137 @@
+{
+  "source_revision": "0dd7aef8dc87296246aae812a1f59ccb708e5546",
+  "source_path": "eval_robocasa365/summary.json",
+  "source_sha256": "98c5e472243b0962789beb73372889e8bd1313aa107b2499e17ce4b2ba234656",
+  "scope": "Released reference trace, not results of our qualification run.",
+  "tasks": {
+    "CloseFridge": {
+      "num_episodes": 50,
+      "successes": 47,
+      "success_rate": 0.94,
+      "horizon": 900,
+      "first_five_episodes": [
+        {
+          "episode": 0,
+          "global_episode_index": 50,
+          "seed": 57,
+          "success": true,
+          "steps": 236
+        },
+        {
+          "episode": 1,
+          "global_episode_index": 51,
+          "seed": 58,
+          "success": true,
+          "steps": 271
+        },
+        {
+          "episode": 2,
+          "global_episode_index": 52,
+          "seed": 59,
+          "success": true,
+          "steps": 274
+        },
+        {
+          "episode": 3,
+          "global_episode_index": 53,
+          "seed": 60,
+          "success": false,
+          "steps": 900
+        },
+        {
+          "episode": 4,
+          "global_episode_index": 54,
+          "seed": 61,
+          "success": true,
+          "steps": 140
+        }
+      ]
+    },
+    "PackIdenticalLunches": {
+      "num_episodes": 50,
+      "successes": 14,
+      "success_rate": 0.28,
+      "horizon": 3900,
+      "first_five_episodes": [
+        {
+          "episode": 0,
+          "global_episode_index": 1100,
+          "seed": 1107,
+          "success": false,
+          "steps": 3900
+        },
+        {
+          "episode": 1,
+          "global_episode_index": 1101,
+          "seed": 1108,
+          "success": false,
+          "steps": 3900
+        },
+        {
+          "episode": 2,
+          "global_episode_index": 1102,
+          "seed": 1109,
+          "success": false,
+          "steps": 3900
+        },
+        {
+          "episode": 3,
+          "global_episode_index": 1103,
+          "seed": 1110,
+          "success": true,
+          "steps": 1924
+        },
+        {
+          "episode": 4,
+          "global_episode_index": 1104,
+          "seed": 1111,
+          "success": false,
+          "steps": 3900
+        }
+      ]
+    },
+    "ArrangeBreadBasket": {
+      "num_episodes": 50,
+      "successes": 30,
+      "success_rate": 0.6,
+      "horizon": 4350,
+      "first_five_episodes": [
+        {
+          "episode": 0,
+          "global_episode_index": 1700,
+          "seed": 1707,
+          "success": true,
+          "steps": 1784
+        },
+        {
+          "episode": 1,
+          "global_episode_index": 1701,
+          "seed": 1708,
+          "success": true,
+          "steps": 1513
+        },
+        {
+          "episode": 2,
+          "global_episode_index": 1702,
+          "seed": 1709,
+          "success": true,
+          "steps": 1604
+        },
+        {
+          "episode": 3,
+          "global_episode_index": 1703,
+          "seed": 1710,
+          "success": false,
+          "steps": 4350
+        },
+        {
+          "episode": 4,
+          "global_episode_index": 1704,
+          "seed": 1711,
+          "success": false,
+          "steps": 4350
+        }
+      ]
+    }
+  }
+}

@@ -6,7 +6,6 @@ timings, reset accounting and finite action checks; they do not steer the policy
 """
 
 import argparse
-import gzip
 import hashlib
 import importlib.metadata
 import json
@@ -50,8 +49,6 @@ class Recorder:
         raw = env.unwrapped.env
         xml = raw.sim.model.get_xml().encode()
         state = raw.sim.get_state().flatten()
-        with gzip.open(self.directory / "initial_model.xml.gz", "wb") as stream:
-            stream.write(xml)
         write_json(self.directory / "reset.json", {
             "task": self.task, "seed": seed, "instruction": obs["annotation.human.task_description"],
             "raw_observation_sha256": digest(obs), "state_sha256": digest(state),

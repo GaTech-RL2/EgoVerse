@@ -1,0 +1,12 @@
+{
+  "task": "LoadPreparedFood",
+  "seed": 1,
+  "instruction": "Place the tupperware on the second highest shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+  "raw_observation_sha256": "2749f7c73635208eb3f5607243a190080bec37c2e89767cf983aba5dcf91d26a",
+  "state_sha256": "8bc8b31863c87c88a4d3636611bb457ef5b75f3cc6162b72d57f745eb2b5901c",
+  "model_sha256": "9b4c3c5f8fcffe02cf7b789b1c2acddc8ff40692473e6bc3d6c14caff41339b1",
+  "initial_success": false,
+  "horizon": 1500,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

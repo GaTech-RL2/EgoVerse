@@ -1,0 +1,223 @@
+{
+  "schema": "astra-xiaomi-native-screen-1",
+  "registered_utc": "2026-10-08T23:58:00Z",
+  "purpose": "Qualify a stronger released native RoboCasa baseline before Astra interventions. This 21-episode screen is not a 2500-episode leaderboard reproduction.",
+  "checkpoint_revision": "3a6d0293bfa90759d34a7fc48c2c62413cd7bcf4",
+  "upstream_source_revision": "0dd7aef8dc87296246aae812a1f59ccb708e5546",
+  "split": "pretrain",
+  "replan_steps": 16,
+  "observation_history": 4,
+  "observation_interval": 2,
+  "crop_ratio": 0.95,
+  "persistent_server_seed": 7,
+  "action_generation_steps": 5,
+  "groups": [
+    {
+      "id": "reference-CloseFridge",
+      "cohort": "reference_first5",
+      "task": "CloseFridge",
+      "horizon": 900,
+      "base_seed": 7,
+      "native_num_trials": 50,
+      "task_index": 1,
+      "episodes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expected_seeds": [
+        57,
+        58,
+        59,
+        60,
+        61
+      ],
+      "published_successes": 47,
+      "published_episodes": 50
+    },
+    {
+      "id": "previous-LoadPreparedFood-seed0",
+      "cohort": "previous_pi05_seeds",
+      "task": "LoadPreparedFood",
+      "horizon": 1500,
+      "base_seed": 0,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        0
+      ],
+      "previous_reset": {
+        "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+        "state_sha256": "4cfb57b8bfaaacdbbc1f810df740f1f65b1be1ec69a2d0329f816890dd23b77f",
+        "model_sha256": "e4aaf6d2420cb0a896283a871b9f05d1a5c352eac6e6efc22788a7cd1791723d"
+      }
+    },
+    {
+      "id": "previous-LoadPreparedFood-seed1",
+      "cohort": "previous_pi05_seeds",
+      "task": "LoadPreparedFood",
+      "horizon": 1500,
+      "base_seed": 1,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        1
+      ],
+      "previous_reset": {
+        "instruction": "Place the tupperware on the second highest shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+        "state_sha256": "8bc8b31863c87c88a4d3636611bb457ef5b75f3cc6162b72d57f745eb2b5901c",
+        "model_sha256": "cc4b4c66fc9da483934806949e48128837fe192b628d43eeab35672e4c32c48e"
+      }
+    },
+    {
+      "id": "previous-LoadPreparedFood-seed2",
+      "cohort": "previous_pi05_seeds",
+      "task": "LoadPreparedFood",
+      "horizon": 1500,
+      "base_seed": 2,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        2
+      ],
+      "previous_reset": {
+        "instruction": "Place the tupperware on the top shelf of the fridge. Make space for the tupperware among the existing items by rearranging them on the shelves if needed. Close the fridge door when finished.",
+        "state_sha256": "5d0b34b909ded373633188536a342e171d90cf1ed9d2cae8499e1393eca68996",
+        "model_sha256": "2c3103acb955d6f28f28ec824c4f5b26094bbc5a14a38e40e06fc0d559951114"
+      }
+    },
+    {
+      "id": "previous-PackIdenticalLunches-seed0",
+      "cohort": "previous_pi05_seeds",
+      "task": "PackIdenticalLunches",
+      "horizon": 3900,
+      "base_seed": 0,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        0
+      ],
+      "previous_reset": {
+        "instruction": "Place one broccoli and one steak in each tupperware on the nearby counter, to pack two identical lunches.",
+        "state_sha256": "5066cc2dcc8f00e40450fa609369968939d9b78c9e322f72620b62f5cfd1e913",
+        "model_sha256": "8a325968def7473858e188b7b01bf5e6101a1b2f620b9639d370601dc300cf2c"
+      }
+    },
+    {
+      "id": "previous-PackIdenticalLunches-seed1",
+      "cohort": "previous_pi05_seeds",
+      "task": "PackIdenticalLunches",
+      "horizon": 3900,
+      "base_seed": 1,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        1
+      ],
+      "previous_reset": {
+        "instruction": "Place one carrot and one fish in each tupperware on the nearby counter, to pack two identical lunches.",
+        "state_sha256": "e1bf5569460e0632fa34a7e0d1d1fc13d6558c54930046b18b2228194447a84b",
+        "model_sha256": "6983c3b3f1a60e40c58f62f4e6a72c6441ed19e0e9e3f56cde58af5082678dac"
+      }
+    },
+    {
+      "id": "previous-PackIdenticalLunches-seed2",
+      "cohort": "previous_pi05_seeds",
+      "task": "PackIdenticalLunches",
+      "horizon": 3900,
+      "base_seed": 2,
+      "native_num_trials": 1,
+      "task_index": 0,
+      "episodes": [
+        0
+      ],
+      "expected_seeds": [
+        2
+      ],
+      "previous_reset": {
+        "instruction": "Place one corn and one chicken drumstick in each tupperware on the nearby counter, to pack two identical lunches.",
+        "state_sha256": "e9165713ef085f94442c2d9863086f6d1bc9f624a97fb023acf4b8e9e41a3b38",
+        "model_sha256": "cec3f6c8f38420f9eece7aae8557bc6a10057e6df896b5d57ab292917a6b9844"
+      }
+    },
+    {
+      "id": "reference-PackIdenticalLunches",
+      "cohort": "reference_first5",
+      "task": "PackIdenticalLunches",
+      "horizon": 3900,
+      "base_seed": 7,
+      "native_num_trials": 50,
+      "task_index": 22,
+      "episodes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expected_seeds": [
+        1107,
+        1108,
+        1109,
+        1110,
+        1111
+      ],
+      "published_successes": 14,
+      "published_episodes": 50
+    },
+    {
+      "id": "reference-ArrangeBreadBasket",
+      "cohort": "reference_first5",
+      "task": "ArrangeBreadBasket",
+      "horizon": 4350,
+      "base_seed": 7,
+      "native_num_trials": 50,
+      "task_index": 34,
+      "episodes": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "expected_seeds": [
+        1707,
+        1708,
+        1709,
+        1710,
+        1711
+      ],
+      "published_successes": 30,
+      "published_episodes": 50
+    }
+  ],
+  "criteria": {
+    "success": "Native environment info.success, not visual judgement",
+    "retries_per_reset": 0,
+    "initially_successful_resets": "Excluded with error, never count as policy success",
+    "truncated_worker": "Report incomplete separately; never silently count as success or drop",
+    "first5_selection": "First five by released episode index, not selected by outcome",
+    "policy_rng": "One native persistent server RNG stream, initialized at 7. Subset scheduling differs from original 8-server full benchmark, so exact trajectory reproduction is not asserted.",
+    "comparison": "Previous pi05 task/seed cases require matching simulator state and model hashes before calling them paired. Native execution prefixes differ (Xiaomi16, pi05 5).",
+    "coverage": "CloseFridge atomic seen; PackIdenticalLunches composite seen; ArrangeBreadBasket composite unseen; LoadPreparedFood Human300 seen but not in target50.",
+    "physical_rollout": "One policy execution after explicit env.reset, until success, environment termination, or full task horizon. Constructor setup resets and action chunks are separately counted.",
+    "video": "Three original cameras, stride2,10fps to match native20Hz physical time."
+  }
+}

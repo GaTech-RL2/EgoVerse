@@ -21,6 +21,7 @@ def build(results, output):
     summary = json.loads((results / "evaluation/summary.json").read_text())
     protocol = json.loads((results / "protocol.json").read_text())
     selection = json.loads((source / "xiaomi_selection.json").read_text())
+    selection["qualification_results"] = "Measured results are included below; policy selection was recorded before evaluation."
     equivalence = json.loads((source / "xiaomi_reset_path_equivalence.json").read_text())
     expected = {(r["task"], r["seed"]): r for r in equivalence["rows"]}
     output.mkdir(parents=True, exist_ok=False)
@@ -70,6 +71,10 @@ def build(results, output):
               "native_source_revision": json.loads((results / "worker_started.json").read_text())["source_revision"],
               "verified_archive_files": len(receipt["files"]),
               "archive_receipt_sha256": sha256(results / "archive_receipt.json")}
+    audit_path = source / "xiaomi_reset_audit_summary.json"
+    if audit_path.exists():
+        report["reset_audit"] = json.loads(audit_path.read_text())
+        shutil.copyfile(audit_path, output / "evidence" / audit_path.name)
     (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     with (output / "episode_results.csv").open("w") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
@@ -108,7 +113,7 @@ table{border-collapse:collapse;width:100%;white-space:nowrap;background:#fff;bor
 <div class="cards"><div class="card"><small>Policy under test</small><div class="value">Xiaomi-Robotics-1</div><small>RoboCasa365 release · frozen weights</small></div>
 <div class="card"><small>Completed physical episodes</small><div class="value" id="completed"></div><small>One attempt per reset · full task horizons</small></div>
 <div class="card"><small>Astra calls / tokens</small><div class="value">0 / 0</div><small>Motor actions come from the native policy</small></div></div>
-<section class="section"><h2>Why this baseline</h2><p>The <a href="https://robocasa.ai/leaderboard.html">official leaderboard</a> lists Xiaomi as the highest-scoring policy with released code and weights. These are published benchmark scores, separate from our measurements below.</p>
+<section class="section"><h2>Why this baseline</h2><p>The <a href="https://robocasa.ai/leaderboard.html">official leaderboard</a> lists Xiaomi as the highest-scoring policy with released code and weights. Its <a href="https://huggingface.co/XiaomiRobotics/Xiaomi-Robotics-1-RoboCasa365">RoboCasa checkpoint</a> and <a href="https://github.com/XiaomiRobotics/Xiaomi-Robotics-1/tree/main/eval_robocasa365">native evaluator</a> are public. These are published benchmark scores, separate from our measurements below.</p>
 <div class="scroll"><table><thead><tr><th>Published policy</th><th>Overall</th><th>Atomic seen</th><th>Composite seen</th><th>Composite unseen</th></tr></thead><tbody>
 <tr><td>Xiaomi-Robotics-1</td><td>57.4%</td><td>80.2%</td><td>57.1%</td><td>32.1%</td></tr>
 <tr><td>π0.5</td><td>16.9%</td><td>39.6%</td><td>7.1%</td><td>1.2%</td></tr></tbody></table></div>
@@ -120,7 +125,8 @@ table{border-collapse:collapse;width:100%;white-space:nowrap;background:#fff;bor
 <p id="pairing" class="muted"></p><p class="muted">CloseFridge is an atomic seen task. PackIdenticalLunches is a seen composite; ArrangeBreadBasket is a held-out composite. LoadPreparedFood is in Human300 but outside target50. All use pretrain kitchens. Small per-task samples are qualification evidence, not precise leaderboard estimates.</p></section>
 <section class="section"><h2>Every rollout, including failures</h2><select id="selector" aria-label="Choose a rollout"></select><div class="viewer"><div><video id="video" controls preload="metadata"></video><p class="muted">Original left, right and wrist cameras. Playback follows the environment's control time; policy inference pauses are omitted.</p></div><div><span id="status" class="badge"></span><p id="instruction"></p><p id="episodeStats" class="muted"></p><img id="start" alt="Initial views from all three robot cameras"></div></div></section>
 <section class="section"><h2>Audit and reproducibility</h2><div class="links"><a href="episode_results.csv" download>Per-episode CSV</a><a href="results.json">Complete results</a><a href="evidence/protocol.json">Registered protocol</a><a href="evidence/environment.json">Runtime & source</a><a href="manifest.json">File hashes</a></div>
-<details><summary>Reset and rollout accounting</summary><p id="accounting"></p><p>One physical rollout begins at an explicit episode reset. The native gym constructor also performs a setup reset. Reset-free action chunks continue the same physical episode; there are no best-of retries. Success comes from the native environment checker. A worker interruption is incomplete, not a completed failure.</p></details>
+<details><summary>Reset and rollout accounting</summary><p id="accounting"></p><p>One physical rollout begins at an explicit episode reset. The native gym constructor also performs a setup reset. Reset-free action chunks continue the same physical episode; there are no best-of retries. Success comes from the native environment checker. A worker interruption is incomplete, not a completed failure.</p><p>A separate renderer diagnostic performed six setup resets and six explicit reset-only reconstructions, with zero policy calls or control actions. An earlier CPU diagnostic crashed during its first constructor; its setup-reset count is unknown. These diagnostics are excluded from policy SR.</p></details>
+<details><summary>Open reset-fingerprint discrepancy</summary><p>All six earlier-case simulator states and instructions match. Five initial three-camera images are pixel-identical; the sixth has a mean absolute difference of 0.00002374 on a 0–255 scale. The model XML hashes captured during Xiaomi evaluation differ from the old run.</p><p>A separate native-renderer reconstruction matches the old XML exactly after the declared asset-directory substitution, but does not reproduce the hashes captured during the Xiaomi rollouts. This discrepancy remains unresolved. The evaluated runner retained model hashes rather than full XML bytes, so a complete retrospective comparison is unavailable. The runner now saves the full XML for future runs.</p><p><a href="evidence/xiaomi_reset_audit_summary.json">Diagnostic results and accounting</a>. Keep these results as nominal task/seed comparisons, not a certified paired policy effect.</p></details>
 <details><summary>Comparison limits</summary><p>The six earlier cases are called paired only when instruction, simulator state and model XML agree. The sole allowed XML change is the declared installation-directory prefix; no physical parameters are normalized. Xiaomi executes 16 actions per prediction versus five in the earlier π0.5 pilot. Episode wall time includes evidence/video work, and query timing includes native processing and socket inference.</p><p>The earlier π0.5 pilot passed its recorded numerical checks; independent output parity with its full upstream policy factory remains unmeasured. Xiaomi uses its released model factory and inference pipeline directly.</p><p>These observations do not measure Astra TEI/TLI, FRS, vision edits or policy learning on Xiaomi. Earlier intervention results used π0.5 and remain a separate experiment.</p></details>
 </section></main><script id="data" type="application/json">__DATA__</script><script>
 const d=JSON.parse(document.getElementById('data').textContent),$=id=>document.getElementById(id);

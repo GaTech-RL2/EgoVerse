@@ -1,0 +1,418 @@
+{
+  "episode_results.csv": {
+    "bytes": 7318,
+    "sha256": "d686159fc2e76bbbd496c7a3e7de962e517d5b6114a1ee8a5512cf0565a9909f"
+  },
+  "evidence/archive_receipt.json": {
+    "bytes": 71812,
+    "sha256": "9e195e9f6bd4c7c2ea2028ff54b595bc5414eb4324464d74bcbc5a722e5a7a3e"
+  },
+  "evidence/browser-validation.json": {
+    "bytes": 3434,
+    "sha256": "e45b1dc000bbfdd952150bc65cd193a502fe7adb2d1641c5f8887334ebbd635e"
+  },
+  "evidence/environment.json": {
+    "bytes": 8364,
+    "sha256": "32b7d72aef0fd49467abc7b2248cb53e2a4999f4bd9af72d7335176360517a49"
+  },
+  "evidence/initial-image-audit.json": {
+    "bytes": 1253,
+    "sha256": "7c1a7232e2917b0ba58c579a202f7879309bf943f22059b684a2782b84c76b3a"
+  },
+  "evidence/native-reset-snapshot.json": {
+    "bytes": 3718,
+    "sha256": "692f47eb953957fcc1d9e2a99b14062c95e7d137b95a966c1b488cb0e6b021f9"
+  },
+  "evidence/previous-LoadPreparedFood-seed0-seed0-reset.json": {
+    "bytes": 632,
+    "sha256": "c83d4e7402687c2bca29fa4c1ffc388d816810dc92df24fc14fa113864a33b8e"
+  },
+  "evidence/previous-LoadPreparedFood-seed1-seed1-reset.json": {
+    "bytes": 643,
+    "sha256": "86a244527bc97ace6c9c6772a9db0b5a1467d026780734ce7ce7511a66070aaf"
+  },
+  "evidence/previous-LoadPreparedFood-seed2-seed2-reset.json": {
+    "bytes": 632,
+    "sha256": "31aba0477d34824a27eefc6fbf371c49e2fef28c2deb5778aca41f250f20a9e4"
+  },
+  "evidence/previous-PackIdenticalLunches-seed0-seed0-reset.json": {
+    "bytes": 551,
+    "sha256": "d9c7c9b69a9549535c0599614e393c05d4660bbdd7472d01c135a0230cb21c8a"
+  },
+  "evidence/previous-PackIdenticalLunches-seed1-seed1-reset.json": {
+    "bytes": 548,
+    "sha256": "7b908a41a6d00e45830d67b31f36a662b40d353b0270aefb7edd0b8fc706a3c0"
+  },
+  "evidence/previous-PackIdenticalLunches-seed2-seed2-reset.json": {
+    "bytes": 559,
+    "sha256": "cc0e9d8694bf618d548e0b2badd979a92907537438885acae2bc7ca8b25c9c48"
+  },
+  "evidence/protocol.json": {
+    "bytes": 7538,
+    "sha256": "3e85cf05833e70c42989d30782199e8b369b9a250305814a7555300c353286c2"
+  },
+  "evidence/published-reference-excerpt.json": {
+    "bytes": 3194,
+    "sha256": "20f7c2b2f0399b249444dee0a7b2b79e6a0af0162eba296bbcc946dd0850ed44"
+  },
+  "evidence/reference-ArrangeBreadBasket-seed1707-reset.json": {
+    "bytes": 571,
+    "sha256": "21c68fd577725d6c98954d0318e669ecbb679faacd1425930d374ae3cffe1d30"
+  },
+  "evidence/reference-ArrangeBreadBasket-seed1708-reset.json": {
+    "bytes": 571,
+    "sha256": "840ffe6e8666c8bcd679f493066e217f3e45961c3f74821a1ce6ab4aee1e7333"
+  },
+  "evidence/reference-ArrangeBreadBasket-seed1709-reset.json": {
+    "bytes": 571,
+    "sha256": "7939061c1aa10185d1ccf9b7fefd37653282255579c7ec29c1ee9ce9622fb62a"
+  },
+  "evidence/reference-ArrangeBreadBasket-seed1710-reset.json": {
+    "bytes": 571,
+    "sha256": "e75abb2efa7b8e66fd190f5c51b7143653b78ea30ac161856f3208b3725a5dc4"
+  },
+  "evidence/reference-ArrangeBreadBasket-seed1711-reset.json": {
+    "bytes": 571,
+    "sha256": "74f5b0937a3353e26e128f08622e14dac179fd1d78b2c309dbb92ffc875606f9"
+  },
+  "evidence/reference-CloseFridge-seed57-reset.json": {
+    "bytes": 459,
+    "sha256": "58f2e23e9a56fcd67ba309a73a3e2509dfaa63f110329fad04b352b51f016adb"
+  },
+  "evidence/reference-CloseFridge-seed58-reset.json": {
+    "bytes": 460,
+    "sha256": "2e399e44ba7cc6559f0a9644ce1fa97679623113a751dadd53b3abdc13a56fdc"
+  },
+  "evidence/reference-CloseFridge-seed59-reset.json": {
+    "bytes": 460,
+    "sha256": "8cd7d037e2d6ff44e3423893b6e0a0382d742c1563bea42d4ee353f0aaca7467"
+  },
+  "evidence/reference-CloseFridge-seed60-reset.json": {
+    "bytes": 459,
+    "sha256": "c71038ab6e2674ced360f4157729ff0286beafc53cd2615fa7bad792878744d4"
+  },
+  "evidence/reference-CloseFridge-seed61-reset.json": {
+    "bytes": 459,
+    "sha256": "6b8a8d9a4c929bdec1c837b703e1f8d2f56ed65b8c349348ab6dea290969ba73"
+  },
+  "evidence/reference-PackIdenticalLunches-seed1107-reset.json": {
+    "bytes": 562,
+    "sha256": "a2d7056cf2baffc23ff90f864096799b266f9b46a7ddcdb44d65afb95e030a4a"
+  },
+  "evidence/reference-PackIdenticalLunches-seed1108-reset.json": {
+    "bytes": 564,
+    "sha256": "f0141a345bac5afe037047edf295aeb7053ce0c1c7ff7be3958cb79ad1928e37"
+  },
+  "evidence/reference-PackIdenticalLunches-seed1109-reset.json": {
+    "bytes": 564,
+    "sha256": "4561d8d89a8c46c7af3786879e9cbba16c71de69d7aa2f82b6af9bfd75fe2d45"
+  },
+  "evidence/reference-PackIdenticalLunches-seed1110-reset.json": {
+    "bytes": 564,
+    "sha256": "a53ce74b42261f5384ff672f36a853a955c44e7c48c77fdbeaa21675c131f85e"
+  },
+  "evidence/reference-PackIdenticalLunches-seed1111-reset.json": {
+    "bytes": 558,
+    "sha256": "7965d910d23679bd8c7de0f31455c7eb45f794a765d7587959298f9558534048"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-results/archive_receipt.json": {
+    "bytes": 707,
+    "sha256": "03db75799e4d87f231a668ee71694577b7583f7cf9b736082b7eee33d8e5d719"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-results/inspection.log": {
+    "bytes": 1610,
+    "sha256": "9152c8c05ee5543f22f53482fd2ca393de968ddba2ba78a99a0cb8d6c2dc2576"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-results/scope.json": {
+    "bytes": 211,
+    "sha256": "b74f9dbca1eb6b0359daae20874acaf20df66ff7cb8655eee20d0fefe737c423"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/LoadPreparedFood_seed0.xml.gz": {
+    "bytes": 43691,
+    "sha256": "fdd3f62ddf5cd51f9e067f8308af2831692759291b0099d9962cabd450cec285"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/LoadPreparedFood_seed1.xml.gz": {
+    "bytes": 44537,
+    "sha256": "6d4bf44c8aea54147cae577fba8f48d21a7ecbf972ab6d8986f315443a48b908"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/LoadPreparedFood_seed2.xml.gz": {
+    "bytes": 38766,
+    "sha256": "c137185325cac144c3262218ee1577060b4f6ca00213a4c015525c7477431e48"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/PackIdenticalLunches_seed0.xml.gz": {
+    "bytes": 36519,
+    "sha256": "d71656a1032fb2eb43d57a390d8e4e67cd20281b8647e010a32f4a5aecfda8f6"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/PackIdenticalLunches_seed1.xml.gz": {
+    "bytes": 37929,
+    "sha256": "e2468cb2c74143d3e94f911085194b466847956a4d93074fabb3216380aed8fb"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/PackIdenticalLunches_seed2.xml.gz": {
+    "bytes": 32839,
+    "sha256": "7e873aa429fc40b8b766e590c48703abba2ddbb6d98f45201687373a8c95fd5d"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/archive_receipt.json": {
+    "bytes": 3603,
+    "sha256": "3fee353111e670da1040f84b5433c52a6caad0f178325f2faebb51f06b6aad2d"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/comparison.json": {
+    "bytes": 1701,
+    "sha256": "67df894fac5596babdb8466ca9e7bacde3585f356b60c1b0bccf424a24fe7c4a"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/constructors.json": {
+    "bytes": 1167,
+    "sha256": "88de1820100abcf6c465410275aaab43ad48d4260ba869cad58627b3e224e09f"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/inspection.log": {
+    "bytes": 5737,
+    "sha256": "522604ec8e232ee4ba0f14ee06547b4d25a389a510ef1a1fd1d40eda23160cc8"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/reset_audit.json": {
+    "bytes": 3220,
+    "sha256": "959be776d8b55731f9f87ee507ebdec37dfed99ff6f6819e82c8dcdcefcdbdb2"
+  },
+  "evidence/robocasa-xiaomi-reset-audit-v2-results/scope.json": {
+    "bytes": 232,
+    "sha256": "aa2763e968d52d77d6d730e049a5b9aded15d78d7acac3d5d7dcf4063c1fbc90"
+  },
+  "evidence/worker_finished.json": {
+    "bytes": 63,
+    "sha256": "330837318b5d81e303d00ecce7f72a3227f3347bde0a611609c09e27c5a1e2a0"
+  },
+  "evidence/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "evidence/xiaomi_reset_audit_summary.json": {
+    "bytes": 4438,
+    "sha256": "939bef8b44aaae1d502a72d874362d3aaa4f36de96b34833c5713a2b62bb541e"
+  },
+  "evidence/xiaomi_reset_path_equivalence.json": {
+    "bytes": 4041,
+    "sha256": "08ef1c95e3cdaa1f43ae69a75a3904e693ca1c672b8f9553b43d712790a31950"
+  },
+  "index.html": {
+    "bytes": 34404,
+    "sha256": "c37b025d1ad7c29e330bd5f85893dcf91565d487bd5000983f8dbd659d8ee2b0"
+  },
+  "media/previous-LoadPreparedFood-seed0-seed0.mp4": {
+    "bytes": 1810739,
+    "sha256": "3cb4f3970525f8d6bbb8c0850fa7ac4f777d7edb045a1d5bf4d57c8ee5185469"
+  },
+  "media/previous-LoadPreparedFood-seed0-seed0.png": {
+    "bytes": 198359,
+    "sha256": "99115f1c94724a3b6199dfd3996fe06b022e6e31631d89f13201331299871ddc"
+  },
+  "media/previous-LoadPreparedFood-seed1-seed1.mp4": {
+    "bytes": 2070604,
+    "sha256": "d62e590c2e7d957ec724ad8383c6249acdc9f9331ab22ab52bd6d8236b913e85"
+  },
+  "media/previous-LoadPreparedFood-seed1-seed1.png": {
+    "bytes": 259134,
+    "sha256": "c1b1364fcce2d8e8391b87f2906381e7efaa65b159cfc8e2281236619f8a156c"
+  },
+  "media/previous-LoadPreparedFood-seed2-seed2.mp4": {
+    "bytes": 1867940,
+    "sha256": "56b4ee8195cbe4917a3b8d3864737abad79d704def7ee647e10045e358a5fce4"
+  },
+  "media/previous-LoadPreparedFood-seed2-seed2.png": {
+    "bytes": 140950,
+    "sha256": "fd9e23131d95779f99d6bb6c58696934b62c6f84bc6f946f8c45a6662af31495"
+  },
+  "media/previous-PackIdenticalLunches-seed0-seed0.mp4": {
+    "bytes": 6065084,
+    "sha256": "ffeed5951c8bcef1887e81452ba1228b6dc728d12f636249602a76ffc879d9ce"
+  },
+  "media/previous-PackIdenticalLunches-seed0-seed0.png": {
+    "bytes": 112800,
+    "sha256": "566a8a2e443626aeac427b79fe2bab4d0e888a483caad12abb258c396f2e3cff"
+  },
+  "media/previous-PackIdenticalLunches-seed1-seed1.mp4": {
+    "bytes": 5058537,
+    "sha256": "0d45a3871716a36cc0fac9562402d258f43e16d756913ddefe249f4cb55f54de"
+  },
+  "media/previous-PackIdenticalLunches-seed1-seed1.png": {
+    "bytes": 148107,
+    "sha256": "712c68395702a1445856dd4b85f9211ff2a379f43d853ecbfd3567441a5d0723"
+  },
+  "media/previous-PackIdenticalLunches-seed2-seed2.mp4": {
+    "bytes": 10644196,
+    "sha256": "f47da95c8167e958fb268e6bd0891738e5578d986e94719c34967c63288aad18"
+  },
+  "media/previous-PackIdenticalLunches-seed2-seed2.png": {
+    "bytes": 115434,
+    "sha256": "140c781286cab5b17e9c494e365dcea6ceb8fe31cbd8777c8097f15c12b456cb"
+  },
+  "media/reference-ArrangeBreadBasket-seed1707.mp4": {
+    "bytes": 5141828,
+    "sha256": "6a1cf7d7ee7f9ad7b9d9cdb46e73062debae1a9f01a5135f6e1f029a6f3abea7"
+  },
+  "media/reference-ArrangeBreadBasket-seed1707.png": {
+    "bytes": 244994,
+    "sha256": "daab363db6aa0c950d1206a9d2b1906bd6bda630e27146ece65326758b975114"
+  },
+  "media/reference-ArrangeBreadBasket-seed1708.mp4": {
+    "bytes": 3401326,
+    "sha256": "a27a9d83c7d06bc5db0057d42c8df5378bf7fcae534d440e769e589b8ccdcc26"
+  },
+  "media/reference-ArrangeBreadBasket-seed1708.png": {
+    "bytes": 203268,
+    "sha256": "5d625007620cd5539d6c45251fbf652fd29d2a9ab68a56006214a8f43a968810"
+  },
+  "media/reference-ArrangeBreadBasket-seed1709.mp4": {
+    "bytes": 4849843,
+    "sha256": "202cba4daf01cffb3062f2c770f872a71daa0505d38334482068df144a3dd241"
+  },
+  "media/reference-ArrangeBreadBasket-seed1709.png": {
+    "bytes": 180108,
+    "sha256": "feb38e5c6401911ed456846aa59544eca83cda436df3eca8413991290e1c0d1c"
+  },
+  "media/reference-ArrangeBreadBasket-seed1710.mp4": {
+    "bytes": 4417947,
+    "sha256": "f3e0046e9ed2c8bf5857e9bb87ea4f6cfd2abbad90b1f60ec51f7652122eedbd"
+  },
+  "media/reference-ArrangeBreadBasket-seed1710.png": {
+    "bytes": 284005,
+    "sha256": "b98bb4ed2e67cb4e211b218d1476972625ddef449558ee2a0175e4b4ea978cc8"
+  },
+  "media/reference-ArrangeBreadBasket-seed1711.mp4": {
+    "bytes": 13745004,
+    "sha256": "efd7ef4419fa58511ede3cbb83f28890aaaea6f8f7b828373d325fa3e587fe70"
+  },
+  "media/reference-ArrangeBreadBasket-seed1711.png": {
+    "bytes": 230694,
+    "sha256": "e3e5a0e7099ee9c34dd8601fc0e3f251221cbecbb6ef3a35875f020f748e6dcb"
+  },
+  "media/reference-CloseFridge-seed57.mp4": {
+    "bytes": 553274,
+    "sha256": "e9c4cf568147bcbc6c50c6578c074f5b14db56c6d028bf67982fec4bcc7ea7e9"
+  },
+  "media/reference-CloseFridge-seed57.png": {
+    "bytes": 163248,
+    "sha256": "d6c092c3942e96c0e495499978ab36c37178344ca15c3ebfe7d117bc04ef7169"
+  },
+  "media/reference-CloseFridge-seed58.mp4": {
+    "bytes": 719369,
+    "sha256": "950385bf91fe11d24f694478bdd35fb95f018182f62754626537c500048a5d79"
+  },
+  "media/reference-CloseFridge-seed58.png": {
+    "bytes": 161856,
+    "sha256": "7356f59698cdc512e3fd01e3907ba461377d884b22d92f973b7f0150d42275db"
+  },
+  "media/reference-CloseFridge-seed59.mp4": {
+    "bytes": 502785,
+    "sha256": "d294c30499f01787ff8cbe3c9e33b47734d79986939a8009037f0c8d0f349a28"
+  },
+  "media/reference-CloseFridge-seed59.png": {
+    "bytes": 107852,
+    "sha256": "8eff1ffb4ca7d6bd20f9ec39a3d52c9089ab7a4ac342221ec0742fdf9105217d"
+  },
+  "media/reference-CloseFridge-seed60.mp4": {
+    "bytes": 420045,
+    "sha256": "b33284d193943e359865326b35b7eedc1cfa12fdd14dbb25e9d8592af59e11a4"
+  },
+  "media/reference-CloseFridge-seed60.png": {
+    "bytes": 149324,
+    "sha256": "49c97cb7a7ac1015a5cc627f0e7b1a16dccd9d02fa6d0d5e8ff989a1136e46d5"
+  },
+  "media/reference-CloseFridge-seed61.mp4": {
+    "bytes": 348748,
+    "sha256": "eafa9708e315fe57594e47f0182be0bcaf15ffe99499e8154a6d86f9abbdffd5"
+  },
+  "media/reference-CloseFridge-seed61.png": {
+    "bytes": 170226,
+    "sha256": "845c9f011f8c7c1420a9a66aec7bb5de01e6d7a8834015ee7dfd7c4838c80a9c"
+  },
+  "media/reference-PackIdenticalLunches-seed1107.mp4": {
+    "bytes": 11181612,
+    "sha256": "6fbef3a2fcb11aab665b212d5b4a000f8d7113bc0398e30b54d8870c50ced267"
+  },
+  "media/reference-PackIdenticalLunches-seed1107.png": {
+    "bytes": 113735,
+    "sha256": "9ea60fb80150d89886b90a4e6daf2020b29a2d0325ffd59b52dc2f932b095f21"
+  },
+  "media/reference-PackIdenticalLunches-seed1108.mp4": {
+    "bytes": 8546580,
+    "sha256": "f74d1d58e383aa464fb08ca1c0881613e4a1931c7a4f419436c5f8c0b6000105"
+  },
+  "media/reference-PackIdenticalLunches-seed1108.png": {
+    "bytes": 97255,
+    "sha256": "e60b868b4b81ee86e0948b3bdd28a97ffa857fa4cb7f2b5f15af78665cc00577"
+  },
+  "media/reference-PackIdenticalLunches-seed1109.mp4": {
+    "bytes": 11453477,
+    "sha256": "729d85a01cc1de860c4b780d7bc994c3bab9bbbaa9f73b8996dc613fd5b6445c"
+  },
+  "media/reference-PackIdenticalLunches-seed1109.png": {
+    "bytes": 108455,
+    "sha256": "90b05ea2fe465b8de8842e211af34555e7edb28af5e02e131f5ef3134a6fc0c1"
+  },
+  "media/reference-PackIdenticalLunches-seed1110.mp4": {
+    "bytes": 7595527,
+    "sha256": "50dfdec6b577701988c434ccab562352546084e544149517a827e9c223c765b8"
+  },
+  "media/reference-PackIdenticalLunches-seed1110.png": {
+    "bytes": 136007,
+    "sha256": "1a70e152e60caf206c0fe7a28885634acd902ba153bb5764f7e13da7c8649921"
+  },
+  "media/reference-PackIdenticalLunches-seed1111.mp4": {
+    "bytes": 7836083,
+    "sha256": "1703eeaee8844bb13007bdd2aa20ea38f3c65c3b5bb1dd1ad33b973e56b7f132"
+  },
+  "media/reference-PackIdenticalLunches-seed1111.png": {
+    "bytes": 130449,
+    "sha256": "5f6dca0046c6bc45fe603ada97544fe11d631f94b790195a6c7cbaff3bf3903e"
+  },
+  "provenance/astra_reversal/__init__.py": {
+    "bytes": 230,
+    "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+  },
+  "provenance/astra_reversal/complex_manipulation/__init__.py": {
+    "bytes": 76,
+    "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+  },
+  "provenance/astra_reversal/complex_manipulation/stage_robocasa.py": {
+    "bytes": 10706,
+    "sha256": "9668aaa30daa1d183e9d0e9217c0dcdf15fd1fb2877e48a626881edf69d5834c"
+  },
+  "provenance/astra_reversal/complex_manipulation/worker.py": {
+    "bytes": 13726,
+    "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_bootstrap.sh": {
+    "bytes": 966,
+    "sha256": "ee209f29c5b5631eb3d4fa6121bd4ab95255680a69ac9b67cd3ce562048ea2bf"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_eval.py": {
+    "bytes": 9725,
+    "sha256": "93a476860510ab0118cad1f7eee5431dea5026d09b4061e0cf49e25ec285dcc1"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_manifest.json": {
+    "bytes": 5989,
+    "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_protocol.json": {
+    "bytes": 7538,
+    "sha256": "3e85cf05833e70c42989d30782199e8b369b9a250305814a7555300c353286c2"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_stage.py": {
+    "bytes": 6684,
+    "sha256": "a98bff0216b5ed0af20a7a8216d1a7f0c60ac979846f855f7889667a5d971efa"
+  },
+  "provenance/astra_reversal/complex_manipulation/xiaomi_worker.py": {
+    "bytes": 7832,
+    "sha256": "9ea0ebb605a04e616026a356cd9dbd9ef389fe575cd66b75d1e87bc109a6d300"
+  },
+  "provenance/astra_reversal/records.py": {
+    "bytes": 4350,
+    "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+  },
+  "provenance/launch_provenance.json": {
+    "bytes": 2420,
+    "sha256": "e85f30d50eaf0ccee38ee4c5540b5c266ab68fc603443519e001aa6df67c3493"
+  },
+  "results.json": {
+    "bytes": 27350,
+    "sha256": "8d3d86fc5d1a204e7c2ca46ae8af40067ae9823340012d345c8dda90ded7607e"
+  }
+}

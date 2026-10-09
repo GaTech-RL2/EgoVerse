@@ -1,0 +1,51 @@
+{
+  "workflow": "astra-complex-20261006-robocasa-xiaomi-native-v1-1",
+  "source_revision": "da5ee5617497cd3db1d9e24680c51cb7a0e3b258",
+  "scope": "Pinned native Xiaomi RoboCasa365 release. Unmodified upstream server, processor, history, decoder and evaluator loop. Fixed 21-episode qualification screen, full native horizons, zero physical retries and zero Astra calls. First five atomic, seen composite and unseen composite reference episodes plus previous six pi05 task/seeds. This is not full leaderboard reproduction; model RNG stream and subset scheduling differ. Record simulator fingerprints before claiming paired resets.",
+  "files": [
+    {
+      "file": "astra_reversal/__init__.py",
+      "sha256": "228ecfcf53c61d746776c8becb222d45c6133cdf4f748ee8419b094bf37a9036"
+    },
+    {
+      "file": "astra_reversal/records.py",
+      "sha256": "62f5068ed6964087ad55634f7cd5084e1992ef9339c11106fc8b8ed8761a64b2"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/__init__.py",
+      "sha256": "57814dc79a6f4553c556e351b73358b9ed2206458b2ad8379f9f751573e5d28d"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/worker.py",
+      "sha256": "c8f5e321965da4b8680089586a5f520b1791bd69e26547b30b6de63c6f544388"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/stage_robocasa.py",
+      "sha256": "9668aaa30daa1d183e9d0e9217c0dcdf15fd1fb2877e48a626881edf69d5834c"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_stage.py",
+      "sha256": "a98bff0216b5ed0af20a7a8216d1a7f0c60ac979846f855f7889667a5d971efa"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_worker.py",
+      "sha256": "9ea0ebb605a04e616026a356cd9dbd9ef389fe575cd66b75d1e87bc109a6d300"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_eval.py",
+      "sha256": "93a476860510ab0118cad1f7eee5431dea5026d09b4061e0cf49e25ec285dcc1"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_bootstrap.sh",
+      "sha256": "ee209f29c5b5631eb3d4fa6121bd4ab95255680a69ac9b67cd3ce562048ea2bf"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_manifest.json",
+      "sha256": "57ebc0e2f7f56a2e4e0589396f355e30ffd759db977ab21cb2844742fe8c8090"
+    },
+    {
+      "file": "astra_reversal/complex_manipulation/xiaomi_protocol.json",
+      "sha256": "3e85cf05833e70c42989d30782199e8b369b9a250305814a7555300c353286c2"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "task": "CloseFridge",
+  "seed": 61,
+  "instruction": "Close the fridge door.",
+  "raw_observation_sha256": "746e29b3af8bada96ccfac52970d7445d04b786d74ecef40d3d431b92cc53238",
+  "state_sha256": "ea03b3b34a837111e89a540ca3cc3766a2ce73aaaea23f2c32e3b42f91408b96",
+  "model_sha256": "d2bc0d5271cecdb76a563ac67db5432868006cc522de5500f37a1d30b4459a12",
+  "initial_success": false,
+  "horizon": 900,
+  "execution_prefix": 16,
+  "extra_stabilization_steps": 0
+}

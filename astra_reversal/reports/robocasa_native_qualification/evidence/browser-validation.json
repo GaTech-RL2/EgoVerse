@@ -1,0 +1,158 @@
+{
+  "videos": [
+    {
+      "src": "media/reference-CloseFridge-seed57.mp4",
+      "duration": 11.2,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-CloseFridge-seed58.mp4",
+      "duration": 15.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-CloseFridge-seed59.mp4",
+      "duration": 14.4,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-CloseFridge-seed60.mp4",
+      "duration": 9.5,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-CloseFridge-seed61.mp4",
+      "duration": 7.9,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-LoadPreparedFood-seed0-seed0.mp4",
+      "duration": 34.4,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-LoadPreparedFood-seed1-seed1.mp4",
+      "duration": 41.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-LoadPreparedFood-seed2-seed2.mp4",
+      "duration": 38.2,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-PackIdenticalLunches-seed0-seed0.mp4",
+      "duration": 117.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-PackIdenticalLunches-seed1-seed1.mp4",
+      "duration": 93.3,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/previous-PackIdenticalLunches-seed2-seed2.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-PackIdenticalLunches-seed1107.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-PackIdenticalLunches-seed1108.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-PackIdenticalLunches-seed1109.mp4",
+      "duration": 192.5,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-PackIdenticalLunches-seed1110.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-PackIdenticalLunches-seed1111.mp4",
+      "duration": 195.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-ArrangeBreadBasket-seed1707.mp4",
+      "duration": 86.1,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-ArrangeBreadBasket-seed1708.mp4",
+      "duration": 74.6,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-ArrangeBreadBasket-seed1709.mp4",
+      "duration": 86.6,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-ArrangeBreadBasket-seed1710.mp4",
+      "duration": 69.4,
+      "width": 768,
+      "height": 256
+    },
+    {
+      "src": "media/reference-ArrangeBreadBasket-seed1711.mp4",
+      "duration": 217.6,
+      "width": 768,
+      "height": 256
+    }
+  ],
+  "views": [
+    {
+      "width": 1440,
+      "body": 1440,
+      "rows": 5,
+      "completed": "21 / 21",
+      "images": [
+        {
+          "complete": true,
+          "width": 768
+        }
+      ]
+    },
+    {
+      "width": 390,
+      "body": 390,
+      "rows": 5,
+      "completed": "21 / 21",
+      "images": [
+        {
+          "complete": true,
+          "width": 768
+        }
+      ]
+    }
+  ],
+  "localLinksVerified": true,
+  "endFramesDecoded": true
+}
