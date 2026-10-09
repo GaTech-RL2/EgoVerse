@@ -1,0 +1,19 @@
+{
+  "allocations": [
+    {
+      "workflow": "astra-complex-20261006-robocasa-xiaomi-selector-v1-1",
+      "status": "FAILED_CANCELED",
+      "source_revision": "e56673ecab45f2d027e2087099ff52adbf66f281",
+      "issue": "Initial OSMO port-forward returnedHTTP503; controller cancelled before evaluator started. v2 uses bounded tunnel reconnects.",
+      "actual_gpu_hours": 0.10061609611111111,
+      "completed_policy_episodes": 0,
+      "policy_controls": 0,
+      "teacher_jobs": 0,
+      "archive_files": [
+        "protocol.json",
+        "worker_started.json"
+      ],
+      "role": "startup_failure_excluded_from_policy_SR"
+    }
+  ]
+}
