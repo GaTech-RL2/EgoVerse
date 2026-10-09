@@ -18,7 +18,7 @@ from astra_reversal.complex_manipulation.worker import (
 )
 
 
-def restore(client, stage, manifest_path, root):
+def restore(client, stage, manifest_path, root, *, include_weights=True):
     prefix = f"experiments/astra-complex-20261006/{stage}/"
     manifest = json.loads(manifest_path.read_text())
     receipt = json.loads(client.get_object(Bucket="rldb", Key=prefix + "receipt.json")["Body"].read())
@@ -27,6 +27,9 @@ def restore(client, stage, manifest_path, root):
         raise ValueError("Native model stage does not match the pinned manifest")
     root.mkdir(parents=True, exist_ok=False)
     rows = receipt["uploaded_files"] + receipt["asset_files"]
+    if not include_weights:
+        # Reset-only CPU audits need the identical simulator, not policy weights.
+        rows = [row for row in rows if not row["relative"].startswith("weights/")]
     seen = set()
     for row in rows:
         relative = str(safe_relative(row["relative"]))
