@@ -147,15 +147,33 @@ def fingerprint(env, obs):
 
 
 class ReplayEnvironment(RecordedEnvironment):
-    def __init__(self, env, recorder, anchor, expected, resets):
+    def __init__(self, env, recorder, anchor, expected, resets, *, maximum_restore_attempts=1):
         super().__init__(env,recorder)
         self.anchor, self.expected, self.resets = anchor, expected, resets
+        if type(maximum_restore_attempts) is not int or not 1 <= maximum_restore_attempts <= 3:
+            raise ValueError('Reset verification must have a registered finite bound')
+        self.maximum_restore_attempts = maximum_restore_attempts
 
     def reset(self, *, seed):
-        obs = restore_anchor(self.env,self.anchor)
         self.resets["policy_restore_resets"] += 1
-        actual = fingerprint(self.env,obs)
+        checks = []
+        for index in range(self.maximum_restore_attempts):
+            if index:
+                self.resets['additional_verification_restore_resets'] = self.resets.get('additional_verification_restore_resets',0)+1
+            obs = restore_anchor(self.env,self.anchor)
+            actual = fingerprint(self.env,obs)
+            checks.append(dict(restore_index=index,exact=actual==self.expected,actual=actual))
+            write_json(self.recorder.root/'reset_verification.json',dict(
+                maximum_restore_attempts=self.maximum_restore_attempts,expected=self.expected,checks=checks))
+            if actual == self.expected:
+                break
+            np.savez_compressed(self.recorder.root/f'reset_verification_{index}_observation.npz',**obs)
+            # Only an observation-only mismatch can use another zero-action restore.
+            # Physical model/state/RNG or instruction changes stop immediately.
+            if any(actual[k] != self.expected[k] for k in actual if k != 'observation_sha256'):
+                break
         if actual != self.expected:
+            np.savez_compressed(self.recorder.root / 'reset_mismatch_observation.npz',**obs)
             write_json(self.recorder.root / "reset_mismatch.json",{"actual":actual,"expected":self.expected})
             raise ValueError("Prospective paired reset failed exact fingerprint checks")
         self.recorder.terminated = False
@@ -164,7 +182,7 @@ class ReplayEnvironment(RecordedEnvironment):
         return obs, {"success":False}
 
     def close(self):
-        pass  # The owned environment closes after both methods and attempts.
+        pass  # The evaluator owns and closes the underlying environment.
 
 
 def preflight(engine, entry, initial, output):
@@ -284,8 +302,10 @@ def main():
                 for _ in range(2):
                     obs = restore_anchor(env,anchor)
                     counts['diagnostic_restore_resets'] += 1
-                    if fingerprint(env,obs) != expected:
-                        raise ValueError('Continuation did not reproduce the saved initial fingerprint')
+                actual = fingerprint(env,obs)
+                if any(actual[k] != expected[k] for k in actual if k != 'observation_sha256'):
+                    np.savez_compressed(root/'anchor_restore_mismatch_observation.npz',**obs)
+                    raise ValueError('Continuation did not reproduce the saved physical anchor after two warmups')
                 if raw._check_success():
                     raise ValueError('Saved anchor is already successful')
             else:
@@ -310,6 +330,21 @@ def main():
             astra_history = history[case["id"]]
             history_context = {"source":"historical qualification failure","success":False,
                                "steps":case["old_steps"],"exact_model_equivalence_to_current_anchor":False}
+            prior = next((r for r in rows if r['case']==case['id'] and r['arm']=='astra'
+                          and r['attempt']==1 and not r['success']),None)
+            if prior:
+                prior_folder = root/'astra1'
+                video = prior_folder/case['task']/f"episode_000_seed_{case['seed']}_failure.mp4"
+                astra_history = video_feedback(video,prior['steps'])
+                decision_keys = ('method','subgoal','alpha','observed_evidence','completion_signal','next_review_controls')
+                decisions = [{k:p[k] for k in decision_keys} for p in
+                             (json.loads(path.read_text()) for path in sorted((prior_folder/'guidance').glob('proposal_*.json')))]
+                history_context = {'source':'own guided attempt1 failure','success':False,'steps':prior['steps'],
+                                   'exact_model_equivalence_to_current_anchor':True,'decisions':decisions}
+            fresh_episode = protocol.get('continuation',{}).get('fresh_environment_per_episode',False)
+            if fresh_episode:
+                env.close()
+                env = None
             for attempt in (1,2):
                 for arm in ("native","astra"):
                     if completed[arm] or (case['id'],arm,attempt) not in pending:continue
@@ -322,13 +357,25 @@ def main():
                             reasoning_effort="medium",response_log=str(folder/"provider.jsonl"),
                             timeout=protocol.get('continuation',{}).get('relay_timeout_seconds',300))
                         guide = Guide(client,folder,astra_history,history_context,f"{case['id']}-astra{attempt}")
-                    wrapped = ReplayEnvironment(env,record,anchor,expected,counts)
                     class GymProxy:
                         def make(self,*args,**kwargs):return wrapped
                     native_args = entry.parse_args([])
                     native_args.split, native_args.seed, native_args.num_trials = "pretrain",case["seed"],1
                     native_args.save_videos, native_args.video_stride, native_args.video_fps = True,2,10
                     try:
+                        if fresh_episode:
+                            counts['constructor_started'] += 1
+                            np.random.seed(case['constructor_seed'])
+                            env = gym.make('robocasa/'+case['task'],split='pretrain',
+                                seed=case['constructor_seed'],disable_env_checker=True)
+                            counts['constructor_setup_resets'] += 1
+                            env.reset(seed=case['seed'])
+                            counts['anchor_selection_resets'] += 1
+                            for _ in range(2):
+                                restore_anchor(env,anchor)
+                                counts['diagnostic_restore_resets'] += 1
+                        wrapped = ReplayEnvironment(env,record,anchor,expected,counts,
+                            maximum_restore_attempts=protocol.get('continuation',{}).get('maximum_reset_verification_attempts',1))
                         result = entry.evaluate_task(case["task"],0,native_args,
                             PolicyClient(engine,record,case_index,attempt,guide),GymProxy(),get_task_horizon,
                             convert_action,folder,episode_indices=[0],show_progress=False,write_task_stats=False)
@@ -338,6 +385,10 @@ def main():
                             "teacher_calls":guide.calls if guide else 0,"counts_as_completed_failure":False})
                         save_summary()
                         raise
+                    finally:
+                        if fresh_episode and env is not None:
+                            env.close()
+                            env = None
                     row = record.finish(result["episodes"][0])
                     row.update(case=case["id"],arm=arm,attempt=attempt,teacher_calls=guide.calls if guide else 0,
                                origin_workflow=os.environ['ASTRA_RUN_ID'],
@@ -352,7 +403,8 @@ def main():
                         history_context = {"source":"own guided attempt1 failure","success":False,"steps":row["steps"],
                                            "exact_model_equivalence_to_current_anchor":True,"decisions":guide.decisions}
         finally:
-            env.close()
+            if env is not None:
+                env.close()
             save_summary()
     write_json(args.output / "completed.json",{"complete":True,"cases":len(protocol["cases"]),"episodes":len(rows)})
 

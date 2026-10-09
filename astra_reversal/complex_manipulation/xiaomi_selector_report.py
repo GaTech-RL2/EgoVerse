@@ -53,6 +53,35 @@ def reconcile_interrupted_jobs(records, jobs):
                 worker_wait_seconds=sum(r['latency_seconds'] for r in records),receipts=rows)
 
 
+def interruption_lineage(results, protocol):
+    """Bind every incomplete attempt to its registered, checksum-pinned parent."""
+    current, evidence, seen, rows = protocol, results/'continuation', set(), []
+    while 'continuation' in current:
+        amendment = current['continuation']
+        workflow = amendment['parent_workflow']
+        if workflow in seen:
+            raise ValueError('Cyclic continuation lineage')
+        seen.add(workflow)
+        if sha256(evidence/'parent_archive_receipt.json') != amendment['parent_receipt_sha256']:
+            raise ValueError('Continuation receipt does not match its registered parent')
+        parent_protocol = evidence/'parent/protocol.json'
+        if amendment.get('parent_protocol_sha256') and sha256(parent_protocol) != amendment['parent_protocol_sha256']:
+            raise ValueError('Continuation parent protocol changed')
+        rows.append(amendment)
+        current = read(parent_protocol)
+        evidence = results/'lineage'/workflow/'continuation'
+    return rows
+
+
+def interruption_totals(rows):
+    token_keys = ('input_tokens','output_tokens','reasoning_tokens','total_tokens')
+    fields = ('completed_local_jobs','delivered_proposals','undelivered_completed_jobs',
+              'worker_wait_seconds','physical_episodes','zero_action_incomplete_starts',
+              'rejected_reset_starts','controls','chunks')
+    return dict({k:sum(r[k] for r in rows) for k in fields},
+                token_usage={k:sum(r['token_usage'][k] for r in rows) for k in token_keys})
+
+
 def aggregate(rows, cases):
     """Distinguish per-episode SR from paired first-attempt and within-two SR."""
     groups = defaultdict(list)
@@ -165,6 +194,8 @@ def build(results, output):
         for name in ('reset.json', 'paired_reset.json', 'result.json', 'policy_queries.jsonl', 'initial_model.xml.gz'):
             copy(seed_folder / name, f'evidence/{identity}/{name}')
         copy(folder / 'episode.json', f'evidence/{identity}/episode.json')
+        for path in folder.glob('reset_verification*'):
+            copy(path,f'evidence/{identity}/{path.name}')
         # Provider receipt data is public evidence; local CLI events/reasoning are not copied.
         if (folder / 'provider.jsonl').exists():
             copy(folder / 'provider.jsonl', f'evidence/{identity}/provider.jsonl')
@@ -243,23 +274,35 @@ def build(results, output):
                              calibration_tokens=18630,calibration_jobs=1,
                              all_teacher_tokens_including_calibration=completed_tokens+18630)
     if 'continuation' in protocol:
-        amendment = protocol['continuation']
         interruption_path = Path(__file__).parent / 'xiaomi_selector_interruption.json'
         interruption = read(interruption_path)
-        if interruption['archive_receipt_sha256'] != sha256(results / 'continuation/parent_archive_receipt.json'):
-            raise ValueError('Interruption evidence is from a different parent archive')
-        case = amendment['interrupted_trial']
-        identity = f"{case['case']}-{case['arm']}{case['attempt']}"
-        folder = results / 'interrupted' / amendment['parent_workflow'] / case['case'] / f"{case['arm']}{case['attempt']}"
-        partial = read(folder / 'incomplete.json')
-        if partial['counts_as_completed_failure'] is not False:
-            raise ValueError('Interrupted trial cannot enter the success-rate denominator')
-        local = [r for r in interruption['job_records'] if r['episode_id'] == identity]
-        overhead = reconcile_interrupted_jobs(jsonl(folder / 'provider.jsonl'),local)
-        overhead.update(case=case['case'],physical_episodes=1,controls=partial['steps'],chunks=partial['queries'],
-                        incomplete=partial,workflow=amendment['parent_workflow'])
-        if overhead['completed_local_jobs'] != partial['teacher_calls']:
-            raise ValueError('Interrupted call count differs from local receipt reconciliation')
+        interruptions = []
+        for amendment in interruption_lineage(results,protocol):
+            case = amendment['interrupted_trial']
+            identity = f"{case['case']}-{case['arm']}{case['attempt']}"
+            workflow = amendment['parent_workflow']
+            folder = results / 'interrupted' / workflow / case['case'] / f"{case['arm']}{case['attempt']}"
+            partial = read(folder / 'incomplete.json')
+            if partial['counts_as_completed_failure'] is not False:
+                raise ValueError('Interrupted trial cannot enter the success-rate denominator')
+            local = []
+            if partial['teacher_calls']:
+                if (workflow != interruption['workflow'] or
+                        interruption['archive_receipt_sha256'] != amendment['parent_receipt_sha256']):
+                    raise ValueError('Missing registered local receipts for interrupted teacher calls')
+                local = [r for r in interruption['job_records'] if r['episode_id'] == identity]
+            item = reconcile_interrupted_jobs(jsonl(folder / 'provider.jsonl'),local)
+            item.update(case=case['case'],attempt=case['attempt'],arm=case['arm'],
+                        physical_episodes=int(partial['steps']>0),
+                        zero_action_incomplete_starts=int(partial['steps']==0),
+                        rejected_reset_starts=int((folder/'reset_mismatch.json').exists()),
+                        controls=partial['steps'],chunks=partial['queries'],
+                        incomplete=partial,workflow=workflow,reason=amendment['reason'])
+            if item['completed_local_jobs'] != partial['teacher_calls']:
+                raise ValueError('Interrupted call count differs from local receipt reconciliation')
+            interruptions.append(item)
+        overhead = interruption_totals(interruptions)
+        report['interruptions'] = interruptions
         report['interruption'] = overhead
         report['spending'].update(interrupted_tokens=overhead['token_usage']['total_tokens'],
             interrupted_jobs=overhead['completed_local_jobs'],
@@ -267,26 +310,30 @@ def build(results, output):
             rollout_jobs_including_interruption=len(provider)+overhead['completed_local_jobs'],
             all_teacher_tokens_including_calibration=completed_tokens+overhead['token_usage']['total_tokens']+18630)
         for item in report['cases']:
-            item['interrupted_tokens'] = overhead['token_usage']['total_tokens'] if item['case']==case['case'] else 0
+            item['interrupted_tokens'] = sum(r['token_usage']['total_tokens'] for r in interruptions if r['case']==item['case'])
             item['astra_tokens_including_interruption'] = item['astra_tokens']+item['interrupted_tokens']
-        for path in folder.rglob('*'):
-            if path.is_file():
-                copy(path,'evidence/interrupted/'+str(path.relative_to(folder)))
-        for path in (results/'continuation').rglob('*'):
-            if path.is_file():
-                copy(path,'evidence/continuation/'+str(path.relative_to(results/'continuation')))
+        for name in ('interrupted','continuation','lineage'):
+            for path in (results/name).rglob('*'):
+                if path.is_file():
+                    copy(path,'evidence/'+str(path.relative_to(results)))
         copy(interruption_path,'evidence/'+interruption_path.name)
-        for name in ('xiaomi_selector_continuation_protocol.json','xiaomi_selector_resume.py'):
+        for name in (protocol['continuation'].get('protocol_source_file','xiaomi_selector_continuation_protocol.json'),
+                     'xiaomi_selector_resume.py'):
             (output/'provenance'/name).write_bytes(subprocess.check_output(['git','show',
                 report['source']['source_revision']+':astra_reversal/complex_manipulation/'+name],
                 cwd=Path(__file__).resolve().parents[2]))
     report['physical_accounting'] = dict(completed_policy_episodes=len(rows),
         incomplete_policy_episodes=report.get('interruption',{}).get('physical_episodes',0),
+        zero_action_incomplete_starts=report.get('interruption',{}).get('zero_action_incomplete_starts',0),
+        rejected_reset_starts=report.get('interruption',{}).get('rejected_reset_starts',0),
         total_policy_controls=sum(r['steps'] for r in rows)+report.get('interruption',{}).get('controls',0),
         total_policy_chunks=sum(r['policy_queries'] for r in rows)+report.get('interruption',{}).get('chunks',0),
-        policy_restore_resets=sum(r['policy_restore_resets'] for r in summary['resets']))
+        policy_restore_resets=sum(r['policy_restore_resets'] for r in summary['resets']),
+        additional_verification_restore_resets=sum(r.get('additional_verification_restore_resets',0) for r in summary['resets']))
     physical = report['physical_accounting']
-    if physical['policy_restore_resets'] != physical['completed_policy_episodes']+physical['incomplete_policy_episodes']:
+    physical['total_restores_for_policy_starts'] = physical['policy_restore_resets']+physical['additional_verification_restore_resets']
+    if physical['policy_restore_resets'] != (physical['completed_policy_episodes']+
+            physical['incomplete_policy_episodes']+physical['zero_action_incomplete_starts']):
         raise ValueError('A physical policy reset is missing from episode accounting')
     infrastructure = Path(__file__).parent / 'xiaomi_selector_infrastructure.json'
     if infrastructure.exists():
@@ -296,6 +343,10 @@ def build(results, output):
     if replay_audit.exists():
         report['replay_audit'] = read(replay_audit)
         copy(replay_audit, 'evidence/' + replay_audit.name)
+    observation_audit = Path(__file__).parent / 'xiaomi_observation_audit_summary.json'
+    if observation_audit.exists():
+        report['observation_audit'] = read(observation_audit)
+        copy(observation_audit,'evidence/'+observation_audit.name)
     (output / 'results.json').write_text(json.dumps(report, indent=2) + '\n')
     columns = ['case', 'arm', 'attempt', 'success', 'steps', 'policy_queries', 'teacher_calls', 'tokens',
                'input_tokens', 'output_tokens', 'wall_seconds', 'policy_seconds', 'teacher_seconds', 'instruction']

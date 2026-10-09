@@ -42,3 +42,44 @@ def test_interrupted_feedback_is_kept_outside_replacement_episode():
     assert str(retained_path('history/a/rollout.mp4',protocol)) == 'history/a/rollout.mp4'
     with pytest.raises(ValueError):
         retained_path('../outside',protocol)
+
+
+def test_nested_continuation_keeps_old_interruptions_and_isolates_parent_metadata():
+    protocol = dict(cases=[{'id':'a'}],continuation=dict(parent_workflow='second',
+                    interrupted_trial=dict(case='a',arm='astra',attempt=1)))
+    paths = ('interrupted/first/a/astra1/provider.jsonl',
+             'lineage/first/continuation/parent/protocol.json')
+    for path in paths:
+        assert str(retained_path(path,protocol)) == path
+    assert str(retained_path('continuation/parent/protocol.json',protocol)) == (
+        'lineage/second/continuation/parent/protocol.json')
+
+
+def test_second_continuation_preserves_episode_provenance_and_checks_evidence(tmp_path):
+    import copy
+    import json
+    from astra_reversal.complex_manipulation.xiaomi_selector_resume import load_parent
+    from astra_reversal.complex_manipulation.worker import sha256
+    evaluation = tmp_path/'evaluation'
+    folder = evaluation/'a/native1'
+    folder.mkdir(parents=True)
+    saved = row('a','native',1,False)
+    (folder/'episode.json').write_text(json.dumps(saved))
+    summary_row = dict(saved,origin_workflow='first',origin_source_revision='original')
+    parent = tmp_path/'continuation/parent'
+    (parent/'evaluation').mkdir(parents=True)
+    old_protocol = dict(cases=[{'id':'a'}],continuation={'parent_workflow':'first'})
+    (parent/'protocol.json').write_text(json.dumps(old_protocol))
+    (parent/'evaluation/summary.json').write_text(json.dumps(dict(
+        episodes=[summary_row],resets=[{'case':'a','origin_workflow':'first'}])))
+    protocol = dict(cases=[{'id':'a'}],continuation=dict(parent_workflow='second',
+        parent_source_revision='new',parent_protocol_sha256=sha256(parent/'protocol.json'),
+        retained_completed_trials=[['a','native',1]]))
+    rows, resets = load_parent(evaluation,protocol)
+    assert rows == [summary_row]
+    assert resets[0]['origin_workflow'] == 'first'
+    corrupt = copy.deepcopy(saved)
+    corrupt['success'] = True
+    (folder/'episode.json').write_text(json.dumps(corrupt))
+    with pytest.raises(ValueError,match='episode and parent summary'):
+        load_parent(evaluation,protocol)

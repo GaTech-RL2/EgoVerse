@@ -49,8 +49,10 @@ def retained_path(relative, protocol):
     prefix = Path('evaluation') / interrupted['case'] / f"{interrupted['arm']}{interrupted['attempt']}"
     if path.is_relative_to(prefix):
         return Path('interrupted') / amendment['parent_workflow'] / path.relative_to('evaluation')
-    if path.parts[0] == 'history':
+    if path.parts[0] in ('history', 'interrupted', 'lineage'):
         return path
+    if path.parts[0] == 'continuation':
+        return Path('lineage') / amendment['parent_workflow'] / path
     if len(path.parts) >= 3 and path.parts[0] == 'evaluation' and path.parts[1] in {c['id'] for c in protocol['cases']}:
         return path
     return Path('continuation/parent') / path
@@ -97,8 +99,10 @@ def load_parent(evaluation, protocol):
     amendment = protocol['continuation']
     parent = evaluation.parent / 'continuation/parent'
     old_protocol = json.loads((parent / 'protocol.json').read_text())
+    if amendment.get('parent_protocol_sha256') and sha256(parent / 'protocol.json') != amendment['parent_protocol_sha256']:
+        raise ValueError('Immediate parent protocol differs from registered continuation')
     # Only the explicit amendment may change; original policy settings stay fixed.
-    if old_protocol != {k:v for k,v in protocol.items() if k != 'continuation'}:
+    if {k:v for k,v in old_protocol.items() if k != 'continuation'} != {k:v for k,v in protocol.items() if k != 'continuation'}:
         raise ValueError('Continuation changed the original experiment protocol')
     summary = json.loads((parent / 'evaluation/summary.json').read_text())
     if [list(trial_key(r)) for r in summary['episodes']] != amendment['retained_completed_trials']:
@@ -107,13 +111,16 @@ def load_parent(evaluation, protocol):
     rows = copy.deepcopy(summary['episodes'])
     for row in rows:
         folder = evaluation / row['case'] / f"{row['arm']}{row['attempt']}"
-        if json.loads((folder / 'episode.json').read_text()) != row:
+        saved = json.loads((folder / 'episode.json').read_text())
+        provenance = {'origin_workflow', 'origin_source_revision'}
+        if (any(row.get(k) != v for k,v in saved.items())
+                or set(row)-set(saved)-provenance):
             raise ValueError('Parent episode and parent summary disagree')
-        row.update(origin_workflow=amendment['parent_workflow'],
-                   origin_source_revision=amendment['parent_source_revision'])
+        row.setdefault('origin_workflow',amendment['parent_workflow'])
+        row.setdefault('origin_source_revision',amendment['parent_source_revision'])
     resets = copy.deepcopy(summary['resets'])
     for row in resets:
-        row['origin_workflow'] = amendment['parent_workflow']
+        row.setdefault('origin_workflow',amendment['parent_workflow'])
     return rows, resets
 
 

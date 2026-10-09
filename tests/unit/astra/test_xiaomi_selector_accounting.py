@@ -4,7 +4,8 @@ import copy
 
 import pytest
 
-from astra_reversal.complex_manipulation.xiaomi_selector_report import aggregate, reconcile_interrupted_jobs
+from astra_reversal.complex_manipulation.xiaomi_selector_report import (
+    aggregate, interruption_lineage, interruption_totals, reconcile_interrupted_jobs)
 
 
 def trial(case, arm, attempt, success):
@@ -80,3 +81,34 @@ def test_interruption_reconciliation_requires_exact_receipts(change):
         jobs[-1]['token_usage']['total_tokens'] = None
     with pytest.raises(ValueError):
         reconcile_interrupted_jobs(records,jobs)
+
+
+def test_zero_action_rejected_reset_is_counted_without_an_episode_or_teacher_cost():
+    records, jobs = interrupted_receipts()
+    partial = dict(reconcile_interrupted_jobs(records,jobs),physical_episodes=1,
+        zero_action_incomplete_starts=0,rejected_reset_starts=0,controls=32,chunks=2)
+    rejected = dict(reconcile_interrupted_jobs([],[]),physical_episodes=0,
+        zero_action_incomplete_starts=1,rejected_reset_starts=1,controls=0,chunks=0)
+    total = interruption_totals([partial,rejected])
+    assert (total['physical_episodes'],total['zero_action_incomplete_starts'],total['rejected_reset_starts']) == (1,1,1)
+    assert total['completed_local_jobs'] == 2
+    assert total['token_usage']['total_tokens'] == 220
+    assert (total['controls'],total['chunks']) == (32,2)
+
+
+def test_receipts_bind_each_generation_in_continuation_lineage(tmp_path):
+    import json
+    from astra_reversal.complex_manipulation.worker import sha256
+    def parent_at(path,workflow,parent):
+        (path/'parent').mkdir(parents=True)
+        (path/'parent_archive_receipt.json').write_text(json.dumps({'workflow':workflow}))
+        (path/'parent/protocol.json').write_text(json.dumps(parent))
+        return dict(parent_workflow=workflow,parent_receipt_sha256=sha256(path/'parent_archive_receipt.json'),
+                    parent_protocol_sha256=sha256(path/'parent/protocol.json'))
+    first = parent_at(tmp_path/'lineage/second/continuation','first',{})
+    second = parent_at(tmp_path/'continuation','second',{'continuation':first})
+    protocol = {'continuation':second}
+    assert [r['parent_workflow'] for r in interruption_lineage(tmp_path,protocol)] == ['second','first']
+    (tmp_path/'lineage/second/continuation/parent_archive_receipt.json').write_text('{}')
+    with pytest.raises(ValueError,match='receipt'):
+        interruption_lineage(tmp_path,protocol)
