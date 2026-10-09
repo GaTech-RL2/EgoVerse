@@ -1,0 +1,33 @@
+{
+  "checked_utc": "2026-10-08T23:58:00Z",
+  "leaderboard_url": "https://robocasa.ai/leaderboard.html",
+  "submission_url": "https://github.com/robocasa-benchmark/leaderboard/blob/main/submissions_md/Xiaomi-Robotics_2026_07_08.md",
+  "selected": "Xiaomi-Robotics-1",
+  "reason": "Highest overall published leaderboard score among policies with released code and weights; avoids extra LoRA/memory adaptation.",
+  "leaderboard_percent": {
+    "xiaomi": {
+      "overall": 57.4,
+      "atomic_seen": 80.2,
+      "composite_seen": 57.1,
+      "composite_unseen": 32.1
+    },
+    "pi05": {
+      "overall": 16.9,
+      "atomic_seen": 39.6,
+      "composite_seen": 7.1,
+      "composite_unseen": 1.2
+    }
+  },
+  "separate_released_run": {
+    "source": {
+      "url": "https://github.com/XiaomiRobotics/Xiaomi-Robotics-1.git",
+      "revision": "0dd7aef8dc87296246aae812a1f59ccb708e5546"
+    },
+    "path": "eval_robocasa365/summary.json",
+    "sha256": "98c5e472243b0962789beb73372889e8bd1313aa107b2499e17ce4b2ba234656",
+    "successes": 1432,
+    "episodes": 2500,
+    "success_rate": 0.5728
+  },
+  "qualification_results": "pending, no local success claimed"
+}

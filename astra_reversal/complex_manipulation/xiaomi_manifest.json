@@ -1,0 +1,184 @@
+{
+  "schema": "astra-xiaomi-release-1",
+  "recorded_utc": "2026-10-08T23:58:00Z",
+  "sources": {
+    "xiaomi": {
+      "url": "https://github.com/XiaomiRobotics/Xiaomi-Robotics-1.git",
+      "revision": "0dd7aef8dc87296246aae812a1f59ccb708e5546"
+    },
+    "robocasa": {
+      "url": "https://github.com/robocasa/robocasa.git",
+      "revision": "456174f62b89b8fca99eaaf33949c29fec9cfc2a"
+    },
+    "robosuite": {
+      "url": "https://github.com/ARISE-Initiative/robosuite.git",
+      "revision": "5ce6643f3092639d08f7b0f90ed1c6a84f50552c"
+    }
+  },
+  "checkpoint": {
+    "repo_id": "XiaomiRobotics/Xiaomi-Robotics-1-RoboCasa365",
+    "revision": "3a6d0293bfa90759d34a7fc48c2c62413cd7bcf4",
+    "files": [
+      {
+        "rfilename": ".gitattributes",
+        "blobId": "0fd17d2f7c330afce8bc2b472393143fa66f68a1",
+        "size": 101
+      },
+      {
+        "rfilename": "LICENSE",
+        "blobId": "d56e75ebe7c98409c7b490d2eb068e65feab8001",
+        "size": 11347
+      },
+      {
+        "rfilename": "README.md",
+        "blobId": "5cb36358586f6553c8268458b14bec09fce63056",
+        "size": 1820
+      },
+      {
+        "rfilename": "added_tokens.json",
+        "blobId": "b54f9135e44c1e81047e8d05cb027af8bc039eed",
+        "size": 707
+      },
+      {
+        "rfilename": "chat_template.jinja",
+        "blobId": "124386803f142761528f710e77ae483f5f8c4fc4",
+        "size": 5292
+      },
+      {
+        "rfilename": "config.json",
+        "blobId": "42fbed1c382da0aa2136a6ac3fd7747a344f6250",
+        "size": 5580
+      },
+      {
+        "rfilename": "configuration_mibot.py",
+        "blobId": "01259250bdc00950cd819e0073caee26c5b77f1c",
+        "size": 17645
+      },
+      {
+        "rfilename": "merges.txt",
+        "blobId": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7",
+        "size": 1671853
+      },
+      {
+        "rfilename": "model-00001-of-00003.safetensors",
+        "blobId": "8911953f6c0bab024d872b043d2baced05163924",
+        "size": 4990499880,
+        "lfs": {
+          "sha256": "5c9412f29facda098d5dcf1a58c06830edeeba7c0c59799480dd28b35c3fcc53",
+          "size": 4990499880,
+          "pointerSize": 135
+        }
+      },
+      {
+        "rfilename": "model-00002-of-00003.safetensors",
+        "blobId": "449015619b503e1a74504b88db3511f0a8af56f0",
+        "size": 4999627848,
+        "lfs": {
+          "sha256": "72884ec9b026794df9e3b5c1eb75341e503ae94f0e2555d1178157e3290b7f7d",
+          "size": 4999627848,
+          "pointerSize": 135
+        }
+      },
+      {
+        "rfilename": "model-00003-of-00003.safetensors",
+        "blobId": "e4e9a3f468a4e69cca595d717831bf5640029487",
+        "size": 116305608,
+        "lfs": {
+          "sha256": "5859c4408351a0b894c6175cf6f7a41e5e431637517a1d45587ad94f03d29cac",
+          "size": 116305608,
+          "pointerSize": 134
+        }
+      },
+      {
+        "rfilename": "model.safetensors.index.json",
+        "blobId": "1c4431e06fc781c3195b389dcff5593cb10628a9",
+        "size": 98622
+      },
+      {
+        "rfilename": "modeling_mibot.py",
+        "blobId": "97c67990149b78594c2f74094157b59e82df57e7",
+        "size": 82384
+      },
+      {
+        "rfilename": "preprocessor_config.json",
+        "blobId": "6b69bbb60bc6999f413b9ff64c80ef81fc98097c",
+        "size": 30430
+      },
+      {
+        "rfilename": "processing_mibot.py",
+        "blobId": "4205e028312e08eb77118f77fc79be792065e5ee",
+        "size": 19815
+      },
+      {
+        "rfilename": "processor_config.json",
+        "blobId": "5ddb3c3926ede08c54880aa4d9179ef642749036",
+        "size": 118
+      },
+      {
+        "rfilename": "special_tokens_map.json",
+        "blobId": "ac23c0aaa2434523c494330aeb79c58395378103",
+        "size": 613
+      },
+      {
+        "rfilename": "tokenizer.json",
+        "blobId": "cd71f61a15a522601badb3dc960d800d9cb3766c",
+        "size": 11422654,
+        "lfs": {
+          "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4",
+          "size": 11422654,
+          "pointerSize": 133
+        }
+      },
+      {
+        "rfilename": "tokenizer_config.json",
+        "blobId": "c3221c4b0b7bc61def178bcbb0b7e17df4734807",
+        "size": 5519
+      },
+      {
+        "rfilename": "video_preprocessor_config.json",
+        "blobId": "0fad1491f1c2448959e63a7180756e99f9f55322",
+        "size": 892
+      },
+      {
+        "rfilename": "vocab.json",
+        "blobId": "4783fe10ac3adce15ac8f358ef5462739852c569",
+        "size": 2776833
+      }
+    ]
+  },
+  "asset_receipt_key": "experiments/astra-complex-20261006/astra-complex-20261006-stage-1/receipt.json",
+  "asset_manifest_sha256": "587ddff4557c29313df238f22c5606ce5095bfef1ef7e3775fec1f61b572a0d9",
+  "asset_archives": [
+    {
+      "name": "textures.zip",
+      "url": "https://utexas.box.com/shared/static/4i85ileasdvstmlln5sbvzptz7keuoy1.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "generative_textures.zip",
+      "url": "https://utexas.box.com/shared/static/ebaad09k82tmfmlq6ohdkmrh8izl9vn5.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "fixtures.zip",
+      "url": "https://utexas.box.com/shared/static/idbncsadpnaz1jfl4i6m8qejawk7p9pi.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets"
+    },
+    {
+      "name": "objaverse.zip",
+      "url": "https://utexas.box.com/shared/static/03eionyo8fk3a9dsksq9jb8du5lqfw8h.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    },
+    {
+      "name": "aigen_objs.zip",
+      "url": "https://utexas.box.com/shared/static/nwi1vrn5pgbo95kushkasa3nx1i012ff.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    },
+    {
+      "name": "lightwheel.zip",
+      "url": "https://utexas.box.com/shared/static/vckqvvkh1z8t69k8qcpcmee6k66stii4.zip",
+      "extract_parent": "sources/robocasa/robocasa/models/assets/objects"
+    }
+  ],
+  "image": "nvcr.io/nvidia/pytorch:25.06-py3"
+}
