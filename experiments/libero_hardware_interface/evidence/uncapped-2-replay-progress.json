@@ -1,0 +1,178 @@
+{
+  "workflow": "libero-hardware-interface-20261008-uncapped-2",
+  "source_commit": "e26ac4deca7e7ba1e818502f538131c74fe6636a",
+  "workflow_status": "FAILED",
+  "workflow_end_time_utc": "2026-10-09T02:02:27.706347",
+  "evidence_source": "Independent replay receipts in OSMO worker logs",
+  "workflow_log_sha256": "440f00a82be4fd92b79696a50d3e9bdba838c380d21aad7d4b20c9d1d9173b5b",
+  "trial_count": 13,
+  "successes": 6,
+  "all_started": {
+    "F": {
+      "trials": 4,
+      "successes": 3
+    },
+    "B0": {
+      "trials": 5,
+      "successes": 1
+    },
+    "B": {
+      "trials": 4,
+      "successes": 2
+    }
+  },
+  "complete_matched_blocks": 4,
+  "matched_block_results": {
+    "F": {
+      "trials": 4,
+      "successes": 3
+    },
+    "B0": {
+      "trials": 4,
+      "successes": 1
+    },
+    "B": {
+      "trials": 4,
+      "successes": 2
+    }
+  },
+  "trial_receipts": [
+    {
+      "trial_id": "pilot-t05-i02-r0-F",
+      "task_id": 5,
+      "init_state_index": 2,
+      "condition": "F",
+      "success": true,
+      "replayed_steps": 261,
+      "first_success_step": 261,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t05-i02-r0-B0",
+      "task_id": 5,
+      "init_state_index": 2,
+      "condition": "B0",
+      "success": false,
+      "replayed_steps": 755,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t05-i02-r0-B",
+      "task_id": 5,
+      "init_state_index": 2,
+      "condition": "B",
+      "success": false,
+      "replayed_steps": 726,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i03-r0-B",
+      "task_id": 0,
+      "init_state_index": 3,
+      "condition": "B",
+      "success": false,
+      "replayed_steps": 393,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i03-r0-B0",
+      "task_id": 0,
+      "init_state_index": 3,
+      "condition": "B0",
+      "success": false,
+      "replayed_steps": 228,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i03-r0-F",
+      "task_id": 0,
+      "init_state_index": 3,
+      "condition": "F",
+      "success": false,
+      "replayed_steps": 230,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-B0",
+      "task_id": 8,
+      "init_state_index": 0,
+      "condition": "B0",
+      "success": false,
+      "replayed_steps": 713,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-F",
+      "task_id": 8,
+      "init_state_index": 0,
+      "condition": "F",
+      "success": true,
+      "replayed_steps": 856,
+      "first_success_step": 856,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-B",
+      "task_id": 8,
+      "init_state_index": 0,
+      "condition": "B",
+      "success": true,
+      "replayed_steps": 558,
+      "first_success_step": 558,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-B",
+      "task_id": 0,
+      "init_state_index": 4,
+      "condition": "B",
+      "success": true,
+      "replayed_steps": 439,
+      "first_success_step": 439,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-B0",
+      "task_id": 0,
+      "init_state_index": 4,
+      "condition": "B0",
+      "success": true,
+      "replayed_steps": 294,
+      "first_success_step": 294,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-F",
+      "task_id": 0,
+      "init_state_index": 4,
+      "condition": "F",
+      "success": true,
+      "replayed_steps": 506,
+      "first_success_step": 506,
+      "independent_replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i04-r0-B0",
+      "task_id": 6,
+      "init_state_index": 4,
+      "condition": "B0",
+      "success": false,
+      "replayed_steps": 441,
+      "first_success_step": null,
+      "independent_replay_status": "passed"
+    }
+  ],
+  "infrastructure_interruption": "pilot-t06-i04-r0-B0; exact underlying error pending private archive retrieval",
+  "limitations": [
+    "Partial cohort: 13 of 150 planned trials; no confirmatory comparison.",
+    "Matched subset spans four official initial states across only three tasks.",
+    "The unmatched interrupted trial remains in all-started counts.",
+    "These are raw descriptive counts, not the full ten-task macro success metric."
+  ]
+}

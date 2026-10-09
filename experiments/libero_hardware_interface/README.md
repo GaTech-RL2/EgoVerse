@@ -58,7 +58,14 @@ checks have zero successes and establish execution only, not task performance.
 The replacement `libero-hardware-interface-20261008-uncapped-2`, source
 `e26ac4deca7e7ba1e818502f538131c74fe6636a`, passed all 40 Linux tests and all nine
 startup gates, and entered the actual pilot on 2026-10-09 UTC. Its first trial
-is `pilot-t05-i02-r0-F`; no completed pilot results were available at startup.
+was `pilot-t05-i02-r0-F`. It later stopped on an infrastructure failure after
+13 trials, with six independently replayed successes. Across the four completed
+matched starting states, F succeeded 3/4, B0 1/4 and B 2/4. These states span only
+three tasks and are descriptive partial results, not the full ten-task score.
+The additional interrupted B0 trial remains in all-started counts (B0 1/5).
+See [replay progress](evidence/uncapped-2-replay-progress.json). Exact error
+diagnosis awaits archive retrieval; OSMO retrieval was still processing at the
+2026-10-09 status check. All existing results remain preserved.
 Confirmation remains gated on the complete pilot and a new power-based freeze.
 Validate this isolated study with
 `python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q`.
