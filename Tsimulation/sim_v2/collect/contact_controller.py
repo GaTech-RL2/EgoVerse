@@ -41,6 +41,8 @@ class ContactController(ArticulationController):
         ).buffer(1e-7, join_style=2)
 
     def _rotation_clear(self, p):
+        if 'angle' not in self.spec:
+            return True
         footprint = self._footprint(np.zeros(2), 0.0)
         radius = max(np.linalg.norm(v) for v in footprint.convex_hull.exterior.coords)
         return (
@@ -57,6 +59,7 @@ class ContactController(ArticulationController):
         sticky = self.env.agent.control_gap.deadband >= 3.0
         padding = 18.0 if sticky else 10.0
         obstacle = self._object_polygon().buffer(radius + (17.0 if sticky else 9.0))
+        obstacle = unary_union([obstacle, self._static_obstacles().buffer(radius + 9.0)])
         candidates = [
             np.array([x, y])
             for x in np.linspace(radius + padding, 512 - padding - radius, 10)
@@ -103,7 +106,7 @@ class ContactController(ArticulationController):
                 torque = arm[0] * normal[1] - arm[1] * normal[0]
                 response = np.r_[normal, torque * 0.065]
                 gain = float(np.dot(desired, response) / np.linalg.norm(response))
-                if gain < 0:
+                if gain < 0 and not getattr(self, 'predict_contacts', False):
                     continue
                 aim = math.atan2(normal[1], normal[0]) + math.pi / 2
                 if "angle" not in self.spec:
@@ -112,16 +115,22 @@ class ContactController(ArticulationController):
                 if self.emb == "scoop":
                     aim -= math.pi
                 footprint = self._footprint(np.zeros(2), aim)
-                verts = np.array(footprint.convex_hull.exterior.coords)
+                verts = np.array(footprint.convex_hull.exterior.coords[:-1])
                 ahead = float(np.max(verts @ normal))
-                stage = contact - normal * (ahead + 15.0)
+                # The leading face/vertex can be laterally displaced from the
+                # tool origin (especially the fixed horizontal bar). Place its
+                # actual support point on the requested object contact.
+                support = verts[(verts @ normal) >= ahead - 1e-6].mean(axis=0)
+                if self.emb == 'stick':
+                    # A fixed bar can contact with the interior of its long
+                    # face; keep its origin centred behind the chosen contact.
+                    support = normal * ahead
+                stage = contact - support - normal * 15.0
                 if not self._within_walls(stage, aim):
                     continue
                 cost = -gain + np.linalg.norm(p - stage) * 0.045
-                candidates.append((cost, stage, aim, normal, contact, ahead))
-        for _, stage, aim, normal, contact, ahead in sorted(
-            candidates, key=lambda x: x[0]
-        )[:24]:
+                candidates.append((cost, stage, aim, normal, contact, ahead, support))
+        for _, stage, aim, normal, contact, ahead, support in self.rank_candidates(candidates):
             route = self._plan_route(stage, aim)
             if route:
                 self.route = route
@@ -131,6 +140,7 @@ class ContactController(ArticulationController):
                     normal=normal,
                     contact=contact,
                     ahead=ahead,
+                    support_local=rot(-aim) @ support,
                     theta=theta,
                     center=c,
                     object_contact=rot(-theta) @ (contact - c),
@@ -141,6 +151,9 @@ class ContactController(ArticulationController):
                 self.transition("AIM")
                 return True
         return False
+
+    def rank_candidates(self, candidates):
+        return sorted(candidates, key=lambda x: x[0])[:24]
 
     def __call__(self):
         self.steps_in_state += 1
@@ -203,11 +216,11 @@ class ContactController(ArticulationController):
         goal = self.target_pose()
         poserr = np.linalg.norm(goal[:2] - c)
         angerr = abs(wrap(goal[2] - theta))
-        position = (
-            contact
-            - normal * primitive["ahead"]
-            + normal * (55.0 if self.emb == "scoop" else 22.0)
-        )
+        support = rot(aim) @ primitive['support_local']
+        if self.emb == 'stick':
+            vertices = np.asarray(self._footprint(np.zeros(2), aim).convex_hull.exterior.coords[:-1])
+            support = normal * float(np.max(vertices @ normal))
+        position = contact - support + normal * (55.0 if self.emb == "scoop" else 22.0)
         grip = 1.0 if self.emb == "spring" else 0.0
         if self.emb == "flipper":
             grip = min(0.55, self.steps_in_state / 90.0)

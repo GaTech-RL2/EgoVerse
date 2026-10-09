@@ -121,9 +121,81 @@ class SourcePathContactController(ContactController):
         self.path_index = 0
         self.position_tolerance = config['waypoint_position_tolerance']
         self.angle_tolerance = config['waypoint_angle_tolerance']
+        self._planned_attempt = -1
+        self.source = source
+        self.predict_contacts = (
+            self.emb == 'stick' and config.get('predict_bar_contacts', False))
+
+    def _object_segment_clear(self, start, goal):
+        from shapely.geometry import box
+        from ..pushshapes.shapes import object_polygon
+        distance = np.linalg.norm(goal[:2] - start[:2])
+        turn = wrap(goal[2] - start[2])
+        steps = max(2, int(np.ceil(max(distance / 6., abs(turn) / .05))))
+        static = self._static_obstacles()
+        arena = box(1, 1, 511, 511)
+        for fraction in np.linspace(0, 1, steps + 1):
+            position = start[:2] + fraction * (goal[:2] - start[:2])
+            polygon = object_polygon(self.env.object_shape, tuple(position), start[2] + fraction * turn)
+            if not arena.covers(polygon) or polygon.intersects(static):
+                return False
+        return True
+
+    def rank_candidates(self, candidates):
+        if not self.predict_contacts:
+            return super().rank_candidates(candidates)
+        p, _, center, theta = self._pose()
+        goal = self.target_pose()
+        angular_weight = 150. if np.linalg.norm(goal[:2] - center) < 60. else 45.
+
+        def error(pose):
+            return np.linalg.norm(np.r_[goal[:2] - pose[:2],
+                                        angular_weight * wrap(goal[2] - pose[2])])
+
+        before = error(np.r_[center, theta])
+        ranked = []
+        for candidate in super().rank_candidates(candidates):
+            _, stage, aim, normal, contact, ahead, support = candidate
+            if not self._plan_route(stage, aim):
+                continue
+            # Predict in a separate simulator. No real body is repositioned:
+            # the real tool must still execute the checked approach and stroke.
+            model_source = dict(self.source, init=dict(self.source['init'],
+                object_pose=[*center, theta], goal_pose=goal.tolist(),
+                agent_pos=stage.tolist(), agent_angle=float(aim)))
+            model = make_env(model_source, self.emb)
+            try:
+                control = ContactController(model)
+                control.state = 'PUSH'
+                control.primitive = dict(stage=stage, aim=aim, normal=normal,
+                    contact=contact, ahead=ahead, support_local=rot(-aim) @ support,
+                    theta=theta, center=center,
+                    object_contact=rot(-theta) @ (contact - center),
+                    object_normal=rot(-theta) @ normal)
+                control._object_before = np.r_[center, theta]
+                for _ in range(80):
+                    action = control().astype(np.float32)
+                    if control.state == 'BACKOFF':
+                        break
+                    model.step(action.astype(np.float64))
+                gain = before - error(np.asarray(model.object_pose))
+                cost = -gain + np.linalg.norm(p - stage) * .01
+                ranked.append((cost, *candidate[1:]))
+            finally:
+                model.close()
+        return sorted(ranked, key=lambda x:x[0])
 
     def target_pose(self):
         _, _, center, theta = self._pose()
+        if self.state == 'PLAN' and self._planned_attempt != self._attempts:
+            self._planned_attempt = self._attempts
+            # A gripper's dense path contains rotations and reversals that a
+            # contact tool need not imitate. Skip only segments whose entire T
+            # silhouette clears the real barriers throughout the pose change.
+            for index in range(len(self.waypoints) - 1, self.path_index, -1):
+                if self._object_segment_clear(np.r_[center, theta], self.waypoints[index]):
+                    self.path_index = index
+                    break
         while self.path_index < len(self.waypoints) - 1:
             goal = self.waypoints[self.path_index]
             if (np.linalg.norm(center - goal[:2]) > self.position_tolerance
@@ -195,6 +267,7 @@ def rollout(source, embodiment, config):
                        max_object_overflow=max_overflow, max_penetration=max_penetration,
                        max_static_penetration=max_static_penetration,
                        obstacle_level=env.obstacle_level,
+                       contact_prediction=bool(getattr(controller, 'predict_contacts', False)),
                        failure=controller.reason, seconds=time.monotonic()-started,
                        method="source_object_path" if grasping else "source_path_contact_replanning" if env.obstacle_level else "source_scene_contact_replanning",
                        source=source["provenance"], **audit.metrics())
