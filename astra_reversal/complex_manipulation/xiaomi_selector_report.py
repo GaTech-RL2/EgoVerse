@@ -166,6 +166,8 @@ def build(results, output):
             copy(seed_folder / name, f'evidence/{identity}/{name}')
         copy(folder / 'episode.json', f'evidence/{identity}/episode.json')
         # Provider receipt data is public evidence; local CLI events/reasoning are not copied.
+        if (folder / 'provider.jsonl').exists():
+            copy(folder / 'provider.jsonl', f'evidence/{identity}/provider.jsonl')
         (output / 'evidence' / identity / 'usage.json').write_text(json.dumps(accounting, indent=2) + '\n')
     arms = aggregate(rows, protocol['cases'])
     prefix_checks = []
@@ -209,6 +211,18 @@ def build(results, output):
         source=read(results / 'worker_started.json'),
         worker=read(results / 'worker_finished.json'), archive_files_verified=len(receipt['files']),
         archive_receipt_sha256=sha256(results / 'archive_receipt.json'), prompt=SYSTEM_PROMPT)
+    generator_files = ('xiaomi_selector_report.py','xiaomi_selector_dashboard.html')
+    repo = Path(__file__).resolve().parents[2]
+    generator_status = subprocess.check_output(['git','status','--porcelain','--',
+        *('astra_reversal/complex_manipulation/'+name for name in generator_files)],cwd=repo,text=True).strip()
+    if generator_status:
+        raise ValueError('Commit the report generator before publishing reproducible results')
+    report['report_generation'] = dict(source_revision=subprocess.check_output(
+        ['git','rev-parse','HEAD'],cwd=repo,text=True).strip(),source_files={})
+    for name in generator_files:
+        path = Path(__file__).parent / name
+        report['report_generation']['source_files'][name] = sha256(path)
+        copy(path,'provenance/report_generator/'+name)
     for path in (results / 'archive_receipt.json', results / 'protocol.json', results / 'worker_started.json',
                  results / 'worker_finished.json', results / 'stage_receipt.json', results / 'evaluation/intervention_preflight.json'):
         copy(path, 'evidence/' + path.name)
