@@ -1,6 +1,7 @@
 """Package committed RoboCasa study code for an owned L40S worker."""
 
 import argparse
+import base64
 import hashlib
 import json
 import subprocess
@@ -41,6 +42,12 @@ def prepare(destination, stage, pool="groot-l40s-01"):
                 raise ValueError("payload_symlink")
             archive.add(root / relative, arcname=relative, recursive=False)
     sha = hashlib.sha256(payload.read_bytes()).hexdigest()
+    # Ship immutable source with the submission. Interactive rsync is not a
+    # dependable bootstrap dependency on all OSMO backends.
+    payload_text = destination / "payload.tar.gz.b64"
+    payload_text.write_bytes(base64.b64encode(payload.read_bytes()))
+    if payload_text.stat().st_size > 950_000:
+        raise ValueError("source_payload_exceeds_file_injection_limit")
     study = root / "experiments/robocasa_hardware_interface"
     manifest = yaml.safe_load((study / "preregistration.yaml").read_text())
     bootstrap = destination / "bootstrap.sh"
@@ -54,19 +61,36 @@ def prepare(destination, stage, pool="groot-l40s-01"):
     }
     if stage != "commission":
         environment["HARDWARE_API_KEY_FILE"] = "/osmo/run/workspace/inference-api-key"
+    staging_check = stage == "staging-check"
+    credentials = (
+        {}
+        if staging_check
+        else {
+            "grabber-arc-r2-20260916": {
+                "R2_ACCESS_KEY_ID": "r2_access_key_id",
+                "R2_SECRET_ACCESS_KEY": "r2_secret_access_key",
+                "R2_ENDPOINT_URL": "r2_endpoint_url",
+            }
+        }
+    )
+    if stage != "commission":
+        credentials["astra-hardware-inference-20261010"] = "/run/hardware-inference"
     spec = {
         "workflow": {
             "name": "robocasa-hardware-interface-20261009-" + stage,
             "resources": {
                 "default": {
-                    "cpu": 8,
-                    "gpu": 1,
-                    "memory": "32Gi",
-                    "storage": "200Gi",
+                    "cpu": 1 if staging_check else 8,
+                    "gpu": 0 if staging_check else 1,
+                    "memory": "2Gi" if staging_check else "32Gi",
+                    "storage": "4Gi" if staging_check else "200Gi",
                     "platform": platform,
                 }
             },
-            "timeout": {"queue_timeout": "4h"},
+            "timeout": {
+                "queue_timeout": "4h",
+                **({"exec_timeout": "5m"} if staging_check else {}),
+            },
             "tasks": [
                 {
                     "name": "worker0",
@@ -74,18 +98,16 @@ def prepare(destination, stage, pool="groot-l40s-01"):
                     "command": ["bash"],
                     "args": ["/tmp/hardware-bootstrap.sh"],
                     "environment": environment,
-                    "credentials": {
-                        "grabber-arc-r2-20260916": {
-                            "R2_ACCESS_KEY_ID": "r2_access_key_id",
-                            "R2_SECRET_ACCESS_KEY": "r2_secret_access_key",
-                            "R2_ENDPOINT_URL": "r2_endpoint_url",
-                        }
-                    },
+                    "credentials": credentials,
                     "files": [
                         {
                             "localpath": str(bootstrap),
                             "path": "/tmp/hardware-bootstrap.sh",
-                        }
+                        },
+                        {
+                            "localpath": str(payload_text),
+                            "path": "/tmp/hardware-payload.tar.gz.b64",
+                        },
                     ],
                 }
             ],
@@ -102,6 +124,10 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "pilot_tasks": 50,
         "pilot_trials": 150,
         "resource_caps": None,
+        "source_transport": "OSMO file injection; base64 with SHA-256 verification",
+        "inference_secret_transport": "OSMO generic secret mounted outside artifacts"
+        if stage != "commission"
+        else None,
         "workflow_file": str(destination / "workflow.yaml"),
     }
     (destination / "launch-receipt.json").write_text(
@@ -114,7 +140,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination")
     parser.add_argument(
-        "--stage", choices=("commission", "smoke", "pilot"), default="pilot"
+        "--stage",
+        choices=("staging-check", "commission", "smoke", "pilot"),
+        default="pilot",
     )
     parser.add_argument(
         "--pool", choices=("groot-l40s-01", "groot-l40-05"), default="groot-l40s-01"

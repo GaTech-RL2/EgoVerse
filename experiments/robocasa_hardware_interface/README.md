@@ -84,6 +84,18 @@ and records asset archive hashes, a dependency freeze and wheel hashes. CPU
 PyTorch satisfies upstream dependencies; inference runs through the existing
 NVIDIA Astra endpoint. Credentials are transferred separately from source.
 
+Source is injected with the OSMO submission as a base64 archive and verified
+against its SHA-256 before extraction. The inference key is mounted from the
+OSMO generic credential `astra-hardware-inference-20261010` and copied to a
+regular mode-0600 file outside artifacts and actor scratch. No interactive
+rsync or laptop-side process is needed after submission. `--stage staging-check`
+uses one CPU and zero GPUs to verify source and secret delivery without any
+model calls; run this check before a new GPU launch.
+
+The previous `pilot-3` worker passed system-package installation but never
+received its rsync payload and timed out with zero model trials. Its failed
+attempt remains separate from later runs.
+
 The Debian package snapshot is 2025-10-01, compatible with the image's
 2025-09-29 base. An OSMO CPU-only package-resolution probe reproduced the
 initial older-snapshot conflict and passed with this date. That check verifies
@@ -93,6 +105,8 @@ system-package resolution, not simulator commissioning or benchmark success.
 source emimic/bin/activate
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q
 # Commit tested sources before preparing a launch payload.
+python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
+  /path/to/new/staging-check --stage staging-check --pool groot-l40-05
 python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/launch-artifacts --stage pilot
 ```

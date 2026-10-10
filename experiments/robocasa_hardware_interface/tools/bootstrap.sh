@@ -18,13 +18,42 @@ bootstrap_failure() {
                 tail -n 60 "artifacts/runtime/$log"
             fi
         done
-        if [[ ! -f artifacts/worker-entered.json && -f experiments/robocasa_hardware_interface/tools/archive_failure.py ]]; then
+        if [[ "${HARDWARE_STAGE:-commission}" != staging-check && ! -f artifacts/worker-entered.json && -f experiments/robocasa_hardware_interface/tools/archive_failure.py ]]; then
             python experiments/robocasa_hardware_interface/tools/archive_failure.py || true
         fi
     fi
     exit "$result"
 }
 trap bootstrap_failure EXIT
+base64 --decode /tmp/hardware-payload.tar.gz.b64 > /osmo/run/workspace/payload.tar.gz
+echo "$PAYLOAD_SHA256  /osmo/run/workspace/payload.tar.gz" | sha256sum --check --status
+tar xzf /osmo/run/workspace/payload.tar.gz
+if [[ "${HARDWARE_STAGE:-commission}" != commission ]]; then
+    # Secret volumes can contain symlinks and be read-only. The provider uses
+    # O_NOFOLLOW and requires a regular 0600 file outside archives and scratch.
+    install -m 600 /run/hardware-inference/inference_api_key "$HARDWARE_API_KEY_FILE"
+fi
+python3 - <<'PY'
+import json, os, stat
+from pathlib import Path
+stage = os.environ.get('HARDWARE_STAGE', 'commission')
+if stage != 'commission':
+    fd = os.open(os.environ['HARDWARE_API_KEY_FILE'], os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            raise RuntimeError('api_key_file_not_private')
+        key = stream.read(4097).strip()
+        if not key or len(key) > 4096:
+            raise RuntimeError('api_key_file_invalid')
+receipt = {'event': 'inputs_ready', 'source_commit': os.environ['HARDWARE_SOURCE_COMMIT'],
+           'payload_sha256': os.environ['PAYLOAD_SHA256'], 'source_materialized': True,
+           'inference_key_ready': stage != 'commission', 'stage': stage,
+           'model_calls': 0}
+Path('artifacts/runtime/input-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+print(json.dumps(receipt), flush=True)
+PY
+if [[ "${HARDWARE_STAGE:-commission}" == staging-check ]]; then exit 0; fi
 # The digest-pinned image contains the 2025-09-29 Debian base. An older
 # snapshot provides libc6-dev deb12u10 against the image's libc6 deb12u13.
 # Both package resolutions were checked on OSMO before selecting this date.
@@ -35,12 +64,6 @@ APT
 APT_OPTIONS=(-o Dir::Etc::sourcelist=/tmp/hardware-apt.list -o Dir::Etc::sourceparts=- -o Acquire::Retries=3)
 apt-get "${APT_OPTIONS[@]}" update -qq > artifacts/runtime/apt-install.log 2>&1
 apt-get "${APT_OPTIONS[@]}" install -y --no-install-recommends git cmake g++ libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg unzip >> artifacts/runtime/apt-install.log 2>&1
-for attempt in $(seq 1 900); do
-    if [[ -f /osmo/run/workspace/payload.tar.gz ]] && [[ "$(sha256sum /osmo/run/workspace/payload.tar.gz | cut -d' ' -f1)" == "$PAYLOAD_SHA256" ]]; then break; fi
-    if [[ "$attempt" == 900 ]]; then exit 2; fi
-    sleep 2
-done
-tar xzf /osmo/run/workspace/payload.tar.gz
 python3 -m venv emimic
 source emimic/bin/activate
 python -m pip install pip==24.3.1 setuptools==75.8.0 wheel==0.45.1 boto3==1.34.162 pyyaml==6.0.2
@@ -66,11 +89,4 @@ sed '/^-e /d' artifacts/runtime/pip-freeze.txt > artifacts/runtime/wheel-require
 python -m pip wheel --no-deps -r artifacts/runtime/wheel-requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu -w artifacts/wheelhouse > artifacts/runtime/wheel-build.log 2>&1 || { tail -n 60 artifacts/runtime/wheel-build.log; exit 1; }
 sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
-if [[ "${HARDWARE_STAGE:-commission}" != commission ]]; then
-    for attempt in $(seq 1 300); do
-        if [[ -s "$HARDWARE_API_KEY_FILE" ]]; then chmod 600 "$HARDWARE_API_KEY_FILE"; break; fi
-        if [[ "$attempt" == 300 ]]; then exit 3; fi
-        sleep 2
-    done
-fi
 python -m astra_reversal.hardware_interface.robocasa_worker
