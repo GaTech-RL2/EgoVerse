@@ -1,4 +1,4 @@
-trial_id,condition,task_id,init_state_index,success,terminal_reason,sim_steps,wall_s,known_workflow_tokens,unknown_usage_records,source_sha256,independent_replay_status
+trial_id,condition,task_id,init_state_index,success,terminal_reason,sim_steps,wall_s,known_workflow_tokens,unknown_usage_records,outcome_sha256,independent_replay_status
 pilot-t00-i03-r0-B,B,0,3,False,TASK_FAILURE,393,445.94309347801027,1594511,0,e492d7fced475afe2276f31770449c7f7b01ce25316319533f7d60a43c4d4e8a,passed
 pilot-t00-i03-r0-B0,B0,0,3,False,TASK_FAILURE,228,238.71706958099094,647461,0,dd271936c8cfa69a070a160b23881dff74e87283cc9c14dc83ec499988318f4f,passed
 pilot-t00-i03-r0-F,F,0,3,False,TASK_FAILURE,230,182.47477042600804,788570,0,8d67419cfa37616353e51c0a9fdd9ae07af23bbb16b751b213825b6ba869ee3f,passed

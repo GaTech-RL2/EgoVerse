@@ -1,0 +1,99 @@
+{
+  "checks": {
+    "benchmark_modules_absent": true,
+    "credentials_absent": true,
+    "fresh_scratch": true,
+    "hidden_files_absent": true,
+    "initially_unsolved": true,
+    "native_interface_equivalence": false,
+    "network_denied": true,
+    "scratch_works": true,
+    "source_isolation": true,
+    "source_readonly": true
+  },
+  "resolved": {
+    "allowlist_sha256": "b2d029dcc1f727b03ac94f392e4c01ad9c62dff70e7f9299bf256d91f3ac8b4f",
+    "asset_downloads_sha256": "00763795b77f9b7524feb42fb50486098d120d9171a5d7d56e6fad8523525885",
+    "catalog_sha256": "a6c171d3c63d955f88360891237f117a1fa19130d816fc83c6414db342451968",
+    "controller_sha256": "046dcfea4647dcd1a63592bcc1ee9bb867ed3799bf725c819c2befe501efdeee",
+    "pip_freeze_sha256": "ae004de485f99948caadab177ec07bce1321b0367310d6b0c7c59d83d45c4b59",
+    "source_sha256": "18e0caeb91c2e5cd0be200153b747696dab8b1573ab9b6c4ba333ad29428bc54"
+  },
+  "traces": [
+    {
+      "controller": "046dcfea4647dcd1a63592bcc1ee9bb867ed3799bf725c819c2befe501efdeee",
+      "observations": [
+        "adf97473c83d4184256c9efa4d8f5b3375e48cf4ca4ca971848c04f85e52f2f7",
+        "74dafef4a04349f4a3243d1fe52067d1d9e8429214cb408899bf97145c49bbd6",
+        "84645a354dac4b779c983b3f28b3d5a0d02700f2734fb4915a48cc3a80a3f6a9",
+        "ccc963c0982f899812892d49079470de9f1a74b6e65c4e6540fc729d2e9a9603"
+      ],
+      "reset": {
+        "additional_settling_steps": 0,
+        "body_pos_sha256": "ad6299511a6395e395616b8ded4722441997ffa563d1dfddc16240f45d51d889",
+        "body_quat_sha256": "8bfc0e011a062991e25b19886efdfd3c2e19786355ed191acff77ba9012f0989",
+        "episode_metadata_sha256": "ec963972328786eb14906dcb2d075f56e76d42ecab0e7cb2f4d08fccf39efeac",
+        "initial_success": false,
+        "instruction_sha256": "47a83a9588f8911fd6fe6fd455b44961b3b8fed769dc9344fec9bfa7fc708a60",
+        "model_xml_sha256": "babc28ad4762e2896da1830d586baccd7320feea46541b75cf17b745e85f4868",
+        "seed": 1000003,
+        "split": "target",
+        "state_sha256": "4bb5b122ac6136f9fc595f7c4955dfa7a5c93daa418d1857b80040cadaa2c179",
+        "task": "CloseDrawer"
+      },
+      "terminal": "ab6eb554b86d6d3040b185996c36b71b4a8cceee59b53b24b1a47434801d6e15"
+    },
+    {
+      "controller": "046dcfea4647dcd1a63592bcc1ee9bb867ed3799bf725c819c2befe501efdeee",
+      "observations": [
+        "adf97473c83d4184256c9efa4d8f5b3375e48cf4ca4ca971848c04f85e52f2f7",
+        "74dafef4a04349f4a3243d1fe52067d1d9e8429214cb408899bf97145c49bbd6",
+        "84645a354dac4b779c983b3f28b3d5a0d02700f2734fb4915a48cc3a80a3f6a9",
+        "ccc963c0982f899812892d49079470de9f1a74b6e65c4e6540fc729d2e9a9603"
+      ],
+      "reset": {
+        "additional_settling_steps": 0,
+        "body_pos_sha256": "ad6299511a6395e395616b8ded4722441997ffa563d1dfddc16240f45d51d889",
+        "body_quat_sha256": "8bfc0e011a062991e25b19886efdfd3c2e19786355ed191acff77ba9012f0989",
+        "episode_metadata_sha256": "ec963972328786eb14906dcb2d075f56e76d42ecab0e7cb2f4d08fccf39efeac",
+        "initial_success": false,
+        "instruction_sha256": "47a83a9588f8911fd6fe6fd455b44961b3b8fed769dc9344fec9bfa7fc708a60",
+        "model_xml_sha256": "36a03dea837d4d32d0b5b83df82e844ff66b38d34535cfb06a13bff89363c262",
+        "seed": 1000003,
+        "split": "target",
+        "state_sha256": "4bb5b122ac6136f9fc595f7c4955dfa7a5c93daa418d1857b80040cadaa2c179",
+        "task": "CloseDrawer"
+      },
+      "terminal": "ab6eb554b86d6d3040b185996c36b71b4a8cceee59b53b24b1a47434801d6e15"
+    },
+    {
+      "controller": "046dcfea4647dcd1a63592bcc1ee9bb867ed3799bf725c819c2befe501efdeee",
+      "observations": [
+        "adf97473c83d4184256c9efa4d8f5b3375e48cf4ca4ca971848c04f85e52f2f7",
+        "74dafef4a04349f4a3243d1fe52067d1d9e8429214cb408899bf97145c49bbd6",
+        "84645a354dac4b779c983b3f28b3d5a0d02700f2734fb4915a48cc3a80a3f6a9",
+        "ccc963c0982f899812892d49079470de9f1a74b6e65c4e6540fc729d2e9a9603"
+      ],
+      "reset": {
+        "additional_settling_steps": 0,
+        "body_pos_sha256": "ad6299511a6395e395616b8ded4722441997ffa563d1dfddc16240f45d51d889",
+        "body_quat_sha256": "8bfc0e011a062991e25b19886efdfd3c2e19786355ed191acff77ba9012f0989",
+        "episode_metadata_sha256": "ec963972328786eb14906dcb2d075f56e76d42ecab0e7cb2f4d08fccf39efeac",
+        "initial_success": false,
+        "instruction_sha256": "47a83a9588f8911fd6fe6fd455b44961b3b8fed769dc9344fec9bfa7fc708a60",
+        "model_xml_sha256": "36a03dea837d4d32d0b5b83df82e844ff66b38d34535cfb06a13bff89363c262",
+        "seed": 1000003,
+        "split": "target",
+        "state_sha256": "4bb5b122ac6136f9fc595f7c4955dfa7a5c93daa418d1857b80040cadaa2c179",
+        "task": "CloseDrawer"
+      },
+      "terminal": "ab6eb554b86d6d3040b185996c36b71b4a8cceee59b53b24b1a47434801d6e15"
+    }
+  ],
+  "workflow": "robocasa-hardware-interface-20261009-pilot-4",
+  "source_commit": "9f988e97c041e007a0034ddb9e88495c5e36524a",
+  "recovered_date": "2026-10-12",
+  "workflow_status": "FAILED",
+  "model_trials_started": 0,
+  "archive_prefix": "s3://rldb/experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-pilot-4/final/"
+}

@@ -131,10 +131,11 @@ class Environment:
             if not isinstance(self.instruction, str) or not self.instruction.strip():
                 raise ValueError("official_instruction_missing")
             self.controller = self._controller()
+            self.reset_model_xml = self.env.sim.model.get_xml()
             self.reset_receipt = {
                 "state_sha256": self.state_hash(),
                 "model_xml_sha256": hashlib.sha256(
-                    self.env.sim.model.get_xml().encode()
+                    self.reset_model_xml.encode()
                 ).hexdigest(),
                 "body_pos_sha256": array_hash(self.env.sim.model.body_pos),
                 "body_quat_sha256": array_hash(self.env.sim.model.body_quat),

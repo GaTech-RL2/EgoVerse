@@ -9,12 +9,15 @@ The pilot is exploratory. Its single seed per task does not reproduce the
 official benchmark's 50-scenario evaluation and is not a leaderboard result.
 Historical LIBERO results remain a separate cohort.
 
-As of 2026-10-12 UTC, the latest submitted workflow is
-`robocasa-hardware-interface-20261009-pilot-4` at source `9f988e97`.
-Its current status cannot be verified: OSMO queries return HTTP 403 and the Forge
-backend hostname does not resolve from the development Mac. Submission and the
-earlier successful source-delivery probe are not evidence of completed RoboCasa
-trials. Do not submit a duplicate pilot until this workflow's status is recovered.
+OSMO access recovered on 2026-10-12. Workflow
+`robocasa-hardware-interface-20261009-pilot-4` at source `9f988e97` failed
+commissioning before any model trials. The three interfaces have identical reset
+states, observations, terminal states, controllers and task metadata; only the
+compiled model XML hash differs for the first environment. The immutable final
+archive contains 183 files. The recovered commissioning receipt is in
+`evidence/pilot-4-commissioning.json`. Native equivalence remains a required gate;
+the worker now retains the source and compiled XML and their differences to
+diagnose the mismatch before another pilot is launched.
 
 ![Framework](figures/framework.svg)
 

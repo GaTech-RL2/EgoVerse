@@ -1,6 +1,7 @@
 """Commission, run and audit a separate RoboCasa direct-Astra cohort on OSMO."""
 
 import argparse
+import difflib
 import json
 import os
 import platform
@@ -158,6 +159,7 @@ def commission(manifest):
     except ValueError:
         checks["source_isolation"] = True
     traces = []
+    model_xml = []
     smoke = manifest["smoke"]
     for arm in manifest["conditions"]:
         events = Events(
@@ -172,6 +174,12 @@ def commission(manifest):
             )
             validate_description(proxy.describe())
             write_json(events.directory / "hardware.json", proxy.describe())
+            # Keep the actual inputs to the model-identity check. A digest alone
+            # cannot distinguish a serialization change from different physics.
+            xml = env.reset_model_xml
+            (events.directory / "compiled-model.xml").write_text(xml)
+            (events.directory / "source-model.xml").write_text(env.env.model.get_xml())
+            model_xml.append(xml)
             save_frames(env, events.directory, "initial")
             hashes = [digest(proxy.observe(sorted(proxy.native_keys))["observations"])]
             bad = env.neutral_action()
@@ -214,6 +222,28 @@ def commission(manifest):
             env.close()
             events.close()
     checks["native_interface_equivalence"] = traces[0] == traces[1] == traces[2]
+    if not checks["native_interface_equivalence"]:
+        for index, xml in enumerate(model_xml[1:], 1):
+            difference = "".join(
+                difflib.unified_diff(
+                    model_xml[0].splitlines(keepends=True),
+                    xml.splitlines(keepends=True),
+                    fromfile=manifest["conditions"][0],
+                    tofile=manifest["conditions"][index],
+                )
+            )
+            if difference:
+                (prepared / f"model-{index}.diff").write_text(difference)
+                print(
+                    json.dumps(
+                        {
+                            "model_xml_difference": index,
+                            "diff": difference[:8000],
+                            "complete_diff_archived": True,
+                        }
+                    ),
+                    flush=True,
+                )
     checks["initially_unsolved"] = not traces[0]["reset"]["initial_success"]
     resolved = {
         "source_sha256": source_hash(),
