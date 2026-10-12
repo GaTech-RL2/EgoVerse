@@ -1,0 +1,11 @@
+# Clean one-operator folding-only rung. Shares the fixed-budget ladder's
+# seen/unseen validation and action pipeline; op1 uses all remaining clean
+# episodes for its operator after the shared seen-val holdout.
+defaults:
+  - mecka_fold_fixed_budget_op4_6d
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      folder_path: /workspace/datasets/fixed_budget_opscale/op1

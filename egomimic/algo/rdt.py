@@ -137,7 +137,8 @@ class RDTModel(HPTModel):
             raise ValueError(
                 f"'{modality}' carries {T} frames but trunk.image_history="
                 f"{self.image_history}; set it to match the data config's "
-                "image_history_gap_s (2 frames when set, else 1)"
+                "image_history_gap_s or image_history_gap_frames "
+                "(2 frames when set, else 1)"
             )
         drop = self._drop(self.image_history_dropout, B, x.device) if T > 1 else None
         if drop is not None:

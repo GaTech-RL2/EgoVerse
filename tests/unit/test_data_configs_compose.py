@@ -122,6 +122,8 @@ def test_no_data_config_trains_on_a_discontinuous_rotation(name):
                 continue
             mode = transform_list.get("mode")
             assert mode not in LEGACY_ROTATION_MODES, (name, split, emb, mode)
+            rotation = transform_list.get("rotation_mode")
+            assert rotation in (None, "6D"), (name, split, emb, rotation)
             assert not transform_list.get("allow_legacy_rotation"), (name, split, emb)
 
 
@@ -140,7 +142,14 @@ def test_no_data_config_uses_a_pi_keymap_mode(name):
 
 # Aliases kept so configs saved by earlier runs still rebuild.
 KNOWN_MODE_ONLY_CHILDREN = {"cotrain_pi_lang_wrist"}
-MODE_KEYS = {"keymap_mode", "mode", "include_ee_pose"}
+MODE_KEYS = {
+    "keymap_mode",
+    "mode",
+    "action_mode",
+    "coord_frame",
+    "rotation_mode",
+    "include_ee_pose",
+}
 
 
 def _leaf_paths(node, prefix=()):

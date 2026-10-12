@@ -1,0 +1,22 @@
+# Open-loop walk for the wrist-frame 6D human action. Scores the first
+# execute_steps of the cartesian chunk, then the dataset stride (set on the
+# data config) is the next re-prediction. The video plays those source frames
+# at 30 fps: each frame draws only that timestamp's MANO skeleton, green for
+# the observed hand and red for the predicted step at the same time. The
+# keypoint revert below puts the 144-D wrist-frame chunk into the head camera
+# first. Videos are one mp4 per episode under videos_open_loop/; wandb_videos
+# of each group are uploaded.
+defaults:
+  - viz@viz_func: keypoints_wrist
+  - _self_
+
+_target_: egomimic.eval.open_loop_sim.OpenLoopSimEval
+
+execute_steps: 30
+wandb_videos: 1
+viz_every_n_epochs: 1
+viz_mode: overlay
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list

@@ -125,6 +125,54 @@ def test_keypoint_transform_round_trips_138_144():
     assert isinstance(t, torch.Tensor) and t.shape == (5, 144)
 
 
+def test_cartesian_wristframe_6d_also_emits_the_keypoint_action():
+    """predict_keypoints keeps the 18-D cartesian action and adds the 144-D
+    wrist-frame keypoint action from the same raw sample."""
+    rng = _rng(11)
+    raw, _, _ = _raw_sample(rng)
+    cartesian = Human.get_transform_list(
+        "cartesian_wristframe_6d", stride=1, pad_proprio_gripper=True
+    )
+    both = Human.get_transform_list(
+        "cartesian_wristframe_6d",
+        stride=1,
+        pad_proprio_gripper=True,
+        predict_keypoints=True,
+    )
+    keypoints = Human.get_transform_list(
+        "keypoints_wristframe_6d",
+        stride=1,
+        include_ee_pose=True,
+        pad_proprio_gripper=True,
+    )
+    cart = _apply(cartesian, raw)
+    out = _apply(both, raw)
+    kp = _apply(keypoints, raw)
+    assert out["actions_cartesian"].shape == (CHUNK, 18)
+    assert out["actions_keypoints"].shape == (CHUNK, 144)
+    assert out["observations.state.keypoints"].shape == (144,)
+    assert out["observations.state.ee_pose"].shape == (20,)
+    np.testing.assert_allclose(out["actions_cartesian"], cart["actions_cartesian"])
+    np.testing.assert_allclose(
+        out["observations.state.ee_pose"], cart["observations.state.ee_pose"]
+    )
+    np.testing.assert_allclose(out["actions_keypoints"], kp["actions_keypoints"])
+    np.testing.assert_allclose(
+        out["observations.state.keypoints"], kp["observations.state.keypoints"]
+    )
+
+
+def test_cartesian_keymap_include_keypoints_adds_the_mano_tracks():
+    plain = Human.get_keymap("cartesian")
+    both = Human.get_keymap("cartesian", include_keypoints=True)
+    for side in ("left", "right"):
+        assert f"{side}.action_keypoints" not in plain
+        assert both[f"{side}.action_keypoints"]["zarr_key"] == f"{side}.obs_keypoints"
+        assert both[f"{side}.obs_wrist_pose"]["zarr_key"] == f"{side}.obs_wrist_pose"
+    with pytest.raises(ValueError, match="include_keypoints"):
+        Human.get_keymap("keypoints", include_keypoints=True)
+
+
 @pytest.mark.parametrize("pad", [False, True])
 def test_keypoints_wristframe_6d_pipeline_matches_independent_math(pad):
     rng = _rng(3 + int(pad))

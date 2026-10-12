@@ -52,3 +52,37 @@ def warmup_then_cosine(
         schedulers=[warmup, cosine],
         milestones=[warmup_epochs],
     )
+
+
+def warmup_stable_decay(
+    optimizer: torch.optim.Optimizer,
+    warmup: int,
+    stable: int,
+    decay: int,
+    warmup_start_factor: float = 1.0e-3,
+    min_factor: float = 0.0,
+) -> torch.optim.lr_scheduler.LambdaLR:
+    """Warmup-stable-decay (WSD): linear warmup, constant, linear decay.
+
+    The multiplier on each param group's base LR goes from
+    ``warmup_start_factor`` to 1 over ``warmup`` steps, holds 1 for ``stable``
+    steps, falls linearly to ``min_factor`` over ``decay`` steps, and stays
+    there. Steps are scheduler steps (optimizer steps with
+    ``scheduler_interval: step``). Per-group scales such as
+    ``backbone_lr_scale`` are kept because the factor multiplies each group's
+    own base LR.
+    """
+    if warmup < 0 or stable < 0 or decay < 0:
+        raise ValueError("warmup, stable and decay must be >= 0")
+    decay_start = warmup + stable
+
+    def factor(step: int) -> float:
+        if step < warmup:
+            return warmup_start_factor + (1.0 - warmup_start_factor) * step / warmup
+        if step < decay_start:
+            return 1.0
+        if step < decay_start + decay:
+            return 1.0 - (1.0 - min_factor) * (step - decay_start) / decay
+        return min_factor
+
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=factor)

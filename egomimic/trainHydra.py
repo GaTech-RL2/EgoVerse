@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,6 +8,7 @@ import hydra
 import lightning as L
 import torch
 from fsspec.implementations.local import LocalFileSystem
+from hydra.core.hydra_config import HydraConfig
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
 from lightning.fabric.utilities.cloud_io import _load as pl_load
@@ -32,6 +34,7 @@ from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
 from egomimic.utils.gpu_orphans import arm_rank_pdeathsig, reap_orphans
+from egomimic.utils.hydra_resolvers import apply_experiment_wandb_tag
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -296,7 +299,7 @@ def _unseen_op_valid_datasets(cfg: DictConfig, instantiate) -> dict:
     explicit = cfg.data.get("unseen_op_valid_datasets")
     if (
         explicit is None
-        or _resolve_mode(cfg) != "train"
+        or _resolve_mode(cfg) not in ("train", "validate")
         or cfg.get("evaluator") is None
     ):
         return {}
@@ -394,6 +397,10 @@ def _subsample_val_datasets(
     """Wrap each of this val head's datasets in ``EvenStrideDataset`` so the
     ``limit_val_batches`` window spans EVERY episode of the split.
 
+    An explicit metric_sampling policy instead selects seeded random frames
+    without replacement, independently within every episode. Its count is
+    independent of GPU count and must fit the entire per-loader batch limit.
+
     The val loaders are unshuffled (so the overlay video is coherent), which
     made the metric window the first ``limit_val_batches * batch_size * W``
     frames in episode-hash order: at W = 1 that is a third of the seen-val
@@ -406,7 +413,8 @@ def _subsample_val_datasets(
     read only for an ``auto`` K. No ``metric_frames_per_episode`` entry for this
     head => datasets pass through untouched."""
     table = cfg.data.get("metric_frames_per_episode")
-    if table is None or table.get(head) is None or not datasets:
+    sampling = cfg.data.get("metric_sampling")
+    if not datasets or (not sampling and (table is None or table.get(head) is None)):
         return datasets
     wrapped = {}
     for name, ds in datasets.items():
@@ -414,13 +422,40 @@ def _subsample_val_datasets(
             wrapped[name] = None
             continue
         params = (loader_params or {}).get(name) or {}
-        k = _metric_frames_per_episode(
-            cfg, head, n_episodes=len(ds.datasets), batch_size=params.get("batch_size")
-        )
+        if sampling:
+            if sampling.get("method") != "random":
+                raise ValueError("metric_sampling.method must be random")
+            k = int(sampling["frames_per_episode"])
+            if k < 1:
+                raise ValueError("metric_sampling.frames_per_episode must be positive")
+        else:
+            k = _metric_frames_per_episode(
+                cfg,
+                head,
+                n_episodes=len(ds.datasets),
+                batch_size=params.get("batch_size"),
+            )
         if k is None:
             wrapped[name] = ds
             continue
-        sub = EvenStrideDataset(ds, frames_per_episode=k)
+        sub = EvenStrideDataset(
+            ds,
+            frames_per_episode=k,
+            random_seed=int(sampling["seed"]) if sampling else None,
+            replace_invalid=bool(sampling.get("replace_invalid", False))
+            if sampling
+            else False,
+        )
+        if sampling:
+            # These nested CombinedLoaders are replicated on each rank. Keep
+            # the same random sample regardless of GPU count and cover it all.
+            limit = cfg.get("trainer", {}).get("limit_val_batches")
+            batch_size = params.get("batch_size")
+            if isinstance(limit, int) and limit > 0 and batch_size:
+                if len(sub) > limit * batch_size:
+                    raise ValueError(
+                        f"{head}/{name}: {len(sub)} samples exceed validation budget"
+                    )
         log.info(
             f"val head '{head}' dataset '{name}': EvenStrideDataset "
             f"frames_per_episode={k} -> {len(sub)} / {len(ds)} frames over "
@@ -468,6 +503,146 @@ def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
             )
         out[head] = built
     return out
+
+
+def _open_loop_datasets(cfg: DictConfig, heads: dict) -> dict:
+    """One strided loader over the seen and unseen open-loop episodes.
+
+    ``data.open_loop_episodes.seen`` / ``.unseen`` are episode hashes already
+    in those heads' splits. They are concatenated in that order and wrapped
+    with ``EvenStrideDataset(stride=data.open_loop_stride)``, so each sample
+    is the next re-prediction point of the walk. Missing pins raise
+    ``PinError`` the same way a video pin does.
+    """
+    spec = cfg.data.get("open_loop_episodes")
+    if spec is None:
+        return {}
+    groups = (
+        ("seen", "valid", [str(h) for h in (spec.get("seen") or [])]),
+        (
+            "unseen",
+            "unseen_op_valid",
+            [str(h) for h in (spec.get("unseen") or [])],
+        ),
+    )
+    if not any(pins for _, _, pins in groups):
+        return {}
+    stride = int(cfg.data.get("open_loop_stride") or 0)
+    if stride < 1:
+        raise ValueError(
+            "data.open_loop_stride must be a positive integer when "
+            "data.open_loop_episodes is set"
+        )
+    evaluator = cfg.get("open_loop_evaluator")
+    execute_steps = None if evaluator is None else evaluator.get("execute_steps")
+    if execute_steps is not None and int(execute_steps) != stride:
+        raise ValueError(
+            f"open-loop stride is {stride} but execute_steps is {execute_steps}; "
+            "the next sample has to be the frame where the previous command ends"
+        )
+    leaves_by_name: dict = {}
+    source_by_name: dict = {}
+    order: list[str] = []
+    for _group, head, pins in groups:
+        if not pins:
+            continue
+        datasets = {
+            name: ds for name, ds in (heads.get(head) or {}).items() if ds is not None
+        }
+        unplaced = sorted(
+            set(pins) - {h for ds in datasets.values() for h in ds.datasets}
+        )
+        if unplaced:
+            raise PinError(
+                f"{len(unplaced)} open-loop episode(s) for '{head}' are in none of "
+                f"its datasets {sorted(datasets)}: {unplaced}."
+            )
+        for name, ds in datasets.items():
+            mine = [h for h in pins if h in ds.datasets]
+            if not mine:
+                continue
+            subset = pinned_episode_subset(ds, mine, dataset_name=name)
+            bucket = leaves_by_name.setdefault(name, {})
+            for episode, leaf in subset.datasets.items():
+                if episode in bucket:
+                    raise PinError(
+                        f"open-loop episode {episode} is pinned in more than one group"
+                    )
+                bucket[episode] = leaf
+                order.append(episode)
+            source_by_name.setdefault(name, ds)
+    built = {}
+    for name, leaves in leaves_by_name.items():
+        ordered = {h: leaves[h] for h in order if h in leaves}
+        source = source_by_name[name]
+        merged = MultiDataset(
+            datasets=ordered, mode="total", norm_mode=source.norm_mode
+        )
+        merged.set_norm_stats_from(source)
+        built[name] = EvenStrideDataset(
+            merged,
+            stride=stride,
+            preserve_indices=bool(cfg.data.get("validation_dataset_options")),
+        )
+        log.info(
+            f"open-loop dataset '{name}': stride {stride} over {len(ordered)} "
+            f"episode(s) -> {len(built[name])} frames"
+        )
+    return built
+
+
+def _attach_open_loop_evaluator(cfg, model, trainer, datamodule) -> None:
+    if not getattr(datamodule, "open_loop_datasets", None):
+        return
+    node = cfg.get("open_loop_evaluator")
+    if node is None:
+        raise ValueError(
+            "data.open_loop_episodes is set but there is no open_loop_evaluator"
+        )
+    eval_obj = hydra.utils.instantiate(node)
+    eval_obj.trainer = trainer
+    eval_obj.model = model.model
+    model.open_loop_evaluator = eval_obj
+
+
+def _attach_named_validation_evaluators(cfg, model, trainer, datamodule) -> None:
+    """Give each cohort an independent evaluator and canonical model input."""
+    options = datamodule.validation_dataset_options
+    if not options:
+        return
+    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+
+    evaluators, embodiments = {}, {}
+    for loader in datamodule.val_loader_names():
+        head, name = loader.split("::", 1)
+        spec = options[name]
+        if head == "open_loop":
+            score_video = cfg.get("mode") == "validate" and cfg.get(
+                "validation_open_loop_metrics", False
+            )
+            evaluator = hydra.utils.instantiate(
+                cfg.open_loop_evaluator,
+                log_metrics=score_video,
+                final_only=(
+                    False
+                    if score_video
+                    else cfg.open_loop_evaluator.get("final_only", False)
+                ),
+                video_group=spec["prefix"],
+                metric_prefix=(
+                    f"{spec['prefix']}/Valid/open_loop_sim" if score_video else None
+                ),
+            )
+        else:
+            evaluator = TrainVizEvalVideo(
+                hydra.utils.instantiate(cfg.evaluator), prefix=spec["prefix"]
+            )
+        evaluator.trainer = trainer
+        evaluator.model = model.model
+        evaluators[loader] = evaluator
+        embodiments[loader] = spec["embodiment"]
+    model.named_val_evaluators = evaluators
+    model.named_val_embodiments = embodiments
 
 
 def _require_capped_video_heads(model, datamodule) -> None:
@@ -557,6 +732,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 "unseen_op_valid": unseen_op_valid_datasets,
             },
         )
+        open_loop_datasets = _open_loop_datasets(
+            cfg,
+            {
+                "valid": valid_datasets,
+                "unseen_op_valid": unseen_op_valid_datasets,
+            },
+        )
         valid_datasets = _subsample_val_datasets(
             cfg,
             "valid",
@@ -595,6 +777,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         datamodule_kwargs["unseen_op_valid_datasets"] = unseen_op_valid_datasets
         # Built above; hydra has nothing to instantiate for these.
         datamodule_kwargs["video_datasets"] = video_datasets
+        datamodule_kwargs["open_loop_datasets"] = open_loop_datasets
         datamodule: LightningDataModule = hydra.utils.instantiate(
             cfg.data, **datamodule_kwargs
         )
@@ -716,6 +899,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for head_datasets in getattr(datamodule, "video_datasets", {}).values():
         for ds in head_datasets.values():
             ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "open_loop_datasets", {}).values():
+        ds.set_norm_stats_from(norm_stats)
 
     _prepare_checkpoint_resume(cfg)
 
@@ -751,6 +936,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
             cfg.logger = None
+    elif mode == "validate":
+        # Reuse training validation heads, with one allocated GPU and no optimizer.
+        with open_dict(cfg):
+            cfg.trainer.devices = 1
+            cfg.trainer.num_nodes = 1
+            cfg.trainer.strategy = "auto"
+            cfg.trainer.num_sanity_val_steps = 0
+            cfg.logger = None
+
+    # experiments/<folder>/... tags the W&B run with that folder name.
+    apply_experiment_wandb_tag(cfg, HydraConfig.get().job.config_name)
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -787,7 +983,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
-    if mode == "train":
+    if mode in ("train", "validate"):
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             # data.valid_prefix (e.g. seen_op_valid in the opsplit configs)
@@ -813,6 +1009,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             unseen_eval_obj.trainer = trainer
             unseen_eval_obj.model = model.model
             model.unseen_op_valid_evaluator = unseen_eval_obj
+        _attach_open_loop_evaluator(cfg, model, trainer, datamodule)
+        _attach_named_validation_evaluators(cfg, model, trainer, datamodule)
         _require_capped_video_heads(model, datamodule)
         model.val_loader_names = datamodule.val_loader_names()
         # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
@@ -825,17 +1023,43 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 "the overlay video follows evaluator.viz_every_n_epochs)"
             )
             trainer.validate(model=model, datamodule=datamodule)
-        log.info("Starting training!")
-        trainer.fit(
-            model=model,
-            datamodule=datamodule,
-            ckpt_path=cfg.get("ckpt_path"),
-            weights_only=False,
-        )
+        if mode == "train":
+            log.info("Starting training!")
+            trainer.fit(
+                model=model,
+                datamodule=datamodule,
+                ckpt_path=cfg.get("ckpt_path"),
+                weights_only=False,
+            )
+        else:
+            ckpt_path = cfg.get("ckpt_path")
+            if not ckpt_path:
+                raise ValueError("mode=validate requires ckpt_path")
+            load_checkpoint_weights(model, ckpt_path)
+            log.info("Starting checkpoint validation for %s", ckpt_path)
+            validation_results = trainer.validate(model=model, datamodule=datamodule)
+            output_path = os.path.join(
+                trainer.default_root_dir, "validation_metrics.json"
+            )
+            with open(output_path, "w", encoding="utf-8") as output:
+                json.dump(
+                    {
+                        "ckpt_path": ckpt_path,
+                        "metrics": [
+                            {key: float(value) for key, value in result.items()}
+                            for result in validation_results
+                        ],
+                    },
+                    output,
+                    indent=2,
+                    sort_keys=True,
+                )
+            log.info("Wrote validation metrics to %s", output_path)
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
+        _attach_open_loop_evaluator(cfg, model, trainer, datamodule)
         # Without the names, loader indices fall back to [valid, train_viz] and
         # the pinned video loader is misrouted.
         model.val_loader_names = datamodule.val_loader_names()

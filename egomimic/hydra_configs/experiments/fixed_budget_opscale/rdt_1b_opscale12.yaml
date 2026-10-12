@@ -1,0 +1,11 @@
+# @package _global_
+# 12-operator rung of the fixed-budget ladder. Same recipe as rdt_1b_opscale4.
+#
+#   python egomimic/trainHydra.py -m \
+#     --config-name=experiments/fixed_budget_opscale/rdt_1b_opscale12
+defaults:
+  - rdt_1b_opscale4
+  - override /data: mecka_fold_fixed_budget_op12_6d
+  - _self_
+
+description: rdt_vitb_op12

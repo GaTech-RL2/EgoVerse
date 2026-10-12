@@ -1,0 +1,22 @@
+﻿validation_set,runs,operator_id,episodes,hours,trajectory_start_samples,video_episode,description_basis
+seen_val,op1;op4;op8;op12;op16,6a6b180cb93db217f5006d09,1,0.034075,128,6a918c7205abbb0d9a9a8eb2,Folding-only episode description / approved sample
+seen_val,op1;op4;op8;op12;op16,6a48f40631f5ca4ad4463db4,1,0.033786,128,,Folding-only episode description / approved sample
+seen_val,op1;op4;op8;op12;op16,6a8653df9afd6cdb9f0d0129,1,0.033333,128,,Folding-only episode description / approved sample
+seen_val,op1;op4;op8;op12;op16,6a44e5b5d99fd801592da5a9,1,0.033211,128,,Folding-only episode description / approved sample
+unseen_val,op1;op4;op8;op12;op16,69439bf1a2a8b5aee76603c3,1,0.016778,128,69b1e2191c6c05bcabe09dcd,Folding-only episode description / approved sample
+flagship_unseen_val,op1;op4;op8;op12;op16,6903686e0e94ce070afd1f24,20,0.035697,2560,,SQL task label; descriptions blank
+flagship_unseen_val,op1;op4;op8;op12;op16,690366b20e94ce070afd1e8a,20,0.038798,2560,,SQL task label; descriptions blank
+flagship_unseen_val,op1;op4;op8;op12;op16,683785ac01ca734152093448,20,0.036064,2560,,SQL task label; descriptions blank
+flagship_unseen_val,op1;op4;op8;op12;op16,6871d82a1aaf88556f0c6041,20,0.023662,2290,692eadb33b319da763b71ba6,SQL task label; descriptions blank
+op8_seen_val,op8,6a78bdf888f0f4b1d406497d,30,0.901544,3840,,Folding-only episode description / approved sample
+op8_seen_val,op8,6a864ba19afd6cdb9f0cd03a,30,0.870714,3840,,Folding-only episode description / approved sample
+op8_seen_val,op8,6a50c2e1b8386afb9117634b,30,0.854869,3840,,Folding-only episode description / approved sample
+op8_seen_val,op8,6a7d4791cd712d8099c9bfa5,30,0.827372,3840,6aa0e5c72e84827b8bee01a1,Folding-only episode description / approved sample
+op12_seen_val,op12,6980e0c57c6b5a6b3c8cf16c,30,0.841586,3840,,Folding-only episode description / approved sample
+op12_seen_val,op12,6a74507946e2dcc66f119a9d,30,0.847094,3840,,Folding-only episode description / approved sample
+op12_seen_val,op12,6a87ef69b3ca45f15da38a1c,30,0.893775,3840,,Folding-only episode description / approved sample
+op12_seen_val,op12,6a884e1db3ca45f15da7ba70,30,0.910722,3840,6aa23ad1855cd14652fabf51,Folding-only episode description / approved sample
+op16_seen_val,op16,6a02d486ca0204706bcef251,30,0.845436,3840,,Folding-only episode description / approved sample
+op16_seen_val,op16,6a30bd1248971590e816c1bf,30,0.842086,3840,,Folding-only episode description / approved sample
+op16_seen_val,op16,6a3c998ea4062670c9db253f,30,0.840528,3840,6a4ba13b63ae83c771065a9b,Folding-only episode description / approved sample
+op16_seen_val,op16,6a9d2d308d7c88c317443dc0,30,0.771272,3840,,Folding-only episode description / approved sample

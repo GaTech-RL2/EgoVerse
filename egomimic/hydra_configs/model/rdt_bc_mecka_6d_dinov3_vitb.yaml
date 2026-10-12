@@ -171,3 +171,13 @@ scheduler:
   end_factor: 1.0
   total_iters: 1000
 scheduler_interval: step
+
+# HPT's compile hook also covers RDT: both denoisers trace the shared DiT,
+# and DINOv3 is compiled separately. In-place compilation preserves checkpoint
+# parameter names. Dynamic shapes handle text lengths and partial batches.
+# Default Inductor mode avoids CUDA graphs (see AGENTS.md cancellation notes).
+# Enable per experiment with model.compile.enabled=true.
+compile:
+  enabled: false
+  mode: default
+  dynamic: true

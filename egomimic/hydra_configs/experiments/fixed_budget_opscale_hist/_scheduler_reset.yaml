@@ -1,0 +1,5 @@
+# @package _global_
+# Drops the model's LinearLR block so the rung configs can set a scheduler
+# with different arguments; a plain override would merge the old keys in.
+model:
+  scheduler: null

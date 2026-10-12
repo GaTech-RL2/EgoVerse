@@ -158,6 +158,62 @@ def _label(image, text, color):
     return image
 
 
+def chunk_step_for_video_frame(frame: int, n_frames: int, n_steps: int) -> int:
+    """Chunk index whose time matches source frame ``frame`` of an execution window.
+
+    A mecka chunk is 30 source frames resampled to 100 steps (``linspace`` on
+    both), so frame ``j`` of a 30-frame execution shows step
+    ``round(j * 99 / 29)``, not step ``j``.
+    """
+    if n_steps <= 1 or n_frames <= 1:
+        return 0
+    return min(n_steps - 1, int(frame * (n_steps - 1) / (n_frames - 1) + 0.5))
+
+
+def overlay_executed_chunk(
+    images,
+    gt_anchor,
+    pred_anchor,
+    gt_frames,
+    intrinsics,
+    edges,
+    *,
+    n_window: int | None = None,
+    fallback_intrinsics=None,
+) -> np.ndarray:
+    """One MANO skeleton per source frame: green ground truth, red prediction.
+
+    ``images`` is ``(span, H, W, 3)`` starting at the replan. ``gt_anchor`` and
+    ``pred_anchor`` are ``(T, 126)`` in the replan frame's camera. ``gt_frames[j]``
+    is the observed hand at source frame ``j``, in that frame's camera. The
+    prediction is moved into the same camera by the rigid fit that takes the
+    anchor-camera ground-truth step onto ``gt_frames[j]``. Only that one step
+    is drawn. ``n_window`` is the full execution length used for the time map
+    when ``span`` is shorter because the episode ended.
+    """
+    images = np.asarray(images)
+    gt_anchor = np.asarray(gt_anchor, dtype=np.float32)
+    pred_anchor = np.asarray(pred_anchor, dtype=np.float32)
+    gt_frames = np.asarray(gt_frames, dtype=np.float32)
+    span = len(images)
+    n_steps = gt_anchor.shape[0]
+    window = span if n_window is None else int(n_window)
+    if isinstance(intrinsics, np.ndarray) and intrinsics.ndim == 2:
+        intrinsics = [intrinsics] * span
+    out = []
+    for j in range(span):
+        k = chunk_step_for_video_frame(j, window, n_steps)
+        K = intrinsics[j] if intrinsics[j] is not None else fallback_intrinsics
+        R, t = rigid_fit(gt_anchor[k].reshape(-1, 3), gt_frames[j].reshape(-1, 3))
+        pred_here = _apply_rigid(pred_anchor[k], R, t)
+        drawn = _draw_skeleton(images[j], gt_frames[j], K, edges, (0, 255, 0))
+        drawn = _draw_skeleton(drawn, pred_here, K, edges, (255, 0, 0))
+        out.append(drawn)
+    if not out:
+        return np.zeros((0, *images.shape[1:]), np.uint8)
+    return np.stack(out)
+
+
 def _draw_skeleton(image, keypoints, intrinsics, edges, color):
     """Both hands' 21 MANO keypoints (``(126,)``, camera frame) with bones."""
     vis = np.ascontiguousarray(_prepare_viz_image(image)).copy()

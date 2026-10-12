@@ -1,0 +1,8 @@
+# @package _global_
+# One-operator endpoint, sharing the ladder's metric and open-loop setup.
+defaults:
+  - rdt_1b_opscale4
+  - override /data: mecka_fold_fixed_budget_op1_6d
+  - _self_
+
+description: rdt_vitb_opscale1

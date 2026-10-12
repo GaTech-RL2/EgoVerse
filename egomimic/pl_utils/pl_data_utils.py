@@ -9,7 +9,7 @@ from egomimic.utils.gpu_orphans import orphan_guarded
 logger = logging.getLogger(__name__)
 
 # Val heads that can carry a metric loader, in val_dataloader() order.
-VAL_HEADS = ("valid", "train_viz", "unseen_op_valid")
+VAL_HEADS = ("valid", "train_viz", "unseen_op_valid", "open_loop")
 # Suffix of the video-only companion loader of a head (``valid`` ->
 # ``valid_video``). ModelWrapper.validation_step splits on it.
 VIDEO_SUFFIX = "_video"
@@ -86,6 +86,12 @@ class MultiDataModuleWrapper(LightningDataModule):
         video_datasets: dict | None = None,
         metric_frames_per_episode: dict | None = None,
         video_episodes: dict | None = None,
+        open_loop_datasets: dict | None = None,
+        open_loop_dataloader_params: dict | None = None,
+        open_loop_episodes: dict | None = None,
+        open_loop_stride: int | None = None,
+        metric_sampling: dict | None = None,
+        validation_dataset_options: dict | None = None,
     ):
         """
         Args:
@@ -131,6 +137,19 @@ class MultiDataModuleWrapper(LightningDataModule):
             video_episodes: config-only ``{head: [episode_hash, ...]}`` -- the
                 pinned video episodes, one per operator per head. Provenance
                 only; trainHydra is what reads it.
+            open_loop_datasets: optional dict of datasets for the open-loop
+                walk (strided pinned episodes). A metric loader: every rank
+                scores it, and ``OpenLoopSimEval`` writes the videos.
+            open_loop_dataloader_params: DataLoader kwargs for that loader.
+            open_loop_episodes: config-only ``{seen, unseen}`` episode hashes.
+                Provenance; trainHydra builds ``open_loop_datasets`` from it.
+            open_loop_stride: config-only. Frames between open-loop
+                re-predictions. Provenance; trainHydra reads it.
+            metric_sampling: optional fixed random sampling policy, consumed by
+                trainHydra before loader construction.
+            validation_dataset_options: optional per-dataset embodiment and
+                metric prefix. Enables independent named loaders, so cohorts
+                of the same embodiment cannot overwrite or cycle each other.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -166,6 +185,14 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.video_datasets = {h: d for h, d in self.video_datasets.items() if d}
         self.metric_frames_per_episode = dict(metric_frames_per_episode or {})
         self.video_episodes = dict(video_episodes or {})
+        self.open_loop_datasets = {
+            k: v for k, v in (open_loop_datasets or {}).items() if v is not None
+        }
+        self.open_loop_dataloader_params = open_loop_dataloader_params or {}
+        self.open_loop_episodes = dict(open_loop_episodes or {})
+        self.open_loop_stride = open_loop_stride
+        self.metric_sampling = dict(metric_sampling or {})
+        self.validation_dataset_options = dict(validation_dataset_options or {})
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -247,6 +274,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 self.unseen_op_valid_datasets,
                 self.unseen_op_valid_dataloader_params,
             ),
+            "open_loop": (self.open_loop_datasets, self.open_loop_dataloader_params),
         }
 
     def val_loader_names(self) -> list[str]:
@@ -257,6 +285,14 @@ class MultiDataModuleWrapper(LightningDataModule):
         pinned video episodes gets exactly today's list and today's indices;
         the video-only loaders are appended after them in the same head order.
         """
+        if self.validation_dataset_options:
+            if self.video_datasets:
+                raise ValueError("Named validation sets use open-loop video datasets")
+            return [
+                f"{head}::{name}"
+                for head, (datasets, _) in self._metric_sources().items()
+                for name in datasets
+            ]
         metric = [
             name
             for name in VAL_HEADS
@@ -268,6 +304,15 @@ class MultiDataModuleWrapper(LightningDataModule):
 
     def val_dataloader(self):
         sources = self._metric_sources()
+        if self.validation_dataset_options:
+            # Each cohort has its own budget; never cycle the shorter cohorts.
+            return [
+                self._build_val_style_loader(
+                    {name: dataset}, {name: params[name]}, kind=head
+                )
+                for head, (datasets, params) in sources.items()
+                for name, dataset in datasets.items()
+            ]
         for head, datasets in self.video_datasets.items():
             # The video loader reuses its head's params (batch size / workers /
             # unshuffled); only the dataset differs.

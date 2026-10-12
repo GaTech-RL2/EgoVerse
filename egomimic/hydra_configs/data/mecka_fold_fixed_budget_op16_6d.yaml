@@ -1,0 +1,49 @@
+# op16 uses the clean folding-only episodes pinned in the fixed-budget
+# manifest. See folding_only_classification.json for episode descriptions and
+# exclusion decisions. The op4 base config defines shared validation, keymap,
+# transforms, and loader settings.
+
+
+defaults:
+  - mecka_fold_fixed_budget_op4_6d
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      folder_path: /workspace/datasets/fixed_budget_opscale/op16
+
+# Four operators newly introduced at this rung; 30 held-out episodes each.
+valid_datasets:
+  op16_seen_human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /workspace/datasets/fixed_budget_opscale/op16_seen_val
+      key_map: ${data.train_datasets.human_bimanual.resolver.key_map}
+      transform_list: ${data.train_datasets.human_bimanual.resolver.transform_list}
+    mode: total
+
+valid_dataloader_params:
+  op16_seen_human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+metric_sampling:
+  replace_invalid: true
+
+validation_dataset_options:
+  op16_seen_human_bimanual:
+    embodiment: human_bimanual
+    prefix: op16_added_seen_op_valid
+
+open_loop_episodes:
+  seen:
+    - 6a918c7205abbb0d9a9a8eb2
+
+open_loop_dataloader_params:
+  op16_seen_human_bimanual:
+    batch_size: 16
+    num_workers: 8
+    shuffle: false

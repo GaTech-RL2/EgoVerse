@@ -34,6 +34,7 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         viz_every_n_epochs: int = 1,
         viz_max_batches: int | None = None,
+        open_loop_execute_fraction: float = 0.25,
         viz_mode: str = "replay",
         replay_chunks: int = 5,
         replay_trail: int = 5,
@@ -46,6 +47,9 @@ class EvalVideo(Eval):
         # Render the overlay video only on validation passes where
         # (current_epoch + 1) is a multiple of this; metrics log every pass.
         self.viz_every_n_epochs = viz_every_n_epochs
+        # Leading fraction of each predicted chunk scored by the open-loop
+        # command MSE (Valid/open_loop_sim/*). The rest of the chunk is not.
+        self.open_loop_execute_fraction = open_loop_execute_fraction
         # On viz epochs, render overlay frames for only the first N val
         # batches (None = all). Rendering is CPU-bound -- ~0.1 s/frame, 4864
         # frames in 8.4 min with four ranks rendering at once -- and dominates
@@ -315,5 +319,17 @@ class EvalVideo(Eval):
         # otherwise suffix every key with "/dataloader_idx_N"; the train-viz
         # wrapper prefixes its keys itself.
         self.trainer.lightning_module.log_dict(
-            metrics, sync_dist=True, add_dataloader_idx=False
+            metrics,
+            sync_dist=True,
+            add_dataloader_idx=False,
+            batch_size=next(
+                (
+                    value.shape[0]
+                    for sample in batch.values()
+                    if isinstance(sample, dict)
+                    for key, value in sample.items()
+                    if key != "embodiment" and torch.is_tensor(value) and value.ndim > 0
+                ),
+                None,
+            ),
         )
