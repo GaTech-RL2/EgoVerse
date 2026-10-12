@@ -6,6 +6,36 @@ codebase discovery without an observer (B0), and the same discovery workflow wit
 a separate visual observer (B). F minus B0 is primary; F minus B is secondary.
 There is no pretrained robot policy or policy-weight training in this study.
 
+The offline [process dashboard exporter](tools/build_process_dashboard.py) builds
+a shareable HTML/ZIP from completed, archived trial directories. It includes
+exact recorded actor/observer prompts, delivered tool schemas, source reads,
+Python snippets, camera observations, native action traces, and correction
+markers for F, B0 and B. Interactive interface diagrams and real JSON examples
+explain the implemented paths. The viewer works directly from `file://` without
+a server or external assets.
+
+Run the exporter after activating `emimic`, with downloaded archives laid out as
+`SOURCE/WORKFLOW/trials/TRIAL/`. Each trial must include its original event log,
+outcome, trial metadata, archive receipt and independent replay receipt:
+
+```sh
+python experiments/libero_hardware_interface/tools/build_process_dashboard.py \
+  --source /path/to/private/downloaded \
+  --download-receipt /path/to/private/download-receipt.json \
+  --output /path/to/new/dashboard-directory
+```
+
+The download receipt provides `catalog_time` as Unix seconds. The exporter
+verifies original archive hashes and every event-chain link before exporting.
+It requires Pillow and an `ffmpeg` binary with H.264 support; it runs no model or
+simulator. Output directories and ZIPs must be new. Raw archives stay unchanged.
+Videos contain saved observations at three snapshots per second, with native
+step and wall time retained; they are not continuous simulator captures. Gripper
+transitions are navigation markers, not inferred grasp-attempt counts. Opaque
+encrypted reasoning is replaced by its digest, and input-hashed observer images
+are not invented. Fresh LIBERO pilots and RoboCasa integration smokes remain
+separate cohorts.
+
 On 2026-10-08 the user removed experiment resource budgets. This instruction
 supersedes the budget clauses in the original protocol, which remains unchanged
 as a historical source. The amended manifest uses `null` for elapsed-time,

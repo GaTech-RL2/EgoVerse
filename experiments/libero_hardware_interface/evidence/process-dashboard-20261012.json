@@ -1,0 +1,46 @@
+{
+  "snapshot_utc": "2026-10-12T20:53:25.409797+00:00",
+  "cases": 24,
+  "cohorts": {
+    "libero-hardware-interface-20261008-uncapped-3": {
+      "recordings": 22,
+      "source_commit": "9c0a45faa77a4df86dee9e1a384cf3576b26d7c7",
+      "stage": "pilot"
+    },
+    "robocasa-hardware-interface-20261009-pilot-5": {
+      "recordings": 2,
+      "source_commit": "13d1c95bfb004d1d48c07b2672c5f4e3a46a863f",
+      "stage": "smoke"
+    }
+  },
+  "event_count": 46639,
+  "videos_verified": 24,
+  "archive_and_chain_verification": "passed",
+  "browser": {
+    "browser_errors": [],
+    "external_network_requests": [],
+    "video": {
+      "duration": 15.333008,
+      "width": 800,
+      "height": 432,
+      "error": null
+    },
+    "checked_trials": 24,
+    "desktop_and_mobile": true
+  },
+  "package": {
+    "bytes": 89811061,
+    "files": 2020,
+    "sha256": "555bb0b01b8aa248a6c994f9f2067e6b7b0796616bd273df64e78b3e000fc8ed",
+    "credential_scan": "passed",
+    "zip_crc_and_all_hashes": "passed"
+  },
+  "unit_tests": "69 passed; 4 export integrity tests rerun after Python 3.8 compatibility cleanup",
+  "full_unit_suite": "Blocked during collection: missing optional projectaria_tools in tests/unit/conftest.py dependency chain",
+  "transformations": [
+    "Original PNG bytes externalized from JSON to local files.",
+    "Repeated exact prompts and schemas use content references.",
+    "Opaque encrypted reasoning replaced with length and digest.",
+    "Videos show saved actor observations at 3 snapshots/s; observer-only hashed images are not reconstructed."
+  ]
+}
