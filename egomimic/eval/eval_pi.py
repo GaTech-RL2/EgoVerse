@@ -58,7 +58,12 @@ class PIEvalVideo(EvalVideo):
 
             if pred_key in preds:
                 metrics.update(
-                    layout_metrics(preds[pred_key], _batch[ac_key], f"Valid/{pred_key}")
+                    layout_metrics(
+                        preds[pred_key],
+                        _batch[ac_key],
+                        f"Valid/{pred_key}",
+                        mask=_batch.get("action_pad_mask"),
+                    )
                 )
 
             if do_viz:

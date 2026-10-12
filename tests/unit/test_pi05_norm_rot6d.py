@@ -831,6 +831,11 @@ def test_pi_eval_metric_set_and_identity():
             "xyz_l2_early",
             "xyz_l2_mid",
             "xyz_l2_late",
+            *(
+                f"{m}_paired_mse_{third}_third"
+                for m in ("xyz", "rot6d")
+                for third in ("early", "mid", "late")
+            ),
         )
     } | {loss_key, "Valid/action_loss"}
     assert set(metrics) == expected, sorted(metrics)
@@ -916,6 +921,10 @@ def test_pi_eval_keypoint_metrics():
                 f"{m}_l2_{seg}"
                 for m in ("kp", "wrist_xyz")
                 for seg in ("early", "mid", "late")
+            ),
+            *(
+                f"wrist_xyz_paired_mse_{third}_third"
+                for third in ("early", "mid", "late")
             ),
         )
     } | {loss_key, "Valid/action_loss"}

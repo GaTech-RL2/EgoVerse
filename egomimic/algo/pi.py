@@ -425,6 +425,10 @@ class PI(Algo):
                 raise ValueError("Action shape in batch is not 2")
 
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
+            # For the eval metrics only; the loss stays unmasked.
+            mask = _batch.get("action_pad_mask")
+            if mask is not None and mask.shape[-1] == S:
+                processed_batch[embodiment_id]["action_pad_mask"] = mask
 
             # Build prompts + tokenize. Reads raw `annotations` (list[list[str]])
             # left in `_batch` by `annotation_collate`, plus per-sample proprio

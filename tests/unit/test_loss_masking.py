@@ -350,7 +350,7 @@ def test_process_batch_keeps_ones_when_the_flag_is_off():
     mask[:, 3:] = 0.0
     out = _process(False, mask)
     torch.testing.assert_close(out["pad_mask"], torch.ones(2, 6, 1))
-    assert "action_pad_mask" not in out
+    torch.testing.assert_close(out["action_pad_mask"], mask)  # for the eval metrics
 
 
 def test_process_batch_uses_the_dataset_mask_when_the_flag_is_on():
@@ -359,7 +359,7 @@ def test_process_batch_uses_the_dataset_mask_when_the_flag_is_on():
     out = _process(True, mask)
     assert out["pad_mask"].shape == (2, 6, 1)
     torch.testing.assert_close(out["pad_mask"], mask[..., None])
-    assert "action_pad_mask" not in out
+    torch.testing.assert_close(out["action_pad_mask"], mask)  # for the eval metrics
 
 
 def test_process_batch_falls_back_to_ones_without_the_dataset_key():
