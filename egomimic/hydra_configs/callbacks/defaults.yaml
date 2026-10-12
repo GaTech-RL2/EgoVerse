@@ -1,3 +1,6 @@
 wandb_profiler:
   _target_: egomimic.utils.timing_callback.WandbProfilerLogger
   log_every_n_steps: 100
+
+git_provenance:
+  _target_: egomimic.utils.provenance_callback.GitProvenance

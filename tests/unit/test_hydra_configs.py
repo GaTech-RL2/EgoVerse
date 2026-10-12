@@ -47,6 +47,11 @@ def test_model_option_resolves(model, compose_resolve):
     compose_resolve("train_zarr_cartesian", [f"model={model}"])
 
 
+@pytest.mark.parametrize("callbacks", _options("callbacks"))
+def test_callbacks_option_resolves(callbacks, compose_resolve):
+    compose_resolve("train_zarr_cartesian", [f"callbacks={callbacks}"])
+
+
 @pytest.mark.parametrize("evaluator", _options("evaluator"))
 def test_evaluator_option_resolves(evaluator, compose_resolve):
     compose_resolve("train_zarr_cartesian", [f"evaluator={evaluator}"])
