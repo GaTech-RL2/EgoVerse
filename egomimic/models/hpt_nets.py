@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -676,6 +677,28 @@ def _qwen_last_token_pool(
     return last_hidden_states[batch_idx, seq_lens]
 
 
+def _local_snapshot_if_offline(model_name: str) -> str:
+    """Resolve a HF repo id to its cached snapshot directory when the process
+    runs offline (``HF_HUB_OFFLINE`` / ``TRANSFORMERS_OFFLINE``); a local path
+    or an online process is returned unchanged."""
+    if os.path.isdir(model_name):
+        return model_name
+    # huggingface_hub parses these with _is_true, i.e. 1 / ON / YES / TRUE in
+    # any case, and reads them once at import; match the values but read the
+    # live environment, since a launcher or a test may set them after import.
+    from huggingface_hub.constants import ENV_VARS_TRUE_VALUES
+
+    offline = any(
+        (os.environ.get(var) or "").upper() in ENV_VARS_TRUE_VALUES
+        for var in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )
+    if not offline:
+        return model_name
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(model_name, local_files_only=True)
+
+
 class _Qwen3BaseEncoder(PolicyStem):
     """Shared base for Qwen3-Embedding stems used by HPT.
 
@@ -713,8 +736,14 @@ class _Qwen3BaseEncoder(PolicyStem):
         self.max_length = max_length
         self.freeze_encoder = freeze
         torch_dtype = getattr(torch, dtype) if isinstance(dtype, str) else dtype
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
-        self.encoder = AutoModel.from_pretrained(model_name, torch_dtype=torch_dtype)
+        # transformers >= 4.57 probes the Hub while loading a tokenizer by repo
+        # id even under HF_HUB_OFFLINE=1 (tokenization_utils_base
+        # ._patch_mistral_regex -> model_info), which raises on compute nodes
+        # with no internet. Loading from the cached snapshot DIRECTORY skips
+        # that probe, so resolve the repo id to its local snapshot when offline.
+        load_path = _local_snapshot_if_offline(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(load_path, padding_side="left")
+        self.encoder = AutoModel.from_pretrained(load_path, torch_dtype=torch_dtype)
         if freeze:
             for p in self.encoder.parameters():
                 p.requires_grad = False

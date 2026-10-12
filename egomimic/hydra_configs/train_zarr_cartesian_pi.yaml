@@ -5,3 +5,4 @@ defaults:
   - override trainer: ddp_pi
   - override evaluator: eval_pi
   - override hydra/launcher: submitit_pace
+  - _self_
