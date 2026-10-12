@@ -2408,10 +2408,22 @@ class EvenStrideDataset(MultiDataset):
     Pass exactly one of `frames_per_episode` (K evenly-spaced) or
     `stride` (every Sth frame). Subclasses `MultiDataset` so trainHydra's
     isinstance check passes; we skip the parent `__init__` and adopt its
-    class identity only, delegating to `self.base`."""
+    class identity only, delegating to `self.base`.
+
+    ``preserve_indices`` reads each selected frame exactly (no quantile
+    rejection, no random retry) and raises if the leaf decoded a different
+    frame or returned non-finite data. ``replace_invalid`` then swaps such a
+    frame for another start frame of the same episode, chosen by a fixed
+    seed so the metric cohort is identical across epochs and resumes."""
 
     def __init__(
-        self, base, frames_per_episode: int | None = None, stride: int | None = None
+        self,
+        base,
+        frames_per_episode: int | None = None,
+        stride: int | None = None,
+        preserve_indices: bool = False,
+        replace_invalid: bool = False,
+        replacement_seed: int = 0,
     ):
         if (frames_per_episode is None) == (stride is None):
             raise ValueError(
@@ -2432,6 +2444,9 @@ class EvenStrideDataset(MultiDataset):
         self.bounds_rel_slack = base.bounds_rel_slack
         self.frames_per_episode = frames_per_episode
         self.stride = stride
+        self.preserve_indices = preserve_indices
+        self.replace_invalid = replace_invalid
+        self.replacement_seed = replacement_seed
         self.datasets = base.datasets
 
         keep: list[int] = []
@@ -2460,7 +2475,66 @@ class EvenStrideDataset(MultiDataset):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        return self.base[self.indices[idx]]
+        if not self.preserve_indices:
+            return self.base[self.indices[idx]]
+        # MultiDataset.__getitem__ swaps an out-of-quantile frame for an
+        # unseeded random one, so the cohort drifts per pass and loses exactly
+        # the hard frames; read the selected frame instead.
+        leaf, name, local_idx = _leaf_at(self.base, self.indices[idx])
+        try:
+            sample = self._read_exact(leaf, name, local_idx)
+        except Exception as error:
+            if not self.replace_invalid:
+                raise
+            sample = self._seeded_replacement(leaf, name, local_idx, error)
+        emb = sample.get("embodiment")
+        if self.base.norm_stats and emb in self.base.norm_stats:
+            sample = self.base.normalize(sample, emb)
+        return sample
+
+    def _read_exact(self, leaf, name: str, frame_idx: int) -> dict:
+        sample = leaf[frame_idx]
+        episode = self._episode_name_for_dataset(leaf, name)
+        got = sample.get("frame_idx")
+        if got is not None and int(got) != frame_idx:
+            raise ValueError(
+                f"val frame {episode}/{frame_idx} was replaced by frame {int(got)} "
+                "during decoding"
+            )
+        for key in self.base.zarr_keys.get(sample.get("embodiment"), {}).values():
+            value = sample.get(key)
+            if isinstance(value, (np.ndarray, torch.Tensor)):
+                if not torch.isfinite(torch.as_tensor(value)).all():
+                    raise ValueError(
+                        f"non-finite val data in {key} at {episode}/{frame_idx}"
+                    )
+        return sample
+
+    def _seeded_replacement(self, leaf, name: str, frame_idx: int, error) -> dict:
+        starts = getattr(leaf, "sample_indices", None)
+        candidates = list(range(len(leaf))) if starts is None else starts.tolist()
+        episode = self._episode_name_for_dataset(leaf, name)
+        random.Random(f"{self.replacement_seed}:{episode}:{frame_idx}").shuffle(
+            candidates
+        )
+        for candidate in candidates:
+            if candidate == frame_idx:
+                continue
+            try:
+                sample = self._read_exact(leaf, name, candidate)
+            except Exception:
+                continue
+            logger.warning(
+                "Replacing invalid val frame %s/%d with %d (%s)",
+                episode,
+                frame_idx,
+                candidate,
+                error,
+            )
+            return sample
+        raise RuntimeError(
+            f"no valid val frame in episode {episode} after invalid frame {frame_idx}"
+        ) from error
 
     def set_data_schematic(self, data_schematic) -> None:
         self.base.set_data_schematic(data_schematic)
@@ -2481,6 +2555,18 @@ class EvenStrideDataset(MultiDataset):
         if base is None:
             raise AttributeError(item)
         return getattr(base, item)
+
+
+def _leaf_at(ds: MultiDataset, idx: int) -> tuple:
+    """``(leaf, name, local_idx)`` that global ``idx`` of ``ds`` reads, through
+    nested MultiDatasets. ``local_idx`` comes from the pose-glitch-masked
+    index map, so it is always an allowed start frame."""
+    while True:
+        name, idx = ds.index_map[idx]
+        child = ds.datasets[name]
+        if not isinstance(child, MultiDataset):
+            return child, name, idx
+        ds = child
 
 
 def _unmasked(leaf):
@@ -3035,6 +3121,8 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["episode_hash"] = (
                 ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             )
+            # The frame actually decoded: a JPEG retry above moves ``idx``.
+            data["frame_idx"] = torch.tensor(idx, dtype=torch.int64)
             _ = origin  # preserved for symmetry with prior API
             return data
 
