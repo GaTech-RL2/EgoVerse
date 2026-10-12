@@ -4,13 +4,18 @@ Importing this module registers custom resolvers used by Hydra configs:
   - ``run_dir``: picks output dir based on train vs eval mode
   - ``model_type_from_ckpt``: extracts model type from checkpoint path
   - ``model_time_from_ckpt``: extracts timestamp from checkpoint path
+  - ``mecka_private``: an ID list kept out of the public repo
 
 Safe to import multiple times (registration is idempotent).
 """
 
 from __future__ import annotations
 
+import functools
+import json
+import os
 import re
+from pathlib import Path
 
 from omegaconf import OmegaConf
 
@@ -60,10 +65,34 @@ def run_dir(name, description, mode, ckpt_path, ts):
     return f"./logs/{name}/finetuned/{description}_{ts}"
 
 
+MECKA_PRIVATE_DIR_ENV = "EGOVERSE_MECKA_PRIVATE_DIR"
+
+
+@functools.cache
+def _mecka_private_splits(name):
+    root = os.environ.get(MECKA_PRIVATE_DIR_ENV)
+    if not root:
+        raise RuntimeError(
+            f"{MECKA_PRIVATE_DIR_ENV} is not set; config {name} needs it"
+        )
+    return json.loads((Path(root) / "splits" / f"{name}.json").read_text())
+
+
+def mecka_private(name, key):
+    """Value ``key`` of ``$EGOVERSE_MECKA_PRIVATE_DIR/splits/<name>.json``.
+
+    The Mecka private set's episode and operator IDs may not be published, so its
+    configs name them by key and the IDs live next to the data."""
+    value = _mecka_private_splits(name)[key]
+    # OmegaConf.resolve (hydra.utils.instantiate) rejects a plain list from a resolver
+    return OmegaConf.create(list(value)) if isinstance(value, list) else value
+
+
 for _name, _fn in (
     ("model_type_from_ckpt", model_type_from_ckpt),
     ("model_time_from_ckpt", model_time_from_ckpt),
     ("run_dir", run_dir),
+    ("mecka_private", mecka_private),
 ):
     try:
         OmegaConf.register_new_resolver(_name, _fn)

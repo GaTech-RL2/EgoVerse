@@ -1,0 +1,58 @@
+# train_zarr_mecka_private_tshirt30m_opscale_1 on the RDT base (1280 x 18) instead of RDT-1B.
+# 45k steps (the 1B 90k runs' samples at twice the batch); WSD from the launcher (500 warmup,
+# decay 36k-45k). Global batch 256 = 2 GPUs x 64 x accumulate 2.
+# Val sees exactly the 4-GPU 1B runs' frames: K per head is per rank and scaled by world size,
+# so it is pinned to half the 4-GPU values, and val batches double to keep the batch budgets.
+defaults:
+  - train_zarr_mecka_private_tshirt30m_opscale_1
+  - override model: rdt_bc_mecka_kp_dinov3_vitb
+  - _self_
+
+launch_params:
+  gpus_per_node: 2
+
+data:
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 64
+  valid_dataloader_params:
+    human_bimanual:
+      batch_size: 64
+  train_viz_dataloader_params:
+    human_bimanual:
+      batch_size: 64
+  unseen_op_valid_dataloader_params:
+    human_bimanual:
+      batch_size: 64
+  metric_frames_per_episode:
+    valid: 1024
+    train_viz: 300
+    unseen_op_valid: 204
+
+trainer:
+  max_epochs: 450
+  min_epochs: 450
+  # micro-batches: an epoch stays 100 optimizer steps
+  limit_train_batches: 200
+  accumulate_grad_batches: 2
+  check_val_every_n_epoch: 10
+
+# Videos only render on val epochs, so multiples of the val interval.
+evaluator:
+  viz_every_n_epochs: 20
+
+train_viz_evaluator:
+  base:
+    viz_every_n_epochs: 50
+
+# Every 10%; the 80% one is the decay start.
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 45
+
+# 1.37x steady-state train speed on 1 H100 at batch 64, loss unchanged (logs/compile_bench).
+model:
+  compile:
+    enabled: true
+    mode: null
+    dynamic: false

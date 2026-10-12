@@ -1,0 +1,14 @@
+# train_zarr_mecka_private_tshirt30m_opscale_10 at 90k steps: the same run as
+# train_zarr_mecka_private_tshirt30m_opscale2x_10, so logs/mecka_private_opscale30m90k/launch_one.sbatch
+# can relaunch it on 4 GPUs from its own checkpoint (CKPT_10).
+defaults:
+  - train_zarr_mecka_private_tshirt30m_opscale_10
+  - _self_
+
+trainer:
+  max_epochs: 900
+  min_epochs: 900
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 90
