@@ -20,9 +20,6 @@ Tests live under `tests/`, never next to source in `egomimic/`.
   `pytest --integration -m gpu tests/integration/test_train_step_gpu.py` on a GPU node.
   `tests/unit/test_data_configs_compose.py` checks every `data/*.yaml` composes.
 
-## Model settings
-use plan mode for anything except extremely simple tasks
-
 ## Slurm rules
 If you're on a slurm cluster, request a GPU before running or testing training.
 On sky1/sky2: salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c 12 --mem=30G
