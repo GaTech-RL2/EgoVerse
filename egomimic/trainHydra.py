@@ -7,6 +7,7 @@ import hydra
 import lightning as L
 import torch
 from fsspec.implementations.local import LocalFileSystem
+from hydra.core.hydra_config import HydraConfig
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
 from lightning.fabric.utilities.cloud_io import _load as pl_load
@@ -33,6 +34,7 @@ from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
 from egomimic.utils.gpu_orphans import arm_rank_pdeathsig, reap_orphans
+from egomimic.utils.hydra_resolvers import apply_experiment_wandb_tag
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -797,6 +799,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
             cfg.logger = None
+
+    # experiments/<folder>/... tags the W&B run with that folder name.
+    if HydraConfig.initialized():
+        apply_experiment_wandb_tag(cfg, HydraConfig.get().job.config_name)
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
