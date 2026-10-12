@@ -14,6 +14,10 @@ stats, and stores them twice:
      training run on the same episodes + recipe hits the cache without any
      override.
 
+The per-episode samples behind it also land in the cache (``episodes/``), so a
+later split of the same recipe (a subset, a superset, an operator hold-out)
+only samples the episodes it adds.
+
 The norm-mode keymap strips camera + annotation keys, so the stats pass reads
 only the numeric proprio/action arrays: pure CPU work, no GPU, no JPEG decode
 beyond one shape-inference sample.
@@ -38,7 +42,7 @@ from omegaconf import OmegaConf
 
 import egomimic
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.rldb.zarr import norm_cache
+from egomimic.rldb.zarr import episode_norm_samples, norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.env import load_env
 
@@ -64,10 +68,8 @@ def main() -> None:
         help="optional hard cap on collected samples: the (N, 100, D) float32 "
         "action stack plus np.percentile's sort copy is ~2 x N x 100 x D x 4 "
         "bytes of RAM, so an uncapped 0.1 frac of the full mecka set (~8.5M "
-        "frames) needs >100GB at D=18; 2M samples still gives 2M draws per "
-        "(step, dim) cell. A cap is not part of the cache key (training never "
-        "caps), so the cache entry written here stands in for the uncapped "
-        "stats a training run would otherwise compute.",
+        "frames) needs >100GB at D=18. Part of the cache key: a training run "
+        "hits this entry only with the same norm_stats.max_samples.",
     )
     ap.add_argument("--num-workers", type=int, default=30)
     ap.add_argument(
@@ -94,6 +96,7 @@ def main() -> None:
         f"data={args.data}",
         f"model={args.model}",
         f"norm_stats.sample_frac={args.sample_frac}",
+        f"norm_stats.max_samples={'null' if args.max_samples is None else args.max_samples}",
         f"norm_stats.num_workers={args.num_workers}",
         f"norm_stats.save_cache_dir={args.out}",
         "norm_stats.precomputed_norm_path=null",
@@ -153,6 +156,11 @@ def main() -> None:
             num_workers=args.num_workers,
             precomputed_norm_path=None,  # force compute
             pool_horizon=pool_horizon,
+            episode_cache=None
+            if not cache_dir
+            else episode_norm_samples.cache_root(
+                cache_dir, dataset_name, cfg.data.train_datasets[dataset_name]
+            ),
         )
         print(
             f"[precompute] {dataset_name}: norm computed in "
@@ -171,6 +179,7 @@ def main() -> None:
                 cfg.data.train_datasets[dataset_name],
                 args.sample_frac,
                 pool_horizon,
+                args.max_samples,
             )
             key = norm_cache.norm_cache_key(inputs)
             emb = get_embodiment_id(dataset_name)
