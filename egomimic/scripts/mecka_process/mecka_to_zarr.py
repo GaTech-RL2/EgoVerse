@@ -15,7 +15,7 @@ import subprocess
 import time
 import traceback
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import List, Literal, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -176,6 +176,35 @@ def transform_to_pose(T: np.ndarray) -> np.ndarray:
     return np.concatenate([pos, quat_wxyz])
 
 
+ROT_RELABEL_POST_FIX = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])  # "rot_right"
+ROT_RELABEL_PRE_FIX_LEFT = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])  # "rot_left"
+
+
+def _unrelabeled_hand_frame(keypoints: np.ndarray) -> Optional[np.ndarray]:
+    """Hand frame from 21 keypoints, before the axis relabel; None if degenerate.
+
+    Forward: wrist -> middle-finger base. Up: cross(thumb_dir, pinky_dir), which
+    already mirrors chirality between hands. Right: cross(forward, up), flipped
+    to make the frame right-handed.
+    """
+    wrist = keypoints[0]
+    forward = keypoints[9] - wrist
+    if np.linalg.norm(forward) < 1e-6:
+        return None
+    forward = forward / np.linalg.norm(forward)
+
+    up = np.cross(keypoints[5] - wrist, keypoints[17] - wrist)
+    if np.linalg.norm(up) < 1e-6:
+        return None
+    up = up / np.linalg.norm(up)
+
+    right = np.cross(forward, up)
+    right = right / np.linalg.norm(right)
+    up = np.cross(right, forward)
+    right = right * -1
+    return np.column_stack([forward, right, up])
+
+
 def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndarray:
     """
     Compute 7DOF pose from 21 hand keypoints in camera frame.
@@ -195,8 +224,8 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
     # Identity quaternion in WXYZ for degenerate cases
     quat_wxyz_identity = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
-    rot_left = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]])
-    rot_right = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+    rot_left = ROT_RELABEL_PRE_FIX_LEFT
+    rot_right = ROT_RELABEL_POST_FIX
 
     if np.allclose(keypoints, 0):
         fallback = np.concatenate([np.zeros(3), quat_wxyz_identity])
@@ -208,43 +237,23 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
     )
     position = centroid
     wrist = keypoints[0]
-    middle_base = keypoints[9]  # Base of middle finger
 
-    # Forward axis: wrist → middle finger base
-    forward = middle_base - wrist
-    if np.linalg.norm(forward) < 1e-6:
-        logger.warning(
-            "Forward direction norm too small, returning position + identity quat"
-        )
+    rot_matrix = _unrelabeled_hand_frame(keypoints)
+    if rot_matrix is None:
+        logger.warning("Degenerate hand frame, returning position + identity quat")
         fallback = np.concatenate([position, quat_wxyz_identity])
         return fallback, fallback.copy()
-    forward = forward / np.linalg.norm(forward)
 
-    # Up axis: cross product of thumb→wrist and pinky→wrist
-    thumb_dir = keypoints[5] - wrist
-    pinky_dir = keypoints[17] - wrist
-    up = np.cross(thumb_dir, pinky_dir)
-
-    if np.linalg.norm(up) < 1e-6:
-        logger.warning(
-            "Up direction norm too small, returning position + identity quat"
-        )
-        fallback = np.concatenate([position, quat_wxyz_identity])
-        return fallback, fallback.copy()
-    up = up / np.linalg.norm(up)
-
-    # Right axis: cross(forward, up), then re-orthonormalize
-    right = np.cross(forward, up)
-    right = right / np.linalg.norm(right)
-    up = np.cross(right, forward)
-    right = right * -1  # Flip for right-handed frame
-
-    rot_matrix = np.column_stack([forward, right, up])
-
-    if hand_index == 0:
-        rot_matrix = rot_matrix @ rot_left
-    else:
-        rot_matrix = rot_matrix @ rot_right
+    # Same axis relabel for BOTH hands: ``up = cross(thumb_dir, pinky_dir)``
+    # already mirrors chirality between left and right (thumb/pinky are
+    # anatomically swapped), so the frames come out anatomically mirrored for
+    # free. The old ``rot_left`` (= rot_right @ diag(-1, -1, 1)) flipped x/y a
+    # second time, double-mirroring the left hand onto the right hand's
+    # spatial convention. Data converted with the old code is corrected at
+    # train time by RotateLocalFrame (Rz(180 deg) right-multiply on the left
+    # pose); see Human.get_transform_list(fix_left_wrist_convention=True).
+    del rot_left, hand_index  # convention no longer differs per hand
+    rot_matrix = rot_matrix @ rot_right
 
     quat_xyzw = Rotation.from_matrix(rot_matrix).as_quat()  # SciPy returns (x, y, z, w)
     quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])
@@ -252,6 +261,62 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
         np.concatenate([position, quat_wxyz]),
         np.concatenate([wrist, quat_wxyz]),
     )
+
+
+def _median_geodesic_deg(
+    keypoints: np.ndarray, poses: np.ndarray, relabel: np.ndarray
+) -> Optional[float]:
+    """Median angle between the stored rotations and the ones ``relabel``
+    reproduces from the keypoints; None if no frame is usable."""
+    errors = []
+    for kp, pose in zip(keypoints, poses):
+        frame = _unrelabeled_hand_frame(kp) if not np.allclose(kp, 0) else None
+        if frame is None or np.allclose(pose[3:], 0):
+            continue
+        qw, qx, qy, qz = pose[3:7]
+        stored = Rotation.from_quat([qx, qy, qz, qw]).as_matrix()
+        delta = (frame @ relabel).T @ stored
+        errors.append(np.degrees(Rotation.from_matrix(delta).magnitude()))
+    return float(np.median(errors)) if errors else None
+
+
+def left_wrist_convention(
+    group, frames: int = 25, tol_deg: float = 10.0
+) -> Literal["pre_fix", "post_fix", "unknown"]:
+    """Which hand-pose convention an episode zarr was written with.
+
+    Both wrist rotations are recomputed from the episode's own stored keypoints
+    under each relabel and compared with the stored quaternions. The RIGHT hand
+    is the control: it used the same relabel before and after the fix, so if it
+    matches neither, the left-hand comparison is confounded and the verdict is
+    ``unknown`` -- which is what the handful of episodes written by a third,
+    earlier converter return.
+    """
+    try:
+        left_kp = np.asarray(group["left.obs_keypoints"][:frames], dtype=np.float64)
+        left_pose = np.asarray(group["left.obs_wrist_pose"][:frames], dtype=np.float64)
+        right_kp = np.asarray(group["right.obs_keypoints"][:frames], dtype=np.float64)
+        right_pose = np.asarray(
+            group["right.obs_wrist_pose"][:frames], dtype=np.float64
+        )
+    except (KeyError, IndexError, TypeError):
+        return "unknown"
+    if min(len(left_kp), len(left_pose), len(right_kp), len(right_pose)) == 0:
+        return "unknown"
+
+    left_kp = left_kp.reshape(len(left_kp), -1, 3)
+    right_kp = right_kp.reshape(len(right_kp), -1, 3)
+    control = _median_geodesic_deg(right_kp, right_pose, ROT_RELABEL_POST_FIX)
+    if control is None or control > tol_deg:
+        return "unknown"
+
+    post_fix = _median_geodesic_deg(left_kp, left_pose, ROT_RELABEL_POST_FIX)
+    pre_fix = _median_geodesic_deg(left_kp, left_pose, ROT_RELABEL_PRE_FIX_LEFT)
+    if pre_fix is not None and pre_fix <= tol_deg:
+        return "pre_fix"
+    if post_fix is not None and post_fix <= tol_deg:
+        return "post_fix"
+    return "unknown"
 
 
 class MeckaExtractor:
