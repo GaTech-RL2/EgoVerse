@@ -1,0 +1,20 @@
+# RDT memory ablation (all mecka, keypoints), PROPRIO_FRAMES arm: the proprio arm with 4
+# full front frames 10 apart (t-30 .. t, 1 s) through the main encoder instead of
+# RDT's pair; every image lands on every other proprio step.
+# See train_zarr_mecka_all_kp_rdt_mem_base.yaml.
+defaults:
+  - train_zarr_mecka_all_kp_rdt_mem_proprio
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          image_history_gap_s: 0.333
+          image_history: 4
+
+model:
+  robomimic_model:
+    trunk:
+      image_history: 4
