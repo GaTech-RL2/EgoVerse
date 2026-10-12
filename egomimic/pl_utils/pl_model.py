@@ -327,15 +327,14 @@ class ModelWrapper(LightningModule):
 
         A pretrained image backbone and a randomly initialised trunk do not
         want the same learning rate, and a frozen-vs-tuned comparison under one
-        LR is confounded. Encoders that do not declare ``backbone_parameters``
+        LR is confounded. Modules that do not declare ``backbone_parameters``
         (and frozen parameters) are left to the main group.
         """
-        encoders = getattr(self.model.nets["policy"], "encoders", None) or {}
         backbone, seen = [], set()
-        for encoder in encoders.values():
-            if not hasattr(encoder, "backbone_parameters"):
+        for module in self.model.nets["policy"].modules():
+            if not hasattr(module, "backbone_parameters"):
                 continue
-            for param in encoder.backbone_parameters():
+            for param in module.backbone_parameters():
                 if param.requires_grad and id(param) not in seen:
                     seen.add(id(param))
                     backbone.append(param)

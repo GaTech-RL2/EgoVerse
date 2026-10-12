@@ -12,8 +12,18 @@ import torch
 import torch.nn as nn
 
 from egomimic.algo.hpt import HPT, HPTModel
-from egomimic.models.rdt_nets import RDTBackbone, RDTConditions, mlp_gelu, sincos_2d
-from egomimic.rldb.embodiment.embodiment import IMAGE_HISTORY_SUFFIX
+from egomimic.models.rdt_nets import (
+    RDTBackbone,
+    RDTConditions,
+    RDTMemory,
+    mlp_gelu,
+    sincos_2d,
+)
+from egomimic.rldb.embodiment.embodiment import (
+    HISTORY_MASK_SUFFIX,
+    IMAGE_HISTORY_SUFFIX,
+    IMAGE_MEMORY_SUFFIX,
+)
 from egomimic.utils.tensor_utils import get_sinusoid_encoding_table
 
 INIT_STD = 0.02
@@ -32,6 +42,12 @@ class RDTModel(HPTModel):
     ``image_history`` is the number of frames per camera (axis 1 of the image
     input, current frame last); ``image_history_dropout`` replaces the past
     frames by the current one, which is also what an episode start looks like.
+
+    ``memory`` (``RDTMemory`` kwargs) adds long-range memory tokens to the
+    DiT's self-attention prefix from the batch's ``memory`` window; padded
+    steps are masked out. ``short_dropout`` replaces a sample's whole short
+    image stream by a learned null token (training only), so the policy cannot
+    lean on the latest frames alone.
     """
 
     def __init__(
@@ -43,6 +59,8 @@ class RDTModel(HPTModel):
         cond_drop: dict | None = None,
         image_history: int = 1,
         image_history_dropout: float = 0.0,
+        memory: dict | None = None,
+        short_dropout: float = 0.0,
         **kwargs,
     ):
         super().__init__(
@@ -55,6 +73,10 @@ class RDTModel(HPTModel):
         self.image_history = int(image_history)
         self.image_history_dropout = float(image_history_dropout)
         self.stem_modality = {}
+        self.short_dropout = float(short_dropout)
+        self.long_memory = (
+            None if memory is None else RDTMemory(hidden_dim=embed_dim, **memory)
+        )
 
     def _create_policy_trunk(self, *args, **kwargs):
         return nn.ModuleDict()
@@ -94,6 +116,8 @@ class RDTModel(HPTModel):
             self.null_state = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         if self.cond_drop["img"] > 0 and len(cameras) > 1:
             self.null_img = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
+        if self.short_dropout > 0:
+            self.null_short = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         self.trunk["trunk"].initialize_weights()
         for head in self.heads.values():
             init = getattr(getattr(head, "model", None), "initialize_weights", None)
@@ -174,7 +198,16 @@ class RDTModel(HPTModel):
 
         if not img:
             raise ValueError(f"RDT needs at least one camera for domain '{domain}'")
+        if (self.long_memory is None) != ("memory" not in data):
+            raise ValueError(
+                "trunk.memory and the data config's key_map.image_memory must be "
+                "set together (model memory: "
+                f"{self.long_memory is not None}, batch memory: {'memory' in data})"
+            )
         img = torch.cat(self._drop_cameras(img), dim=1)
+        drop = self._drop(self.short_dropout, len(img), img.device)
+        if drop is not None:
+            img = torch.where(drop[:, None, None], self.null_short.to(img), img)
         cond = RDTConditions(
             img=img,
             freq=data["fps"].reshape(-1).expand(len(img)),
@@ -189,6 +222,11 @@ class RDTModel(HPTModel):
         if lang:
             cond.lang = torch.cat(lang, dim=1)
             cond.lang_mask = torch.cat(lang_mask, dim=1)
+        if self.long_memory is not None:
+            # after state dropout, so a fused memory loses its proprio with it
+            cond.memory, cond.memory_mask = self.long_memory(
+                data["memory"], data["memory_mask"], cond.state
+            )
         return cond, None
 
 
@@ -212,14 +250,23 @@ class RDT(HPT):
         aux_ac_keys=[],
         domain="",
     ):
-        """HPT's layout plus ``fps`` and, per camera with a ``*_hist`` twin, the
-        (past, current) frame pair on the image input's time axis."""
+        """HPT's layout plus ``fps``; per camera with a ``*_hist`` twin, the
+        (past, current) frame pair on the image input's time axis; and a
+        ``*_mem`` window as ``memory`` / ``memory_mask``, un-augmented (its
+        tower is frozen and the stem normalizes)."""
         past = {
             key[: -len(IMAGE_HISTORY_SUFFIX)]: key
             for key in cam_keys
             if key.endswith(IMAGE_HISTORY_SUFFIX) and key in batch
         }
-        single = [k for k in cam_keys if k not in past and k not in past.values()]
+        memory = [k for k in cam_keys if k.endswith(IMAGE_MEMORY_SUFFIX) and k in batch]
+        if len(memory) > 1:
+            raise ValueError(f"RDT takes one memory camera, got {memory}")
+        single = [
+            k
+            for k in cam_keys
+            if k not in past and k not in past.values() and k not in memory
+        ]
         data = super()._robomimic_to_hpt_data(
             batch, single, proprio_keys, lang_keys, ac_key, aux_ac_keys, domain=domain
         )
@@ -232,5 +279,8 @@ class RDT(HPT):
             n = pair.shape[0]
             pair = self._apply_image_augs(pair.flatten(0, 1), short, frames=2)
             data[short] = pair.reshape(n, 2, *pair.shape[1:]).unsqueeze(2)
+        for key in memory:
+            data["memory"] = batch[key]
+            data["memory_mask"] = batch[f"{key}{HISTORY_MASK_SUFFIX}"] > 0.5
         data["fps"] = batch["fps"]
         return data
