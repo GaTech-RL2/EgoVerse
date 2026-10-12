@@ -1,0 +1,29 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Render the val viz video only when (current_epoch + 1) is a multiple of
+# this; metrics still log on every validation pass. Keep it a multiple of
+# trainer.check_val_every_n_epoch or viz never coincides with a validation
+# run.
+viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank; metrics still
+# run on every batch. The train_viz wrapper inherits this cap.
+viz_max_batches: 10
+
+# All-cartesian cam-frame evaluator: use when every embodiment expresses its
+# cartesian action in head/camera frame with the continuous 6D rotation
+# (`transform_list: mode: cartesian_6d`, e.g. data=mecka_fold_freeform_6d
+# with data.train_datasets.human_bimanual.resolver.transform_list.mode=cartesian_6d).
+# Actions are already in cam (head) frame, so
+# no frame change is needed; the revert only converts the rotation back from
+# xyz+6D (9/arm) to xyz+ypr (6/arm) for the viz overlay, which draws in ypr.
+# Metrics are computed on the native 6D output and never go through this
+# revert. Each value resolves to a list[Transform] via its ``_target_``.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_transform_list
