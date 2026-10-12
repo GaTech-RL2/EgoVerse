@@ -344,6 +344,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
         "InterpolatePose",
         "InterpolateLinear",
         "InterpolateLinear",
+        "InterpolatePadMask",
         "XYZWXYZ_to_XYZYPR",
         "ConcatKeys",
         "ConcatKeys",
@@ -418,7 +419,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        8,
+        9,
         "XYZWXYZ_to_XYZYPR",
         base_keys | {"left.cmd_ee_pose_camframe", "right.cmd_ee_pose_camframe"},
         {
@@ -430,7 +431,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        9,
+        10,
         "ConcatKeys",
         {
             "actions_cartesian",
@@ -451,7 +452,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        10,
+        11,
         "ConcatKeys",
         {
             "actions_cartesian",
@@ -468,7 +469,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        11,
+        12,
         "DeleteKeys",
         {"actions_cartesian", "observations.state.ee_pose"},
         {
@@ -478,7 +479,7 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        12,
+        13,
         "NumpyToTensor",
         {"actions_cartesian", "observations.state.ee_pose"},
         {
@@ -516,6 +517,7 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
         "PoseCoordinateFrameTransform",
         "InterpolatePose",
         "InterpolatePose",
+        "InterpolatePadMask",
         "XYZWXYZ_to_XYZYPR",
         "ConcatKeys",
         "ConcatKeys",
@@ -585,7 +587,7 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        6,
+        7,
         "XYZWXYZ_to_XYZYPR",
         base_keys
         | {
@@ -603,7 +605,7 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        7,
+        8,
         "ConcatKeys",
         base_keys
         | {
@@ -619,7 +621,7 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        8,
+        9,
         "ConcatKeys",
         base_keys | {"actions_cartesian", "observations.state.ee_pose"},
         {
@@ -629,7 +631,7 @@ def test_human_transform_list_stepwise_keys_and_shapes() -> None:
     )
     _assert_snapshot(
         snapshots,
-        9,
+        10,
         "DeleteKeys",
         {"actions_cartesian", "observations.state.ee_pose"},
         {
