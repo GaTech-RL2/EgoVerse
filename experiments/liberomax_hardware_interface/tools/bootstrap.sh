@@ -44,6 +44,8 @@ source emimic/bin/activate
 python -m pip install pip==24.3.1 setuptools==75.8.0 wheel==0.45.1
 python -m pip install torch==2.7.1+cpu torchvision==0.22.1+cpu --index-url https://download.pytorch.org/whl/cpu > artifacts/runtime/dependency-install.log 2>&1
 python -m pip install -r experiments/liberomax_hardware_interface/requirements.txt >> artifacts/runtime/dependency-install.log 2>&1
+# robosuite 1.4.0 imports termcolor without declaring it as a dependency.
+python -c 'import robosuite, mujoco; assert robosuite.__version__ == "1.4.0"; assert mujoco.__version__ == "3.2.6"'
 fetch_source() {
     git init -q "$1"
     git -C "$1" remote add origin "$2"
@@ -65,6 +67,13 @@ paths={'benchmark_root':source, 'bddl_files':source/'bddl_files', 'init_states':
 PY
 elif [[ "$MAX_SOURCE" == pro ]]; then
     fetch_source upstream-source https://github.com/Zxy-MLlab/LIBERO-PRO.git 2b910b5b5f53016bef9907632f6f840f1ce2229c
+    # The pinned upstream setup repeats --include; hf keeps only the last list
+    # (README.md). Fetch every required pattern in a single list first, then run
+    # the unchanged upstream path checks and source-lock writer.
+    hf download zhouxueyang/LIBERO-Pro --repo-type dataset \
+        --revision c86fc3b8293185a6f373677018ff3e37f8391602 \
+        --include 'bddl_files/**' 'init_files/**' 'metadata/**' README.md \
+        --local-dir pro-substrate
     python upstream-max/scripts/setup_libero_pro_substrate.py --libero-pro-root upstream-source --dataset-root pro-substrate --config-dir source-config
 else
     exit 2

@@ -3,7 +3,13 @@
 This adds the released LIBERO-MAX substrate and paired-trace checks to the
 direct-Astra hardware-interface study. It is **not a completed Astra evaluation**.
 Both frozen manifests validate and all 131 upstream tests pass locally. OSMO
-currently returns HTTP 403, so GPU commissioning has not been submitted.
+access recovered on 2026-10-12. The first GPU commissioning workflow,
+`liberomax-hardware-interface-20261012-commission-1`, stopped before simulator
+rollouts: Plus lacked robosuite's undeclared `termcolor` dependency, and PRO's
+upstream downloader retained only the last repeated `--include` list. The runtime
+now pins `termcolor` and downloads all pinned PRO substrate patterns in one list
+before running the unchanged upstream setup checks. A fresh GPU check is required;
+there are no scored MAX outcomes yet.
 
 Source is pinned at `01625e290b1aa07511bdc820781e635e851353cc`. Max contains
 8,000 Base/Dynamic pairs per policy; Lite contains 800. F, B0 and B are separate
