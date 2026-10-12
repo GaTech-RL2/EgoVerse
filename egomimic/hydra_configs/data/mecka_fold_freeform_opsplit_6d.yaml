@@ -19,6 +19,13 @@
 # 1,013,220 frames. Both sides use mode: total (no random episode split); the
 # list IS the split. Do not edit it: checkpoints were trained against it.
 #
+# NO ANNOTATION GUARD: 112 of the 462 freeform episodes have segments = NULL, so
+# their `annotations` track is empty and the prompt falls back to
+# `default_prompt` ('' by default) on every frame: Pi sees "Task: , State: ...",
+# HPT feeds '' to its text stem. Left as is because checkpoints were trained on
+# this split; the opscale ladder (mecka_fold_freeform_opscale4_6d) reuses only
+# its held-out OPERATOR list and filters to annotated episodes.
+#
 # WRIST-frame CARTESIAN actions with the continuous 6D rotation (18D =
 # xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
 # relative to that wrist's current pose; the head-frame proprio ee_pose is
