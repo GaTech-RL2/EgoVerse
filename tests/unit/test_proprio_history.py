@@ -409,9 +409,11 @@ def test_history_len_one_stem_has_no_time_embed_and_is_todays_stem():
     torch.testing.assert_close(one(x), base(x))
 
 
-def test_history_dropout_replaces_the_past_with_the_current_step_in_train_mode():
+def test_legacy_history_dropout_replaces_the_past_with_the_current_step():
     D, out, B, K = 5, 7, 6, 4
-    hist, _ = _stems(D, out, history_len=K, history_dropout=1.0)
+    hist, _ = _stems(
+        D, out, history_len=K, history_dropout=1.0, history_null_token=False
+    )
     x = torch.randn(B, K, 1, D)
     hist.train()
     y = hist(x)
@@ -621,9 +623,10 @@ def _process(action_pad_mask=None, history_mask=None, S: int = 6):
     return HPT.process_batch_for_training(algo, {emb: inner})[emb_id]
 
 
-def test_process_batch_drops_the_history_mask():
-    out = _process(history_mask=torch.ones(2, 4))
-    assert "proprio_history_mask" not in out
+def test_process_batch_keeps_the_history_mask_for_the_stem():
+    mask = torch.tensor([[0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])
+    out = _process(history_mask=mask)
+    torch.testing.assert_close(out["proprio_history_mask"], mask)
     assert out["observations.state.ee_pose"].shape == (2, 4, 20)
 
 

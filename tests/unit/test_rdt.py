@@ -161,9 +161,12 @@ def _model(
     memory=None,
     short_dropout=0.0,
     lang_pad_to=None,
+    image_null=True,
+    state_dropout=0.0,
 ):
     torch.manual_seed(0)
     model = RDTModel(
+        image_history_null_token=image_null,
         embed_dim=D,
         depth=2,
         num_heads=4,
@@ -183,7 +186,11 @@ def _model(
         DOMAIN,
         {
             "state_ee_pose": MLPPolicyStem(
-                input_dim=4, output_dim=D, widths=[D], history_len=history_len
+                input_dim=4,
+                output_dim=D,
+                widths=[D],
+                history_len=history_len,
+                history_dropout=state_dropout,
             )
         },
     )
@@ -314,8 +321,9 @@ def test_condition_dropout_is_train_only_and_never_blinds_one_camera():
     assert torch.allclose(cond.img, ref.img)  # tower frozen + in eval: same tokens
 
 
-def test_image_history_dropout_replaces_the_past_frame_by_the_current():
-    model = _model(frame_dropout=1.0).train()
+def test_legacy_image_history_dropout_replaces_the_past_frame_by_the_current():
+    model = _model(frame_dropout=1.0, image_null=False).train()
+    assert not hasattr(model, "null_frame")
     with torch.no_grad():
         model.frame_embed.zero_()
     cond, _ = model.forward_features(DOMAIN, _data())

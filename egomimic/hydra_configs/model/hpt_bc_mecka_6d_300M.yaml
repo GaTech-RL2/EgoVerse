@@ -133,10 +133,11 @@ robomimic_model:
         # last) plus a learned zero-init time-step embedding, instead of the
         # single current-step token. Must equal the data config's
         # `proprio_history` (which also sets how far apart the steps are).
-        # `history_dropout` replaces the whole past by the current step for a
-        # sample (train only) so the policy still works when history is
-        # missing at episode start -- it is live at history_len 3, and it is
-        # what keeps the policy from reading its own past as the answer.
+        # `history_dropout` nulls the whole past (a learned null token, the
+        # same one episode-start padding gets) for a sample (train only) so the
+        # policy still works when history is missing -- it is live at
+        # history_len 3, and it is what keeps the policy from reading its own
+        # past as the answer.
         history_len: 3
         history_dropout: 0.2
         specs:

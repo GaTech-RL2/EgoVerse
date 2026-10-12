@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import warnings
 from collections import OrderedDict
 from functools import partial
 from typing import Callable, List, Optional, Union
@@ -593,7 +594,7 @@ class PolicyStem(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-    def compute_latent(self, x: torch.Tensor) -> torch.Tensor:
+    def compute_latent(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Computes the latent representations of input data by attention.
 
@@ -619,7 +620,7 @@ class PolicyStem(nn.Module):
         """
         # Initial reshape to adapt to token dimensions
         # (32, 3, 1, 49, 128)
-        stem_feat = self(x)
+        stem_feat = self(x, **kwargs)
         stem_feat = stem_feat.reshape(
             stem_feat.shape[0], -1, stem_feat.shape[-1]
         )  # (32, 147, 128)
@@ -727,6 +728,7 @@ class MLPPolicyStem(PolicyStem):
         num_of_copy: int = 1,
         history_len: int = 1,
         history_dropout: float = 0.0,
+        history_null_token: bool = True,
         **kwargs,
     ) -> None:
         """vanilla MLP class
@@ -740,11 +742,16 @@ class MLPPolicyStem(PolicyStem):
         NORMALIZED values, i.e. amplitude-1 noise on [-1, 1] data.
 
         ``history_dropout`` is the per-sample probability, in training only, of
-        replacing every past step by the current one. That is exactly what an
-        episode-start sample looks like after the dataset's front padding, so
-        the policy trains on "history missing" the way it will see it at
-        deployment (the mitigation for copycat / causal confusion). Inert at
-        K = 1 and in eval.
+        dropping every past step (the mitigation for copycat / causal
+        confusion). With ``history_null_token`` a dropped step's token, and
+        that of every step the ``history_mask`` marks as front padding (train
+        and eval), is a learned null embedding (plus its time embedding):
+        copying the current step, the legacy behaviour with the flag off, is
+        indistinguishable from a genuinely static hand. Inert at K = 1.
+
+        A state dict without ``null_token`` (a checkpoint from before it
+        existed) switches the stem back to the legacy copy-current behaviour
+        on load, with a warning.
         """
         super().__init__(**kwargs)
         if history_len > 1 and num_of_copy > 1:
@@ -754,6 +761,7 @@ class MLPPolicyStem(PolicyStem):
             )
         self.history_len = int(history_len)
         self.history_dropout = float(history_dropout)
+        self.history_null_token = bool(history_null_token) and self.history_len > 1
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 
         for i in range(len(widths) - 1):
@@ -773,6 +781,32 @@ class MLPPolicyStem(PolicyStem):
             )
         if self.history_len > 1:
             self.time_embed = nn.Parameter(torch.zeros(self.history_len, output_dim))
+        if self.history_null_token:
+            self.null_token = nn.Parameter(torch.randn(output_dim) * INIT_CONST)
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        if self.history_null_token and f"{prefix}null_token" not in state_dict:
+            warnings.warn(
+                f"MLPPolicyStem '{prefix}': checkpoint has no null_token (trained "
+                "before null-token history); falling back to the legacy "
+                "copy-current history dropout and padding it was trained with."
+            )
+            self.history_null_token = False
+            del self.null_token
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
+
+    def _null_slots(self, x: torch.Tensor, history_mask) -> torch.Tensor:
+        """(B, K) bool: past steps to replace by the null token -- the dropped
+        ones (training) and the front-padded ones; never the current step."""
+        B, K = x.shape[:2]
+        null = torch.zeros(B, K, dtype=torch.bool, device=x.device)
+        if history_mask is not None:
+            null = history_mask.reshape(B, K).to(x.device) < 0.5
+        if self.training and self.history_dropout > 0:
+            drop = torch.rand(B, device=x.device) < self.history_dropout
+            null = null | drop[:, None]
+        null[:, -1] = False
+        return null
 
     def _drop_history(self, x: torch.Tensor) -> torch.Tensor:
         """Per sample, with probability ``history_dropout``, replace every past
@@ -781,22 +815,28 @@ class MLPPolicyStem(PolicyStem):
         current = x[:, -1:].expand_as(x)
         return torch.where(drop.view(-1, *([1] * (x.ndim - 1))), current, x)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, history_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """
         Performs a forward pass of the model.
         Args:
             x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size,
             horizon, instance (e.g. num of views)
+            history_mask: (B, K), 1.0 per real history step; None = all real.
         Returns:
             Flatten tensor with shape [B, M, 512]
         """
+        null = None
         if self.history_len > 1:
             if x.shape[1] != self.history_len:
                 raise ValueError(
                     f"MLPPolicyStem got {x.shape[1]} history steps on axis 1 but "
                     f"history_len={self.history_len} (input shape {tuple(x.shape)})"
                 )
-            if self.training and self.history_dropout > 0:
+            if self.history_null_token:
+                null = self._null_slots(x, history_mask)
+            elif self.training and self.history_dropout > 0:
                 x = self._drop_history(x)
         if self.num_of_copy > 1:
             out = []
@@ -808,6 +848,11 @@ class MLPPolicyStem(PolicyStem):
             y = torch.stack(out, dim=1)
         else:
             y = self.net(x)
+        if null is not None:
+            # torch.where even when nothing is nulled: the null token stays in
+            # the graph, so plain DDP never sees an unused parameter.
+            null = null.view(*null.shape, *([1] * (y.ndim - 2)))
+            y = torch.where(null, self.null_token.to(y), y)
         if self.history_len > 1:
             # Learned time-step embedding on axis 1, last slot = current step.
             y = y + self.time_embed.view(

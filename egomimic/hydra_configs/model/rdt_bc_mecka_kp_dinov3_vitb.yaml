@@ -40,7 +40,11 @@ robomimic_model:
     cond_drop: {state: 0.1, lang: 0.1, img: 0.0}
     # frames per camera (current last); 2 <-> key_map.image_history_gap_s set
     image_history: 2
-    image_history_dropout: 0.0
+    # A dropped or pre-episode past frame is a learned null token, not a copy
+    # of the current frame (a static scene would look the same). Off only to
+    # run a checkpoint from before it, which also happens automatically.
+    image_history_null_token: true
+    image_history_dropout: 0.1
     # the prompt encoder's max_length: one language shape for torch.compile
     lang_pad_to: 128
 
@@ -98,7 +102,9 @@ robomimic_model:
           - ${model.robomimic_model.width}
           - ${model.robomimic_model.width}
         history_len: 4
-        history_dropout: 0.2
+        # as image_history_null_token, for dropped / pre-episode proprio steps
+        history_null_token: true
+        history_dropout: 0.1
 
   encoder_specs:
     front_img_1:

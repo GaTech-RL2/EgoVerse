@@ -3072,11 +3072,17 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(
                         idx, spec
                     )[1]
+                elif spec.get("key_type") == "camera_keys" and spec.get("lag_s"):
+                    # _lagged_idx clamps a frame before the episode start to
+                    # frame 0; the model nulls it rather than read that copy.
+                    real = idx - self._seconds_to_frames(spec["lag_s"]) >= 0
+                    data[f"{k}{HISTORY_MASK_SUFFIX}"] = np.array(
+                        [real], dtype=np.float32
+                    )
 
             history_mask = self._proprio_history_mask(idx)
             if history_mask is not None:
-                # Informational: the front padding already looks exactly like a
-                # history-dropout sample, so the stem needs nothing extra.
+                # The history stem nulls the front-padded steps' tokens.
                 data["proprio_history_mask"] = history_mask
 
             if self.transform:
