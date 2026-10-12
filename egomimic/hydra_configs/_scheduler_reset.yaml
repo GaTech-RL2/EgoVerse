@@ -1,0 +1,6 @@
+# @package _global_
+# Drops the model's scheduler (e.g. LinearLR) so a later _self_ can define one with
+# different arguments; a plain override would merge the old keys into the new one.
+#   defaults: [<parent>, _scheduler_reset, <overrides...>, _self_]
+model:
+  scheduler: null

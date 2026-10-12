@@ -1,5 +1,5 @@
 # train_zarr_mecka_private_tshirt30m_opscale_6 on the RDT base (1280 x 18) instead of RDT-1B.
-# 45k steps (the 1B 90k runs' samples at twice the batch); WSD from the launcher (500 warmup,
+# 45k steps (the 1B 90k runs' samples at twice the batch); WSD (500 warmup,
 # decay 36k-45k). Global batch 256 = 2 GPUs x 64 x accumulate 2.
 # Val sees exactly the 4-GPU 1B runs' frames: K per head is per rank and scaled by world size,
 # so it is pinned to half the 4-GPU values, and val batches double to keep the batch budgets.
@@ -60,3 +60,6 @@ model:
     enabled: true
     mode: null
     dynamic: false
+  scheduler:
+    stable: 35500
+    decay: 9000

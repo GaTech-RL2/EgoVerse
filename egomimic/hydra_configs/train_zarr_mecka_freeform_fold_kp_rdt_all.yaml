@@ -2,7 +2,7 @@
 # 5 unseen ones (171 operators, 407 train episodes, 9.2 h), on a whole node
 # (logs/freeform_fold/launch_all.sbatch). At 8 x 32 / step one pass is ~3.9k
 # steps, so 1500 x 100 steps is ~38 passes, sized to fit the 48 h limit at ~1 s/step.
-# LR: 1k warmup, 119k stable, 30k decay (set in launch_all.sbatch).
+# LR: 1k warmup, 119k stable, 30k decay.
 defaults:
   - train_zarr_mecka_freeform_fold_kp_rdt_op2
   - override data: mecka_freeform_fold_kp_all_holdout
@@ -18,3 +18,8 @@ trainer:
 callbacks:
   model_checkpoint:
     every_n_epochs: 250
+
+model:
+  scheduler:
+    stable: 119000
+    decay: 30000

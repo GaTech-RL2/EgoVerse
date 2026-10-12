@@ -3,10 +3,10 @@
 # runs share a node (logs/freeform_fold/launch_pair.sbatch). At 4 x 32 / step
 # one pass is ~330 steps, so 600 x 100 steps is ~180 passes: the target is train
 # error, which kept falling to ~80 passes (+ decay) on the flagship fold run.
-# LR: 1k warmup, 47k stable, 12k linear decay to 0 (warmup_stable_decay); the
-# launcher swaps it in, since a config merge cannot drop LinearLR's arguments.
+# LR: 1k warmup, 47k stable, 12k linear decay to 0 (warmup_stable_decay).
 defaults:
   - train_zarr_mecka_flagship_fold_kp_rdt
+  - _scheduler_reset
   - override model: rdt_1b_bc_mecka_kp_dinov3_vitb
   - override data: mecka_freeform_fold_kp_op2_holdout
   - override hydra/launcher: submitit_loaner
@@ -15,6 +15,15 @@ defaults:
 launch_params:
   gpus_per_node: 4
   nodes: 1
+
+# Recipes built on this one set stable/decay so that the last 20% of their steps decay.
+model:
+  scheduler:
+    _target_: egomimic.utils.scheduler_utils.warmup_stable_decay
+    _partial_: true
+    warmup: 1000
+    stable: 47000
+    decay: 12000
 
 trainer:
   max_epochs: 600

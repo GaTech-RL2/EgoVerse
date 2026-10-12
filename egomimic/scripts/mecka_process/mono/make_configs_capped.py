@@ -107,7 +107,7 @@ train_datasets:
         write_config(
             CFG / f"train_zarr_mecka_private_tshirt{TAG}_opscale_{n}.yaml",
             f"""# train_zarr_mecka_private_tshirt_opscale_{n} on the {V['minutes']}-min-per-operator data:
-# {e} x 100 steps, val every {VAL_EVERY[n] * 100} steps. WSD LR from the launcher.
+# {e} x 100 steps, val every {VAL_EVERY[n] * 100} steps, WSD with 500-step warmup.
 # Generated; see data/mecka_private_tshirt{TAG}_opscale_{n}.
 defaults:
   - train_zarr_mecka_private_tshirt_opscale_{n}
@@ -122,6 +122,12 @@ trainer:
 callbacks:
   model_checkpoint:
     every_n_epochs: {e // 5}
+
+model:
+  scheduler:
+    warmup: 500
+    stable: {e * 100 - 500 - e * 20}
+    decay: {e * 20}
 """,
             SPLITS,
         )

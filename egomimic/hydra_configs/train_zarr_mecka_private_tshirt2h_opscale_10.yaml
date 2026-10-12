@@ -1,5 +1,5 @@
 # train_zarr_mecka_private_tshirt_opscale_10 on the 120-min-per-operator data:
-# 700 x 100 steps, val every 1000 steps. WSD LR from the launcher.
+# 700 x 100 steps, val every 1000 steps, WSD with 500-step warmup.
 # Generated; see data/mecka_private_tshirt2h_opscale_10.
 defaults:
   - train_zarr_mecka_private_tshirt_opscale_10
@@ -14,3 +14,9 @@ trainer:
 callbacks:
   model_checkpoint:
     every_n_epochs: 350
+
+model:
+  scheduler:
+    warmup: 500
+    stable: 55500
+    decay: 14000
