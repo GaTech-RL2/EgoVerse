@@ -1,0 +1,111 @@
+# @package _global_
+# Fixed-budget operator scaling, 4-operator rung. RDT (~300M DiT, DINOv3 ViT-B)
+# on clean fold-clothes and fold-shirt episodes. The 8, 12, and 16 rungs keep
+# nested operators and episode subsets with a 32.5200 h target. All descriptions
+# are audited in folding_only_classification.json. Seen/unseen validation is
+# shared with op1 and the larger rungs.
+# Submit with no overrides:
+#
+#   python egomimic/trainHydra.py -m \
+#     --config-name=experiments/fixed_budget_opscale/rdt_1b_opscale4
+#
+# Inherited from train_zarr_mecka_flagship_6d_rdt: paths, ddp trainer, wandb,
+# checkpoints, the wrist-frame 6D evaluator, and grad clip 1.0. train_viz is
+# off: the only videos are the open-loop walk (green GT / red predicted MANO
+# on each source frame). The data config carries the
+# local folders, the 0.1 s image history, proprio history 1, and the 144-D
+# wrist-frame keypoint action. The second head below trains that action
+# beside the 18-D cartesian one; both share the DiT. Batch 32 / GPU is the
+# measured ViT-B footprint (30 GiB on an H100) before the extra head.
+# Up to 128 fixed random trajectory starts per episode: 120 episodes need
+# 480 batches at batch size 32; the per-set limit of 512 covers every sample.
+defaults:
+  - /train_zarr_mecka_flagship_6d_rdt
+  - /evaluator@open_loop_evaluator: eval_open_loop_hpt_wristframe_6d
+  - override /model: rdt_bc_mecka_6d_dinov3_vitb
+  - override /data: mecka_fold_fixed_budget_op4_6d
+  - override /hydra/launcher: submitit_loaner
+  - _self_
+
+name: fixed_budget_opscale
+description: rdt_vitb_op4
+
+model:
+  # Inherited by every rung, including op1. Compiles the cartesian and
+  # keypoint denoisers plus DINOv3; default mode leaves CUDA graphs off.
+  compile:
+    enabled: true
+    mode: default
+    dynamic: true
+  robomimic_model:
+    # Second head: 144-D wrist-frame MANO keypoints, same chunk and DiT.
+    auxiliary_ac_keys:
+      human_bimanual:
+        - actions_keypoints
+    head_specs:
+      human_bimanual_actions_keypoints:
+        _target_: egomimic.models.fm_policy.FMPolicy
+        action_horizon: 100
+        num_inference_steps: 10
+        pooling: null
+        time_dist: "beta"
+        infer_ac_dims:
+          human_bimanual: 144
+        model:
+          _target_: egomimic.models.rdt_nets.RDTDenoiser
+          act_dim: 144
+          act_seq: 100
+          hidden_dim: ${model.robomimic_model.width}
+          n_state_tokens: 1
+          time_scale: 1000.0
+
+launch_params:
+  gpus_per_node: 8
+  nodes: 1
+
+data:
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+  valid_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+  unseen_op_valid_dataloader_params:
+    unseen_human_bimanual:
+      batch_size: 32
+
+trainer:
+  limit_val_batches: 512
+
+# No train-split videos, and the seen/unseen metric heads log stats only.
+# viz_every_n_epochs 0 also skips the last-epoch render.
+train_viz: false
+
+evaluator:
+  _target_: egomimic.eval.sampled_trajectory_mse.SampledTrajectoryMSE
+  viz_every_n_epochs: 0
+
+# One open-loop video per validation set at every validation pass. Official MSE
+# comes from the independently sampled metric loaders; pinned video frames log
+# no metrics.
+open_loop_evaluator:
+  log_metrics: false
+  final_only: false
+  execute_steps: 30
+  wandb_videos: 1
+  viz_every_n_epochs: 1
+  seen_episodes: ${data.open_loop_episodes.seen}
+  unseen_episodes: ${data.open_loop_episodes.unseen}
+
+norm_stats:
+  norm_mode: quantile
+  pool_horizon: false
+  sample_frac: 0.2
+  max_samples: null
+  num_workers: 4
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: null
+  cache_dir: ${paths.cache_dir}/norm_stats
+  use_cache: true
+
+reject_outliers: true

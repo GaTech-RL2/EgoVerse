@@ -73,6 +73,28 @@ uncompiled no matter what -- that is why HPT compiles the trunk, the flow
 head's denoiser and the image encoders and nothing else, and why `PI`'s call
 site moved from `.forward(...)` to `(...)`.
 
+## Compile settings for the fixed-budget RDT ladder
+
+`experiments/fixed_budget_opscale/rdt_1b_opscale{1,4,8,12,16}` enables
+`model.compile.enabled=true` through the shared `rdt_1b_opscale4` config.
+The four `fixed_budget_opscale_hist` rungs inherit this setting as well.
+The RDT model default remains off for other experiments.
+
+The existing training hook compiles both the cartesian and keypoint denoisers
+(each traces the shared DiT) and the DINOv3 image encoder. It uses in-place
+`nn.Module.compile`, preserving parameter names for checkpoints and optimizers.
+Text tokenization and the frozen text-feature cache stay outside these graphs.
+
+Settings are `mode=default` (without CUDA graphs) and `dynamic=true` to allow
+varying text lengths and batch sizes. A new graph still needs a first-call
+compilation; training and validation may each compile their own graphs.
+The existing per-Slurm-job Inductor cache is used. CUDA graph modes are avoided
+because of the cancellation issues documented in `AGENTS.md`.
+
+Append `model.compile.enabled=false` to a ladder launch to use eager execution.
+For another RDT experiment, append `model.compile.enabled=true` to enable it.
+Measure throughput after warmup; the HPT/Pi timings below are not RDT estimates.
+
 ## Results
 
 ### HPT model step, isolated (`bench_hpt.py`)

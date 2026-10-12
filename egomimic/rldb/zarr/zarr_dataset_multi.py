@@ -1956,13 +1956,21 @@ def _strided_indices(n: int, stride: int) -> list[int]:
 
 class EvenStrideDataset(MultiDataset):
     """Wraps a `MultiDataset` to subsample frames per underlying episode.
-    Pass exactly one of `frames_per_episode` (K evenly-spaced) or
-    `stride` (every Sth frame). Subclasses `MultiDataset` so trainHydra's
+    Pass exactly one of `frames_per_episode` (K evenly-spaced, or randomly
+    selected without replacement when random_seed is set) or `stride` (every
+    Sth frame). Random sampling preserves chosen indices and bypasses training
+    quantile rejection; decoding replacements and non-finite data fail loudly. Subclasses `MultiDataset` so trainHydra's
     isinstance check passes; we skip the parent `__init__` and adopt its
     class identity only, delegating to `self.base`."""
 
     def __init__(
-        self, base, frames_per_episode: int | None = None, stride: int | None = None
+        self,
+        base,
+        frames_per_episode: int | None = None,
+        stride: int | None = None,
+        random_seed: int | None = None,
+        preserve_indices: bool = False,
+        replace_invalid: bool = False,
     ):
         if (frames_per_episode is None) == (stride is None):
             raise ValueError(
@@ -1980,6 +1988,11 @@ class EvenStrideDataset(MultiDataset):
         self.base = base
         self.frames_per_episode = frames_per_episode
         self.stride = stride
+        self.random_seed = random_seed
+        self.preserve_indices = preserve_indices or random_seed is not None
+        self.replace_invalid = replace_invalid
+        if random_seed is not None and frames_per_episode is None:
+            raise ValueError("random sampling requires frames_per_episode")
         self.datasets = base.datasets
 
         keep: list[int] = []
@@ -1988,6 +2001,11 @@ class EvenStrideDataset(MultiDataset):
             if stride is not None:
                 picks = _strided_indices(n, stride)
                 rule = f"stride={stride}"
+            elif random_seed is not None:
+                # Per-episode seeds keep the sample independent of split order.
+                rng = random.Random(f"{random_seed}:{ep_name}")
+                picks = sorted(rng.sample(range(n), min(n, frames_per_episode)))
+                rule = f"random k={frames_per_episode}, seed={random_seed}"
             else:
                 picks = _evenly_spaced_indices(n, frames_per_episode)
                 rule = f"k={frames_per_episode}"
@@ -2008,7 +2026,61 @@ class EvenStrideDataset(MultiDataset):
         return len(self.indices)
 
     def __getitem__(self, idx):
-        return self.base[self.indices[idx]]
+        if not self.preserve_indices:
+            return self.base[self.indices[idx]]
+        # Evaluation must retain the sampled frame, including values outside
+        # training quantiles. Training's random outlier retries bias holdouts.
+        episode, local_idx = self.base.index_map[self.indices[idx]]
+
+        def read_exact(frame_idx):
+            sample = self.base.datasets[episode][frame_idx]
+            if "frame_idx" in sample and int(sample["frame_idx"]) != frame_idx:
+                raise ValueError(
+                    f"Validation frame {episode}/{frame_idx} was replaced during decoding"
+                )
+            emb = sample.get("embodiment")
+            for key in self.base.zarr_keys.get(emb, {}).values():
+                value = sample.get(key)
+                if isinstance(value, (np.ndarray, torch.Tensor)):
+                    if not torch.isfinite(torch.as_tensor(value)).all():
+                        raise ValueError(
+                            f"Non-finite validation data: {episode}/{frame_idx}/{key}"
+                        )
+            return sample, emb
+
+        try:
+            sample, emb = read_exact(local_idx)
+        except Exception as original_error:
+            if not self.replace_invalid:
+                raise
+            # Retry only within this episode. Fixed seeding keeps the metric
+            # cohort stable across epochs and resumed runs.
+            candidates = list(range(len(self.base.datasets[episode])))
+            rng = random.Random(f"{self.random_seed}:{episode}:{local_idx}:replacement")
+            rng.shuffle(candidates)
+            for candidate in candidates:
+                if candidate == local_idx:
+                    continue
+                try:
+                    sample, emb = read_exact(candidate)
+                except Exception:
+                    continue
+                logger.warning(
+                    "Replacing invalid validation frame %s/%d with %d (%s)",
+                    episode,
+                    local_idx,
+                    candidate,
+                    original_error,
+                )
+                break
+            else:
+                raise RuntimeError(
+                    f"No valid validation frame in episode {episode} "
+                    f"after invalid frame {local_idx}"
+                ) from original_error
+        if emb in self.base.norm_stats:
+            sample = self.base.normalize(sample, emb)
+        return sample
 
     def set_data_schematic(self, data_schematic) -> None:
         self.base.set_data_schematic(data_schematic)
@@ -2243,11 +2315,20 @@ class ZarrDataset(torch.utils.data.Dataset):
         """``seconds`` in this episode's fps, at least one frame."""
         return max(1, round(float(seconds) * self._fps()))
 
-    def _lagged_idx(self, idx: int, lag_s: float) -> int:
-        """Frame ``lag_s`` seconds before ``idx`` (at least one frame back),
-        clamped at the episode start -- so the first samples read frame 0,
-        the same front padding a history window gets."""
-        return max(0, idx - self._seconds_to_frames(lag_s))
+    def _lagged_idx(
+        self, idx: int, lag_s: float | None, lag_frames: int | None = None
+    ) -> int:
+        """Past frame, clamped at the episode start like a history window.
+
+        A frame offset is exact at any fps; otherwise convert seconds to at
+        least one frame, preserving the time-based image-history behavior.
+        """
+        lag = (
+            int(lag_frames)
+            if lag_frames is not None
+            else self._seconds_to_frames(lag_s)
+        )
+        return max(0, idx - lag)
 
     def _history_stride(self, spec: dict) -> int:
         """Frames between history steps: ``history_stride_s`` (seconds, so a
@@ -2310,6 +2391,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             horizon = spec.get("horizon")
             history = spec.get("history")
             lag_s = spec.get("lag_s")
+            lag_frames = spec.get("lag_frames")
             if horizon is not None:
                 window = (
                     idx,
@@ -2323,10 +2405,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                 # chunk) a span would fetch every frame between the steps.
                 # ZarrEpisode.plan_reads still merges them on numeric keys.
                 window = self._history_indices(idx, spec)[0]
-            elif lag_s is not None:
-                # A single PAST frame (image history): the same zarr array as
-                # the current-frame entry, read ``lag_s`` seconds back.
-                window = (self._lagged_idx(idx, lag_s), None)
+            elif lag_s is not None or lag_frames is not None:
+                # A single past image from the same zarr array as the current
+                # frame, using either a time offset or an exact frame offset.
+                window = (self._lagged_idx(idx, lag_s, lag_frames), None)
             else:
                 window = (idx, None)
             windows[k] = (spec["zarr_key"], window)
@@ -2521,6 +2603,10 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["episode_hash"] = (
                 ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             )
+            # Source frame this sample was read at. The open-loop video seeks
+            # the next execute_steps frames from here; a fallback retry updates
+            # ``idx``, so this is the frame that was actually decoded.
+            data["frame_idx"] = torch.tensor(idx, dtype=torch.int64)
             _ = origin  # preserved for symmetry with prior API
             return data
 

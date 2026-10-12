@@ -1,0 +1,126 @@
+# Folding-only operator ladder, with episode-disjoint validation holdouts.
+# Fixed training target: 32.5200 h after reserving added-operator validation.
+# op4: 1115 episodes / 32.4956 h; op8: 1080 / 32.4411 h;
+# op12: 1036 / 32.4130 h; op16: 1030 / 32.3483 h.
+# Shared sets: core seen (4 episodes), user-approved unseen preview (1),
+# and flagship unseen (4 operators x 20 episodes). Flagship SQL descriptions
+# are blank; its provenance is lab=mecka, task=fold_clothes and reviewed sample.
+# Each larger rung adds 30 held-out episodes from each of its 4 new operators.
+# Metrics sample up to 128 random starts in EVERY episode using a fixed seed.
+# Open-loop video uses one pinned episode in each of the three preview sets
+# at every validation pass; added-operator seen cohorts have metrics only.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+valid_prefix: seen_op_valid
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /workspace/datasets/fixed_budget_opscale/op4
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        include_keypoints: true
+        annotation_key: annotations
+        image_history_gap_s: 0.1
+        proprio_history: 1
+        history_stride: 1
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: 6D
+        stride: 1
+        fix_left_wrist_convention: false
+        pad_proprio_gripper: true
+        predict_keypoints: true
+    mode: total
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /workspace/datasets/fixed_budget_opscale/seen_val
+      key_map: ${data.train_datasets.human_bimanual.resolver.key_map}
+      transform_list: ${data.train_datasets.human_bimanual.resolver.transform_list}
+    mode: total
+
+unseen_op_valid_datasets:
+  unseen_human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /workspace/datasets/fixed_budget_opscale/unseen_val
+      key_map: ${data.train_datasets.human_bimanual.resolver.key_map}
+      transform_list: ${data.train_datasets.human_bimanual.resolver.transform_list}
+    mode: total
+  flagship_human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /workspace/datasets/fixed_budget_opscale/flagship_unseen_val
+      key_map: ${data.train_datasets.human_bimanual.resolver.key_map}
+      transform_list: ${data.train_datasets.human_bimanual.resolver.transform_list}
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+unseen_op_valid_dataloader_params:
+  unseen_human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+  flagship_human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+metric_sampling:
+  method: random
+  frames_per_episode: 128
+  seed: 42026
+
+validation_dataset_options:
+  human_bimanual:
+    embodiment: human_bimanual
+    prefix: seen_op_valid
+  unseen_human_bimanual:
+    embodiment: human_bimanual
+    prefix: unseen_op_valid
+  flagship_human_bimanual:
+    embodiment: human_bimanual
+    prefix: flagship_unseen_op_valid
+
+open_loop_stride: 30
+open_loop_episodes:
+  seen:
+    - 6a918c7205abbb0d9a9a8eb2
+  unseen:
+    - 69b1e2191c6c05bcabe09dcd  # 69439bf1a2a8b5aee76603c3
+    - 692eadb33b319da763b71ba6  # 6871d82a1aaf88556f0c6041
+open_loop_dataloader_params:
+  human_bimanual:
+    batch_size: 16
+    num_workers: 8
+    shuffle: false
+  unseen_human_bimanual:
+    batch_size: 16
+    num_workers: 8
+    shuffle: false
+  flagship_human_bimanual:
+    batch_size: 16
+    num_workers: 8
+    shuffle: false

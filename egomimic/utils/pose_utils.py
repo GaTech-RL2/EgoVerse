@@ -130,6 +130,21 @@ def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
     return mats
 
 
+def _matrix_to_xyzrot6d(mats: np.ndarray) -> np.ndarray:
+    """SE3 matrices -> xyz + Zhou 6D rotation (first two columns of R).
+
+    The two columns are stacked as ``[r00, r10, r20, r01, r11, r21]``, the
+    same packing as :func:`_ypr_to_rot6d`.
+    """
+    if mats.ndim != 3 or mats.shape[-2:] != (4, 4):
+        raise ValueError(f"Expected (B, 4, 4) array, got shape {mats.shape}")
+    mats = np.asarray(mats)
+    dtype = mats.dtype if np.issubdtype(mats.dtype, np.floating) else np.float64
+    xyz = mats[:, :3, 3]
+    rot6d = np.concatenate([mats[:, :3, 0], mats[:, :3, 1]], axis=-1)
+    return np.concatenate([xyz, rot6d], axis=-1).astype(dtype, copy=False)
+
+
 def _ypr_to_rot6d(ypr: np.ndarray) -> np.ndarray:
     """Convert euler ypr to the continuous 6D rotation representation.
 

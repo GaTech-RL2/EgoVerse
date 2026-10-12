@@ -1,0 +1,8 @@
+# @package _global_
+# 16-operator rung of the four-frame history ladder. Same recipe as rdt_1b_opscale4.
+defaults:
+  - rdt_1b_opscale4
+  - override /data: mecka_fold_fixed_budget_op16_6d
+  - _self_
+
+description: rdt_vitb_op16

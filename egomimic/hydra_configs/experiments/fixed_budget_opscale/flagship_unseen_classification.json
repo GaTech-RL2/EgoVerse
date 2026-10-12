@@ -1,0 +1,121 @@
+{
+  "source": "SQL app.episodes",
+  "filter": {
+    "lab": "mecka",
+    "task": "fold_clothes",
+    "is_deleted": false
+  },
+  "sample_seed": 42026,
+  "selection_basis": "20 seeded random episodes per each of the four highest-volume operators; includes user-approved video episode 692eadb33b319da763b71ba6. SQL task_description is blank for these rows.",
+  "description_note": "task_description is blank on the selected SQL rows; semantic folding-only verification is based on task label and user-reviewed approved sample video, not per-episode descriptions.",
+  "operators": [
+    {
+      "operator": "6903686e0e94ce070afd1f24",
+      "available_episode_count": 405,
+      "selected_episode_count": 20,
+      "episode_ids": [
+        "692e9bdc21fc595fbe6f942c",
+        "692eb64eba0400c7068a002c",
+        "692eb64eba0400c7068a002d",
+        "692eb64fba0400c7068a0037",
+        "692eb651ba0400c7068a0043",
+        "692ec52a526b2c3ac5f5b55e",
+        "692ec52a526b2c3ac5f5b561",
+        "692ec52c526b2c3ac5f5b573",
+        "692ec52e526b2c3ac5f5b582",
+        "692efcde4cbe809837380007",
+        "692efcde4cbe809837380013",
+        "692f0f30fbcce321dca7506c",
+        "692f0f34fbcce321dca75091",
+        "692fe7a034a99e18e25289b3",
+        "692fe7a034a99e18e25289b4",
+        "692fe7c8b03ac7c2657d54ba",
+        "692fe7cdb03ac7c2657d54de",
+        "692fe8773c1dfb13a7a99ec6",
+        "692fe8783c1dfb13a7a99ecf",
+        "692fe8783c1dfb13a7a99ed1"
+      ]
+    },
+    {
+      "operator": "690366b20e94ce070afd1e8a",
+      "available_episode_count": 354,
+      "selected_episode_count": 20,
+      "episode_ids": [
+        "692e7b5839719ab57395b498",
+        "692e7b5939719ab57395b49b",
+        "692e7fa84e86f0c01a206e9d",
+        "692e87215aae241ad236ea14",
+        "692e991a1e78e176ba6cf77b",
+        "692e9eb05aae241ad236ecb4",
+        "692e9eb05aae241ad236ecb6",
+        "692e9eb05aae241ad236ecb7",
+        "692e9eb05aae241ad236ecb9",
+        "692ea416d3d807884d4dd721",
+        "692eb08897ffd8ec90340286",
+        "692eb08a97ffd8ec90340293",
+        "692eb28d21fc595fbe6f9600",
+        "692eb492f169106feb26b013",
+        "692ef314b07e0e30ff1132a9",
+        "692ef37dfbcce321dca74ed8",
+        "692ef37efbcce321dca74ee0",
+        "692fe5eea48e122f8325d3c1",
+        "692fe8a0b108dc6b6c8bda40",
+        "692fe8dd6c1e69a4860825e0"
+      ]
+    },
+    {
+      "operator": "683785ac01ca734152093448",
+      "available_episode_count": 320,
+      "selected_episode_count": 20,
+      "episode_ids": [
+        "692ea0ee3019385fbbf56748",
+        "692ea0ee3019385fbbf5674c",
+        "692ea1c368228e362d908fd3",
+        "692ea28ad3d807884d4dd704",
+        "692ea2a9ba0400c70689fe6b",
+        "692ea2aaba0400c70689fe6e",
+        "692ea4d574b24813e759753d",
+        "692ea6039cebf0ec017ddcc0",
+        "692ea6d8dbc4294a49cc728d",
+        "692ea84674b24813e75975c7",
+        "692ea90ce2322e3b092b5f00",
+        "692ea90ce2322e3b092b5f01",
+        "692ea90de2322e3b092b5f09",
+        "692eaa07e2322e3b092b5f28",
+        "692eab0eba0400c70689ff5c",
+        "692eab8995aad87d3e34469a",
+        "692eadb76974927fef249d30",
+        "692eadb76974927fef249d31",
+        "692eaef37641010d043547c0",
+        "692eaf78b8797912ff78a8e7"
+      ]
+    },
+    {
+      "operator": "6871d82a1aaf88556f0c6041",
+      "available_episode_count": 119,
+      "selected_episode_count": 20,
+      "episode_ids": [
+        "692e943aaf371a654ce7fbdb",
+        "692ea318ba0400c70689fe7d",
+        "692ea318ba0400c70689fe7e",
+        "692eadb13b319da763b71b9a",
+        "692eadb23b319da763b71b9f",
+        "692eadb33b319da763b71ba6",
+        "692eadb33b319da763b71ba8",
+        "692eadbaaec602a46af10686",
+        "692eb0e8c621d7f4aac3ac1b",
+        "692eb0e8c621d7f4aac3ac1d",
+        "692eb0e9c621d7f4aac3ac20",
+        "692eb27da0e165ab2e42e566",
+        "692eb27ea0e165ab2e42e573",
+        "692eb280a0e165ab2e42e580",
+        "692eb280a0e165ab2e42e583",
+        "692efe42f59fd218b1be01a9",
+        "692efe42f59fd218b1be01aa",
+        "692efe42f59fd218b1be01ab",
+        "692efe44f59fd218b1be01bb",
+        "692efe45f59fd218b1be01c5"
+      ]
+    }
+  ]
+}

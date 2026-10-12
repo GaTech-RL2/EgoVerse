@@ -15,7 +15,8 @@ from egomimic.utils.viz_utils import (
     _viz_traj,
 )
 
-# A camera keymap entry "<key>_hist" is the same camera, `lag_s` seconds earlier.
+# A camera entry "<key>_hist" is the same camera, `lag_s` seconds or
+# `lag_frames` frames earlier.
 IMAGE_HISTORY_SUFFIX = "_hist"
 # "<key>_mem" is the same camera's long-range window: `history` frames,
 # `history_stride_s` apart, the newest `lag_s` seconds back.

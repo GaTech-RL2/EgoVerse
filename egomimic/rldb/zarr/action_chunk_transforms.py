@@ -26,6 +26,7 @@ from egomimic.utils.pose_utils import (
     _interpolate_quat_wxyz,
     _interpolate_xyz,
     _matrix_to_xyz,
+    _matrix_to_xyzrot6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
     _rot6d_to_ypr,
@@ -494,6 +495,49 @@ class XYZWXYZ_to_XYZYPR(Transform):
                     f"or (T, 7), got {value.shape}"
                 )
         return batch
+
+
+class XYZWXYZ_to_XYZRot6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) to xyz+rot6d in-place.
+
+    Frame hops stay in quaternion. This is the last step for a 6D policy:
+    Zhou's first two rotation-matrix columns, not a yaw-pitch-roll round trip.
+    """
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyzrot6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZRot6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
+def transforms_for_rotation_mode(
+    keys: list[str],
+    rotation_mode: Literal["euler", "quat", "6D"],
+) -> list[Transform]:
+    """Convert xyz+quat(wxyz) poses to the representation the policy sees.
+
+    Geometric frame hops always run in quaternion. ``euler`` is xyz+ypr (6),
+    ``quat`` leaves the 7D pose, ``6D`` is xyz + Zhou 6D (9).
+    """
+    if rotation_mode == "quat":
+        return []
+    if rotation_mode == "euler":
+        return [XYZWXYZ_to_XYZYPR(keys=keys)]
+    if rotation_mode == "6D":
+        return [XYZWXYZ_to_XYZRot6D(keys=keys)]
+    raise ValueError(f"unknown rotation_mode {rotation_mode!r}")
 
 
 def _as_array(value):

@@ -1,0 +1,74 @@
+# @package _global_
+# Fixed-budget operator scaling with the last four consecutive proprio frames.
+# Inherits the clean training splits, sampled validation MSE, three
+# open-loop videos per validation pass, and torch.compile from the base ladder.
+#
+#   proprio  [t-3, t-2, t-1, t], oldest first; 4 state tokens on both heads.
+#   images   [t-3, t], the endpoints of that same window at every episode fps.
+#   batch    56 / GPU, one optimizer update per batch (no accumulation).
+#   schedule WSD: 500 warmup, stable through step 100k, decay to 0 at 500k.
+#   length   100 batches/epoch x 5000 epochs = 500k optimizer steps.
+#
+# Shared validation: core seen, reviewed unseen preview, and 4 unseen
+# operators x 20 episodes. Rungs 8/12/16 also hold out 30 episodes for each
+# of their 4 added operators. All use the same observation window as training.
+# Normalization uses the automatic cache keyed to the current training data.
+#
+#   python egomimic/trainHydra.py \
+#     --config-name=experiments/fixed_budget_opscale_hist/rdt_1b_opscale4
+defaults:
+  - /experiments/fixed_budget_opscale/rdt_1b_opscale4
+  - _scheduler_reset
+  - _self_
+
+name: fixed_budget_opscale_hist
+description: rdt_vitb_op4
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          image_history_gap_s: null
+          image_history_gap_frames: 3
+          proprio_history: 4
+          history_stride: 1
+          history_stride_s: null
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 56
+      num_workers: 12
+
+model:
+  robomimic_model:
+    trunk:
+      image_history: 2
+    stem_specs:
+      human_bimanual:
+        state_ee_pose:
+          history_len: 4
+    head_specs:
+      human_bimanual:
+        model:
+          n_state_tokens: 4
+      human_bimanual_actions_keypoints:
+        model:
+          n_state_tokens: 4
+  scheduler:
+    _target_: egomimic.utils.scheduler_utils.warmup_stable_decay
+    _partial_: true
+    warmup: 500
+    stable: 99500
+    decay: 400000
+    warmup_start_factor: 1.0e-3
+    min_factor: 0.0
+
+trainer:
+  max_epochs: 5000
+  min_epochs: 5000
+  limit_train_batches: 100
+  accumulate_grad_batches: 1
+
+norm_stats:
+  # Let the training episode fingerprints select or rebuild the cache.
+  precomputed_norm_path: null

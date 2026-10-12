@@ -84,6 +84,9 @@ class ModelWrapper(LightningModule):
         # Optional third evaluator for the unseen_op_valid loader (held-out
         # operators in the opsplit data configs).
         self.unseen_op_valid_evaluator = None
+        # Open-loop walk over pinned episodes. Separate from the metric heads
+        # so those can report stats without rendering.
+        self.open_loop_evaluator = None
         # Val loader names in dataloader_idx order, from
         # MultiDataModuleWrapper.val_loader_names(); None = [valid, train_viz].
         self.val_loader_names = None
@@ -229,10 +232,13 @@ class ModelWrapper(LightningModule):
             self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
 
     def _val_heads(self) -> dict:
+        if getattr(self, "named_val_evaluators", None):
+            return self.named_val_evaluators
         return {
             "valid": self.evaluator,
             "train_viz": self.train_viz_evaluator,
             "unseen_op_valid": getattr(self, "unseen_op_valid_evaluator", None),
+            "open_loop": getattr(self, "open_loop_evaluator", None),
         }
 
     def on_validation_start(self):
@@ -292,6 +298,19 @@ class ModelWrapper(LightningModule):
         # triple lands here as `batch`. Unwrap to recover the dict.
         if isinstance(batch, tuple) and len(batch) == 3 and isinstance(batch[0], dict):
             batch = batch[0]
+        embodiment = getattr(self, "named_val_embodiments", {}).get(name)
+        if embodiment is not None:
+            if len(batch) != 1:
+                raise ValueError(
+                    f"Named validation loader {name} must have one dataset"
+                )
+            batch = {embodiment: next(iter(batch.values()))}
+            # Earlier cohorts differ between rungs. Restart inference/prompt
+            # RNG per set so shared validation sees the same sampling noise.
+            if batch_idx == 0:
+                reset = getattr(self.model, "reset_eval_pass_counter", None)
+                if callable(reset):
+                    reset()
         batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, "

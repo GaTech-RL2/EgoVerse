@@ -1,0 +1,77 @@
+{
+  "seed": 42026,
+  "max_trajectory_starts_per_episode": 128,
+  "sampling": "without replacement; all frames for episodes shorter than 128 frames",
+  "metric": "MSE over unnormalized full predicted chunks, excluding padding; averaged by trajectory sample",
+  "training_budget_hours": 32.519955555555555,
+  "videos": "one pinned episode per validation set, on final validation pass; video MSE is not logged",
+  "sets": [
+    {
+      "name": "seen_val",
+      "operators": 4,
+      "episodes": 4,
+      "trajectory_start_samples": 512,
+      "video_episode": "6a918c7205abbb0d9a9a8eb2",
+      "folder": "/workspace/datasets/fixed_budget_opscale/seen_val",
+      "metric": "seen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "seen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/seen_op_valid"
+    },
+    {
+      "name": "unseen_val",
+      "operators": 1,
+      "episodes": 1,
+      "trajectory_start_samples": 128,
+      "video_episode": "69b1e2191c6c05bcabe09dcd",
+      "folder": "/workspace/datasets/fixed_budget_opscale/unseen_val",
+      "metric": "unseen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "unseen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/unseen_op_valid"
+    },
+    {
+      "name": "flagship_unseen_val",
+      "operators": 4,
+      "episodes": 80,
+      "trajectory_start_samples": 9970,
+      "video_episode": "692eadb33b319da763b71ba6",
+      "folder": "/workspace/datasets/fixed_budget_opscale/flagship_unseen_val",
+      "metric": "flagship_unseen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "flagship_unseen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/flagship_unseen_op_valid"
+    },
+    {
+      "name": "op8_seen_val",
+      "operators": 4,
+      "episodes": 120,
+      "trajectory_start_samples": 15360,
+      "video_episode": "6aa0e5c72e84827b8bee01a1",
+      "folder": "/workspace/datasets/fixed_budget_opscale/op8_seen_val",
+      "metric": "op8_added_seen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "op8_added_seen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/op8_added_seen_op_valid"
+    },
+    {
+      "name": "op12_seen_val",
+      "operators": 4,
+      "episodes": 120,
+      "trajectory_start_samples": 15360,
+      "video_episode": "6aa23ad1855cd14652fabf51",
+      "folder": "/workspace/datasets/fixed_budget_opscale/op12_seen_val",
+      "metric": "op12_added_seen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "op12_added_seen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/op12_added_seen_op_valid"
+    },
+    {
+      "name": "op16_seen_val",
+      "operators": 4,
+      "episodes": 120,
+      "trajectory_start_samples": 15360,
+      "video_episode": "6a4ba13b63ae83c771065a9b",
+      "folder": "/workspace/datasets/fixed_budget_opscale/op16_seen_val",
+      "metric": "op16_added_seen_op_valid/Valid/Action_MSE",
+      "xyz_metric": "op16_added_seen_op_valid/Valid/XYZ_MSE",
+      "video_log": "videos_open_loop/op16_added_seen_op_valid"
+    }
+  ],
+  "inference_rng": "Reset for each validation dataset so shared sets use the same inference randomness across rungs."
+}
