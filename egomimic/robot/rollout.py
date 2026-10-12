@@ -16,7 +16,11 @@ from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.rldb.embodiment.embodiment import (
+    EMBODIMENT,
+    Embodiment,
+    get_embodiment,
+)
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
@@ -154,9 +158,9 @@ RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
 EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
+    "both": EMBODIMENT.EVA_BIMANUAL.value,
+    "left": EMBODIMENT.EVA_LEFT_ARM.value,
+    "right": EMBODIMENT.EVA_RIGHT_ARM.value,
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
@@ -242,6 +246,7 @@ class PolicyRollout(Rollout):
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
+        transform_mode=None,
     ):
         super().__init__()
         self.arm = arm
@@ -258,7 +263,7 @@ class PolicyRollout(Rollout):
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
-        self.transform_mode = self._checkpoint_transform_mode()
+        self.transform_mode = self._checkpoint_transform_mode(transform_mode)
         # Inference: a checkpoint recorded before the 6D conversion, or none at
         # all, is exactly the case allow_legacy_rotation exists for.
         if self.transform_mode is None:
@@ -328,31 +333,49 @@ class PolicyRollout(Rollout):
     # rollout hard-coded it before the mode was read from the checkpoint).
     LEGACY_TRANSFORM_MODE = "cartesian_wristframe_ypr"
 
-    def _checkpoint_transform_mode(self):
+    def _checkpoint_transform_mode(self, override=None):
         """Eva ``transform_list.mode`` the checkpoint was trained with, so the
         rollout builds the same inputs and reverts the matching outputs;
-        ``None`` if the checkpoint config does not record it."""
+        ``None`` for an unrecorded legacy 14-D ypr checkpoint. ``override``
+        wins."""
         from omegaconf import OmegaConf
 
-        name = {
-            "both": "eva_bimanual",
-            "right": "eva_right_arm",
-            "left": "eva_left_arm",
-        }[self.arm]
-        cfg = self.policy._as_config(getattr(self.policy.hparams, "config_tree", None))
-        mode = None
-        if cfg is not None:
-            mode = OmegaConf.select(
-                cfg, f"data.train_datasets.{name}.resolver.transform_list.mode"
-            )
+        name = get_embodiment(self.embodiment_id).lower()
+        mode, source = override, "--transform-mode"
         if mode is None:
+            cfg = self.policy._as_config(
+                getattr(self.policy.hparams, "config_tree", None)
+            )
+            if cfg is not None:
+                mode = OmegaConf.select(
+                    cfg, f"data_transform_modes.{name}", default=None
+                )
+            source = "checkpoint"
+        if mode is None:
+            # Checkpoints from before trainHydra recorded the mode: only the
+            # legacy layout can be assumed; any other width is ambiguous.
+            width = self._checkpoint_action_width()
+            if width != 14:
+                raise ValueError(
+                    f"[rollout] checkpoint records no {name} transform mode and its "
+                    f"actions_cartesian width is {width}, not the legacy 14; pass "
+                    "--transform-mode (e.g. cartesian_wristframe_6d)"
+                )
             print(
-                f"[rollout] WARNING: checkpoint config has no {name} transform_list.mode;"
-                f" using legacy {self.LEGACY_TRANSFORM_MODE} inputs, no output revert"
+                "[rollout] Eva transform_list mode (14-D action width): "
+                f"{self.LEGACY_TRANSFORM_MODE}, predictions used as-is"
             )
             return None
-        print(f"[rollout] Eva transform_list mode from checkpoint: {mode}")
+        print(f"[rollout] Eva transform_list mode ({source}): {mode}")
         return mode
+
+    def _checkpoint_action_width(self):
+        """Last dim of the checkpoint's Eva actions_cartesian, or None."""
+        state = getattr(self.policy.hparams, "norm_stats_state", None) or {}
+        shapes = state.get("shapes", {})
+        emb = shapes.get(self.embodiment_id, shapes.get(str(self.embodiment_id), {}))
+        shape = emb.get("actions_cartesian")
+        return None if shape is None else int(shape[-1])
 
     def _revert_predictions(self, preds, obs_batch):
         """(1, T, D) unnormalized predictions -> (1, T, 14) camera-frame
@@ -656,6 +679,7 @@ def main(
     offline_debug=False,
     offline_episode_path=None,
     annotation_path=None,
+    transform_mode=None,
 ):
     if arms == "both":
         arms_list = ["right", "left"]
@@ -687,6 +711,7 @@ def main(
             resampled_action_len=resampled_action_len,
             debug=debug,
             annotation_path=annotation_path,
+            transform_mode=transform_mode,
         )
     elif dataset_path is not None:
         rollout_type = "replay"
@@ -883,6 +908,12 @@ def build_arg_parser(description="Rollout robot model."):
         type=str,
         help="path to the annotation file",
     )
+    parser.add_argument(
+        "--transform-mode",
+        type=str,
+        help="Eva transform_list mode the policy was trained with; only needed for "
+        "checkpoints that do not record it (default: read from the checkpoint)",
+    )
     return parser
 
 
@@ -900,6 +931,7 @@ def run_from_args(args):
         offline_debug=args.offline_debug,
         offline_episode_path=args.offline_episode_path,
         annotation_path=args.annotation_path,
+        transform_mode=args.transform_mode,
     )
 
 
