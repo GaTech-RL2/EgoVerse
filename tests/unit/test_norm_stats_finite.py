@@ -49,7 +49,9 @@ def test_infer_norm_from_dataset_ignores_episode_with_nan_gripper(tmp_path, capl
     resolver = LocalEpisodeResolver(
         tmp_path,
         key_map=Eva.get_keymap(keymap_mode="cartesian", norm_mode=True),
-        transform_list=Eva.get_transform_list(mode="cartesian"),
+        transform_list=Eva.get_transform_list(
+            action_mode="cartesian", coord_frame="camframe", rotation_mode="euler"
+        ),
     )
     ds = MultiDataset._from_resolver(resolver, mode="total")
     stats = MultiDataset(state={}, norm_mode="quantile")

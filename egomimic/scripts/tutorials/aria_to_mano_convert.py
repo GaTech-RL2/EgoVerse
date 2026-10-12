@@ -78,7 +78,9 @@ def fetch_episode_loader():
     print(f"Aria episode: {episode_hash} (of {len(aria_df)})")
 
     key_map = Human.get_keymap(keymap_mode="keypoints")
-    transform_list = Human.get_transform_list(mode="keypoints_headframe_ypr", stride=3)
+    transform_list = Human.get_transform_list(
+        action_mode="keypoints", coord_frame="camframe", rotation_mode="euler", stride=3
+    )
     resolver = S3EpisodeResolver(
         str(CACHE_DIR), key_map=key_map, transform_list=transform_list
     )
