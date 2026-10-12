@@ -37,7 +37,7 @@ class EvalVideo(Eval):
         viz_mode: str = "replay",
         replay_chunks: int = 5,
         replay_trail: int = 5,
-        action_stride: int | None = None,
+        action_stride: float | None = None,
     ):
         super().__init__()
         self.trainer = None
@@ -57,8 +57,9 @@ class EvalVideo(Eval):
         # video loader and caps it at ``replay_chunks`` chunks instead of
         # ``viz_max_batches``. "overlay" draws each frame's whole GT and
         # predicted chunk, and is what a head without a video loader gets.
-        # ``action_stride`` is frames per chunk step (None: inferred from the
-        # GT keypoints, see replay_viz.infer_stride).
+        # ``action_stride`` is frames per chunk step, fractional when the chunk
+        # is resampled (None: inferred from the GT keypoints, see
+        # replay_viz.infer_stride).
         if viz_mode not in ("overlay", "replay"):
             raise ValueError(f"unknown viz_mode {viz_mode!r}")
         self.viz_mode = viz_mode
@@ -293,7 +294,7 @@ class EvalVideo(Eval):
                     seen = self._replay_seen.get(key, 0) + len(images)
                     self._replay_seen[key] = seen
                     self._replay_horizon[key] = images.gt.shape[1]
-                    # infer_stride compares steps 1-8 against up to 32 frames on.
+                    # infer_stride compares frames up to 32 on, from up to 5 anchors.
                     if key not in self._replay_stride and seen >= 40:
                         buffered = ReplayClip.concat(self.val_image_buffer[key])
                         self._replay_stride[key] = (
