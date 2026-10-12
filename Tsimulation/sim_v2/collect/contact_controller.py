@@ -31,6 +31,22 @@ class ContactController(ArticulationController):
         self._stalled = 0
         self._previous_object = None
         self._swing_done = False
+        self.contact_options = {}
+
+    def _rotation_arc_clear(self, position, start, end):
+        """Check only the commanded turn, using the real tool silhouette."""
+        from shapely.geometry import box
+        turn = wrap(end - start)
+        if abs(turn) < 1e-6:
+            return True
+        arena = box(8, 8, 504, 504)
+        obstacles = unary_union([self._object_polygon(), self._static_obstacles()])
+        # Sub-degree angular samples bound the movement of even a bar tip.
+        for fraction in np.linspace(0, 1, max(2, int(np.ceil(abs(turn) / .015))) + 1):
+            footprint = self._footprint(position, start + fraction * turn)
+            if not arena.covers(footprint) or footprint.distance(obstacles) < 1.0:
+                return False
+        return True
 
     def _object_polygon(self):
         return unary_union(
@@ -91,6 +107,9 @@ class ContactController(ArticulationController):
         )
         desired = np.r_[goal_delta, angerr * (150.0 if poserr < 60.0 else 45.0)]
         candidates = []
+        adaptive = self.contact_options.get('adaptive_rotation', False)
+        full_turn_clear = adaptive and self._rotation_clear(p)
+        arc_clear = {}
         for a, b in zip(coords[:-1], coords[1:]):
             a, b = np.array(a), np.array(b)
             edge = b - a
@@ -100,7 +119,7 @@ class ContactController(ArticulationController):
             normal = np.array([-edge[1], edge[0]]) / length
             if not polygon.contains(Point((a + b) / 2 + normal)):
                 normal *= -1
-            for fraction in (0.2, 0.5, 0.8):
+            for fraction in self.contact_options.get('fractions', (0.2, 0.5, 0.8)):
                 contact = a + fraction * edge
                 arm = contact - com
                 torque = arm[0] * normal[1] - arm[1] * normal[0]
@@ -114,22 +133,29 @@ class ContactController(ArticulationController):
                     aim = float(self.env._pusher_body.angle)
                 if self.emb == "scoop":
                     aim -= math.pi
-                footprint = self._footprint(np.zeros(2), aim)
-                verts = np.array(footprint.convex_hull.exterior.coords[:-1])
-                ahead = float(np.max(verts @ normal))
-                # The leading face/vertex can be laterally displaced from the
-                # tool origin (especially the fixed horizontal bar). Place its
-                # actual support point on the requested object contact.
-                support = verts[(verts @ normal) >= ahead - 1e-6].mean(axis=0)
-                if self.emb == 'stick':
-                    # A fixed bar can contact with the interior of its long
-                    # face; keep its origin centred behind the chosen contact.
-                    support = normal * ahead
-                stage = contact - support - normal * 15.0
-                if not self._within_walls(stage, aim):
-                    continue
-                cost = -gain + np.linalg.norm(p - stage) * 0.045
-                candidates.append((cost, stage, aim, normal, contact, ahead, support))
+                aims = [aim]
+                if adaptive and 'angle' in self.spec:
+                    # Retaining the current orientation avoids unnecessary
+                    # turns in narrow corridors. Also try a flat face and tip.
+                    aims = [angle, aim, aim + math.pi]
+                for aim in aims:
+                    if adaptive and not full_turn_clear:
+                        key = round(wrap(aim), 9)
+                        if key not in arc_clear:
+                            arc_clear[key] = self._rotation_arc_clear(p, angle, aim)
+                        if not arc_clear[key]:
+                            continue
+                    footprint = self._footprint(np.zeros(2), aim)
+                    verts = np.array(footprint.convex_hull.exterior.coords[:-1])
+                    ahead = float(np.max(verts @ normal))
+                    support = verts[(verts @ normal) >= ahead - 1e-6].mean(axis=0)
+                    if self.emb == 'stick':
+                        support = normal * ahead
+                    stage = contact - support - normal * self.contact_options.get('stage_gap', 15.0)
+                    if not self._within_walls(stage, aim):
+                        continue
+                    cost = -gain + np.linalg.norm(p - stage) * 0.045
+                    candidates.append((cost, stage, aim, normal, contact, ahead, support))
         for _, stage, aim, normal, contact, ahead, support in self.rank_candidates(candidates):
             route = self._plan_route(stage, aim)
             if route:
@@ -153,7 +179,7 @@ class ContactController(ArticulationController):
         return False
 
     def rank_candidates(self, candidates):
-        return sorted(candidates, key=lambda x: x[0])[:24]
+        return sorted(candidates, key=lambda x: x[0])[:self.contact_options.get('candidate_limit', 24)]
 
     def __call__(self):
         self.steps_in_state += 1
@@ -177,12 +203,14 @@ class ContactController(ArticulationController):
             return self.emit(self._backoff, angle, 0.0)
         if self.state == "PLAN":
             self._attempts += 1
-            if not self._rotation_clear(p):
+            if not self.contact_options.get('adaptive_rotation', False) and not self._rotation_clear(p):
                 if self._escape():
                     return self.emit(self.route[0], self._escape_angle, 0.0)
                 self.reason = "no_safe_rotation_pose"
                 return self.emit(p, angle, 0.0)
             if not self._choose_primitive():
+                if self.contact_options.get('adaptive_rotation', False) and not self._rotation_clear(p) and self._escape():
+                    return self.emit(self.route[0], self._escape_angle, 0.0)
                 self.reason = "no_reachable_contact"
                 return self.emit(p, angle, 0.0)
         primitive = self.primitive
@@ -203,7 +231,7 @@ class ContactController(ArticulationController):
                 and abs(wrap(angle - primitive["aim"])) < 0.04
             ):
                 self.transition("PUSH")
-            if self.steps_in_state > 180:
+            if self.steps_in_state > self.contact_options.get('route_steps', 180):
                 self.transition("PLAN")
             return self.emit(self.route[0], primitive["aim"], 0.0)
         # Follow a face in object coordinates during each short stroke.
@@ -220,7 +248,8 @@ class ContactController(ArticulationController):
         if self.emb == 'stick':
             vertices = np.asarray(self._footprint(np.zeros(2), aim).convex_hull.exterior.coords[:-1])
             support = normal * float(np.max(vertices @ normal))
-        position = contact - support + normal * (55.0 if self.emb == "scoop" else 22.0)
+        position = contact - support + normal * self.contact_options.get(
+            'push_distance', 55.0 if self.emb == "scoop" else 22.0)
         grip = 1.0 if self.emb == "spring" else 0.0
         if self.emb == "flipper":
             grip = min(0.55, self.steps_in_state / 90.0)
@@ -237,8 +266,8 @@ class ContactController(ArticulationController):
             )
             self._stalled = self._stalled + 1 if progress < 0.03 else 0
         self._previous_object = np.r_[c, theta]
-        move_limit = float(np.clip(poserr * 0.4, 1.5, 32.0))
-        turn_limit = float(np.clip(angerr * 0.4, 0.015, 0.22))
+        move_limit = float(np.clip(poserr * 0.4, 1.5, self.contact_options.get('move_limit', 32.0)))
+        turn_limit = float(np.clip(angerr * 0.4, 0.015, self.contact_options.get('turn_limit', 0.22)))
         if (
             move > move_limit
             or turn > turn_limit
@@ -247,7 +276,8 @@ class ContactController(ArticulationController):
         ):
             self.transition("BACKOFF")
             self._backoff = np.clip(
-                p - normal * (50.0 if self.emb in ("spring", "flipper") else 30.0),
+                p - normal * self.contact_options.get(
+                    'backoff_distance', 50.0 if self.emb in ("spring", "flipper") else 30.0),
                 22,
                 490,
             )

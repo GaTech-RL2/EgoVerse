@@ -123,8 +123,12 @@ class SourcePathContactController(ContactController):
         self.angle_tolerance = config['waypoint_angle_tolerance']
         self._planned_attempt = -1
         self.source = source
+        self.contact_options = dict(config.get('contact_options', {}))
+        self.command.speed = self.contact_options.get('command_speed', self.command.speed)
+        self.shortcut_lookahead = config.get('shortcut_lookahead')
         self.predict_contacts = (
-            self.emb == 'stick' and config.get('predict_bar_contacts', False))
+            config.get('predict_contacts', False)
+            or (self.emb == 'stick' and config.get('predict_bar_contacts', False)))
 
     def _object_segment_clear(self, start, goal):
         from shapely.geometry import box
@@ -166,6 +170,8 @@ class SourcePathContactController(ContactController):
             model = make_env(model_source, self.emb)
             try:
                 control = ContactController(model)
+                control.contact_options = self.contact_options
+                control.command.speed = self.command.speed
                 control.state = 'PUSH'
                 control.primitive = dict(stage=stage, aim=aim, normal=normal,
                     contact=contact, ahead=ahead, support_local=rot(-aim) @ support,
@@ -192,7 +198,10 @@ class SourcePathContactController(ContactController):
             # A gripper's dense path contains rotations and reversals that a
             # contact tool need not imitate. Skip only segments whose entire T
             # silhouette clears the real barriers throughout the pose change.
-            for index in range(len(self.waypoints) - 1, self.path_index, -1):
+            furthest = len(self.waypoints) - 1
+            if self.shortcut_lookahead is not None:
+                furthest = min(furthest, self.path_index + int(self.shortcut_lookahead))
+            for index in range(furthest, self.path_index, -1):
                 if self._object_segment_clear(np.r_[center, theta], self.waypoints[index]):
                     self.path_index = index
                     break
