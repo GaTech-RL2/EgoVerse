@@ -1083,10 +1083,13 @@ class HPT(DeterministicEvalMixin, Algo):
 
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
             device = processed_batch[embodiment_id][ac_key].device
-            # Dropped either way: downstream sees the same keys as before.
             action_pad_mask = processed_batch[embodiment_id].pop(
                 "action_pad_mask", None
             )
+            # Kept for the eval metrics, which drop padded steps whatever
+            # use_pad_mask says about the loss.
+            if action_pad_mask is not None and action_pad_mask.shape[-1] == S:
+                processed_batch[embodiment_id]["action_pad_mask"] = action_pad_mask
             # Front-padded history steps are copies of the first real frame --
             # exactly a history-dropout sample -- so the stem needs nothing
             # extra and downstream keys stay as they were.

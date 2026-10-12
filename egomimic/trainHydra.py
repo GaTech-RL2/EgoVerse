@@ -408,7 +408,13 @@ def _subsample_val_datasets(
 
     ``loader_params`` is this head's ``{dataset_name: DataLoader kwargs}``,
     read only for an ``auto`` K. No ``metric_frames_per_episode`` entry for this
-    head => datasets pass through untouched."""
+    head => datasets pass through untouched.
+
+    The selected frames are read exactly (``data.exact_val_reads``, default
+    on): no quantile rejection and no unseeded retry, so every pass scores the
+    same frames. A frame that fails to decode or is non-finite is swapped for a
+    seeded one of the same episode (``data.replace_invalid_val_frames``,
+    default on) rather than failing the run."""
     table = cfg.data.get("metric_frames_per_episode")
     if table is None or table.get(head) is None or not datasets:
         return datasets
@@ -424,7 +430,12 @@ def _subsample_val_datasets(
         if k is None:
             wrapped[name] = ds
             continue
-        sub = EvenStrideDataset(ds, frames_per_episode=k)
+        sub = EvenStrideDataset(
+            ds,
+            frames_per_episode=k,
+            preserve_indices=bool(cfg.data.get("exact_val_reads", True)),
+            replace_invalid=bool(cfg.data.get("replace_invalid_val_frames", True)),
+        )
         log.info(
             f"val head '{head}' dataset '{name}': EvenStrideDataset "
             f"frames_per_episode={k} -> {len(sub)} / {len(ds)} frames over "

@@ -104,6 +104,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         tasks: list | None = None,
         held_out_hashes: list | None = None,
         train_operators: list | None = None,
+        exact_val_reads: bool = True,
+        replace_invalid_val_frames: bool = True,
     ):
         """
         Args:
@@ -154,6 +156,9 @@ class MultiDataModuleWrapper(LightningDataModule):
             video_episodes: config-only ``{head: [episode_hash, ...]}`` -- the
                 pinned video episodes, one per operator per head. Provenance
                 only; trainHydra is what reads it.
+            exact_val_reads, replace_invalid_val_frames: config-only. How
+                trainHydra builds the metric loaders' ``EvenStrideDataset``
+                (``preserve_indices`` / ``replace_invalid``); provenance only.
             tasks, held_out_hashes, train_operators: config-only lists
                 interpolated by the filter lambdas of data/mecka_*_holdout.yaml and
                 similar split configs; accepted
@@ -198,6 +203,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.video_datasets = {h: d for h, d in self.video_datasets.items() if d}
         self.metric_frames_per_episode = dict(metric_frames_per_episode or {})
         self.video_episodes = dict(video_episodes or {})
+        self.exact_val_reads = exact_val_reads
+        self.replace_invalid_val_frames = replace_invalid_val_frames
         self.tasks = list(tasks or [])
         self.held_out_hashes = list(held_out_hashes or [])
         self.train_operators = list(train_operators or [])
