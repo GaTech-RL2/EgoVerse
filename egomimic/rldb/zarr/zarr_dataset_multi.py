@@ -44,6 +44,10 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.resolve_memo import memoized
+from egomimic.utils.action_utils import (
+    _apply_norm_one,
+    _apply_unnorm_one,
+)
 from egomimic.utils.env import load_env
 
 
@@ -1494,58 +1498,10 @@ class MultiDataset(torch.utils.data.Dataset):
     # ---- normalize / unnormalize ----
 
     def _apply_norm_one(self, tensor, stats):
-        if self.norm_mode == "zscore":
-            mean = torch.as_tensor(
-                stats["mean"], device=tensor.device, dtype=torch.float32
-            )
-            std = torch.as_tensor(
-                stats["std"], device=tensor.device, dtype=torch.float32
-            )
-            return (tensor - mean) / (std + 1e-6)
-        if self.norm_mode == "minmax":
-            mn = torch.as_tensor(
-                stats["min"], device=tensor.device, dtype=torch.float32
-            )
-            mx = torch.as_tensor(
-                stats["max"], device=tensor.device, dtype=torch.float32
-            )
-            return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
-        if self.norm_mode == "quantile":
-            q1 = torch.as_tensor(
-                stats["quantile_1"], device=tensor.device, dtype=torch.float32
-            )
-            q99 = torch.as_tensor(
-                stats["quantile_99"], device=tensor.device, dtype=torch.float32
-            )
-            return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
-        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+        return _apply_norm_one(tensor, stats, self.norm_mode)
 
     def _apply_unnorm_one(self, tensor, stats):
-        if self.norm_mode == "zscore":
-            mean = torch.as_tensor(
-                stats["mean"], device=tensor.device, dtype=torch.float32
-            )
-            std = torch.as_tensor(
-                stats["std"], device=tensor.device, dtype=torch.float32
-            )
-            return tensor * (std + 1e-6) + mean
-        if self.norm_mode == "minmax":
-            mn = torch.as_tensor(
-                stats["min"], device=tensor.device, dtype=torch.float32
-            )
-            mx = torch.as_tensor(
-                stats["max"], device=tensor.device, dtype=torch.float32
-            )
-            return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
-        if self.norm_mode == "quantile":
-            q1 = torch.as_tensor(
-                stats["quantile_1"], device=tensor.device, dtype=torch.float32
-            )
-            q99 = torch.as_tensor(
-                stats["quantile_99"], device=tensor.device, dtype=torch.float32
-            )
-            return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
-        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+        return _apply_unnorm_one(tensor, stats, self.norm_mode)
 
     def normalize(self, data: dict, embodiment_id: int) -> dict:
         if not self.norm_stats.get(embodiment_id):
