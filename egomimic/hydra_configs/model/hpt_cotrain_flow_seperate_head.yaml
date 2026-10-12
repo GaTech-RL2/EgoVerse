@@ -13,13 +13,13 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        human_bimanual: 12
+        human_bimanual: ${model.robomimic_model.dims.human_bimanual.action}
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 12
+        act_dim: ${model.robomimic_model.dims.human_bimanual.action}
         act_seq: 100
         n_heads: 4
         dropout: 0.1
@@ -33,13 +33,13 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        eva_bimanual: 14
+        eva_bimanual: ${model.robomimic_model.dims.eva_bimanual.action}
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 14
+        act_dim: ${model.robomimic_model.dims.eva_bimanual.action}
         act_seq: 100
         n_heads: 4
         dropout: 0.1

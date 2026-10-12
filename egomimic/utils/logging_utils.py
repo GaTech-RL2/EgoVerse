@@ -22,7 +22,9 @@ def log_hyperparameters(object_dict: Dict[str, Any]) -> None:
     """
     hparams = {}
 
-    cfg = OmegaConf.to_container(object_dict["cfg"])
+    # resolve=True: model configs interpolate widths from robomimic_model.dims;
+    # loggers should record the numbers, not "${model.robomimic_model.dims...}".
+    cfg = OmegaConf.to_container(object_dict["cfg"], resolve=True)
     model = object_dict["model"]
     trainer = object_dict["trainer"]
 
