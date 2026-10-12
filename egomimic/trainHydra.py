@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -7,6 +8,7 @@ import hydra
 import lightning as L
 import torch
 from fsspec.implementations.local import LocalFileSystem
+from hydra.core.hydra_config import HydraConfig
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.fabric.plugins.io.torch_io import TorchCheckpointIO
 from lightning.fabric.utilities.cloud_io import _load as pl_load
@@ -33,6 +35,7 @@ from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
 from egomimic.utils.gpu_orphans import arm_rank_pdeathsig, reap_orphans
+from egomimic.utils.hydra_resolvers import apply_experiment_wandb_tag
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -252,7 +255,7 @@ def _train_viz_enabled(cfg: DictConfig) -> bool:
     it off, including the heads a data/top-level config declares itself."""
     return (
         bool(cfg.get("train_viz", True))
-        and _resolve_mode(cfg) == "train"
+        and _resolve_mode(cfg) in ("train", "validate")
         and cfg.get("evaluator") is not None
     )
 
@@ -295,12 +298,12 @@ def _build_train_viz_evaluator(cfg: DictConfig):
 
 def _config_val_datasets(cfg: DictConfig, head: str, instantiate) -> dict:
     """Datasets for a config-only val head (unseen_op_valid, extra_valid): the
-    data config's own ``<head>_datasets``, in training runs with an evaluator
-    only (eval mode validates ``valid_datasets`` alone)."""
+    data config's own ``<head>_datasets``, in training (and mode=validate) runs
+    with an evaluator only (eval mode validates ``valid_datasets`` alone)."""
     explicit = cfg.data.get(f"{head}_datasets")
     if (
         explicit is None
-        or _resolve_mode(cfg) != "train"
+        or _resolve_mode(cfg) not in ("train", "validate")
         or cfg.get("evaluator") is None
     ):
         return {}
@@ -503,6 +506,77 @@ def _require_capped_video_heads(model, datamodule) -> None:
                 "viz_max_batches: rank 0 would render every video batch while "
                 "the other ranks wait on it. Set evaluator.viz_max_batches."
             )
+
+
+def _enable_checkpoint_ema(cfg: DictConfig) -> bool:
+    """mode=validate: True when ``cfg.ckpt_path`` holds EMA weights, which then
+    get validated as training validated them, even under a config without EMA.
+
+    ``ModelWrapper`` only takes ``checkpoint["ema"]`` when ``model.ema`` is
+    enabled, so this enables it before the model is built."""
+    ckpt_path = cfg.get("ckpt_path")
+    if not ckpt_path or not os.path.isfile(ckpt_path):
+        raise ValueError(
+            f"mode=validate needs ckpt_path to be a checkpoint file, got {ckpt_path!r}"
+        )
+    checkpoint = torch.load(
+        ckpt_path, map_location="cpu", weights_only=False, mmap=True
+    )
+    has_ema = "ema" in checkpoint
+    del checkpoint
+    if has_ema:
+        with open_dict(cfg):
+            if cfg.model.get("ema") is None:
+                cfg.model.ema = {"enabled": True}
+            else:
+                cfg.model.ema.enabled = True
+    log.info(
+        f"mode=validate: scoring the {'EMA' if has_ema else 'raw'} weights of {ckpt_path}"
+    )
+    return has_ema
+
+
+def _single_device_validate_overrides(cfg: DictConfig) -> None:
+    """mode=validate runs on one device. The metric loaders were built for the
+    training world size W (``_metric_frames_per_episode``), so one rank reads W
+    times the per-rank ``limit_val_batches`` to cover the frames training scored."""
+    world = _trainer_world_size(cfg)
+    with open_dict(cfg):
+        limit = cfg.trainer.get("limit_val_batches")
+        if isinstance(limit, int) and not isinstance(limit, bool) and limit > 0:
+            cfg.trainer.limit_val_batches = limit * world
+        cfg.trainer.devices = 1
+        cfg.trainer.num_nodes = 1
+        cfg.trainer.strategy = "auto"
+        cfg.trainer.num_sanity_val_steps = 0
+        cfg.logger = None
+
+
+def _validate_checkpoint(cfg, trainer, model, datamodule) -> str:
+    """Score ``cfg.ckpt_path`` through the training val heads; write
+    ``<run dir>/validation_metrics.json`` and return its path."""
+    ckpt_path = cfg.ckpt_path
+    load_checkpoint_weights(model, ckpt_path)
+    log.info(f"Starting checkpoint validation of {ckpt_path}")
+    results = trainer.validate(model=model, datamodule=datamodule)
+    output_path = os.path.join(trainer.default_root_dir, "validation_metrics.json")
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "ckpt_path": str(ckpt_path),
+                # on_validation_start builds the EMA only when it swaps it in
+                "ema": getattr(model, "ema", None) is not None,
+                "metrics": [
+                    {key: float(value) for key, value in result.items()}
+                    for result in results
+                ],
+            },
+            f,
+            indent=2,
+            sort_keys=True,
+        )
+    log.info(f"Wrote validation metrics to {output_path}")
+    return output_path
 
 
 def _build_prefixed_evaluator(cfg: DictConfig, prefix: str):
@@ -762,7 +836,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         for ds in head_datasets.values():
             ds.set_norm_stats_from(norm_stats)
 
-    _prepare_checkpoint_resume(cfg)
+    # A validate job's requeue must not swap its ckpt_path for its own last.ckpt.
+    if _resolve_mode(cfg) == "validate":
+        _enable_checkpoint_ema(cfg)
+    else:
+        _prepare_checkpoint_resume(cfg)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
@@ -797,6 +875,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
             cfg.logger = None
+    elif mode == "validate":
+        _single_device_validate_overrides(cfg)
+
+    # experiments/<folder>/... tags the W&B run with that folder name.
+    if HydraConfig.initialized():
+        apply_experiment_wandb_tag(cfg, HydraConfig.get().job.config_name)
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -833,7 +917,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
-    if mode == "train":
+    if mode in ("train", "validate"):
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             # data.valid_prefix (e.g. seen_op_valid in the opsplit configs)
@@ -868,23 +952,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             model.extra_valid_evaluator = extra_eval_obj
         _require_capped_video_heads(model, datamodule)
         model.val_loader_names = datamodule.val_loader_names()
-        # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
-        # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
-        # on a resume it would score the un-resumed base model.
-        # (_prepare_checkpoint_resume already folded a requeue into ckpt_path.)
-        if cfg.get("val_at_start", False) and not cfg.get("ckpt_path"):
-            log.info(
-                "val_at_start: running validation at epoch 0 (pre-fit baseline; "
-                "the overlay video follows evaluator.viz_every_n_epochs)"
+        if mode == "validate":
+            _validate_checkpoint(cfg, trainer, model, datamodule)
+        else:
+            # Pre-fit baseline val. Skipped on requeues AND checkpoint resumes:
+            # trainer.validate here runs BEFORE fit restores ckpt_path weights, so
+            # on a resume it would score the un-resumed base model.
+            # (_prepare_checkpoint_resume already folded a requeue into ckpt_path.)
+            if cfg.get("val_at_start", False) and not cfg.get("ckpt_path"):
+                log.info(
+                    "val_at_start: running validation at epoch 0 (pre-fit baseline; "
+                    "the overlay video follows evaluator.viz_every_n_epochs)"
+                )
+                trainer.validate(model=model, datamodule=datamodule)
+            log.info("Starting training!")
+            trainer.fit(
+                model=model,
+                datamodule=datamodule,
+                ckpt_path=cfg.get("ckpt_path"),
+                weights_only=False,
             )
-            trainer.validate(model=model, datamodule=datamodule)
-        log.info("Starting training!")
-        trainer.fit(
-            model=model,
-            datamodule=datamodule,
-            ckpt_path=cfg.get("ckpt_path"),
-            weights_only=False,
-        )
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model

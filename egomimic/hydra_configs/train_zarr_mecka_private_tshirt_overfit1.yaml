@@ -1,6 +1,6 @@
 # train_zarr_mecka_private_tshirt_opscale_1's model and regularizers (RDT-1B kp,
 # 4-step proprio) on one episode, 8 GPUs x 32. The episode is ~6 steps per
-# epoch, so 1000 epochs = ~6k steps (~900 passes); WSD LR from the launcher.
+# epoch, so 1000 epochs = ~6k steps (~900 passes).
 defaults:
   - train_zarr_mecka_private_tshirt_opscale_1
   - override data: mecka_private_tshirt_overfit1
@@ -24,3 +24,10 @@ evaluator:
 callbacks:
   model_checkpoint:
     every_n_epochs: 1000
+
+model:
+  # ~6 steps per epoch: 6k steps, decay over the last 1k
+  scheduler:
+    warmup: 500
+    stable: 4500
+    decay: 1000

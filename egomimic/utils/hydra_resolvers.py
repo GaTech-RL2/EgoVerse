@@ -6,6 +6,8 @@ Importing this module registers custom resolvers used by Hydra configs:
   - ``model_time_from_ckpt``: extracts timestamp from checkpoint path
   - ``mecka_private``: an ID list kept out of the public repo
 
+Also ``apply_experiment_wandb_tag``, which trainHydra calls before building loggers.
+
 Safe to import multiple times (registration is idempotent).
 """
 
@@ -17,7 +19,7 @@ import os
 import re
 from pathlib import Path
 
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, open_dict
 
 
 def model_dir_name_from_ckpt(ckpt_path):
@@ -53,6 +55,31 @@ def model_time_from_ckpt(ckpt_path):
         return "base"
     m = re.match(r"^.+?_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$", name)
     return m.group(1) if m else "unknown"
+
+
+def experiment_wandb_tag(config_name):
+    """Folder directly under ``hydra_configs/experiments/`` for this config.
+
+    ``experiments/fixed_budget_opscale/rdt_1b_opscale1`` -> ``fixed_budget_opscale``.
+    Configs that do not live in that tree have no experiment tag.
+    """
+    parts = str(config_name or "").replace("\\", "/").split("/")
+    if len(parts) >= 3 and parts[0] == "experiments" and parts[1]:
+        return parts[1]
+    return None
+
+
+def apply_experiment_wandb_tag(cfg, config_name) -> None:
+    """Add the experiments-folder name to ``logger.wandb.tags`` when present."""
+    tag = experiment_wandb_tag(config_name)
+    wandb_cfg = OmegaConf.select(cfg, "logger.wandb")
+    if tag is None or wandb_cfg is None:
+        return
+    tags = [str(t) for t in (wandb_cfg.get("tags") or [])]
+    if tag not in tags:
+        tags.append(tag)
+    with open_dict(cfg):
+        cfg.logger.wandb.tags = tags
 
 
 def run_dir(name, description, mode, ckpt_path, ts):

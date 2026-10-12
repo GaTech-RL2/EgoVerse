@@ -12,3 +12,8 @@ trainer:
 callbacks:
   model_checkpoint:
     every_n_epochs: 240
+
+model:
+  scheduler:
+    stable: 95000
+    decay: 24000

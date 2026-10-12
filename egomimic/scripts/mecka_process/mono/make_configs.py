@@ -37,8 +37,8 @@ SCALES = (1, 3, 6, 10)
 # The user's picks (2026-09-30), in opscale_inputs.json per task: unseen_viz, the viz
 # episode of each of three operators; unseen_named, the other two operators, each
 # with an episode that must be included (None = any). epochs: 100-step epochs per
-# scale, max(60k steps, ~4 passes over the train split); launch_pair.sbatch derives
-# the WSD phases from them.
+# scale, max(60k steps, ~4 passes over the train split); the WSD LR decays over the
+# last 20% of them.
 TASKS = {
     "fold_tshirt": dict(
         slug="tshirt",
@@ -372,7 +372,7 @@ train_operators:
         write_config(
             CFG / f"train_zarr_mecka_private_{SLUG}_opscale_{n}.yaml",
             f"""# RDT-1B keypoint recipe of train_zarr_mecka_freeform_fold_kp_rdt_op2 (4 GPUs x
-# 32, WSD LR from the launcher, EMA on) on {n} private {TASK} operator(s).
+# 32, WSD LR decaying over the last 20%, EMA on) on {n} private {TASK} operator(s).
 # {epochs} x 100 steps: max(60k, ~4 passes over the train split). Generated; see
 # data/mecka_private_{SLUG}_opscale_1.
 defaults:
@@ -383,6 +383,9 @@ defaults:
 model:
   ema:
     enabled: true
+  scheduler:
+    stable: {epochs * 100 - 1000 - epochs * 20}
+    decay: {epochs * 20}
 
 trainer:
   max_epochs: {epochs}
