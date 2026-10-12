@@ -333,9 +333,51 @@ def test_on_validation_start_resets_the_pass_counter():
         model=algo,
         device=torch.device("cpu"),
         _val_heads=lambda: {"valid": None},
+        ema=None,
+        _ema_loaded=None,
     )
     ModelWrapper.on_validation_start(wrapper)
     assert algo._eval_pass_counter == 0
+
+
+class _CounterEval:
+    """Records the algo's pass counter at each call, then advances it like
+    ``forward_eval`` does."""
+
+    def __init__(self, algo):
+        self.algo = algo
+        self.seen: list[tuple[int, int]] = []
+
+    def on_validation_step(self, batch, batch_idx, dataloader_idx=0, mode="both"):
+        self.seen.append((dataloader_idx, self.algo._eval_pass_counter))
+        self.algo._eval_pass_counter += 1
+
+
+def test_each_val_loader_starts_from_pass_zero():
+    from lightning import LightningModule
+
+    algo = types.SimpleNamespace(
+        _eval_pass_counter=5, process_batch_for_training=lambda b: b
+    )
+    algo.reset_eval_pass_counter = lambda: setattr(algo, "_eval_pass_counter", 0)
+    valid, unseen = _CounterEval(algo), _CounterEval(algo)
+    swaps = []
+    w = ModelWrapper.__new__(ModelWrapper)
+    LightningModule.__init__(w)
+    w.model = algo
+    w.evaluator, w.train_viz_evaluator = valid, None
+    w.unseen_op_valid_evaluator = unseen
+    w.val_loader_names = ["valid", "unseen_op_valid"]
+    w.ema = types.SimpleNamespace(swap_in=lambda: swaps.append("in"))
+
+    for idx, n in ((0, 3), (1, 2)):
+        for batch_idx in range(n):
+            w.validation_step({"k": batch_idx}, batch_idx, dataloader_idx=idx)
+
+    assert valid.seen == [(0, 0), (0, 1), (0, 2)]
+    # the same draws whatever ran before it
+    assert unseen.seen == [(1, 0), (1, 1)]
+    assert swaps == [], "validation_step leaves the EMA swap to on_validation_start"
 
 
 # ---------------------------------------------------------------------------

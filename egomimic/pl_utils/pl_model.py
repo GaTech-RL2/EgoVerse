@@ -357,6 +357,13 @@ class ModelWrapper(LightningModule):
         # triple lands here as `batch`. Unwrap to recover the dict.
         if isinstance(batch, tuple) and len(batch) == 3 and isinstance(batch[0], dict):
             batch = batch[0]
+        if batch_idx == 0:
+            # batch_idx restarts per loader. Without this a val set's sampling
+            # noise depends on how many batches the loaders before it ran, so
+            # it shifts whenever another head's size or viz gating changes.
+            reset_eval_rng = getattr(self.model, "reset_eval_pass_counter", None)
+            if callable(reset_eval_rng):
+                reset_eval_rng()
         batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, "
