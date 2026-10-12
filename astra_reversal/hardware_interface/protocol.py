@@ -176,8 +176,13 @@ def validate(manifest, *, scored=False, confirmatory=False):
         },
     ):
         raise ValueError("unrecognized_input_reservation_contract")
+    retries = manifest["model"]["retries"]
+    amended_transport = (
+        manifest["protocol_version"] == "2-implementation-3-transport-recovery"
+    )
     if (
-        manifest["model"]["retries"] != 0
+        type(retries) is not int
+        or retries not in ((3,) if amended_transport else (0,))
         or not manifest["simulator_pauses_during_model_calls"]
     ):
         raise ValueError("retry_or_timing_protocol")

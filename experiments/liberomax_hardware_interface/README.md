@@ -1,0 +1,78 @@
+# LIBERO-MAX hardware-interface integration
+
+This adds the released LIBERO-MAX substrate and paired-trace checks to the
+direct-Astra hardware-interface study. It is **not a completed Astra evaluation**.
+Both frozen manifests validate and all 131 upstream tests pass locally. OSMO
+currently returns HTTP 403, so GPU commissioning has not been submitted.
+
+Source is pinned at `01625e290b1aa07511bdc820781e635e851353cc`. Max contains
+8,000 Base/Dynamic pairs per policy; Lite contains 800. F, B0 and B are separate
+interfaces: a full three-interface Lite comparison requires 2,400 pairs / 4,800
+rollouts. Neither that result nor a full Max result exists for this study.
+
+Sources: [benchmark specification](https://github.com/liberomax/LIBERO-MAX/blob/01625e290b1aa07511bdc820781e635e851353cc/docs/BENCHMARK_SPEC.md)
+and [runtime integration](https://github.com/liberomax/LIBERO-MAX/blob/01625e290b1aa07511bdc820781e635e851353cc/docs/RUNTIME_INTEGRATION.md).
+
+## Preserved contracts
+
+- Frozen manifest hashes, case identities, original event payloads and source
+  composition are checked. Release manifests are never edited.
+- Plus and PRO run in separate processes and OSMO tasks with separate registries
+  and data roots. Their source revisions and the PRO BDDL/reset dataset revision
+  are pinned in `astra_reversal/hardware_interface/liberomax.py`.
+- MuJoCo 3.2.6 and robosuite 1.4.0 match the reference runtime. Ordinary LIBERO
+  and RoboCasa retain their own simulator versions.
+- Actor sensor reads retain the upstream observation transforms. Raw camera
+  getters would remove sensor corruption, brightness changes or PRO transforms.
+- Pair checks compare every executed native action through the event step,
+  including the action after which the event fires. Matching resets or proposed
+  chunks alone is insufficient.
+- Unreached triggers remain valid task outcomes when the complete prefix and
+  terminal outcome match. They remain in the final denominator.
+- Goal evaluation stays private. No event flag, object pose, task implementation,
+  success label or expert demonstration is supplied to an actor.
+
+## Native commissioning
+
+`tools/commission.py` selects the first Lite case in manifest order for every
+source/event combination, without consulting outcomes. It creates a **separate,
+unscored probe** with a step-2 trigger, six-action horizon and deterministic
+controller. Original and modified cases are both retained. These tests exercise
+event mechanisms; they are not released benchmark trials or policy results.
+
+Each source checks eight events × three interfaces × two arms: 48 short
+episodes, 96 across Plus and PRO. Native prefixes must match; controller,
+reset and terminal-state hashes must agree across interfaces. Event traces,
+terminal states and front/wrist images are saved. B exercises its native control
+path without calling its observer. There are zero model requests and no inference
+credential. Artifacts use an owned, new R2 prefix with no overwrite.
+
+```bash
+source emimic/bin/activate
+python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q
+# Commit tested sources before packaging.
+python experiments/liberomax_hardware_interface/tools/prepare_osmo.py \
+  /path/to/new/max-staging --stage staging-check --pool groot-l40-05
+python experiments/liberomax_hardware_interface/tools/prepare_osmo.py \
+  /path/to/new/max-commission --stage commission --pool groot-l40-05
+osmo workflow submit /path/to/new/max-staging/workflow.yaml --pool groot-l40-05
+# Submit commissioning only after source delivery passes.
+osmo workflow submit /path/to/new/max-commission/workflow.yaml --pool groot-l40-05
+```
+
+The bootstrap installs simulation dependencies without learned policy packages
+or demos. It records the dependency freeze, GPU identity, release checks and
+both test suites. Source is injected with the OSMO submission.
+
+## Open gates
+
+Both GPU source checks must pass. The live Astra adapter then needs audited
+continuation of the same actor history and native action prefix, distinguishing
+prefix replay from new inference in token/call accounting. The remote provider's
+policy-seed contract must be verified or disclosed as a protocol deviation.
+The current launcher exposes only staging and native commissioning; it cannot
+claim a live smoke or benchmark score.
+
+After these gates, run unchanged Lite cases and report every assigned pair,
+including missing and invalid records. Full Max reporting requires all 8,000
+pairs per interface. Small probes and unit tests do not satisfy either track.

@@ -342,6 +342,25 @@ def run(args, manifest, *, smoke=False):
             check=True,
             env=environment,
         )
+        if getattr(args, "archive_trials", False):
+            from .osmo_worker import archive
+
+            archive(
+                directory, os.environ["HARDWARE_WORKFLOW"], "trials/" + row["trial_id"]
+            )
+        print(
+            json.dumps(
+                {
+                    "trial_completed": row["trial_id"],
+                    "condition": row["condition"],
+                    "success": outcome["success"],
+                    "terminal_reason": outcome["terminal_reason"],
+                    "sim_steps": outcome["sim_steps"],
+                    "independent_replay": "passed",
+                }
+            ),
+            flush=True,
+        )
         if outcome["terminal_reason"] in (
             "MODEL_ERROR",
             "TOOL_ERROR",

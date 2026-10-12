@@ -1,4 +1,4 @@
-protocol_version: 2-implementation-2-no-resource-budgets
+protocol_version: 2-implementation-3-transport-recovery
 study_date_utc: '2026-10-08T07:52:24.339752+00:00'
 scope: simulation only; direct Astra robot control; no policy or expert demonstrations
 libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
@@ -13,7 +13,8 @@ model:
   snapshot_pinned: false
   reasoning_effort: medium
   sampling: {}
-  retries: 0
+  retries: 3
+  request_logging: input_hashes
   base_url: https://inference-api.nvidia.com/v1
   input_reservation:
     mode: usage_only
@@ -114,10 +115,15 @@ analysis:
 resolved: null
 readiness: null
 amendment:
-  date: '2026-10-08'
-  authority: 'User: why are there budgets, we don''t need to have a budget'
-  supersedes: libero-hardware-interface-20261008-pilot-1
+  date: '2026-10-12'
+  authority: 'User: make sure the full expansive libero works'
+  supersedes: libero-hardware-interface-20261008-uncapped-2
   pool_with_prior_cohort: false
   usage_policy: Record tokens, calls and elapsed time without stopping on them.
   technical_limits: Provider context/output limits, request timeout and scratch isolation
     still apply.
+  recovery: Three retries for transient inference transport errors on the exact unexecuted
+    request; all attempts and unknown usage are retained. No trial restarts or action
+    redispatch. Unresolved infrastructure errors still stop collection.
+  archive_policy: Every completed trial and independent replay is archived before the
+    next trial. A fresh 150-trial cohort keeps the historical 13 trials separate.

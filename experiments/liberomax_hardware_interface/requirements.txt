@@ -1,0 +1,22 @@
+# Simulation-only adapter runtime. No learned policy packages or demonstrations.
+# MuJoCo and robosuite match the released LIBERO-MAX reference integration.
+numpy==1.26.4
+mujoco==3.2.6
+robosuite==1.4.0
+numba==0.59.1
+scipy==1.11.4
+PyOpenGL==3.1.7
+bddl==1.0.1
+gym==0.25.2
+cloudpickle==2.2.1
+easydict==1.13
+Pillow==10.4.0
+opencv-python==4.10.0.84
+matplotlib==3.9.2
+Wand==0.6.13
+scikit-image==0.24.0
+pyyaml==6.0.2
+jsonschema==4.23.0
+pytest==8.3.5
+huggingface-hub==0.34.4
+boto3==1.34.162

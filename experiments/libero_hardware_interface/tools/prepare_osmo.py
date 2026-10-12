@@ -1,6 +1,7 @@
 """Package only committed study code and prepare a single owned L40S check."""
 
 import argparse
+import base64
 import hashlib
 import json
 import subprocess
@@ -11,15 +12,17 @@ from pathlib import Path
 import yaml
 
 
-def prepare(destination, *, stage="commission"):
-    if stage not in ("commission", "smoke", "pilot"):
+def prepare(destination, *, stage="commission", pool="groot-l40s-01"):
+    if stage not in ("staging-check", "commission", "smoke", "pilot"):
         raise ValueError("unknown_hardware_stage")
+    platform = {"groot-l40s-01": "ovx-l40s", "groot-l40-05": "ovx-l40"}[pool]
     root = Path(__file__).resolve().parents[3]
     study = root / "experiments/libero_hardware_interface"
     paths = [
         "astra_reversal/__init__.py",
         "astra_reversal/hardware_interface",
         "experiments/libero_hardware_interface",
+        "experiments/robocasa_hardware_interface",
         "tests/unit/hardware_interface",
     ]
     changed = subprocess.check_output(
@@ -45,6 +48,10 @@ def prepare(destination, *, stage="commission"):
                 raise ValueError("Regular study source files required")
             archive.add(path, arcname=relative, recursive=False)
     sha = hashlib.sha256(payload.read_bytes()).hexdigest()
+    payload_text = destination / "payload.tar.gz.b64"
+    payload_text.write_bytes(base64.b64encode(payload.read_bytes()))
+    if payload_text.stat().st_size > 950_000:
+        raise ValueError("source_payload_exceeds_file_injection_limit")
     image = json.loads((study / "locks/container.json").read_text())["image"]
     bootstrap = destination / "bootstrap.sh"
     bootstrap.write_bytes((study / "tools/bootstrap.sh").read_bytes())
@@ -53,14 +60,17 @@ def prepare(destination, *, stage="commission"):
             "name": "libero-hardware-interface-20261008-check",
             "resources": {
                 "default": {
-                    "cpu": 4,
-                    "gpu": 1,
-                    "memory": "16Gi",
-                    "storage": "40Gi",
-                    "platform": "ovx-l40s",
+                    "cpu": 1 if stage == "staging-check" else 4,
+                    "gpu": 0 if stage == "staging-check" else 1,
+                    "memory": "2Gi" if stage == "staging-check" else "16Gi",
+                    "storage": "4Gi" if stage == "staging-check" else "40Gi",
+                    "platform": platform,
                 }
             },
-            "timeout": {"queue_timeout": "4h", "exec_timeout": "2h"},
+            "timeout": {
+                "queue_timeout": "4h",
+                "exec_timeout": "5m" if stage == "staging-check" else "2h",
+            },
             "tasks": [
                 {
                     "name": "worker0",
@@ -85,16 +95,26 @@ def prepare(destination, *, stage="commission"):
                         {
                             "localpath": str(bootstrap),
                             "path": "/tmp/hardware-bootstrap.sh",
-                        }
+                        },
+                        {
+                            "localpath": str(payload_text),
+                            "path": "/tmp/hardware-payload.tar.gz.b64",
+                        },
                     ],
                 }
             ],
         }
     }
-    if stage in ("smoke", "pilot"):
+    if stage == "staging-check":
+        spec["workflow"]["tasks"][0]["credentials"] = {}
+        spec["workflow"]["name"] = "libero-hardware-interface-20261008-staging-check"
+    if stage in ("staging-check", "smoke", "pilot"):
         spec["workflow"]["tasks"][0]["environment"]["HARDWARE_API_KEY_FILE"] = (
             "/osmo/run/workspace/inference-api-key"
         )
+        spec["workflow"]["tasks"][0]["credentials"][
+            "astra-hardware-inference-20261010"
+        ] = "/run/hardware-inference"
     if stage == "pilot":
         sys.path.insert(0, str(root))
         from astra_reversal.hardware_interface.protocol import RESOURCE_CAPS, validate
@@ -111,7 +131,12 @@ def prepare(destination, *, stage="commission"):
         "source_commit": head,
         "payload_sha256": sha,
         "image": image,
-        "pool": "groot-l40s-01",
+        "pool": pool,
+        "platform": platform,
+        "source_transport": "OSMO file injection; base64 with SHA-256 verification",
+        "inference_secret_transport": "OSMO generic secret copied to private regular file"
+        if stage != "commission"
+        else None,
         "workflow": str(destination / "workflow.yaml"),
         "scope": "unscored Linux simulator/interface/isolation commissioning"
         + (
@@ -121,6 +146,10 @@ def prepare(destination, *, stage="commission"):
         ),
         "stage": stage,
     }
+    if stage == "staging-check":
+        receipt["scope"] = (
+            "source and inference credential delivery only; zero simulator/model calls"
+        )
     if stage == "pilot":
         receipt["scope"] += " then a separate 150-trial pilot without resource budgets"
         receipt["limits"] = manifest["limits"]
@@ -134,7 +163,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination")
     parser.add_argument(
-        "--stage", choices=("commission", "smoke", "pilot"), default="commission"
+        "--stage",
+        choices=("staging-check", "commission", "smoke", "pilot"),
+        default="commission",
+    )
+    parser.add_argument(
+        "--pool", choices=("groot-l40s-01", "groot-l40-05"), default="groot-l40s-01"
     )
     args = parser.parse_args()
-    print(json.dumps(prepare(args.destination, stage=args.stage)))
+    print(json.dumps(prepare(args.destination, stage=args.stage, pool=args.pool)))

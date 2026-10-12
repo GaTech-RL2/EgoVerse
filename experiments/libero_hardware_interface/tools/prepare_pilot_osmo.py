@@ -1,6 +1,7 @@
 """Package an OSMO pilot with completed, source-matched model smoke receipts."""
 
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -47,6 +48,10 @@ def prepare_pilot(destination, commissioning):
             combined.addfile(member, io.BytesIO(raw))
             lock_hashes[name] = hashlib.sha256(raw).hexdigest()
     replacement.replace(payload)
+    encoded_payload = base64.b64encode(payload.read_bytes())
+    if len(encoded_payload) > 950_000:
+        raise ValueError("source_payload_exceeds_file_injection_limit")
+    (destination / "payload.tar.gz.b64").write_bytes(encoded_payload)
     sha = hashlib.sha256(payload.read_bytes()).hexdigest()
     bootstrap = destination / "bootstrap.sh"
     before = "python -m astra_reversal.hardware_interface.osmo_worker"
@@ -57,7 +62,7 @@ def prepare_pilot(destination, commissioning):
     bootstrap.write_text(source.replace(before, after))
     workflow = yaml.safe_load((destination / "workflow.yaml").read_text())
     workflow["workflow"]["name"] = "libero-hardware-interface-20261008-pilot"
-    workflow["workflow"]["timeout"]["exec_timeout"] = "72h"
+    workflow["workflow"]["timeout"].pop("exec_timeout", None)
     workflow["workflow"]["tasks"][0]["environment"]["PAYLOAD_SHA256"] = sha
     (destination / "workflow.yaml").write_text(
         yaml.safe_dump(workflow, sort_keys=False)

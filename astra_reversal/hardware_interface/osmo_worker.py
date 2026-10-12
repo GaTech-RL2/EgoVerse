@@ -39,6 +39,7 @@ def collect_pilot(root, manifest):
         out=str(root / "pilot"),
         split="pilot",
         schedule=str(root / "trials.csv"),
+        archive_trials=True,
     )
     expected = sum(row["split"] == "pilot" for row in rows)
     print(
@@ -59,7 +60,7 @@ def collect_pilot(root, manifest):
                 )
 
 
-def archive(root, workflow):
+def archive(root, workflow, label="final"):
     import boto3
 
     client = boto3.client(
@@ -68,7 +69,17 @@ def archive(root, workflow):
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
     )
-    prefix = "experiments/libero-hardware-interface-20261008/" + workflow + "/"
+    if not workflow.startswith("libero-hardware-interface-20261008-"):
+        raise ValueError("archive_workflow_binding")
+    if label != "final" and not (
+        label.startswith("trials/")
+        and len(Path(label).parts) == 2
+        and ".." not in Path(label).parts
+    ):
+        raise ValueError("archive_label_binding")
+    prefix = (
+        "experiments/libero-hardware-interface-20261008/" + workflow + "/" + label + "/"
+    )
     if client.list_objects_v2(Bucket="rldb", Prefix=prefix, MaxKeys=1).get("KeyCount"):
         raise FileExistsError("archive_prefix_already_exists")
     objects = []
@@ -81,6 +92,8 @@ def archive(root, workflow):
             or any("jail" in p or p == "scratch-runtime" for p in relative.parts)
         ):
             continue
+        if "api-key" in path.name or "catalog.token" in path.name:
+            raise ValueError("unexpected_private_credential_in_artifacts")
         key = prefix + str(relative)
         client.upload_file(str(path), "rldb", key)
         objects.append(

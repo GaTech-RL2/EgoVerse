@@ -23,12 +23,28 @@ to the current simulation step and obey the overall wall deadline.
 
 ## Current readiness
 
+The 2026-10-12 recovery amendment prepares a fresh 150-trial expansion and keeps
+the historical 13-trial interrupted cohort separate. It retries transient
+inference failures three times using the exact unexecuted request, records
+unknown usage, and never repeats a dispatched robot action. An unresolved
+infrastructure failure still stops collection. Each completed independent replay
+is archived before the next trial, with a separate final archive. There are no
+new experiment resource caps.
+
+Source and the inference secret now arrive through OSMO file/credential
+injection, eliminating the laptop-side rsync dependency. The launcher supports
+`--stage staging-check` (zero GPUs/model calls) and both L40/L40S pools. Current
+code requires fresh same-source commissioning; old smoke receipts cannot enable
+a changed worker. OSMO currently returns HTTP 403, so this recovery cohort has
+not been submitted. See the separate [MAX integration](../liberomax_hardware_interface/README.md)
+for its pending simulator gates.
+
 OSMO L40S commissioning `libero-hardware-interface-20261008-check-8` completed
 on 2026-10-08 using source `e3d6421f8b3767575a65884a840d83e6b1664ac6`.
 All nine readiness gates passed: real rendering, matched reset/action/sensor
 traces, source and scratch isolation, per-step success and budget guards, and
 live Astra trials for F, B0 and B with independent replay. Its Linux/Python
-3.8.13 contract suite passed all 26 tests. The revised local suite has 40 passing
+3.8.13 contract suite passed all 26 tests. The current local suite has 60 passing
 tests, including all three arms reaching the full horizon beyond the old token,
 wall, tool and observer limits.
 

@@ -1,0 +1,46 @@
+{
+  "base_source_commit": "9f988e97c041e007a0034ddb9e88495c5e36524a",
+  "checked_at": "2026-10-12T04:40:51.109037+00:00",
+  "commissioning_probe_scenarios_validated": 16,
+  "frozen_manifests": {
+    "lite": {
+      "pairs": 800,
+      "path": "benchmark/lite/libero_max_lite.json",
+      "sha256": "0f2b7fc879e91f1ab85156f005adbb708c68966c631603f179f8153f4f2e22f7",
+      "validation_passed": true
+    },
+    "max": {
+      "pairs": 8000,
+      "path": "benchmark/max8000/libero_max_8000.json",
+      "sha256": "d26c38517b08709645a44b7fcf572f47eca056f7d01f1a7f5555dacf159dd1ed",
+      "validation_passed": true
+    }
+  },
+  "hardware_source_sha256": "17d831e896ab5c3137721b7a17be3a2267941c5a316f79ff2ed2d938475c7ae3",
+  "historical_results_preserved": true,
+  "live_astra_max_trials": 0,
+  "local_contract_tests": {
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "tests": 60
+  },
+  "new_libero_recovery_trials": 0,
+  "new_workflows_submitted": false,
+  "osmo_access": {
+    "current_workflow_status": "unknown",
+    "http_status": 403,
+    "latest_robocasa_workflow": "robocasa-hardware-interface-20261009-pilot-4"
+  },
+  "pro_dataset_commit": "c86fc3b8293185a6f373677018ff3e37f8391602",
+  "simulator_commissioning_completed": false,
+  "source_commits": {
+    "plus": "4976dc30028e805ff8094b55501d532c48fec182",
+    "pro": "2b910b5b5f53016bef9907632f6f840f1ce2229c"
+  },
+  "upstream_max_commit": "01625e290b1aa07511bdc820781e635e851353cc",
+  "upstream_max_tests": {
+    "failures": 0,
+    "passed": 131
+  }
+}

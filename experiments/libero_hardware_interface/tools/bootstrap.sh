@@ -4,9 +4,35 @@ set +x
 export DEBIAN_FRONTEND=noninteractive
 export PYTHONUNBUFFERED=1 MUJOCO_GL=egl PYOPENGL_PLATFORM=egl
 export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
-mkdir -p /workspace/hardware-study /osmo/run/workspace
+mkdir -p /workspace/hardware-study/artifacts/runtime /osmo/run/workspace
 cd /workspace/hardware-study
 exec > >(tee bootstrap.log) 2>&1
+base64 --decode /tmp/hardware-payload.tar.gz.b64 > /osmo/run/workspace/payload.tar.gz
+echo "$PAYLOAD_SHA256  /osmo/run/workspace/payload.tar.gz" | sha256sum --check --status
+tar xzf /osmo/run/workspace/payload.tar.gz
+if [[ "${HARDWARE_STAGE:-commission}" != commission ]]; then
+    install -m 600 /run/hardware-inference/inference_api_key "$HARDWARE_API_KEY_FILE"
+fi
+python3 - <<'PY'
+import json, os, stat
+from pathlib import Path
+stage = os.environ.get('HARDWARE_STAGE', 'commission')
+if stage != 'commission':
+    fd = os.open(os.environ['HARDWARE_API_KEY_FILE'], os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077:
+            raise RuntimeError('api_key_file_not_private')
+        key = stream.read(4097).strip()
+        if not key or len(key) > 4096:
+            raise RuntimeError('api_key_file_invalid')
+receipt = {'event': 'inputs_ready', 'source_commit': os.environ['HARDWARE_SOURCE_COMMIT'],
+           'payload_sha256': os.environ['PAYLOAD_SHA256'], 'source_materialized': True,
+           'inference_key_ready': stage != 'commission', 'stage': stage, 'model_calls': 0}
+Path('artifacts/runtime/input-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+print(json.dumps(receipt), flush=True)
+PY
+if [[ "${HARDWARE_STAGE:-commission}" == staging-check ]]; then exit 0; fi
 cat > /tmp/hardware-apt.list <<'APT'
 deb [check-valid-until=no] https://snapshot.debian.org/archive/debian/20240901T000000Z/ bullseye main
 deb [check-valid-until=no] https://snapshot.debian.org/archive/debian-security/20240901T000000Z/ bullseye-security main
@@ -15,14 +41,6 @@ APT_OPTIONS=(-o Dir::Etc::sourcelist=/tmp/hardware-apt.list -o Dir::Etc::sourcep
 echo 'Installing pinned Debian runtime and build tools'
 apt-get "${APT_OPTIONS[@]}" update -qq > apt-install.log 2>&1
 apt-get "${APT_OPTIONS[@]}" install -y -qq --no-install-recommends git cmake libgl1 libegl1 libglib2.0-0 libosmesa6 libseccomp2 ffmpeg >> apt-install.log 2>&1 || { tail -n 60 apt-install.log; exit 1; }
-for attempt in $(seq 1 900); do
-    if [[ -f /osmo/run/workspace/payload.tar.gz ]] && [[ "$(sha256sum /osmo/run/workspace/payload.tar.gz | cut -d' ' -f1)" == "$PAYLOAD_SHA256" ]]; then
-        break
-    fi
-    if [[ "$attempt" == 900 ]]; then exit 2; fi
-    sleep 2
-done
-tar xzf /osmo/run/workspace/payload.tar.gz
 python3 -m venv emimic
 source emimic/bin/activate
 python -m pip install pip==24.0 setuptools==68.2.2 wheel==0.41.3
@@ -58,15 +76,4 @@ sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q \
     --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
 echo 'Running Linux renderer, reset, interface, and isolation commissioning'
-if [[ "${HARDWARE_STAGE:-commission}" == smoke || "${HARDWARE_STAGE:-commission}" == pilot ]]; then
-    # Transfer separately from the committed payload. Never echo or archive it.
-    for attempt in $(seq 1 300); do
-        if [[ -s "$HARDWARE_API_KEY_FILE" ]]; then
-            chmod 600 "$HARDWARE_API_KEY_FILE"
-            break
-        fi
-        if [[ "$attempt" == 300 ]]; then exit 3; fi
-        sleep 2
-    done
-fi
 python -m astra_reversal.hardware_interface.osmo_worker
