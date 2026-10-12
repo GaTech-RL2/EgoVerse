@@ -99,6 +99,7 @@ Every cluster-specific default in the configs can be overridden without editing 
 | `EGOVERSE_DATASET_DIR` | `paths.dataset_dir`, the local zarr episode folder | `/coc/flash7/scratch/egoverseS3ZarrDataset` |
 | `EGOVERSE_LOG_DIR` | `paths.log_dir`, root of every run directory | `$EGOVERSE_ROOT/logs` |
 | `EGOVERSE_CACHE_DIR` | `paths.cache_dir`; norm stats cached by content under `<cache_dir>/norm_stats/` | `$EGOVERSE_LOG_DIR/cache` |
+| `EGOVERSE_STAGE_DIR` | node-local directory; resolved episodes are copied there from `paths.dataset_dir` (once per node, reused while unchanged) and read only from there. Loading fails if any episode can't be staged, so dataloaders never read the shared filesystem | `/ephemeral/loaner-jobs/<uid>/egoverse-datasets` |
 | `EGOVERSE_ROOT` | `paths.root_dir` | the directory you launch from |
 | `EGOVERSE_PI05_WEIGHTS` | pi0.5 base weights directory (`model.robomimic_model.config.pytorch_weight_path`) | lab PACE path |
 | `EGOVERSE_PALIGEMMA_WEIGHTS` | PaliGemma checkpoint for the from-scratch pi arm (`...config.paligemma_weight_path`), a local dir or an HF repo id | `google/paligemma-3b-pt-224` |
