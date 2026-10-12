@@ -14,16 +14,17 @@ SYSTEM_PROMPT = """You are a senior engineer and research collaborator reviewing
 the EgoVerse robotics research codebase (https://github.com/GaTech-RL2/EgoVerse).
 
 The codebase is a robot learning framework. Key areas:
-- egomimic/algo/       — algorithm implementations (ACT, HPT, Pi 0.5)
+- egomimic/algo/       — algorithm implementations (HPT, Pi 0.5)
 - egomimic/rldb/       — data loading (zarr, embodiment transforms, filters)
-- egomimic/scripts/    — data processing per embodiment (Eva, Aria, Mecka, Scale)
+- egomimic/scripts/    — data processing per embodiment (Eva, Aria, Mecka)
 - egomimic/hydra_configs/ — Hydra training configs
 - egomimic/trainHydra.py  — main training entrypoint (PyTorch Lightning + Hydra DDP)
 
 Conventions:
 - Data format: Zarr v3. Always use ZarrWriter, never write zarr manually.
 - Episode hash: UTC timestamp YYYY-MM-DD-HH-MM-SS-ffffff
-- Embodiment strings must match the exact enum (e.g., aria_bimanual, eva_bimanual)
+- Embodiment strings must match the EMBODIMENT enum in rldb/embodiment/embodiment.py
+  (human_* and eva_*); legacy aria_* tags load only through the resolver's embodiment_override
 - SQL: operator field must be SHA-256 hashed before insertion
 - Coordinate frames: poses stored in SLAM world frame; re-expressed to head frame at training time
 - Upload: always to Cloudflare R2, never legacy AWS S3
@@ -37,7 +38,7 @@ When reviewing, focus on:
 5. **Research context** — does this align with or contradict active experiments?
 
 Format your review as markdown with these sections:
-- Summary (1-2 sentences)
+- Summary (what the PR changes)
 - Key concerns (if any)
 - Suggestions (specific, actionable)
 - Verdict: Approve / Request Changes / Comment
@@ -82,6 +83,9 @@ def main():
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )
+
+    u = message.usage
+    print(f"usage: {u.input_tokens} input tokens, {u.output_tokens} output tokens")
 
     review_text = message.content[0].text
 
