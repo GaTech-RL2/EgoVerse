@@ -1,0 +1,31 @@
+{
+  "archive_prefix": "s3://rldb/experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-commission-1/final/",
+  "normalization": "obj-content-type-v1",
+  "models": [
+    {
+      "arm": "F",
+      "archive_key": "experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-commission-1/final/prepared/calibration-F/compiled-model.xml",
+      "raw_sha256": "babc28ad4762e2896da1830d586baccd7320feea46541b75cf17b745e85f4868",
+      "identity_sha256": "7a08b29cbab0b5e0c7f4567f0e183092927c8691318e311b4c904cac55c0b41b",
+      "redundant_obj_types": 123
+    },
+    {
+      "arm": "B0",
+      "archive_key": "experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-commission-1/final/prepared/calibration-B0/compiled-model.xml",
+      "raw_sha256": "36a03dea837d4d32d0b5b83df82e844ff66b38d34535cfb06a13bff89363c262",
+      "identity_sha256": "7a08b29cbab0b5e0c7f4567f0e183092927c8691318e311b4c904cac55c0b41b",
+      "redundant_obj_types": 19
+    },
+    {
+      "arm": "B",
+      "archive_key": "experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-commission-1/final/prepared/calibration-B/compiled-model.xml",
+      "raw_sha256": "36a03dea837d4d32d0b5b83df82e844ff66b38d34535cfb06a13bff89363c262",
+      "identity_sha256": "7a08b29cbab0b5e0c7f4567f0e183092927c8691318e311b4c904cac55c0b41b",
+      "redundant_obj_types": 19
+    }
+  ],
+  "all_normalized_models_match": true,
+  "all_original_traces_match_after_only_model_identity_normalization": true,
+  "validation_scope": "Archived XML and commissioning traces only; fresh GPU validation required.",
+  "verified_at_utc": "2026-10-12T20:25:32.415457+00:00"
+}

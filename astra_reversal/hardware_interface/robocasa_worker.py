@@ -386,11 +386,13 @@ def collect_trial(manifest, row, reset_groups):
         reset_groups.setdefault(block, reset)
         identity["init_state_hash"] = digest(env.reset_receipt)
         events.emit("reset", receipt=env.reset_receipt)
+        (directory / "reset-model.xml").write_text(env.reset_model_xml)
         write_json(
             directory / "trial.json",
             {
                 "row": row,
                 "reset": env.reset_receipt,
+                "raw_reset_model_xml_sha256": file_hash(directory / "reset-model.xml"),
                 "source_sha256": source_hash(),
                 "manifest_sha256": digest(manifest),
             },

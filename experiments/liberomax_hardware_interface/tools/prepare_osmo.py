@@ -14,7 +14,7 @@ IMAGE = "docker.io/library/python@sha256:cec9aa7aa96eea4fa036e9b82be1e6b325f2e37
 
 
 def prepare(destination, pool="groot-l40-05", stage="commission"):
-    if stage not in ("staging-check", "commission"):
+    if stage not in ("staging-check", "runtime-check", "commission"):
         raise ValueError("live_model_launch_requires_completed_commissioning")
     root = Path(__file__).resolve().parents[3]
     paths = [
@@ -79,7 +79,7 @@ def prepare(destination, pool="groot-l40-05", stage="commission"):
                 {"localpath": str(encoded), "path": "/tmp/hardware-payload.tar.gz.b64"},
             ],
         }
-        if stage == "commission":
+        if stage != "staging-check":
             task["credentials"] = {
                 "grabber-arc-r2-20260916": {
                     "R2_ACCESS_KEY_ID": "r2_access_key_id",
@@ -94,7 +94,7 @@ def prepare(destination, pool="groot-l40-05", stage="commission"):
             "resources": {
                 "default": {
                     "cpu": 1 if stage == "staging-check" else 4,
-                    "gpu": 0 if stage == "staging-check" else 1,
+                    "gpu": 1 if stage == "commission" else 0,
                     "memory": "2Gi" if stage == "staging-check" else "16Gi",
                     "storage": "4Gi" if stage == "staging-check" else "80Gi",
                     "platform": {
@@ -135,7 +135,9 @@ if __name__ == "__main__":
         "--pool", choices=("groot-l40-05", "groot-l40s-01"), default="groot-l40-05"
     )
     parser.add_argument(
-        "--stage", choices=("staging-check", "commission"), default="commission"
+        "--stage",
+        choices=("staging-check", "runtime-check", "commission"),
+        default="commission",
     )
     args = parser.parse_args()
     print(json.dumps(prepare(args.destination, args.pool, args.stage)))

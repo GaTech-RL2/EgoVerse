@@ -1,0 +1,319 @@
+{
+  "completed_or_interrupted": 19,
+  "planned": 150,
+  "replays_passed": 19,
+  "all_started_counts": {
+    "F": {
+      "trials": 7,
+      "successes": 1
+    },
+    "B0": {
+      "trials": 6,
+      "successes": 1
+    },
+    "B": {
+      "trials": 6,
+      "successes": 1
+    }
+  },
+  "complete_matched_states": 6,
+  "matched_counts": {
+    "F": {
+      "trials": 6,
+      "successes": 0
+    },
+    "B0": {
+      "trials": 6,
+      "successes": 1
+    },
+    "B": {
+      "trials": 6,
+      "successes": 1
+    }
+  },
+  "known_tokens": 55122722,
+  "unknown_usage_records": 0,
+  "active": [
+    {
+      "trial_id": "pilot-t02-i00-r0-B0",
+      "last_event": {
+        "event": "model_request",
+        "utc": "2026-10-12T20:22:58.179168+00:00",
+        "role": "actor"
+      },
+      "log_age_seconds": 1.8
+    }
+  ],
+  "rows": [
+    {
+      "trial_id": "pilot-t00-i03-r0-B",
+      "condition": "B",
+      "task_id": 0,
+      "init_state_index": 3,
+      "init_state_hash": "6929d3090ef9a3431c21b84539c99c3b481b09042bc6f3cf07ea0cc44fb65a70",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 221,
+      "wall_s": 335.18342239107005,
+      "known_workflow_tokens": 642434,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i03-r0-B0",
+      "condition": "B0",
+      "task_id": 0,
+      "init_state_index": 3,
+      "init_state_hash": "6929d3090ef9a3431c21b84539c99c3b481b09042bc6f3cf07ea0cc44fb65a70",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 616,
+      "wall_s": 1044.5271313611884,
+      "known_workflow_tokens": 3961427,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i03-r0-F",
+      "condition": "F",
+      "task_id": 0,
+      "init_state_index": 3,
+      "init_state_hash": "6929d3090ef9a3431c21b84539c99c3b481b09042bc6f3cf07ea0cc44fb65a70",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 233,
+      "wall_s": 292.10867319093086,
+      "known_workflow_tokens": 928695,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-B",
+      "condition": "B",
+      "task_id": 0,
+      "init_state_index": 4,
+      "init_state_hash": "376f48b75f50d4e1eff9e3f49f307de0bcfc44d2a081f5cb9c124cf985330c41",
+      "success": true,
+      "terminal_reason": "SUCCESS",
+      "sim_steps": 287,
+      "wall_s": 393.08864844893105,
+      "known_workflow_tokens": 926998,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-B0",
+      "condition": "B0",
+      "task_id": 0,
+      "init_state_index": 4,
+      "init_state_hash": "376f48b75f50d4e1eff9e3f49f307de0bcfc44d2a081f5cb9c124cf985330c41",
+      "success": true,
+      "terminal_reason": "SUCCESS",
+      "sim_steps": 352,
+      "wall_s": 423.1006112501491,
+      "known_workflow_tokens": 1096378,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t00-i04-r0-F",
+      "condition": "F",
+      "task_id": 0,
+      "init_state_index": 4,
+      "init_state_hash": "376f48b75f50d4e1eff9e3f49f307de0bcfc44d2a081f5cb9c124cf985330c41",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 992,
+      "wall_s": 930.3961279550567,
+      "known_workflow_tokens": 5507565,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t02-i00-r0-F",
+      "condition": "F",
+      "task_id": 2,
+      "init_state_index": 0,
+      "init_state_hash": "9ae67aa7e7dd9987ecd1f2930e2b061fb66a414dd94e4b575417356a556cbd90",
+      "success": true,
+      "terminal_reason": "SUCCESS",
+      "sim_steps": 291,
+      "wall_s": 385.5906240909826,
+      "known_workflow_tokens": 1804882,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t05-i02-r0-B",
+      "condition": "B",
+      "task_id": 5,
+      "init_state_index": 2,
+      "init_state_hash": "83ff554be370e25fb3b049d5c3db3f2cf4f20524a0eab8beeda093c6a81bad66",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 568,
+      "wall_s": 1183.8311202661134,
+      "known_workflow_tokens": 3653417,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t05-i02-r0-B0",
+      "condition": "B0",
+      "task_id": 5,
+      "init_state_index": 2,
+      "init_state_hash": "83ff554be370e25fb3b049d5c3db3f2cf4f20524a0eab8beeda093c6a81bad66",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 937,
+      "wall_s": 651.7106439059135,
+      "known_workflow_tokens": 1961843,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t05-i02-r0-F",
+      "condition": "F",
+      "task_id": 5,
+      "init_state_index": 2,
+      "init_state_hash": "83ff554be370e25fb3b049d5c3db3f2cf4f20524a0eab8beeda093c6a81bad66",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 916,
+      "wall_s": 802.1872336769011,
+      "known_workflow_tokens": 5310194,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i03-r0-B",
+      "condition": "B",
+      "task_id": 6,
+      "init_state_index": 3,
+      "init_state_hash": "3d019c0aa2cfc2ea5d7cc5a49fc727bcb0dd0c6164a273733a6c47f21db80e43",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 286,
+      "wall_s": 406.9603213840164,
+      "known_workflow_tokens": 1098001,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i03-r0-B0",
+      "condition": "B0",
+      "task_id": 6,
+      "init_state_index": 3,
+      "init_state_hash": "3d019c0aa2cfc2ea5d7cc5a49fc727bcb0dd0c6164a273733a6c47f21db80e43",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 965,
+      "wall_s": 1736.4801721510012,
+      "known_workflow_tokens": 6359584,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i03-r0-F",
+      "condition": "F",
+      "task_id": 6,
+      "init_state_index": 3,
+      "init_state_hash": "3d019c0aa2cfc2ea5d7cc5a49fc727bcb0dd0c6164a273733a6c47f21db80e43",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 326,
+      "wall_s": 367.2212219540961,
+      "known_workflow_tokens": 1481958,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i04-r0-B",
+      "condition": "B",
+      "task_id": 6,
+      "init_state_index": 4,
+      "init_state_hash": "b0fe30015c5ff58f4b9263d20fdfb51c6a5502097b37ce75a34fb44ce7ba4fbd",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 947,
+      "wall_s": 1570.1541394989472,
+      "known_workflow_tokens": 6914369,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i04-r0-B0",
+      "condition": "B0",
+      "task_id": 6,
+      "init_state_index": 4,
+      "init_state_hash": "b0fe30015c5ff58f4b9263d20fdfb51c6a5502097b37ce75a34fb44ce7ba4fbd",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 561,
+      "wall_s": 948.4601025281008,
+      "known_workflow_tokens": 3161120,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t06-i04-r0-F",
+      "condition": "F",
+      "task_id": 6,
+      "init_state_index": 4,
+      "init_state_hash": "b0fe30015c5ff58f4b9263d20fdfb51c6a5502097b37ce75a34fb44ce7ba4fbd",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 433,
+      "wall_s": 560.7851585708559,
+      "known_workflow_tokens": 3351241,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-B",
+      "condition": "B",
+      "task_id": 8,
+      "init_state_index": 0,
+      "init_state_hash": "61a34575b44313156895ce73996cf18dd243c396572fd0e1cd476e0e9fbe70af",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 951,
+      "wall_s": 606.9679422711488,
+      "known_workflow_tokens": 1455984,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-B0",
+      "condition": "B0",
+      "task_id": 8,
+      "init_state_index": 0,
+      "init_state_hash": "61a34575b44313156895ce73996cf18dd243c396572fd0e1cd476e0e9fbe70af",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 830,
+      "wall_s": 1283.012983434135,
+      "known_workflow_tokens": 5000058,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    },
+    {
+      "trial_id": "pilot-t08-i00-r0-F",
+      "condition": "F",
+      "task_id": 8,
+      "init_state_index": 0,
+      "init_state_hash": "61a34575b44313156895ce73996cf18dd243c396572fd0e1cd476e0e9fbe70af",
+      "success": false,
+      "terminal_reason": "TASK_FAILURE",
+      "sim_steps": 193,
+      "wall_s": 178.72430456685834,
+      "known_workflow_tokens": 506574,
+      "unknown_usage_records": 0,
+      "replay_status": "passed"
+    }
+  ],
+  "workflow": "libero-hardware-interface-20261008-uncapped-3",
+  "source_commit": "9c0a45faa77a4df86dee9e1a384cf3576b26d7c7",
+  "observed_at_utc": "2026-10-12T20:23:01.313118+00:00",
+  "historical_cohort_pooled": false
+}

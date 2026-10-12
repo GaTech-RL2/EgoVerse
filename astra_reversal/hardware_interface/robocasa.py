@@ -6,6 +6,7 @@ import hashlib
 import random
 import shutil
 import subprocess
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
@@ -102,6 +103,24 @@ def array_hash(value):
     ).hexdigest()
 
 
+def model_identity_xml(xml):
+    """Canonical compiled XML with only redundant OBJ media types normalized.
+
+    MuJoCo 3.3.1's mesh cache can omit content_type="model/obj" on subsequent
+    saves. For a .obj mesh this is identical to extension-based loading. Keep
+    all other media types, paths, geometry, materials and controller parameters.
+    The original XML is retained separately as evaluator-private evidence.
+    """
+    root = ET.fromstring(xml)
+    for mesh in root.findall("./asset/mesh"):
+        if (
+            mesh.get("file", "").endswith(".obj")
+            and mesh.get("content_type") == "model/obj"
+        ):
+            del mesh.attrib["content_type"]
+    return ET.canonicalize(ET.tostring(root, encoding="unicode"), strip_text=True)
+
+
 class Environment:
     def __init__(self, name, seed, horizon, image_size=128):
         from robocasa.utils.env_utils import create_env
@@ -134,8 +153,9 @@ class Environment:
             self.reset_model_xml = self.env.sim.model.get_xml()
             self.reset_receipt = {
                 "state_sha256": self.state_hash(),
-                "model_xml_sha256": hashlib.sha256(
-                    self.reset_model_xml.encode()
+                "model_identity_version": "obj-content-type-v1",
+                "model_identity_sha256": hashlib.sha256(
+                    model_identity_xml(self.reset_model_xml).encode()
                 ).hexdigest(),
                 "body_pos_sha256": array_hash(self.env.sim.model.body_pos),
                 "body_quat_sha256": array_hash(self.env.sim.model.body_quat),

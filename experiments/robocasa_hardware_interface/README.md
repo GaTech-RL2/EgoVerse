@@ -19,6 +19,16 @@ archive contains 183 files. The recovered commissioning receipt is in
 the worker now retains the source and compiled XML and their differences to
 diagnose the mismatch before another pilot is launched.
 
+The subsequent `commission-1` archive identified only redundant
+`content_type="model/obj"` attributes on `.obj` meshes. MuJoCo otherwise infers
+this type from the extension ([format contract](https://mujoco.readthedocs.io/en/3.3.1/XMLreference.html#asset-mesh-content-type)).
+`model_identity_xml` normalizes exactly that case and canonical XML formatting;
+nonredundant media types, geometry, paths and other attributes remain significant.
+All three archived models and their complete original traces match under this
+identity check. `evidence/model-identity-recovery-20261012.json` records the raw
+and normalized hashes. New trials retain the raw reset XML separately. A fresh
+GPU commissioning and live smoke still must pass before pilot collection.
+
 ![Framework](figures/framework.svg)
 
 [Standalone framework guide](figures/framework.html) · [PNG](figures/framework.png) ·

@@ -11,7 +11,11 @@ import yaml
 from astra_reversal.hardware_interface.common import Events, digest
 from astra_reversal.hardware_interface.provider import Meter, ModelFailure, Session
 from astra_reversal.hardware_interface.proxy import Proxy
-from astra_reversal.hardware_interface.robocasa import SENSORS, Environment
+from astra_reversal.hardware_interface.robocasa import (
+    SENSORS,
+    Environment,
+    model_identity_xml,
+)
 from astra_reversal.hardware_interface.robocasa_protocol import (
     limits_for,
     paired_success_times,
@@ -20,6 +24,41 @@ from astra_reversal.hardware_interface.robocasa_protocol import (
 from astra_reversal.hardware_interface.runner import Router, tools_for
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_mesh_cache_media_type_does_not_change_model_identity():
+    explicit = (
+        '<mujoco><asset><mesh name="cup" content_type="model/obj" '
+        'file="cup.obj" scale="1 1 1"/></asset></mujoco>'
+    )
+    inferred = explicit.replace(' content_type="model/obj"', "")
+    assert model_identity_xml(explicit) == model_identity_xml(inferred)
+    assert model_identity_xml(explicit) != model_identity_xml(
+        inferred.replace('scale="1 1 1"', 'scale="2 1 1"')
+    )
+    assert model_identity_xml(explicit) != model_identity_xml(
+        inferred.replace('file="cup.obj"', 'file="other.obj"')
+    )
+
+
+@pytest.mark.parametrize(
+    "element,filename,content_type",
+    [
+        ("mesh", "cup.obj", "model/stl"),
+        ("mesh", "cup.bin", "model/obj"),
+        ("texture", "cup.obj", "model/obj"),
+        ("mesh", "", "model/obj"),
+    ],
+)
+def test_model_identity_retains_nonredundant_media_types(
+    element, filename, content_type
+):
+    explicit = (
+        f'<mujoco><asset><{element} name="asset" file="{filename}" '
+        f'content_type="{content_type}"/></asset></mujoco>'
+    )
+    removed = explicit.replace(f' content_type="{content_type}"', "")
+    assert model_identity_xml(explicit) != model_identity_xml(removed)
 
 
 def manifest():

@@ -82,9 +82,30 @@ export LIBERO_SOURCE_PACKAGE_ROOT="$PWD/upstream-source/libero"
 export LIBERO_CONFIG_PATH="$PWD/source-config"
 export PYTHONPATH="$PWD/upstream-max/scripts/libero_source_overlay:$PWD/upstream-max/src:$PWD"
 python -m pip freeze --all > artifacts/runtime/pip-freeze.txt
-nvidia-smi --query-gpu=name,driver_version --format=csv > artifacts/runtime/gpu.txt
 python -m libero_max validate-manifest upstream-max/benchmark/max8000/libero_max_8000.json > artifacts/runtime/max-validation.json
 python -m libero_max validate-manifest upstream-max/benchmark/lite/libero_max_lite.json > artifacts/runtime/lite-validation.json
 (cd upstream-max && PYTHONPATH="$PWD/src:$PWD" python -m pytest -q > ../artifacts/runtime/upstream-tests.log 2>&1)
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1
+# Import the actual benchmark package and load every selected reset before
+# requesting simulator commissioning. Unit fixtures do not import this stack.
+python - <<'PY'
+import json, os
+from pathlib import Path
+from libero.libero import benchmark, get_libero_path
+from libero.libero.envs import OffScreenRenderEnv
+from libero_max.substrate import load_case_task
+from astra_reversal.hardware_interface.liberomax import commissioning_cases, load_release
+cases=commissioning_cases(load_release(Path('upstream-max'), 'lite'), os.environ['MAX_SOURCE'])
+for case in cases:
+    task, states=load_case_task(case, benchmark)
+    bddl=Path(get_libero_path('bddl_files')) / task.problem_folder / task.bddl_file
+    if not bddl.is_file() or not len(states) > case['init_state_index']:
+        raise ValueError('selected_benchmark_reset_unavailable')
+receipt={'runtime_imports_passed':True, 'selected_resets_loaded':len(cases),
+         'source':os.environ['MAX_SOURCE'], 'model_calls':0, 'scored':False}
+Path('artifacts/runtime/import-check.json').write_text(json.dumps(receipt, indent=2)+'\n')
+print(json.dumps(receipt), flush=True)
+PY
+if [[ "$HARDWARE_STAGE" == runtime-check ]]; then exit 0; fi
+nvidia-smi --query-gpu=name,driver_version --format=csv > artifacts/runtime/gpu.txt
 python -m experiments.liberomax_hardware_interface.tools.commission --max-root upstream-max --source-root upstream-source --source "$MAX_SOURCE" --out artifacts/commission

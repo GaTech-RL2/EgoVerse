@@ -11,6 +11,13 @@ now pins `termcolor` and downloads all pinned PRO substrate patterns in one list
 before running the unchanged upstream setup checks. A fresh GPU check is required;
 there are no scored MAX outcomes yet.
 
+`commission-2` passed those fixes but both sources then failed on the missing
+`future` package. It now uses the upstream `future==0.18.2` pin. The new
+`runtime-check` stage installs the actual source/runtime on CPU, imports the
+benchmark environment and loads all eight selected task/reset pairs per source.
+This check runs before another GPU commissioning launch; unit fixtures alone
+did not exercise these imports.
+
 Source is pinned at `01625e290b1aa07511bdc820781e635e851353cc`. Max contains
 8,000 Base/Dynamic pairs per policy; Lite contains 800. F, B0 and B are separate
 interfaces: a full three-interface Lite comparison requires 2,400 pairs / 4,800
@@ -61,8 +68,11 @@ python experiments/liberomax_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/max-staging --stage staging-check --pool groot-l40-05
 python experiments/liberomax_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/max-commission --stage commission --pool groot-l40-05
+python experiments/liberomax_hardware_interface/tools/prepare_osmo.py \
+  /path/to/new/max-runtime --stage runtime-check --pool groot-l40-05
 osmo workflow submit /path/to/new/max-staging/workflow.yaml --pool groot-l40-05
-# Submit commissioning only after source delivery passes.
+osmo workflow submit /path/to/new/max-runtime/workflow.yaml --pool groot-l40-05
+# Submit commissioning only after source delivery and both runtime checks pass.
 osmo workflow submit /path/to/new/max-commission/workflow.yaml --pool groot-l40-05
 ```
 
