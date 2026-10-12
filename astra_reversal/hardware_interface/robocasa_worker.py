@@ -340,6 +340,94 @@ def verify_replay(manifest, directory):
         env.close()
 
 
+def record_reset_evidence(env, proxy, directory):
+    """Capture actual reset inputs before the parity gate can reject a trial."""
+    observations = proxy.observe(sorted(proxy.native_keys))["observations"]
+    reset = {"receipt": env.reset_receipt, "observations_sha256": digest(observations)}
+    write_json(directory / "reset-evidence.json", reset)
+    write_json(directory / "reset-observations.json", observations)
+    (directory / "reset-model.xml").write_text(env.reset_model_xml)
+    (directory / "source-model.xml").write_text(env.env.model.get_xml())
+    np.savez_compressed(
+        directory / "reset-state.npz", state=env.env.sim.get_state().flatten()
+    )
+    return reset
+
+
+def record_reset_comparison(reference, actual, directory):
+    """Keep the strict comparison and its differing fields; never normalize here."""
+    if reference == actual:
+        return True
+    different = [
+        key
+        for key in sorted(set(reference["receipt"]) | set(actual["receipt"]))
+        if reference["receipt"].get(key) != actual["receipt"].get(key)
+    ]
+    write_json(
+        directory / "reset-mismatch.json",
+        {
+            "reference": reference,
+            "actual": actual,
+            "different_receipt_fields": different,
+            "observations_equal": reference["observations_sha256"]
+            == actual["observations_sha256"],
+        },
+    )
+    return False
+
+
+def reset_check(manifest, rows):
+    """Audit scheduled initial states with no Astra or policy actions."""
+    groups, checks = {}, []
+    for row in rows:
+        directory = ROOT / "reset-check" / row["trial_id"]
+        directory.mkdir(parents=True, exist_ok=False)
+        events = Events(
+            directory / "events",
+            {"trial_id": row["trial_id"], "condition": row["condition"]},
+        )
+        env = None
+        try:
+            env = Environment(
+                row["name"], row["env_seed"], row["horizon"], manifest["image_size"]
+            )
+            proxy = make_proxy(
+                env, events, limits_for(manifest, row["horizon"]), row["trial_id"]
+            )
+            reset = record_reset_evidence(env, proxy, directory)
+            block = (row["name"], row["env_seed"])
+            matched = record_reset_comparison(
+                groups.setdefault(block, reset), reset, directory
+            )
+            result = {
+                "trial_id": row["trial_id"],
+                "task": row["name"],
+                "condition": row["condition"],
+                "matched": matched,
+                "initially_unsolved": not env.reset_receipt["initial_success"],
+                "controller_matched": digest(env.controller)
+                == manifest["resolved"]["controller_sha256"],
+                "model_calls": 0,
+            }
+            write_json(directory / "result.json", result)
+            checks.append(result)
+            print(json.dumps({"reset_check": result}), flush=True)
+        finally:
+            if env is not None:
+                env.close()
+            events.close()
+    passed = all(
+        r["matched"] and r["initially_unsolved"] and r["controller_matched"]
+        for r in checks
+    )
+    write_json(
+        ROOT / "reset-check-summary.json",
+        {"passed": passed, "checks": checks, "model_calls": 0, "scored": False},
+    )
+    if not passed:
+        raise ValueError("scheduled_reset_check_failed")
+
+
 def collect_trial(manifest, row, reset_groups):
     prepared = ROOT / "prepared"
     source = SourceView(prepared / "source-view")
@@ -374,19 +462,15 @@ def collect_trial(manifest, row, reset_groups):
         proxy = make_proxy(
             env, events, limits_for(manifest, row["horizon"]), row["trial_id"]
         )
-        reset = {
-            "receipt": env.reset_receipt,
-            "observations_sha256": digest(
-                proxy.observe(sorted(proxy.native_keys))["observations"]
-            ),
-        }
+        reset = record_reset_evidence(env, proxy, directory)
         block = (row["name"], row["env_seed"])
-        if block in reset_groups and reset_groups[block] != reset:
+        if block in reset_groups and not record_reset_comparison(
+            reset_groups[block], reset, directory
+        ):
             raise ValueError("paired_initial_state_or_observation_mismatch")
         reset_groups.setdefault(block, reset)
         identity["init_state_hash"] = digest(env.reset_receipt)
         events.emit("reset", receipt=env.reset_receipt)
-        (directory / "reset-model.xml").write_text(env.reset_model_xml)
         write_json(
             directory / "trial.json",
             {
@@ -535,6 +619,9 @@ def main():
         write_json(ROOT / "schedule.json", rows)
         archive_tree(ROOT, "commissioning")
         if stage == "commission":
+            return
+        if stage == "reset-check":
+            reset_check(manifest, rows)
             return
         # Live three-arm checks use a disjoint task and 20-step episodes only.
         smoke_groups = {}

@@ -29,6 +29,20 @@ identity check. `evidence/model-identity-recovery-20261012.json` records the raw
 and normalized hashes. New trials retain the raw reset XML separately. A fresh
 GPU commissioning and live smoke still must pass before pilot collection.
 
+`pilot-5` passed native commissioning and all three live smoke checks, then
+completed four pilot trials. For the fully matched BreadSelection scenario,
+B succeeded and F/B0 failed. NavigateKitchen B0 failed; its F trial stopped
+before inference because its reset receipt or observations differed. This is
+one matched scenario, not evidence of a general method advantage. Completed
+trials remain in the immutable `pilot-5` archive.
+
+The worker now saves reset observations, raw/source XML and simulator state
+**before** the strict parity gate. `--stage reset-check` visits all 150 scheduled
+resets with no model calls or inference credential and records every differing
+receipt field. It retains the original equality requirement; diagnostics do not
+turn mismatched scenarios into valid comparisons. Diagnose this check before
+restarting the full pilot.
+
 ![Framework](figures/framework.svg)
 
 [Standalone framework guide](figures/framework.html) · [PNG](figures/framework.png) ·
@@ -129,6 +143,8 @@ python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/staging-check --stage staging-check --pool groot-l40-05
 python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
   /path/to/new/launch-artifacts --stage pilot
+python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
+  /path/to/new/reset-diagnostics --stage reset-check --pool groot-l40-05
 ```
 
 The owned worker requests one L40S on `groot-l40s-01`, or an L40 when prepared

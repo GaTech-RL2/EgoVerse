@@ -12,6 +12,9 @@ import yaml
 
 
 def prepare(destination, stage, pool="groot-l40s-01"):
+    if stage not in ("staging-check", "commission", "reset-check", "smoke", "pilot"):
+        raise ValueError("unknown_robocasa_stage")
+    needs_inference = stage in ("staging-check", "smoke", "pilot")
     platform = {"groot-l40s-01": "ovx-l40s", "groot-l40-05": "ovx-l40"}[pool]
     root = Path(__file__).resolve().parents[3]
     paths = [
@@ -19,6 +22,7 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "astra_reversal/hardware_interface",
         "experiments/libero_hardware_interface",
         "experiments/robocasa_hardware_interface",
+        "experiments/liberomax_hardware_interface/tools/prepare_plus_assets.py",
         "tests/unit/hardware_interface",
     ]
     if subprocess.check_output(
@@ -59,7 +63,7 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "NVIDIA_DRIVER_CAPABILITIES": "all",
         "HARDWARE_STAGE": stage,
     }
-    if stage != "commission":
+    if needs_inference:
         environment["HARDWARE_API_KEY_FILE"] = "/osmo/run/workspace/inference-api-key"
     staging_check = stage == "staging-check"
     credentials = (
@@ -73,7 +77,7 @@ def prepare(destination, stage, pool="groot-l40s-01"):
             }
         }
     )
-    if stage != "commission":
+    if needs_inference:
         credentials["astra-hardware-inference-20261010"] = "/run/hardware-inference"
     spec = {
         "workflow": {
@@ -126,7 +130,7 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "resource_caps": None,
         "source_transport": "OSMO file injection; base64 with SHA-256 verification",
         "inference_secret_transport": "OSMO generic secret mounted outside artifacts"
-        if stage != "commission"
+        if needs_inference
         else None,
         "workflow_file": str(destination / "workflow.yaml"),
     }
@@ -141,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("destination")
     parser.add_argument(
         "--stage",
-        choices=("staging-check", "commission", "smoke", "pilot"),
+        choices=("staging-check", "commission", "reset-check", "smoke", "pilot"),
         default="pilot",
     )
     parser.add_argument(

@@ -56,6 +56,7 @@ fetch_source() {
 fetch_source upstream-max https://github.com/liberomax/LIBERO-MAX.git 01625e290b1aa07511bdc820781e635e851353cc
 if [[ "$MAX_SOURCE" == plus ]]; then
     fetch_source upstream-source https://github.com/sylvestf/LIBERO-plus.git 4976dc30028e805ff8094b55501d532c48fec182
+    python -m experiments.liberomax_hardware_interface.tools.prepare_plus_assets --source-root upstream-source --receipt artifacts/runtime/plus-assets.json
     python - <<'PY'
 import json
 from pathlib import Path

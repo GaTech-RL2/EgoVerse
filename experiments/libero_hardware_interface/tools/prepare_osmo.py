@@ -23,6 +23,7 @@ def prepare(destination, *, stage="commission", pool="groot-l40s-01"):
         "astra_reversal/hardware_interface",
         "experiments/libero_hardware_interface",
         "experiments/robocasa_hardware_interface",
+        "experiments/liberomax_hardware_interface/tools/prepare_plus_assets.py",
         "tests/unit/hardware_interface",
     ]
     changed = subprocess.check_output(

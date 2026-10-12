@@ -28,7 +28,7 @@ trap bootstrap_failure EXIT
 base64 --decode /tmp/hardware-payload.tar.gz.b64 > /osmo/run/workspace/payload.tar.gz
 echo "$PAYLOAD_SHA256  /osmo/run/workspace/payload.tar.gz" | sha256sum --check --status
 tar xzf /osmo/run/workspace/payload.tar.gz
-if [[ "${HARDWARE_STAGE:-commission}" != commission ]]; then
+if [[ "${HARDWARE_STAGE:-commission}" == smoke || "${HARDWARE_STAGE:-commission}" == pilot || "${HARDWARE_STAGE:-commission}" == staging-check ]]; then
     # Secret volumes can contain symlinks and be read-only. The provider uses
     # O_NOFOLLOW and requires a regular 0600 file outside archives and scratch.
     install -m 600 /run/hardware-inference/inference_api_key "$HARDWARE_API_KEY_FILE"
@@ -37,7 +37,8 @@ python3 - <<'PY'
 import json, os, stat
 from pathlib import Path
 stage = os.environ.get('HARDWARE_STAGE', 'commission')
-if stage != 'commission':
+needs_inference = stage in ('staging-check', 'smoke', 'pilot')
+if needs_inference:
     fd = os.open(os.environ['HARDWARE_API_KEY_FILE'], os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd) as stream:
         info = os.fstat(stream.fileno())
@@ -48,7 +49,7 @@ if stage != 'commission':
             raise RuntimeError('api_key_file_invalid')
 receipt = {'event': 'inputs_ready', 'source_commit': os.environ['HARDWARE_SOURCE_COMMIT'],
            'payload_sha256': os.environ['PAYLOAD_SHA256'], 'source_materialized': True,
-           'inference_key_ready': stage != 'commission', 'stage': stage,
+           'inference_key_ready': needs_inference, 'stage': stage,
            'model_calls': 0}
 Path('artifacts/runtime/input-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
 print(json.dumps(receipt), flush=True)

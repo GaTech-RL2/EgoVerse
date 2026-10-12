@@ -13,9 +13,11 @@ import yaml
 IMAGE = "docker.io/library/python@sha256:cec9aa7aa96eea4fa036e9b82be1e6b325f2e3707f462d885868df51ec0a4b47"
 
 
-def prepare(destination, pool="groot-l40-05", stage="commission"):
+def prepare(destination, pool="groot-l40-05", stage="commission", source="both"):
     if stage not in ("staging-check", "runtime-check", "commission"):
         raise ValueError("live_model_launch_requires_completed_commissioning")
+    if source not in ("plus", "pro", "both"):
+        raise ValueError("unknown_max_source")
     root = Path(__file__).resolve().parents[3]
     paths = [
         "astra_reversal/__init__.py",
@@ -59,7 +61,11 @@ def prepare(destination, pool="groot-l40-05", stage="commission"):
         ).read_bytes()
     )
     tasks = []
-    sources = ("plus",) if stage == "staging-check" else ("plus", "pro")
+    sources = (
+        (source,)
+        if source != "both"
+        else (("plus",) if stage == "staging-check" else ("plus", "pro"))
+    )
     for source in sources:
         task = {
             "name": source,
@@ -139,5 +145,6 @@ if __name__ == "__main__":
         choices=("staging-check", "runtime-check", "commission"),
         default="commission",
     )
+    parser.add_argument("--source", choices=("plus", "pro", "both"), default="both")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.destination, args.pool, args.stage)))
+    print(json.dumps(prepare(args.destination, args.pool, args.stage, args.source)))
