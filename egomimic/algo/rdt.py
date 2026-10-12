@@ -8,11 +8,13 @@ DiT blocks (``rdt_nets.RDTBackbone``), shared across embodiments, which
 cross-attend to the language and image tokens in alternating blocks.
 """
 
+import warnings
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.algo.hpt import HPT, HPTModel
+from egomimic.algo.hpt import HPT, HPTModel, history_mask_kwargs
 from egomimic.models.rdt_nets import (
     RDTBackbone,
     RDTConditions,
@@ -41,8 +43,15 @@ class RDTModel(HPTModel):
     every camera of a sample, so ``img`` is inert with a single camera.
 
     ``image_history`` is the number of frames per camera (axis 1 of the image
-    input, current frame last); ``image_history_dropout`` replaces the past
-    frames by the current one, which is also what an episode start looks like.
+    input, current frame last). ``image_history_dropout`` (per sample, training
+    only) drops the past frames. With ``image_history_null_token`` a dropped
+    frame, and one the batch's ``<camera>_mask`` marks as before the episode
+    start (train and eval), is a learned null token in place of the frame's
+    stem tokens, under the usual position / frame / camera embeddings so the
+    slot stays identified. Without it (legacy) the past frames are replaced by
+    the current one before encoding and padding is not masked; a state dict
+    without ``null_frame`` (a checkpoint from before it existed) switches to
+    that on load, with a warning.
 
     ``memory`` (``RDTMemory`` kwargs) adds long-range memory tokens to the
     DiT's self-attention prefix from the batch's ``memory`` window; padded
@@ -64,6 +73,7 @@ class RDTModel(HPTModel):
         cond_drop: dict | None = None,
         image_history: int = 1,
         image_history_dropout: float = 0.0,
+        image_history_null_token: bool = True,
         memory: dict | None = None,
         short_dropout: float = 0.0,
         lang_pad_to: int | None = None,
@@ -78,6 +88,9 @@ class RDTModel(HPTModel):
         self.cond_drop = {"state": 0.0, "lang": 0.0, "img": 0.0, **(cond_drop or {})}
         self.image_history = int(image_history)
         self.image_history_dropout = float(image_history_dropout)
+        self.image_history_null_token = (
+            bool(image_history_null_token) and self.image_history > 1
+        )
         self.stem_modality = {}
         self.short_dropout = float(short_dropout)
         self.lang_pad_to = lang_pad_to
@@ -125,11 +138,24 @@ class RDTModel(HPTModel):
             self.null_img = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
         if self.short_dropout > 0:
             self.null_short = nn.Parameter(torch.randn(1, 1, D) * INIT_STD)
+        if self.image_history_null_token:
+            self.null_frame = nn.Parameter(torch.randn(D) * INIT_STD)
         self.trunk["trunk"].initialize_weights()
         for head in self.heads.values():
             init = getattr(getattr(head, "model", None), "initialize_weights", None)
             if callable(init):
                 init()
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        if self.image_history_null_token and f"{prefix}null_frame" not in state_dict:
+            warnings.warn(
+                f"RDTModel '{prefix}': checkpoint has no null_frame (trained "
+                "before null-token image history); falling back to the legacy "
+                "copy-current image history dropout and padding."
+            )
+            self.image_history_null_token = False
+            del self.null_frame
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
     def _drop(self, prob: float, batch_size: int, device):
         """(B,) bool: which samples lose a condition; None outside training."""
@@ -137,8 +163,9 @@ class RDTModel(HPTModel):
             return None
         return torch.rand(batch_size, device=device) < prob
 
-    def _image_tokens(self, name, modality, stem, x):
-        """(B, T, N, 3, H, W) frames, current last -> (B, T * N * patches, D)."""
+    def _image_tokens(self, name, modality, stem, x, frame_mask=None):
+        """(B, T, N, 3, H, W) frames, current last -> (B, T * N * patches, D).
+        ``frame_mask``: (B, T), 1.0 per real frame; None = all real."""
         B, T = x.shape[:2]
         if T != self.image_history:
             raise ValueError(
@@ -147,11 +174,22 @@ class RDTModel(HPTModel):
                 "key_map.image_history (when image_history_gap_s is set, else 1)"
             )
         drop = self._drop(self.image_history_dropout, B, x.device) if T > 1 else None
-        if drop is not None:
+        if drop is not None and not self.image_history_null_token:
             x = torch.where(drop.view(B, 1, 1, 1, 1, 1), x[:, -1:].expand_as(x), x)
         encoder = self.encoders[modality]
         tokens = stem(encoder(x))
         tokens = tokens.reshape(B, T, -1, tokens.shape[-1])
+        if self.image_history_null_token:
+            null = torch.zeros(B, T, dtype=torch.bool, device=x.device)
+            if frame_mask is not None:
+                null = frame_mask.reshape(B, T).to(x.device) < 0.5
+            if drop is not None:
+                null = null | drop[:, None]
+            null[:, -1] = False
+            # torch.where even when nothing is nulled: the null token stays in
+            # the graph, so plain DDP never sees an unused parameter.
+            null_frame = self.null_frame.to(tokens)
+            tokens = torch.where(null[:, :, None, None], null_frame, tokens)
         # DINOv3 is RoPE-only: its tokens carry no absolute position.
         grid = getattr(encoder, "grid_size", None)
         if grid is not None and grid[0] * grid[1] == tokens.shape[2]:
@@ -198,9 +236,10 @@ class RDTModel(HPTModel):
                 lang.append(self.lang_adaptors[name](tokens))
                 lang_mask.append(mask)
             elif stream == "img":
-                img.append(self._image_tokens(name, modality, stem, x))
+                frame_mask = data.get(f"{modality}{HISTORY_MASK_SUFFIX}")
+                img.append(self._image_tokens(name, modality, stem, x, frame_mask))
             else:
-                tokens = stem(x)
+                tokens = stem(x, **history_mask_kwargs(stem, data))
                 state.append(tokens.reshape(len(tokens), -1, tokens.shape[-1]))
 
         if not img:
@@ -262,7 +301,8 @@ class RDT(HPT):
         domain="",
     ):
         """HPT's layout plus ``fps``; per camera with a ``*_hist`` twin, the
-        (past..., current) frames on the image input's time axis; and a
+        (past..., current) frames on the image input's time axis (and their
+        real-frame ``<camera>_mask`` when the batch has one); and a
         ``*_mem`` window as ``memory`` / ``memory_mask``, un-augmented (its
         tower is frozen and the stem normalizes)."""
         past = {
@@ -293,6 +333,13 @@ class RDT(HPT):
             n, t = clip.shape[:2]
             clip = self._apply_image_augs(clip.flatten(0, 1), short, frames=t)
             data[short] = clip.reshape(n, t, *clip.shape[1:]).unsqueeze(2)
+            past_mask = batch.get(f"{past_key}{HISTORY_MASK_SUFFIX}")
+            if past_mask is not None:
+                past_mask = past_mask.reshape(n, -1)
+                current = torch.ones_like(past_mask[:, :1])
+                data[f"{short}{HISTORY_MASK_SUFFIX}"] = torch.cat(
+                    [past_mask, current], dim=1
+                )
         for key in memory:
             data["memory"] = batch[key]
             data["memory_mask"] = batch[f"{key}{HISTORY_MASK_SUFFIX}"] > 0.5

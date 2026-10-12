@@ -26,6 +26,7 @@ from egomimic.models.hpt_nets import (
 )
 from egomimic.models.image_augs import PerSampleAugs
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+from egomimic.rldb.zarr.history_stats import HISTORY_MASK_KEY
 from egomimic.utils.compile_utils import compile_modules
 from egomimic.utils.hf_utils import download_from_huggingface
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
@@ -33,6 +34,13 @@ from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_t
 # Init scale for the HPT action tokens (was a shared constant in utils.py;
 # it has exactly one consumer, below).
 STD_SCALE = 0.02
+
+
+def history_mask_kwargs(stem, data: dict) -> dict:
+    """The batch's proprio ``history_mask`` for an observation-history stem."""
+    if getattr(stem, "history_len", 1) > 1 and HISTORY_MASK_KEY in data:
+        return {"history_mask": data[HISTORY_MASK_KEY]}
+    return {}
 
 
 class HPTModel(nn.Module):
@@ -425,7 +433,9 @@ class HPTModel(nn.Module):
                 data[modality] = data[modality] + positional_embedding.view(
                     data[modality].shape
                 )
-            stem_token = stem.compute_latent(data[modality])
+            stem_token = stem.compute_latent(
+                data[modality], **history_mask_kwargs(stem, data)
+            )
             feats.append(stem_token)
             feat_dict[modality] = stem_token
 
@@ -1090,10 +1100,6 @@ class HPT(DeterministicEvalMixin, Algo):
             # use_pad_mask says about the loss.
             if action_pad_mask is not None and action_pad_mask.shape[-1] == S:
                 processed_batch[embodiment_id]["action_pad_mask"] = action_pad_mask
-            # Front-padded history steps are copies of the first real frame --
-            # exactly a history-dropout sample -- so the stem needs nothing
-            # extra and downstream keys stay as they were.
-            processed_batch[embodiment_id].pop("proprio_history_mask", None)
             if self.use_pad_mask and action_pad_mask is not None:
                 if action_pad_mask.shape[-1] != S:
                     raise ValueError(
@@ -1443,6 +1449,9 @@ class HPT(DeterministicEvalMixin, Algo):
         # Raw-string annotation prompt; consumed by Qwen text stem (if wired).
         if "sampled_prompt" in batch:
             data[self.annotation_modality] = batch["sampled_prompt"]
+
+        if HISTORY_MASK_KEY in batch:
+            data[HISTORY_MASK_KEY] = batch[HISTORY_MASK_KEY]
 
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]

@@ -123,3 +123,14 @@ def test_image_history_pads_before_the_episode_start(tmp_path):
 def test_image_history_below_two_frames_is_rejected():
     with pytest.raises(ValueError, match="image_history"):
         Human.get_keymap("cartesian", image_history_gap_s=0.1, image_history=1)
+
+
+def test_a_single_past_frame_carries_its_real_frame_mask(tmp_path):
+    leaf = _leaf(tmp_path, 30, image_history_gap_s=0.1)
+    assert [leaf[i][f"{PAST}_mask"].tolist() for i in (0, 2, 3, 10)] == [
+        [0.0],
+        [0.0],
+        [1.0],
+        [1.0],
+    ]
+    assert leaf[3][f"{PAST}_mask"].dtype == torch.float32
