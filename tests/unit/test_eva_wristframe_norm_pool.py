@@ -183,3 +183,58 @@ def test_multidataset_leaves_the_rot6d_block_alone():
     torch.testing.assert_close(n[:, rot], x[:, rot], atol=0, rtol=0)
     # without the key there is no layout to consult, so nothing is skipped
     assert not torch.allclose(md._apply_norm_one(x, stats)[:, rot], x[:, rot])
+
+
+def _state_with_stats(width, **extra):
+    return {
+        "norm_mode": "quantile",
+        "embodiments": [4],
+        "zarr_keys": {4: {"actions_cartesian": "actions_cartesian"}},
+        "norm_stats": {
+            4: {"actions_cartesian": {k: v for k, v in _stats_for(width).items()}}
+        },
+        **extra,
+    }
+
+
+def test_fresh_stats_pass_rot6d_through_and_save_the_flag():
+    stats = MultiDataset(state={}, norm_mode="quantile")
+    assert stats.rot6d_passthrough
+    assert stats.to_state()["rot6d_passthrough"] is True
+
+
+def test_set_norm_stats_from_carries_the_rot6d_convention():
+    source = MultiDataset.from_state(_state_with_stats(20))
+    assert source.rot6d_passthrough is False
+    wired = MultiDataset(state={}, norm_mode="quantile")
+    wired.set_norm_stats_from(source)
+    assert wired.rot6d_passthrough is False
+
+
+@pytest.mark.parametrize("saved,expect", [(None, False), (True, True)])
+def test_checkpoint_rot6d_passthrough_reads_the_saved_state(tmp_path, saved, expect):
+    from egomimic.trainHydra import _checkpoint_rot6d_passthrough
+
+    extra = {} if saved is None else {"rot6d_passthrough": saved}
+    path = tmp_path / "old.ckpt"
+    torch.save(
+        {"hyper_parameters": {"norm_stats_state": _state_with_stats(20, **extra)}},
+        path,
+    )
+    assert _checkpoint_rot6d_passthrough(str(path)) is expect
+    torch.save({"hyper_parameters": {}}, tmp_path / "bare.ckpt")
+    assert _checkpoint_rot6d_passthrough(str(tmp_path / "bare.ckpt")) is None
+
+
+@pytest.mark.parametrize("saved,expect_identity", [(None, False), (True, True)])
+def test_state_round_trip_keeps_the_rot6d_convention(saved, expect_identity):
+    from egomimic.utils.pose_utils import rot6d_channels
+
+    extra = {} if saved is None else {"rot6d_passthrough": saved}
+    restored = MultiDataset.from_state(_state_with_stats(20, **extra))
+    x = torch.arange(20, dtype=torch.float32).unsqueeze(0) / 20
+    rot = list(rot6d_channels("actions_cartesian", 20))
+    n = restored._apply_norm_one(x, _stats_for(20), "actions_cartesian")
+    assert torch.equal(n[:, rot], x[:, rot]) == expect_identity
+    back = restored._apply_unnorm_one(n, _stats_for(20), "actions_cartesian")
+    torch.testing.assert_close(back, x, atol=1e-5, rtol=0)

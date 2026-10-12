@@ -986,6 +986,9 @@ class MultiDataset(torch.utils.data.Dataset):
     """
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
+    # Saved in the state: a model trained before rot6d passed through
+    # normalization must keep normalizing it (see _load_state).
+    rot6d_passthrough = True
 
     def __init__(
         self,
@@ -1093,6 +1096,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.shapes = source.shapes
         self.embodiments = source.embodiments
         self.norm_mode = source.norm_mode
+        self.rot6d_passthrough = source.rot6d_passthrough
         # Each MultiDataset keeps its own warning-dedup state.
         self._warned_violations = set()
         for ds in self.datasets.values():
@@ -1609,8 +1613,7 @@ class MultiDataset(torch.utils.data.Dataset):
             tensor, stats, self.norm_mode, self._identity_channels(zarr_key, tensor)
         )
 
-    @staticmethod
-    def _identity_channels(zarr_key, tensor):
+    def _identity_channels(self, zarr_key, tensor):
         """Channels this key leaves unnormalized: the rot6d columns.
 
         A 6D rotation is two columns of a rotation matrix, already bounded in
@@ -1621,7 +1624,7 @@ class MultiDataset(torch.utils.data.Dataset):
         identity-rotation degeneracy at its source instead of catching it with
         NORM_MIN_RANGE.
         """
-        if zarr_key is None:
+        if zarr_key is None or not self.rot6d_passthrough:
             return None
         return rot6d_channels(zarr_key, tensor.shape[-1])
 
@@ -1721,6 +1724,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
+            "rot6d_passthrough": self.rot6d_passthrough,
         }
 
     @classmethod
@@ -1738,6 +1742,12 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         self.shapes = copy.deepcopy(state.get("shapes", {}))
         self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        # A checkpoint state saved before the flag existed normalized the rot6d
+        # channels; an empty state (fresh stats, e.g. trainHydra) keeps the default.
+        if "rot6d_passthrough" in state:
+            self.rot6d_passthrough = bool(state["rot6d_passthrough"])
+        elif state.get("norm_stats"):
+            self.rot6d_passthrough = False
         for emb in self.embodiments:
             self.key_types.setdefault(emb, {})
             self.zarr_keys.setdefault(emb, {})
