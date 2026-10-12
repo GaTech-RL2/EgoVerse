@@ -16,7 +16,9 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian
+        action_mode: cartesian
+        coord_frame: camframe
+        rotation_mode: euler
         stride: 3
     filters: null
     mode: train

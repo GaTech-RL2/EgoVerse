@@ -264,7 +264,7 @@ def test_xyzwxyz_to_xyzypr_strict_shape_raises() -> None:
 
 
 def test_eva_builder_orders_xyzwxyz_to_xyzypr_after_interpolate_before_concat() -> None:
-    transform_list = build_eva_bimanual_transform_list(is_quat=True)
+    transform_list = build_eva_bimanual_transform_list(rotation_mode="euler")
     converter_indices = [
         i for i, t in enumerate(transform_list) if isinstance(t, XYZWXYZ_to_XYZYPR)
     ]
@@ -315,7 +315,7 @@ def test_human_builder_orders_xyzwxyz_to_xyzypr_after_interpolate_before_concat(
 
 def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     transform_list = build_eva_bimanual_transform_list(
-        chunk_length=4, stride=1, is_quat=True
+        chunk_length=4, stride=1, rotation_mode="euler"
     )
     cmd_pose = np.zeros((5, 7), dtype=np.float64)
     cmd_pose[:, 3] = 1.0
