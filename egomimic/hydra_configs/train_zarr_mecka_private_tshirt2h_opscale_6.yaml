@@ -1,0 +1,16 @@
+# train_zarr_mecka_private_tshirt_opscale_6 on the 120-min-per-operator data:
+# 550 x 100 steps, val every 1000 steps. WSD LR from the launcher.
+# Generated; see data/mecka_private_tshirt2h_opscale_6.
+defaults:
+  - train_zarr_mecka_private_tshirt_opscale_6
+  - override data: mecka_private_tshirt2h_opscale_6
+  - _self_
+
+trainer:
+  max_epochs: 550
+  min_epochs: 550
+  check_val_every_n_epoch: 10
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 275

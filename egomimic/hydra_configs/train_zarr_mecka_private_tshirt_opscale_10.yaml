@@ -1,0 +1,21 @@
+# RDT-1B keypoint recipe of train_zarr_mecka_freeform_fold_kp_rdt_op2 (4 GPUs x
+# 32, WSD LR from the launcher, EMA on) on 10 private fold_tshirt operator(s).
+# 1650 x 100 steps: max(60k, ~4 passes over the train split). Generated; see
+# data/mecka_private_tshirt_opscale_1.
+defaults:
+  - train_zarr_mecka_freeform_fold_kp_rdt_op2
+  - override data: mecka_private_tshirt_opscale_10
+  - _self_
+
+model:
+  ema:
+    enabled: true
+
+trainer:
+  max_epochs: 1650
+  min_epochs: 1650
+
+# Two checkpoints: each is ~23 GB on NFS with the EMA weights.
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 825

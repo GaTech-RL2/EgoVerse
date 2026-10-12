@@ -1,5 +1,6 @@
 """Shared Hydra compose helper for tests/unit."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -45,3 +46,13 @@ def compose_and_resolve(
 def compose_resolve():
     yield compose_and_resolve
     HydraConfig.instance().cfg = None  # do not leak the singleton between tests
+
+
+def pytest_collection_modifyitems(config, items):
+    """mecka_private_* configs read their IDs from a private dir that CI never has."""
+    if os.environ.get("EGOVERSE_MECKA_PRIVATE_DIR"):
+        return
+    skip = pytest.mark.skip(reason="EGOVERSE_MECKA_PRIVATE_DIR not set")
+    for item in items:
+        if "mecka_private" in item.nodeid:
+            item.add_marker(skip)

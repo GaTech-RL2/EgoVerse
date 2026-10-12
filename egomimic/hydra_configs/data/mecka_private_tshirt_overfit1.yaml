@@ -1,0 +1,29 @@
+# Overfit check for the private opscale recipe: ONE fold_tshirt episode (1915
+# frames, 7 camera-pose glitch frames), trained on and validated on itself, with
+# pose_glitch_mask on. IDs: $EGOVERSE_MECKA_PRIVATE_DIR/splits.
+defaults:
+  - mecka_private_tshirt_opscale_1
+  - _self_
+
+valid_prefix: null
+
+train_datasets:
+  human_bimanual:
+    filters:
+      filter_lambdas: []
+      episode_hashes: ${mecka_private:mecka_private_tshirt_overfit1,train_datasets.human_bimanual.filters.episode_hashes}
+
+valid_datasets:
+  human_bimanual:
+    filters:
+      episode_hashes: ${mecka_private:mecka_private_tshirt_overfit1,valid_datasets.human_bimanual.filters.episode_hashes}
+
+unseen_op_valid_datasets: null
+unseen_op_valid_dataloader_params: null
+
+metric_frames_per_episode: null
+
+video_episodes:
+  valid: ${mecka_private:mecka_private_tshirt_overfit1,video_episodes.valid}
+  train_viz: []
+  unseen_op_valid: []

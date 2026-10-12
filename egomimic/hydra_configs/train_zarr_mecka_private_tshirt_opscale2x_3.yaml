@@ -1,0 +1,14 @@
+# train_zarr_mecka_private_tshirt_opscale_3 at 2x steps, resumed from its 50% (pre-decay)
+# checkpoint by logs/mecka_private_opscale2x/launch_pair.sbatch.
+defaults:
+  - train_zarr_mecka_private_tshirt_opscale_3
+  - _self_
+
+trainer:
+  max_epochs: 1200
+  min_epochs: 1200
+
+# Every 20%; the 80% one is the decay start.
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 240

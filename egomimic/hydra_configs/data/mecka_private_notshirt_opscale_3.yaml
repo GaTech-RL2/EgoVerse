@@ -1,0 +1,34 @@
+# mecka_private_notshirt_opscale_1 on operators 1-3, plus a second seen head:
+# seen_op123_valid (extra_valid) = the 5 held-out episodes of each of operators
+# 1-3. Its videos are operators 2 and 3 (operator 1's is on valid). Generated;
+# see mecka_private_notshirt_opscale_1.
+defaults:
+  - mecka_private_notshirt_opscale_1
+  - _self_
+
+train_operators: ${mecka_private:mecka_private_notshirt_opscale_3,train_operators}
+
+extra_valid_prefix: seen_op123_valid
+
+extra_valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    bounds_rel_slack: 10.0
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      episode_hashes: ${mecka_private:mecka_private_notshirt_opscale_3,extra_valid_datasets.human_bimanual.filters.episode_hashes}
+    pose_glitch_mask: {step_m: 0.05, rot_deg: 10.0}
+    mode: total
+
+extra_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+
+metric_frames_per_episode:
+  extra_valid: auto
+
+video_episodes:
+  extra_valid: ${mecka_private:mecka_private_notshirt_opscale_3,video_episodes.extra_valid}

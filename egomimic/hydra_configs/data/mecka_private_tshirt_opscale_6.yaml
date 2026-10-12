@@ -1,0 +1,7 @@
+# mecka_private_tshirt_opscale_3 on operators 1-6; the same val heads.
+# Generated; see mecka_private_tshirt_opscale_1.
+defaults:
+  - mecka_private_tshirt_opscale_3
+  - _self_
+
+train_operators: ${mecka_private:mecka_private_tshirt_opscale_6,train_operators}
