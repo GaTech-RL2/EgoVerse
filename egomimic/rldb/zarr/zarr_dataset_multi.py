@@ -39,7 +39,10 @@ import torch
 import zarr
 from tqdm import tqdm
 
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import (
+    canonical_embodiment_name,
+    get_embodiment_id,
+)
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
@@ -201,6 +204,17 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+def _embodiment_matches(name: object, expected: str) -> bool:
+    """Compare an episode's embodiment string with a dataset's expected name,
+    honouring the legacy vendor aliases (MECKA_BIMANUAL == human_bimanual)."""
+    try:
+        return canonical_embodiment_name(str(name)) == canonical_embodiment_name(
+            expected
+        )
+    except AttributeError:
+        return False
+
+
 class PinError(ValueError):
     """A pinned episode_hash cannot be used: missing, deleted, no processed
     path, or its embodiment does not match the dataset it was pinned under."""
@@ -236,7 +250,7 @@ def _check_pins(
             problems.append(f"{h}: empty zarr_processed_path")
         if expected_embodiment is not None:
             emb = str(row.get("embodiment", ""))
-            if emb != expected_embodiment:
+            if not _embodiment_matches(emb, expected_embodiment):
                 problems.append(
                     f"{h}: embodiment '{emb}' != dataset '{expected_embodiment}'"
                 )
@@ -253,7 +267,9 @@ def _warn_embodiment_mismatch(
 ) -> None:
     if expected_embodiment is None or "embodiment" not in rows:
         return
-    mismatched = rows.loc[rows["embodiment"].astype(str) != expected_embodiment]
+    mismatched = rows.loc[
+        ~rows["embodiment"].map(lambda e: _embodiment_matches(e, expected_embodiment))
+    ]
     if len(mismatched):
         details = sorted(
             f"{h} ({e})"
@@ -802,7 +818,7 @@ class LocalEpisodeResolver(EpisodeResolver):
                     problems.append(f"{h}: not in local directory {search_path}")
                 elif expected_embodiment is not None:
                     emb = str(present[h].get("embodiment", ""))
-                    if emb != expected_embodiment:
+                    if not _embodiment_matches(emb, expected_embodiment):
                         problems.append(
                             f"{h}: embodiment '{emb}' != dataset '{expected_embodiment}'"
                         )
@@ -823,7 +839,7 @@ class LocalEpisodeResolver(EpisodeResolver):
             bad = sorted(
                 (r["episode_hash"], str(r.get("embodiment", "")))
                 for r in matched
-                if str(r.get("embodiment", "")) != expected_embodiment
+                if not _embodiment_matches(r.get("embodiment", ""), expected_embodiment)
             )
             if bad:
                 details = [f"{h} ({e})" for h, e in bad]

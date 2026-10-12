@@ -2,16 +2,11 @@ defaults:
   - cotrain_pi_lang
   - _self_
 
+# Kept for configs saved by earlier runs: cotrain_pi_lang with eva on the
+# wrist-frame 6D action, which is now the cotrain_pi_base default, so this
+# composes the same as cotrain_pi_lang. Pair with the default evaluator=eval_pi.
 train_datasets:
   eva_bimanual:
     resolver:
-      key_map:
-        keymap_mode: cartesian_wristframe_ypr
       transform_list:
-        mode: cartesian_wristframe_ypr
-  human_bimanual:
-    resolver:
-      key_map:
-        keymap_mode: cartesian
-      transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d

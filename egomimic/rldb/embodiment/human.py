@@ -4,10 +4,16 @@ from typing import Literal
 
 import numpy as np
 
-from egomimic.rldb.embodiment.embodiment import Embodiment, _strip_pi_keymap_mode
+from egomimic.rldb.embodiment.embodiment import (
+    Embodiment,
+    _reject_legacy_rotation,
+    _strip_pi_keymap_mode,
+)
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
+    CartesianRot6DToYPR,
+    CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
@@ -17,6 +23,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     Reshape,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -356,26 +363,72 @@ class Human(Embodiment):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_6d",
             "cartesian_padded",
             "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
         ],
         stride: int = 3,
+        pad_proprio_gripper: bool = False,
+        allow_legacy_rotation: bool = False,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+
+        ``allow_legacy_rotation`` opts out of the continuous-rotation rule for
+        the modes in ``LEGACY_ROTATION_MODES``; only the data/rollout boundary
+        (viz, a checkpoint that predates the 6D conversion) may set it.
+
+        ``pad_proprio_gripper`` pads the cartesian proprio
+        ``observations.state.ee_pose`` 18 -> 20 (zero grip slots at 9/19) so
+        the pi0.5 ``State:`` prompt bins align positionally with the robot
+        20D layout. 6D modes only.
         """
+        _reject_legacy_rotation(cls, mode, allow_legacy_rotation)
+        if pad_proprio_gripper and not mode.endswith("_6d"):
+            raise ValueError(
+                "pad_proprio_gripper needs a 6D-encoded ee_pose proprio: a "
+                "cartesian *_6d mode"
+            )
+
+        proprio_6d: list[Transform] = [
+            CartesianYPRToRot6D(action_key="observations.state.ee_pose")
+        ]
+        if pad_proprio_gripper:
+            proprio_6d.append(PadGripperZeros(action_key="observations.state.ee_pose"))
+
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
+        if mode == "cartesian_6d":
+            # Head/camera-frame cartesian (12D xyz+ypr per arm pair) with the
+            # rotation re-expressed as the continuous 6D representation (18D)
+            # for pi0.5. The proprio ee_pose is 6D-encoded too: normalized YPR
+            # saturates yaw/roll at +-pi, so per-dim normalization needs the
+            # continuous representation.
+            return (
+                _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [CartesianYPRToRot6D(action_key="actions_cartesian")]
+                + proprio_6d
+            )
         if mode == "cartesian_padded":
             return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
                 PadGripperZeros(action_key="actions_cartesian")
             ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
+        if mode == "cartesian_wristframe_6d":
+            # Wrist-frame cartesian with the 6D rotation (18D). The head-frame
+            # proprio ee_pose is 6D-encoded too (see cartesian_6d); it is the
+            # only head-frame signal the model sees with wrist-relative targets.
+            return (
+                _build_human_cartesian_eef_frame_transform_list(stride=stride)
+                + [CartesianYPRToRot6D(action_key="actions_cartesian")]
+                + proprio_6d
+            )
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=False
@@ -950,6 +1003,49 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
         ),
     ]
     return transform_list
+
+
+def _build_human_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
+
+    For the cam-frame 6D evaluator: the action chunk is already in head frame
+    (``cartesian_6d`` mode), so no coordinate-frame change is needed; only the
+    rotation representation is converted from xyz+6D (9/arm) back to xyz+ypr
+    (6/arm) so the viz overlay sees the same layout as the plain
+    ``cartesian`` mode. The proprio ee_pose (also 6D-encoded, possibly
+    grip-padded 18 -> 20) is reverted the same way.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+    ]
+
+
+def _build_human_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation human actions back to head-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr
+    (Gram-Schmidt re-orthonormalizes the model prediction); (2) the proprio
+    ``observations.state.ee_pose`` (6D-encoded by ``cartesian_wristframe_6d``)
+    is reverted to ypr the same way and unpadded (20 -> 14 -> 12; no-op when
+    unpadded); (3) the standard eef-frame revert projects the wrist-frame ypr
+    actions back into head frame using that ypr proprio to define the frame.
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
+        *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
+    ]
 
 
 def _build_human_cartesian_eef_frame_transform_list(

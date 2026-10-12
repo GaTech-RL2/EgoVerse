@@ -582,14 +582,29 @@ class CartesianWithGripperCoordinateTransform(Transform):
 # Shape Transforms
 # ---------------------------------------------------------------------------
 class SplitKeys(Transform):
-    def __init__(self, input_key: str, output_key_list: list[(str, int)]):
+    def __init__(self, input_key: str, output_key_list: list[tuple[str, int]]):
         self.input_key = input_key
         self.output_key_list = list(output_key_list)
 
     def transform(self, batch: dict) -> dict:
+        value = batch[self.input_key]
+        expected = sum(size for _, size in self.output_key_list)
+        width = int(value.shape[-1])
+        if width != expected:
+            # Every caller lays out the WHOLE vector, so a mismatch means the
+            # split layout and the data disagree: typically an evaluator
+            # revert list built for one transform mode (e.g. 12-dim ypr) fed a
+            # batch from another (18/20-dim 6D). Slicing silently would hand
+            # the frame math xyz + rot6d columns as "xyz + ypr".
+            raise ValueError(
+                f"SplitKeys: '{self.input_key}' has last dim {width} but the "
+                f"output layout {self.output_key_list} sums to {expected}. Check "
+                "that the evaluator transform_lists match the data config's "
+                "transform mode."
+            )
         prev_end = 0
         for key, size in self.output_key_list:
-            batch[key] = batch[self.input_key][..., prev_end : prev_end + size]
+            batch[key] = value[..., prev_end : prev_end + size]
             prev_end += size
         return batch
 
@@ -618,30 +633,59 @@ class ConcatKeys(Transform):
 
 
 class PadGripperZeros(Transform):
-    """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
-    gripper slot at position 6 (end of left arm) and position 13 (end of right
-    arm), matching the canonical [L xyz ypr g, R xyz ypr g] layout used by Eva.
+    """Pad a gripperless bimanual cartesian vector to the robot layout by
+    inserting a zero gripper slot at the end of each arm block:
+    12D ypr -> 14D (slots 6, 13) or 18D rot6d -> 20D (slots 9, 19), matching
+    the canonical [L xyz rot g, R xyz rot g] layout used by Eva.
 
-    Used so aria (which has no gripper signal) can share an FM denoiser head
-    sized for 14D actions without needing in-model padding branches.
+    Used so human data (which has no gripper signal) can share an FM denoiser
+    head sized for robot actions, and so the human proprio ``ee_pose`` bins in
+    the pi0.5 prompt align positionally with the robot 20D layout.
     """
 
     def __init__(self, action_key: str = "actions_cartesian"):
         self.action_key = action_key
 
     def transform(self, batch: dict) -> dict:
-        actions = batch[self.action_key]
-        is_tensor = isinstance(actions, torch.Tensor)
-        arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
-        if arr.shape[-1] != 12:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        pad = np.zeros((*arr.shape[:-1], 1), dtype=arr.dtype)
+        if arr.shape[-1] == 12:
+            out = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        elif arr.shape[-1] == 18:
+            out = np.concatenate((arr[..., :9], pad, arr[..., 9:], pad), axis=-1)
+        else:
             raise ValueError(
-                f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
+                f"PadGripperZeros expects last-dim 12 or 18, got {arr.shape} for "
                 f"'{self.action_key}'"
             )
-        pad_shape = (*arr.shape[:-1], 1)
-        pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
-        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
+        batch[self.action_key] = _like_input(out, is_tensor)
+        return batch
+
+
+class UnpadGripperZeros(Transform):
+    """Inverse of :class:`PadGripperZeros`: drop the per-arm zero gripper
+    slots, 14 -> 12 (ypr: drop 6, 13) or 20 -> 18 (rot6d: drop 9, 19). Widths
+    12 and 18 pass through unchanged, so a revert pipeline works whether or
+    not the forward pipeline padded (``pad_proprio_gripper``)."""
+
+    def __init__(self, action_key: str = "observations.state.ee_pose"):
+        self.action_key = action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr, is_tensor = _as_array(batch[self.action_key])
+        D = arr.shape[-1]
+        if D in (12, 18):
+            return batch
+        if D == 14:
+            keep = [i for i in range(14) if i not in (6, 13)]
+        elif D == 20:
+            keep = [i for i in range(20) if i not in (9, 19)]
+        else:
+            raise ValueError(
+                f"UnpadGripperZeros expects last-dim 12/14/18/20, got {arr.shape} "
+                f"for '{self.action_key}'"
+            )
+        batch[self.action_key] = _like_input(arr[..., keep], is_tensor)
         return batch
 
 
