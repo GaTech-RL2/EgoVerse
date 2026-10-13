@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+from .adaptive import CONDITION as ADAPTIVE
+from .adaptive import CONTRACT as EVOLUTION_CONTRACT
 from .common import file_hash, utc, write_json
 from .libero import LIBERO_COMMIT
 from .proxy import Limits
@@ -30,6 +32,47 @@ RESOURCE_CAPS = frozenset(
         "context_tokens",
     }
 )
+
+
+def adaptive_design(manifest):
+    """A separate matched F/adaptive-F cohort; original runs remain immutable."""
+    result = copy.deepcopy(manifest)
+    result["conditions"] = ["F", ADAPTIVE]
+    result["interface_evolution"] = copy.deepcopy(EVOLUTION_CONTRACT)
+    result["primary_contrast"] = [ADAPTIVE, "F"]
+    result["secondary_contrast"] = None
+    result["contrasts"] = [[ADAPTIVE, "F"]]
+    result["analysis"]["confirmatory_contrasts"] = [ADAPTIVE + "_minus_F"]
+    result["extension"] = {
+        "authority": "User requested F with Astra-evolved hardware interfaces, additional sensors/tools and system identification",
+        "pool_with_prior_cohort": False,
+        "interpretation": "Combined interface evolution and optional additional hardware information; not a same-information ablation",
+    }
+    result["resolved"] = result["readiness"] = None
+    result["power"]["status"] = "pending_adaptive_pilot"
+    result["power"]["confirmation_frozen"] = False
+    return result
+
+
+def validate_conditions(manifest):
+    conditions = manifest["conditions"]
+    if conditions == list(CONDITIONS) and "interface_evolution" not in manifest:
+        return
+    if (
+        conditions not in (["F", ADAPTIVE], [*CONDITIONS, ADAPTIVE])
+        or manifest.get("interface_evolution") != EVOLUTION_CONTRACT
+        or manifest.get("primary_contrast") != [ADAPTIVE, "F"]
+        or not manifest.get("contrasts")
+        or any(
+            len(p) != 2 or p[0] == p[1] or not set(p) <= set(conditions)
+            for p in manifest["contrasts"]
+        )
+    ):
+        raise ValueError("unrecognized_interface_design")
+
+
+def contrasts(manifest):
+    return manifest.get("contrasts", [["F", "B0"], ["F", "B"]])
 
 
 def without_resource_budgets(manifest):
@@ -137,9 +180,8 @@ def design(container):
 
 
 def validate(manifest, *, scored=False, confirmatory=False):
-    if manifest["conditions"] != list(CONDITIONS) or manifest["task_ids"] != list(
-        range(10)
-    ):
+    validate_conditions(manifest)
+    if manifest["task_ids"] != list(range(10)):
         raise ValueError("all_three_arms_and_all_long_tasks_required")
     if (
         manifest["libero_commit"] != LIBERO_COMMIT
@@ -230,10 +272,9 @@ def validate(manifest, *, scored=False, confirmatory=False):
             "scratch_isolation",
             "success_per_step",
             "budget_termination",
-            "model_smoke_F",
-            "model_smoke_B0",
-            "model_smoke_B",
-        )
+        ) + tuple("model_smoke_" + c for c in manifest["conditions"])
+        if ADAPTIVE in manifest["conditions"]:
+            required += ("adaptive_interface",)
         if any(gates.get(k) is not True for k in required):
             raise ValueError("readiness_gates_incomplete")
         for name in (
@@ -265,7 +306,7 @@ def schedule(manifest, catalog):
         rng.shuffle(blocks)
         for task, index in blocks:
             for replicate in range(manifest["replicates"]):
-                order = list(CONDITIONS)
+                order = list(manifest["conditions"])
                 rng.shuffle(order)
                 for condition in order:
                     output.append(

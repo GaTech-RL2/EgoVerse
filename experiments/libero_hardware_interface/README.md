@@ -326,3 +326,9 @@ planning worksheet, not exact power for the bootstrap test or permission to
 start confirmation. A new manifest must freeze the selected sample size and
 verify enough disjoint official states exist. Infrastructure exclusions, if any,
 need a separate documented valid-run sensitivity; they are never automatic.
+## Adaptive interface companion
+
+[F-adaptive](ADAPTIVE.md) adds per-episode sensor activation, versioned Python
+interface tools and measured system-identification probes. Its separate matched
+F/F-adaptive manifest and `--adaptive` OSMO launcher preserve the original
+F/B0/B cohort. Implementation and tests do not constitute a rollout result.

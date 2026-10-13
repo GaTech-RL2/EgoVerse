@@ -216,9 +216,11 @@ class Scratch:
                     exact(message, ("tool", "arguments"))
                     allowed = (
                         {"read", "act"}
-                        if self.condition == "F"
+                        if self.condition in ("F", "F_adaptive")
                         else {"observe", "step"}
                     )
+                    if self.condition == "F_adaptive":
+                        allowed.add("read_capability")
                     if message["tool"] not in allowed:
                         return {"error": "scratch_tool_not_allowed"}
                     result = dispatch(message["tool"], message["arguments"])

@@ -190,6 +190,15 @@ class Environment:
         self.env._update_observables(force=True)
         return self.env.env._get_observations()
 
+    def hardware_calibration(self):
+        from .adaptive import camera_calibration
+
+        return camera_calibration(
+            self.env.sim,
+            ("agentview", "robot0_eye_in_hand"),
+            self.observation["agentview_image"].shape[0],
+        )
+
     def step(self, action):
         return self.env.step(np.asarray(action, dtype=np.float64))
 

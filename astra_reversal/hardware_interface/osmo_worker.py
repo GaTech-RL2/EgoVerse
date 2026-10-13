@@ -115,7 +115,10 @@ def archive(root, workflow, label="final"):
 def main():
     root = Path("artifacts")
     manifest = load_manifest(
-        "experiments/libero_hardware_interface/preregistration.yaml"
+        os.environ.get(
+            "HARDWARE_MANIFEST",
+            "experiments/libero_hardware_interface/preregistration.yaml",
+        )
     )
     write_json(
         root / "source-receipt.json",
@@ -181,7 +184,7 @@ def main():
             )
             result = run(args, smoke_manifest, smoke=True)
             audits = audit(root / "smoke/runs")
-            if len(audits["trials"]) != 3 or any(
+            if len(audits["trials"]) != len(manifest["conditions"]) or any(
                 trial["status"] != "passed" for trial in audits["trials"]
             ):
                 raise RuntimeError("model_smoke_replay_audit_failed")

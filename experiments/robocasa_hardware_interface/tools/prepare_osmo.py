@@ -11,7 +11,7 @@ from pathlib import Path
 import yaml
 
 
-def prepare(destination, stage, pool="groot-l40s-01"):
+def prepare(destination, stage, pool="groot-l40s-01", adaptive=False):
     if stage not in ("staging-check", "commission", "reset-check", "smoke", "pilot"):
         raise ValueError("unknown_robocasa_stage")
     needs_inference = stage in ("staging-check", "smoke", "pilot")
@@ -42,6 +42,8 @@ def prepare(destination, stage, pool="groot-l40s-01"):
     payload = destination / "payload.tar.gz"
     with tarfile.open(payload, "w:gz") as archive:
         for relative in sorted(filter(None, files)):
+            if any(part in ("figures", "evidence") for part in Path(relative).parts):
+                continue
             if (root / relative).is_symlink():
                 raise ValueError("payload_symlink")
             archive.add(root / relative, arcname=relative, recursive=False)
@@ -53,7 +55,10 @@ def prepare(destination, stage, pool="groot-l40s-01"):
     if payload_text.stat().st_size > 950_000:
         raise ValueError("source_payload_exceeds_file_injection_limit")
     study = root / "experiments/robocasa_hardware_interface"
-    manifest = yaml.safe_load((study / "preregistration.yaml").read_text())
+    manifest_name = (
+        "preregistration-adaptive.yaml" if adaptive else "preregistration.yaml"
+    )
+    manifest = yaml.safe_load((study / manifest_name).read_text())
     bootstrap = destination / "bootstrap.sh"
     bootstrap.write_bytes((study / "tools/bootstrap.sh").read_bytes())
     environment = {
@@ -62,6 +67,7 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "HARDWARE_WORKFLOW": "{{workflow_id}}",
         "NVIDIA_DRIVER_CAPABILITIES": "all",
         "HARDWARE_STAGE": stage,
+        "HARDWARE_MANIFEST": "experiments/robocasa_hardware_interface/" + manifest_name,
     }
     if needs_inference:
         environment["HARDWARE_API_KEY_FILE"] = "/osmo/run/workspace/inference-api-key"
@@ -81,7 +87,9 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         credentials["astra-hardware-inference-20261010"] = "/run/hardware-inference"
     spec = {
         "workflow": {
-            "name": "robocasa-hardware-interface-20261009-" + stage,
+            "name": "robocasa-hardware-interface-20261009-"
+            + ("adaptive-" if adaptive else "")
+            + stage,
             "resources": {
                 "default": {
                     "cpu": 1 if staging_check else 8,
@@ -126,7 +134,13 @@ def prepare(destination, stage, pool="groot-l40s-01"):
         "stage": stage,
         "image": manifest["container_digest"],
         "pilot_tasks": 50,
-        "pilot_trials": 150,
+        "pilot_trials": len(manifest["conditions"])
+        * len(manifest["task_ids"])
+        * len(manifest["pilot_indices"]),
+        "conditions": manifest["conditions"],
+        "manifest_sha256": hashlib.sha256(
+            (study / manifest_name).read_bytes()
+        ).hexdigest(),
         "resource_caps": None,
         "source_transport": "OSMO file injection; base64 with SHA-256 verification",
         "inference_secret_transport": "OSMO generic secret mounted outside artifacts"
@@ -151,5 +165,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pool", choices=("groot-l40s-01", "groot-l40-05"), default="groot-l40s-01"
     )
+    parser.add_argument(
+        "--adaptive", action="store_true", help="Separate matched F/F-adaptive cohort"
+    )
     args = parser.parse_args()
-    print(json.dumps(prepare(args.destination, args.stage, args.pool)))
+    print(json.dumps(prepare(args.destination, args.stage, args.pool, args.adaptive)))

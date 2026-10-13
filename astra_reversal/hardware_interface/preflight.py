@@ -156,7 +156,7 @@ def probe(libero_root, destination, manifest):
             initial = proxy.observe(sorted(NATIVE_KEYS))["observations"]
             hashes = [digest(initial)]
             for action, repeat in action_trace:
-                if condition == "F":
+                if condition in ("F", "F_adaptive"):
                     result = proxy.act(
                         {
                             "channel": "robot.controller_command",
@@ -211,6 +211,27 @@ def probe(libero_root, destination, manifest):
         model_smoke_B0=False,
         model_smoke_B=False,
     )
+    for condition in manifest["conditions"]:
+        checks["model_smoke_" + condition] = False
+    if "F_adaptive" in manifest["conditions"]:
+        from .adaptive_check import check
+        from .proxy import Limits
+
+        receipt = check(
+            lambda: Environment(
+                registry,
+                libero_root,
+                smoke["suite"],
+                smoke["task_id"],
+                smoke["init_state_index"],
+                manifest["environment_seed"],
+            ),
+            view,
+            {**runtime, "root": destination / "scratch-runtime"},
+            destination / "adaptive-commission",
+            Limits(**{**manifest["limits"], "steps": 20}),
+        )
+        checks["adaptive_interface"] = receipt["passed"]
     # Unit receipts are added only by the bootstrap after its real test command.
     lock = subprocess.check_output(
         [sys.executable, "-m", "pip", "freeze", "--all"], text=True

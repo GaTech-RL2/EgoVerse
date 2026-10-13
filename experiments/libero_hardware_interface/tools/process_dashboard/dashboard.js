@@ -7,9 +7,9 @@ const pretty = (value) => JSON.stringify(value, null, 2);
 const fmt = (value) => Number(value || 0).toLocaleString("en-US");
 const compact = (value) => value >= 1e6 ? (value / 1e6).toFixed(2) + "M" : value >= 1e3 ? (value / 1e3).toFixed(1) + "K" : fmt(value);
 const duration = (seconds) => seconds >= 60 ? (seconds / 60).toFixed(1) + " min" : Math.round(seconds) + " s";
-const arms = ["F", "B0", "B"];
-const colors = {F:"#007b73", B0:"#ac611c", B:"#7955b2"};
-const names = {F:"Hardware interface", B0:"Source discovery", B:"Discovery + observer"};
+let arms = ["F", "B0", "B"];
+const colors = {F:"#007b73", B0:"#ac611c", B:"#7955b2", F_adaptive:"#2365d1"};
+const names = {F:"Hardware interface", B0:"Source discovery", B:"Discovery + observer", F_adaptive:"Evolving hardware interface"};
 const pill = (arm) => `<span class="arm-pill ${esc(arm)}">${esc(arm)}</span>`;
 const status = (c) => c.outcome.success ? "Success" : c.outcome.terminal_reason === "MODEL_ERROR" ? "Model error" : c.outcome.terminal_reason === "TIMEOUT_STEPS" ? "Step horizon" : "Unsuccessful";
 let current = null, eventIndex = 0, timer = null, promptCase = null, interfaceCase = null;
@@ -54,15 +54,16 @@ function groupCases(cases) {
 }
 function isMatched(group) {
   const bad = ["MODEL_ERROR", "TOOL_ERROR", "PROTOCOL_DEVIATION", "RESET_FAILURE", "EVALUATOR_ERROR"];
-  return group.length === 3 && new Set(group.map((c) => c.condition)).size === 3 && new Set(group.map((c) => c.outcome.init_state_hash)).size === 1 && new Set(group.map((c) => c.outcome.env_seed)).size === 1 && group.every((c) => c.replay.status === "passed" && !bad.includes(c.outcome.terminal_reason));
+  return group.length === arms.length && arms.every((arm) => group.filter((c) => c.condition === arm).length === 1) && new Set(group.map((c) => c.outcome.init_state_hash)).size === 1 && new Set(group.map((c) => c.outcome.env_seed)).size === 1 && group.every((c) => c.replay.status === "passed" && !bad.includes(c.outcome.terminal_reason));
 }
 function currentCases() { return D.cases.filter((c) => c.cohort === cohort); }
 
 function renderOverview() {
+  arms = D.cohorts[cohort].conditions || ["F", "B0", "B"];
   const cases = currentCases(), info = D.cohorts[cohort], groups = groupCases(cases);
   const complete = [...groups.values()].filter(isMatched);
   $("cohort-note").textContent = info.note;
-  metrics("metrics", [["Archived recordings", cases.length + " / " + info.planned, info.stage === "smoke" ? "Short commissioning checks" : "Fresh pilot · incomplete"], ["Matched starting states", complete.length, "All three methods + replay passed"], ["Native control steps", fmt(cases.reduce((s,c) => s + c.outcome.sim_steps,0)), "Applied actions in these recordings"], ["Trace verification", cases.filter((c) => c.provenance.chain_verified).length + " / " + cases.length, "Archive hash + event chain verified"]]);
+  metrics("metrics", [["Archived recordings", cases.length + " / " + info.planned, info.stage === "smoke" ? "Short commissioning checks" : "Fresh pilot · incomplete"], ["Matched starting states", complete.length, "All assigned methods + replay passed"], ["Native control steps", fmt(cases.reduce((s,c) => s + c.outcome.sim_steps,0)), "Applied actions in these recordings"], ["Trace verification", cases.filter((c) => c.provenance.chain_verified).length + " / " + cases.length, "Archive hash + event chain verified"]]);
   $("matched-count").textContent = complete.length + " complete groups";
   $("success-chart").innerHTML = complete.length ? arms.map((arm) => {
     const n = complete.length, successes = complete.filter((g) => g.find((c) => c.condition === arm).outcome.success).length;
@@ -155,7 +156,7 @@ function selectEvent(index, fromVideo = false) {
   const detail = resolvedDetail(event);
   $("event-json").textContent = pretty(detail);
   $("event-readable").replaceChildren();
-  if (event.kind === "tool_request" && event.tool === "scratch_execute") {
+  if (event.kind === "tool_request" && ["scratch_execute", "define_interface_tool"].includes(event.tool)) {
     const pre = document.createElement("pre"); pre.textContent = detail.arguments.code; $("event-readable").append(pre);
   } else if (event.kind === "model_response") {
     for (const part of detail.response.output || []) {
@@ -186,7 +187,7 @@ function renderEventLog() {
   const filter = $("event-filter").value, query = $("event-search").value.toLowerCase();
   const corrections = new Set(current.markers.filter((m) => ["rejection","recovery","api_retry","error"].includes(m.kind)).map((m) => m.sequence));
   const events = current.events.filter((e) => {
-    if (filter === "decisions" && !["tool_request","trial_end","model_response"].includes(e.kind)) return false;
+    if (filter === "decisions" && !["tool_request","trial_end","model_response","interface_revised","system_identification_probe"].includes(e.kind)) return false;
     if (filter === "tools" && !["tool_request","tool_response"].includes(e.kind)) return false;
     if (filter === "corrections" && !corrections.has(e.sequence)) return false;
     if (filter === "observations" && !(e.kind === "tool_response" && e.images.length)) return false;

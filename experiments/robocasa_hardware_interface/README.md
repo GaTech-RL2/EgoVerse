@@ -1,5 +1,11 @@
 # Direct Astra control on RoboCasa365
 
+The [F-adaptive companion](../libero_hardware_interface/ADAPTIVE.md) uses the same
+evolving-interface layer with this robot's 12-dimensional controller and camera
+calibration. `preregistration-adaptive.yaml` and `--adaptive` prepare a separate
+F/F-adaptive cohort. Full rollout collection still requires the paired-reset fix
+described below.
+
 This extends the LIBERO hardware-interface study to all **50 official RoboCasa
 target tasks**, with one matched scenario seed per task and three interfaces
 (150 pilot rollouts). A fresh Astra session chooses robot actions online. There

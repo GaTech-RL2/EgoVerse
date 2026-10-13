@@ -5,15 +5,14 @@ import random
 from collections import defaultdict
 from statistics import mean, median
 
-from .protocol import CONDITIONS, RESOURCE_CAPS
+from .protocol import RESOURCE_CAPS, contrasts, validate_conditions
 from .proxy import Limits
 from .robocasa import ROBOCASA_COMMIT, ROBOSUITE_COMMIT
 
 
 def validate(manifest):
-    if manifest["benchmark"] != "robocasa365" or manifest["conditions"] != list(
-        CONDITIONS
-    ):
+    validate_conditions(manifest)
+    if manifest["benchmark"] != "robocasa365":
         raise ValueError("robocasa_three_arm_design_required")
     if manifest["upstream"] != {
         "robocasa": ROBOCASA_COMMIT,
@@ -68,7 +67,7 @@ def schedule(manifest):
         tasks = copy.deepcopy(manifest["catalog"]["tasks"])
         rng.shuffle(tasks)
         for task in tasks:
-            arms = list(CONDITIONS)
+            arms = list(manifest["conditions"])
             rng.shuffle(arms)
             for arm in arms:
                 rows.append(
@@ -86,7 +85,7 @@ def schedule(manifest):
     return rows
 
 
-def paired_success_times(outcomes):
+def paired_success_times(outcomes, *, manifest=None):
     """Conditional time-to-success, kept distinct from all-attempt duration."""
     blocks = defaultdict(dict)
     for row in outcomes:
@@ -96,12 +95,12 @@ def paired_success_times(outcomes):
                 raise ValueError("duplicate_paired_trial")
             blocks[key][row["condition"]] = row
     result = {}
-    for other in ("B0", "B"):
+    for reference, other in contrasts(manifest or {}):
         pairs = []
         for key, block in blocks.items():
-            if "F" not in block or other not in block:
+            if reference not in block or other not in block:
                 continue
-            f, b = block["F"], block[other]
+            f, b = block[reference], block[other]
             if (f["init_state_hash"], f["env_seed"]) != (
                 b["init_state_hash"],
                 b["env_seed"],
@@ -117,20 +116,23 @@ def paired_success_times(outcomes):
                     {
                         "task_id": key[0],
                         "seed": key[1],
-                        "F_wall_s": f["wall_s"],
+                        reference + "_wall_s": f["wall_s"],
                         "other_wall_s": b["wall_s"],
-                        "F_steps": f["sim_steps"],
+                        reference + "_steps": f["sim_steps"],
                         "other_steps": b["sim_steps"],
-                        "wall_difference_F_minus_other": f["wall_s"] - b["wall_s"],
+                        "wall_difference_" + reference + "_minus_other": f["wall_s"]
+                        - b["wall_s"],
                     }
                 )
-        differences = [p["wall_difference_F_minus_other"] for p in pairs]
-        result["F_minus_" + other] = {
+        differences = [
+            p["wall_difference_" + reference + "_minus_other"] for p in pairs
+        ]
+        result[reference + "_minus_" + other] = {
             "joint_success_pairs": len(pairs),
             "pairs": pairs,
             "mean_wall_difference_s": mean(differences) if differences else None,
             "median_wall_difference_s": median(differences) if differences else None,
-            "F_faster_pairs": sum(d < 0 for d in differences),
+            reference + "_faster_pairs": sum(d < 0 for d in differences),
             "interpretation": "Descriptive among starts both arms solved; conditions on success and is not an unconditional causal efficiency estimate.",
         }
     return result

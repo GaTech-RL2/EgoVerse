@@ -251,6 +251,13 @@ class Environment:
         self.env._update_observables(force=True)
         return self.env._get_observations()
 
+    def hardware_calibration(self):
+        from .adaptive import camera_calibration
+
+        return camera_calibration(
+            self.env.sim, CAMERAS, self.observation[CAMERAS[0] + "_image"].shape[0]
+        )
+
     def step(self, action):
         # MobileBaseJointVelocityController mutates its input view. Never let it
         # mutate a logged action or the vector used on the next repeated step.

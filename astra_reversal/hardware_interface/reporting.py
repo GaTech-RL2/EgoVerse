@@ -49,7 +49,10 @@ def power_worksheet(outcomes, manifest):
         ):
             raise ValueError("resolve_pilot_infrastructure_failures_before_power")
     n = len(blocks)
-    discordant = sum(b["F"]["success"] != b["B0"]["success"] for b in blocks.values())
+    reference, other = manifest.get("primary_contrast", ["F", "B0"])
+    discordant = sum(
+        b[reference]["success"] != b[other]["success"] for b in blocks.values()
+    )
     q = discordant / n
     z = NormalDist().inv_cdf(0.975)
     center = (q + z * z / (2 * n)) / (1 + z * z / n)
@@ -90,7 +93,7 @@ def power_worksheet(outcomes, manifest):
                 key=lambda r: (r["task_id"], r["init_state_index"], r["condition"]),
             )
         ),
-        "primary_contrast": "F_minus_B0",
+        "primary_contrast": reference + "_minus_" + other,
         "pilot_blocks": n,
         "discordant_pairs": discordant,
         "discordance_estimate": q,
@@ -167,16 +170,19 @@ def export(outcomes, manifest, destination, *, split):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    colors = {"F": "#247b7b", "B0": "#d87924", "B": "#8260a8"}
+    colors = {"F": "#247b7b", "B0": "#d87924", "B": "#8260a8", "F_adaptive": "#2365d1"}
     figure, axis = plt.subplots(figsize=(11, 4.5), constrained_layout=True)
     x = np.arange(len(manifest["task_ids"]))
     for i, arm in enumerate(manifest["conditions"]):
         tasks = result["per_task"][arm]
         values = [tasks[str(t)]["success_rate"] for t in manifest["task_ids"]]
         bars = axis.bar(
-            x + (i - 1) * 0.25,
+            x
+            + (i - (len(manifest["conditions"]) - 1) / 2)
+            * 0.8
+            / len(manifest["conditions"]),
             [v if v is not None else 0 for v in values],
-            width=0.24,
+            width=0.76 / len(manifest["conditions"]),
             color=colors[arm],
             label=arm,
         )

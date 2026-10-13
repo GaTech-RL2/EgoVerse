@@ -102,3 +102,26 @@ def test_unmatched_or_duplicate_trials_cannot_enter_paired_analysis():
     rows[0]["init_state_hash"] = digest("different")
     with pytest.raises(ValueError, match="unmatched"):
         analyze(rows, manifest, split="pilot")
+
+
+def test_adaptive_contrast_direction_and_power_use_f_as_control():
+    from astra_reversal.hardware_interface.protocol import adaptive_design
+
+    original, rows = fixture()
+    manifest = adaptive_design(original)
+    paired = []
+    for row in rows:
+        if row["condition"] == "B":
+            continue
+        if row["condition"] == "B0":
+            row["condition"] = "F_adaptive"
+            row["success"] = row["init_state_index"] < 3
+        paired.append(row)
+    result = analyze(paired, manifest, split="pilot")
+    comparison = result["comparisons"]["F_adaptive_minus_F"]
+    assert comparison["risk_difference"] == pytest.approx(0.2)
+    assert comparison["primary"] and not comparison["confirmatory_eligible"]
+    assert set(result["comparisons"]) == {"F_adaptive_minus_F"}
+    power = power_worksheet(paired, manifest)
+    assert power["primary_contrast"] == "F_adaptive_minus_F"
+    assert power["discordant_pairs"] == 10

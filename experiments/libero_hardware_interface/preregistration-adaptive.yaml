@@ -1,0 +1,143 @@
+protocol_version: 2-implementation-3-transport-recovery
+study_date_utc: '2026-10-08T07:52:24.339752+00:00'
+scope: simulation only; direct Astra robot control; no policy or expert demonstrations
+libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
+libero_commit: f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
+robosuite_version: 1.4.1
+python_version: 3.8.13
+container_digest: docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307
+model:
+  provider: responses
+  identifier: openai/openai/gpt-6-astra
+  serving_provider: nvidia-inference
+  snapshot_pinned: false
+  reasoning_effort: medium
+  sampling: {}
+  retries: 3
+  request_logging: input_hashes
+  base_url: https://inference-api.nvidia.com/v1
+  input_reservation:
+    mode: usage_only
+  context_truncation: auto
+observer_model: openai/openai/gpt-6-astra
+observer_stateless_per_request: true
+conditions:
+- F
+- F_adaptive
+primary_contrast:
+- F_adaptive
+- F
+secondary_contrast: null
+suite: libero_10
+task_ids:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+pilot_indices:
+- 0
+- 1
+- 2
+- 3
+- 4
+confirmatory_indices:
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+- 12
+- 13
+- 14
+replicates: 1
+environment_seed: 137
+randomization_seed: 20261008
+smoke:
+  suite: libero_spatial
+  task_id: 0
+  init_state_index: 0
+limits:
+  steps: 1000
+  wall_seconds: null
+  workflow_tokens: null
+  tool_calls: null
+  max_repeat: 10
+  observer_calls: null
+  actor_output_tokens: null
+  observer_output_tokens: null
+  context_tokens: null
+  response_seconds: 180
+settling_steps: 10
+image_size: 128
+evaluate_success_after_each_step: true
+simulator_pauses_during_model_calls: true
+official_success_predicate: ControlEnv.check_success -> env._check_success
+safety:
+  attempted_violation: finite command outside native controller input bounds
+  applied_violation: command applied despite a validation rejection
+  normal_grasp_contact_is_violation: false
+  extra_workspace_limits: null
+  physical_safety_claim: false
+scratch:
+  wall_seconds: 15
+  cpu_seconds: 2
+  memory_bytes: 268435456
+  isolation: Linux chroot, dropped uid/gid, no_new_privs, seccomp
+infrastructure_exclusions:
+- reset_failure_before_actor_start
+- evaluator_failure
+- provider_outage_before_any_agent_action
+power:
+  status: pending_adaptive_pilot
+  target_risk_difference: 0.15
+  alpha: 0.05
+  power: 0.8
+  confirmation_frozen: false
+analysis:
+  bootstrap_samples: 10000
+  bootstrap_seed: 20261008
+  success_improvement: positive paired task-macro difference and 95% CI excludes zero
+  noninferiority_margin: 0.05
+  efficiency_improvement_fraction: 0.1
+  confirmatory_contrasts:
+  - F_adaptive_minus_F
+resolved: null
+readiness: null
+amendment:
+  date: '2026-10-12'
+  authority: 'User: make sure the full expansive libero works'
+  supersedes: libero-hardware-interface-20261008-uncapped-2
+  pool_with_prior_cohort: false
+  usage_policy: Record tokens, calls and elapsed time without stopping on them.
+  technical_limits: Provider context/output limits, request timeout and scratch isolation
+    still apply.
+  recovery: Three retries for transient inference transport errors on the exact unexecuted
+    request; all attempts and unknown usage are retained. No trial restarts or action
+    redispatch. Unresolved infrastructure errors still stop collection.
+  archive_policy: Every completed trial and independent replay is archived before
+    the next trial. A fresh 150-trial cohort keeps the historical 13 trials separate.
+interface_evolution:
+  version: 1
+  condition: F_adaptive
+  reset_each_trial: true
+  cross_trial_transfer: false
+  additional_information: robot_proprioception_and_camera_calibration
+  modifications: sandboxed_python_tools_and_interface_notes
+  calibration_steps: count_in_episode
+contrasts:
+- - F_adaptive
+  - F
+extension:
+  authority: User requested F with Astra-evolved hardware interfaces, additional sensors/tools
+    and system identification
+  pool_with_prior_cohort: false
+  interpretation: Combined interface evolution and optional additional hardware information;
+    not a same-information ablation

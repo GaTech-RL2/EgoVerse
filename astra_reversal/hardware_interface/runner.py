@@ -6,6 +6,9 @@ from dataclasses import asdict
 
 import jsonschema
 
+from .adaptive import CONDITION as ADAPTIVE
+from .adaptive import PROMPT as ADAPTIVE_PROMPT
+from .adaptive import AdaptiveInterface, tool_definitions
 from .common import digest, strict_json, write_json
 from .protocol import SHARED_PROMPT
 from .provider import BudgetEnd, Meter, ModelFailure, Observer, Session
@@ -22,6 +25,8 @@ def obj(properties):
 
 
 def tools_for(condition, action_dim=7):
+    if condition not in ("F", "B0", "B", ADAPTIVE):
+        raise ValueError("unknown_interface_condition")
     integer, string = {"type": "integer"}, {"type": "string"}
     vector = {
         "type": "array",
@@ -51,7 +56,7 @@ def tools_for(condition, action_dim=7):
             obj({}),
         ),
     ]
-    if condition == "F":
+    if condition in ("F", ADAPTIVE):
         definitions.extend(
             [
                 (
@@ -137,6 +142,8 @@ def tools_for(condition, action_dim=7):
                 ),
             ]
         )
+    if condition == ADAPTIVE:
+        definitions.extend(tool_definitions(obj, vector))
     if condition == "B":
         definitions.append(
             (
@@ -172,6 +179,7 @@ class Router:
         self.schemas = {t["name"]: t["parameters"] for t in self.tools}
         self.calls, self.invalid_commands, self.recoveries = 0, 0, 0
         self.previous_rejected = False
+        self.evolution = AdaptiveInterface(proxy) if condition == ADAPTIVE else None
 
     def dispatch(self, tool, arguments):
         if (
@@ -228,6 +236,24 @@ class Router:
                 result = self.observer.describe(
                     arguments["request_kind"], visible, timeout=remaining
                 )
+            elif self.evolution is not None and tool == "interface_catalog":
+                result = self.evolution.catalog()
+            elif self.evolution is not None and tool == "call_interface_tool":
+                result = self.evolution.call_interface_tool(
+                    **arguments, scratch=self.scratch, dispatch=self.dispatch
+                )
+            elif self.evolution is not None and tool == "probe_dynamics":
+                result = self.evolution.probe_dynamics(
+                    **arguments, dispatch=self.dispatch
+                )
+            elif self.evolution is not None and tool in (
+                "enable_capability",
+                "read_capability",
+                "define_interface_tool",
+                "revise_interface_notes",
+                "restore_interface",
+            ):
+                result = getattr(self.evolution, tool)(**arguments)
             else:
                 result = self.proxy.finish()
             rejected = isinstance(result, dict) and (
@@ -293,11 +319,13 @@ def run_trial(
     # conversation items at its actual context-window boundary.
     if model.get("context_truncation") == "auto":
         instructions += "\nCurrent user task: " + json.dumps(task_instruction)
-    if condition == "F":
+    if condition in ("F", ADAPTIVE):
         instructions += (
             "\nUse only the universal interface for device calls.\nDevice description: "
             + json.dumps(proxy.describe())
         )
+        if condition == ADAPTIVE:
+            instructions += "\n" + ADAPTIVE_PROMPT
     elif condition == "B":
         instructions += "\nThe separate observer can report current visible evidence with describe_visible; its usage is included in the workflow totals."
     actor.history = [{"role": "user", "content": task_instruction}]
@@ -318,7 +346,14 @@ def run_trial(
         while proxy.terminal is None:
             proxy.available()
             remaining = proxy.remaining_wall_seconds()
-            response = actor.request(instructions, router.tools, timeout=remaining)
+            current_instructions = instructions
+            if router.evolution is not None:
+                current_instructions += "\nCurrent interface: " + json.dumps(
+                    router.evolution.summary()
+                )
+            response = actor.request(
+                current_instructions, router.tools, timeout=remaining
+            )
             # A response after the wall deadline cannot trigger an action.
             proxy.available()
             calls = [r for r in response["output"] if r.get("type") == "function_call"]
@@ -375,6 +410,8 @@ def run_trial(
         "censored_wall": proxy.terminal == "TIMEOUT_WALL",
         "model_snapshot_pinned": model["snapshot_pinned"],
     }
+    if router.evolution is not None:
+        outcome["interface_evolution"] = router.evolution.outcome()
     proxy.events.emit("trial_end", **outcome)
     write_json(
         proxy.events.directory / "outcome.json", {**proxy.events.identity, **outcome}

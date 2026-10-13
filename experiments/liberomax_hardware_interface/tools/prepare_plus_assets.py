@@ -31,8 +31,10 @@ def asset_members(archive):
             or stat.S_ISLNK(member.external_attr >> 16)
         ):
             raise ValueError("asset_archive_member_outside_assets")
-        if relative.is_relative_to(ARCHIVE_PREFIX):
+        try:
             relative = relative.relative_to(ARCHIVE_PREFIX)
+        except ValueError:
+            pass
         if not relative.parts or relative.parts[0] != "assets":
             raise ValueError("asset_archive_member_outside_assets")
         if relative in seen:

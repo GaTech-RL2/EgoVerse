@@ -305,7 +305,8 @@ def make_video(case, output):
     }
 
 
-def build_case(directory, output):
+def build_case(directory, output, cohorts=None):
+    cohorts = COHORTS if cohorts is None else cohorts
     workflow = directory.parent.parent.name
     raw = (directory / "events.jsonl").read_bytes()
     rows = [json.loads(line) for line in raw.splitlines()]
@@ -316,8 +317,11 @@ def build_case(directory, output):
     replay = json.loads((directory / "independent-replay.json").read_text())
     trial = json.loads((directory / "trial.json").read_text())
     case_id = (
-        "libero-" if workflow.startswith("libero-") else "robocasa-"
-    ) + directory.name
+        ("libero-" if workflow.startswith("libero-") else "robocasa-")
+        + sha(workflow.encode())[:8]
+        + "-"
+        + directory.name
+    )
     case = {
         "id": case_id,
         "trial_id": directory.name,
@@ -349,7 +353,7 @@ def build_case(directory, output):
             "event_count": len(rows),
             "archive": archive,
             "source_view_sha256": start.get("source_sha256"),
-            "source_commit": COHORTS[workflow]["commit"],
+            "source_commit": cohorts[workflow]["commit"],
             "image_export": "Original PNG bytes; matched by SHA-256. JSON base64 fields externalized as file references.",
             "opaque_reasoning": "Encrypted reasoning payloads are replaced by byte count and SHA-256; readable private reasoning is not available.",
         },
@@ -423,7 +427,7 @@ def build_case(directory, output):
             elif tool in {"step", "act"}:
                 args = row["arguments"]
                 values = args.get("action", args.get("envelope", {}).get("value", []))
-                if values and COHORTS[workflow]["benchmark"] == "LIBERO":
+                if values and cohorts[workflow]["benchmark"] == "LIBERO":
                     gripper = 1 if values[-1] > 0 else -1 if values[-1] < 0 else 0
                     if last_gripper is not None and last_gripper != gripper:
                         marker = (
@@ -447,6 +451,16 @@ def build_case(directory, output):
             previous_rejected = rejected
             if row["tool"] in examples and "response" not in examples[row["tool"]]:
                 examples[row["tool"]]["response"] = detail["response"]
+        elif kind == "interface_revised":
+            marker = (
+                "interface_revision",
+                "Interface revision " + str(row["revision"]) + ": " + row["operation"],
+            )
+        elif kind == "system_identification_probe":
+            marker = (
+                "calibration",
+                "Calibration probe: " + str(row["executed_steps"]) + " native steps",
+            )
         elif kind == "error":
             marker = (
                 "api_retry" if row.get("will_retry") else "error",
@@ -466,7 +480,7 @@ def build_case(directory, output):
             )
     case["counts"], case["examples"] = dict(counts), examples
     if "\nDevice description: " in case["prompts"]["actor"]:
-        case["device"] = json.loads(
+        case["device"], _ = json.JSONDecoder().raw_decode(
             case["prompts"]["actor"].split("\nDevice description: ", 1)[1]
         )
     case["observer_input_note"] = (
@@ -522,7 +536,8 @@ def build_case(directory, output):
     return summary
 
 
-def build(source, output, catalog_time):
+def build(source, output, catalog_time, cohorts=None):
+    cohorts = COHORTS if cohorts is None else cohorts
     output.mkdir(parents=True, exist_ok=False)
     for name in ("media", "videos", "recordings"):
         (output / name).mkdir()
@@ -532,15 +547,15 @@ def build(source, output, catalog_time):
     cases = []
     for directory in sorted(source.glob("*/trials/*")):
         if (
-            directory.parent.parent.name not in COHORTS
+            directory.parent.parent.name not in cohorts
             or not (directory / "independent-replay.json").exists()
         ):
             continue
-        if directory.parent.parent.name.startswith(
-            "robocasa-"
-        ) and not directory.name.startswith("smoke-"):
+        if cohorts[directory.parent.parent.name][
+            "stage"
+        ] == "smoke" and not directory.name.startswith("smoke-"):
             continue
-        case = build_case(directory, output)
+        case = build_case(directory, output, cohorts)
         cases.append(case)
         print(
             json.dumps(
@@ -556,7 +571,7 @@ def build(source, output, catalog_time):
         "schema_version": 1,
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "catalog_utc": datetime.fromtimestamp(catalog_time, timezone.utc).isoformat(),
-        "cohorts": COHORTS,
+        "cohorts": cohorts,
         "cases": cases,
         "recording_note": "Exact recorded prompts, emitted tool calls, tool results and original camera PNGs. Videos condense saved observations at 3 snapshots/s; they are not continuous simulator capture. Encrypted reasoning is opaque and omitted with a digest. Input-hashed requests retain their recorded hashes; no missing content is invented.",
         "retry_note": "A gripper command change is an observable marker, not proof of a new grasp attempt. Tool correction markers mean the next tool call was accepted, not that the task recovered. Provider retries, when present, are separately marked. No episode-reset tool is available to the actor.",
@@ -605,6 +620,16 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--download-receipt", type=Path, required=True)
+    parser.add_argument(
+        "--cohorts",
+        type=Path,
+        help="Explicit workflow metadata and assigned conditions for additional cohorts",
+    )
     args = parser.parse_args()
     receipt = json.loads(args.download_receipt.read_text())
-    build(args.source, args.output, receipt["catalog_time"])
+    build(
+        args.source,
+        args.output,
+        receipt["catalog_time"],
+        json.loads(args.cohorts.read_text()) if args.cohorts else None,
+    )

@@ -35,11 +35,17 @@ def act(envelope):
     return rpc("act", {"envelope": envelope})
 
 
+def read_capability(name):
+    return rpc("read_capability", {"name": name})
+
+
 def main():
     payload = json.loads(sys.stdin.readline())
     context = {"__builtins__": __builtins__, "result": None}
-    if payload["condition"] == "F":
+    if payload["condition"] in ("F", "F_adaptive"):
         context.update(read=read, act=act)
+        if payload["condition"] == "F_adaptive":
+            context["read_capability"] = read_capability
     else:
         context.update(observe=observe, step=step)
     try:

@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from .common import digest, strict_json
+from .protocol import contrasts
 
 
 def audit(runs, *, require_replay=True):
@@ -163,6 +164,10 @@ def analyze(outcomes, manifest, *, split):
             "tool_calls": _distribution([r.get("tool_calls") for r in rows]),
             "observer_turns": sum(r.get("observer_turns", 0) for r in rows),
             "recoveries": sum(r.get("recoveries", 0) for r in rows),
+            "interface_evolution": {
+                key: sum(r.get("interface_evolution", {}).get(key, 0) for r in rows)
+                for key in ("revisions", "calibration_steps", "probes", "tool_executions")
+            },
             "invalid_actions": sum(r["invalid_actions"] for r in rows),
             "safety_attempts": sum(r["safety_attempts"] for r in rows),
             "applied_safety_violations": sum(
@@ -170,13 +175,15 @@ def analyze(outcomes, manifest, *, split):
             ),
         }
     comparisons = {}
-    for other in ("B0", "B"):
+    for reference, other in contrasts(manifest):
+        comparison_name = reference + "_minus_" + other
+        primary = [reference, other] == manifest.get("primary_contrast", ["F", "B0"])
         by_task = defaultdict(lambda: defaultdict(list))
         discordant = [0, 0]
         for (task, index, _), block in groups.items():
-            if "F" not in block or other not in block:
+            if reference not in block or other not in block:
                 continue
-            f, b = block["F"], block[other]
+            f, b = block[reference], block[other]
             if (
                 f["init_state_hash"] != b["init_state_hash"]
                 or f["env_seed"] != b["env_seed"]
@@ -187,7 +194,7 @@ def analyze(outcomes, manifest, *, split):
             if delta:
                 discordant[int(delta < 0)] += 1
         if set(by_task) != set(manifest["task_ids"]):
-            comparisons["F_minus_" + other] = {
+            comparisons[comparison_name] = {
                 "status": "incomplete_task_pairs",
                 "decision": "inconclusive",
             }
@@ -253,7 +260,7 @@ def analyze(outcomes, manifest, *, split):
         efficiency = {}
         for metric in ("wall_seconds_timeouts_assigned_cap", "cost"):
             f_value, other_value = (
-                summaries[c][metric]["median"] for c in ("F", other)
+                summaries[c][metric]["median"] for c in (reference, other)
             )
             efficiency[metric] = (
                 1 - f_value / other_value
@@ -262,7 +269,7 @@ def analyze(outcomes, manifest, *, split):
             )
         efficiency_gain = (
             confirm
-            and other == "B0"
+            and primary
             and ci[0] > -manifest["analysis"]["noninferiority_margin"]
             and any(
                 v is not None
@@ -270,12 +277,14 @@ def analyze(outcomes, manifest, *, split):
                 for v in efficiency.values()
             )
         )
-        comparisons["F_minus_" + other] = {
+        comparisons[comparison_name] = {
             "status": "paired_descriptive",
             "risk_difference": delta,
             "bootstrap_95pct": ci,
             "method": "resample initial-state clusters within each fixed task; equal task weight",
-            "discordant_F_only_other_only": discordant,
+            "discordant_F_only_other_only"
+            if reference == "F"
+            else "discordant_reference_only_other_only": discordant,
             "per_task": task_comparisons,
             "task_cluster_sensitivity_95pct": np.quantile(
                 task_bootstrap, [0.025, 0.975]
@@ -284,10 +293,10 @@ def analyze(outcomes, manifest, *, split):
             "median_resource_reduction_fraction": efficiency,
             "efficiency_gain_with_noninferior_completion": bool(efficiency_gain),
             "mcnemar_exact_p": p if manifest["replicates"] == 1 else None,
-            "primary": other == "B0",
-            "confirmatory_eligible": confirm and other == "B0",
+            "primary": primary,
+            "confirmatory_eligible": confirm and primary,
             "decision": "success_improvement"
-            if confirm and other == "B0" and delta > 0 and ci[0] > 0
+            if confirm and primary and delta > 0 and ci[0] > 0
             else "inconclusive",
         }
     return {

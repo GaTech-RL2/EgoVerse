@@ -189,7 +189,7 @@ def commission(manifest):
             for field in ("arm_dz", "base_yaw", "torso"):
                 action = env.neutral_action()
                 action[env.controller["action_order"].index(field)] = 0.05
-                if arm == "F":
+                if arm in ("F", "F_adaptive"):
                     result = proxy.act(
                         {
                             "channel": "robot.controller_command",
@@ -221,7 +221,7 @@ def commission(manifest):
         finally:
             env.close()
             events.close()
-    checks["native_interface_equivalence"] = traces[0] == traces[1] == traces[2]
+    checks["native_interface_equivalence"] = all(t == traces[0] for t in traces)
     if not checks["native_interface_equivalence"]:
         for index, xml in enumerate(model_xml[1:], 1):
             difference = "".join(
@@ -245,6 +245,20 @@ def commission(manifest):
                     flush=True,
                 )
     checks["initially_unsolved"] = not traces[0]["reset"]["initial_success"]
+    if "F_adaptive" in manifest["conditions"]:
+        from .adaptive_check import check
+
+        receipt = check(
+            lambda: Environment(
+                smoke["name"], smoke["seed"], smoke["horizon"], manifest["image_size"]
+            ),
+            source,
+            {**runtime, "root": prepared / "scratch-runtime"},
+            prepared / "adaptive-commission",
+            limits_for(manifest, smoke["horizon"]),
+            sensors=SENSORS,
+        )
+        checks["adaptive_interface"] = receipt["passed"]
     resolved = {
         "source_sha256": source_hash(),
         "allowlist_sha256": allowed["sha256"],
@@ -579,7 +593,7 @@ def summarize(manifest):
         "successes": sum(r["success"] for r in outcomes),
         "known_tokens": sum(r["known_workflow_tokens"] for r in outcomes),
         "unknown_usage_records": sum(r["unknown_usage_records"] for r in outcomes),
-        "paired_time_to_success": paired_success_times(outcomes),
+        "paired_time_to_success": paired_success_times(outcomes, manifest=manifest),
     }
     if outcomes:
         result["analysis"] = analyze(outcomes, manifest, split="pilot")
@@ -589,7 +603,13 @@ def summarize(manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-replay", type=Path)
-    parser.add_argument("--manifest", type=Path, default=STUDY / "preregistration.yaml")
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        default=os.environ.get(
+            "HARDWARE_MANIFEST", str(STUDY / "preregistration.yaml")
+        ),
+    )
     parser.add_argument("--archive-bootstrap-failure", action="store_true")
     args = parser.parse_args()
     if args.archive_bootstrap_failure:
