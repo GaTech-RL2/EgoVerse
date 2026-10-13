@@ -1,97 +1,83 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Astra hardware interfaces · code and JSON</title>
 <style>
-:root{font-family:Inter,Arial,sans-serif;color:#142d46;background:#f5f8fc;font-size:16px;line-height:1.55}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1540px;margin:auto;padding:28px 36px}header{padding-bottom:10px}h1{font-size:clamp(28px,3vw,42px);letter-spacing:-1px;line-height:1.15;margin:8px 0 12px}h2{font-size:25px;margin-top:32px}h3{margin:0 0 5px}p{color:#49627d}.eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;color:#087f70}.subtitle{max-width:1040px}.buttons,nav{display:flex;gap:9px;flex-wrap:wrap}button{background:white;color:#142d46;border:1px solid #ccd9e6;border-radius:8px;padding:10px 16px;font:inherit;font-size:14px;cursor:pointer}button:hover,button:focus-visible{border-color:#087f70;outline:2px solid #bddfd7}nav{margin-top:22px;border-bottom:1px solid #ccd9e6;padding-bottom:12px}nav button[aria-selected=true]{background:#142d46;color:white;border-color:#142d46}main{padding-top:8px}.panel{display:none}.panel.active{display:block}.diagram{overflow-x:auto;border:1px solid #dce5ee;border-radius:12px;background:white}.diagram svg{display:block;width:100%;height:auto;min-width:900px}.note{background:#eaf3fb;border-left:4px solid #5e86a9;border-radius:5px;padding:16px 20px;margin:20px 0}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{padding:18px 22px;border:1px solid #ccd9e6;border-radius:12px;background:white}.card p{margin-bottom:0}.f{border-top:4px solid #087f70}.b0{border-top:4px solid #ab5e19}.b{border-top:4px solid #7750b3}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;background:white;font-size:14px}td,th{text-align:left;border-bottom:1px solid #dce5ee;padding:13px 15px;vertical-align:top}th{background:#eaf0f7}td:first-child{font-weight:600}details{margin:12px 0;border:1px solid #ccd9e6;background:white;border-radius:10px;overflow:hidden}summary{font-weight:600;cursor:pointer;padding:14px 18px}details p{padding:0 18px;margin:0 0 10px;font-size:14px}pre{background:#12283c;color:#eef6ff;margin:0;padding:18px;overflow:auto;font-size:13px;line-height:1.55}code{font-family:ui-monospace,Menlo,monospace}.trace{display:flex;gap:20px;padding:21px 0;border-bottom:1px solid #ccd9e6;max-width:1120px}.trace span{font-size:28px;font-weight:700;color:#087f70}.trace p{margin:0}footer{font-size:13px;color:#49627d}.boundary{background:#fff5ea;padding:18px;border-radius:10px;margin-top:20px}a{color:#087f70}@media(max-width:780px){header,main,footer{padding:20px 16px}.cards{grid-template-columns:1fr}.diagram svg{min-width:1100px}}@media print{nav,.buttons{display:none}.panel{display:block!important;break-before:page}.panel:first-child{break-before:auto}.diagram svg{min-width:0}details{break-inside:avoid}.note{print-color-adjust:exact}}
-</style></head><body><header><div class="eyebrow">ASTRA · DIRECT ROBOT CONTROL · IMPLEMENTATION GUIDE</div><h1>Hardware interfaces, JSON contracts and code design</h1><p class="subtitle">How the same Astra actor controls LIBERO’s fixed-base Panda and RoboCasa’s mobile PandaOmron through F, B0 and B. The device abstraction describes the native controller; it does not convert an abstract task into a motion plan.</p><div class="buttons"><button id="download-svg">Download architecture SVG</button><button id="download-json">Download contracts JSON</button><button onclick="window.print()">Print / save PDF</button></div><nav role="tablist" aria-label="Framework views"><button role="tab" id="tab-overview" data-target="overview" aria-controls="overview" aria-selected="true">Architecture diagram</button><button role="tab" id="tab-hardware" data-target="hardware" aria-controls="hardware" aria-selected="false">All hardware channels</button><button role="tab" id="tab-json" data-target="json" aria-controls="json" aria-selected="false">JSON contracts</button><button role="tab" id="tab-code" data-target="code" aria-controls="code" aria-selected="false">Code design</button><button role="tab" id="tab-trace" data-target="trace" aria-controls="trace" aria-selected="false">One control cycle</button></nav></header><main>
-<section class="panel active" id="overview" role="tabpanel" aria-labelledby="tab-overview"><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1440" viewBox="0 0 1800 1440" role="img" aria-labelledby="title desc">
-<title id="title">Astra hardware interface: JSON contracts and code architecture</title>
-<desc id="desc">Three actor interfaces, shared execution proxy, native hardware adapters, private evaluation and replay. Full JSON examples and sensor tables accompany this diagram in the standalone HTML.</desc>
-<defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse"><path d="M0,0 L9,4.5 L0,9" fill="#49627d"/></marker></defs>
-<rect width="1800" height="1440" fill="#f5f8fc"/>
-<text x="48" y="55" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#142d46">Astra → hardware: interfaces, JSON and code</text>
-<text x="48" y="89" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#49627d">Fresh actor per rollout • Fixed model weights • One selected interface • Same native robot authority</text>
-<rect x="48" y="123" width="1704" height="103" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="68" y="157" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">1  runner.run_trial + provider.Session</text>
-<text x="68" y="190" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Official task instruction + allowed tools → model function call {name, arguments} → strict JSON parsing → Router.dispatch(tool, arguments)</text>
-<path d="M310,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<path d="M898,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<path d="M1488,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<rect x="48" y="273" width="524" height="260" rx="15" fill="#eaf7f3" stroke="#087f70" stroke-width="1.6"/>
-<text x="68" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#087f70">F  Typed hardware interface</text>
-<text x="68" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">describe_device() → hardware-1 description</text>
-<text x="68" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">read(channel, max_age_ms) / read_latest()</text>
-<text x="68" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">act(envelope) → Proxy.act → Proxy.step</text>
-<text x="68" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Envelope: channel, value, duration_steps,</text>
-<text x="68" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">metadata {mode, units, episode_id,</text>
-<text x="68" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">observation_step}; units/frames declared.</text>
-<rect x="636" y="273" width="524" height="260" rx="15" fill="#fff5ea" stroke="#ab5e19" stroke-width="1.6"/>
-<text x="656" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#ab5e19">B0  Native codebase interface</text>
-<text x="656" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">source tools reveal native conventions</text>
-<text x="656" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">observe(keys) → native sensor dictionary</text>
-<text x="656" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">step(action, repeat_steps, observation_step)</text>
-<text x="656" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">→ Proxy.step with the same vector as F</text>
-<text x="656" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">JSON input schema fixes action dimension;</text>
-<text x="656" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">the actor discovers ordering in source.</text>
-<rect x="1224" y="273" width="528" height="260" rx="15" fill="#f4eefb" stroke="#7750b3" stroke-width="1.6"/>
-<text x="1244" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#7750b3">B  Native interface + observer</text>
-<text x="1244" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Same observe / step tools as B0</text>
-<text x="1244" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">describe_visible(request_kind)</text>
-<text x="1244" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">→ current camera images → Observer</text>
-<text x="1244" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">JSON: frame_step, visible_facts,</text>
-<text x="1244" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">uncertainties, occlusions</text>
-<text x="1244" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Observer has no action tools or task plans.</text>
-<rect x="48" y="555" width="1704" height="103" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="68" y="589" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">Available in every arm: source_search • source_read • scratch_execute • finish</text>
-<text x="68" y="622" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">SourceView exposes audited robot/controller code. Isolated Python scratch can call only that arm’s proxy tools. No env handle or network.</text>
-<path d="M310,533 V544 H22 V701 H68" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<path d="M898,533 V544 H1790 V701 H1732" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<path d="M1488,533 V544 H1790" fill="none" stroke="#49627d" stroke-width="2.1"/>
-<rect x="78" y="684" width="1654" height="155" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="98" y="718" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">2  Router → shared Proxy: validate, execute, record</text>
-<text x="98" y="751" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">runner.py: JSON Schema + allowed tool → proxy.py: finite vector, exact 7D/12D shape, bounds, repeat ≤ 10, current observation step</text>
-<text x="98" y="778" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">F adds channel / mode / units / episode checks. Rejected commands apply no action. All arms execute the same normalized native controller.</text>
-<text x="98" y="805" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Return {accepted, applied_action, applied_steps, simulator_step, timestamp, episode_ended}; read again before the next action.</text>
-<path d="M468,839 V872" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-<text x="240" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">native actions ↓</text>
-<text x="525" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">images / sensors ↑</text>
-<path d="M1332,839 V872" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
-<text x="1104" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">native actions ↓</text>
-<text x="1389" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">images / sensors ↑</text>
-<rect x="48" y="879" width="816" height="196" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="68" y="913" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">3a  libero.Environment — fixed-base Panda</text>
-<text x="68" y="946" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">7 values: Δx, Δy, Δz, axis-angle Δrotation (3), gripper</text>
-<text x="68" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">OSC_POSE; pose commands in world frame; 20 Hz</text>
-<text x="68" y="1000" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">6 numeric channels: joints, end effector, gripper</text>
-<text x="68" y="1027" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">2 RGB cameras: front + wrist; upright PNG, 128 × 128</text>
-<text x="68" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Readback: typed envelope (F) or native keys (B0/B)</text>
-<rect x="936" y="879" width="816" height="196" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="956" y="913" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">3b  robocasa.Environment — mobile PandaOmron</text>
-<text x="956" y="946" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">12 values: arm (6), gripper, base (3), torso, base mode</text>
-<text x="956" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">HYBRID_MOBILE_BASE; native arm controller uses base frame</text>
-<text x="956" y="1000" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">5 numeric channels: base, end effector, gripper</text>
-<text x="956" y="1027" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">3 RGB cameras: left + right + wrist; upright PNG, 128 × 128</text>
-<text x="956" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Live controller resolves exact slices / scaling / control frequency</text>
-<path d="M456,1075 V1111" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<path d="M1344,1075 V1095 H456" fill="none" stroke="#49627d" stroke-width="2.1"/>
-<rect x="48" y="1118" width="816" height="180" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="68" y="1152" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">4  Private evaluator + common.Events</text>
-<text x="68" y="1185" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Official success predicate after each applied native step</text>
-<text x="68" y="1212" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Stop at first success, horizon, finish, or infrastructure error</text>
-<text x="68" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">events.jsonl: chained hashes; actions, observations, model calls</text>
-<text x="68" y="1266" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">outcome.json: success, reason, steps, time, actor/observer usage</text>
-<rect x="936" y="1118" width="816" height="180" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
-<text x="956" y="1152" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">5  Worker replay + analysis</text>
-<text x="956" y="1185" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Separate process: same pinned reset + recorded native actions</text>
-<text x="956" y="1212" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Compare first-success step and terminal simulator state</text>
-<text x="956" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">independent-replay.json → verified evidence + analysis.json</text>
-<text x="956" y="1266" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">No model calls during replay; it verifies live control.</text>
-<path d="M864,1209 H927" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#arrow)"/>
-<text x="883" y="1188" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">logs</text>
-<text x="48" y="1343" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#49627d">IMPLEMENTED BOUNDARY</text>
-<text x="48" y="1372" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#142d46">Actor sees robot sensors, camera images and audited source. Task internals, object state and evaluator labels stay private.</text>
-<text x="48" y="1409" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">See standalone HTML for every channel, exact request / response JSON, complete generated tool schemas and module ownership.</text>
-</svg></div><div class="cards"><article class="card f"><h3>F · typed interface</h3><p>Explicit channel semantics, units, frames, bounds and command metadata. The model still chooses every native action.</p></article><article class="card b0"><h3>B0 · native tools</h3><p>Observe native keys and submit the native controller vector. The model discovers the conventions through shared audited source.</p></article><article class="card b"><h3>B · native + observer</h3><p>B0’s interface plus a separate stateless Astra observer. Its current-image descriptions contain evidence and uncertainty, with no action tools.</p></article></div><div class="note">The framework has a working LIBERO pilot. RoboCasa is an implemented adapter awaiting native commissioning; this architecture diagram makes no claim that the RoboCasa benchmark has passed. Results and workflow status are reported separately.</div></section>
-<section class="panel" id="hardware" role="tabpanel" aria-labelledby="tab-hardware"><h2>LIBERO: 7-value controller</h2><div class="table-wrap"><table><thead><tr><th>F channel</th><th>B0 / B native key</th><th>Shape</th><th>Units</th><th>Reference frame</th></tr></thead><tbody><tr><td>robot.joint_position</td><td>robot0_joint_pos</td><td>7</td><td>rad</td><td>joint</td></tr><tr><td>robot.joint_velocity</td><td>robot0_joint_vel</td><td>7</td><td>rad/s</td><td>joint</td></tr><tr><td>robot.eef_position</td><td>robot0_eef_pos</td><td>3</td><td>m</td><td>world</td></tr><tr><td>robot.eef_orientation</td><td>robot0_eef_quat</td><td>4</td><td>unitless</td><td>world_xyzw</td></tr><tr><td>robot.gripper_position</td><td>robot0_gripper_qpos</td><td>2</td><td>m</td><td>joint</td></tr><tr><td>robot.gripper_velocity</td><td>robot0_gripper_qvel</td><td>2</td><td>m/s</td><td>joint</td></tr><tr><td>camera.front</td><td>agentview_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>agentview</td></tr><tr><td>camera.wrist</td><td>robot0_eye_in_hand_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_eye_in_hand</td></tr></tbody></table></div><h2>RoboCasa: 12-value controller</h2><div class="table-wrap"><table><thead><tr><th>F channel</th><th>B0 / B native key</th><th>Shape</th><th>Units</th><th>Reference frame</th></tr></thead><tbody><tr><td>robot.gripper_position</td><td>robot0_gripper_qpos</td><td>2</td><td>m</td><td>finger_joint</td></tr><tr><td>robot.base_position</td><td>robot0_base_pos</td><td>3</td><td>m</td><td>world</td></tr><tr><td>robot.base_orientation</td><td>robot0_base_quat</td><td>4</td><td>unitless</td><td>world_xyzw</td></tr><tr><td>robot.eef_position</td><td>robot0_base_to_eef_pos</td><td>3</td><td>m</td><td>mobile_base_center</td></tr><tr><td>robot.eef_orientation</td><td>robot0_base_to_eef_quat</td><td>4</td><td>unitless</td><td>mobile_base_center_xyzw</td></tr><tr><td>camera.left</td><td>robot0_agentview_left_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_agentview_left</td></tr><tr><td>camera.right</td><td>robot0_agentview_right_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_agentview_right</td></tr><tr><td>camera.wrist</td><td>robot0_eye_in_hand_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_eye_in_hand</td></tr></tbody></table></div><div class="note"><strong>Same names do not imply the same frame.</strong> LIBERO robot.eef_position is world-referenced; RoboCasa uses mobile-base coordinates. F receives the frame explicitly; B0/B discover the native convention in audited source. The proxy exposes only these channels.</div><div class="table-wrap"><table><thead><tr><th>Hardware part</th><th>LIBERO</th><th>RoboCasa</th></tr></thead><tbody><tr><td>Arm</td><td>6 OSC_POSE deltas; world reference frame</td><td>6 OSC_POSE deltas; controller base reference frame</td></tr><tr><td>Gripper</td><td>1 normalized integrated command; − opens / + closes</td><td>1 normalized integrated command; − opens / + closes</td></tr><tr><td>Mobile base</td><td>Absent</td><td>3 normalized velocity values: x, y, yaw</td></tr><tr><td>Torso</td><td>Absent</td><td>1 normalized vertical joint-position delta</td></tr><tr><td>Base mode</td><td>Absent</td><td>1 mode value: +1 tracks desired arm goal; −1 updates from achieved pose</td></tr><tr><td>Controller metadata</td><td>20 Hz; live bounds, pose scaling and controller version</td><td>Live action_order / parts resolve slice indices, scaling and control frequency</td></tr><tr><td>Execution</td><td>Same 7-value vector in F/B0/B</td><td>Same 12-value vector in F/B0/B; copy on every step prevents native in-place mutation</td></tr></tbody></table></div></section>
-<section class="panel" id="json" role="tabpanel" aria-labelledby="tab-json"><div class="note"><strong>These are real wire contracts with synthetic example values.</strong> Tool names are shown as headings; the request boxes contain the JSON arguments. Images, coordinates, timestamps and outcomes here are illustrative, not benchmark results. Full JSON Schema is generated directly by runner.tools_for.</div><div class="table-wrap"><table><thead><tr><th>Arm</th><th>Hardware tools</th><th>Additional context</th></tr></thead><tbody><tr><td>F</td><td>describe_device, read, read_latest, act</td><td>Device description is also included in the initial system prompt.</td></tr><tr><td>B0</td><td>observe, step</td><td>Native controller and observation conventions via source tools.</td></tr><tr><td>B</td><td>observe, step, describe_visible</td><td>Same native tools; separate stateless image-only observer.</td></tr></tbody></table></div><h2>LIBERO JSON examples</h2><details ><summary>describe_device — request arguments</summary><p></p><pre><code>{}</code></pre></details><details ><summary>describe_device — response</summary><p></p><pre><code>{
+:root{font-family:Inter,Arial,sans-serif;color:#142d46;background:#f5f8fc;font-size:16px;line-height:1.55}*{box-sizing:border-box}body{margin:0}header,main,footer{max-width:1540px;margin:auto;padding:28px 36px}header{padding-bottom:10px}h1{font-size:clamp(28px,3vw,42px);letter-spacing:-1px;line-height:1.15;margin:8px 0 12px}h2{font-size:25px;margin-top:32px}h3{margin:0 0 5px}p{color:#49627d}.eyebrow{font-size:12px;letter-spacing:2px;font-weight:700;color:#087f70}.subtitle{max-width:1040px}.buttons,nav{display:flex;gap:9px;flex-wrap:wrap}button{background:white;color:#142d46;border:1px solid #ccd9e6;border-radius:8px;padding:10px 16px;font:inherit;font-size:14px;cursor:pointer}button:hover,button:focus-visible{border-color:#087f70;outline:2px solid #bddfd7}nav{margin-top:22px;border-bottom:1px solid #ccd9e6;padding-bottom:12px}nav button[aria-selected=true]{background:#142d46;color:white;border-color:#142d46}main{padding-top:8px}.panel{display:none}.panel.active{display:block}.diagram{overflow-x:auto;border:1px solid #dce5ee;border-radius:12px;background:white}.diagram svg{display:block;width:100%;height:auto;min-width:900px}.note{background:#eaf3fb;border-left:4px solid #5e86a9;border-radius:5px;padding:16px 20px;margin:20px 0}.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{padding:18px 22px;border:1px solid #ccd9e6;border-radius:12px;background:white}.card p{margin-bottom:0}.f{border-top:4px solid #087f70}.b0{border-top:4px solid #ab5e19}.b{border-top:4px solid #7750b3}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;background:white;font-size:14px}td,th{text-align:left;border-bottom:1px solid #dce5ee;padding:13px 15px;vertical-align:top}th{background:#eaf0f7}td:first-child{font-weight:600}details{margin:12px 0;border:1px solid #ccd9e6;background:white;border-radius:10px;overflow:hidden}summary{font-weight:600;cursor:pointer;padding:14px 18px}details p{padding:0 18px;margin:0 0 10px;font-size:14px}pre{background:#12283c;color:#eef6ff;margin:0;padding:18px;overflow:auto;font-size:13px;line-height:1.55}code{font-family:ui-monospace,Menlo,monospace}.trace{display:flex;gap:20px;padding:21px 0;border-bottom:1px solid #ccd9e6;max-width:1120px}.trace span{font-size:28px;font-weight:700;color:#087f70}.trace p{margin:0}footer{font-size:13px;color:#49627d}.boundary{background:#fff5ea;padding:18px;border-radius:10px;margin-top:20px}a{color:#087f70}@media(max-width:780px){header,main,footer{padding:20px 16px}.cards{grid-template-columns:1fr}.diagram svg{min-width:1100px}}@media print{nav,.buttons{display:none}.panel{display:block!important;break-before:page}.panel:first-child{break-before:auto}.diagram svg{min-width:0}details{break-inside:avoid}.note{print-color-adjust:exact}}
+</style></head><body><header><div class="eyebrow">ASTRA · DIRECT ROBOT CONTROL · IMPLEMENTATION GUIDE</div><h1>Agent-legible hardware</h1><p class="subtitle">How the same Astra actor controls LIBERO’s fixed-base Panda and RoboCasa’s mobile PandaOmron through F, B0, B and F-adaptive. The device abstraction describes the native controller; it does not convert an abstract task into a motion plan.</p><p><a href="harness-example.html">Recorded F / F-adaptive before-and-after example: exact code, revisions and videos</a></p><div class="buttons"><button id="download-svg">Download architecture SVG</button><button id="download-json">Download contracts JSON</button><button onclick="window.print()">Print / save PDF</button></div><nav role="tablist" aria-label="Framework views"><button role="tab" id="tab-overview" data-target="overview" aria-controls="overview" aria-selected="true">Architecture diagram</button><button role="tab" id="tab-hardware" data-target="hardware" aria-controls="hardware" aria-selected="false">All hardware channels</button><button role="tab" id="tab-json" data-target="json" aria-controls="json" aria-selected="false">JSON contracts</button><button role="tab" id="tab-code" data-target="code" aria-controls="code" aria-selected="false">Code design</button><button role="tab" id="tab-trace" data-target="trace" aria-controls="trace" aria-selected="false">One control cycle</button><button role="tab" id="tab-adaptive" data-target="adaptive" aria-controls="adaptive" aria-selected="false">Harness evolution</button></nav></header><main>
+<section class="panel active" id="overview" role="tabpanel" aria-labelledby="tab-overview"><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title description">
+<title id="title">Agent-legible hardware</title>
+<desc id="description">The typed F interface gives Astra explicit sensor and command semantics. Observations go from the robot through a device contract to Astra; commands return through validation to the native controller. Four experimental interfaces and two benchmark adapters are shown.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#63788b"/></marker></defs>
+<rect width="1600" height="1080" fill="#f6f8fb"/>
+<text x="56" y="52" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#087f70">AGENT-LEGIBLE HARDWARE</text>
+<text x="56" y="103" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#203649">A robot interface an agent can inspect and use</text>
+<text x="56" y="141" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#4b657a">Typed interface shown: F, and the starting interface for F-adaptive. Astra chooses the robot actions.</text>
+<rect x="56" y="202" width="410" height="210" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Robot observations</text>
+<text x="80" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RGB cameras + robot proprioception</text>
+<text x="80" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">LIBERO: front + wrist cameras</text>
+<text x="80" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RoboCasa: left + right + wrist</text>
+<text x="80" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Joint, end-effector and gripper state</text>
+<rect x="574" y="202" width="458" height="210" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="598" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Discoverable device contract</text>
+<text x="598" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">describe_device() → hardware-1 JSON</text>
+<text x="598" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Channel name, shape, units and frame</text>
+<text x="598" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Action bounds and controller convention</text>
+<text x="598" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read() → value + step + timestamp</text>
+<rect x="1140" y="202" width="404" height="210" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="1164" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Astra actor</text>
+<text x="1164" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Task + tools + current observations</text>
+<text x="1164" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Camera PNGs become image inputs</text>
+<text x="1164" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Inspect → choose → act → observe</text>
+<text x="1164" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Fresh session; fixed model weights</text>
+<path d="M467 305H564" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="483" y="279" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">sensors</text>
+<path d="M1033 305H1130" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="1048" y="279" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">readback</text>
+<rect x="1140" y="475" width="404" height="174" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="1164" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Action request JSON</text>
+<text x="1164" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">act({envelope: …})</text>
+<text x="1164" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Channel, native vector, duration</text>
+<text x="1164" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Episode + observation-step metadata</text>
+<rect x="574" y="475" width="458" height="174" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="598" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Validate, execute, return a receipt</text>
+<text x="598" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Router → Proxy → native controller</text>
+<text x="598" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Shape, bounds, repeats and freshness</text>
+<text x="598" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read again after accepted execution</text>
+<rect x="56" y="475" width="410" height="174" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Native robot action</text>
+<text x="80" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">LIBERO: 7-value OSC_POSE command</text>
+<text x="80" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RoboCasa: 12-value mobile command</text>
+<text x="80" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Physics advances on accepted steps</text>
+<path d="M1342 413V465" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M1139 555H1042" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M573 555H476" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M260 474V422" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="56" y="712" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#4b657a">FOUR INTERFACES TO THE SAME NATIVE CONTROL AUTHORITY</text>
+<rect x="56" y="738" width="348" height="188" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="80" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F · typed hardware</text>
+<text x="80" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Device semantics are explicit.</text>
+<text x="80" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read / read_latest / act</text>
+<text x="80" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Astra still plans every action.</text>
+<rect x="436" y="738" width="348" height="188" rx="16" fill="#fff5ea" stroke="#ab5e19" stroke-width="1.5"/>
+<text x="460" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">B0 · source discovery</text>
+<text x="460" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Astra inspects robot source.</text>
+<text x="460" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">observe / step</text>
+<text x="460" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Discovers native conventions.</text>
+<rect x="816" y="738" width="348" height="188" rx="16" fill="#f4eefb" stroke="#7750b3" stroke-width="1.5"/>
+<text x="840" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">B · source + observer</text>
+<text x="840" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">B0 plus a separate visual helper.</text>
+<text x="840" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">describe_visible</text>
+<text x="840" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Helper reports image evidence.</text>
+<rect x="1196" y="738" width="348" height="188" rx="16" fill="#edf4ff" stroke="#235eb0" stroke-width="1.5"/>
+<text x="1220" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F-adaptive · evolve</text>
+<text x="1220" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">F plus optional hardware info.</text>
+<text x="1220" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Define, probe and revise tools.</text>
+<text x="1220" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Changes last for this episode.</text>
+<text x="56" y="970" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#203649">All actors receive images directly and share source access, scratch execution and the native action checks.</text>
+<text x="56" y="1004" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#203649">F-adaptive can add available encoders or camera calibration; its information access is part of the treatment.</text>
+<text x="56" y="1041" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Code: provider.py → runner.py → proxy.py → libero.py / robocasa.py   |   Private evaluation and replay are separate.</text>
+</svg></div><div class="cards"><article class="card f"><h3>F · typed interface</h3><p>Explicit channel semantics, units, frames, bounds and command metadata. The model still chooses every native action.</p></article><article class="card" style="border-top:4px solid #235eb0"><h3>F-adaptive · evolving interface</h3><p>F plus tools Astra can write and revise, optional hardware information, and measured calibration. Every episode starts fresh.</p></article><article class="card b0"><h3>B0 · native tools</h3><p>Observe native keys and submit the native controller vector. The model discovers the conventions through shared audited source.</p></article><article class="card b"><h3>B · native + observer</h3><p>B0’s interface plus a separate stateless Astra observer. Its current-image descriptions contain evidence and uncertainty, with no action tools.</p></article></div><div class="note">These diagrams describe the implemented interfaces. Benchmark results are reported separately. All four actors can receive images directly. F-adaptive combines tool evolution with optional extra hardware information; this comparison does not isolate those two effects.</div></section>
+<section class="panel" id="hardware" role="tabpanel" aria-labelledby="tab-hardware"><h2>LIBERO: 7-value controller</h2><div class="table-wrap"><table><thead><tr><th>F / F-adaptive channel</th><th>B0 / B native key</th><th>Shape</th><th>Units</th><th>Reference frame</th></tr></thead><tbody><tr><td>robot.joint_position</td><td>robot0_joint_pos</td><td>7</td><td>rad</td><td>joint</td></tr><tr><td>robot.joint_velocity</td><td>robot0_joint_vel</td><td>7</td><td>rad/s</td><td>joint</td></tr><tr><td>robot.eef_position</td><td>robot0_eef_pos</td><td>3</td><td>m</td><td>world</td></tr><tr><td>robot.eef_orientation</td><td>robot0_eef_quat</td><td>4</td><td>unitless</td><td>world_xyzw</td></tr><tr><td>robot.gripper_position</td><td>robot0_gripper_qpos</td><td>2</td><td>m</td><td>joint</td></tr><tr><td>robot.gripper_velocity</td><td>robot0_gripper_qvel</td><td>2</td><td>m/s</td><td>joint</td></tr><tr><td>camera.front</td><td>agentview_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>agentview</td></tr><tr><td>camera.wrist</td><td>robot0_eye_in_hand_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_eye_in_hand</td></tr></tbody></table></div><h2>RoboCasa: 12-value controller</h2><div class="table-wrap"><table><thead><tr><th>F / F-adaptive channel</th><th>B0 / B native key</th><th>Shape</th><th>Units</th><th>Reference frame</th></tr></thead><tbody><tr><td>robot.gripper_position</td><td>robot0_gripper_qpos</td><td>2</td><td>m</td><td>finger_joint</td></tr><tr><td>robot.base_position</td><td>robot0_base_pos</td><td>3</td><td>m</td><td>world</td></tr><tr><td>robot.base_orientation</td><td>robot0_base_quat</td><td>4</td><td>unitless</td><td>world_xyzw</td></tr><tr><td>robot.eef_position</td><td>robot0_base_to_eef_pos</td><td>3</td><td>m</td><td>mobile_base_center</td></tr><tr><td>robot.eef_orientation</td><td>robot0_base_to_eef_quat</td><td>4</td><td>unitless</td><td>mobile_base_center_xyzw</td></tr><tr><td>camera.left</td><td>robot0_agentview_left_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_agentview_left</td></tr><tr><td>camera.right</td><td>robot0_agentview_right_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_agentview_right</td></tr><tr><td>camera.wrist</td><td>robot0_eye_in_hand_image</td><td>128 × 128 × 3</td><td>RGB_uint8</td><td>robot0_eye_in_hand</td></tr></tbody></table></div><div class="note"><strong>Frames are part of the contract.</strong> LIBERO robot.eef_position is world-referenced; RoboCasa uses mobile-base coordinates. F and F-adaptive receive the frame explicitly; B0/B discover the native convention in audited source. F-adaptive can separately enable available extra encoders or camera calibration through its capability catalog.</div><div class="table-wrap"><table><thead><tr><th>Hardware part</th><th>LIBERO</th><th>RoboCasa</th></tr></thead><tbody><tr><td>Arm</td><td>6 OSC_POSE deltas; world reference frame</td><td>6 OSC_POSE deltas; controller base reference frame</td></tr><tr><td>Gripper</td><td>1 normalized integrated command; − opens / + closes</td><td>1 normalized integrated command; − opens / + closes</td></tr><tr><td>Mobile base</td><td>Absent</td><td>3 normalized velocity values: x, y, yaw</td></tr><tr><td>Torso</td><td>Absent</td><td>1 normalized vertical joint-position delta</td></tr><tr><td>Base mode</td><td>Absent</td><td>1 mode value: +1 tracks desired arm goal; −1 updates from achieved pose</td></tr><tr><td>Controller metadata</td><td>20 Hz; live bounds, pose scaling and controller version</td><td>Live action_order / parts resolve slice indices, scaling and control frequency</td></tr><tr><td>Execution</td><td>Same 7-value vector in F/B0/B</td><td>Same 12-value vector in F/B0/B; copy on every step prevents native in-place mutation</td></tr></tbody></table></div></section>
+<section class="panel" id="json" role="tabpanel" aria-labelledby="tab-json"><div class="note"><strong>These are real wire contracts with synthetic example values.</strong> Tool names are shown as headings; the request boxes contain the JSON arguments. Images, coordinates, timestamps and outcomes here are illustrative, not benchmark results. Full JSON Schema is generated directly by runner.tools_for.</div><div class="table-wrap"><table><thead><tr><th>Arm</th><th>Hardware tools</th><th>Additional context</th></tr></thead><tbody><tr><td>F</td><td>describe_device, read, read_latest, act</td><td>Device description is also included in the initial system prompt.</td></tr><tr><td>F-adaptive</td><td>F tools + interface_catalog, enable/read_capability, define/call_interface_tool, probe_dynamics, revise_interface_notes, restore_interface</td><td>Versioned per-episode tools and optional extra hardware information; native execution remains shared.</td></tr><tr><td>B0</td><td>observe, step</td><td>Native controller and observation conventions via source tools.</td></tr><tr><td>B</td><td>observe, step, describe_visible</td><td>Same native tools; separate stateless image-only observer.</td></tr></tbody></table></div><h2>LIBERO JSON examples</h2><details ><summary>describe_device — request arguments</summary><p></p><pre><code>{}</code></pre></details><details ><summary>describe_device — response</summary><p></p><pre><code>{
   &quot;schema_version&quot;: &quot;hardware-1&quot;,
   &quot;device_id&quot;: &quot;libero-panda&quot;,
   &quot;observations&quot;: [
@@ -108,7 +94,7 @@
         &quot;frame&quot;: &quot;joint&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -126,7 +112,7 @@
         &quot;frame&quot;: &quot;joint&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -144,7 +130,7 @@
         &quot;frame&quot;: &quot;world&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -162,7 +148,7 @@
         &quot;frame&quot;: &quot;world_xyzw&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -180,7 +166,7 @@
         &quot;frame&quot;: &quot;joint&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -198,7 +184,7 @@
         &quot;frame&quot;: &quot;joint&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -218,7 +204,7 @@
         &quot;frame&quot;: &quot;agentview&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: &quot;PNG; upright RGB&quot;
       }
@@ -238,7 +224,7 @@
         &quot;frame&quot;: &quot;robot0_eye_in_hand&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: &quot;PNG; upright RGB&quot;
       }
@@ -335,7 +321,7 @@
     0.1,
     0.3
   ],
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;units&quot;: &quot;m&quot;,
   &quot;valid&quot;: true,
   &quot;metadata&quot;: {
@@ -378,7 +364,7 @@
   ],
   &quot;applied_steps&quot;: 3,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;episode_ended&quot;: false
 }</code></pre></details><details ><summary>observe — request arguments</summary><p></p><pre><code>{
   &quot;keys&quot;: [
@@ -387,7 +373,7 @@
 }</code></pre></details><details ><summary>observe — response</summary><p></p><pre><code>{
   &quot;episode_id&quot;: &quot;example-episode&quot;,
   &quot;simulator_step&quot;: 0,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;observations&quot;: {
     &quot;robot0_eef_pos&quot;: [
       0.4,
@@ -420,7 +406,7 @@
   ],
   &quot;applied_steps&quot;: 3,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;episode_ended&quot;: false
 }</code></pre></details><details ><summary>describe_visible — request arguments</summary><p></p><pre><code>{
   &quot;request_kind&quot;: &quot;gripper_and_objects&quot;
@@ -445,7 +431,7 @@
       3
     ]
   },
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;units&quot;: &quot;RGB_uint8&quot;,
   &quot;valid&quot;: true,
   &quot;metadata&quot;: {
@@ -460,7 +446,7 @@
   &quot;applied_action&quot;: null,
   &quot;rejection_reason&quot;: &quot;stale_observation_step&quot;,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;
 }</code></pre></details><details ><summary>Complete LIBERO / F tool schemas</summary><p></p><pre><code>[
   {
     &quot;type&quot;: &quot;function&quot;,
@@ -936,6 +922,394 @@
     },
     &quot;strict&quot;: true
   }
+]</code></pre></details><details ><summary>Complete LIBERO / F_adaptive tool schemas</summary><p></p><pre><code>[
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;source_search&quot;,
+    &quot;description&quot;: &quot;Search the shared audited robotics source view with a literal substring.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;query&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;query&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;source_read&quot;,
+    &quot;description&quot;: &quot;Read an allowlisted relative file; begin at 1; at most 200 lines.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;path&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;start&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        },
+        &quot;lines&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;path&quot;,
+        &quot;start&quot;,
+        &quot;lines&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;scratch_execute&quot;,
+    &quot;description&quot;: &quot;Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;code&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;code&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;finish&quot;,
+    &quot;description&quot;: &quot;End this actor trial; the evaluator decides the outcome privately.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;describe_device&quot;,
+    &quot;description&quot;: &quot;Inspect typed channels, units, bounds and controller conventions.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read&quot;,
+    &quot;description&quot;: &quot;Read a current sensor channel while physics is paused.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;channel&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;max_age_ms&quot;: {
+          &quot;type&quot;: &quot;number&quot;,
+          &quot;minimum&quot;: 0
+        }
+      },
+      &quot;required&quot;: [
+        &quot;channel&quot;,
+        &quot;max_age_ms&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read_latest&quot;,
+    &quot;description&quot;: &quot;Read all allowed observation channels at the current simulator step.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;act&quot;,
+    &quot;description&quot;: &quot;Apply one atomic controller command for bounded repeated steps.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;envelope&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;additionalProperties&quot;: false,
+          &quot;properties&quot;: {
+            &quot;channel&quot;: {
+              &quot;type&quot;: &quot;string&quot;,
+              &quot;enum&quot;: [
+                &quot;robot.controller_command&quot;
+              ]
+            },
+            &quot;value&quot;: {
+              &quot;type&quot;: &quot;array&quot;,
+              &quot;items&quot;: {
+                &quot;type&quot;: &quot;number&quot;
+              },
+              &quot;minItems&quot;: 7,
+              &quot;maxItems&quot;: 7
+            },
+            &quot;duration_steps&quot;: {
+              &quot;type&quot;: &quot;integer&quot;
+            },
+            &quot;metadata&quot;: {
+              &quot;type&quot;: &quot;object&quot;,
+              &quot;additionalProperties&quot;: false,
+              &quot;properties&quot;: {
+                &quot;mode&quot;: {
+                  &quot;type&quot;: &quot;string&quot;,
+                  &quot;enum&quot;: [
+                    &quot;configured_controller&quot;
+                  ]
+                },
+                &quot;units&quot;: {
+                  &quot;type&quot;: &quot;string&quot;,
+                  &quot;enum&quot;: [
+                    &quot;normalized_controller_input&quot;
+                  ]
+                },
+                &quot;episode_id&quot;: {
+                  &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;observation_step&quot;: {
+                  &quot;type&quot;: &quot;integer&quot;
+                }
+              },
+              &quot;required&quot;: [
+                &quot;mode&quot;,
+                &quot;units&quot;,
+                &quot;episode_id&quot;,
+                &quot;observation_step&quot;
+              ]
+            }
+          },
+          &quot;required&quot;: [
+            &quot;channel&quot;,
+            &quot;value&quot;,
+            &quot;duration_steps&quot;,
+            &quot;metadata&quot;
+          ]
+        }
+      },
+      &quot;required&quot;: [
+        &quot;envelope&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;interface_catalog&quot;,
+    &quot;description&quot;: &quot;Inspect optional hardware capabilities and current interface revision.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;enable_capability&quot;,
+    &quot;description&quot;: &quot;Enable an available hardware capability for this episode; records your reason.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read_capability&quot;,
+    &quot;description&quot;: &quot;Read an enabled capability; no arbitrary simulator queries.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;define_interface_tool&quot;,
+    &quot;description&quot;: &quot;Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;description&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;code&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;read_only&quot;: {
+          &quot;type&quot;: &quot;boolean&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;description&quot;,
+        &quot;code&quot;,
+        &quot;read_only&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;call_interface_tool&quot;,
+    &quot;description&quot;: &quot;Execute the current version of a named interface tool in isolated scratch.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;arguments_json&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;arguments_json&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;probe_dynamics&quot;,
+    &quot;description&quot;: &quot;Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;action&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;number&quot;
+          },
+          &quot;minItems&quot;: 7,
+          &quot;maxItems&quot;: 7
+        },
+        &quot;repeat_steps&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        },
+        &quot;channels&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;minItems&quot;: 1
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;action&quot;,
+        &quot;repeat_steps&quot;,
+        &quot;channels&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;revise_interface_notes&quot;,
+    &quot;description&quot;: &quot;Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;notes&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;notes&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;restore_interface&quot;,
+    &quot;description&quot;: &quot;Restore an earlier interface revision. Does not undo robot movement or episode costs.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;revision&quot;: {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;revision&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  }
 ]</code></pre></details><h2>RoboCasa JSON examples</h2><details ><summary>describe_device — request arguments</summary><p></p><pre><code>{}</code></pre></details><details ><summary>describe_device — response</summary><p></p><pre><code>{
   &quot;schema_version&quot;: &quot;hardware-1&quot;,
   &quot;device_id&quot;: &quot;robocasa-panda-omron&quot;,
@@ -953,7 +1327,7 @@
         &quot;frame&quot;: &quot;finger_joint&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -971,7 +1345,7 @@
         &quot;frame&quot;: &quot;world&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -989,7 +1363,7 @@
         &quot;frame&quot;: &quot;world_xyzw&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -1007,7 +1381,7 @@
         &quot;frame&quot;: &quot;mobile_base_center&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -1025,7 +1399,7 @@
         &quot;frame&quot;: &quot;mobile_base_center_xyzw&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: null
       }
@@ -1045,7 +1419,7 @@
         &quot;frame&quot;: &quot;robot0_agentview_left&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: &quot;PNG; upright RGB&quot;
       }
@@ -1065,7 +1439,7 @@
         &quot;frame&quot;: &quot;robot0_agentview_right&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: &quot;PNG; upright RGB&quot;
       }
@@ -1085,7 +1459,7 @@
         &quot;frame&quot;: &quot;robot0_eye_in_hand&quot;,
         &quot;episode_id&quot;: &quot;example-episode&quot;,
         &quot;simulator_step&quot;: 0,
-        &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+        &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
         &quot;valid&quot;: true,
         &quot;image_encoding&quot;: &quot;PNG; upright RGB&quot;
       }
@@ -1212,7 +1586,7 @@
     0.1,
     0.3
   ],
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;units&quot;: &quot;m&quot;,
   &quot;valid&quot;: true,
   &quot;metadata&quot;: {
@@ -1265,7 +1639,7 @@
   ],
   &quot;applied_steps&quot;: 3,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;episode_ended&quot;: false
 }</code></pre></details><details ><summary>observe — request arguments</summary><p></p><pre><code>{
   &quot;keys&quot;: [
@@ -1274,7 +1648,7 @@
 }</code></pre></details><details ><summary>observe — response</summary><p></p><pre><code>{
   &quot;episode_id&quot;: &quot;example-episode&quot;,
   &quot;simulator_step&quot;: 0,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;observations&quot;: {
     &quot;robot0_base_to_eef_pos&quot;: [
       0.4,
@@ -1317,7 +1691,7 @@
   ],
   &quot;applied_steps&quot;: 3,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;episode_ended&quot;: false
 }</code></pre></details><details ><summary>describe_visible — request arguments</summary><p></p><pre><code>{
   &quot;request_kind&quot;: &quot;gripper_and_objects&quot;
@@ -1342,7 +1716,7 @@
       3
     ]
   },
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;,
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
   &quot;units&quot;: &quot;RGB_uint8&quot;,
   &quot;valid&quot;: true,
   &quot;metadata&quot;: {
@@ -1357,7 +1731,7 @@
   &quot;applied_action&quot;: null,
   &quot;rejection_reason&quot;: &quot;stale_observation_step&quot;,
   &quot;simulator_step&quot;: 3,
-  &quot;timestamp&quot;: &quot;2026-10-09T00:00:00+00:00&quot;
+  &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;
 }</code></pre></details><details ><summary>Complete RoboCasa / F tool schemas</summary><p></p><pre><code>[
   {
     &quot;type&quot;: &quot;function&quot;,
@@ -1833,13 +2207,889 @@
     },
     &quot;strict&quot;: true
   }
+]</code></pre></details><details ><summary>Complete RoboCasa / F_adaptive tool schemas</summary><p></p><pre><code>[
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;source_search&quot;,
+    &quot;description&quot;: &quot;Search the shared audited robotics source view with a literal substring.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;query&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;query&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;source_read&quot;,
+    &quot;description&quot;: &quot;Read an allowlisted relative file; begin at 1; at most 200 lines.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;path&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;start&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        },
+        &quot;lines&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;path&quot;,
+        &quot;start&quot;,
+        &quot;lines&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;scratch_execute&quot;,
+    &quot;description&quot;: &quot;Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;code&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;code&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;finish&quot;,
+    &quot;description&quot;: &quot;End this actor trial; the evaluator decides the outcome privately.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;describe_device&quot;,
+    &quot;description&quot;: &quot;Inspect typed channels, units, bounds and controller conventions.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read&quot;,
+    &quot;description&quot;: &quot;Read a current sensor channel while physics is paused.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;channel&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;max_age_ms&quot;: {
+          &quot;type&quot;: &quot;number&quot;,
+          &quot;minimum&quot;: 0
+        }
+      },
+      &quot;required&quot;: [
+        &quot;channel&quot;,
+        &quot;max_age_ms&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read_latest&quot;,
+    &quot;description&quot;: &quot;Read all allowed observation channels at the current simulator step.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;act&quot;,
+    &quot;description&quot;: &quot;Apply one atomic controller command for bounded repeated steps.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;envelope&quot;: {
+          &quot;type&quot;: &quot;object&quot;,
+          &quot;additionalProperties&quot;: false,
+          &quot;properties&quot;: {
+            &quot;channel&quot;: {
+              &quot;type&quot;: &quot;string&quot;,
+              &quot;enum&quot;: [
+                &quot;robot.controller_command&quot;
+              ]
+            },
+            &quot;value&quot;: {
+              &quot;type&quot;: &quot;array&quot;,
+              &quot;items&quot;: {
+                &quot;type&quot;: &quot;number&quot;
+              },
+              &quot;minItems&quot;: 12,
+              &quot;maxItems&quot;: 12
+            },
+            &quot;duration_steps&quot;: {
+              &quot;type&quot;: &quot;integer&quot;
+            },
+            &quot;metadata&quot;: {
+              &quot;type&quot;: &quot;object&quot;,
+              &quot;additionalProperties&quot;: false,
+              &quot;properties&quot;: {
+                &quot;mode&quot;: {
+                  &quot;type&quot;: &quot;string&quot;,
+                  &quot;enum&quot;: [
+                    &quot;configured_controller&quot;
+                  ]
+                },
+                &quot;units&quot;: {
+                  &quot;type&quot;: &quot;string&quot;,
+                  &quot;enum&quot;: [
+                    &quot;normalized_controller_input&quot;
+                  ]
+                },
+                &quot;episode_id&quot;: {
+                  &quot;type&quot;: &quot;string&quot;
+                },
+                &quot;observation_step&quot;: {
+                  &quot;type&quot;: &quot;integer&quot;
+                }
+              },
+              &quot;required&quot;: [
+                &quot;mode&quot;,
+                &quot;units&quot;,
+                &quot;episode_id&quot;,
+                &quot;observation_step&quot;
+              ]
+            }
+          },
+          &quot;required&quot;: [
+            &quot;channel&quot;,
+            &quot;value&quot;,
+            &quot;duration_steps&quot;,
+            &quot;metadata&quot;
+          ]
+        }
+      },
+      &quot;required&quot;: [
+        &quot;envelope&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;interface_catalog&quot;,
+    &quot;description&quot;: &quot;Inspect optional hardware capabilities and current interface revision.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {},
+      &quot;required&quot;: []
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;enable_capability&quot;,
+    &quot;description&quot;: &quot;Enable an available hardware capability for this episode; records your reason.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;read_capability&quot;,
+    &quot;description&quot;: &quot;Read an enabled capability; no arbitrary simulator queries.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;define_interface_tool&quot;,
+    &quot;description&quot;: &quot;Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;description&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;code&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;read_only&quot;: {
+          &quot;type&quot;: &quot;boolean&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;description&quot;,
+        &quot;code&quot;,
+        &quot;read_only&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;call_interface_tool&quot;,
+    &quot;description&quot;: &quot;Execute the current version of a named interface tool in isolated scratch.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;name&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;arguments_json&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;name&quot;,
+        &quot;arguments_json&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;probe_dynamics&quot;,
+    &quot;description&quot;: &quot;Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;action&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;number&quot;
+          },
+          &quot;minItems&quot;: 12,
+          &quot;maxItems&quot;: 12
+        },
+        &quot;repeat_steps&quot;: {
+          &quot;type&quot;: &quot;integer&quot;
+        },
+        &quot;channels&quot;: {
+          &quot;type&quot;: &quot;array&quot;,
+          &quot;items&quot;: {
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;minItems&quot;: 1
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;action&quot;,
+        &quot;repeat_steps&quot;,
+        &quot;channels&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;revise_interface_notes&quot;,
+    &quot;description&quot;: &quot;Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;notes&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;notes&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  },
+  {
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;name&quot;: &quot;restore_interface&quot;,
+    &quot;description&quot;: &quot;Restore an earlier interface revision. Does not undo robot movement or episode costs.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;additionalProperties&quot;: false,
+      &quot;properties&quot;: {
+        &quot;revision&quot;: {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;minimum&quot;: 0
+        },
+        &quot;reason&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        }
+      },
+      &quot;required&quot;: [
+        &quot;revision&quot;,
+        &quot;reason&quot;
+      ]
+    },
+    &quot;strict&quot;: true
+  }
 ]</code></pre></details><h2>Shared tools</h2><div class="table-wrap"><table><thead><tr><th>Tool</th><th>Arguments</th><th>Behavior</th></tr></thead><tbody><tr><td>source_search</td><td>query</td><td>Literal substring search in the shared source allowlist.</td></tr><tr><td>source_read</td><td>path, start, lines</td><td>Allowlisted relative file; 1-based start; at most 200 lines.</td></tr><tr><td>scratch_execute</td><td>code</td><td>Standard-library Python; set result to JSON. Arm-specific robot calls route back to Router.</td></tr><tr><td>finish</td><td>{}</td><td>Ends the rollout as TASK_FAILURE if official success has not already ended it. The actor cannot self-award success.</td></tr></tbody></table></div><details ><summary>scratch_execute — F example</summary><p></p><pre><code>{
   &quot;code&quot;: &quot;result = read(&#x27;robot.eef_position&#x27;, 1000)&quot;
 }</code></pre></details><details ><summary>scratch_execute — B0/B example</summary><p></p><pre><code>{
   &quot;code&quot;: &quot;result = observe([&#x27;robot0_eef_pos&#x27;])&quot;
 }</code></pre></details><p>Scratch exposes read/act in F and observe/step in B0/B. Each nested hardware call is validated and logged through Router. The observer receives current camera images plus the requested evidence category, with no task instruction, source tools or action tools.</p></section>
-<section class="panel" id="code" role="tabpanel" aria-labelledby="tab-code"><h2>Module ownership</h2><p>Paths below are under <code>astra_reversal/hardware_interface/</code>, except experiment schemas, configuration and launcher scripts. A single shared actor/router/proxy layer sits above benchmark-specific adapters.</p><div class="table-wrap"><table><thead><tr><th>Module</th><th>Responsibility</th><th>Implemented behavior</th></tr></thead><tbody><tr><td>protocol.py / robocasa_protocol.py</td><td>Experiment contract</td><td>Limits, fixed task/scenario schedule, condition pairing, protocol validation.</td></tr><tr><td>osmo_worker.py + pilot_worker.py / robocasa_worker.py</td><td>Trial orchestration</td><td>Prepare pinned runtime, commission hardware, reset each trial, call run_trial, replay and archive receipts.</td></tr><tr><td>runner.py · tools_for</td><td>Tool definitions</td><td>Strict JSON Schemas per arm; action vector dimension comes from Proxy.action_dim.</td></tr><tr><td>runner.py · run_trial / Router</td><td>Live control loop</td><td>Fresh actor, parse calls, validate JSON, dispatch tools, return observations and record outcomes.</td></tr><tr><td>provider.py · Session / Meter / Observer</td><td>Inference and usage</td><td>NVIDIA Responses transport, actor and observer histories, PNG image transport, token and latency accounting.</td></tr><tr><td>proxy.py · Proxy / validate_action</td><td>Only action execution boundary</td><td>Map typed/native observations; reject invalid/stale commands; repeat native steps; check private success after every step.</td></tr><tr><td>schema.py + hardware.schema.json</td><td>Device-description validation</td><td>JSON structure and semantic checks for channel shape, frequency, bounds and safe range.</td></tr><tr><td>libero.py / robocasa.py · Environment</td><td>Benchmark adapters</td><td>Native reset, sensor readback, controller metadata, action step, private success and terminal snapshot.</td></tr><tr><td>sources.py · SourceView / build_view</td><td>Read-only robot source</td><td>Positive file/projection allowlist and SHA-256 verification. RoboCasa has its own build_view in robocasa.py.</td></tr><tr><td>isolation.py + scratch_worker.py</td><td>Scratch execution</td><td>Chroot, dropped privileges, seccomp, read-only /sources, writable /scratch; nested calls route through Router.</td></tr><tr><td>common.py · Events</td><td>Evidence</td><td>Append-only events.jsonl with sequence, previous_sha256 and current sha256.</td></tr><tr><td>analysis.py / reporting.py</td><td>Results</td><td>Success, termination reasons and usage. RoboCasa paired_success_times compares jointly successful verified starts.</td></tr></tbody></table></div><h2>JSON and artifact boundaries</h2><div class="table-wrap"><table><thead><tr><th>Artifact / representation</th><th>Purpose</th><th>Actor can read?</th></tr></thead><tbody><tr><td>preregistration.yaml → resolved manifest JSON</td><td>Frozen design, resolved source / controller / scenario receipts</td><td>Only permitted prompt settings, task instruction and F device description</td></tr><tr><td>hardware-1 device JSON</td><td>Observation channel + action specification</td><td>F; B0/B use native source discovery</td></tr><tr><td>Tool request / response JSON</td><td>Read sensors, issue commands, receive validation and execution receipts</td><td>Yes, for tools available to the selected arm</td></tr><tr><td>PNG image payload</td><td>Upright RGB camera observation</td><td>Yes, identical camera authority in all arms</td></tr><tr><td>allowlist.json</td><td>Allowed source projections and their content hashes</td><td>Source access restricted to those entries</td></tr><tr><td>events.jsonl</td><td>Chained private trace, including actions and evaluator results</td><td>No direct file access</td></tr><tr><td>outcome.json + terminal state</td><td>Scored success, termination reason, usage and state for audit</td><td>No</td></tr><tr><td>independent-replay.json</td><td>Audit verdict: same reset, actions, success step, terminal state</td><td>No</td></tr><tr><td>analysis.json</td><td>Aggregate results, paired comparisons and limitations</td><td>No</td></tr></tbody></table></div><div class="boundary"><strong>Read-only actor boundary:</strong> no direct simulator handle, hidden object poses, task/reward implementations, evaluator success labels, other rollouts or credentials. The observer sees current images, not task state. Private logs can contain model text and are not part of this shareable document.</div></section>
-<section class="panel" id="trace" role="tabpanel" aria-labelledby="tab-trace"><h2>One live control cycle</h2><article class="trace"><span>01</span><div><h3>Prepare</h3><p>Worker loads frozen task / seed / arm, verifies source and runtime, resets the native environment and records its controller and initial-state identity.</p></div></article><article class="trace"><span>02</span><div><h3>Discover</h3><p>F receives hardware-1 JSON; describe_device can refresh it. B0/B inspect audited source to discover native keys, action order, scaling and frames.</p></div></article><article class="trace"><span>03</span><div><h3>Sense</h3><p>F read/read_latest or B0/B observe samples paused current sensors. JSON carries the current simulator step. PNG images become model image inputs.</p></div></article><article class="trace"><span>04</span><div><h3>Reason</h3><p>provider.Session sends the task, history, tools and observations to Astra. Physics is paused. Weights stay fixed; scratch is optional.</p></div></article><article class="trace"><span>05</span><div><h3>Validate</h3><p>Router validates allowed tools and strict JSON; Proxy validates finite numbers, exact vector length, controller bounds, repeat count and freshness. F also checks channel, mode, units and episode.</p></div></article><article class="trace"><span>06</span><div><h3>Execute</h3><p>Proxy.step applies the same native vector for the requested repeats, at most ten. The adapter advances physics; private official success is checked after each native step. First success stops the remaining repeats.</p></div></article><article class="trace"><span>07</span><div><h3>Observe again</h3><p>Actor receives an execution receipt, never reward/done/info or the private success label. It reads current sensors and submits a fresh observation_step for the next action. episode_ended signals termination.</p></div></article><article class="trace"><span>08</span><div><h3>Verify</h3><p>Worker records outcome and terminal state. Independent replay reconstructs the reset and saved actions in another process, compares first success and terminal state, then archives evidence. No model calls in replay.</p></div></article><div class="note">Success is checked inside each repeated command. For example, a requested 10-step action can return applied_steps=4 when success occurs on its fourth native step. F and B0/B share this exact behavior.</div></section></main><footer>Generated from implemented contracts; examples validated against the tool schemas and the hardware description schema. Synthetic values are labeled. This HTML includes its SVG, JSON, styling and navigation and works offline. Code source hashes are included in the contracts download.</footer><script id="contracts-data" type="application/json">{
+<section class="panel" id="code" role="tabpanel" aria-labelledby="tab-code"><h2>Original F / B0 / B execution paths</h2><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1440" viewBox="0 0 1800 1440" role="img" aria-labelledby="execution-title execution-desc">
+<title id="execution-title">Astra hardware interface: JSON contracts and code architecture</title>
+<desc id="execution-desc">Three actor interfaces, shared execution proxy, native hardware adapters, private evaluation and replay. Full JSON examples and sensor tables accompany this diagram in the standalone HTML.</desc>
+<defs><marker id="execution-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse"><path d="M0,0 L9,4.5 L0,9" fill="#49627d"/></marker></defs>
+<rect width="1800" height="1440" fill="#f5f8fc"/>
+<text x="48" y="55" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" fill="#142d46">Astra → hardware: interfaces, JSON and code</text>
+<text x="48" y="89" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#49627d">Fresh actor per rollout • Fixed model weights • One selected interface • Same native robot authority</text>
+<rect x="48" y="123" width="1704" height="103" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="68" y="157" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">1  runner.run_trial + provider.Session</text>
+<text x="68" y="190" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Official task instruction + allowed tools → model function call {name, arguments} → strict JSON parsing → Router.dispatch(tool, arguments)</text>
+<path d="M310,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<path d="M898,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<path d="M1488,226 V264" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<rect x="48" y="273" width="524" height="260" rx="15" fill="#eaf7f3" stroke="#087f70" stroke-width="1.6"/>
+<text x="68" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#087f70">F  Typed hardware interface</text>
+<text x="68" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">describe_device() → hardware-1 description</text>
+<text x="68" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">read(channel, max_age_ms) / read_latest()</text>
+<text x="68" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">act(envelope) → Proxy.act → Proxy.step</text>
+<text x="68" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Envelope: channel, value, duration_steps,</text>
+<text x="68" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">metadata {mode, units, episode_id,</text>
+<text x="68" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">observation_step}; units/frames declared.</text>
+<rect x="636" y="273" width="524" height="260" rx="15" fill="#fff5ea" stroke="#ab5e19" stroke-width="1.6"/>
+<text x="656" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#ab5e19">B0  Native codebase interface</text>
+<text x="656" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">source tools reveal native conventions</text>
+<text x="656" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">observe(keys) → native sensor dictionary</text>
+<text x="656" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">step(action, repeat_steps, observation_step)</text>
+<text x="656" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">→ Proxy.step with the same vector as F</text>
+<text x="656" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">JSON input schema fixes action dimension;</text>
+<text x="656" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">the actor discovers ordering in source.</text>
+<rect x="1224" y="273" width="528" height="260" rx="15" fill="#f4eefb" stroke="#7750b3" stroke-width="1.6"/>
+<text x="1244" y="307" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#7750b3">B  Native interface + observer</text>
+<text x="1244" y="340" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Same observe / step tools as B0</text>
+<text x="1244" y="367" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">describe_visible(request_kind)</text>
+<text x="1244" y="394" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">→ current camera images → Observer</text>
+<text x="1244" y="421" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">JSON: frame_step, visible_facts,</text>
+<text x="1244" y="448" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">uncertainties, occlusions</text>
+<text x="1244" y="475" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Observer has no action tools or task plans.</text>
+<rect x="48" y="555" width="1704" height="103" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="68" y="589" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">Available in every arm: source_search • source_read • scratch_execute • finish</text>
+<text x="68" y="622" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">SourceView exposes audited robot/controller code. Isolated Python scratch can call only that arm’s proxy tools. No env handle or network.</text>
+<path d="M310,533 V544 H22 V701 H68" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<path d="M898,533 V544 H1790 V701 H1732" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<path d="M1488,533 V544 H1790" fill="none" stroke="#49627d" stroke-width="2.1"/>
+<rect x="78" y="684" width="1654" height="155" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="98" y="718" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">2  Router → shared Proxy: validate, execute, record</text>
+<text x="98" y="751" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">runner.py: JSON Schema + allowed tool → proxy.py: finite vector, exact 7D/12D shape, bounds, repeat ≤ 10, current observation step</text>
+<text x="98" y="778" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">F adds channel / mode / units / episode checks. Rejected commands apply no action. All arms execute the same normalized native controller.</text>
+<text x="98" y="805" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Return {accepted, applied_action, applied_steps, simulator_step, timestamp, episode_ended}; read again before the next action.</text>
+<path d="M468,839 V872" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)" marker-start="url(#execution-arrow)"/>
+<text x="240" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">native actions ↓</text>
+<text x="525" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">images / sensors ↑</text>
+<path d="M1332,839 V872" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)" marker-start="url(#execution-arrow)"/>
+<text x="1104" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">native actions ↓</text>
+<text x="1389" y="862" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">images / sensors ↑</text>
+<rect x="48" y="879" width="816" height="196" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="68" y="913" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">3a  libero.Environment — fixed-base Panda</text>
+<text x="68" y="946" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">7 values: Δx, Δy, Δz, axis-angle Δrotation (3), gripper</text>
+<text x="68" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">OSC_POSE; pose commands in world frame; 20 Hz</text>
+<text x="68" y="1000" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">6 numeric channels: joints, end effector, gripper</text>
+<text x="68" y="1027" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">2 RGB cameras: front + wrist; upright PNG, 128 × 128</text>
+<text x="68" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Readback: typed envelope (F) or native keys (B0/B)</text>
+<rect x="936" y="879" width="816" height="196" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="956" y="913" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">3b  robocasa.Environment — mobile PandaOmron</text>
+<text x="956" y="946" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">12 values: arm (6), gripper, base (3), torso, base mode</text>
+<text x="956" y="973" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">HYBRID_MOBILE_BASE; native arm controller uses base frame</text>
+<text x="956" y="1000" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">5 numeric channels: base, end effector, gripper</text>
+<text x="956" y="1027" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">3 RGB cameras: left + right + wrist; upright PNG, 128 × 128</text>
+<text x="956" y="1054" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Live controller resolves exact slices / scaling / control frequency</text>
+<path d="M456,1075 V1111" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<path d="M1344,1075 V1095 H456" fill="none" stroke="#49627d" stroke-width="2.1"/>
+<rect x="48" y="1118" width="816" height="180" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="68" y="1152" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">4  Private evaluator + common.Events</text>
+<text x="68" y="1185" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Official success predicate after each applied native step</text>
+<text x="68" y="1212" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Stop at first success, horizon, finish, or infrastructure error</text>
+<text x="68" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">events.jsonl: chained hashes; actions, observations, model calls</text>
+<text x="68" y="1266" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">outcome.json: success, reason, steps, time, actor/observer usage</text>
+<rect x="936" y="1118" width="816" height="180" rx="15" fill="white" stroke="#ccd9e6" stroke-width="1.6"/>
+<text x="956" y="1152" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#142d46">5  Worker replay + analysis</text>
+<text x="956" y="1185" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Separate process: same pinned reset + recorded native actions</text>
+<text x="956" y="1212" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">Compare first-success step and terminal simulator state</text>
+<text x="956" y="1239" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">independent-replay.json → verified evidence + analysis.json</text>
+<text x="956" y="1266" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">No model calls during replay; it verifies live control.</text>
+<path d="M864,1209 H927" fill="none" stroke="#49627d" stroke-width="2.1" marker-end="url(#execution-arrow)"/>
+<text x="883" y="1188" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#49627d">logs</text>
+<text x="48" y="1343" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#49627d">IMPLEMENTED BOUNDARY</text>
+<text x="48" y="1372" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="400" fill="#142d46">Actor sees robot sensors, camera images and audited source. Task internals, object state and evaluator labels stay private.</text>
+<text x="48" y="1409" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#49627d">See standalone HTML for every channel, exact request / response JSON, complete generated tool schemas and module ownership.</text>
+</svg></div><p>F-adaptive adds the versioned interface layer shown in its dedicated view, above the same execution proxy.</p><h2>Module ownership</h2><p>Paths below are under <code>astra_reversal/hardware_interface/</code>, except experiment schemas, configuration and launcher scripts. A single shared actor/router/proxy layer sits above benchmark-specific adapters.</p><div class="table-wrap"><table><thead><tr><th>Module</th><th>Responsibility</th><th>Implemented behavior</th></tr></thead><tbody><tr><td>protocol.py / robocasa_protocol.py</td><td>Experiment contract</td><td>Limits, fixed task/scenario schedule, condition pairing, protocol validation.</td></tr><tr><td>osmo_worker.py + pilot_worker.py / robocasa_worker.py</td><td>Trial orchestration</td><td>Prepare pinned runtime, commission hardware, reset each trial, call run_trial, replay and archive receipts.</td></tr><tr><td>runner.py · tools_for</td><td>Tool definitions</td><td>Strict JSON Schemas per arm; action vector dimension comes from Proxy.action_dim.</td></tr><tr><td>runner.py · run_trial / Router</td><td>Live control loop</td><td>Fresh actor, parse calls, validate JSON, dispatch tools, return observations and record outcomes.</td></tr><tr><td>adaptive.py · AdaptiveInterface</td><td>F-adaptive interface evolution</td><td>Per-episode capabilities, versioned Python tools, measured probes, notes and restore; every action uses the shared proxy.</td></tr><tr><td>provider.py · Session / Meter / Observer</td><td>Inference and usage</td><td>NVIDIA Responses transport, actor and observer histories, PNG image transport, token and latency accounting.</td></tr><tr><td>proxy.py · Proxy / validate_action</td><td>Only action execution boundary</td><td>Map typed/native observations; reject invalid/stale commands; repeat native steps; check private success after every step.</td></tr><tr><td>schema.py + hardware.schema.json</td><td>Device-description validation</td><td>JSON structure and semantic checks for channel shape, frequency, bounds and safe range.</td></tr><tr><td>libero.py / robocasa.py · Environment</td><td>Benchmark adapters</td><td>Native reset, sensor readback, controller metadata, action step, private success and terminal snapshot.</td></tr><tr><td>sources.py · SourceView / build_view</td><td>Read-only robot source</td><td>Positive file/projection allowlist and SHA-256 verification. RoboCasa has its own build_view in robocasa.py.</td></tr><tr><td>isolation.py + scratch_worker.py</td><td>Scratch execution</td><td>Chroot, dropped privileges, seccomp, read-only /sources, writable /scratch; nested calls route through Router.</td></tr><tr><td>common.py · Events</td><td>Evidence</td><td>Append-only events.jsonl with sequence, previous_sha256 and current sha256.</td></tr><tr><td>analysis.py / reporting.py</td><td>Results</td><td>Success, termination reasons and usage. RoboCasa paired_success_times compares jointly successful verified starts.</td></tr></tbody></table></div><h2>JSON and artifact boundaries</h2><div class="table-wrap"><table><thead><tr><th>Artifact / representation</th><th>Purpose</th><th>Actor can read?</th></tr></thead><tbody><tr><td>preregistration.yaml → resolved manifest JSON</td><td>Frozen design, resolved source / controller / scenario receipts</td><td>Only permitted prompt settings, task instruction and F device description</td></tr><tr><td>hardware-1 device JSON</td><td>Observation channel + action specification</td><td>F; B0/B use native source discovery</td></tr><tr><td>Tool request / response JSON</td><td>Read sensors, issue commands, receive validation and execution receipts</td><td>Yes, for tools available to the selected arm</td></tr><tr><td>PNG image payload</td><td>Upright RGB camera observation</td><td>Yes, identical camera authority in all arms</td></tr><tr><td>allowlist.json</td><td>Allowed source projections and their content hashes</td><td>Source access restricted to those entries</td></tr><tr><td>events.jsonl</td><td>Chained private trace, including actions and evaluator results</td><td>No direct file access</td></tr><tr><td>outcome.json + terminal state</td><td>Scored success, termination reason, usage and state for audit</td><td>No</td></tr><tr><td>independent-replay.json</td><td>Audit verdict: same reset, actions, success step, terminal state</td><td>No</td></tr><tr><td>analysis.json</td><td>Aggregate results, paired comparisons and limitations</td><td>No</td></tr></tbody></table></div><div class="boundary"><strong>Read-only actor boundary:</strong> no direct simulator handle, hidden object poses, task/reward implementations, evaluator success labels, other rollouts or credentials. The observer sees current images, not task state. Private logs can contain model text and are not part of this shareable document.</div></section>
+<section class="panel" id="trace" role="tabpanel" aria-labelledby="tab-trace"><h2>One live control cycle</h2><article class="trace"><span>01</span><div><h3>Prepare</h3><p>Worker loads frozen task / seed / arm, verifies source and runtime, resets the native environment and records its controller and initial-state identity.</p></div></article><article class="trace"><span>02</span><div><h3>Discover</h3><p>F receives hardware-1 JSON; describe_device can refresh it. B0/B inspect audited source to discover native keys, action order, scaling and frames.</p></div></article><article class="trace"><span>03</span><div><h3>Sense</h3><p>F read/read_latest or B0/B observe samples paused current sensors. JSON carries the current simulator step. PNG images become model image inputs.</p></div></article><article class="trace"><span>04</span><div><h3>Reason</h3><p>provider.Session sends the task, history, tools and observations to Astra. Physics is paused. Weights stay fixed; scratch is optional.</p></div></article><article class="trace"><span>05</span><div><h3>Validate</h3><p>Router validates allowed tools and strict JSON; Proxy validates finite numbers, exact vector length, controller bounds, repeat count and freshness. F also checks channel, mode, units and episode.</p></div></article><article class="trace"><span>06</span><div><h3>Execute</h3><p>Proxy.step applies the same native vector for the requested repeats, at most ten. The adapter advances physics; private official success is checked after each native step. First success stops the remaining repeats.</p></div></article><article class="trace"><span>07</span><div><h3>Observe again</h3><p>Actor receives an execution receipt, never reward/done/info or the private success label. It reads current sensors and submits a fresh observation_step for the next action. episode_ended signals termination.</p></div></article><article class="trace"><span>08</span><div><h3>Verify</h3><p>Worker records outcome and terminal state. Independent replay reconstructs the reset and saved actions in another process, compares first success and terminal state, then archives evidence. No model calls in replay.</p></div></article><div class="note">Success is checked inside each repeated command. For example, a requested 10-step action can return applied_steps=4 when success occurs on its fourth native step. F and B0/B share this exact behavior.</div></section><section class="panel" id="adaptive" role="tabpanel" aria-labelledby="tab-adaptive"><h2>How Astra evolves its harness</h2><p>The editable harness is a versioned layer of tools, enabled capabilities and notes above the native robot API. The model chooses how to use it during the episode.</p><p><a href="harness-example.html">Inspect a real rollout: camera calibration, new control tools, and a triangulation-code revision at native step 211.</a></p><p>The top-level model tool schemas stay fixed. Newly written programs live in an episode-local registry and are invoked by name through <code>call_interface_tool</code>; the model receives their descriptions, version hashes and current interface notes.</p><div class="buttons"><button id="download-adaptive">Download adaptive SVG</button></div><div class="diagram"><svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" role="img" aria-labelledby="adaptive-title adaptive-description">
+<title id="adaptive-title">F-adaptive: evolving the agent&#x27;s hardware interface</title>
+<desc id="adaptive-description">Astra can inspect and enable available hardware information, measure native action responses, define versioned tools, execute them through the shared proxy, and revise or restore its interface. These are optional operations chosen by the actor, not a prescribed task plan.</desc>
+<defs><marker id="adaptive-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#63788b"/></marker></defs>
+<rect width="1600" height="1010" fill="#f6f8fb"/>
+<text x="56" y="52" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#235eb0">F-ADAPTIVE · PER-EPISODE INTERFACE EVOLUTION</text>
+<text x="56" y="103" font-family="Arial,Helvetica,sans-serif" font-size="35" font-weight="700" fill="#203649">Astra can improve the tools it uses to control the robot</text>
+<text x="56" y="141" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#4b657a">Possible feedback loop; Astra chooses which operations to use and their order. There is no required recipe.</text>
+<rect x="56" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="80" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Inspect available information</text>
+<text x="80" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">interface_catalog</text>
+<text x="80" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">enable_capability / read_capability</text>
+<text x="80" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Optional native encoders or calibration</text>
+<text x="80" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Only capabilities the adapter provides</text>
+<rect x="574" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="598" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Measure local action response</text>
+<text x="598" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">probe_dynamics</text>
+<text x="598" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Numeric readings before and after</text>
+<text x="598" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Bounded native actions move the robot</text>
+<text x="598" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Executed probe steps count in episode</text>
+<rect x="1092" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="1116" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Create or revise an interface tool</text>
+<text x="1116" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">define_interface_tool</text>
+<text x="1116" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Named Python code + read/control role</text>
+<text x="1116" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">revise_interface_notes</text>
+<text x="1116" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Store measured conventions or models</text>
+<rect x="1092" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="1116" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Run the current tool version</text>
+<text x="1116" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">call_interface_tool</text>
+<text x="1116" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">JSON parameters → isolated Python</text>
+<text x="1116" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read / act / read_capability</text>
+<text x="1116" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read-only tools cannot dispatch actions</text>
+<rect x="574" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="598" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Execute through the shared proxy</text>
+<text x="598" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Same native controller and action checks</text>
+<text x="598" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Bounds, shape, repeat count, freshness</text>
+<text x="598" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Control tools cannot bypass validation</text>
+<text x="598" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Robot motion consumes episode steps</text>
+<rect x="56" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="80" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Observe and update</text>
+<text x="80" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read current cameras and robot state</text>
+<text x="80" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Compare observations with hypotheses</text>
+<text x="80" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Revise tools or notes, or restore a version</text>
+<text x="80" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Restore does not reverse robot motion</text>
+<path d="M509 318H564" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)"/>
+<path d="M1027 318H1082" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)"/>
+<path d="M1318 429V492" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)"/>
+<path d="M1091 612H1036" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)"/>
+<path d="M573 612H518" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)"/>
+<path d="M282 501V438" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#adaptive-arrow)" stroke-dasharray="7 6"/>
+<text x="306" y="473" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">repeat as needed</text>
+<rect x="56" y="785" width="720" height="165" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="824" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Versioned evidence</text>
+<text x="80" y="862" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">adaptive.py: code, hashes, capabilities, notes and reasons</text>
+<text x="80" y="891" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">interface-evolution/revision-*.json + events.jsonl</text>
+<text x="80" y="920" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Independent replay includes probe and tool-generated actions</text>
+<rect x="824" y="785" width="720" height="165" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="848" y="824" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Reset and interpretation</text>
+<text x="848" y="862" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Empty tools and notes at each new trial; no cross-trial transfer</text>
+<text x="848" y="891" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Simulator, native limits and evaluator stay outside the editor</text>
+<text x="848" y="920" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">This treatment combines tool evolution and optional extra info</text>
+<text x="56" y="987" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Example behavior, not a fixed policy. Architecture diagrams and synthetic JSON examples are separate from trial evidence.</text>
+</svg></div><div class="table-wrap"><table><thead><tr><th>Astra can change</th><th>Implementation</th></tr></thead><tbody><tr><td>Available hardware information</td><td>Discover and enable allowlisted additional encoders or camera calibration, when the adapter supplies them.</td></tr><tr><td>Python interface tools</td><td>Define or replace a named program; call it with JSON parameters in isolated scratch. A read_only program cannot dispatch act.</td></tr><tr><td>Measured response model or operating notes</td><td>Probe a bounded native command, inspect before/after readings, and retain a hypothesis in per-episode notes.</td></tr><tr><td>Interface version</td><td>Restore earlier capabilities, tool definitions and notes. Robot motion and consumed steps remain.</td></tr></tbody></table></div><p><strong>Fixed underneath:</strong> model weights, native controller, execution checks and private success evaluator. No tool or learned notes transfer into the next trial. Probe actions and control tools use the same episode horizon.</p><div class="note">Synthetic examples below use the actual Router and adaptive implementation with fixture sensors. They are schema-validated documentation, not recorded Astra behavior or benchmark outcomes. The named tool is defined but is not executed by this documentation generator.</div><h2>LIBERO: example interface revision</h2><details ><summary>interface_catalog — request arguments</summary><p></p><pre><code>{}</code></pre></details><details ><summary>interface_catalog — synthetic response</summary><p></p><pre><code>{
+  &quot;available_capabilities&quot;: {
+    &quot;additional_proprioception&quot;: {
+      &quot;description&quot;: &quot;Additional native robot encoders currently omitted from F&quot;,
+      &quot;sensors&quot;: {
+        &quot;robot0_joint_acc&quot;: {
+          &quot;description&quot;: &quot;native joint accelerations in source joint order&quot;,
+          &quot;units&quot;: &quot;rad/s^2 for hinge, m/s^2 for slide&quot;
+        }
+      }
+    }
+  },
+  &quot;revision&quot;: 0,
+  &quot;enabled_capabilities&quot;: [],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434&quot;
+}</code></pre></details><details ><summary>enable_capability — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;additional_proprioception&quot;,
+  &quot;reason&quot;: &quot;Inspect additional robot encoders available in this fixture.&quot;
+}</code></pre></details><details ><summary>enable_capability — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 1,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3&quot;
+}</code></pre></details><details ><summary>read_capability — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;additional_proprioception&quot;
+}</code></pre></details><details ><summary>read_capability — synthetic response</summary><p></p><pre><code>{
+  &quot;capability&quot;: &quot;additional_proprioception&quot;,
+  &quot;revision&quot;: 1,
+  &quot;simulator_step&quot;: 0,
+  &quot;values&quot;: {
+    &quot;robot0_joint_acc&quot;: [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+}</code></pre></details><details open><summary>define_interface_tool — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;eef_position_mm&quot;,
+  &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+  &quot;code&quot;: &quot;sample = read(&#x27;robot.eef_position&#x27;, 1000)\nresult = {&#x27;position_mm&#x27;: [1000 * v for v in sample[&#x27;value&#x27;]], &#x27;frame&#x27;: sample[&#x27;metadata&#x27;][&#x27;frame&#x27;], &#x27;simulator_step&#x27;: sample[&#x27;metadata&#x27;][&#x27;simulator_step&#x27;]}&quot;,
+  &quot;read_only&quot;: true,
+  &quot;reason&quot;: &quot;Make a reusable sensor conversion for this episode.&quot;
+}</code></pre></details><details ><summary>define_interface_tool — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 2,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {
+    &quot;eef_position_mm&quot;: {
+      &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+      &quot;read_only&quot;: true,
+      &quot;code_sha256&quot;: &quot;f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2&quot;
+    }
+  },
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5&quot;
+}</code></pre></details><details ><summary>call_interface_tool — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;eef_position_mm&quot;,
+  &quot;arguments_json&quot;: &quot;{}&quot;
+}</code></pre></details><details ><summary>probe_dynamics — request arguments</summary><p></p><pre><code>{
+  &quot;action&quot;: [
+    0.1,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  &quot;repeat_steps&quot;: 2,
+  &quot;channels&quot;: [
+    &quot;robot.eef_position&quot;
+  ],
+  &quot;reason&quot;: &quot;Measure a local response; this fixture has synthetic constant sensors.&quot;
+}</code></pre></details><details ><summary>probe_dynamics — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 2,
+  &quot;reason&quot;: &quot;Measure a local response; this fixture has synthetic constant sensors.&quot;,
+  &quot;action&quot;: [
+    0.1,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  &quot;start_step&quot;: 0,
+  &quot;end_step&quot;: 2,
+  &quot;executed_steps&quot;: 2,
+  &quot;before&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.4,
+      0.1,
+      0.3
+    ]
+  },
+  &quot;after&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.4,
+      0.1,
+      0.3
+    ]
+  },
+  &quot;delta&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  &quot;command_result&quot;: {
+    &quot;accepted&quot;: true,
+    &quot;applied_action&quot;: [
+      0.1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    &quot;applied_steps&quot;: 2,
+    &quot;simulator_step&quot;: 2,
+    &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
+    &quot;episode_ended&quot;: false
+  },
+  &quot;interpretation&quot;: &quot;Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity.&quot;
+}</code></pre></details><details ><summary>revise_interface_notes — request arguments</summary><p></p><pre><code>{
+  &quot;notes&quot;: &quot;This documentation fixture has constant sensors; it is not a dynamics estimate.&quot;,
+  &quot;reason&quot;: &quot;Keep measurement provenance explicit.&quot;
+}</code></pre></details><details ><summary>revise_interface_notes — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 3,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {
+    &quot;eef_position_mm&quot;: {
+      &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+      &quot;read_only&quot;: true,
+      &quot;code_sha256&quot;: &quot;f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2&quot;
+    }
+  },
+  &quot;notes&quot;: &quot;This documentation fixture has constant sensors; it is not a dynamics estimate.&quot;,
+  &quot;state_sha256&quot;: &quot;88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e&quot;
+}</code></pre></details><details ><summary>restore_interface — request arguments</summary><p></p><pre><code>{
+  &quot;revision&quot;: 0,
+  &quot;reason&quot;: &quot;Restore the empty interface.&quot;
+}</code></pre></details><details ><summary>restore_interface — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 4,
+  &quot;enabled_capabilities&quot;: [],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434&quot;
+}</code></pre></details><h2>RoboCasa: example interface revision</h2><details ><summary>interface_catalog — request arguments</summary><p></p><pre><code>{}</code></pre></details><details ><summary>interface_catalog — synthetic response</summary><p></p><pre><code>{
+  &quot;available_capabilities&quot;: {
+    &quot;additional_proprioception&quot;: {
+      &quot;description&quot;: &quot;Additional native robot encoders currently omitted from F&quot;,
+      &quot;sensors&quot;: {
+        &quot;robot0_joint_acc&quot;: {
+          &quot;description&quot;: &quot;native joint accelerations in source joint order&quot;,
+          &quot;units&quot;: &quot;rad/s^2 for hinge, m/s^2 for slide&quot;
+        }
+      }
+    }
+  },
+  &quot;revision&quot;: 0,
+  &quot;enabled_capabilities&quot;: [],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434&quot;
+}</code></pre></details><details ><summary>enable_capability — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;additional_proprioception&quot;,
+  &quot;reason&quot;: &quot;Inspect additional robot encoders available in this fixture.&quot;
+}</code></pre></details><details ><summary>enable_capability — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 1,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3&quot;
+}</code></pre></details><details ><summary>read_capability — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;additional_proprioception&quot;
+}</code></pre></details><details ><summary>read_capability — synthetic response</summary><p></p><pre><code>{
+  &quot;capability&quot;: &quot;additional_proprioception&quot;,
+  &quot;revision&quot;: 1,
+  &quot;simulator_step&quot;: 0,
+  &quot;values&quot;: {
+    &quot;robot0_joint_acc&quot;: [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  }
+}</code></pre></details><details ><summary>define_interface_tool — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;eef_position_mm&quot;,
+  &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+  &quot;code&quot;: &quot;sample = read(&#x27;robot.eef_position&#x27;, 1000)\nresult = {&#x27;position_mm&#x27;: [1000 * v for v in sample[&#x27;value&#x27;]], &#x27;frame&#x27;: sample[&#x27;metadata&#x27;][&#x27;frame&#x27;], &#x27;simulator_step&#x27;: sample[&#x27;metadata&#x27;][&#x27;simulator_step&#x27;]}&quot;,
+  &quot;read_only&quot;: true,
+  &quot;reason&quot;: &quot;Make a reusable sensor conversion for this episode.&quot;
+}</code></pre></details><details ><summary>define_interface_tool — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 2,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {
+    &quot;eef_position_mm&quot;: {
+      &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+      &quot;read_only&quot;: true,
+      &quot;code_sha256&quot;: &quot;f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2&quot;
+    }
+  },
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5&quot;
+}</code></pre></details><details ><summary>call_interface_tool — request arguments</summary><p></p><pre><code>{
+  &quot;name&quot;: &quot;eef_position_mm&quot;,
+  &quot;arguments_json&quot;: &quot;{}&quot;
+}</code></pre></details><details ><summary>probe_dynamics — request arguments</summary><p></p><pre><code>{
+  &quot;action&quot;: [
+    0.1,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  &quot;repeat_steps&quot;: 2,
+  &quot;channels&quot;: [
+    &quot;robot.eef_position&quot;
+  ],
+  &quot;reason&quot;: &quot;Measure a local response; this fixture has synthetic constant sensors.&quot;
+}</code></pre></details><details ><summary>probe_dynamics — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 2,
+  &quot;reason&quot;: &quot;Measure a local response; this fixture has synthetic constant sensors.&quot;,
+  &quot;action&quot;: [
+    0.1,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  &quot;start_step&quot;: 0,
+  &quot;end_step&quot;: 2,
+  &quot;executed_steps&quot;: 2,
+  &quot;before&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.4,
+      0.1,
+      0.3
+    ]
+  },
+  &quot;after&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.4,
+      0.1,
+      0.3
+    ]
+  },
+  &quot;delta&quot;: {
+    &quot;robot.eef_position&quot;: [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  &quot;command_result&quot;: {
+    &quot;accepted&quot;: true,
+    &quot;applied_action&quot;: [
+      0.1,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    &quot;applied_steps&quot;: 2,
+    &quot;simulator_step&quot;: 2,
+    &quot;timestamp&quot;: &quot;2026-10-13T00:00:00+00:00&quot;,
+    &quot;episode_ended&quot;: false
+  },
+  &quot;interpretation&quot;: &quot;Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity.&quot;
+}</code></pre></details><details ><summary>revise_interface_notes — request arguments</summary><p></p><pre><code>{
+  &quot;notes&quot;: &quot;This documentation fixture has constant sensors; it is not a dynamics estimate.&quot;,
+  &quot;reason&quot;: &quot;Keep measurement provenance explicit.&quot;
+}</code></pre></details><details ><summary>revise_interface_notes — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 3,
+  &quot;enabled_capabilities&quot;: [
+    &quot;additional_proprioception&quot;
+  ],
+  &quot;tools&quot;: {
+    &quot;eef_position_mm&quot;: {
+      &quot;description&quot;: &quot;Read end-effector position in millimetres, preserving its frame.&quot;,
+      &quot;read_only&quot;: true,
+      &quot;code_sha256&quot;: &quot;f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2&quot;
+    }
+  },
+  &quot;notes&quot;: &quot;This documentation fixture has constant sensors; it is not a dynamics estimate.&quot;,
+  &quot;state_sha256&quot;: &quot;88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e&quot;
+}</code></pre></details><details ><summary>restore_interface — request arguments</summary><p></p><pre><code>{
+  &quot;revision&quot;: 0,
+  &quot;reason&quot;: &quot;Restore the empty interface.&quot;
+}</code></pre></details><details ><summary>restore_interface — synthetic response</summary><p></p><pre><code>{
+  &quot;revision&quot;: 4,
+  &quot;enabled_capabilities&quot;: [],
+  &quot;tools&quot;: {},
+  &quot;notes&quot;: &quot;&quot;,
+  &quot;state_sha256&quot;: &quot;78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434&quot;
+}</code></pre></details><h2>Implementing code</h2><p>Runtime source snapshot <code>06c05c2148874d0c31565b00ec9fac0fe65ea5e4</code>. Exact file hashes are in the contracts JSON.</p><ul><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/runner.py">astra_reversal/hardware_interface/runner.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/proxy.py">astra_reversal/hardware_interface/proxy.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/schema.py">astra_reversal/hardware_interface/schema.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/robocasa.py">astra_reversal/hardware_interface/robocasa.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/libero.py">astra_reversal/hardware_interface/libero.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/provider.py">astra_reversal/hardware_interface/provider.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/astra_reversal/hardware_interface/adaptive.py">astra_reversal/hardware_interface/adaptive.py</a></li><li><a href="https://github.com/GaTech-RL2/EgoVerse/blob/06c05c2148874d0c31565b00ec9fac0fe65ea5e4/experiments/libero_hardware_interface/schemas/hardware.schema.json">experiments/libero_hardware_interface/schemas/hardware.schema.json</a></li></ul></section></main><footer>Generated from implemented contracts; examples validated against the tool schemas and the hardware description schema. Synthetic values are labeled. This HTML includes its SVG, JSON, styling and navigation and works offline. Code source hashes are included in the contracts download.</footer><script id="contracts-data" type="application/json">{
   "notice": "Synthetic documentation examples. No simulator, robot, model or evaluation was run to create them.",
   "schema_version": "hardware-1",
   "implementations": {
@@ -2401,6 +3651,395 @@
             },
             "strict": true
           }
+        ],
+        "F_adaptive": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 7,
+                      "maxItems": 7
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "interface_catalog",
+            "description": "Inspect optional hardware capabilities and current interface revision.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "enable_capability",
+            "description": "Enable an available hardware capability for this episode; records your reason.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_capability",
+            "description": "Read an enabled capability; no arbitrary simulator queries.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "define_interface_tool",
+            "description": "Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "read_only": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "code",
+                "read_only",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "call_interface_tool",
+            "description": "Execute the current version of a named interface tool in isolated scratch.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "arguments_json": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "arguments_json"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "probe_dynamics",
+            "description": "Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 7,
+                  "maxItems": 7
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "channels",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "revise_interface_notes",
+            "description": "Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "notes",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "restore_interface",
+            "description": "Restore an earlier interface revision. Does not undo robot movement or episode costs.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "revision",
+                "reason"
+              ]
+            },
+            "strict": true
+          }
         ]
       },
       "requests": {
@@ -2463,7 +4102,186 @@
         "scratch_execute": {
           "code": "result = read('robot.eef_position', 1000)"
         },
-        "finish": {}
+        "finish": {},
+        "interface_catalog": {},
+        "enable_capability": {
+          "name": "additional_proprioception",
+          "reason": "Inspect additional robot encoders available in this fixture."
+        },
+        "read_capability": {
+          "name": "additional_proprioception"
+        },
+        "define_interface_tool": {
+          "name": "eef_position_mm",
+          "description": "Read end-effector position in millimetres, preserving its frame.",
+          "code": "sample = read('robot.eef_position', 1000)\nresult = {'position_mm': [1000 * v for v in sample['value']], 'frame': sample['metadata']['frame'], 'simulator_step': sample['metadata']['simulator_step']}",
+          "read_only": true,
+          "reason": "Make a reusable sensor conversion for this episode."
+        },
+        "call_interface_tool": {
+          "name": "eef_position_mm",
+          "arguments_json": "{}"
+        },
+        "probe_dynamics": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 2,
+          "channels": [
+            "robot.eef_position"
+          ],
+          "reason": "Measure a local response; this fixture has synthetic constant sensors."
+        },
+        "revise_interface_notes": {
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "reason": "Keep measurement provenance explicit."
+        },
+        "restore_interface": {
+          "revision": 0,
+          "reason": "Restore the empty interface."
+        }
+      },
+      "adaptive_responses": {
+        "interface_catalog": {
+          "available_capabilities": {
+            "additional_proprioception": {
+              "description": "Additional native robot encoders currently omitted from F",
+              "sensors": {
+                "robot0_joint_acc": {
+                  "description": "native joint accelerations in source joint order",
+                  "units": "rad/s^2 for hinge, m/s^2 for slide"
+                }
+              }
+            }
+          },
+          "revision": 0,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        },
+        "enable_capability": {
+          "revision": 1,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3"
+        },
+        "read_capability": {
+          "capability": "additional_proprioception",
+          "revision": 1,
+          "simulator_step": 0,
+          "values": {
+            "robot0_joint_acc": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "define_interface_tool": {
+          "revision": 2,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "",
+          "state_sha256": "d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5"
+        },
+        "probe_dynamics": {
+          "revision": 2,
+          "reason": "Measure a local response; this fixture has synthetic constant sensors.",
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "start_step": 0,
+          "end_step": 2,
+          "executed_steps": 2,
+          "before": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "after": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "delta": {
+            "robot.eef_position": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "command_result": {
+            "accepted": true,
+            "applied_action": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "applied_steps": 2,
+            "simulator_step": 2,
+            "timestamp": "2026-10-13T00:00:00+00:00",
+            "episode_ended": false
+          },
+          "interpretation": "Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity."
+        },
+        "revise_interface_notes": {
+          "revision": 3,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "state_sha256": "88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e"
+        },
+        "restore_interface": {
+          "revision": 4,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        }
       },
       "responses": {
         "describe_device": {
@@ -2483,7 +4301,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2501,7 +4319,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2519,7 +4337,7 @@
                 "frame": "world",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2537,7 +4355,7 @@
                 "frame": "world_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2555,7 +4373,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2573,7 +4391,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -2593,7 +4411,7 @@
                 "frame": "agentview",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -2613,7 +4431,7 @@
                 "frame": "robot0_eye_in_hand",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -2708,7 +4526,7 @@
             0.1,
             0.3
           ],
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "m",
           "valid": true,
           "metadata": {
@@ -2722,7 +4540,7 @@
         "observe": {
           "episode_id": "example-episode",
           "simulator_step": 0,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "observations": {
             "robot0_eef_pos": [
               0.4,
@@ -2743,7 +4561,7 @@
               3
             ]
           },
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "RGB_uint8",
           "valid": true,
           "metadata": {
@@ -2767,7 +4585,7 @@
           ],
           "applied_steps": 3,
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "episode_ended": false
         },
         "rejected_stale_step": {
@@ -2775,7 +4593,7 @@
           "applied_action": null,
           "rejection_reason": "stale_observation_step",
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00"
+          "timestamp": "2026-10-13T00:00:00+00:00"
         },
         "describe_visible": {
           "frame_step": 0,
@@ -3349,6 +5167,395 @@
             },
             "strict": true
           }
+        ],
+        "F_adaptive": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 12,
+                      "maxItems": 12
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "interface_catalog",
+            "description": "Inspect optional hardware capabilities and current interface revision.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "enable_capability",
+            "description": "Enable an available hardware capability for this episode; records your reason.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_capability",
+            "description": "Read an enabled capability; no arbitrary simulator queries.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "define_interface_tool",
+            "description": "Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "read_only": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "code",
+                "read_only",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "call_interface_tool",
+            "description": "Execute the current version of a named interface tool in isolated scratch.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "arguments_json": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "arguments_json"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "probe_dynamics",
+            "description": "Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 12,
+                  "maxItems": 12
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "channels",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "revise_interface_notes",
+            "description": "Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "notes",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "restore_interface",
+            "description": "Restore an earlier interface revision. Does not undo robot movement or episode costs.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "revision",
+                "reason"
+              ]
+            },
+            "strict": true
+          }
         ]
       },
       "requests": {
@@ -3421,7 +5628,201 @@
         "scratch_execute": {
           "code": "result = read('robot.eef_position', 1000)"
         },
-        "finish": {}
+        "finish": {},
+        "interface_catalog": {},
+        "enable_capability": {
+          "name": "additional_proprioception",
+          "reason": "Inspect additional robot encoders available in this fixture."
+        },
+        "read_capability": {
+          "name": "additional_proprioception"
+        },
+        "define_interface_tool": {
+          "name": "eef_position_mm",
+          "description": "Read end-effector position in millimetres, preserving its frame.",
+          "code": "sample = read('robot.eef_position', 1000)\nresult = {'position_mm': [1000 * v for v in sample['value']], 'frame': sample['metadata']['frame'], 'simulator_step': sample['metadata']['simulator_step']}",
+          "read_only": true,
+          "reason": "Make a reusable sensor conversion for this episode."
+        },
+        "call_interface_tool": {
+          "name": "eef_position_mm",
+          "arguments_json": "{}"
+        },
+        "probe_dynamics": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 2,
+          "channels": [
+            "robot.eef_position"
+          ],
+          "reason": "Measure a local response; this fixture has synthetic constant sensors."
+        },
+        "revise_interface_notes": {
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "reason": "Keep measurement provenance explicit."
+        },
+        "restore_interface": {
+          "revision": 0,
+          "reason": "Restore the empty interface."
+        }
+      },
+      "adaptive_responses": {
+        "interface_catalog": {
+          "available_capabilities": {
+            "additional_proprioception": {
+              "description": "Additional native robot encoders currently omitted from F",
+              "sensors": {
+                "robot0_joint_acc": {
+                  "description": "native joint accelerations in source joint order",
+                  "units": "rad/s^2 for hinge, m/s^2 for slide"
+                }
+              }
+            }
+          },
+          "revision": 0,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        },
+        "enable_capability": {
+          "revision": 1,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3"
+        },
+        "read_capability": {
+          "capability": "additional_proprioception",
+          "revision": 1,
+          "simulator_step": 0,
+          "values": {
+            "robot0_joint_acc": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "define_interface_tool": {
+          "revision": 2,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "",
+          "state_sha256": "d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5"
+        },
+        "probe_dynamics": {
+          "revision": 2,
+          "reason": "Measure a local response; this fixture has synthetic constant sensors.",
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "start_step": 0,
+          "end_step": 2,
+          "executed_steps": 2,
+          "before": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "after": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "delta": {
+            "robot.eef_position": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "command_result": {
+            "accepted": true,
+            "applied_action": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "applied_steps": 2,
+            "simulator_step": 2,
+            "timestamp": "2026-10-13T00:00:00+00:00",
+            "episode_ended": false
+          },
+          "interpretation": "Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity."
+        },
+        "revise_interface_notes": {
+          "revision": 3,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "state_sha256": "88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e"
+        },
+        "restore_interface": {
+          "revision": 4,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        }
       },
       "responses": {
         "describe_device": {
@@ -3441,7 +5842,7 @@
                 "frame": "finger_joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -3459,7 +5860,7 @@
                 "frame": "world",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -3477,7 +5878,7 @@
                 "frame": "world_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -3495,7 +5896,7 @@
                 "frame": "mobile_base_center",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -3513,7 +5914,7 @@
                 "frame": "mobile_base_center_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -3533,7 +5934,7 @@
                 "frame": "robot0_agentview_left",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -3553,7 +5954,7 @@
                 "frame": "robot0_agentview_right",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -3573,7 +5974,7 @@
                 "frame": "robot0_eye_in_hand",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -3698,7 +6099,7 @@
             0.1,
             0.3
           ],
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "m",
           "valid": true,
           "metadata": {
@@ -3712,7 +6113,7 @@
         "observe": {
           "episode_id": "example-episode",
           "simulator_step": 0,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "observations": {
             "robot0_base_to_eef_pos": [
               0.4,
@@ -3733,7 +6134,7 @@
               3
             ]
           },
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "RGB_uint8",
           "valid": true,
           "metadata": {
@@ -3762,7 +6163,7 @@
           ],
           "applied_steps": 3,
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "episode_ended": false
         },
         "rejected_stale_step": {
@@ -3770,7 +6171,7 @@
           "applied_action": null,
           "rejection_reason": "stale_observation_step",
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00"
+          "timestamp": "2026-10-13T00:00:00+00:00"
         },
         "describe_visible": {
           "frame_step": 0,
@@ -3786,14 +6187,16 @@
     }
   },
   "code_sha256": {
-    "astra_reversal/hardware_interface/runner.py": "d53d797bf0f86c4191b6f4a24585f3980c0a1b501e67db6037ee82b95aed2f4d",
+    "astra_reversal/hardware_interface/runner.py": "c9157f363b7eccecae48fd4658affcf6f15786e36bc5995ef53511892e814014",
     "astra_reversal/hardware_interface/proxy.py": "a4a517658c444a4865a9368fcdfa41ba348c0a9c349fcfbccaa90292f462283e",
     "astra_reversal/hardware_interface/schema.py": "6a04fb9e6bd37370667e4887fd5fce1a08e8b0157d1547e02aaf23caff0dc269",
-    "astra_reversal/hardware_interface/robocasa.py": "8ce8423860178ff30720cadfe035ce6f688b96ca5cff1fda29db0e9064ddb8f1",
-    "astra_reversal/hardware_interface/libero.py": "9f1c4f839858f8e63a2e0cbcbe8bafe127e855aac1906ea17b13818c6a7c94f7",
+    "astra_reversal/hardware_interface/robocasa.py": "5e821a6e81a2202dc5aac70cc6b61b2a104dfa2614c951c4ece7e68043cd392a",
+    "astra_reversal/hardware_interface/libero.py": "c8f5fda7ab9ad4c5b1e2f27b95aa8fec8f81603046aadad467abbcc29a5ddaa5",
     "astra_reversal/hardware_interface/provider.py": "77e3b06abd59373346f3f975499b0e92e023e8669620e2bec88f0d6b8dadb5fd",
+    "astra_reversal/hardware_interface/adaptive.py": "903993e744c18da44d572d8ca4d611dc2bdc50eea4ff66cfd44e85028e4f7c7e",
     "experiments/libero_hardware_interface/schemas/hardware.schema.json": "a453624d56ce04bf735665b067681f0d586c7ed1a48e2ed5a39a892043d835b9"
-  }
+  },
+  "runtime_source_commit": "06c05c2148874d0c31565b00ec9fac0fe65ea5e4"
 }</script><script>
-function activate(id){document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.target===id)));history.replaceState(null,'','#'+id)}document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.target)));const wanted=location.hash.slice(1);if(document.getElementById('tab-'+wanted))activate(wanted);document.querySelector('nav').addEventListener('keydown',e=>{if(!['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;e.preventDefault();const bs=[...document.querySelectorAll('nav button')];let i=bs.indexOf(document.activeElement);i=e.key==='Home'?0:e.key==='End'?bs.length-1:(i+(e.key==='ArrowRight'?1:-1)+bs.length)%bs.length;bs[i].focus();activate(bs[i].dataset.target)});function download(name,type,content){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}document.getElementById('download-svg').onclick=()=>download('astra-hardware-framework.svg','image/svg+xml',document.querySelector('.diagram svg').outerHTML);document.getElementById('download-json').onclick=()=>download('astra-hardware-contracts.json','application/json',document.getElementById('contracts-data').textContent);window.addEventListener('beforeprint',()=>document.querySelectorAll('details').forEach(d=>{d.dataset.wasOpen=d.open;d.open=true}));window.addEventListener('afterprint',()=>document.querySelectorAll('details').forEach(d=>d.open=d.dataset.wasOpen==='true'));
+function activate(id){document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.target===id)));history.replaceState(null,'','#'+id)}document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>activate(b.dataset.target)));const wanted=location.hash.slice(1);if(document.getElementById('tab-'+wanted))activate(wanted);document.querySelector('nav').addEventListener('keydown',e=>{if(!['ArrowRight','ArrowLeft','Home','End'].includes(e.key))return;e.preventDefault();const bs=[...document.querySelectorAll('nav button')];let i=bs.indexOf(document.activeElement);i=e.key==='Home'?0:e.key==='End'?bs.length-1:(i+(e.key==='ArrowRight'?1:-1)+bs.length)%bs.length;bs[i].focus();activate(bs[i].dataset.target)});function download(name,type,content){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}document.getElementById('download-svg').onclick=()=>download('astra-hardware-framework.svg','image/svg+xml',document.querySelector('.diagram svg').outerHTML);document.getElementById('download-adaptive').onclick=()=>download('adaptive-interface.svg','image/svg+xml',document.querySelector('#adaptive svg').outerHTML);document.getElementById('download-json').onclick=()=>download('astra-hardware-contracts.json','application/json',document.getElementById('contracts-data').textContent);window.addEventListener('beforeprint',()=>document.querySelectorAll('details').forEach(d=>{d.dataset.wasOpen=d.open;d.open=true}));window.addEventListener('afterprint',()=>document.querySelectorAll('details').forEach(d=>d.open=d.dataset.wasOpen==='true'));
 </script></body></html>

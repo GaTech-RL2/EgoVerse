@@ -63,7 +63,7 @@ function renderOverview() {
   const cases = currentCases(), info = D.cohorts[cohort], groups = groupCases(cases);
   const complete = [...groups.values()].filter(isMatched);
   $("cohort-note").textContent = info.note;
-  metrics("metrics", [["Archived recordings", cases.length + " / " + info.planned, info.stage === "smoke" ? "Short commissioning checks" : "Fresh pilot · incomplete"], ["Matched starting states", complete.length, "All assigned methods + replay passed"], ["Native control steps", fmt(cases.reduce((s,c) => s + c.outcome.sim_steps,0)), "Applied actions in these recordings"], ["Trace verification", cases.filter((c) => c.provenance.chain_verified).length + " / " + cases.length, "Archive hash + event chain verified"]]);
+  metrics("metrics", [["Archived recordings", cases.length + " / " + info.planned, info.stage === "smoke" ? "Short commissioning checks" : info.stage === "example" ? "Selected illustrative pair" : "Fresh pilot · incomplete"], ["Matched starting states", complete.length, "All assigned methods + replay passed"], ["Native control steps", fmt(cases.reduce((s,c) => s + c.outcome.sim_steps,0)), "Applied actions in these recordings"], ["Trace verification", cases.filter((c) => c.provenance.chain_verified).length + " / " + cases.length, "Archive hash + event chain verified"]]);
   $("matched-count").textContent = complete.length + " complete groups";
   $("success-chart").innerHTML = complete.length ? arms.map((arm) => {
     const n = complete.length, successes = complete.filter((g) => g.find((c) => c.condition === arm).outcome.success).length;

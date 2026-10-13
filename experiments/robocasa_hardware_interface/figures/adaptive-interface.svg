@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1010" viewBox="0 0 1600 1010" role="img" aria-labelledby="title description">
+<title id="title">F-adaptive: evolving the agent&#x27;s hardware interface</title>
+<desc id="description">Astra can inspect and enable available hardware information, measure native action responses, define versioned tools, execute them through the shared proxy, and revise or restore its interface. These are optional operations chosen by the actor, not a prescribed task plan.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#63788b"/></marker></defs>
+<rect width="1600" height="1010" fill="#f6f8fb"/>
+<text x="56" y="52" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#235eb0">F-ADAPTIVE · PER-EPISODE INTERFACE EVOLUTION</text>
+<text x="56" y="103" font-family="Arial,Helvetica,sans-serif" font-size="35" font-weight="700" fill="#203649">Astra can improve the tools it uses to control the robot</text>
+<text x="56" y="141" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#4b657a">Possible feedback loop; Astra chooses which operations to use and their order. There is no required recipe.</text>
+<rect x="56" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="80" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Inspect available information</text>
+<text x="80" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">interface_catalog</text>
+<text x="80" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">enable_capability / read_capability</text>
+<text x="80" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Optional native encoders or calibration</text>
+<text x="80" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Only capabilities the adapter provides</text>
+<rect x="574" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="598" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Measure local action response</text>
+<text x="598" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">probe_dynamics</text>
+<text x="598" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Numeric readings before and after</text>
+<text x="598" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Bounded native actions move the robot</text>
+<text x="598" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Executed probe steps count in episode</text>
+<rect x="1092" y="208" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="1116" y="247" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Create or revise an interface tool</text>
+<text x="1116" y="285" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">define_interface_tool</text>
+<text x="1116" y="314" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Named Python code + read/control role</text>
+<text x="1116" y="343" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">revise_interface_notes</text>
+<text x="1116" y="372" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Store measured conventions or models</text>
+<rect x="1092" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="1116" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Run the current tool version</text>
+<text x="1116" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">call_interface_tool</text>
+<text x="1116" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">JSON parameters → isolated Python</text>
+<text x="1116" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read / act / read_capability</text>
+<text x="1116" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read-only tools cannot dispatch actions</text>
+<rect x="574" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="598" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Execute through the shared proxy</text>
+<text x="598" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Same native controller and action checks</text>
+<text x="598" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Bounds, shape, repeat count, freshness</text>
+<text x="598" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Control tools cannot bypass validation</text>
+<text x="598" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Robot motion consumes episode steps</text>
+<rect x="56" y="502" width="452" height="220" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="80" y="541" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Observe and update</text>
+<text x="80" y="579" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read current cameras and robot state</text>
+<text x="80" y="608" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Compare observations with hypotheses</text>
+<text x="80" y="637" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Revise tools or notes, or restore a version</text>
+<text x="80" y="666" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Restore does not reverse robot motion</text>
+<path d="M509 318H564" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M1027 318H1082" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M1318 429V492" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M1091 612H1036" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M573 612H518" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M282 501V438" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)" stroke-dasharray="7 6"/>
+<text x="306" y="473" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">repeat as needed</text>
+<rect x="56" y="785" width="720" height="165" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="824" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Versioned evidence</text>
+<text x="80" y="862" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">adaptive.py: code, hashes, capabilities, notes and reasons</text>
+<text x="80" y="891" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">interface-evolution/revision-*.json + events.jsonl</text>
+<text x="80" y="920" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Independent replay includes probe and tool-generated actions</text>
+<rect x="824" y="785" width="720" height="165" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="848" y="824" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Reset and interpretation</text>
+<text x="848" y="862" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Empty tools and notes at each new trial; no cross-trial transfer</text>
+<text x="848" y="891" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Simulator, native limits and evaluator stay outside the editor</text>
+<text x="848" y="920" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">This treatment combines tool evolution and optional extra info</text>
+<text x="56" y="987" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Example behavior, not a fixed policy. Architecture diagrams and synthetic JSON examples are separate from trial evidence.</text>
+</svg>

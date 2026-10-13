@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1050" viewBox="0 0 1600 1050" role="img" aria-labelledby="title description">
+<title id="title">Recorded harness evolution: before and after</title>
+<desc id="description">A matched fixed-F interface and an adaptive episode that adds three reusable tools and camera calibration, with a recorded triangulation-code revision at native step 211.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#63788b"/></marker></defs>
+<rect width="1600" height="1050" fill="#f6f8fb"/>
+<text x="56" y="52" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#235eb0">RECORDED EXAMPLE · LIBERO TASK 8 / INITIAL STATE 3</text>
+<text x="56" y="103" font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="700" fill="#203649">From F’s base API to Astra’s evolved interface</text>
+<text x="56" y="145" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#4b657a">Task: put both moka pots on the stove. The evolution below occurs within the F-adaptive episode.</text>
+<rect x="56" y="207" width="452" height="225" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="80" y="246" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F · fixed interface</text>
+<text x="80" y="284" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">8 tools: typed read / act, source, scratch</text>
+<text x="80" y="313" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">No named interface-tool registry</text>
+<text x="80" y="342" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">F can still write Python feedback loops</text>
+<text x="80" y="371" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Recorded scratch program at step 198</text>
+<rect x="574" y="207" width="452" height="225" rx="16" fill="#edf4ff" stroke="#aac4e8" stroke-width="1.5"/>
+<text x="598" y="246" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F-adaptive · step 0</text>
+<text x="598" y="284" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Same base API + 8 evolution tools</text>
+<text x="598" y="313" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Initially empty registry and capabilities</text>
+<text x="598" y="342" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Enables camera_calibration</text>
+<text x="598" y="371" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Defines project (read) and move (control)</text>
+<rect x="1092" y="207" width="452" height="225" rx="16" fill="#edf4ff" stroke="#235eb0" stroke-width="1.5"/>
+<text x="1116" y="246" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F-adaptive · step 211</text>
+<text x="1116" y="284" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Adds tri: two-camera triangulation</text>
+<text x="1116" y="313" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Revision 4: one vertical sign for both</text>
+<text x="1116" y="342" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Revision 5: separate sign per camera</text>
+<text x="1116" y="371" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Registry now contains 3 reusable tools</text>
+<path d="M1027 318H1082" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="58" y="473" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="400" fill="#4b657a">F and F-adaptive are separate matched trials; the fixed-F trial does not change treatment mid-rollout.</text>
+<rect x="56" y="522" width="720" height="225" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="80" y="561" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Recorded fixed-F invocation · step 0</text>
+<text x="80" y="599" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">act(envelope)</text>
+<text x="80" y="628" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">value: [0.8, 0.35, -0.6, 0, 0, 0, -1]</text>
+<text x="80" y="657" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">duration_steps: 5</text>
+<text x="80" y="686" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">episode + observation-step metadata supplied</text>
+<rect x="824" y="522" width="720" height="225" rx="16" fill="#edf4ff" stroke="#235eb0" stroke-width="1.5"/>
+<text x="848" y="561" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Recorded adaptive invocation · step 0</text>
+<text x="848" y="599" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">call_interface_tool(name=&#x27;move&#x27;, arguments_json=…)</text>
+<text x="848" y="628" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">target: [-0.045, 0.077, 1.04]</text>
+<text x="848" y="657" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Tool reads position, clips feedback and calls act</text>
+<text x="848" y="686" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Every native step still passes the shared checks</text>
+<text x="56" y="785" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="400" fill="#4b657a">These calls illustrate interface shapes; they request different motions, not an equivalent-action comparison.</text>
+<rect x="56" y="833" width="1488" height="156" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="872" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">What the recording establishes</text>
+<text x="80" y="910" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">5 interface revisions · 3 reusable tools · 30 tool executions · no probe_dynamics calls in this episode</text>
+<text x="80" y="939" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Adaptive: success at 572 native steps. Matched fixed F: task failure at 658 steps. Both pass independent replay.</text>
+<text x="80" y="968" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">The code was changed and used. This selected pair does not establish that the revision caused success.</text>
+<text x="56" y="1027" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">The companion HTML includes exact code, revision selection, original camera observations, videos and archive provenance.</text>
+</svg>

@@ -7,6 +7,7 @@ Examples use synthetic sensors and never count as benchmark evidence.
 import html
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 import jsonschema
@@ -15,12 +16,15 @@ import numpy as np
 from astra_reversal.hardware_interface.proxy import SENSORS as LIBERO_SENSORS
 from astra_reversal.hardware_interface.proxy import Limits, Proxy
 from astra_reversal.hardware_interface.robocasa import SENSORS as ROBOCASA_SENSORS
-from astra_reversal.hardware_interface.runner import tools_for
+from astra_reversal.hardware_interface.runner import Router, tools_for
 from astra_reversal.hardware_interface.schema import validate_description
+
+from .framework_diagrams import adaptive as adaptive_diagram
+from .framework_diagrams import overview as overview_diagram
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "experiments/robocasa_hardware_interface/figures"
-STAMP = "2026-10-09T00:00:00+00:00"
+STAMP = "2026-10-13T00:00:00+00:00"
 F, B0, B = "#087f70", "#ab5e19", "#7750b3"
 INK, MUTED, LINE = "#142d46", "#49627d", "#ccd9e6"
 
@@ -128,8 +132,39 @@ def contracts():
             },
             "scratch_execute": {"code": "result = read('robot.eef_position', 1000)"},
             "finish": {},
+            "interface_catalog": {},
+            "enable_capability": {
+                "name": "additional_proprioception",
+                "reason": "Inspect additional robot encoders available in this fixture.",
+            },
+            "read_capability": {"name": "additional_proprioception"},
+            "define_interface_tool": {
+                "name": "eef_position_mm",
+                "description": "Read end-effector position in millimetres, preserving its frame.",
+                "code": "sample = read('robot.eef_position', 1000)\nresult = {'position_mm': [1000 * v for v in sample['value']], 'frame': sample['metadata']['frame'], 'simulator_step': sample['metadata']['simulator_step']}",
+                "read_only": True,
+                "reason": "Make a reusable sensor conversion for this episode.",
+            },
+            "call_interface_tool": {
+                "name": "eef_position_mm",
+                "arguments_json": "{}",
+            },
+            "probe_dynamics": {
+                "action": action,
+                "repeat_steps": 2,
+                "channels": ["robot.eef_position"],
+                "reason": "Measure a local response; this fixture has synthetic constant sensors.",
+            },
+            "revise_interface_notes": {
+                "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+                "reason": "Keep measurement provenance explicit.",
+            },
+            "restore_interface": {
+                "revision": 0,
+                "reason": "Restore the empty interface.",
+            },
         }
-        tools = {arm: tools_for(arm, size) for arm in ("F", "B0", "B")}
+        tools = {arm: tools_for(arm, size) for arm in ("F", "B0", "B", "F_adaptive")}
         for arm_tools in tools.values():
             for tool in arm_tools:
                 jsonschema.Draft202012Validator.check_schema(tool["parameters"])
@@ -143,6 +178,42 @@ def contracts():
         assert accepted["accepted"] and accepted["applied_steps"] == 3
         assert rejected["rejection_reason"] == "stale_observation_step"
         assert proxy.step_count == 3
+        # Exercise actual adaptive routing with synthetic sensors. No simulator,
+        # inference call, generated program execution or benchmark trial occurs.
+        with TemporaryDirectory(prefix="hardware-contract-example-") as directory:
+            env.observation["robot0_joint_acc"] = np.zeros(7)
+            events = ExampleEvents()
+            events.directory = Path(directory)
+            adaptive_proxy = Proxy(
+                env,
+                env.observation,
+                episode_id="example-adaptive-episode",
+                controller=controller,
+                events=events,
+                sensors=sensors,
+                limits=Limits(wall_seconds=None),
+                clock=lambda: 0.0,
+            )
+            router = Router(adaptive_proxy, None, "F_adaptive")
+            adaptive_responses = {}
+            for operation in (
+                "interface_catalog",
+                "enable_capability",
+                "read_capability",
+                "define_interface_tool",
+                "probe_dynamics",
+                "revise_interface_notes",
+                "restore_interface",
+            ):
+                response = router.dispatch(operation, calls[operation])
+                assert "error" not in response, (operation, response)
+                adaptive_responses[operation] = response
+            assert adaptive_proxy.step_count == 2
+            assert router.evolution.state == {
+                "capabilities": [],
+                "tools": {},
+                "notes": "",
+            }
         result["implementations"][name] = {
             "action_dimension": size,
             "channels": [
@@ -157,6 +228,7 @@ def contracts():
             ],
             "tool_schemas": tools,
             "requests": calls,
+            "adaptive_responses": adaptive_responses,
             "responses": {
                 "describe_device": description,
                 "read": read,
@@ -456,6 +528,11 @@ def make_html(svg, data):
             "Fresh actor, parse calls, validate JSON, dispatch tools, return observations and record outcomes.",
         ),
         (
+            "adaptive.py · AdaptiveInterface",
+            "F-adaptive interface evolution",
+            "Per-episode capabilities, versioned Python tools, measured probes, notes and restore; every action uses the shared proxy.",
+        ),
+        (
             "provider.py · Session / Meter / Observer",
             "Inference and usage",
             "NVIDIA Responses transport, actor and observer histories, PNG image transport, token and latency accounting.",
@@ -501,7 +578,13 @@ def make_html(svg, data):
         hardware.append(f'<h2>{name}: {item["action_dimension"]}-value controller</h2>')
         hardware.append(
             table(
-                ["F channel", "B0 / B native key", "Shape", "Units", "Reference frame"],
+                [
+                    "F / F-adaptive channel",
+                    "B0 / B native key",
+                    "Shape",
+                    "Units",
+                    "Reference frame",
+                ],
                 [
                     (
                         r["channel"],
@@ -515,7 +598,7 @@ def make_html(svg, data):
             )
         )
     hardware.append(
-        '<div class="note"><strong>Same names do not imply the same frame.</strong> LIBERO robot.eef_position is world-referenced; RoboCasa uses mobile-base coordinates. F receives the frame explicitly; B0/B discover the native convention in audited source. The proxy exposes only these channels.</div>'
+        '<div class="note"><strong>Frames are part of the contract.</strong> LIBERO robot.eef_position is world-referenced; RoboCasa uses mobile-base coordinates. F and F-adaptive receive the frame explicitly; B0/B discover the native convention in audited source. F-adaptive can separately enable available extra encoders or camera calibration through its capability catalog.</div>'
     )
     hardware.append(
         table(
@@ -562,6 +645,11 @@ def make_html(svg, data):
                     "F",
                     "describe_device, read, read_latest, act",
                     "Device description is also included in the initial system prompt.",
+                ),
+                (
+                    "F-adaptive",
+                    "F tools + interface_catalog, enable/read_capability, define/call_interface_tool, probe_dynamics, revise_interface_notes, restore_interface",
+                    "Versioned per-episode tools and optional extra hardware information; native execution remains shared.",
                 ),
                 (
                     "B0",
@@ -759,8 +847,161 @@ function activate(id){document.querySelectorAll('.panel').forEach(p=>p.classList
     return template
 
 
+def enhanced_html(execution_svg, overview_svg, adaptive_svg, data):
+    """Keep the complete original execution diagram beside the adaptive view."""
+    document = make_html(overview_svg, data)
+    document = (
+        document.replace(
+            "Hardware interfaces, JSON contracts and code design</h1>",
+            "Agent-legible hardware</h1>",
+        )
+        .replace(
+            "through F, B0 and B.",
+            "through F, B0, B and F-adaptive.",
+        )
+        .replace(
+            "grid-template-columns:repeat(3,1fr)",
+            "grid-template-columns:repeat(4,minmax(0,1fr))",
+        )
+    )
+    old_status = "The framework has a working LIBERO pilot. RoboCasa is an implemented adapter awaiting native commissioning; this architecture diagram makes no claim that the RoboCasa benchmark has passed. Results and workflow status are reported separately."
+    document = document.replace(
+        old_status,
+        "These diagrams describe the implemented interfaces. Benchmark results are reported separately. All four actors can receive images directly. F-adaptive combines tool evolution with optional extra hardware information; this comparison does not isolate those two effects.",
+    )
+    document = document.replace(
+        '<div class="buttons"><button id="download-svg">',
+        '<p><a href="harness-example.html">Recorded F / F-adaptive before-and-after example: exact code, revisions and videos</a></p><div class="buttons"><button id="download-svg">',
+        1,
+    )
+    document = document.replace(
+        '<article class="card b0">',
+        '<article class="card" style="border-top:4px solid #235eb0"><h3>F-adaptive · evolving interface</h3><p>F plus tools Astra can write and revise, optional hardware information, and measured calibration. Every episode starts fresh.</p></article><article class="card b0">',
+        1,
+    )
+    document = document.replace(
+        "<h2>Module ownership</h2>",
+        '<h2>Original F / B0 / B execution paths</h2><div class="diagram">'
+        + execution_svg.replace('id="title"', 'id="execution-title"')
+        .replace('id="desc"', 'id="execution-desc"')
+        .replace(
+            'aria-labelledby="title desc"',
+            'aria-labelledby="execution-title execution-desc"',
+        )
+        .replace('id="arrow"', 'id="execution-arrow"')
+        .replace("url(#arrow)", "url(#execution-arrow)")
+        + "</div><p>F-adaptive adds the versioned interface layer shown in its dedicated view, above the same execution proxy.</p><h2>Module ownership</h2>",
+        1,
+    )
+    adaptive_svg = (
+        adaptive_svg.replace('id="title"', 'id="adaptive-title"')
+        .replace('id="description"', 'id="adaptive-description"')
+        .replace(
+            'aria-labelledby="title description"',
+            'aria-labelledby="adaptive-title adaptive-description"',
+        )
+        .replace('id="arrow"', 'id="adaptive-arrow"')
+        .replace("url(#arrow)", "url(#adaptive-arrow)")
+    )
+    adaptive_content = [
+        "<h2>How Astra evolves its harness</h2><p>The editable harness is a versioned layer of tools, enabled capabilities and notes above the native robot API. The model chooses how to use it during the episode.</p>",
+        '<p><a href="harness-example.html">Inspect a real rollout: camera calibration, new control tools, and a triangulation-code revision at native step 211.</a></p>',
+        "<p>The top-level model tool schemas stay fixed. Newly written programs live in an episode-local registry and are invoked by name through <code>call_interface_tool</code>; the model receives their descriptions, version hashes and current interface notes.</p>",
+        '<div class="buttons"><button id="download-adaptive">Download adaptive SVG</button></div>',
+        '<div class="diagram">' + adaptive_svg + "</div>",
+        table(
+            ["Astra can change", "Implementation"],
+            [
+                (
+                    "Available hardware information",
+                    "Discover and enable allowlisted additional encoders or camera calibration, when the adapter supplies them.",
+                ),
+                (
+                    "Python interface tools",
+                    "Define or replace a named program; call it with JSON parameters in isolated scratch. A read_only program cannot dispatch act.",
+                ),
+                (
+                    "Measured response model or operating notes",
+                    "Probe a bounded native command, inspect before/after readings, and retain a hypothesis in per-episode notes.",
+                ),
+                (
+                    "Interface version",
+                    "Restore earlier capabilities, tool definitions and notes. Robot motion and consumed steps remain.",
+                ),
+            ],
+        ),
+        "<p><strong>Fixed underneath:</strong> model weights, native controller, execution checks and private success evaluator. No tool or learned notes transfer into the next trial. Probe actions and control tools use the same episode horizon.</p>",
+        '<div class="note">Synthetic examples below use the actual Router and adaptive implementation with fixture sensors. They are schema-validated documentation, not recorded Astra behavior or benchmark outcomes. The named tool is defined but is not executed by this documentation generator.</div>',
+    ]
+    for name, item in data["implementations"].items():
+        adaptive_content.append(f"<h2>{name}: example interface revision</h2>")
+        for operation in (
+            "interface_catalog",
+            "enable_capability",
+            "read_capability",
+            "define_interface_tool",
+            "call_interface_tool",
+            "probe_dynamics",
+            "revise_interface_notes",
+            "restore_interface",
+        ):
+            adaptive_content.append(
+                code(
+                    operation + " — request arguments",
+                    item["requests"][operation],
+                    opened=name == "LIBERO" and operation == "define_interface_tool",
+                )
+            )
+            if operation in item["adaptive_responses"]:
+                adaptive_content.append(
+                    code(
+                        operation + " — synthetic response",
+                        item["adaptive_responses"][operation],
+                    )
+                )
+    commit = data["runtime_source_commit"]
+    base = "https://github.com/GaTech-RL2/EgoVerse/blob/" + commit + "/"
+    links = []
+    for path in data["code_sha256"]:
+        links.append(
+            '<li><a href="'
+            + html.escape(base + path)
+            + '">'
+            + html.escape(path)
+            + "</a></li>"
+        )
+    adaptive_content.append(
+        "<h2>Implementing code</h2><p>Runtime source snapshot <code>"
+        + commit
+        + "</code>. Exact file hashes are in the contracts JSON.</p><ul>"
+        + "".join(links)
+        + "</ul>"
+    )
+    document = (
+        document.replace(
+            "</nav></header>",
+            '<button role="tab" id="tab-adaptive" data-target="adaptive" aria-controls="adaptive" aria-selected="false">Harness evolution</button></nav></header>',
+            1,
+        )
+        .replace(
+            "</main><footer>",
+            '<section class="panel" id="adaptive" role="tabpanel" aria-labelledby="tab-adaptive">'
+            + "".join(adaptive_content)
+            + "</section></main><footer>",
+            1,
+        )
+        .replace(
+            "document.getElementById('download-json').onclick=",
+            "document.getElementById('download-adaptive').onclick=()=>download('adaptive-interface.svg','image/svg+xml',document.querySelector('#adaptive svg').outerHTML);document.getElementById('download-json').onclick=",
+            1,
+        )
+    )
+    return document
+
+
 def main():
     import hashlib
+    import subprocess
 
     OUT.mkdir(exist_ok=True, parents=True)
     with patch("astra_reversal.hardware_interface.proxy.utc", return_value=STAMP):
@@ -772,20 +1013,37 @@ def main():
         "astra_reversal/hardware_interface/robocasa.py",
         "astra_reversal/hardware_interface/libero.py",
         "astra_reversal/hardware_interface/provider.py",
+        "astra_reversal/hardware_interface/adaptive.py",
         "experiments/libero_hardware_interface/schemas/hardware.schema.json",
     ]
     data["code_sha256"] = {
         p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in files
     }
+    data["runtime_source_commit"] = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
     svg = make_svg()
+    overview_svg, adaptive_svg = overview_diagram(), adaptive_diagram()
     (OUT / "framework.svg").write_text(svg)
-    (OUT / "framework.html").write_text(make_html(svg, data))
+    (OUT / "agent-legible-hardware.svg").write_text(overview_svg)
+    (OUT / "adaptive-interface.svg").write_text(adaptive_svg)
+    dashboard_assets = (
+        ROOT / "experiments/libero_hardware_interface/tools/process_dashboard"
+    )
+    (dashboard_assets / "agent-legible-hardware.svg").write_text(overview_svg)
+    (dashboard_assets / "adaptive-interface.svg").write_text(adaptive_svg)
+    (OUT / "framework.html").write_text(
+        enhanced_html(svg, overview_svg, adaptive_svg, data)
+    )
     (OUT / "framework-contracts.json").write_text(pretty(data) + "\n")
     (OUT / "framework.mmd").write_text("""flowchart TD
   task[Official task + frozen task / seed / arm] --> run[runner.run_trial: fresh actor]
   run <--> session[provider.Session: Astra Responses API]
   session -->|function call: name + arguments JSON| router[Router.dispatch + strict JSON Schema]
   router --> F[F: describe_device / read / read_latest / act envelope]
+  router --> FA[F-adaptive: F tools plus versioned interface evolution]
+  FA <--> evolve[adaptive.py: capabilities / tools / probes / notes / restore]
+  evolve -->|sandboxed read and act| proxy
   router --> B0[B0: observe native keys / step native vector]
   router --> B[B: B0 tools + describe_visible]
   B <--> obs[provider.Observer: current images → evidence JSON]
@@ -814,6 +1072,8 @@ def main():
                         "framework.html",
                         "framework-contracts.json",
                         "framework.mmd",
+                        "agent-legible-hardware.svg",
+                        "adaptive-interface.svg",
                     )
                 ],
             }

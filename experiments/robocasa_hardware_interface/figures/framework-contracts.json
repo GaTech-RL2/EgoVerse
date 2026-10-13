@@ -560,6 +560,395 @@
             },
             "strict": true
           }
+        ],
+        "F_adaptive": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 7,
+                      "maxItems": 7
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "interface_catalog",
+            "description": "Inspect optional hardware capabilities and current interface revision.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "enable_capability",
+            "description": "Enable an available hardware capability for this episode; records your reason.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_capability",
+            "description": "Read an enabled capability; no arbitrary simulator queries.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "define_interface_tool",
+            "description": "Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "read_only": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "code",
+                "read_only",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "call_interface_tool",
+            "description": "Execute the current version of a named interface tool in isolated scratch.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "arguments_json": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "arguments_json"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "probe_dynamics",
+            "description": "Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 7,
+                  "maxItems": 7
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "channels",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "revise_interface_notes",
+            "description": "Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "notes",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "restore_interface",
+            "description": "Restore an earlier interface revision. Does not undo robot movement or episode costs.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "revision",
+                "reason"
+              ]
+            },
+            "strict": true
+          }
         ]
       },
       "requests": {
@@ -622,7 +1011,186 @@
         "scratch_execute": {
           "code": "result = read('robot.eef_position', 1000)"
         },
-        "finish": {}
+        "finish": {},
+        "interface_catalog": {},
+        "enable_capability": {
+          "name": "additional_proprioception",
+          "reason": "Inspect additional robot encoders available in this fixture."
+        },
+        "read_capability": {
+          "name": "additional_proprioception"
+        },
+        "define_interface_tool": {
+          "name": "eef_position_mm",
+          "description": "Read end-effector position in millimetres, preserving its frame.",
+          "code": "sample = read('robot.eef_position', 1000)\nresult = {'position_mm': [1000 * v for v in sample['value']], 'frame': sample['metadata']['frame'], 'simulator_step': sample['metadata']['simulator_step']}",
+          "read_only": true,
+          "reason": "Make a reusable sensor conversion for this episode."
+        },
+        "call_interface_tool": {
+          "name": "eef_position_mm",
+          "arguments_json": "{}"
+        },
+        "probe_dynamics": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 2,
+          "channels": [
+            "robot.eef_position"
+          ],
+          "reason": "Measure a local response; this fixture has synthetic constant sensors."
+        },
+        "revise_interface_notes": {
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "reason": "Keep measurement provenance explicit."
+        },
+        "restore_interface": {
+          "revision": 0,
+          "reason": "Restore the empty interface."
+        }
+      },
+      "adaptive_responses": {
+        "interface_catalog": {
+          "available_capabilities": {
+            "additional_proprioception": {
+              "description": "Additional native robot encoders currently omitted from F",
+              "sensors": {
+                "robot0_joint_acc": {
+                  "description": "native joint accelerations in source joint order",
+                  "units": "rad/s^2 for hinge, m/s^2 for slide"
+                }
+              }
+            }
+          },
+          "revision": 0,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        },
+        "enable_capability": {
+          "revision": 1,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3"
+        },
+        "read_capability": {
+          "capability": "additional_proprioception",
+          "revision": 1,
+          "simulator_step": 0,
+          "values": {
+            "robot0_joint_acc": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "define_interface_tool": {
+          "revision": 2,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "",
+          "state_sha256": "d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5"
+        },
+        "probe_dynamics": {
+          "revision": 2,
+          "reason": "Measure a local response; this fixture has synthetic constant sensors.",
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "start_step": 0,
+          "end_step": 2,
+          "executed_steps": 2,
+          "before": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "after": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "delta": {
+            "robot.eef_position": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "command_result": {
+            "accepted": true,
+            "applied_action": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "applied_steps": 2,
+            "simulator_step": 2,
+            "timestamp": "2026-10-13T00:00:00+00:00",
+            "episode_ended": false
+          },
+          "interpretation": "Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity."
+        },
+        "revise_interface_notes": {
+          "revision": 3,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "state_sha256": "88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e"
+        },
+        "restore_interface": {
+          "revision": 4,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        }
       },
       "responses": {
         "describe_device": {
@@ -642,7 +1210,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -660,7 +1228,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -678,7 +1246,7 @@
                 "frame": "world",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -696,7 +1264,7 @@
                 "frame": "world_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -714,7 +1282,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -732,7 +1300,7 @@
                 "frame": "joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -752,7 +1320,7 @@
                 "frame": "agentview",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -772,7 +1340,7 @@
                 "frame": "robot0_eye_in_hand",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -867,7 +1435,7 @@
             0.1,
             0.3
           ],
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "m",
           "valid": true,
           "metadata": {
@@ -881,7 +1449,7 @@
         "observe": {
           "episode_id": "example-episode",
           "simulator_step": 0,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "observations": {
             "robot0_eef_pos": [
               0.4,
@@ -902,7 +1470,7 @@
               3
             ]
           },
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "RGB_uint8",
           "valid": true,
           "metadata": {
@@ -926,7 +1494,7 @@
           ],
           "applied_steps": 3,
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "episode_ended": false
         },
         "rejected_stale_step": {
@@ -934,7 +1502,7 @@
           "applied_action": null,
           "rejection_reason": "stale_observation_step",
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00"
+          "timestamp": "2026-10-13T00:00:00+00:00"
         },
         "describe_visible": {
           "frame_step": 0,
@@ -1508,6 +2076,395 @@
             },
             "strict": true
           }
+        ],
+        "F_adaptive": [
+          {
+            "type": "function",
+            "name": "source_search",
+            "description": "Search the shared audited robotics source view with a literal substring.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "source_read",
+            "description": "Read an allowlisted relative file; begin at 1; at most 200 lines.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "start",
+                "lines"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "scratch_execute",
+            "description": "Execute standard-library Python in isolated scratch. Set result to a JSON value. Robot calls use documented proxy functions; each nested call consumes a tool call. No simulator or network access.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "finish",
+            "description": "End this actor trial; the evaluator decides the outcome privately.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "describe_device",
+            "description": "Inspect typed channels, units, bounds and controller conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read",
+            "description": "Read a current sensor channel while physics is paused.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "max_age_ms": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "channel",
+                "max_age_ms"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_latest",
+            "description": "Read all allowed observation channels at the current simulator step.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "act",
+            "description": "Apply one atomic controller command for bounded repeated steps.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "envelope": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "robot.controller_command"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "number"
+                      },
+                      "minItems": 12,
+                      "maxItems": 12
+                    },
+                    "duration_steps": {
+                      "type": "integer"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "configured_controller"
+                          ]
+                        },
+                        "units": {
+                          "type": "string",
+                          "enum": [
+                            "normalized_controller_input"
+                          ]
+                        },
+                        "episode_id": {
+                          "type": "string"
+                        },
+                        "observation_step": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "units",
+                        "episode_id",
+                        "observation_step"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "channel",
+                    "value",
+                    "duration_steps",
+                    "metadata"
+                  ]
+                }
+              },
+              "required": [
+                "envelope"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "interface_catalog",
+            "description": "Inspect optional hardware capabilities and current interface revision.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {},
+              "required": []
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "enable_capability",
+            "description": "Enable an available hardware capability for this episode; records your reason.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "read_capability",
+            "description": "Read an enabled capability; no arbitrary simulator queries.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "define_interface_tool",
+            "description": "Create or replace a named Python interface tool. Code runs only when called. params contains parsed arguments_json. Set result to JSON.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "read_only": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "code",
+                "read_only",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "call_interface_tool",
+            "description": "Execute the current version of a named interface tool in isolated scratch.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "arguments_json": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "arguments_json"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "probe_dynamics",
+            "description": "Measure numeric sensors before and after one bounded native command. All executed steps count in the episode; no reset or hidden state.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "action": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 12,
+                  "maxItems": 12
+                },
+                "repeat_steps": {
+                  "type": "integer"
+                },
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "action",
+                "repeat_steps",
+                "channels",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "revise_interface_notes",
+            "description": "Replace persistent per-episode interface notes: assumptions, measured response models, or operating conventions.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "notes",
+                "reason"
+              ]
+            },
+            "strict": true
+          },
+          {
+            "type": "function",
+            "name": "restore_interface",
+            "description": "Restore an earlier interface revision. Does not undo robot movement or episode costs.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "revision": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "revision",
+                "reason"
+              ]
+            },
+            "strict": true
+          }
         ]
       },
       "requests": {
@@ -1580,7 +2537,201 @@
         "scratch_execute": {
           "code": "result = read('robot.eef_position', 1000)"
         },
-        "finish": {}
+        "finish": {},
+        "interface_catalog": {},
+        "enable_capability": {
+          "name": "additional_proprioception",
+          "reason": "Inspect additional robot encoders available in this fixture."
+        },
+        "read_capability": {
+          "name": "additional_proprioception"
+        },
+        "define_interface_tool": {
+          "name": "eef_position_mm",
+          "description": "Read end-effector position in millimetres, preserving its frame.",
+          "code": "sample = read('robot.eef_position', 1000)\nresult = {'position_mm': [1000 * v for v in sample['value']], 'frame': sample['metadata']['frame'], 'simulator_step': sample['metadata']['simulator_step']}",
+          "read_only": true,
+          "reason": "Make a reusable sensor conversion for this episode."
+        },
+        "call_interface_tool": {
+          "name": "eef_position_mm",
+          "arguments_json": "{}"
+        },
+        "probe_dynamics": {
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "repeat_steps": 2,
+          "channels": [
+            "robot.eef_position"
+          ],
+          "reason": "Measure a local response; this fixture has synthetic constant sensors."
+        },
+        "revise_interface_notes": {
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "reason": "Keep measurement provenance explicit."
+        },
+        "restore_interface": {
+          "revision": 0,
+          "reason": "Restore the empty interface."
+        }
+      },
+      "adaptive_responses": {
+        "interface_catalog": {
+          "available_capabilities": {
+            "additional_proprioception": {
+              "description": "Additional native robot encoders currently omitted from F",
+              "sensors": {
+                "robot0_joint_acc": {
+                  "description": "native joint accelerations in source joint order",
+                  "units": "rad/s^2 for hinge, m/s^2 for slide"
+                }
+              }
+            }
+          },
+          "revision": 0,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        },
+        "enable_capability": {
+          "revision": 1,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "710b6b238abf13ebc93425a2d194321eee6a616b605bc8a2c4e0ab44562918c3"
+        },
+        "read_capability": {
+          "capability": "additional_proprioception",
+          "revision": 1,
+          "simulator_step": 0,
+          "values": {
+            "robot0_joint_acc": [
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "define_interface_tool": {
+          "revision": 2,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "",
+          "state_sha256": "d677d793923b40b3984a414cb887da55bc4094c39ebc68e22ef3c0b5884297c5"
+        },
+        "probe_dynamics": {
+          "revision": 2,
+          "reason": "Measure a local response; this fixture has synthetic constant sensors.",
+          "action": [
+            0.1,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "start_step": 0,
+          "end_step": 2,
+          "executed_steps": 2,
+          "before": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "after": {
+            "robot.eef_position": [
+              0.4,
+              0.1,
+              0.3
+            ]
+          },
+          "delta": {
+            "robot.eef_position": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "command_result": {
+            "accepted": true,
+            "applied_action": [
+              0.1,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "applied_steps": 2,
+            "simulator_step": 2,
+            "timestamp": "2026-10-13T00:00:00+00:00",
+            "episode_ended": false
+          },
+          "interpretation": "Observed finite response to this command and state, including drift/contact; not a global Jacobian. Quaternion delta is a component difference, not an angular velocity."
+        },
+        "revise_interface_notes": {
+          "revision": 3,
+          "enabled_capabilities": [
+            "additional_proprioception"
+          ],
+          "tools": {
+            "eef_position_mm": {
+              "description": "Read end-effector position in millimetres, preserving its frame.",
+              "read_only": true,
+              "code_sha256": "f0f179efca343bd40ded03c61d1c2fee69c1ede9cb70f6ee09c00c1351e7a6f2"
+            }
+          },
+          "notes": "This documentation fixture has constant sensors; it is not a dynamics estimate.",
+          "state_sha256": "88b47c551467b3791004606e7d34e62e06cc13f8db86dd7127abc35a6890f58e"
+        },
+        "restore_interface": {
+          "revision": 4,
+          "enabled_capabilities": [],
+          "tools": {},
+          "notes": "",
+          "state_sha256": "78f6803a7c6acccebf7720193d3b2e289e6d6383298be6b868acaac772b20434"
+        }
       },
       "responses": {
         "describe_device": {
@@ -1600,7 +2751,7 @@
                 "frame": "finger_joint",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -1618,7 +2769,7 @@
                 "frame": "world",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -1636,7 +2787,7 @@
                 "frame": "world_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -1654,7 +2805,7 @@
                 "frame": "mobile_base_center",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -1672,7 +2823,7 @@
                 "frame": "mobile_base_center_xyzw",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": null
               }
@@ -1692,7 +2843,7 @@
                 "frame": "robot0_agentview_left",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -1712,7 +2863,7 @@
                 "frame": "robot0_agentview_right",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -1732,7 +2883,7 @@
                 "frame": "robot0_eye_in_hand",
                 "episode_id": "example-episode",
                 "simulator_step": 0,
-                "timestamp": "2026-10-09T00:00:00+00:00",
+                "timestamp": "2026-10-13T00:00:00+00:00",
                 "valid": true,
                 "image_encoding": "PNG; upright RGB"
               }
@@ -1857,7 +3008,7 @@
             0.1,
             0.3
           ],
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "m",
           "valid": true,
           "metadata": {
@@ -1871,7 +3022,7 @@
         "observe": {
           "episode_id": "example-episode",
           "simulator_step": 0,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "observations": {
             "robot0_base_to_eef_pos": [
               0.4,
@@ -1892,7 +3043,7 @@
               3
             ]
           },
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "units": "RGB_uint8",
           "valid": true,
           "metadata": {
@@ -1921,7 +3072,7 @@
           ],
           "applied_steps": 3,
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00",
+          "timestamp": "2026-10-13T00:00:00+00:00",
           "episode_ended": false
         },
         "rejected_stale_step": {
@@ -1929,7 +3080,7 @@
           "applied_action": null,
           "rejection_reason": "stale_observation_step",
           "simulator_step": 3,
-          "timestamp": "2026-10-09T00:00:00+00:00"
+          "timestamp": "2026-10-13T00:00:00+00:00"
         },
         "describe_visible": {
           "frame_step": 0,
@@ -1945,12 +3096,14 @@
     }
   },
   "code_sha256": {
-    "astra_reversal/hardware_interface/runner.py": "d53d797bf0f86c4191b6f4a24585f3980c0a1b501e67db6037ee82b95aed2f4d",
+    "astra_reversal/hardware_interface/runner.py": "c9157f363b7eccecae48fd4658affcf6f15786e36bc5995ef53511892e814014",
     "astra_reversal/hardware_interface/proxy.py": "a4a517658c444a4865a9368fcdfa41ba348c0a9c349fcfbccaa90292f462283e",
     "astra_reversal/hardware_interface/schema.py": "6a04fb9e6bd37370667e4887fd5fce1a08e8b0157d1547e02aaf23caff0dc269",
-    "astra_reversal/hardware_interface/robocasa.py": "8ce8423860178ff30720cadfe035ce6f688b96ca5cff1fda29db0e9064ddb8f1",
-    "astra_reversal/hardware_interface/libero.py": "9f1c4f839858f8e63a2e0cbcbe8bafe127e855aac1906ea17b13818c6a7c94f7",
+    "astra_reversal/hardware_interface/robocasa.py": "5e821a6e81a2202dc5aac70cc6b61b2a104dfa2614c951c4ece7e68043cd392a",
+    "astra_reversal/hardware_interface/libero.py": "c8f5fda7ab9ad4c5b1e2f27b95aa8fec8f81603046aadad467abbcc29a5ddaa5",
     "astra_reversal/hardware_interface/provider.py": "77e3b06abd59373346f3f975499b0e92e023e8669620e2bec88f0d6b8dadb5fd",
+    "astra_reversal/hardware_interface/adaptive.py": "903993e744c18da44d572d8ca4d611dc2bdc50eea4ff66cfd44e85028e4f7c7e",
     "experiments/libero_hardware_interface/schemas/hardware.schema.json": "a453624d56ce04bf735665b067681f0d586c7ed1a48e2ed5a39a892043d835b9"
-  }
+  },
+  "runtime_source_commit": "06c05c2148874d0c31565b00ec9fac0fe65ea5e4"
 }

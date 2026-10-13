@@ -1,0 +1,466 @@
+{
+  "selection_note": "One matched pair selected to illustrate an explicit mid-rollout code revision. It is not a representative sample or a treatment-effect estimate.",
+  "instruction": "put both moka pots on the stove",
+  "identity": {
+    "task_id": 8,
+    "init_state_index": 3,
+    "init_state_hash": "f53dd32b70bd23ffa2dd5b1e41267ba1c59e88e245857be8b71d5f9b93865763",
+    "env_seed": 137,
+    "replicate": 0
+  },
+  "provenance": {
+    "F": {
+      "trial_id": "pilot-t08-i03-r0-F",
+      "archive": {
+        "prefix": "experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-adaptive-s2-2/trials/pilot-t08-i03-r0-F/",
+        "verified_files": [
+          "events.jsonl",
+          "independent-replay.json",
+          "initial-front.png",
+          "initial-wrist.png",
+          "outcome.json",
+          "terminal-front.png",
+          "terminal-wrist.png",
+          "trial.json"
+        ]
+      },
+      "archive_receipt_sha256": "5ad6a16f35fffc3f4394ffa3ba0e8b1bfdcbb2159b4a7ce28b1883c8bbd73cdd",
+      "event_log_sha256": "26360c1e695b64078ced9e538af3d7e7a45bc919ca96f8fd9737e30ae0a2e298",
+      "last_event_sha256": "f834c5237f2eea1065cc63a9f2aab42847d4d909de4a35eeff3e9d9d8da27c19",
+      "event_count": 2672,
+      "independent_replay": {
+        "first_success_step": null,
+        "replayed_steps": 658,
+        "status": "passed",
+        "success": false,
+        "terminal_state_matched": true
+      },
+      "source_sha256": "689a7a8a486d1da3261b38794de7d36f7fabeca011cd6c10fb6b7525847c14ca",
+      "source_commit": "7a6eaf8847ec94c2a6430d9112da8088f7990560"
+    },
+    "F_adaptive": {
+      "trial_id": "pilot-t08-i03-r0-F_adaptive",
+      "archive": {
+        "prefix": "experiments/libero-hardware-interface-20261008/libero-hardware-interface-20261008-adaptive-s2-2/trials/pilot-t08-i03-r0-F_adaptive/",
+        "verified_files": [
+          "events.jsonl",
+          "independent-replay.json",
+          "initial-front.png",
+          "initial-wrist.png",
+          "interface-evolution/catalog.json",
+          "interface-evolution/revision-0000.json",
+          "interface-evolution/revision-0001.json",
+          "interface-evolution/revision-0002.json",
+          "interface-evolution/revision-0003.json",
+          "interface-evolution/revision-0004.json",
+          "interface-evolution/revision-0005.json",
+          "outcome.json",
+          "terminal-front.png",
+          "terminal-wrist.png",
+          "trial.json"
+        ]
+      },
+      "archive_receipt_sha256": "070949741deac2a71f353263af3c61dd496ca245be3757a34171b90234669f4c",
+      "event_log_sha256": "ba24c46e65d170f3128af5e1ce79b90cb584d49766b3a46dd6e7808ec8ba7211",
+      "last_event_sha256": "499cbca945e3ef44c9d388320c524c64a6fc7a158b4731345c4a5a7288032e32",
+      "event_count": 4656,
+      "independent_replay": {
+        "first_success_step": 572,
+        "replayed_steps": 572,
+        "status": "passed",
+        "success": true,
+        "terminal_state_matched": true
+      },
+      "source_sha256": "689a7a8a486d1da3261b38794de7d36f7fabeca011cd6c10fb6b7525847c14ca",
+      "source_commit": "7a6eaf8847ec94c2a6430d9112da8088f7990560"
+    }
+  },
+  "base_tools": [
+    "source_search",
+    "source_read",
+    "scratch_execute",
+    "finish",
+    "describe_device",
+    "read",
+    "read_latest",
+    "act"
+  ],
+  "adaptive_tools": [
+    "source_search",
+    "source_read",
+    "scratch_execute",
+    "finish",
+    "describe_device",
+    "read",
+    "read_latest",
+    "act",
+    "interface_catalog",
+    "enable_capability",
+    "read_capability",
+    "define_interface_tool",
+    "call_interface_tool",
+    "probe_dynamics",
+    "revise_interface_notes",
+    "restore_interface"
+  ],
+  "revisions": [
+    {
+      "revision": 0,
+      "simulator_step": 0,
+      "sequence": null,
+      "monotonic_offset": 0,
+      "state": {
+        "capabilities": [],
+        "notes": "",
+        "tools": {}
+      },
+      "reason": "Recorded empty interface at episode initialization."
+    },
+    {
+      "revision": 1,
+      "simulator_step": 0,
+      "sequence": 34,
+      "monotonic_offset": 36.10299124987796,
+      "state": {
+        "capabilities": [
+          "camera_calibration"
+        ],
+        "notes": "",
+        "tools": {}
+      },
+      "reason": "Map visually identified moka pots and stove onto world coordinates for controlled grasping.",
+      "operation": "enable_capability"
+    },
+    {
+      "revision": 2,
+      "simulator_step": 0,
+      "sequence": 59,
+      "monotonic_offset": 70.19428604701534,
+      "state": {
+        "capabilities": [
+          "camera_calibration"
+        ],
+        "notes": "",
+        "tools": {
+          "project": {
+            "code": "c=read_capability('camera_calibration')['values']['agentview']; out=[]\nfor u,v,z in params['points']:\n d=[(u-64)/c['focal_pixels'][0],(64-v)/c['focal_pixels'][1],-1]; r=c['rotation_camera_to_world']; w=[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]; t=(z-c['position_world_m'][2])/w[2]; out.append([c['position_world_m'][i]+t*w[i] for i in range(3)])\nresult=out",
+            "code_sha256": "c2e15497d917bbb2b69bb583fb23e0b3b6bd365b2102943ef4b20f9733223577",
+            "description": "Intersect front image rays with specified world heights.",
+            "read_only": true
+          }
+        }
+      },
+      "reason": "Localize visible objects using calibrated camera.",
+      "operation": "define_interface_tool"
+    },
+    {
+      "revision": 3,
+      "simulator_step": 0,
+      "sequence": 75,
+      "monotonic_offset": 87.0355879003182,
+      "state": {
+        "capabilities": [
+          "camera_calibration"
+        ],
+        "notes": "",
+        "tools": {
+          "move": {
+            "code": "target=params['target']; g=params.get('grip',-1); n=params.get('steps',35); log=[]\nfor k in range(n):\n o=read('robot.eef_position',0); p=o['value']; err=[target[i]-p[i] for i in range(3)]\n if max(abs(x) for x in err)<0.004: break\n a=[max(-1,min(1,x/0.05)) for x in err]+[0,0,0,g]\n act({'channel':'robot.controller_command','value':a,'duration_steps':1,'metadata':{'episode_id':o['metadata']['episode_id'],'observation_step':o['metadata']['simulator_step'],'mode':'configured_controller','units':'normalized_controller_input'}})\nresult=read('robot.eef_position',0)",
+            "code_sha256": "8f5cc6268d6b5462250ae970549c7e06b0f6f4a25ae6e013ec53a7a371668da9",
+            "description": "Bounded feedback translation to world position, holding orientation and gripper command.",
+            "read_only": false
+          },
+          "project": {
+            "code": "c=read_capability('camera_calibration')['values']['agentview']; out=[]\nfor u,v,z in params['points']:\n d=[(u-64)/c['focal_pixels'][0],(64-v)/c['focal_pixels'][1],-1]; r=c['rotation_camera_to_world']; w=[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]; t=(z-c['position_world_m'][2])/w[2]; out.append([c['position_world_m'][i]+t*w[i] for i in range(3)])\nresult=out",
+            "code_sha256": "c2e15497d917bbb2b69bb583fb23e0b3b6bd365b2102943ef4b20f9733223577",
+            "description": "Intersect front image rays with specified world heights.",
+            "read_only": true
+          }
+        }
+      },
+      "reason": "Reusable closed-loop waypoint positioning with fresh observations.",
+      "operation": "define_interface_tool"
+    },
+    {
+      "revision": 4,
+      "simulator_step": 211,
+      "sequence": 1801,
+      "monotonic_offset": 298.74433617293835,
+      "state": {
+        "capabilities": [
+          "camera_calibration"
+        ],
+        "notes": "",
+        "tools": {
+          "move": {
+            "code": "target=params['target']; g=params.get('grip',-1); n=params.get('steps',35); log=[]\nfor k in range(n):\n o=read('robot.eef_position',0); p=o['value']; err=[target[i]-p[i] for i in range(3)]\n if max(abs(x) for x in err)<0.004: break\n a=[max(-1,min(1,x/0.05)) for x in err]+[0,0,0,g]\n act({'channel':'robot.controller_command','value':a,'duration_steps':1,'metadata':{'episode_id':o['metadata']['episode_id'],'observation_step':o['metadata']['simulator_step'],'mode':'configured_controller','units':'normalized_controller_input'}})\nresult=read('robot.eef_position',0)",
+            "code_sha256": "8f5cc6268d6b5462250ae970549c7e06b0f6f4a25ae6e013ec53a7a371668da9",
+            "description": "Bounded feedback translation to world position, holding orientation and gripper command.",
+            "read_only": false
+          },
+          "project": {
+            "code": "c=read_capability('camera_calibration')['values']['agentview']; out=[]\nfor u,v,z in params['points']:\n d=[(u-64)/c['focal_pixels'][0],(64-v)/c['focal_pixels'][1],-1]; r=c['rotation_camera_to_world']; w=[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]; t=(z-c['position_world_m'][2])/w[2]; out.append([c['position_world_m'][i]+t*w[i] for i in range(3)])\nresult=out",
+            "code_sha256": "c2e15497d917bbb2b69bb583fb23e0b3b6bd365b2102943ef4b20f9733223577",
+            "description": "Intersect front image rays with specified world heights.",
+            "read_only": true
+          },
+          "tri": {
+            "code": "c=read_capability('camera_calibration')['values']; out=[]\nfor sign in [1,-1]:\n rays=[]\n for name,uv in [('agentview',params['front']),('robot0_eye_in_hand',params['wrist'])]:\n  t=c[name]; u,v=uv; d=[(u-64)/t['focal_pixels'][0],sign*(64-v)/t['focal_pixels'][1],-1]; r=t['rotation_camera_to_world']; rays.append((t['position_world_m'],[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]))\n p,a=rays[0]; q,b=rays[1]; w=[q[i]-p[i] for i in range(3)]; dot=lambda a,b:sum(x*y for x,y in zip(a,b)); aa=dot(a,a);bb=dot(b,b);ab=dot(a,b);aw=dot(a,w);bw=dot(b,w);s=(aw*bb-ab*bw)/(aa*bb-ab*ab);t=(ab*aw-aa*bw)/(aa*bb-ab*ab); A=[p[i]+s*a[i] for i in range(3)]; B=[q[i]+t*b[i] for i in range(3)];out.append({'sign':sign,'point':[(A[i]+B[i])/2 for i in range(3)],'error':sum((A[i]-B[i])**2 for i in range(3))**.5})\nresult=out",
+            "code_sha256": "eedf311994a4e6e29f3c63c7e95ff17e342e62de790aea4d62e206f02c1c8742",
+            "description": "Triangulate manually identified corresponding pixels and test vertical image convention.",
+            "read_only": true
+          }
+        }
+      },
+      "reason": "Resolve inaccurate height assumption using two calibrated camera views.",
+      "operation": "define_interface_tool"
+    },
+    {
+      "revision": 5,
+      "simulator_step": 211,
+      "sequence": 1817,
+      "monotonic_offset": 323.3508634660393,
+      "state": {
+        "capabilities": [
+          "camera_calibration"
+        ],
+        "notes": "",
+        "tools": {
+          "move": {
+            "code": "target=params['target']; g=params.get('grip',-1); n=params.get('steps',35); log=[]\nfor k in range(n):\n o=read('robot.eef_position',0); p=o['value']; err=[target[i]-p[i] for i in range(3)]\n if max(abs(x) for x in err)<0.004: break\n a=[max(-1,min(1,x/0.05)) for x in err]+[0,0,0,g]\n act({'channel':'robot.controller_command','value':a,'duration_steps':1,'metadata':{'episode_id':o['metadata']['episode_id'],'observation_step':o['metadata']['simulator_step'],'mode':'configured_controller','units':'normalized_controller_input'}})\nresult=read('robot.eef_position',0)",
+            "code_sha256": "8f5cc6268d6b5462250ae970549c7e06b0f6f4a25ae6e013ec53a7a371668da9",
+            "description": "Bounded feedback translation to world position, holding orientation and gripper command.",
+            "read_only": false
+          },
+          "project": {
+            "code": "c=read_capability('camera_calibration')['values']['agentview']; out=[]\nfor u,v,z in params['points']:\n d=[(u-64)/c['focal_pixels'][0],(64-v)/c['focal_pixels'][1],-1]; r=c['rotation_camera_to_world']; w=[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]; t=(z-c['position_world_m'][2])/w[2]; out.append([c['position_world_m'][i]+t*w[i] for i in range(3)])\nresult=out",
+            "code_sha256": "c2e15497d917bbb2b69bb583fb23e0b3b6bd365b2102943ef4b20f9733223577",
+            "description": "Intersect front image rays with specified world heights.",
+            "read_only": true
+          },
+          "tri": {
+            "code": "c=read_capability('camera_calibration')['values']; out=[]\nfor s1,s2 in [(1,1),(1,-1),(-1,1),(-1,-1)]:\n rays=[]\n for name,uv,sign in [('agentview',params['front'],s1),('robot0_eye_in_hand',params['wrist'],s2)]:\n  t=c[name]; u,v=uv; d=[(u-64)/t['focal_pixels'][0],sign*(64-v)/t['focal_pixels'][1],-1]; r=t['rotation_camera_to_world']; rays.append((t['position_world_m'],[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]))\n p,a=rays[0]; q,b=rays[1]; w=[q[i]-p[i] for i in range(3)]; dot=lambda a,b:sum(x*y for x,y in zip(a,b)); aa=dot(a,a);bb=dot(b,b);ab=dot(a,b);aw=dot(a,w);bw=dot(b,w);s=(aw*bb-ab*bw)/(aa*bb-ab*ab);t=(ab*aw-aa*bw)/(aa*bb-ab*ab); A=[p[i]+s*a[i] for i in range(3)]; B=[q[i]+t*b[i] for i in range(3)];out.append({'sign':[s1,s2],'point':[(A[i]+B[i])/2 for i in range(3)],'error':sum((A[i]-B[i])**2 for i in range(3))**.5})\nresult=out",
+            "code_sha256": "6e8c9c44557cd2683865f8a0d72117945e4bb5b7a9c4789cc85a879b11a006d5",
+            "description": "Triangulate pixels with independent vertical signs.",
+            "read_only": true
+          }
+        }
+      },
+      "reason": "Check individual camera convention discrepancy.",
+      "operation": "define_interface_tool"
+    }
+  ],
+  "fixed_act": {
+    "sequence": 39,
+    "simulator_step": 0,
+    "monotonic_offset": 41.82596621802077,
+    "tool": "act",
+    "arguments": {
+      "envelope": {
+        "channel": "robot.controller_command",
+        "duration_steps": 5,
+        "metadata": {
+          "episode_id": "7659b934310e46138ac4898a24e7f1af",
+          "mode": "configured_controller",
+          "observation_step": 0,
+          "units": "normalized_controller_input"
+        },
+        "value": [
+          0.8,
+          0.35,
+          -0.6,
+          0,
+          0,
+          0,
+          -1
+        ]
+      }
+    }
+  },
+  "fixed_scratch": {
+    "sequence": 778,
+    "simulator_step": 198,
+    "monotonic_offset": 363.47705217497423,
+    "tool": "scratch_execute",
+    "arguments": {
+      "code": "import math\nE='7659b934310e46138ac4898a24e7f1af'\nlog=[]\nfor i in range(5):\n p=read('robot.eef_position',0); q=read('robot.eef_orientation',0)['value']; v=[q[3],q[2],-q[1]]; n=math.sqrt(sum(x*x for x in v)); a=2*math.atan2(n,q[0]); r=[x*a/max(n,1e-9)/.5*.5 for x in v]\n target=[-.12,.23,1.13]; u=[max(-1,min(1,(t-x)/.05)) for t,x in zip(target,p['value'])]+[max(-1,min(1,x)) for x in r]+[-1]\n log.append(act({'channel':'robot.controller_command','value':u,'duration_steps':5,'metadata':{'episode_id':E,'observation_step':p['metadata']['simulator_step'],'units':'normalized_controller_input','mode':'configured_controller'}}))\nresult=log"
+    }
+  },
+  "adaptive_move": {
+    "sequence": 81,
+    "simulator_step": 0,
+    "monotonic_offset": 91.75620095198974,
+    "tool": "call_interface_tool",
+    "arguments": {
+      "arguments_json": "{\"target\":[-0.045,0.077,1.04]}",
+      "name": "move"
+    }
+  },
+  "tri_calls": [
+    {
+      "sequence": 1807,
+      "simulator_step": 211,
+      "arguments": {
+        "arguments_json": "{\"front\":[76,75],\"wrist\":[32,27]}",
+        "name": "tri"
+      },
+      "response": {
+        "result": [
+          {
+            "error": 0.026799557416236863,
+            "point": [
+              0.037927065562832055,
+              0.07812517869558426,
+              1.0376520072460211
+            ],
+            "sign": 1
+          },
+          {
+            "error": 0.004184770178581524,
+            "point": [
+              -0.0897050970018779,
+              0.07238531336519238,
+              1.090589428439617
+            ],
+            "sign": -1
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 1823,
+      "simulator_step": 211,
+      "arguments": {
+        "arguments_json": "{\"front\":[76,75],\"wrist\":[32,27]}",
+        "name": "tri"
+      },
+      "response": {
+        "result": [
+          {
+            "error": 0.026799557416236863,
+            "point": [
+              0.037927065562832055,
+              0.07812517869558426,
+              1.0376520072460211
+            ],
+            "sign": [
+              1,
+              1
+            ]
+          },
+          {
+            "error": 0.08589871508660149,
+            "point": [
+              -0.17597224339502482,
+              0.11992659927242605,
+              0.8691817763645242
+            ],
+            "sign": [
+              1,
+              -1
+            ]
+          },
+          {
+            "error": 0.01127081430697978,
+            "point": [
+              -0.004365452640388519,
+              0.05733316641527676,
+              1.1464901488086743
+            ],
+            "sign": [
+              -1,
+              1
+            ]
+          },
+          {
+            "error": 0.004184770178581524,
+            "point": [
+              -0.0897050970018779,
+              0.07238531336519238,
+              1.090589428439617
+            ],
+            "sign": [
+              -1,
+              -1
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "sequence": 1955,
+      "simulator_step": 223,
+      "arguments": {
+        "arguments_json": "{\"front\":[76,76],\"wrist\":[83,74]}",
+        "name": "tri"
+      },
+      "response": {
+        "result": [
+          {
+            "error": 0.013435343220150218,
+            "point": [
+              0.028565032447630194,
+              0.07334304490846304,
+              1.0111514877596948
+            ],
+            "sign": [
+              1,
+              1
+            ]
+          },
+          {
+            "error": 0.028332009361080993,
+            "point": [
+              0.07418396090856352,
+              0.07591884552418295,
+              1.0515765278179634
+            ],
+            "sign": [
+              1,
+              -1
+            ]
+          },
+          {
+            "error": 0.06492334202110997,
+            "point": [
+              0.05219934748647425,
+              0.08775691856256596,
+              1.1789696533692144
+            ],
+            "sign": [
+              -1,
+              1
+            ]
+          },
+          {
+            "error": 0.06734247178726893,
+            "point": [
+              0.06321413049173223,
+              0.08862161673814069,
+              1.188896410473737
+            ],
+            "sign": [
+              -1,
+              -1
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tri_diff": "--- tri: revision 4\n+++ tri: revision 5\n@@ -1,7 +1,7 @@\n c=read_capability('camera_calibration')['values']; out=[]\n-for sign in [1,-1]:\n+for s1,s2 in [(1,1),(1,-1),(-1,1),(-1,-1)]:\n  rays=[]\n- for name,uv in [('agentview',params['front']),('robot0_eye_in_hand',params['wrist'])]:\n+ for name,uv,sign in [('agentview',params['front'],s1),('robot0_eye_in_hand',params['wrist'],s2)]:\n   t=c[name]; u,v=uv; d=[(u-64)/t['focal_pixels'][0],sign*(64-v)/t['focal_pixels'][1],-1]; r=t['rotation_camera_to_world']; rays.append((t['position_world_m'],[sum(r[i][j]*d[j] for j in range(3)) for i in range(3)]))\n- p,a=rays[0]; q,b=rays[1]; w=[q[i]-p[i] for i in range(3)]; dot=lambda a,b:sum(x*y for x,y in zip(a,b)); aa=dot(a,a);bb=dot(b,b);ab=dot(a,b);aw=dot(a,w);bw=dot(b,w);s=(aw*bb-ab*bw)/(aa*bb-ab*ab);t=(ab*aw-aa*bw)/(aa*bb-ab*ab); A=[p[i]+s*a[i] for i in range(3)]; B=[q[i]+t*b[i] for i in range(3)];out.append({'sign':sign,'point':[(A[i]+B[i])/2 for i in range(3)],'error':sum((A[i]-B[i])**2 for i in range(3))**.5})\n+ p,a=rays[0]; q,b=rays[1]; w=[q[i]-p[i] for i in range(3)]; dot=lambda a,b:sum(x*y for x,y in zip(a,b)); aa=dot(a,a);bb=dot(b,b);ab=dot(a,b);aw=dot(a,w);bw=dot(b,w);s=(aw*bb-ab*bw)/(aa*bb-ab*ab);t=(ab*aw-aa*bw)/(aa*bb-ab*ab); A=[p[i]+s*a[i] for i in range(3)]; B=[q[i]+t*b[i] for i in range(3)];out.append({'sign':[s1,s2],'point':[(A[i]+B[i])/2 for i in range(3)],'error':sum((A[i]-B[i])**2 for i in range(3))**.5})\n result=out",
+  "outcomes": {
+    "F": {
+      "success": false,
+      "sim_steps": 658,
+      "wall_s": 879.222530498635,
+      "terminal_reason": "TASK_FAILURE"
+    },
+    "F_adaptive": {
+      "success": true,
+      "sim_steps": 572,
+      "wall_s": 626.1404093219899,
+      "terminal_reason": "SUCCESS"
+    }
+  }
+}

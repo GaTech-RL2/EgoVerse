@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1080" viewBox="0 0 1600 1080" role="img" aria-labelledby="title description">
+<title id="title">Agent-legible hardware</title>
+<desc id="description">The typed F interface gives Astra explicit sensor and command semantics. Observations go from the robot through a device contract to Astra; commands return through validation to the native controller. Four experimental interfaces and two benchmark adapters are shown.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#63788b"/></marker></defs>
+<rect width="1600" height="1080" fill="#f6f8fb"/>
+<text x="56" y="52" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#087f70">AGENT-LEGIBLE HARDWARE</text>
+<text x="56" y="103" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#203649">A robot interface an agent can inspect and use</text>
+<text x="56" y="141" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#4b657a">Typed interface shown: F, and the starting interface for F-adaptive. Astra chooses the robot actions.</text>
+<rect x="56" y="202" width="410" height="210" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Robot observations</text>
+<text x="80" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RGB cameras + robot proprioception</text>
+<text x="80" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">LIBERO: front + wrist cameras</text>
+<text x="80" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RoboCasa: left + right + wrist</text>
+<text x="80" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Joint, end-effector and gripper state</text>
+<rect x="574" y="202" width="458" height="210" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="598" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Discoverable device contract</text>
+<text x="598" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">describe_device() → hardware-1 JSON</text>
+<text x="598" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Channel name, shape, units and frame</text>
+<text x="598" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Action bounds and controller convention</text>
+<text x="598" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read() → value + step + timestamp</text>
+<rect x="1140" y="202" width="404" height="210" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="1164" y="241" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Astra actor</text>
+<text x="1164" y="279" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Task + tools + current observations</text>
+<text x="1164" y="308" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Camera PNGs become image inputs</text>
+<text x="1164" y="337" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Inspect → choose → act → observe</text>
+<text x="1164" y="366" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Fresh session; fixed model weights</text>
+<path d="M467 305H564" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="483" y="279" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">sensors</text>
+<path d="M1033 305H1130" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="1048" y="279" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="400" fill="#4b657a">readback</text>
+<rect x="1140" y="475" width="404" height="174" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="1164" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Action request JSON</text>
+<text x="1164" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">act({envelope: …})</text>
+<text x="1164" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Channel, native vector, duration</text>
+<text x="1164" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Episode + observation-step metadata</text>
+<rect x="574" y="475" width="458" height="174" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="598" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Validate, execute, return a receipt</text>
+<text x="598" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Router → Proxy → native controller</text>
+<text x="598" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Shape, bounds, repeats and freshness</text>
+<text x="598" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Read again after accepted execution</text>
+<rect x="56" y="475" width="410" height="174" rx="16" fill="white" stroke="#d2dde6" stroke-width="1.5"/>
+<text x="80" y="514" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">Native robot action</text>
+<text x="80" y="552" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">LIBERO: 7-value OSC_POSE command</text>
+<text x="80" y="581" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">RoboCasa: 12-value mobile command</text>
+<text x="80" y="610" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Physics advances on accepted steps</text>
+<path d="M1342 413V465" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M1139 555H1042" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M573 555H476" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<path d="M260 474V422" fill="none" stroke="#63788b" stroke-width="2.5" marker-end="url(#arrow)"/>
+<text x="56" y="712" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="700" fill="#4b657a">FOUR INTERFACES TO THE SAME NATIVE CONTROL AUTHORITY</text>
+<rect x="56" y="738" width="348" height="188" rx="16" fill="#eaf7f3" stroke="#087f70" stroke-width="1.5"/>
+<text x="80" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F · typed hardware</text>
+<text x="80" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Device semantics are explicit.</text>
+<text x="80" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">read / read_latest / act</text>
+<text x="80" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Astra still plans every action.</text>
+<rect x="436" y="738" width="348" height="188" rx="16" fill="#fff5ea" stroke="#ab5e19" stroke-width="1.5"/>
+<text x="460" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">B0 · source discovery</text>
+<text x="460" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Astra inspects robot source.</text>
+<text x="460" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">observe / step</text>
+<text x="460" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Discovers native conventions.</text>
+<rect x="816" y="738" width="348" height="188" rx="16" fill="#f4eefb" stroke="#7750b3" stroke-width="1.5"/>
+<text x="840" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">B · source + observer</text>
+<text x="840" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">B0 plus a separate visual helper.</text>
+<text x="840" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">describe_visible</text>
+<text x="840" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Helper reports image evidence.</text>
+<rect x="1196" y="738" width="348" height="188" rx="16" fill="#edf4ff" stroke="#235eb0" stroke-width="1.5"/>
+<text x="1220" y="777" font-family="Arial,Helvetica,sans-serif" font-size="23" font-weight="700" fill="#203649">F-adaptive · evolve</text>
+<text x="1220" y="815" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">F plus optional hardware info.</text>
+<text x="1220" y="844" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Define, probe and revise tools.</text>
+<text x="1220" y="873" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Changes last for this episode.</text>
+<text x="56" y="970" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#203649">All actors receive images directly and share source access, scratch execution and the native action checks.</text>
+<text x="56" y="1004" font-family="Arial,Helvetica,sans-serif" font-size="21" font-weight="400" fill="#203649">F-adaptive can add available encoders or camera calibration; its information access is part of the treatment.</text>
+<text x="56" y="1041" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="400" fill="#4b657a">Code: provider.py → runner.py → proxy.py → libero.py / robocasa.py   |   Private evaluation and replay are separate.</text>
+</svg>

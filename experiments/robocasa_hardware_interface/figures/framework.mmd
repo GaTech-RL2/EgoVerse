@@ -3,6 +3,9 @@ flowchart TD
   run <--> session[provider.Session: Astra Responses API]
   session -->|function call: name + arguments JSON| router[Router.dispatch + strict JSON Schema]
   router --> F[F: describe_device / read / read_latest / act envelope]
+  router --> FA[F-adaptive: F tools plus versioned interface evolution]
+  FA <--> evolve[adaptive.py: capabilities / tools / probes / notes / restore]
+  evolve -->|sandboxed read and act| proxy
   router --> B0[B0: observe native keys / step native vector]
   router --> B[B: B0 tools + describe_visible]
   B <--> obs[provider.Observer: current images → evidence JSON]
