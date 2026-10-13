@@ -89,3 +89,76 @@ def test_no_archives_produces_explicit_partial_report(tmp_path):
     assert result["cohorts"]["original"]["missing"] == [expected["trial_id"]]
     assert "partial" in (tmp_path / "report/index.html").read_text()
     assert (tmp_path / "report/original/success-by-task.png").exists()
+
+
+def test_recovery_report_keeps_failed_first_attempt(tmp_path, monkeypatch):
+    from experiments.libero_hardware_interface.tools import parallel_results as module
+
+    expected, _, _ = records()
+    manifest = design("docker.io/library/python@sha256:" + "a" * 64)
+    common = {
+        **expected,
+        "actor_started": True,
+        "independent_evaluation_passed": True,
+        "wall_s": 100,
+        "known_workflow_tokens": 1000,
+        "unknown_usage_records": 0,
+        "estimated_cost_usd": None,
+        "censored_wall": False,
+        "invalid_actions": 0,
+        "safety_attempts": 0,
+        "applied_safety_violations": 0,
+    }
+    recovered = {
+        **common,
+        "success": True,
+        "sim_steps": 100,
+        "terminal_reason": "SUCCESS",
+    }
+    interrupted = {
+        **common,
+        "success": False,
+        "sim_steps": 20,
+        "terminal_reason": "MODEL_ERROR",
+    }
+    monkeypatch.setattr(
+        module,
+        "collect_trial",
+        lambda client, owner, *args: interrupted if owner == "earlier" else recovered,
+    )
+    monkeypatch.setattr(
+        module,
+        "runtime_receipts",
+        lambda *args: {"pending": ["current"], "verified": [], "differences": {}},
+    )
+    cohort = {
+        "name": "original",
+        "title": "Original",
+        "manifest": manifest,
+        "schedule": [expected],
+        "plan": {},
+        "owners": [{"workflow": "current", "trial_ids": [expected["trial_id"]]}],
+        "prior_attempts": [
+            {
+                "workflow": "earlier",
+                "trial_id": expected["trial_id"],
+                "reason": "transport interruption",
+            }
+        ],
+    }
+    module.snapshot(
+        None,
+        {"deadline_utc": "2026-10-13T15:00:00+00:00", "cohorts": [cohort]},
+        tmp_path / "cache",
+        tmp_path / "report",
+    )
+    first = json.loads(
+        (tmp_path / "report/original/first-attempt-analysis.json").read_text()
+    )
+    final = json.loads((tmp_path / "report/original/analysis.json").read_text())
+    assert first["arms"]["F"]["successes"] == 0
+    assert final["arms"]["F"]["successes"] == 1
+    assert (
+        len(json.loads((tmp_path / "report/original/prior-attempts.json").read_text()))
+        == 1
+    )

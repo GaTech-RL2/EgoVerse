@@ -14,7 +14,7 @@ import boto3
 import yaml
 from botocore.exceptions import ClientError
 
-from astra_reversal.hardware_interface.analysis import audit
+from astra_reversal.hardware_interface.analysis import analyze, audit
 from astra_reversal.hardware_interface.common import strict_json, write_json
 from astra_reversal.hardware_interface.reporting import export, power_worksheet
 
@@ -80,7 +80,7 @@ def read_object(client, key):
 
 def collect_trial(client, owner, expected, cohort, cache):
     trial_id = expected["trial_id"]
-    directory = cache / cohort["name"] / trial_id / "runs" / trial_id
+    directory = cache / cohort["name"] / owner / trial_id / "runs" / trial_id
     verified = directory.parent.parent / "verified.json"
     if verified.exists():
         return strict_json(verified.read_bytes())
@@ -105,6 +105,16 @@ def collect_trial(client, owner, expected, cohort, cache):
         raise ValueError("event_chain_audit_failed")
     row["archive_prefix"] = prefix
     row["archive_receipt_sha256"] = hashlib.sha256(receipt_raw).hexdigest()
+    row["recorded_transport_errors"] = sorted(
+        {
+            event.get("reason")
+            for event in (
+                strict_json(line) for line in contents["events.jsonl"].splitlines()
+            )
+            if event.get("event") == "error"
+            and str(event.get("reason", "")).startswith("provider_")
+        }
+    )
     write_json(verified, row)
     return row
 
@@ -166,12 +176,35 @@ def snapshot(client, campaign, cache, destination):
                     outcomes.append(row)
             except (ValueError, KeyError, TypeError) as error:
                 errors[trial_id] = str(error)
+        prior_outcomes, prior_missing = [], []
+        for attempt in cohort.get("prior_attempts", []):
+            try:
+                previous = collect_trial(
+                    client,
+                    attempt["workflow"],
+                    expected[attempt["trial_id"]],
+                    cohort,
+                    cache,
+                )
+                if previous is None:
+                    prior_missing.append(attempt)
+                else:
+                    prior_outcomes.append(
+                        {**previous, "recovery_reason": attempt["reason"]}
+                    )
+            except (ValueError, KeyError, TypeError) as error:
+                errors[attempt["workflow"] + "/" + attempt["trial_id"]] = str(error)
         runtime = runtime_receipts(client, cohort)
         infra = [
             r["trial_id"] for r in outcomes if r["terminal_reason"] in INFRASTRUCTURE
         ]
         complete = not (
-            missing or errors or infra or runtime["pending"] or runtime["differences"]
+            missing
+            or errors
+            or infra
+            or prior_missing
+            or runtime["pending"]
+            or runtime["differences"]
         )
         result["complete"] &= complete
         details = {
@@ -180,6 +213,8 @@ def snapshot(client, campaign, cache, destination):
             "missing": missing,
             "record_errors": errors,
             "infrastructure_trials": infra,
+            "prior_attempts_retained": len(prior_outcomes),
+            "prior_attempts_missing": prior_missing,
             "runtime_parity": runtime,
             "complete": complete,
         }
@@ -187,6 +222,15 @@ def snapshot(client, campaign, cache, destination):
         folder = destination / cohort["name"]
         analysis = export(outcomes, cohort["manifest"], folder, split="pilot")
         write_json(folder / "verified-outcomes.json", outcomes)
+        write_json(folder / "prior-attempts.json", prior_outcomes)
+        first = {row["trial_id"]: row for row in outcomes}
+        for previous in reversed(prior_outcomes):
+            first[previous["trial_id"]] = previous
+        first_analysis = analyze(
+            list(first.values()), cohort["manifest"], split="pilot"
+        )
+        write_json(folder / "first-attempt-analysis.json", first_analysis)
+        write_json(folder / "first-attempt-outcomes.json", list(first.values()))
         write_json(folder / "completion.json", details)
         if complete:
             write_json(
@@ -211,6 +255,16 @@ def snapshot(client, campaign, cache, destination):
             images.append(
                 '<img alt="%s" src="data:image/png;base64,%s">' % (name, encoded)
             )
+        recovery_note = ""
+        if cohort.get("prior_attempts"):
+            first_counts = ", ".join(
+                "%s %s/%s" % (arm, value["successes"], value["n"])
+                for arm, value in first_analysis["arms"].items()
+            )
+            recovery_note = (
+                "<p>Transport recovery: %s earlier attempts retained. The charts use the documented recovery partition; whole matched blocks are repeated only after an infrastructure interruption. First-attempt counts, with interrupted attempts retained: %s. Both analyses and prior archive references are in the ZIP.</p>"
+                % (len(prior_outcomes), html.escape(first_counts))
+            )
         panels.append(
             "<section><h2>%s</h2><p>%s/%s audited trials · %s</p><table><tr><th>Method</th><th>Successes / trials</th><th>Success rate</th></tr>%s</table>%s</section>"
             % (
@@ -221,7 +275,7 @@ def snapshot(client, campaign, cache, destination):
                 if complete
                 else "partial — completion/parity checks pending",
                 "".join(rows),
-                "".join(images),
+                recovery_note + "".join(images),
             )
         )
     write_json(destination / "status.json", result)
