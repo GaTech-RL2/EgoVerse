@@ -14,6 +14,7 @@ from astra_reversal.hardware_interface.robocasa_worker import (
     record_reset_evidence,
 )
 from experiments.liberomax_hardware_interface.tools.prepare_plus_assets import (
+    ARCHIVE_PREFIX,
     asset_members,
 )
 
@@ -63,3 +64,26 @@ def test_official_asset_tree_is_accepted():
     buffer.seek(0)
     with zipfile.ZipFile(buffer) as archive:
         assert len(asset_members(archive)) == 1
+
+
+def test_published_archive_prefix_maps_to_asset_tree():
+    buffer = io.BytesIO()
+    path = "assets/scenes/kitchen250/kitchen_table_FabricCarpet001_REFL_3K.xml"
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(str(ARCHIVE_PREFIX / path), "<mujoco/>")
+    buffer.seek(0)
+    with zipfile.ZipFile(buffer) as archive:
+        [(member, destination)] = asset_members(archive)
+        assert destination.as_posix() == path
+        assert archive.read(member) == b"<mujoco/>"
+
+
+def test_prefix_mapping_cannot_collide_or_escape_assets():
+    for name in ("assets/scenes/table.xml", "../source.py"):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("assets/scenes/table.xml", "<mujoco/>")
+            archive.writestr(str(ARCHIVE_PREFIX / name), "<mujoco/>")
+        buffer.seek(0)
+        with zipfile.ZipFile(buffer) as archive, pytest.raises(ValueError):
+            asset_members(archive)

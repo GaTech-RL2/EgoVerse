@@ -13,20 +13,32 @@ REPOSITORY = "Sylvest/LIBERO-plus"
 REVISION = "dd2bd61b7d9a6fef1abc52d606e983b41886a149"
 SHA256 = "96764a4bfbdaea98d4411598caeab235458318fe0f549611b93d1a323027b3cf"
 BYTES = 6395849578
+# The published archive embeds this build-machine path before assets/.
+ARCHIVE_PREFIX = PurePosixPath(
+    "inspire/hdd/project/embodied-multimodality/public/syfei/libero_new/"
+    "release/dataset/LIBERO-plus-0"
+)
 
 
 def asset_members(archive):
-    members = archive.infolist()
-    for member in members:
+    members, seen = [], set()
+    for member in archive.infolist():
         relative = PurePosixPath(member.filename)
         if (
             relative.is_absolute()
             or ".." in relative.parts
             or not relative.parts
-            or relative.parts[0] != "assets"
             or stat.S_ISLNK(member.external_attr >> 16)
         ):
             raise ValueError("asset_archive_member_outside_assets")
+        if relative.is_relative_to(ARCHIVE_PREFIX):
+            relative = relative.relative_to(ARCHIVE_PREFIX)
+        if not relative.parts or relative.parts[0] != "assets":
+            raise ValueError("asset_archive_member_outside_assets")
+        if relative in seen:
+            raise ValueError("duplicate_asset_archive_destination")
+        seen.add(relative)
+        members.append((member, relative))
     return members
 
 
@@ -45,8 +57,8 @@ def prepare(root, receipt):
         members = asset_members(archive)
         # This fresh workflow checkout has only ignored runtime assets here.
         # Pinned source, BDDL files and initial-state files remain untouched.
-        for member in members:
-            target = destination / member.filename
+        for member, relative in members:
+            target = destination / relative
             if member.is_dir():
                 target.mkdir(parents=True, exist_ok=True)
                 continue
@@ -64,6 +76,7 @@ def prepare(root, receipt):
         "revision": REVISION,
         "archive_sha256": SHA256,
         "archive_bytes": BYTES,
+        "archive_prefix": str(ARCHIVE_PREFIX),
         "members": len(members),
         "required_scene_sha256": file_hash(required),
         "model_calls": 0,

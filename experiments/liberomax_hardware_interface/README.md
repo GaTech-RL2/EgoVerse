@@ -27,6 +27,13 @@ at revision `dd2bd61b7d9a6fef1abc52d606e983b41886a149`, checking its full SHA-25
 before extraction. `--source plus` retries Plus without repeating PRO. The Plus
 native check and live Astra integration remain open.
 
+`commission-4` verified the archive checksum but rejected its unexpected build
+directory prefix. Inspection of all 457,675 ZIP entries confirmed the official
+pack has one fixed prefix, no duplicate destinations or symlinks, and the required
+kitchen250 scene. The installer now removes exactly that prefix while preserving
+the asset contents and destination checks. The metadata audit is recorded in
+`evidence/plus-asset-layout-20261013.json`; native validation is still required.
+
 Source is pinned at `01625e290b1aa07511bdc820781e635e851353cc`. Max contains
 8,000 Base/Dynamic pairs per policy; Lite contains 800. F, B0 and B are separate
 interfaces: a full three-interface Lite comparison requires 2,400 pairs / 4,800

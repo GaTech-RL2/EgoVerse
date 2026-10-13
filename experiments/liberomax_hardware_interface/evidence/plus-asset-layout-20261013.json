@@ -1,0 +1,13 @@
+{
+  "repository": "Sylvest/LIBERO-plus",
+  "revision": "dd2bd61b7d9a6fef1abc52d606e983b41886a149",
+  "central_directory_sha256": "05ecababad93beed218f5fe24078227008f62b82bcc6bdb10414f7d0b8103271",
+  "members": 457675,
+  "archive_prefix": "inspire/hdd/project/embodied-multimodality/public/syfei/libero_new/release/dataset/LIBERO-plus-0/",
+  "uncompressed_bytes": 8953192654,
+  "invalid_count": 0,
+  "invalid_examples": [],
+  "duplicate_names": 0,
+  "required_scene_present": true,
+  "zip64_file_sizes": []
+}

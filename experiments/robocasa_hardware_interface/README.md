@@ -43,6 +43,15 @@ receipt field. It retains the original equality requirement; diagnostics do not
 turn mismatched scenarios into valid comparisons. Diagnose this check before
 restarting the full pilot.
 
+`reset-check-1` completed all 150 reset probes with zero model calls. All were
+initially unsolved and used matching controllers. Twelve repeated resets across
+nine tasks failed exact parity: NavigateKitchen, PickPlaceSinkToCounter,
+PreSoakPan, RinseSinkBasin, ScrubCuttingBoard, SeparateFreezerRack,
+SteamInMicrowave, TurnOnSinkFaucet and WashLettuce. Differences include simulator
+state, episode metadata and images; a single XML normalization is not sufficient.
+These are diagnostics, not additional scored rollouts. The full pilot remains
+stopped pending a validated reset remedy.
+
 ![Framework](figures/framework.svg)
 
 [Standalone framework guide](figures/framework.html) · [PNG](figures/framework.png) ·
