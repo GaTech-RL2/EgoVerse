@@ -43,3 +43,27 @@ and other resolved-runtime hashes to match the parent cohort. Every five minutes
 it publishes separate cohort CSV/JSON results, plots and a self-contained HTML
 ZIP. It publishes a final delivery snapshot when both cohorts are complete or at
 the requested morning deadline; that reporting deadline does not stop actors.
+
+## Shared inference rate-limit recovery
+
+The first eight-worker launch passed native checks but encountered a synchronized
+HTTP 429 burst. Four adaptive shards were rejected before their first native
+action; the original shards stopped during unscored smoke. The existing parent
+jobs also suffered two interrupted pilot blocks. All of these attempts and their
+replay/archive receipts are retained.
+
+The replacement launch uses `request_admission.py`: eight distinct one-second
+request slots, at most one dispatch per worker per eight-second cycle. An HTTP
+429 delays the next already-authorized retry by at least 60 seconds, escalating
+on consecutive rejections and respecting a longer Retry-After header. The model's
+three-retry limit, exact request body, prompts, native horizon and actions remain
+unchanged. Waiting never steps the simulator, and every wait is recorded.
+
+The recovery partition retains the 57 complete original-cohort trials and the
+two complete adaptive-cohort trials before the interrupted blocks. It reruns
+every method in each interrupted block, irrespective of the earlier method's
+task outcome, and distributes all remaining matched blocks without overlap.
+The four adaptive requests rejected before any action are retained as provider
+outages, consistent with the frozen infrastructure exclusion category. Reporting
+must expose the earlier attempts alongside the recovered paired results. No
+task failure, low score or successful result triggers a rerun.

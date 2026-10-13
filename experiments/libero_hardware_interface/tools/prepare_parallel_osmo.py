@@ -47,7 +47,9 @@ def prepare_shard(destination, plan_path, index, *, adaptive=False):
     overlays = [
         "experiments/libero_hardware_interface/tools/parallel_plan.py",
         "experiments/libero_hardware_interface/tools/parallel_worker.py",
+        "experiments/libero_hardware_interface/tools/request_admission.py",
         "tests/unit/hardware_interface/test_parallel.py",
+        "tests/unit/hardware_interface/test_request_admission.py",
     ]
     payload = destination / "payload.tar.gz"
     with (
@@ -100,6 +102,7 @@ def prepare_shard(destination, plan_path, index, *, adaptive=False):
             "HARDWARE_ORCHESTRATION_COMMIT": orchestration,
             "HARDWARE_EXECUTION_PLAN": "/tmp/hardware-execution-plan.json",
             "HARDWARE_SHARD_INDEX": str(index),
+            "HARDWARE_REQUEST_SLOT_INDEX": str(2 * index + (0 if adaptive else 1)),
         }
     )
     task["files"].append(

@@ -89,5 +89,10 @@ def collect_shard(root, manifest):
 
 
 if __name__ == "__main__":
+    if "HARDWARE_REQUEST_SLOT_INDEX" in os.environ:
+        from .request_admission import install
+
+        admission = install(int(os.environ["HARDWARE_REQUEST_SLOT_INDEX"]))
+        write_json(Path("artifacts/request-admission.json"), admission)
     osmo_worker.collect_pilot = collect_shard
     osmo_worker.main()
