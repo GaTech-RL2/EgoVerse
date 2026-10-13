@@ -34,3 +34,12 @@ The original F/B0/B cohort and the F/F-adaptive cohort remain separate. Aggregat
 must use execution ownership, the exact frozen starts, and independently replayed
 outcomes; it must reject duplicates and retain infrastructure failures explicitly.
 Completed GPU jobs alone do not establish a complete or valid comparison.
+
+`parallel_results.py` runs independently on CPU. It reads each assigned owner's
+immutable trial archive, verifies record hashes, frozen trial identity, event
+chains, native replay and experiment source, and reports missing or invalid
+records explicitly. Final completion also requires dependency/controller/asset
+and other resolved-runtime hashes to match the parent cohort. Every five minutes
+it publishes separate cohort CSV/JSON results, plots and a self-contained HTML
+ZIP. It publishes a final delivery snapshot when both cohorts are complete or at
+the requested morning deadline; that reporting deadline does not stop actors.
