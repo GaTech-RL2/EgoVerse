@@ -152,7 +152,7 @@ def prepare(destination, *, stage="commission", pool="groot-l40s-01", adaptive=F
         "workflow": str(destination / "workflow.yaml"),
         "scope": "unscored Linux simulator/interface/isolation commissioning"
         + (
-            " plus live Astra transport and three-arm smoke"
+            " plus live Astra transport and %d-arm smoke" % len(manifest["conditions"])
             if stage in ("smoke", "pilot")
             else "; zero model requests"
         ),
