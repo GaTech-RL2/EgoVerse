@@ -7,9 +7,9 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, default_collate
 from tqdm import tqdm
 
-from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.pylogger import RankedLogger
+from egomimic.utils.seed import set_global_seed
 
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)

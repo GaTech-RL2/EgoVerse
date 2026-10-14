@@ -23,13 +23,9 @@ import pyarrow.compute as pc
 import torch
 
 from egomimic.rldb.embodiment.embodiment import HISTORY_MASK_SUFFIX, get_embodiment_id
-from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    PinError,
-    ZarrDataset,
-    _ensure_dataset_filter,
-)
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 logger = logging.getLogger(__name__)
 

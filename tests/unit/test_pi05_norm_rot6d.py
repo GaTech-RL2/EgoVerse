@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 
-from egomimic.rldb.zarr.action_chunk_transforms import (
+from egomimic.rldb.transforms import (
     CartesianRot6DToYPR,
     CartesianYPRToRot6D,
 )
@@ -376,7 +376,7 @@ def test_rotate_local_frame_flips_left_wrist_convention():
     # handle both (7,) poses and (T, 7) chunks.
     from scipy.spatial.transform import Rotation as R
 
-    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+    from egomimic.rldb.transforms import RotateLocalFrame
 
     rng = np.random.default_rng(4)
     q = R.random(3, random_state=5)
@@ -401,7 +401,7 @@ def test_rotate_local_frame_flips_left_wrist_convention():
 
 def test_fix_left_wrist_convention_flag_prepends_correction():
     from egomimic.rldb.embodiment.human import Human
-    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+    from egomimic.rldb.transforms import RotateLocalFrame
 
     tl = Human.get_transform_list(
         "cartesian_wristframe_6d", stride=1, fix_left_wrist_convention=True
@@ -467,7 +467,7 @@ def test_base_converter_rejects_norm_6d_encoding():
 
 
 def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
-    from egomimic.rldb.zarr.action_chunk_transforms import (
+    from egomimic.rldb.transforms import (
         PadGripperZeros,
         UnpadGripperZeros,
     )
@@ -489,7 +489,7 @@ def test_human_6d_reverts_unpad_proprio():
         _build_human_cartesian_revert_6d_transform_list,
         _build_human_cartesian_revert_6d_wristframe_transform_list,
     )
-    from egomimic.rldb.zarr.action_chunk_transforms import UnpadGripperZeros
+    from egomimic.rldb.transforms import UnpadGripperZeros
 
     for build in (
         _build_human_cartesian_revert_6d_transform_list,
