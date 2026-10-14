@@ -43,7 +43,7 @@ from __future__ import annotations
 import logging
 
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.zarr.zarr_dataset_multi import EvenStrideDataset, MultiDataset
+from egomimic.rldb.multi import EvenStrideDataset, MultiDataset
 
 logger = logging.getLogger(__name__)
 

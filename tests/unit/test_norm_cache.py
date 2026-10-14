@@ -17,7 +17,7 @@ from fixtures.train_harness import compose_recipe, hermetic_env, write_fixtures
 from omegaconf import OmegaConf
 
 import egomimic.trainHydra as train_hydra
-from egomimic.rldb.zarr import episode_norm_samples, norm_cache
+from egomimic.rldb.norm import episode_norm_samples, norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.rldb.zarr.zarr_writer import write_annotations
 
@@ -102,11 +102,12 @@ def test_key_changes_with_code(monkeypatch) -> None:
 def test_code_modules_cover_reader_targets_and_their_imports() -> None:
     mods = norm_cache.code_modules(OmegaConf.to_container(CFG))
     for m in (
-        "egomimic.rldb.zarr.zarr_dataset_multi",  # reader, resolvers, stats methods
+        "egomimic.rldb.multi",  # stats methods
+        "egomimic.rldb.zarr.zarr_dataset_multi",  # reader, resolvers
         "egomimic.rldb.embodiment.human",  # keymap + transform factory (targets)
         "egomimic.rldb.filters",
-        "egomimic.rldb.zarr.action_chunk_transforms",  # imported by human
-        "egomimic.utils.pose_utils",  # imported by action_chunk_transforms
+        "egomimic.rldb.transforms",  # imported by human
+        "egomimic.utils.pose_utils",  # imported by transforms
     ):
         assert m in mods
     assert all(m.startswith("egomimic.") for m in mods)

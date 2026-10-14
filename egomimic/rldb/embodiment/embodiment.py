@@ -6,7 +6,7 @@ from typing import Literal
 import numpy as np
 import torch
 
-from egomimic.rldb.zarr.action_chunk_transforms import Transform
+from egomimic.rldb.transforms import Transform
 from egomimic.utils.type_utils import _to_numpy
 from egomimic.utils.viz_utils import (
     _viz_annotations,

@@ -6,7 +6,7 @@ from fixtures.synthetic_episodes import write_episode
 from omegaconf import OmegaConf
 
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.zarr import episode_norm_samples as ens
+from egomimic.rldb.norm import episode_norm_samples as ens
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 
 T = 48

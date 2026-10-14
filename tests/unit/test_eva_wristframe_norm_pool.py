@@ -8,7 +8,7 @@ from fixtures.synthetic_episodes import write_episode
 from hydra import compose, initialize_config_module
 
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.zarr import norm_cache
+from egomimic.rldb.norm import norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 
 EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"

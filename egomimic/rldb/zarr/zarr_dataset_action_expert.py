@@ -18,10 +18,10 @@ import simplejpeg
 import torch
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.multi import MultiDataset
 from egomimic.rldb.zarr.utils import jpeg_pixels_to_float
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     LocalEpisodeResolver,
-    MultiDataset,
     S3EpisodeResolver,
     ZarrDataset,
     ZarrEpisode,

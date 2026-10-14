@@ -22,13 +22,9 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import torch
 
-from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    PinError,
-    ZarrDataset,
-    _ensure_dataset_filter,
-)
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 logger = logging.getLogger(__name__)
 
