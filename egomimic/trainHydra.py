@@ -671,7 +671,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     cache_dir, dataset_name, cfg.data.train_datasets[dataset_name]
                 )
                 episodes = {
-                    h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
+                    h: norm_cache.leaf_fingerprint(ds)
                     for h, ds in dataset.datasets.items()
                 }
                 inputs = norm_cache.cache_inputs(
