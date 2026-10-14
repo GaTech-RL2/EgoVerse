@@ -90,4 +90,8 @@ sed '/^-e /d' artifacts/runtime/pip-freeze.txt > artifacts/runtime/wheel-require
 python -m pip wheel --no-deps -r artifacts/runtime/wheel-requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu -w artifacts/wheelhouse > artifacts/runtime/wheel-build.log 2>&1 || { tail -n 60 artifacts/runtime/wheel-build.log; exit 1; }
 sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
-python -m astra_reversal.hardware_interface.robocasa_worker
+if [[ "${HARDWARE_STAGE:-commission}" == reset-diagnostic ]]; then
+    python -m experiments.robocasa_hardware_interface.tools.diagnose_resets
+else
+    python -m astra_reversal.hardware_interface.robocasa_worker
+fi

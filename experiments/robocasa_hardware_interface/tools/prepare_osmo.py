@@ -12,7 +12,14 @@ import yaml
 
 
 def prepare(destination, stage, pool="groot-l40s-01", adaptive=False):
-    if stage not in ("staging-check", "commission", "reset-check", "smoke", "pilot"):
+    if stage not in (
+        "staging-check",
+        "commission",
+        "reset-check",
+        "reset-diagnostic",
+        "smoke",
+        "pilot",
+    ):
         raise ValueError("unknown_robocasa_stage")
     needs_inference = stage in ("staging-check", "smoke", "pilot")
     platform = {"groot-l40s-01": "ovx-l40s", "groot-l40-05": "ovx-l40"}[pool]
@@ -159,7 +166,14 @@ if __name__ == "__main__":
     parser.add_argument("destination")
     parser.add_argument(
         "--stage",
-        choices=("staging-check", "commission", "reset-check", "smoke", "pilot"),
+        choices=(
+            "staging-check",
+            "commission",
+            "reset-check",
+            "reset-diagnostic",
+            "smoke",
+            "pilot",
+        ),
         default="pilot",
     )
     parser.add_argument(
