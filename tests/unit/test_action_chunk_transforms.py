@@ -8,7 +8,7 @@ from egomimic.rldb.embodiment.eva import (
 from egomimic.rldb.embodiment.human import (
     _build_human_cartesian_bimanual_transform_list as build_human_bimanual_transform_list,
 )
-from egomimic.rldb.zarr.action_chunk_transforms import (
+from egomimic.rldb.transforms import (
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     InterpolatePose,
@@ -703,7 +703,7 @@ def test_per_step_target_is_the_default():
     framing; the flag is the escape hatch, not the opt-in."""
     import inspect
 
-    from egomimic.rldb.zarr.action_chunk_transforms import (
+    from egomimic.rldb.transforms import (
         PoseCoordinateFrameTransform,
     )
 

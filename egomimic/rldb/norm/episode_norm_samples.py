@@ -26,7 +26,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from egomimic.rldb.zarr import norm_cache, zarr_dataset_multi
+from egomimic.rldb.multi import worker_context
+from egomimic.rldb.norm import norm_cache
 from egomimic.utils.gpu_orphans import die_with_parent
 
 logger = logging.getLogger(__name__)
@@ -180,9 +181,7 @@ def _sample_episodes(
         collate_fn=_as_list,
         worker_init_fn=die_with_parent if num_workers > 0 else None,
         multiprocessing_context=(
-            zarr_dataset_multi.worker_context(leaves.values())
-            if num_workers > 0
-            else None
+            worker_context(leaves.values()) if num_workers > 0 else None
         ),
     )
     idx_buf: dict[str, list[int]] = {}

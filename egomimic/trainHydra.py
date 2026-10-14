@@ -20,14 +20,9 @@ import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf reso
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.filters import PinError
+from egomimic.rldb.multi import EvenStrideDataset, MultiDataset, pinned_episode_subset
 from egomimic.rldb.resolve_memo import resolve_once
-from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    EvenStrideDataset,
-    MultiDataset,
-    PinError,
-    pinned_episode_subset,
-)
 from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
@@ -35,6 +30,7 @@ from egomimic.utils.gpu_orphans import arm_rank_pdeathsig, reap_orphans
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
+from egomimic.utils.seed import set_global_seed
 from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
@@ -627,7 +623,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
         norm_stats.populate_from_datasets(datamodule.train_datasets)
 
-        from egomimic.rldb.zarr import episode_norm_samples, norm_cache
+        from egomimic.rldb.norm import episode_norm_samples, norm_cache
 
         sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
         max_samples = OmegaConf.select(cfg, "norm_stats.max_samples", default=None)

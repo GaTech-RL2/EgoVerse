@@ -42,7 +42,7 @@ from omegaconf import OmegaConf
 
 import egomimic
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.rldb.zarr import episode_norm_samples, norm_cache
+from egomimic.rldb.norm import episode_norm_samples, norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.env import load_env
 
