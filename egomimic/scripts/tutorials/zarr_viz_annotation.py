@@ -27,9 +27,7 @@ filters = DatasetFilter(
     filter_lambdas=["lambda row: row['episode_hash'] in {'2026-03-15-23-45-35-137000'}"]
 )
 
-cloudflare_ds = MultiDataset._from_resolver(
-    resolver, filters=filters, sync_from_s3=True, mode="total"
-)
+cloudflare_ds = MultiDataset._from_resolver(resolver, filters=filters, mode="total")
 
 loader = torch.utils.data.DataLoader(
     cloudflare_ds, batch_size=1, shuffle=False, collate_fn=annotation_collate

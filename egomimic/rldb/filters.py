@@ -153,3 +153,19 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         if row.get("episode_hash") not in self.completed_episode_hashes:
             return False
         return super().matches(row)
+
+
+class PinError(ValueError):
+    """A pinned episode_hash cannot be used: missing, deleted, no processed
+    path, or its embodiment does not match the dataset it was pinned under."""
+
+
+def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
+    if filters is None:
+        return DatasetFilter()
+    if isinstance(filters, DatasetFilter):
+        return filters
+    raise TypeError(
+        "filters must be a DatasetFilter or None in the zarr resolver path. "
+        "Plain dict filters are no longer supported."
+    )
