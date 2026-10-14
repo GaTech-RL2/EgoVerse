@@ -83,9 +83,7 @@ def fetch_episode_loader():
     filters = DatasetFilter(
         filter_lambdas=[f"lambda row: row['episode_hash'] == {episode_hash!r}"]
     )
-    dataset = MultiDataset._from_resolver(
-        resolver, filters=filters, sync_from_s3=True, mode="total"
-    )
+    dataset = MultiDataset._from_resolver(resolver, filters=filters, mode="total")
     return torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 
 

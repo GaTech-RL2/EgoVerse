@@ -40,7 +40,7 @@ CHUNK = 100  # model horizon after interpolation
 def _pad_mask_transform_cls():
     """Imported inside the tests so the module still collects (and every test
     fails on its own assertion) before the transform exists."""
-    from egomimic.rldb.zarr.action_chunk_transforms import InterpolatePadMask
+    from egomimic.rldb.transforms import InterpolatePadMask
 
     return InterpolatePadMask
 

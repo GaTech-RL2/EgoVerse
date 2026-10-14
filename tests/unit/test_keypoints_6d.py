@@ -24,7 +24,7 @@ from egomimic.rldb.embodiment.human import (
     _build_human_keypoints_revert_6d_transform_list,
     _build_human_keypoints_revert_6d_wristframe_transform_list,
 )
-from egomimic.rldb.zarr.action_chunk_transforms import (
+from egomimic.rldb.transforms import (
     KeypointsRot6DToYPR,
     KeypointsYPRToRot6D,
 )
