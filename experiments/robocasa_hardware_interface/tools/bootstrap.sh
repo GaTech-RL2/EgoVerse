@@ -76,6 +76,7 @@ git init -q upstream-robocasa
 git -C upstream-robocasa remote add origin https://github.com/robocasa/robocasa.git
 git -C upstream-robocasa fetch --depth 1 origin 456174f62b89b8fca99eaaf33949c29fec9cfc2a
 git -C upstream-robocasa checkout --detach FETCH_HEAD
+python -m astra_reversal.hardware_interface.robocasa_compat upstream-robocasa artifacts/runtime/fixture-order-fix.json
 echo 'Installing the official RoboCasa dependencies (CPU PyTorch; Astra inference is remote)'
 python -m pip install torch==2.7.1+cpu torchvision==0.22.1+cpu --index-url https://download.pytorch.org/whl/cpu > artifacts/runtime/dependency-install.log 2>&1
 python -m pip install -e upstream-robosuite -e upstream-robocasa jsonschema==4.23.0 pytest==8.3.5 matplotlib==3.10.1 imageio-ffmpeg==0.6.0 >> artifacts/runtime/dependency-install.log 2>&1 || { tail -n 70 artifacts/runtime/dependency-install.log; exit 1; }
@@ -92,6 +93,8 @@ sha256sum artifacts/wheelhouse/* > artifacts/runtime/wheels.sha256
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
 if [[ "${HARDWARE_STAGE:-commission}" == reset-diagnostic ]]; then
     python -m experiments.robocasa_hardware_interface.tools.diagnose_resets
+elif [[ "${HARDWARE_STAGE:-commission}" == reset-recovery-check ]]; then
+    python -m experiments.robocasa_hardware_interface.tools.diagnose_resets --all-tasks
 else
     python -m astra_reversal.hardware_interface.robocasa_worker
 fi

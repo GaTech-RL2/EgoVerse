@@ -22,6 +22,7 @@ from astra_reversal.hardware_interface.robocasa import (
     Environment,
     check_source,
 )
+from astra_reversal.hardware_interface.robocasa_compat import verify_fixture_order_fix
 from astra_reversal.hardware_interface.robocasa_protocol import limits_for, schedule
 from astra_reversal.hardware_interface.robocasa_worker import (
     CASA,
@@ -83,13 +84,16 @@ def probe(request):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--child-request", type=Path)
-    parser.add_argument("--task-ids", nargs="+", type=int, default=[4, 11, 17, 25, 46])
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--task-ids", nargs="+", type=int, default=[4, 11, 17, 25, 46])
+    scope.add_argument("--all-tasks", action="store_true")
     args = parser.parse_args()
     if args.child_request:
         probe(json.loads(args.child_request.read_text()))
         return
     write_json(ROOT / "worker-entered.json", {"worker_entered": True})
     manifest = yaml.safe_load((STUDY / "preregistration.yaml").read_text())
+    task_ids = manifest["task_ids"] if args.all_tasks else args.task_ids
     write_json(
         ROOT / "source-receipt.json",
         {
@@ -103,11 +107,12 @@ def main():
     try:
         check_source(CASA, ROBOCASA_COMMIT)
         check_source(SUITE, ROBOSUITE_COMMIT)
+        native_fix = verify_fixture_order_fix(CASA)
         selected = {}
         for row in schedule(manifest):
-            if row["task_id"] in args.task_ids:
+            if row["task_id"] in task_ids:
                 selected.setdefault(row["task_id"], row)
-        if set(selected) != set(args.task_ids):
+        if set(selected) != set(task_ids):
             raise ValueError("unknown_diagnostic_task")
         write_json(ROOT / "diagnostic-schedule.json", list(selected.values()))
         child_environment = {
@@ -154,7 +159,7 @@ def main():
                 ],
             }
             checks.append(result)
-            write_json(ROOT / "diagnostic-progress.json", checks)
+            write_json(ROOT / "diagnostic-progress.json", checks, replace=True)
             print(json.dumps(result), flush=True)
         passed = all(row["matched"] for row in checks)
         write_json(
@@ -164,7 +169,11 @@ def main():
                 "checks": checks,
                 "model_calls": 0,
                 "scored": False,
-                "interpretation": "Fresh-process repeatability diagnostic; not a policy result or a full target50 audit.",
+                "native_fixture_order_fix": native_fix,
+                "task_count": len(selected),
+                "repeats_per_task": 2,
+                "native_steps_per_probe": 8,
+                "interpretation": "Native reset and action-trace repeatability on the recorded task/seed list; not a live Astra policy result.",
             },
         )
         if not passed:

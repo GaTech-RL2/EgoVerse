@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from .common import digest, file_hash, write_json
+from .robocasa_compat import COUNTER_PATH, verify_fixture_order_fix
 from .sources import EXCLUDED
 
 ROBOCASA_COMMIT = "456174f62b89b8fca99eaaf33949c29fec9cfc2a"
@@ -46,7 +47,15 @@ def check_source(root, expected):
         ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=no"],
         text=True,
     )
-    if head != expected or dirty.strip():
+    if head != expected:
+        raise ValueError("upstream_source_not_pinned_clean")
+    if expected == ROBOCASA_COMMIT:
+        # This sole, hash-pinned native sampler amendment is recorded separately.
+        # All geometry contents and the rest of both upstream checkouts stay pinned.
+        if dirty.strip() != "M " + COUNTER_PATH:
+            raise ValueError("unexpected_robocasa_source_changes")
+        verify_fixture_order_fix(root)
+    elif dirty.strip():
         raise ValueError("upstream_source_not_pinned_clean")
 
 

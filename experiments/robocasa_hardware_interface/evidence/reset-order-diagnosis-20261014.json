@@ -1,0 +1,138 @@
+{
+  "recorded_utc": "2026-10-14T05:45:22.505737+00:00",
+  "workflow": "robocasa-hardware-interface-20261009-reset-diagnostic-2",
+  "source_commit": "cc3c2e46bd23028527163af9c38b503b630074c3",
+  "archive_prefix": "experiments/robocasa-hardware-interface-20261009/robocasa-hardware-interface-20261009-reset-diagnostic-2/final/",
+  "model_calls": 0,
+  "scored": false,
+  "completed_native_probes": 4,
+  "planned_native_probes": 10,
+  "native_results": {
+    "4": {
+      "reset_fields": [
+        "body_pos_sha256",
+        "model_identity_sha256",
+        "state_sha256"
+      ],
+      "state_max_abs": 1.6199415118987848e-16,
+      "state_differences": 80,
+      "state_largest": [
+        {
+          "index": 179,
+          "a": -1.317020374961119e-07,
+          "b": -1.3170203733411776e-07
+        },
+        {
+          "index": 157,
+          "a": -5.41915697860384e-07,
+          "b": -5.419156977763412e-07
+        },
+        {
+          "index": 180,
+          "a": -1.4453568579706328e-07,
+          "b": -1.44535685867409e-07
+        },
+        {
+          "index": 188,
+          "a": 1.2957073772808326e-12,
+          "b": 1.2956847559052051e-12
+        },
+        {
+          "index": 187,
+          "a": -2.9360138308975745e-09,
+          "b": -2.9360138534991664e-09
+        },
+        {
+          "index": 165,
+          "a": 8.465867400253941e-11,
+          "b": 8.465869509293114e-11
+        }
+      ],
+      "xml_diff": [
+        "--- \n",
+        "+++ \n",
+        "-    <body name=\"electric_kettle_left_group_main\" pos=\"0.4673772955518078 -3.348888068215091 1.0530000071406562\" euler=\"0.0 -0.0 1.4707330465316772\">",
+        "+    <body name=\"electric_kettle_left_group_main\" pos=\"0.46737009881286307 -1.3896348432463224 1.0530000071406562\" euler=\"0.0 -0.0 1.4707330465316772\">"
+      ],
+      "observations_equal": true,
+      "trace_equal": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    "11": {
+      "reset_fields": [
+        "episode_metadata_sha256",
+        "state_sha256"
+      ],
+      "state_max_abs": 1.3085064002269373,
+      "state_differences": 122,
+      "state_largest": [
+        {
+          "index": 110,
+          "a": -1.5703617177890723,
+          "b": -2.8788681180160096
+        },
+        {
+          "index": 117,
+          "a": -1.7024707113869768,
+          "b": -2.7120720357277475
+        },
+        {
+          "index": 116,
+          "a": 0.11034782666670113,
+          "b": 0.3054048448063496
+        },
+        {
+          "index": 2,
+          "a": 12.272303403070154,
+          "b": 12.097567597368243
+        },
+        {
+          "index": 119,
+          "a": 0.6998399405878023,
+          "b": 0.5671952018746382
+        },
+        {
+          "index": 122,
+          "a": 0.7140709498715234,
+          "b": 0.8233870376990661
+        }
+      ],
+      "xml_diff": [],
+      "observations_equal": false,
+      "trace_equal": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  },
+  "infrastructure_interruption": {
+    "error_class": "FileExistsError",
+    "reason": "[Errno 17] File exists: 'artifacts/diagnostic-progress.json'",
+    "fix": "The mutable progress receipt explicitly allows replacement; a multi-task regression test covers this."
+  },
+  "proposed_native_amendment": {
+    "name": "stable-counter-region-order-v1",
+    "path": "robocasa/models/fixtures/counter.py",
+    "upstream_sha256": "77f992d01aa1ae5f21ed7f170d0aab9c303c32148f4b427651c04912be8ce68a",
+    "patched_sha256": "cc72124e9d05b39f0f50617c9f94ed5abe73ab6205636eb42ea367dfda521a74",
+    "change": "Preserve first occurrence when deduplicating candidate XML geometry objects before seeded region sampling."
+  },
+  "revalidation_status": "All 50 tasks still require native validation with this amendment. No new RoboCasa policy results claimed.",
+  "unit_validation": "129 hardware-interface tests passed."
+}

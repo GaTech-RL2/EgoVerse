@@ -1,0 +1,33 @@
+{
+  "verified_utc": "2026-10-14T05:07:34.320790+00:00",
+  "sources": {
+    "pro": {
+      "workflow": "liberomax-hardware-interface-20261012-commission-3",
+      "receipt_key": "experiments/liberomax-hardware-interface-20261012/liberomax-hardware-interface-20261012-commission-3/pro/commission/commissioning.json",
+      "receipt_sha256": "82c2000049ae5adb854e80be98d29da0f1a1df66d7476b1d44c84e42c5afa024",
+      "archive_receipt_sha256": "eb5ae95cfa12e59aa5f0fa939809b9563b7a5680d7943cd3c19cc5d0aba1ca12",
+      "native_pairs": 24,
+      "native_episodes": 48,
+      "events": 8,
+      "interfaces": 3,
+      "status": "passed",
+      "remaining_gate": "live Astra continuation with exact shared prefix and provider-seed accounting"
+    },
+    "plus": {
+      "workflow": "liberomax-hardware-interface-20261012-commission-5",
+      "receipt_key": "experiments/liberomax-hardware-interface-20261012/liberomax-hardware-interface-20261012-commission-5/plus/commission/commissioning.json",
+      "receipt_sha256": "fa50f25ddaccaa40496a03f1d70294c50b4b9e434b6380c45a682858af719609",
+      "archive_receipt_sha256": "62db609ae1e1232ed7a0ffe86b1a6eaa2520ed1dac7643cb69534a882c3cec0a",
+      "native_pairs": 24,
+      "native_episodes": 48,
+      "events": 8,
+      "interfaces": 3,
+      "status": "passed",
+      "remaining_gate": "live Astra continuation with exact shared prefix and provider-seed accounting"
+    }
+  },
+  "model_calls": 0,
+  "scored": false,
+  "live_astra_ready": false,
+  "native_episodes": 96
+}

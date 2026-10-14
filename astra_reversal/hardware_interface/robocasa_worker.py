@@ -31,6 +31,7 @@ from .robocasa import (
     check_source,
     task_catalog,
 )
+from .robocasa_compat import verify_fixture_order_fix
 from .robocasa_protocol import limits_for, paired_success_times, schedule, validate
 from .runner import run_trial
 from .schema import validate_description
@@ -261,6 +262,7 @@ def commission(manifest):
         checks["adaptive_interface"] = receipt["passed"]
     resolved = {
         "source_sha256": source_hash(),
+        "native_fixture_order_fix": verify_fixture_order_fix(CASA),
         "allowlist_sha256": allowed["sha256"],
         "controller_sha256": traces[0]["controller"],
         "catalog_sha256": digest(manifest["catalog"]),
@@ -390,46 +392,119 @@ def record_reset_comparison(reference, actual, directory):
     return False
 
 
+def reset_once(manifest, row):
+    """Record one native reset; the parent compares it with the paired reference."""
+    directory = ROOT / "reset-check" / row["trial_id"]
+    directory.mkdir(parents=True, exist_ok=False)
+    events = Events(
+        directory / "events",
+        {"trial_id": row["trial_id"], "condition": row["condition"]},
+    )
+    env = None
+    try:
+        env = Environment(
+            row["name"], row["env_seed"], row["horizon"], manifest["image_size"]
+        )
+        proxy = make_proxy(
+            env, events, limits_for(manifest, row["horizon"]), row["trial_id"]
+        )
+        record_reset_evidence(env, proxy, directory)
+        write_json(directory / "episode-metadata.json", env.episode_metadata)
+        result = {
+            "trial_id": row["trial_id"],
+            "task": row["name"],
+            "condition": row["condition"],
+            "initially_unsolved": not env.reset_receipt["initial_success"],
+            "controller_matched": digest(env.controller)
+            == manifest["resolved"]["controller_sha256"],
+            "model_calls": 0,
+        }
+        write_json(directory / "native-reset-status.json", result)
+    finally:
+        if env is not None:
+            env.close()
+        events.close()
+
+
+def isolated_request(mode, manifest, row, reference=None):
+    """Use a new interpreter, preserving simulator caches only within a trial."""
+    if mode not in ("reset", "collect"):
+        raise ValueError("unknown_isolated_mode")
+    request = ROOT / "isolated-requests" / mode / (row["trial_id"] + ".json")
+    write_json(
+        request,
+        {
+            "mode": mode,
+            "row": row,
+            "reference": reference,
+            "manifest_sha256": digest(manifest),
+        },
+    )
+    child_environment = dict(os.environ)
+    if mode == "reset":
+        child_environment = {
+            k: v
+            for k, v in child_environment.items()
+            if not k.startswith(("OPENAI_", "R2_")) and k != "HARDWARE_API_KEY_FILE"
+        }
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "astra_reversal.hardware_interface.robocasa_worker",
+            "--isolated-request",
+            str(request),
+            "--manifest",
+            str(ROOT / "resolved-manifest.yaml"),
+        ],
+        env=child_environment,
+        check=True,
+    )
+
+
+def dispatch_isolated(manifest, request):
+    if request["manifest_sha256"] != digest(manifest):
+        raise ValueError("isolated_manifest_changed")
+    if source_hash() != manifest["resolved"]["source_sha256"]:
+        raise ValueError("isolated_source_changed")
+    row = request["row"]
+    if request["mode"] == "reset":
+        reset_once(manifest, row)
+    elif request["mode"] == "collect":
+        groups = {}
+        if request["reference"] is not None:
+            groups[(row["name"], row["env_seed"])] = request["reference"]
+        collect_trial(manifest, row, groups)
+    else:
+        raise ValueError("unknown_isolated_mode")
+
+
+def collect_trial_isolated(manifest, row, reset_groups):
+    block = (row["name"], row["env_seed"])
+    isolated_request("collect", manifest, row, reset_groups.get(block))
+    directory = ROOT / row["split"] / "runs" / row["trial_id"]
+    reset = strict_json((directory / "reset-evidence.json").read_bytes())
+    if not record_reset_comparison(
+        reset_groups.setdefault(block, reset), reset, directory
+    ):
+        raise ValueError("paired_initial_state_or_observation_mismatch")
+
+
 def reset_check(manifest, rows):
-    """Audit scheduled initial states with no Astra or policy actions."""
+    """Audit every assigned start in the same fresh-process mode as collection."""
     groups, checks = {}, []
     for row in rows:
+        isolated_request("reset", manifest, row)
         directory = ROOT / "reset-check" / row["trial_id"]
-        directory.mkdir(parents=True, exist_ok=False)
-        events = Events(
-            directory / "events",
-            {"trial_id": row["trial_id"], "condition": row["condition"]},
+        reset = strict_json((directory / "reset-evidence.json").read_bytes())
+        block = (row["name"], row["env_seed"])
+        result = strict_json((directory / "native-reset-status.json").read_bytes())
+        result["matched"] = record_reset_comparison(
+            groups.setdefault(block, reset), reset, directory
         )
-        env = None
-        try:
-            env = Environment(
-                row["name"], row["env_seed"], row["horizon"], manifest["image_size"]
-            )
-            proxy = make_proxy(
-                env, events, limits_for(manifest, row["horizon"]), row["trial_id"]
-            )
-            reset = record_reset_evidence(env, proxy, directory)
-            block = (row["name"], row["env_seed"])
-            matched = record_reset_comparison(
-                groups.setdefault(block, reset), reset, directory
-            )
-            result = {
-                "trial_id": row["trial_id"],
-                "task": row["name"],
-                "condition": row["condition"],
-                "matched": matched,
-                "initially_unsolved": not env.reset_receipt["initial_success"],
-                "controller_matched": digest(env.controller)
-                == manifest["resolved"]["controller_sha256"],
-                "model_calls": 0,
-            }
-            write_json(directory / "result.json", result)
-            checks.append(result)
-            print(json.dumps({"reset_check": result}), flush=True)
-        finally:
-            if env is not None:
-                env.close()
-            events.close()
+        write_json(directory / "result.json", result)
+        checks.append(result)
+        print(json.dumps({"reset_check": result}), flush=True)
     passed = all(
         r["matched"] and r["initially_unsolved"] and r["controller_matched"]
         for r in checks
@@ -602,7 +677,9 @@ def summarize(manifest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--verify-replay", type=Path)
+    child = parser.add_mutually_exclusive_group()
+    child.add_argument("--verify-replay", type=Path)
+    child.add_argument("--isolated-request", type=Path)
     parser.add_argument(
         "--manifest",
         type=Path,
@@ -617,6 +694,9 @@ def main():
         return
     manifest = yaml.safe_load(args.manifest.read_text())
     validate(manifest)
+    if args.isolated_request:
+        dispatch_isolated(manifest, strict_json(args.isolated_request.read_bytes()))
+        return
     if args.verify_replay:
         print(json.dumps(verify_replay(manifest, args.verify_replay)), flush=True)
         return
@@ -658,7 +738,7 @@ def main():
                 "name": smoke["name"],
                 "horizon": smoke["horizon"],
             }
-            collect_trial(manifest, row, smoke_groups)
+            collect_trial_isolated(manifest, row, smoke_groups)
         print(
             json.dumps(
                 {
@@ -686,7 +766,7 @@ def main():
                 ),
                 flush=True,
             )
-            collect_trial(manifest, row, reset_groups)
+            collect_trial_isolated(manifest, row, reset_groups)
             write_json(
                 ROOT / "progress" / f"after-{row['order']:04d}.json",
                 summarize(manifest),

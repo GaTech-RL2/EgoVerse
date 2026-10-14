@@ -17,6 +17,7 @@ def prepare(destination, stage, pool="groot-l40s-01", adaptive=False):
         "commission",
         "reset-check",
         "reset-diagnostic",
+        "reset-recovery-check",
         "smoke",
         "pilot",
     ):
@@ -144,6 +145,9 @@ def prepare(destination, stage, pool="groot-l40s-01", adaptive=False):
         "pilot_trials": len(manifest["conditions"])
         * len(manifest["task_ids"])
         * len(manifest["pilot_indices"]),
+        "native_diagnostic_episodes": 100
+        if stage == "reset-recovery-check"
+        else (10 if stage == "reset-diagnostic" else None),
         "conditions": manifest["conditions"],
         "manifest_sha256": hashlib.sha256(
             (study / manifest_name).read_bytes()
@@ -171,6 +175,7 @@ if __name__ == "__main__":
             "commission",
             "reset-check",
             "reset-diagnostic",
+            "reset-recovery-check",
             "smoke",
             "pilot",
         ),
