@@ -1,5 +1,6 @@
 """An overnight report must expose missingness and verify archive provenance."""
 
+import copy
 import hashlib
 import json
 
@@ -10,8 +11,39 @@ from astra_reversal.hardware_interface.protocol import design
 from experiments.libero_hardware_interface.tools.parallel_results import (
     RECORDS,
     snapshot,
+    source_for_owner,
     verify_record,
 )
+
+
+def test_source_amendment_is_scoped_to_one_owner_and_reset_validation_only():
+    cohort = {
+        "plan": {
+            "experiment_source_sha256": "a" * 64,
+            "experiment_source_commit": "b" * 40,
+        },
+        "source_amendments": {
+            "reset-worker": {
+                "base_source_sha256": "a" * 64,
+                "base_source_commit": "b" * 40,
+                "source_sha256": "c" * 64,
+                "changed_runtime_files": ["libero.py", "reset_validation.py"],
+                "native_validation": {"status": "passed"},
+            }
+        },
+    }
+    assert source_for_owner(cohort, "original-worker") == "a" * 64
+    assert source_for_owner(cohort, "reset-worker") == "c" * 64
+    for field, value in (
+        ("base_source_sha256", "d" * 64),
+        ("base_source_commit", "e" * 40),
+        ("changed_runtime_files", ["provider.py"]),
+        ("native_validation", {"status": "failed"}),
+    ):
+        bad = copy.deepcopy(cohort)
+        bad["source_amendments"]["reset-worker"][field] = value
+        with pytest.raises(ValueError, match="invalid_reset_source_amendment"):
+            source_for_owner(bad, "reset-worker")
 
 
 def records():

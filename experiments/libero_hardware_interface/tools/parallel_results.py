@@ -31,6 +31,22 @@ INFRASTRUCTURE = {
 }
 
 
+def source_for_owner(cohort, owner):
+    """Pin each worker to either the original source or a declared reset fix."""
+    amendment = cohort.get("source_amendments", {}).get(owner)
+    if amendment is None:
+        return cohort["plan"]["experiment_source_sha256"]
+    if (
+        amendment["base_source_commit"] != cohort["plan"]["experiment_source_commit"]
+        or amendment["base_source_sha256"] != cohort["plan"]["experiment_source_sha256"]
+        or sorted(amendment["changed_runtime_files"])
+        != ["libero.py", "reset_validation.py"]
+        or amendment["native_validation"]["status"] != "passed"
+    ):
+        raise ValueError("invalid_reset_source_amendment")
+    return amendment["source_sha256"]
+
+
 def verify_record(receipt, contents, expected, source_sha):
     files = {r["path"]: r["sha256"] for r in receipt["files"]}
     if len(files) != len(receipt["files"]):
@@ -66,6 +82,7 @@ def verify_record(receipt, contents, expected, source_sha):
     ):
         raise ValueError("independent_replay_disagrees")
     row["independent_evaluation_passed"] = True
+    row["experiment_source_sha256"] = trial["source_sha256"]
     return row
 
 
@@ -82,8 +99,12 @@ def collect_trial(client, owner, expected, cohort, cache):
     trial_id = expected["trial_id"]
     directory = cache / cohort["name"] / owner / trial_id / "runs" / trial_id
     verified = directory.parent.parent / "verified.json"
+    source_sha = source_for_owner(cohort, owner)
     if verified.exists():
-        return strict_json(verified.read_bytes())
+        cached = strict_json(verified.read_bytes())
+        if cached.get("experiment_source_sha256") != source_sha:
+            raise ValueError("cached_experiment_source_changed")
+        return cached
     prefix = PREFIX + owner + "/trials/" + trial_id + "/"
     receipt_raw = read_object(client, prefix + "archive-receipt.json")
     if receipt_raw is None:
@@ -94,9 +115,7 @@ def collect_trial(client, owner, expected, cohort, cache):
     contents = {name: read_object(client, prefix + name) for name in RECORDS}
     if any(value is None for value in contents.values()):
         raise ValueError("published_archive_incomplete")
-    row = verify_record(
-        receipt, contents, expected, cohort["plan"]["experiment_source_sha256"]
-    )
+    row = verify_record(receipt, contents, expected, source_sha)
     directory.mkdir(parents=True, exist_ok=True)
     for name, content in contents.items():
         (directory / name).write_bytes(content)
@@ -134,8 +153,27 @@ def runtime_receipts(client, cohort):
         if design_hash(actual) != cohort["plan"]["design_sha256"]:
             errors.append("design")
         for key, value in cohort["manifest"]["resolved"].items():
+            if key == "adapter_sha256":
+                value = source_for_owner(cohort, workflow)
             if actual["resolved"].get(key) != value:
                 errors.append(key)
+        amendment = cohort.get("source_amendments", {}).get(workflow)
+        if amendment:
+            source = read_object(
+                client, PREFIX + workflow + "/final/source-receipt.json"
+            )
+            validation = read_object(client, amendment["native_validation"]["key"])
+            if source is None or validation is None:
+                pending.append(workflow)
+                continue
+            if strict_json(source)["commit"] != amendment["source_commit"]:
+                errors.append("amended_source_commit")
+            if (
+                hashlib.sha256(validation).hexdigest()
+                != amendment["native_validation"]["sha256"]
+                or strict_json(validation).get("status") != "passed"
+            ):
+                errors.append("native_reset_validation")
         if errors:
             differences[workflow] = errors
         else:
@@ -217,6 +255,8 @@ def snapshot(client, campaign, cache, destination):
             "prior_attempts_missing": prior_missing,
             "runtime_parity": runtime,
             "complete": complete,
+            "source_amendments": cohort.get("source_amendments", {}),
+            "setup_interruptions": cohort.get("setup_interruptions", []),
         }
         result["cohorts"][cohort["name"]] = details
         folder = destination / cohort["name"]
@@ -256,12 +296,16 @@ def snapshot(client, campaign, cache, destination):
                 '<img alt="%s" src="data:image/png;base64,%s">' % (name, encoded)
             )
         recovery_note = ""
+        if cohort.get("setup_interruptions"):
+            recovery_note += "<p>Previously unstarted trials were continued after a pre-actor reset-check interruption. The original failed workflow evidence is retained in completion.json.</p>"
+        if cohort.get("source_amendments"):
+            recovery_note += "<p>Reset-validation amendment: the affected starting state accepts only MuJoCo’s exact normalization of an already-unit quaternion; other state must match exactly. Actor code, prompts, controller, task, seed and episode limits are unchanged. Amended source hashes and native reset/replay evidence are recorded per worker in completion.json.</p>"
         if cohort.get("prior_attempts"):
             first_counts = ", ".join(
                 "%s %s/%s" % (arm, value["successes"], value["n"])
                 for arm, value in first_analysis["arms"].items()
             )
-            recovery_note = (
+            recovery_note += (
                 "<p>Transport recovery: %s earlier attempts retained. The charts use the documented recovery partition; whole matched blocks are repeated only after an infrastructure interruption. First-attempt counts, with interrupted attempts retained: %s. Both analyses and prior archive references are in the ZIP.</p>"
                 % (len(prior_outcomes), html.escape(first_counts))
             )
@@ -325,7 +369,11 @@ def main():
         aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
     )
-    deadline = datetime.fromisoformat(campaign["deadline_utc"]).timestamp()
+    deadline = (
+        datetime.fromisoformat(campaign["deadline_utc"]).timestamp()
+        if campaign.get("deadline_utc")
+        else None
+    )
     root = Path("artifacts/parallel-results")
     root.mkdir(parents=True, exist_ok=False)
     while True:
@@ -334,7 +382,9 @@ def main():
         )
         try:
             result = snapshot(client, campaign, root / "cache", directory)
-            final = result["complete"] or time.time() >= deadline
+            final = result["complete"] or (
+                deadline is not None and time.time() >= deadline
+            )
             receipt = publish(
                 client, directory, os.environ["HARDWARE_WORKFLOW"], final=final
             )
