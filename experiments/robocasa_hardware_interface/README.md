@@ -163,8 +163,26 @@ python experiments/robocasa_hardware_interface/tools/prepare_osmo.py \
 ```
 
 The owned worker requests one L40S on `groot-l40s-01`, or an L40 when prepared
-with `--pool groot-l40-05`. All arms of a cohort run on the same worker; hardware
-is recorded with the run. It does not use sky1 or sky2. No benchmark rollout
+with `--pool groot-l40-05`. All methods for a matched task/seed stay on one worker;
+hardware is recorded with the run. `tools.prepare_parallel_osmo` packages four
+workers per cohort by default, assigning complete blocks using official horizons
+and preserving the frozen schedule order within each worker. Original and
+adaptive cohorts remain separate, with exact source/design/schedule hashes and
+disjoint ownership checks. Each worker must pass native commissioning and its
+live smoke/replay checks before collecting its assigned trials. Shared inference
+admission changes request timing only and records wait time and retries.
+
+The 2026-10-14 reset diagnosis identified process-dependent ordering of XML
+geometry objects in the pinned native counter sampler. The explicitly recorded,
+hash-checked compatibility amendment replaces `list(set(valid_geoms))` with
+`list(dict.fromkeys(valid_geoms))`; eligible geometry objects are unchanged.
+This is a modified native backend and is recorded as such. Collection and
+reset audits now use a fresh process for each episode. The all-50-task native
+revalidation was launched as `reset-recovery-check-1`; it must pass before
+launching the new policy cohorts. Source evidence is retained in
+`evidence/reset-order-diagnosis-20261014.json`.
+
+The workers do not use sky1 or sky2. No benchmark rollout
 should be described as launched until its workflow receipt and gate outputs
 are available.
 

@@ -471,6 +471,18 @@ def dispatch_isolated(manifest, request):
     if request["mode"] == "reset":
         reset_once(manifest, row)
     elif request["mode"] == "collect":
+        if "HARDWARE_REQUEST_SLOT_INDEX" in os.environ:
+            from experiments.libero_hardware_interface.tools.request_admission import (
+                install,
+            )
+
+            admission = install(
+                int(os.environ["HARDWARE_REQUEST_SLOT_INDEX"]),
+                int(os.environ.get("HARDWARE_REQUEST_PARTICIPANTS", "8")),
+            )
+            write_json(
+                ROOT / "request-admission" / (row["trial_id"] + ".json"), admission
+            )
         groups = {}
         if request["reference"] is not None:
             groups[(row["name"], row["env_seed"])] = request["reference"]
@@ -662,9 +674,16 @@ def summarize(manifest):
             and strict_json(receipt_path.read_bytes())["status"] == "passed"
         )
         outcomes.append(row)
+    execution = ROOT / "execution-receipt.json"
+    assigned = (
+        len(strict_json(execution.read_bytes())["trial_ids"])
+        if execution.exists()
+        else len(schedule(manifest))
+    )
     result = {
         "completed_outcomes": len(outcomes),
-        "planned_trials": len(schedule(manifest)),
+        "planned_trials": assigned,
+        "cohort_planned_trials": len(schedule(manifest)),
         "successes": sum(r["success"] for r in outcomes),
         "known_tokens": sum(r["known_workflow_tokens"] for r in outcomes),
         "unknown_usage_records": sum(r["unknown_usage_records"] for r in outcomes),
@@ -673,6 +692,35 @@ def summarize(manifest):
     if outcomes:
         result["analysis"] = analyze(outcomes, manifest, split="pilot")
     return result
+
+
+def execution_rows(manifest):
+    path = os.environ.get("HARDWARE_EXECUTION_PLAN")
+    if not path:
+        return schedule(manifest)
+    from experiments.robocasa_hardware_interface.tools.parallel_plan import (
+        assigned_rows,
+    )
+
+    plan = strict_json(Path(path).read_bytes())
+    index = int(os.environ["HARDWARE_SHARD_INDEX"])
+    rows = assigned_rows(
+        plan, manifest, index, os.environ["HARDWARE_SOURCE_COMMIT"], source_hash()
+    )
+    write_json(ROOT / "execution-plan.json", plan)
+    write_json(
+        ROOT / "execution-receipt.json",
+        {
+            "index": index,
+            "trial_ids": [row["trial_id"] for row in rows],
+            "plan_sha256": file_hash(Path(path)),
+            "design_sha256": plan["design_sha256"],
+            "schedule_sha256": plan["schedule_sha256"],
+            "source_commit": plan["experiment_source_commit"],
+            "source_sha256": plan["experiment_source_sha256"],
+        },
+    )
+    return rows
 
 
 def main():
@@ -715,8 +763,9 @@ def main():
         manifest["resolved"] = commission(manifest)
         with (ROOT / "resolved-manifest.yaml").open("x") as stream:
             yaml.safe_dump(manifest, stream, sort_keys=False)
-        rows = schedule(manifest)
-        write_json(ROOT / "schedule.json", rows)
+        rows = execution_rows(manifest)
+        write_json(ROOT / "schedule.json", schedule(manifest))
+        write_json(ROOT / "assigned-schedule.json", rows)
         archive_tree(ROOT, "commissioning")
         if stage == "commission":
             return

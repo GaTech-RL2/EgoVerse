@@ -1,7 +1,12 @@
 # LIBERO-MAX hardware-interface integration
 
-This adds the released LIBERO-MAX substrate and paired-trace checks to the
-direct-Astra hardware-interface study. It is **not a completed Astra evaluation**.
+The released LIBERO-MAX substrate has passed all **96 native commissioning
+episodes**: 48 PRO and 48 Plus, covering eight events and three interfaces in
+each source. The archived receipts were independently downloaded and hash-checked
+on 2026-10-14; see `evidence/native-commissioning-verified-20261014.json`.
+These checks used zero model calls. **Live Astra evaluation remains unfinished**;
+the remaining gate is shared-history continuation and provider-seed accounting.
+
 Both frozen manifests validate and all 131 upstream tests pass locally. OSMO
 access recovered on 2026-10-12. The first GPU commissioning workflow,
 `liberomax-hardware-interface-20261012-commission-1`, stopped before simulator
@@ -25,14 +30,19 @@ missing kitchen250 scene asset. Its official setup additionally requires
 `Sylvest/LIBERO-plus/assets.zip`; the bootstrap now installs that separate pack
 at revision `dd2bd61b7d9a6fef1abc52d606e983b41886a149`, checking its full SHA-256
 before extraction. `--source plus` retries Plus without repeating PRO. The Plus
-native check and live Astra integration remain open.
+native check and live Astra integration were still open at that point.
 
 `commission-4` verified the archive checksum but rejected its unexpected build
 directory prefix. Inspection of all 457,675 ZIP entries confirmed the official
 pack has one fixed prefix, no duplicate destinations or symlinks, and the required
 kitchen250 scene. The installer now removes exactly that prefix while preserving
 the asset contents and destination checks. The metadata audit is recorded in
-`evidence/plus-asset-layout-20261013.json`; native validation is still required.
+`evidence/plus-asset-layout-20261013.json`; native validation was still required
+at that point.
+
+`commission-5` subsequently passed all 48 Plus native episodes. PRO's 48 passed
+episodes remain those from `commission-3`; the overall failure of that workflow
+came from its separate Plus task. The verified receipts retain both identities.
 
 Source is pinned at `01625e290b1aa07511bdc820781e635e851353cc`. Max contains
 8,000 Base/Dynamic pairs per policy; Lite contains 800. F, B0 and B are separate
@@ -100,7 +110,7 @@ both test suites. Source is injected with the OSMO submission.
 
 ## Open gates
 
-Both GPU source checks must pass. The live Astra adapter then needs audited
+Both GPU source checks have passed. The live Astra adapter still needs audited
 continuation of the same actor history and native action prefix, distinguishing
 prefix replay from new inference in token/call accounting. The remote provider's
 policy-seed contract must be verified or disclosed as a protocol deviation.
