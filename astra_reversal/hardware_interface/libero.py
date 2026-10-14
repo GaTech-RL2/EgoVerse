@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from .common import digest, file_hash
+from .reset_validation import validate_setter
 
 LIBERO_COMMIT = "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c"
 
@@ -131,13 +132,14 @@ class Environment:
             self.env.reset()
             observation = self.env.set_init_state(initial)
             actual = np.asarray(self.env.get_sim_state(), dtype=np.float64)
-            if not np.array_equal(actual, initial):
-                raise ValueError("official_state_setter_mismatch")
+            setter_validation = validate_setter(initial, actual, self.env.sim.model)
             for _ in range(settling_steps):
                 observation, _, _, _ = self.env.step([0, 0, 0, 0, 0, 0, -1])
             self.observation = observation
             self.reset_receipt = {
                 "official_state_sha256": array_hash(initial),
+                "setter_state_sha256": array_hash(actual),
+                "setter_validation": setter_validation,
                 "settled_state_sha256": array_hash(self.env.get_sim_state()),
                 "model_body_pos_sha256": array_hash(self.env.sim.model.body_pos),
                 "model_body_quat_sha256": array_hash(self.env.sim.model.body_quat),
