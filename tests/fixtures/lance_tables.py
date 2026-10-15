@@ -1,9 +1,17 @@
 """Synthetic Lance steps rows for unit tests."""
 
+import lance
 import numpy as np
 import pyarrow as pa
 
-from egomimic.rldb.lance.schema import HUMAN_STEPS
+from egomimic.rldb.lance.schema import (
+    ALIASES,
+    HUMAN_STEPS,
+    RECORDINGS,
+    TASKS,
+    recording_id,
+    steps_path,
+)
 
 
 def vec(x, n):
@@ -40,3 +48,74 @@ def steps_table(rid, n, offset):
         },
         schema=HUMAN_STEPS,
     )
+
+
+def write_catalog(tmp_path):
+    """Steps, recordings, tasks and aliases tables for two aria recordings under
+    ``tmp_path``; returns their sorted ``(recording_id, episode_hash, num_frames)``."""
+    recs = [
+        (recording_id("aria", "1"), "2025-01-01-00-00-00-000000", 12),
+        (recording_id("aria", "2"), "2025-01-01-00-00-01-000000", 8),
+    ]
+    recs.sort()
+    steps = pa.concat_tables(
+        [steps_table(rid, n, 100 * i) for i, (rid, _, n) in enumerate(recs)]
+    )
+    lance.write_dataset(steps, tmp_path / steps_path("rl2", "human_bimanual", "hand"))
+    k = [200.0, 0, 240, 0, 200.0, 180, 0, 0, 1]
+    lance.write_dataset(
+        pa.Table.from_pylist(
+            [
+                dict(
+                    recording_id=rid,
+                    vendor_recording_id=h,
+                    lab="rl2",
+                    embodiment="human_bimanual",
+                    end_effector="hand",
+                    rig_name="aria_gen1",
+                    operator="op",
+                    scene="1",
+                    captured_at=None,
+                    fps=30.0,
+                    num_frames=n,
+                    video_path=[("front_1", f"videos/{rid}/front_1.mp4")],
+                    intrinsics=[("front_1", k)],
+                    extrinsics=[],
+                    license="x",
+                )
+                for rid, h, n in recs
+            ],
+            schema=RECORDINGS,
+        ),
+        tmp_path / "recordings.lance",
+    )
+    lance.write_dataset(
+        pa.Table.from_pylist(
+            [
+                dict(
+                    task_instance_id=f"t{i}",
+                    recording_id=rid,
+                    t_start_ns=0,
+                    t_end_ns=n,
+                    task_name="fold_clothes",
+                    task_description="folding clothes",
+                    objects=[],
+                    annotations=[],
+                )
+                for i, (rid, _, n) in enumerate(recs)
+            ],
+            schema=TASKS,
+        ),
+        tmp_path / "tasks.lance",
+    )
+    lance.write_dataset(
+        pa.Table.from_pylist(
+            [
+                dict(episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n)
+                for rid, h, n in recs
+            ],
+            schema=ALIASES,
+        ),
+        tmp_path / "aliases.lance",
+    )
+    return recs
