@@ -136,22 +136,20 @@ def test_lance(tmp_path, lay, op):
     steps = lance.dataset(bu.steps_uri(root))
     assert len(steps.get_fragments()) > 1
     steps_before = steps.to_table()
-    tasks_before = lance.dataset(bu.tasks_uri(root)).to_table()
+    anns_before = lance.dataset(bu.annotations_uri(root)).to_table()
     files_before = {d.path for f in steps.get_fragments() for d in f.data_files()}
     bu.update_lance(root, lay, op, k=3, workers=4)
     bu.verify_lance(root, lay, op, k=3)
     steps = lance.dataset(bu.steps_uri(root))
     steps_after = steps.to_table()
-    tasks_after = lance.dataset(bu.tasks_uri(root)).to_table()
+    anns_after = lance.dataset(bu.annotations_uri(root)).to_table()
     files_after = {d.path for f in steps.get_fragments() for d in f.data_files()}
     if op == "annotations":
         assert steps_after.equals(steps_before)
         assert files_after == files_before
-        assert tasks_after.drop_columns(["annotations"]).equals(
-            tasks_before.drop_columns(["annotations"])
-        )
+        assert anns_after.num_rows == anns_before.num_rows
         return
-    assert tasks_after.equals(tasks_before)
+    assert anns_after.equals(anns_before)
     # One new file per fragment, and every existing data file is left in place.
     assert files_before < files_after
     assert len(files_after) == 2 * len(files_before)
