@@ -266,6 +266,8 @@ class LanceRecordingDataset(EpisodeLeaf):
         key_map: dict,
         transform_list: list | None = None,
         content_digest: str | None = None,
+        annotations: tuple[np.ndarray, np.ndarray, list[str]] | None = None,
+        clamp_actions: bool = False,
     ):
         self.episode_path = name
         self.content_digest = content_digest
@@ -285,6 +287,9 @@ class LanceRecordingDataset(EpisodeLeaf):
         self._image_keys = {k for k in videos}
         self.anchors = np.asarray(anchors, dtype=np.int64).reshape(-1, 2)
         self._cum = np.r_[0, np.cumsum(self.anchors[:, 1] - self.anchors[:, 0])]
+        # (start frames, end frames, texts) sorted by start; None: the task text stands in.
+        self._ann = annotations
+        self._clamp_actions = clamp_actions
         super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
@@ -303,6 +308,8 @@ class LanceRecordingDataset(EpisodeLeaf):
             for k in sorted(self.videos):
                 h.update(f"{k}\0{self.videos[k]}\0".encode())
         h.update(self.anchors.tobytes())
+        if self._clamp_actions and self._ann is not None:
+            h.update(b"clamp\0" + self._ann[0].tobytes() + self._ann[1].tobytes())
         return h.hexdigest()
 
     @property
@@ -316,8 +323,21 @@ class LanceRecordingDataset(EpisodeLeaf):
         j = int(np.searchsorted(self._cum, i, side="right")) - 1
         return int(self.anchors[j, 0] + (i - self._cum[j]))
 
+    def _covering(self, frame_idx: int) -> np.ndarray:
+        s, e, _ = self._ann
+        return np.flatnonzero((s <= frame_idx) & (frame_idx < e))
+
     def _annotation_text_for_frame(self, frame_idx: int):
-        return [self.task_text]
+        if self._ann is None:
+            return [self.task_text]
+        return [self._ann[2][j] for j in self._covering(frame_idx)]
+
+    def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
+        end = super()._chunk_end_idx(start_idx, horizon, key_type)
+        if not self._clamp_actions or key_type != "action_keys" or self._ann is None:
+            return end
+        cover = self._covering(start_idx)
+        return min(end, int(self._ann[1][cover].min())) if len(cover) else end
 
     def _read_numeric(self, needs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """One `take` for every numeric column; returns {zarr key: rows at the requested frames}."""
@@ -421,7 +441,21 @@ class LanceEpisodeResolver:
     Each table is read at `versions[name]` (a number or tag), else at `tag`, else at its
     latest version. Tags are resolved to numbers once, here, so a tag moved later does
     not change what an existing resolver reads.
+
+    `annotations` switches annotation keys from the task description to the rows of
+    `annotations.lance` covering the frame, in start order. Its keys (all optional):
+    `types` (default ["language"]), `vendors`, `min_quality` (ungraded rows fail it),
+    `clamp_actions` (stop action chunks at the end of the covering annotation) and
+    `require` (sample only anchors some annotation covers; drops leaves with none).
     """
+
+    ANNOTATION_DEFAULTS = {
+        "types": ["language"],
+        "vendors": None,
+        "min_quality": None,
+        "clamp_actions": False,
+        "require": False,
+    }
 
     def __init__(
         self,
@@ -432,6 +466,7 @@ class LanceEpisodeResolver:
         cameras: dict[str, str] | None = None,
         versions: dict[str, int | str] | None = None,
         tag: str | None = None,
+        annotations: dict | None = None,
     ):
         self.root = str(lance_root).rstrip("/")
         self.lab = lab
@@ -440,6 +475,12 @@ class LanceEpisodeResolver:
         self.cameras = cameras or {"images.front_1": "front_1"}
         self.tag = tag
         self.versions = dict(versions or {})
+        self.annotations = None
+        if annotations is not None:
+            unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
+            if unknown:
+                raise ValueError(f"unknown annotations options {sorted(unknown)}")
+            self.annotations = {**self.ANNOTATION_DEFAULTS, **dict(annotations)}
 
     def _open(self, name: str):
         uri = f"{self.root}/{name}"
@@ -463,6 +504,39 @@ class LanceEpisodeResolver:
             columns={"lab": "vendor", "site": "lab", "task_name": "task"}
         )
         return df.reset_index(drop=True)
+
+    def _annotation_rows(self) -> dict[str, pd.DataFrame]:
+        """{recording_id: rows passing the `annotations` filters, sorted by start}."""
+        cfg = self.annotations
+        _, _, tbl = self._open("annotations.lance")
+        df = tbl.to_table().to_pandas()
+        keep = df.annotation_type.isin(cfg["types"])
+        if cfg["vendors"] is not None:
+            keep &= df.annotation_vendor.isin(cfg["vendors"])
+        if cfg["min_quality"] is not None:
+            keep &= df.quality_score.notna() & (df.quality_score >= cfg["min_quality"])
+        df = df[keep].sort_values(["recording_id", "t_start_ns", "t_end_ns"])
+        return {rid: g for rid, g in df.groupby("recording_id")}
+
+    @staticmethod
+    def _frame_spans(rows: pd.DataFrame, ts: np.ndarray):
+        """Half-open frame ranges of half-open time ranges; empty ones are dropped."""
+        a = np.searchsorted(ts, rows.t_start_ns.to_numpy(), "left")
+        b = np.searchsorted(ts, rows.t_end_ns.to_numpy(), "left")
+        keep = a < b
+        return a[keep], b[keep], rows.text[keep].tolist()
+
+    @staticmethod
+    def _covered(anchors: np.ndarray, starts, ends, n: int) -> np.ndarray:
+        on = np.zeros(n + 1, np.int64)
+        np.add.at(on, starts, 1)
+        np.add.at(on, ends, -1)
+        cover = np.cumsum(on)[:n] > 0
+        mask = np.zeros(n, bool)
+        for s, e in anchors:
+            mask[s:e] = True
+        edges = np.flatnonzero(np.diff(np.r_[0, (mask & cover).astype(np.int8), 0]))
+        return edges.reshape(-1, 2)
 
     def _horizon(self) -> int:
         hs = [
@@ -502,6 +576,23 @@ class LanceEpisodeResolver:
         }
         horizon = self._horizon()
         tables = self._leaf_tables()
+        ann_rows, ann_ts = {}, {}
+        if self.annotations is not None:
+            ann_rows = self._annotation_rows()
+            wanted = [
+                (rid, int(starts[rid]), int(counts[rid]))
+                for rid in keep.recording_id
+                if rid in ann_rows and rid in starts
+            ]
+            if wanted:
+                rows = np.concatenate([np.arange(r0, r0 + n) for _, r0, n in wanted])
+                ts = steps.take(rows.tolist(), columns=["timestamp_ns"]).column(0)
+                ts = ts.to_numpy()
+                at = np.cumsum([0] + [n for _, _, n in wanted])
+                ann_ts = {
+                    rid: ts[at[j] : at[j + 1]] for j, (rid, _, _) in enumerate(wanted)
+                }
+        no_ann = []
 
         out = {}
         for row in keep.itertuples():
@@ -517,6 +608,21 @@ class LanceEpisodeResolver:
             if not len(anchors):
                 logger.warning("recording %s has no eligible anchors", row.episode_hash)
                 continue
+            ann_kw = {}
+            if self.annotations is not None:
+                spans = (np.empty(0, np.int64), np.empty(0, np.int64), [])
+                if row.recording_id in ann_ts:
+                    spans = self._frame_spans(
+                        ann_rows[row.recording_id], ann_ts[row.recording_id]
+                    )
+                if self.annotations["require"]:
+                    anchors = self._covered(anchors, spans[0], spans[1], n)
+                    if not len(anchors):
+                        no_ann.append(row.episode_hash)
+                        continue
+                ann_kw = dict(
+                    annotations=spans, clamp_actions=self.annotations["clamp_actions"]
+                )
             intr = dict(row.intrinsics) if row.intrinsics is not None else {}
             vids = dict(row.video_path)
             cam = next(iter(self.cameras.values()))
@@ -537,6 +643,14 @@ class LanceEpisodeResolver:
                 key_map=self.key_map,
                 transform_list=self.transform_list,
                 content_digest=getattr(row, "content_digest", None),
+                **ann_kw,
+            )
+        if self.annotations is not None and self.annotations["require"]:
+            logger.info(
+                "kept %d/%d recordings with annotated anchors; dropped e.g. %s",
+                len(out),
+                len(out) + len(no_ann),
+                no_ann[:5],
             )
         return out
 
