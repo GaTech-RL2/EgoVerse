@@ -7,7 +7,6 @@ written by aria_to_lance. New recordings are appended; committed ones are skippe
 
 import argparse
 import json
-import uuid
 from pathlib import Path
 
 import numpy as np
@@ -18,6 +17,7 @@ from sqlalchemy import text
 from torchcodec.decoders import VideoDecoder
 
 from egomimic.rldb.lance import commit
+from egomimic.rldb.lance.schema import task_instance_id
 from egomimic.scripts.lance_pilot import PILOT
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -64,23 +64,10 @@ def objects_list(v) -> list[str]:
     return [str(o).strip('"') for o in items if o and str(o) not in ("None", "NULL")]
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--deliveries",
-        type=Path,
-        default=PILOT / "deliveries",
-    )
-    ap.add_argument("--lance", type=Path, default=PILOT / "lance")
-    ap.add_argument(
-        "--replace",
-        action="store_true",
-        help="replace committed recordings with these deliveries",
-    )
-    ap.add_argument("--tag", help="tag every table's resulting version")
-    args = ap.parse_args()
-
-    dirs = sorted(p for p in args.deliveries.iterdir() if (p / "meta.json").exists())
+def load_deliveries(
+    dirs: list[Path],
+) -> tuple[list[commit.Delivery], dict[str, list[str]]]:
+    """Validated deliveries for `dirs` (each holding a meta.json) and {vendor id: errors} for the rest."""
     metas = {d: json.loads((d / "meta.json").read_text()) for d in dirs}
     hashes = [
         timestamp_ms_to_episode_hash(m["vendor_recording_id"]) for m in metas.values()
@@ -123,14 +110,15 @@ def main():
             license=text_or_none(s.license),
         )
         task = dict(
-            task_instance_id=str(uuid.uuid4()),
+            task_instance_id=task_instance_id(
+                rid, text_or_none(s.task), m["t_start_ns"]
+            ),
             recording_id=rid,
             t_start_ns=m["t_start_ns"],
             t_end_ns=m["t_end_ns"],
             task_name=text_or_none(s.task),
             task_description=text_or_none(s.task_description),
             objects=objects_list(s.objects),
-            annotations=[],
         )
         alias = dict(
             episode_hash=h,
@@ -146,6 +134,27 @@ def main():
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue
         deliveries.append(delivery)
+    return deliveries, rejected
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--deliveries",
+        type=Path,
+        default=PILOT / "deliveries",
+    )
+    ap.add_argument("--lance", type=Path, default=PILOT / "lance")
+    ap.add_argument(
+        "--replace",
+        action="store_true",
+        help="replace committed recordings with these deliveries",
+    )
+    ap.add_argument("--tag", help="tag every table's resulting version")
+    args = ap.parse_args()
+
+    dirs = sorted(p for p in args.deliveries.iterdir() if (p / "meta.json").exists())
+    deliveries, rejected = load_deliveries(dirs)
 
     have = commit.committed_ids(args.lance)
     added = commit.append(args.lance, deliveries)

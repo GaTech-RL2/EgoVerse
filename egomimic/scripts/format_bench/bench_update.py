@@ -16,7 +16,7 @@ Annotations are one span per SPAN_FRAMES frames, stored as each format does:
   zarr     `annotations` array of JSON bytes per episode (ZarrWriter._write_annotations)
   lerobot  `language_persistent` (the episode's spans, broadcast to every frame) and
            `language_events` columns in the data parquet (LeRobot 0.6 annotation writer)
-  lance    the `annotations` column of tasks.lance, one row per episode
+  lance    annotations.lance, one row per span
 
 What each edit writes:
   zarr     objects built in memory and PUT, nothing read back except the group zarr.json on
@@ -26,7 +26,7 @@ What each edit writes:
            stats, stats.json and info.json where the edit changes them
   lance    replace: one new data file per fragment (merge_columns + Merge commit), then
            drop_columns + alter_columns, both metadata only; append: merge_columns + Merge;
-           annotations: the same column replace on tasks.lance
+           annotations: overwrite annotations.lance
 """
 
 import argparse
@@ -753,8 +753,8 @@ def steps_uri(root: str) -> str:
     return f"{root.rstrip('/')}/steps.lance"
 
 
-def tasks_uri(root: str) -> str:
-    return f"{root.rstrip('/')}/tasks.lance"
+def annotations_uri(root: str) -> str:
+    return f"{root.rstrip('/')}/annotations.lance"
 
 
 def rec_id(ep: int) -> str:
@@ -787,31 +787,29 @@ def steps_batch(cols: dict, recording_id: str) -> pa.RecordBatch:
     )
 
 
-def lance_annotations(lay: Layout, eps: np.ndarray, k: int) -> pa.Array:
-    from egomimic.rldb.lance.schema import ANNOTATION
+def lance_annotations(lay: Layout, eps, k: int) -> pa.Table:
+    from egomimic.rldb.lance.schema import ANNOTATIONS
 
-    t0 = lay.starts[eps] * DT_NS
-    return pa.array(
-        [
-            [
-                {
-                    "t_start_ns": int(t + s * DT_NS),
-                    "t_end_ns": int(t + e * DT_NS),
-                    "text": txt,
-                    "annotator": "bench",
-                }
-                for txt, s, e in lay.spans(int(ep), k)
-            ]
-            for ep, t in zip(eps, t0)
-        ],
-        pa.list_(ANNOTATION),
-    )
+    rows = [
+        {
+            "annotation_id": f"{rec_id(ep)}-{i}",
+            "recording_id": rec_id(ep),
+            "t_start_ns": int((lay.starts[ep] + s) * DT_NS),
+            "t_end_ns": int((lay.starts[ep] + e) * DT_NS),
+            "annotation_type": "language",
+            "text": txt,
+            "annotation_vendor": "bench",
+        }
+        for ep in eps
+        for i, (txt, s, e) in enumerate(lay.spans(int(ep), k))
+    ]
+    return pa.Table.from_pylist(rows, schema=ANNOTATIONS)
 
 
 def make_lance(root: str, lay: Layout, rows_per_frag: int) -> None:
     import lance
 
-    from egomimic.rldb.lance.schema import HUMAN_STEPS, TASKS
+    from egomimic.rldb.lance.schema import HUMAN_STEPS
 
     opts = lance_opts(root)
     batches = (steps_batch(lay.episode(ep), rec_id(ep)) for ep in range(lay.n_eps))
@@ -822,22 +820,11 @@ def make_lance(root: str, lay: Layout, rows_per_frag: int) -> None:
         max_rows_per_file=rows_per_frag,
         storage_options=opts,
     )
-    eps = np.arange(lay.n_eps)
-    t0 = lay.starts * DT_NS
-    tasks = pa.table(
-        {
-            "task_instance_id": [f"task-{ep:07d}" for ep in eps],
-            "recording_id": [rec_id(ep) for ep in eps],
-            "t_start_ns": t0,
-            "t_end_ns": t0 + (lay.lens - 1) * DT_NS,
-            "task_name": ["fold_clothes"] * lay.n_eps,
-            "task_description": ["folding clothes"] * lay.n_eps,
-            "objects": pa.array([["shirt"]] * lay.n_eps, pa.list_(pa.string())),
-            "annotations": lance_annotations(lay, eps, 0),
-        },
-        schema=TASKS,
+    lance.write_dataset(
+        lance_annotations(lay, range(lay.n_eps), 0),
+        annotations_uri(root),
+        storage_options=opts,
     )
-    lance.write_dataset(tasks, tasks_uri(root), storage_options=opts)
 
 
 def lance_add(uri: str, opts, name: str, read: str, fn, workers: int):
@@ -873,15 +860,15 @@ def lance_replace(uri: str, opts, col: str, read: str, fn, workers: int) -> int:
 def update_lance(root: str, lay: Layout, op: str, k: int, workers: int) -> dict:
     opts = lance_opts(root)
     if op == "annotations":
+        import lance
 
-        def anns(rids):
-            eps = np.array([int(r[4:]) for r in rids.to_pylist()])
-            return lance_annotations(lay, eps, k)
-
-        n = lance_replace(
-            tasks_uri(root), opts, "annotations", "recording_id", anns, workers
+        ds = lance.write_dataset(
+            lance_annotations(lay, range(lay.n_eps), k),
+            annotations_uri(root),
+            mode="overwrite",
+            storage_options=opts,
         )
-        return {"objects_written": n}
+        return {"objects_written": sum(len(f.data_files()) for f in ds.get_fragments())}
 
     def hp(ts):
         return fsl(lay.new_head_pose(ts.to_numpy() // DT_NS, k))
@@ -900,18 +887,17 @@ def update_lance(root: str, lay: Layout, op: str, k: int, workers: int) -> dict:
 def verify_lance(root: str, lay: Layout, op: str, k: int) -> None:
     import lance
 
-    from egomimic.rldb.lance.schema import HUMAN_STEPS, TASKS
+    from egomimic.rldb.lance.schema import HUMAN_STEPS
 
     opts = lance_opts(root)
     if op == "annotations":
-        ds = lance.dataset(tasks_uri(root), storage_options=opts)
-        assert {f.name: f.type for f in ds.schema} == {f.name: f.type for f in TASKS}
         eps = sorted({0, lay.n_eps // 2, lay.n_eps - 1})
-        t = ds.take(eps, columns=["recording_id", "annotations"])
-        got_eps = np.array([int(r[4:]) for r in t.column("recording_id").to_pylist()])
-        assert (
-            t.column("annotations").to_pylist()
-            == lance_annotations(lay, got_eps, k).to_pylist()
+        rids = ", ".join(f"'{rec_id(ep)}'" for ep in eps)
+        got = lance.dataset(annotations_uri(root), storage_options=opts).to_table(
+            filter=f"recording_id IN ({rids})"
+        )
+        assert got.sort_by("annotation_id").equals(
+            lance_annotations(lay, eps, k).sort_by("annotation_id")
         )
         return
     ds = lance.dataset(steps_uri(root), storage_options=opts)
