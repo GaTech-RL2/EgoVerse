@@ -36,11 +36,10 @@ import torch
 import zarr
 
 from egomimic.rldb.embodiment.embodiment import (
-    HISTORY_MASK_SUFFIX,
     canonical_embodiment_name,
-    get_embodiment_id,
 )
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
+from egomimic.rldb.leaf import EpisodeLeaf
 
 # Re-exported for imports from before they moved; new code imports egomimic.rldb.multi.
 from egomimic.rldb.multi import (  # noqa: F401
@@ -886,7 +885,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         return self.load(paths)
 
 
-class ZarrDataset(torch.utils.data.Dataset):
+class ZarrDataset(EpisodeLeaf):
     """
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
     """
@@ -909,10 +908,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
         self.init_episode()
-
-        self.key_map = key_map
-        self.transform = transform_list
-        super().__init__()
+        super().__init__(key_map=key_map, transform_list=transform_list)
 
     def init_episode(self):
         """
@@ -993,189 +989,6 @@ class ZarrDataset(torch.utils.data.Dataset):
             if start_idx <= frame_idx < end_idx:
                 valid_annotations.append(ann.get("text", ""))
         return valid_annotations
-
-    def __len__(self) -> int:
-        return self.total_frames
-
-    def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
-        """End index (exclusive) for a windowed read starting at ``start_idx``.
-
-        Subclasses can override to add per-key-type clamping (e.g., annotation EOS).
-        """
-        return min(start_idx + horizon, self.total_frames)
-
-    def _action_horizon(self) -> int | None:
-        """Horizon of the keymap's ``action_keys`` entries, if it has any."""
-        for spec in self.key_map.values():
-            if (
-                spec.get("key_type") == "action_keys"
-                and spec.get("horizon") is not None
-            ):
-                return int(spec["horizon"])
-        return None
-
-    def _action_pad_mask(self, idx: int) -> np.ndarray | None:
-        """1.0 per real action frame, 0.0 per repeat-last padded one, (horizon,).
-
-        ``_pad_to_horizon`` pads a short action chunk by repeating the last
-        frame, which in a wrist-relative action space supervises "stop moving"
-        at every episode (or annotation) tail. This mask says which steps are
-        real so ``loss_fn`` can drop the rest; ``None`` when the keymap has no
-        horizoned action key.
-        """
-        horizon = self._action_horizon()
-        if horizon is None:
-            return None
-        n_real = self._chunk_end_idx(idx, horizon, "action_keys") - idx
-        mask = np.zeros(horizon, dtype=np.float32)
-        mask[: max(n_real, 0)] = 1.0
-        return mask
-
-    def _fps(self) -> float:
-        """The episode's frame rate (zarr ``fps`` attr; 30 when absent)."""
-        return float(self.metadata.get("fps") or 30)
-
-    def _seconds_to_frames(self, seconds: float) -> int:
-        """``seconds`` in this episode's fps, at least one frame."""
-        return max(1, round(float(seconds) * self._fps()))
-
-    def _lagged_idx(self, idx: int, lag_s: float) -> int:
-        """Frame ``lag_s`` seconds before ``idx`` (at least one frame back),
-        clamped at the episode start -- so the first samples read frame 0,
-        the same front padding a history window gets."""
-        return max(0, idx - self._seconds_to_frames(lag_s))
-
-    def _history_stride(self, spec: dict) -> int:
-        """Frames between history steps: ``history_stride_s`` (seconds, so a
-        window spans the same time at any fps) wins over ``history_stride``."""
-        stride_s = spec.get("history_stride_s")
-        if stride_s is not None:
-            return self._seconds_to_frames(stride_s)
-        return int(spec.get("history_stride", 1) or 1)
-
-    def _history_indices(self, idx: int, spec: dict) -> tuple[np.ndarray, np.ndarray]:
-        """``(K,)`` frame indices of a ``history`` entry, oldest first, and their
-        ``(K,)`` float32 mask.
-
-        The newest step is ``idx`` or, with ``lag_s``, that many seconds before
-        it. Steps before the episode start are masked 0 and repeat the oldest
-        real step (frame 0 when none is real), so the newest step is always
-        ``[-1]``.
-        """
-        history = int(spec["history"])
-        newest = idx
-        if spec.get("lag_s") is not None:
-            newest = idx - self._seconds_to_frames(spec["lag_s"])
-        steps = newest - self._history_stride(spec) * np.arange(history - 1, -1, -1)
-        real = steps >= 0
-        fill = steps[real][0] if real.any() else 0
-        return np.where(real, steps, fill), real.astype(np.float32)
-
-    @staticmethod
-    def _pad_to_horizon(array, horizon: int | None):
-        """Repeat-last out to ``horizon`` a chunk the episode (or annotation)
-        ended before filling."""
-        if horizon is None or not isinstance(array, np.ndarray):
-            return array
-        missing = horizon - array.shape[0]
-        if missing <= 0:
-            return array
-        return np.concatenate([array, np.repeat(array[-1:], missing, axis=0)], axis=0)
-
-    def _read_windows(
-        self, idx: int
-    ) -> dict[str, tuple[str, tuple[int, int | None] | np.ndarray]]:
-        """``{keymap key: (zarr key, window)}`` for frame *idx*.
-
-        ``window`` is ``(start, end)``, ``end`` None meaning the single frame
-        at ``start``, or for a ``history`` entry the ``(K,)`` frame indices of
-        ``_history_indices``. Annotation keys read nothing and are left out.
-        """
-        windows = {}
-        for k, spec in self.key_map.items():
-            if spec.get("key_type") == "annotation_keys":
-                continue
-            horizon = spec.get("horizon")
-            history = spec.get("history")
-            lag_s = spec.get("lag_s")
-            if horizon is not None:
-                window = (
-                    idx,
-                    self._chunk_end_idx(idx, horizon, spec.get("key_type")),
-                )
-            elif history is not None and (
-                int(history) > 1 or spec.get("key_type") == "camera_keys"
-            ):
-                # A camera window keeps its (K, ...) axis even at K = 1. Point
-                # reads, not a contiguous span: on a JPEG key (one frame per
-                # chunk) a span would fetch every frame between the steps.
-                # ZarrEpisode.plan_reads still merges them on numeric keys.
-                window = self._history_indices(idx, spec)[0]
-            elif lag_s is not None:
-                # A single PAST frame (image history): the same zarr array as
-                # the current-frame entry, read ``lag_s`` seconds back.
-                window = (self._lagged_idx(idx, lag_s), None)
-            else:
-                window = (idx, None)
-            windows[k] = (spec["zarr_key"], window)
-        return windows
-
-    def _finalize_sample(self, idx: int, data: dict) -> dict:
-        """Masks, transforms, tensor cast and per-episode keys of a read sample;
-        shared with the Lance leaves."""
-        pad_mask = self._action_pad_mask(idx)
-        if pad_mask is not None:
-            # Travels with the chunk through the interpolators
-            # (InterpolatePadMask) to the model horizon.
-            data["action_pad_mask"] = pad_mask
-
-        for k, spec in self.key_map.items():
-            if spec.get("key_type") == "camera_keys" and spec.get("history"):
-                # Unlike proprio, a padded frame has to be masked out of
-                # attention, so each image window carries its own mask.
-                data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(idx, spec)[1]
-
-        if self.transform:
-            for transform in self.transform or []:
-                data = transform.transform(data)
-
-        for k, v in data.items():
-            if isinstance(v, np.ndarray):
-                data[k] = torch.from_numpy(v).to(torch.float32)
-
-        data["embodiment"] = get_embodiment_id(self.embodiment)
-        # Control frequency of this episode (RDT's ctrl-freq token).
-        data["fps"] = torch.tensor(self._fps(), dtype=torch.float32)
-        # Per-episode camera intrinsics travel with the batch so a single
-        # data-driven embodiment can project without a hardcoded class const.
-        # Single-camera -> (3,4) K matrix; no/multi-camera -> NaN sentinel,
-        # which _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
-        K = self.intrinsics
-        if isinstance(K, dict):
-            # Multi-camera rig: project against the front camera (viz/projection
-            # target the front image). Prefer a "front"-keyed entry, else the
-            # first available camera.
-            K = next(
-                (v for k, v in K.items() if "front" in str(k).lower()),
-                next(iter(K.values()), None) if K else None,
-            )
-        if K is not None:
-            K = np.asarray(K, dtype=np.float32)
-            if K.shape == (3, 3):
-                # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
-                # some contributors store 3x3 (e.g. microagi).
-                K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-            if K.shape != (
-                3,
-                4,
-            ):  # unexpected -> sentinel (viz falls back to const)
-                K = np.full((3, 4), np.nan, dtype=np.float32)
-        else:
-            K = np.full((3, 4), np.nan, dtype=np.float32)
-        data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
-        ep_name = Path(self.episode_path).name
-        data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
-        return data
 
     def __getitem__(
         self,
@@ -1293,8 +1106,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                         data[k] = self._decode_json_entry(data[k])
             if retry:
                 continue
+
             _ = origin  # preserved for symmetry with prior API
-            return self._finalize_sample(idx, data)
+            return self._finish(idx, data)
 
 
 class ZarrAnnotationCutoffDataset(ZarrDataset):

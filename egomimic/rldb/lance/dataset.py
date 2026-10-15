@@ -24,7 +24,7 @@ import torch
 
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +253,7 @@ def _chunks_of(table: dict, recording_id: str, num_frames: int, name: str) -> tu
     return (table["uri"], table["version"], table["rows"][recording_id], table["k"])
 
 
-class LanceRecordingDataset(ZarrDataset):
+class LanceRecordingDataset(EpisodeLeaf):
     """One recording from local Lance tables: steps rows plus its MP4s on disk, read
     one sample at a time. `LanceStreamingDataset` is the object-storage variant."""
 
@@ -292,14 +292,10 @@ class LanceRecordingDataset(ZarrDataset):
         self._intrinsics = intrinsics
         self.videos = videos
         self.task_text = task_text
-        self.key_map = key_map
-        self.transform = transform_list
         self._image_keys = {k for k in videos}
-        self._json_keys = set()
-        self._annotations = []
         self.anchors = np.asarray(anchors, dtype=np.int64).reshape(-1, 2)
         self._cum = np.r_[0, np.cumsum(self.anchors[:, 1] - self.anchors[:, 0])]
-        torch.utils.data.Dataset.__init__(self)
+        super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
         """Keys on the recording's content digest, so commits to other recordings and
@@ -376,7 +372,7 @@ class LanceRecordingDataset(ZarrDataset):
             data[k] = self._pad_to_horizon(
                 rows[0] if single else rows, spec.get("horizon")
             )
-        return self._finalize_sample(idx, data)
+        return self._finish(idx, data)
 
     def __getitem__(self, i: int) -> dict[str, torch.Tensor]:
         plan = self.plan_sample(i)
@@ -393,6 +389,8 @@ class LanceStreamingDataset(LanceRecordingDataset):
     from K-frame video chunk rows (`video_chunks/<name>.lance`, `chunk_videos.py`)
     instead of whole MP4s, and `MultiDataset.__getitems__` fetches a DataLoader batch
     through `fetch_planned`, so a batch costs about two round trips."""
+
+    batched_fetch = True
 
     def __init__(
         self,

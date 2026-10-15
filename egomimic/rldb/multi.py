@@ -452,7 +452,7 @@ class MultiDataset(torch.utils.data.Dataset):
             return data
 
     def __getitems__(self, idxs: list) -> list:
-        """A DataLoader batch. Leaves whose class defines ``fetch_planned`` (Lance) do
+        """A DataLoader batch. Leaves with ``batched_fetch`` set (Lance streaming) do
         their reads for the whole batch at once, which is what makes random access from
         object storage affordable; every other sample, and any batched one that fails
         or trips the bounds check, goes through ``__getitem__`` and its fallback."""
@@ -461,7 +461,7 @@ class MultiDataset(torch.utils.data.Dataset):
         for pos, idx in enumerate(idxs):
             name, local = self.index_map[idx]
             leaf = self.datasets[name]
-            if not isinstance(leaf, MultiDataset) and hasattr(leaf, "fetch_planned"):
+            if getattr(leaf, "batched_fetch", False):
                 groups.setdefault(type(leaf), []).append((pos, name, leaf, local))
         for cls, members in groups.items():
             planned = []
