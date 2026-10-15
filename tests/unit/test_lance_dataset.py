@@ -4,7 +4,7 @@ import pytest
 
 lance = pytest.importorskip("lance")
 
-from fixtures.lance_tables import steps_table  # noqa: E402
+from fixtures.lance_tables import write_catalog  # noqa: E402
 
 from egomimic.rldb.filters import DatasetFilter  # noqa: E402
 from egomimic.rldb.lance.dataset import (  # noqa: E402
@@ -14,12 +14,6 @@ from egomimic.rldb.lance.dataset import (  # noqa: E402
     LanceStreamingResolver,
     _runs,
     eligible_intervals,
-)
-from egomimic.rldb.lance.schema import (  # noqa: E402
-    ALIASES,
-    RECORDINGS,
-    TASKS,
-    recording_id,
 )
 
 
@@ -59,72 +53,7 @@ def test_runs_merge_across_chunks_and_keep_repeats():
 
 @pytest.fixture
 def catalog(tmp_path):
-    recs = [
-        (recording_id("aria", "1"), "2025-01-01-00-00-00-000000", 12),
-        (recording_id("aria", "2"), "2025-01-01-00-00-01-000000", 8),
-    ]
-    recs.sort()
-    steps = pa.concat_tables(
-        [steps_table(rid, n, 100 * i) for i, (rid, _, n) in enumerate(recs)]
-    )
-    lance.write_dataset(steps, tmp_path / "steps" / "aria.lance")
-    k = [200.0, 0, 240, 0, 200.0, 180, 0, 0, 1]
-    lance.write_dataset(
-        pa.Table.from_pylist(
-            [
-                dict(
-                    recording_id=rid,
-                    vendor_recording_id=h,
-                    lab="aria",
-                    site="rl2",
-                    embodiment="human_bimanual",
-                    rig_name="aria_gen1",
-                    operator="op",
-                    scene="1",
-                    captured_at=None,
-                    fps=30.0,
-                    num_frames=n,
-                    video_path=[("front_1", f"videos/{rid}/front_1.mp4")],
-                    intrinsics=[("front_1", k)],
-                    extrinsics=[],
-                    license="x",
-                )
-                for rid, h, n in recs
-            ],
-            schema=RECORDINGS,
-        ),
-        tmp_path / "recordings.lance",
-    )
-    lance.write_dataset(
-        pa.Table.from_pylist(
-            [
-                dict(
-                    task_instance_id=f"t{i}",
-                    recording_id=rid,
-                    t_start_ns=0,
-                    t_end_ns=n,
-                    task_name="fold_clothes",
-                    task_description="folding clothes",
-                    objects=[],
-                    annotations=[],
-                )
-                for i, (rid, _, n) in enumerate(recs)
-            ],
-            schema=TASKS,
-        ),
-        tmp_path / "tasks.lance",
-    )
-    lance.write_dataset(
-        pa.Table.from_pylist(
-            [
-                dict(episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n)
-                for rid, h, n in recs
-            ],
-            schema=ALIASES,
-        ),
-        tmp_path / "aliases.lance",
-    )
-    return tmp_path, recs
+    return tmp_path, write_catalog(tmp_path)
 
 
 KEY_MAP = {

@@ -22,9 +22,8 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import torch
 
-from egomimic.rldb.embodiment.embodiment import HISTORY_MASK_SUFFIX, get_embodiment_id
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +243,7 @@ def _chunks_of(table: dict, recording_id: str, num_frames: int, name: str) -> tu
     return (table["uri"], table["version"], table["rows"][recording_id], table["k"])
 
 
-class LanceRecordingDataset(ZarrDataset):
+class LanceRecordingDataset(EpisodeLeaf):
     """One recording from local Lance tables: steps rows plus its MP4s on disk, read
     one sample at a time. `LanceStreamingDataset` is the object-storage variant."""
 
@@ -283,14 +282,10 @@ class LanceRecordingDataset(ZarrDataset):
         self._intrinsics = intrinsics
         self.videos = videos
         self.task_text = task_text
-        self.key_map = key_map
-        self.transform = transform_list
         self._image_keys = {k for k in videos}
-        self._json_keys = set()
-        self._annotations = []
         self.anchors = np.asarray(anchors, dtype=np.int64).reshape(-1, 2)
         self._cum = np.r_[0, np.cumsum(self.anchors[:, 1] - self.anchors[:, 0])]
-        torch.utils.data.Dataset.__init__(self)
+        super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
         """Keys on the recording's content digest, so commits to other recordings and
@@ -374,41 +369,14 @@ class LanceRecordingDataset(ZarrDataset):
         }
         return self.assemble_sample(plan, (numeric, frames))
 
-    def _finish(self, idx: int, data: dict) -> dict:
-        pad_mask = self._action_pad_mask(idx)
-        if pad_mask is not None:
-            data["action_pad_mask"] = pad_mask
-        for k, spec in self.key_map.items():
-            if spec.get("key_type") == "camera_keys" and spec.get("history"):
-                data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(idx, spec)[1]
-        history_mask = self._proprio_history_mask(idx)
-        if history_mask is not None:
-            data["proprio_history_mask"] = history_mask
-
-        for transform in self.transform or []:
-            data = transform.transform(data)
-        for k, v in data.items():
-            if isinstance(v, np.ndarray):
-                data[k] = torch.from_numpy(v).to(torch.float32)
-
-        data["embodiment"] = get_embodiment_id(self.embodiment)
-        data["fps"] = torch.tensor(float(self.metadata["fps"]), dtype=torch.float32)
-        K = self._intrinsics
-        K = (
-            np.full((3, 4), np.nan, np.float32)
-            if K is None
-            else np.c_[np.asarray(K, np.float32).reshape(3, 3), np.zeros(3, np.float32)]
-        )
-        data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
-        data["episode_hash"] = self.episode_path
-        return data
-
 
 class LanceStreamingDataset(LanceRecordingDataset):
     """One recording read straight from object storage (or any Lance URI): frames come
     from K-frame video chunk rows (`video_chunks/<name>.lance`, `chunk_videos.py`)
     instead of whole MP4s, and `MultiDataset.__getitems__` fetches a DataLoader batch
     through `fetch_planned`, so a batch costs about two round trips."""
+
+    batched_fetch = True
 
     def __init__(
         self,

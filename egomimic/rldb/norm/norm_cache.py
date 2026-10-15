@@ -44,12 +44,17 @@ _LOCATION_FIELDS = (
 # Store-level metadata of a zarr v3 (zarr.json) or v2 group/array.
 _V3_METADATA = ("zarr.json",)
 _V2_METADATA = (".zgroup", ".zarray", ".zattrs")
-# The stats methods and the zarr episode reader and resolvers; hashed for every recipe.
-_READER_MODULES = ("egomimic.rldb.multi", "egomimic.rldb.zarr.zarr_dataset_multi")
+# Leaf windowing, the stats methods, and the zarr reader and resolvers; hashed for
+# every recipe.
+_READER_MODULES = (
+    "egomimic.rldb.leaf",
+    "egomimic.rldb.multi",
+    "egomimic.rldb.zarr.zarr_dataset_multi",
+)
 
 
 def leaf_fingerprint(ds) -> str | None:
-    """A leaf's own ``cache_fingerprint()`` if it has one (non-zarr storage), else
+    """A leaf's own ``cache_fingerprint()`` (every ``EpisodeLeaf`` has one), else
     ``episode_fingerprint`` of its zarr directory."""
     own = getattr(ds, "cache_fingerprint", None)
     if own is not None:
