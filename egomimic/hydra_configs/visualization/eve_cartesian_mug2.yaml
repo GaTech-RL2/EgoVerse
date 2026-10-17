@@ -1,0 +1,17 @@
+# Bimanual v2 rig: projects both arms' base-frame EE chunks (next 1.5 s, GT green /
+# pred red) with the per-arm mug2_front extrinsics, draws the left + right ORCA
+# wireframes at the CURRENT step only (no forearm segment) and appends the
+# 34-joint GT-vs-pred panel (two columns, L | R).
+eve_bimanual:
+  _target_: egomimic.rldb.embodiment.eve.Eve.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+  joints_key: actions_joints
+  hand_mount_key: mug_tcp
+  hand_steps: [0]
+  hand_show_arm: false
+  tool_flip_x180: true
+  mode: traj
+  intrinsics_key: mug_front
+  extrinsics_key: mug2_front

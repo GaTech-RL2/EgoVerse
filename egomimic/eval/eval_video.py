@@ -55,6 +55,16 @@ class EvalVideo(Eval):
                 exist_ok=True,
             )
 
+    def _rank_suffix(self) -> str:
+        """Under DDP every rank runs validation on its own shard and used to
+        write the same ``validation_video_N.mp4``; concurrent writers left the
+        file truncated/corrupt (seen on 4n4g real_mug runs: epochs 300/400/
+        900/1000 undecodable). Give each rank its own file; single-process
+        runs keep the old name."""
+        if self.trainer.world_size > 1:
+            return f"_rank{self.trainer.global_rank}"
+        return ""
+
     def on_validation_end(self):
         for key, buffer in self.val_image_buffer.items():
             os.makedirs(
@@ -71,7 +81,7 @@ class EvalVideo(Eval):
                     self.video_dir(),
                     f"epoch_{self.trainer.current_epoch}",
                     str(get_embodiment(key)),
-                    f"validation_video_{self.val_counter[key]}.mp4",
+                    f"validation_video_{self.val_counter[key]}{self._rank_suffix()}.mp4",
                 )
                 tvio.write_video(path, frames, fps=30, video_codec="h264")
 
@@ -107,7 +117,7 @@ class EvalVideo(Eval):
                     self.video_dir(),
                     f"epoch_{self.trainer.current_epoch}",
                     str(get_embodiment(key)),
-                    f"validation_video_{self.val_counter[key]}.mp4",
+                    f"validation_video_{self.val_counter[key]}{self._rank_suffix()}.mp4",
                 )
                 tvio.write_video(path, frames, fps=30, video_codec="h264")
                 self.val_image_buffer[key].clear()

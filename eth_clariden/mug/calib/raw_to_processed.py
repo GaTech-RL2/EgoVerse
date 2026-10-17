@@ -128,8 +128,11 @@ def convert_file(src, dst, min_frames, upsample_hw=None, compression="lzf"):
         ee_cmd = f["arm/ee_target"][:].astype(np.float64)          # xyz + xyzw
         hand_obs = f["hand/current_joint"][:].astype(np.float64)
         hand_cmd = f["hand/target_joint"][:].astype(np.float64)
-        front = f["camera/front"][:]
-        wrist = f["camera/wrist"][:]
+        # The recorder stores OpenCV-order BGR (bare-table channel means are
+        # (89, 114, 120): wood is red-dominant only if ch2 is red). The whole
+        # pipeline (ImageNet-normalised ResNet, viz) expects RGB -> swap here.
+        front = np.ascontiguousarray(f["camera/front"][:][..., ::-1])
+        wrist = np.ascontiguousarray(f["camera/wrist"][:][..., ::-1])
         attrs = {k: f.attrs[k] for k in f.attrs}
 
     assert ee_cmd.shape == (T, 7) and hand_obs.shape == (T, 17) and hand_cmd.shape == (T, 17)
@@ -156,6 +159,7 @@ def convert_file(src, dst, min_frames, upsample_hw=None, compression="lzf"):
         o.attrs["qpos_arm_source"] = "panda_fk(arm/current_joint) + tool_offset"
         o.attrs["tool_offset_flange_frame_m"] = TOOL_OFFSET
         o.attrs["quat_order"] = "xyzw"
+        o.attrs["image_channel_order"] = "RGB (converted from the recorder's BGR)"
         o.attrs["tool_frame_flip_xyzw"] = TOOL_FLIP_XYZW
         o.attrs["tool_frame_note"] = "orientations are R_tool @ Rx(180deg); post-multiply predictions by Rx(180deg) to recover the recorded tool frame"
         o.create_dataset("observations/qpos_arm_right", data=ee_obs)

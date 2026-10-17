@@ -17,6 +17,8 @@
 # Production 4n x 4g real_mug BC (16 GPUs), same recipe as obj/run_BC_full_4n.sh:
 # eve_right_arm, 6D cartesian + 17D hand, batch 32/GPU -> 512 effective, LR 6e-4.
 # Submit with `sbatch -A <account> ...` to override the account above.
+# EXTRA_HYDRA_ARGS="trainer.max_epochs=1000" to shorten a run (resume later from last.ckpt;
+# the cosine schedule keeps T_max=2000 so a continuation stays on the same LR curve).
 # Checkpoints are mirrored to capstor store at the end (iopsstor scratch is purged).
 
 set -eo pipefail
@@ -89,5 +91,6 @@ exec python ${EGOMAIN}/egomimic/trainHydra.py \
     launch_params.gpus_per_node=${SLURM_GPUS_PER_NODE:-4} \
     launch_params.nodes=${SLURM_NNODES} \
     model.optimizer.lr=6e-4 \
+    '"${EXTRA_HYDRA_ARGS:-}"' \
     '"${CKPT_OVERRIDE}"'
 '

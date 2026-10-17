@@ -1,12 +1,16 @@
 # real_mug rig (Franka + ORCA, fixed overhead front cam). Projects the base-frame
-# EE trajectory with the mug_front calibration and appends a GT-vs-pred panel of
-# the 17 hand-joint targets.
+# EE trajectory with the mug_front calibration, draws the ORCA hand wireframe at
+# steps 0/50/99 of the chunk (GT green, pred red; placed by the EE pose + hand
+# joints of that step) and appends a GT-vs-pred panel of the 17 hand joints.
 eve_right_arm:
   _target_: egomimic.rldb.embodiment.eve.Eve.viz_gt_preds
   _partial_: true
   image_key: front_img_1
   action_key: actions_cartesian
   joints_key: actions_joints
+  hand_mount_key: mug_tcp
+  hand_steps: [0, 50, 99]
+  tool_flip_x180: true
   mode: traj
   intrinsics_key: mug_front
   extrinsics_key: mug_front

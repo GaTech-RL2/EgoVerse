@@ -1,0 +1,973 @@
+<?xml version="1.0" ?>
+<robot name="orcahand_right">
+   <link name="world">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <link name="right_tower">
+      <inertial>
+         <origin xyz="0.04034 -0.00091 0.01912" rpy="-0.0026099999999999977 0.007370000000000099 0.04145"/>
+         <mass value="0.9"/>
+         <inertia ixx="0.00150422" iyy="0.00125262" izz="0.0007962" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_tower_main_mesh">
+         <origin xyz="0.04069509610470536 -0.00012511806280993186 0.02312294830988657" rpy="-0.007252153364137093 -0.004356332895580239 1.533990149039079"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_tower_main_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_tower_main_mesh">
+         <origin xyz="0.041026105966065735 0.0008755408110132971 0.03758955025925282" rpy="0.0663641604020242 -0.10532695421927696 -0.7765909134463538"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_tower_main_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_tower_hull_mesh">
+         <origin xyz="0.04062006698890873 -3.726678941555769e-06 0.009339292204050375" rpy="1.5694791585075034 0.00015194814647356836 -0.0006505124711437826"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_tower_hull_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_tower_hull_mesh">
+         <origin xyz="0.04061884697236149 7.083739226185091e-06 0.009306225228503611" rpy="1.5691929949477865 -6.931644826568828e-05 -0.0012916867662787768"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_tower_hull_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_tower_text_mesh">
+         <origin xyz="0.040617526582081696 4.362558106779257e-06 0.02737731026837054" rpy="8.992806499463768e-14 -1.570241143557443 1.5988186561911613"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_tower_text_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_tower_text_mesh">
+         <origin xyz="0.04068345506360967 -0.0011250828560853416 0.027716099517902396" rpy="-2.239658800831686 -1.5545672668594075 -2.4480790171423275"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_tower_text_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="world2right_tower_fixed_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="world2right_tower_fixed">
+      <parent link="world"/>
+      <child link="world2right_tower_fixed_jointbody"/>
+      <origin xyz="0.04 0.0 0.04575" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <joint type="fixed" name="world2right_tower_fixed_offset">
+      <parent link="world2right_tower_fixed_jointbody"/>
+      <child link="right_tower"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_palm">
+      <inertial>
+         <origin xyz="0.00193 -0.00052 -0.00664" rpy="1.67519 0.04750000000000032 1.55556"/>
+         <mass value="0.0257"/>
+         <inertia ixx="1.612e-05" iyy="1.151e-05" izz="6.72e-06" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_palm_mesh">
+         <origin xyz="0.0015568393804010381 0.00032366355975666324 -0.011896430343868667" rpy="2.01172521777585 0.047179539585598285 1.531383022156099"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_palm_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_palm_mesh">
+         <origin xyz="0.0015796019462848588 0.0001376248446814945 -0.011923873250196919" rpy="2.026338195778868 0.044917456181218895 1.531847751735018"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_palm_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_palm_skin_mesh">
+         <origin xyz="0.005673309514830851 -0.0012702684906836111 -0.001744430321194409" rpy="1.7666058493725336 0.1563942094199331 1.6505205003593353"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_palm_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_palm_skin_mesh">
+         <origin xyz="0.008013832397891144 -0.001293701510845759 -0.0015696747425978242" rpy="1.8840619193629062 0.16785003095386486 1.6839920915628581"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_palm_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_wrist_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_wrist">
+      <parent link="right_tower"/>
+      <child link="right_wrist_jointbody"/>
+      <origin xyz="0.04063 0.0 0.10486999999999999" rpy="0.0 0.0 0.0"/>
+      <axis xyz="1.0 0.0 0.0"/>
+      <limit lower="-0.6736" upper="0.8972" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_wrist_offset">
+      <parent link="right_wrist_jointbody"/>
+      <child link="right_palm"/>
+      <origin xyz="-0.002 0.00144 0.03872" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_thumb_mp">
+      <inertial>
+         <origin xyz="0.00247 0.0 0.004" rpy="0.0 0.016249999999999876 0.0"/>
+         <mass value="0.00586"/>
+         <inertia ixx="8.4e-07" iyy="6.6e-07" izz="2.7e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_thumb_mp_mesh">
+         <origin xyz="0.0026672782758389094 -3.6617030073895996e-06 0.0032021510136003503" rpy="-0.00450638440425983 -0.0029041941261005455 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_mp_mesh">
+         <origin xyz="0.0025186274059406416 1.1817094343651893e-05 0.0033325772179257306" rpy="-0.004051421860145692 0.0 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_thumb_mcp_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_thumb_mcp">
+      <parent link="right_palm"/>
+      <child link="right_thumb_mcp_jointbody"/>
+      <origin xyz="-0.02821 0.01777 -0.01321" rpy="0.5385700000000002 -0.05594999999999972 -1.27047"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <limit lower="-0.87266" upper="0.87266" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_thumb_mcp_offset">
+      <parent link="right_thumb_mcp_jointbody"/>
+      <child link="right_thumb_mp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_thumb_pp">
+      <inertial>
+         <origin xyz="0.01848 1e-05 2e-05" rpy="1.5708 0.7739199999999999 1.5708"/>
+         <mass value="0.00655"/>
+         <inertia ixx="7.5e-07" iyy="7.1e-07" izz="3e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_thumb_pp_mesh">
+         <origin xyz="0.01772057472979195 1.0070925191614284e-05 -0.00010493568910233946" rpy="-1.6017800681828298 -1.1287165327427504 -1.5432562301164818"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_pp_mesh">
+         <origin xyz="0.01727473106987278 2.0812531064334476e-05 -0.00010892038972696916" rpy="-1.588892025872152 -1.3512360913096229 -1.5473903377526785"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_thumb_abd_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_thumb_abd">
+      <parent link="right_thumb_mp"/>
+      <child link="right_thumb_abd_jointbody"/>
+      <origin xyz="6.938893903907228e-18 0.0 0.0" rpy="-1.22173 0.0 0.0"/>
+      <axis xyz="0.0 0.34202085907197166 0.9396923602752502"/>
+      <limit lower="-1.08211" upper="0.0" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_thumb_abd_offset">
+      <parent link="right_thumb_abd_jointbody"/>
+      <child link="right_thumb_pp"/>
+      <origin xyz="-0.03 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_thumb_ip">
+      <inertial>
+         <origin xyz="0.00135 2e-05 0.01383" rpy="0.0003700000000000001 0.03263000000000016 0.00034"/>
+         <mass value="0.01402"/>
+         <inertia ixx="1.7e-06" iyy="1.64e-06" izz="5.9e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_thumb_ip_mesh">
+         <origin xyz="0.0012998948492342203 7.159773213648307e-06 0.013619877706625217" rpy="0.0 0.04338716477372251 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_ip_mesh">
+         <origin xyz="0.0013560375396256981 0.00012710825491742077 0.013446327660739959" rpy="0.00708255798627546 0.04763590113115046 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_thumb_ip_skin_mesh">
+         <origin xyz="0.0015424443589898442 1.6522252825510055e-07 0.016259641785170875" rpy="3.141592653589793 -1.2480960827956862 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_ip_skin_mesh">
+         <origin xyz="0.0015528244655451595 6.48072440430664e-06 0.016246657621879965" rpy="3.141592653589793 -1.243771833702049 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_thumb_pip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_thumb_pip">
+      <parent link="right_thumb_pp"/>
+      <child link="right_thumb_pip_jointbody"/>
+      <origin xyz="0.0 0.0 0.0" rpy="-2.6535897934554242e-06 1.5707926535897934 3.141592653589793"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.7944" upper="1.23" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_thumb_pip_offset">
+      <parent link="right_thumb_pip_jointbody"/>
+      <child link="right_thumb_ip"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_thumb_dp">
+      <inertial>
+         <origin xyz="0.00233 1e-05 0.01133" rpy="0.00075 0.08211000000000013 0.00013000000000000002"/>
+         <mass value="0.0132"/>
+         <inertia ixx="1.4e-06" iyy="1.37e-06" izz="4.4e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_thumb_dp_mesh">
+         <origin xyz="0.001737692119750562 -5.352917438125722e-06 0.005127321105400321" rpy="0.0 0.24698289481892632 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_dp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_dp_mesh">
+         <origin xyz="0.0020244971365026335 3.68319791392775e-05 0.005533677984084769" rpy="0.24272423187789072 -0.008190712846545711 1.5687682825082248"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_dp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_thumb_dp_skin_mesh">
+         <origin xyz="0.002793435568551968 -6.14386555467744e-07 0.016601042013200628" rpy="3.141592653589793 -0.40239793279263236 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_thumb_dp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_thumb_dp_skin_mesh">
+         <origin xyz="0.002785448336058668 -6.944475247259374e-06 0.016557497442018437" rpy="3.141592653589793 -0.3963953079219906 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_thumb_dp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_thumb_dip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_thumb_dip">
+      <parent link="right_thumb_ip"/>
+      <child link="right_thumb_dip_jointbody"/>
+      <origin xyz="0.0005 0.0 0.033" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.85384" upper="1.45" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_thumb_dip_offset">
+      <parent link="right_thumb_dip_jointbody"/>
+      <child link="right_thumb_dp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_thumb_fingertip">
+      <inertial>
+         <origin xyz="-0.003 0.0 0.025" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="thumb_dp2right_thumb_fingertip_fixed_offset">
+      <parent link="right_thumb_dp"/>
+      <child link="right_thumb_fingertip"/>
+      <origin xyz="-0.003 0.0 0.025" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_index_mp">
+      <inertial>
+         <origin xyz="0.01155 0.0 -4e-05" rpy="-2.6535897932333796e-06 -1.5707926535897931 3.141592653589793"/>
+         <mass value="0.00498"/>
+         <inertia ixx="3.4e-07" iyy="3.1e-07" izz="2e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_index_mp_mesh">
+         <origin xyz="0.010698479000335614 -1.389065483476104e-05 -0.00027878809319396305" rpy="3.1297715721932393 -1.5066740246432395 2.4424906541753444e-15"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_index_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_index_mp_mesh">
+         <origin xyz="0.01047824184159959 -4.456734197189478e-05 -0.00016480462181888062" rpy="0.928212641576985 -1.5147947849129795 2.212627507721145"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_index_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_index_abd_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_index_abd">
+      <parent link="right_palm"/>
+      <child link="right_index_abd_jointbody"/>
+      <origin xyz="-0.024088797002689358 0.0018999642829399502 0.025164928786148736" rpy="1.6066999999999996 1.13552 -0.05339000000000049"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <limit lower="-1.04577" upper="0.24577" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_index_abd_offset">
+      <parent link="right_index_abd_jointbody"/>
+      <child link="right_index_mp"/>
+      <origin xyz="-0.02 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_index_pp">
+      <inertial>
+         <origin xyz="0.00135 2e-05 0.01637" rpy="0.00034 0.020550000000000068 0.00038"/>
+         <mass value="0.0165"/>
+         <inertia ixx="2.39e-06" iyy="2.31e-06" izz="7.1e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_index_pp_mesh">
+         <origin xyz="0.0012791981098529209 4.322204569499314e-05 0.016098661080179" rpy="0.005516325755706635 0.035101984887858206 0.03910570256058449"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_index_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_index_pp_mesh">
+         <origin xyz="0.0013516740131344841 1.1247422892215125e-05 0.015681803525061735" rpy="0.0 0.042883356216690816 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_index_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_index_pp_skin_mesh">
+         <origin xyz="0.0016617007377281573 7.13567847691717e-08 0.018763861638214734" rpy="3.141592653589793 -0.8345404465359767 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_index_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_index_pp_skin_mesh">
+         <origin xyz="0.0016773866527582534 -5.5310131701629075e-06 0.018740870134460883" rpy="3.141592653589793 -0.8259683678608123 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_index_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_index_mcp_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_index_mcp">
+      <parent link="right_index_mp"/>
+      <child link="right_index_mcp_jointbody"/>
+      <origin xyz="0.0 0.0 0.0" rpy="3.141592653589793 -1.5707926535897931 3.141592653589793"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.65806" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_index_mcp_offset">
+      <parent link="right_index_mcp_jointbody"/>
+      <child link="right_index_pp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_index_ip">
+      <inertial>
+         <origin xyz="0.00071 1e-05 0.01929" rpy="-0.00042000000000000023 -0.18548999999999993 0.004400000000000001"/>
+         <mass value="0.01521"/>
+         <inertia ixx="2.08e-06" iyy="2.06e-06" izz="5.4e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_index_ip_mesh">
+         <origin xyz="0.0010416798025929732 7.836534536637715e-05 0.011793743862640304" rpy="-0.03448776902850714 -0.0034390239986910043 1.5709149778710771"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_index_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_index_ip_mesh">
+         <origin xyz="0.001264526142413497 -1.637119615337525e-05 0.01147202326458154" rpy="0.0018005943049513862 0.0 1.5707963267948966"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_index_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_index_ip_skin_mesh">
+         <origin xyz="0.0006177579160319044 -2.8394632435300543e-07 0.02298191534250252" rpy="0.0 -0.4563594541722644 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_index_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_index_ip_skin_mesh">
+         <origin xyz="0.0006216739383467692 2.432607491983251e-06 0.02302104994067657" rpy="0.0 -0.4457042297154219 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_index_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_index_pip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_index_pip">
+      <parent link="right_index_pp"/>
+      <child link="right_index_pip_jointbody"/>
+      <origin xyz="0.0005 0.0 0.038" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.88496" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_index_pip_offset">
+      <parent link="right_index_pip_jointbody"/>
+      <child link="right_index_ip"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_index_fingertip">
+      <inertial>
+         <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="right_index_ip2right_index_fingertip_fixed_offset">
+      <parent link="right_index_ip"/>
+      <child link="right_index_fingertip"/>
+      <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_middle_mp">
+      <inertial>
+         <origin xyz="0.01155 0.0 -4e-05" rpy="-2.6535897932333796e-06 -1.5707926535897931 3.141592653589793"/>
+         <mass value="0.00498"/>
+         <inertia ixx="3.4e-07" iyy="3.1e-07" izz="2e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_middle_mp_mesh">
+         <origin xyz="0.010698479000335614 -1.389065483476104e-05 -0.00027878809319396305" rpy="3.1297715721932393 -1.5066740246432395 2.4424906541753444e-15"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_middle_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_middle_mp_mesh">
+         <origin xyz="0.01047824184159959 -4.456734197189478e-05 -0.00016480462181888062" rpy="0.928212641576985 -1.5147947849129795 2.212627507721145"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_middle_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_middle_abd_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_middle_abd">
+      <parent link="right_palm"/>
+      <child link="right_middle_abd_jointbody"/>
+      <origin xyz="-7.346410206776621e-08 0.0 0.030000000000134926" rpy="-1.5707926536208807 1.5707926535897934 3.141592653558706"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <limit lower="-0.64577" upper="0.64577" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_middle_abd_offset">
+      <parent link="right_middle_abd_jointbody"/>
+      <child link="right_middle_mp"/>
+      <origin xyz="-0.02 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_middle_pp">
+      <inertial>
+         <origin xyz="0.00144 2e-05 0.02021" rpy="-2.9999999999999916e-05 0.013859999999999983 0.0005999999999999998"/>
+         <mass value="0.02006"/>
+         <inertia ixx="3.78e-06" iyy="3.69e-06" izz="8.9e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_middle_pp_mesh">
+         <origin xyz="0.001283421930192045 3.6963342684240676e-05 0.02022720775953102" rpy="0.004564296284170381 0.027656376334468602 0.037580505677349094"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_middle_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_middle_pp_mesh">
+         <origin xyz="0.001339380770656077 -6.845101857801683e-06 0.02011933923689832" rpy="-0.0006410664486678006 0.029880005436222712 -5.421010862427522e-20"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_middle_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_middle_pp_skin_mesh">
+         <origin xyz="0.001729699116189442 2.0144468929163878e-08 0.022938288977938984" rpy="0.0 -0.22312530126972074 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_middle_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_middle_pp_skin_mesh">
+         <origin xyz="0.0017525848624676125 2.7252940732883304e-06 0.022885135333659" rpy="0.0 -0.22006061767397878 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_middle_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_middle_mcp_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_middle_mcp">
+      <parent link="right_middle_mp"/>
+      <child link="right_middle_mcp_jointbody"/>
+      <origin xyz="0.0 0.0 0.0" rpy="3.141592653589793 -1.5707926535897931 3.141592653589793"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.58825" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_middle_mcp_offset">
+      <parent link="right_middle_mcp_jointbody"/>
+      <child link="right_middle_pp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_middle_ip">
+      <inertial>
+         <origin xyz="0.00071 1e-05 0.01929" rpy="-0.00042000000000000023 -0.18548999999999993 0.004400000000000001"/>
+         <mass value="0.01521"/>
+         <inertia ixx="2.08e-06" iyy="2.06e-06" izz="5.4e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_middle_ip_mesh">
+         <origin xyz="0.0010416798025929732 7.836534536637715e-05 0.011793743862640304" rpy="-0.03448776902850714 -0.0034390239986910043 1.5709149778710771"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_middle_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_middle_ip_mesh">
+         <origin xyz="0.001264526142413497 -1.637119615337525e-05 0.01147202326458154" rpy="0.0018005943049513862 0.0 1.5707963267948966"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_middle_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_middle_ip_skin_mesh">
+         <origin xyz="0.0006177579160319044 -2.8394632435300543e-07 0.02298191534250252" rpy="0.0 -0.4563594541722644 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_middle_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_middle_ip_skin_mesh">
+         <origin xyz="0.0006216739383467692 2.432607491983251e-06 0.02302104994067657" rpy="0.0 -0.4457042297154219 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_middle_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_middle_pip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_middle_pip">
+      <parent link="right_middle_pp"/>
+      <child link="right_middle_pip_jointbody"/>
+      <origin xyz="0.0005 0.0 0.046" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.8675" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_middle_pip_offset">
+      <parent link="right_middle_pip_jointbody"/>
+      <child link="right_middle_ip"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_middle_fingertip">
+      <inertial>
+         <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="right_middle_ip2right_index_fingertip_fixed_offset">
+      <parent link="right_middle_ip"/>
+      <child link="right_middle_fingertip"/>
+      <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_ring_mp">
+      <inertial>
+         <origin xyz="0.01155 0.0 -4e-05" rpy="-2.6535897932333796e-06 -1.5707926535897931 3.141592653589793"/>
+         <mass value="0.00498"/>
+         <inertia ixx="3.4e-07" iyy="3.1e-07" izz="2e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_ring_mp_mesh">
+         <origin xyz="0.010698479000335614 -1.389065483476104e-05 -0.00027878809319396305" rpy="3.1297715721932393 -1.5066740246432395 2.4424906541753444e-15"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_ring_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_ring_mp_mesh">
+         <origin xyz="0.01047824184159959 -4.456734197189478e-05 -0.00016480462181888062" rpy="0.928212641576985 -1.5147947849129795 2.212627507721145"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_ring_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_ring_abd_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_ring_abd">
+      <parent link="right_palm"/>
+      <child link="right_ring_abd_jointbody"/>
+      <origin xyz="0.021521022061295733 0.0015382095479525787 0.020824784431525818" rpy="-1.5359699999999998 1.30836 -3.05441"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <limit lower="-0.47577" upper="0.80577" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_ring_abd_offset">
+      <parent link="right_ring_abd_jointbody"/>
+      <child link="right_ring_mp"/>
+      <origin xyz="-0.02 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_ring_pp">
+      <inertial>
+         <origin xyz="0.00144 2e-05 0.02021" rpy="-2.9999999999999916e-05 0.013859999999999983 0.0005999999999999998"/>
+         <mass value="0.02006"/>
+         <inertia ixx="3.78e-06" iyy="3.69e-06" izz="8.9e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_ring_pp_mesh">
+         <origin xyz="0.001283421930192045 3.6963342684240676e-05 0.02022720775953102" rpy="0.004564296284170381 0.027656376334468602 0.037580505677349094"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_ring_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_ring_pp_mesh">
+         <origin xyz="0.001339380770656077 -6.845101857801683e-06 0.02011933923689832" rpy="-0.0006410664486678006 0.029880005436222712 -5.421010862427522e-20"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_ring_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_ring_pp_skin_mesh">
+         <origin xyz="0.001729699116189442 2.0144468929163878e-08 0.022938288977938984" rpy="0.0 -0.22312530126972074 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_ring_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_ring_pp_skin_mesh">
+         <origin xyz="0.0017525848624676125 2.7252940732883304e-06 0.022885135333659" rpy="0.0 -0.22006061767397878 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_ring_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_ring_mcp_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_ring_mcp">
+      <parent link="right_ring_mp"/>
+      <child link="right_ring_mcp_jointbody"/>
+      <origin xyz="0.0 0.0 0.0" rpy="3.141592653589793 -1.5707926535897931 3.141592653589793"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.58825" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_ring_mcp_offset">
+      <parent link="right_ring_mcp_jointbody"/>
+      <child link="right_ring_pp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_ring_ip">
+      <inertial>
+         <origin xyz="0.00071 1e-05 0.01929" rpy="-0.00042000000000000023 -0.18548999999999993 0.004400000000000001"/>
+         <mass value="0.01521"/>
+         <inertia ixx="2.08e-06" iyy="2.06e-06" izz="5.4e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_ring_ip_mesh">
+         <origin xyz="0.0010416798025929732 7.836534536637715e-05 0.011793743862640304" rpy="-0.03448776902850714 -0.0034390239986910043 1.5709149778710771"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_ring_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_ring_ip_mesh">
+         <origin xyz="0.001264526142413497 -1.637119615337525e-05 0.01147202326458154" rpy="0.0018005943049513862 0.0 1.5707963267948966"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_ring_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_ring_ip_skin_mesh">
+         <origin xyz="0.0006177579160319044 -2.8394632435300543e-07 0.02298191534250252" rpy="0.0 -0.4563594541722644 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_ring_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_ring_ip_skin_mesh">
+         <origin xyz="0.0006216739383467692 2.432607491983251e-06 0.02302104994067657" rpy="0.0 -0.4457042297154219 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_ring_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_ring_pip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_ring_pip">
+      <parent link="right_ring_pp"/>
+      <child link="right_ring_pip_jointbody"/>
+      <origin xyz="0.0005 0.0 0.046" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.8675" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_ring_pip_offset">
+      <parent link="right_ring_pip_jointbody"/>
+      <child link="right_ring_ip"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_ring_fingertip">
+      <inertial>
+         <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="right_ring_ip2right_index_fingertip_fixed_offset">
+      <parent link="right_ring_ip"/>
+      <child link="right_ring_fingertip"/>
+      <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_pinky_mp">
+      <inertial>
+         <origin xyz="0.01155 0.0 -4e-05" rpy="-2.6535897932333796e-06 -1.5707926535897931 3.141592653589793"/>
+         <mass value="0.00498"/>
+         <inertia ixx="3.4e-07" iyy="3.1e-07" izz="2e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_pinky_mp_mesh">
+         <origin xyz="0.010698479000335614 -1.389065483476104e-05 -0.00027878809319396305" rpy="3.1297715721932393 -1.5066740246432395 2.4424906541753444e-15"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_pinky_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_pinky_mp_mesh">
+         <origin xyz="0.01047824184159959 -4.456734197189478e-05 -0.00016480462181888062" rpy="0.928212641576985 -1.5147947849129795 2.212627507721145"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_pinky_mp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_pinky_abd_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_pinky_abd">
+      <parent link="right_palm"/>
+      <child link="right_pinky_abd_jointbody"/>
+      <origin xyz="0.04258452932438962 0.004988143142003794 0.007243722937596895" rpy="-1.49694 0.8614899999999999 -2.8837299999999995"/>
+      <axis xyz="0.0 0.0 -1.0"/>
+      <limit lower="-0.12244" upper="1.1691" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_pinky_abd_offset">
+      <parent link="right_pinky_abd_jointbody"/>
+      <child link="right_pinky_mp"/>
+      <origin xyz="-0.02 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_pinky_pp">
+      <inertial>
+         <origin xyz="0.00135 2e-05 0.01383" rpy="0.0003700000000000001 0.03263000000000016 0.00034"/>
+         <mass value="0.01402"/>
+         <inertia ixx="1.7e-06" iyy="1.64e-06" izz="5.9e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_pinky_pp_mesh">
+         <origin xyz="0.0012998948492342203 7.159773213648307e-06 0.013619877706625217" rpy="0.0 0.04338716477372251 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_pinky_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_pinky_pp_mesh">
+         <origin xyz="0.0013560375396256981 0.00012710825491742077 0.013446327660739959" rpy="0.00708255798627546 0.04763590113115046 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_pinky_pp_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_pinky_pp_skin_mesh">
+         <origin xyz="0.0015424443589898442 1.6522252825510055e-07 0.016259641785170875" rpy="3.141592653589793 -1.2480960827956862 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_pinky_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_pinky_pp_skin_mesh">
+         <origin xyz="0.0015528244655451595 6.48072440430664e-06 0.016246657621879965" rpy="3.141592653589793 -1.243771833702049 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_pinky_pp_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_pinky_mcp_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_pinky_mcp">
+      <parent link="right_pinky_mp"/>
+      <child link="right_pinky_mcp_jointbody"/>
+      <origin xyz="0.0 0.0 0.0" rpy="3.141592653589793 -1.5707926535897931 3.141592653589793"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.71042" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_pinky_mcp_offset">
+      <parent link="right_pinky_mcp_jointbody"/>
+      <child link="right_pinky_pp"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_pinky_ip">
+      <inertial>
+         <origin xyz="0.00071 1e-05 0.01929" rpy="-0.00042000000000000023 -0.18548999999999993 0.004400000000000001"/>
+         <mass value="0.01521"/>
+         <inertia ixx="2.08e-06" iyy="2.06e-06" izz="5.4e-07" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+      <visual name="right_visual_pinky_ip_mesh">
+         <origin xyz="0.0010416798025929732 7.836534536637715e-05 0.011793743862640304" rpy="-0.03448776902850714 -0.0034390239986910043 1.5709149778710771"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_pinky_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_pinky_ip_mesh">
+         <origin xyz="0.001264526142413497 -1.637119615337525e-05 0.01147202326458154" rpy="0.0018005943049513862 0.0 1.5707963267948966"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_pinky_ip_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+      <visual name="right_visual_pinky_ip_skin_mesh">
+         <origin xyz="0.0006177579160319044 -2.8394632435300543e-07 0.02298191534250252" rpy="0.0 -0.4563594541722644 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/visual/right_visual_pinky_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </visual>
+      <collision name="right_collision_pinky_ip_skin_mesh">
+         <origin xyz="0.0006216739383467692 2.432607491983251e-06 0.02302104994067657" rpy="0.0 -0.4457042297154219 0.0"/>
+         <geometry>
+            <mesh filename="package://orcahand_description/v1/assets/urdf/right/collision/right_collision_pinky_ip_skin_mesh.stl"/>
+         </geometry>
+         <material name="white"/>
+      </collision>
+   </link>
+   <link name="right_pinky_pip_jointbody">
+      <inertial>
+         <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+         <mass value="0.001"/>
+         <inertia ixx="1e-09" iyy="1e-09" izz="1e-09" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="revolute" name="right_pinky_pip">
+      <parent link="right_pinky_pp"/>
+      <child link="right_pinky_pip_jointbody"/>
+      <origin xyz="0.0005 0.0 0.033" rpy="0.0 0.0 0.0"/>
+      <axis xyz="0.0 -1.0 0.0"/>
+      <limit lower="-0.34907" upper="1.88496" effort="100" velocity="100"/>
+   </joint>
+   <joint type="fixed" name="right_pinky_pip_offset">
+      <parent link="right_pinky_pip_jointbody"/>
+      <child link="right_pinky_ip"/>
+      <origin xyz="-0.0 -0.0 -0.0" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <link name="right_pinky_fingertip">
+      <inertial>
+         <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+         <mass value="0.0"/>
+         <inertia ixx="0.0" iyy="0.0" izz="0.0" ixy="0" ixz="0" iyz="0"/>
+      </inertial>
+   </link>
+   <joint type="fixed" name="right_pinky_ip2right_index_fingertip_fixed_offset">
+      <parent link="right_pinky_ip"/>
+      <child link="right_pinky_fingertip"/>
+      <origin xyz="-0.009 0.0 0.035" rpy="0.0 0.0 0.0"/>
+   </joint>
+   <material name="white">
+      <color rgba="1 1 1 1"/>
+   </material>
+</robot>

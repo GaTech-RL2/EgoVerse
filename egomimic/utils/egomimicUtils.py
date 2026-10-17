@@ -262,19 +262,37 @@ EXTRINSICS = {
                                [0.0, 0.0, 0.0, 1.0]]),
     },
     # real_mug rig (single Franka Panda + ORCA right hand, fixed overhead
-    # front camera, 432x240). T_base_cam (camera pose in robot base frame),
-    # fitted 2026-10-07 from mug-in-hand 3D correspondences (RGB mask +
-    # aligned depth vs Panda-FK tool point), 24 mm RMS over 204 frames /
-    # 22 episodes. See eth_clariden/mug/calib/front_calib_mug.py. Single arm,
-    # so left_cam is a copy.
+    # front camera, 432x240). T_base_cam (camera pose in robot base frame)
+    # from the rig's own calibration (cvg-dex-teleop; translation + quat xyzw
+    # [-0.68943, 0.69218, -0.14340, 0.15810]). Verified 2026-10-07: projects
+    # the ee_target TCP onto the fingertips in held-out episodes. Single arm,
+    # so left_cam is a copy. A data-driven alternative fit lives in
+    # eth_clariden/mug/calib/front_calib_mug.py.
     "mug_front": {
-        "left_cam": np.array([[0.33230112, -0.72057226, 0.60856518, 0.03649775],
-                              [-0.9401371, -0.30478785, 0.15246838, 0.164225],
-                              [0.07561879, -0.62280012, -0.77871806, 0.58941746],
+        "left_cam": np.array([[0.00063391, -0.90908461, 0.41661106, 0.10781140],
+                              [-0.99977636, 0.00823022, 0.01948035, 0.34446003],
+                              [-0.02113809, -0.41653024, -0.90887609, 0.72878461],
                               [0.0, 0.0, 0.0, 1.0]]),
-        "right_cam": np.array([[0.33230112, -0.72057226, 0.60856518, 0.03649775],
-                               [-0.9401371, -0.30478785, 0.15246838, 0.164225],
-                               [0.07561879, -0.62280012, -0.77871806, 0.58941746],
+        "right_cam": np.array([[0.00063391, -0.90908461, 0.41661106, 0.10781140],
+                               [-0.99977636, 0.00823022, 0.01948035, 0.34446003],
+                               [-0.02113809, -0.41653024, -0.90887609, 0.72878461],
+                               [0.0, 0.0, 0.0, 1.0]]),
+    },
+    # Bimanual v2 rig (two FR3/Panda + ORCA hands, same overhead camera,
+    # re-calibrated 2026-10 by Alexey: translation + quat xyzw
+    # [-0.68848, 0.69219, -0.14724, 0.15873], 0.5 deg / 6 mm from "mug_front").
+    # Each arm's poses are in its own base frame; the left base is the right
+    # base translated +0.7 m along the right base's +Y, so
+    # left_cam = Trans(0, -0.7, 0) @ right_cam. Verified 2026-10-16 by
+    # projecting both arms' FK TCPs onto the sanity_check demos.
+    "mug2_front": {
+        "left_cam": np.array([[-0.00160789, -0.90637180, 0.42247790, 0.10703568],
+                              [-0.99985423, 0.00863841, 0.01472729, -0.34935800],
+                              [-0.01699794, -0.42239264, -0.90625357, 0.72825985],
+                              [0.0, 0.0, 0.0, 1.0]]),
+        "right_cam": np.array([[-0.00160789, -0.90637180, 0.42247790, 0.10703568],
+                               [-0.99985423, 0.00863841, 0.01472729, 0.35064200],
+                               [-0.01699794, -0.42239264, -0.90625357, 0.72825985],
                                [0.0, 0.0, 0.0, 1.0]]),
     },
 }
