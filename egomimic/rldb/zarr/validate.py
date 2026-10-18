@@ -592,17 +592,27 @@ def _annotations(context, key: str) -> list[dict]:
     return out
 
 
+def _annotation_keys(rule) -> list[str]:
+    """Return the annotation arrays a rule covers (``keys``, else ``key``)."""
+    return list(rule.get("keys") or [rule.get("key", "annotations")])
+
+
 def _check_annotation_intervals(rule, context, report) -> None:
     total_frames = context.get("total_frames") or 0
     problems = []
-    for annotation in _annotations(context, rule.get("key", "annotations")):
-        start, end = annotation.get("start_idx"), annotation.get("end_idx")
-        if any(not isinstance(v, int) or isinstance(v, bool) for v in (start, end)):
-            problems.append("annotation must contain integer start_idx and end_idx")
-        elif start < 0 or end > total_frames or end <= start:
-            problems.append(
-                f"span [{start}, {end}) is outside [0, {total_frames}) or empty"
-            )
+    for key in _annotation_keys(rule):
+        where = "" if key == "annotations" else f"{key}: "
+        for annotation in _annotations(context, key):
+            start, end = annotation.get("start_idx"), annotation.get("end_idx")
+            if any(not isinstance(v, int) or isinstance(v, bool) for v in (start, end)):
+                problems.append(
+                    f"{where}annotation must contain integer start_idx and end_idx"
+                )
+            elif start < 0 or end > total_frames or end <= start:
+                problems.append(
+                    f"{where}span [{start}, {end}) is outside [0, {total_frames}) "
+                    "or empty"
+                )
     _report_problems(
         rule, report, "annotation_intervals", problems, "declared spans are valid"
     )
@@ -626,11 +636,13 @@ def _check_fk_residual(rule, context, report) -> None:
         return
     arrays = context["arrays"]
     total_frames = context.get("total_frames")
+    check = rule.get("report_as", "fk_residual")
     problems = []
     passed = []
     for side, end_effector in sorted(resolved.end_effectors.items()):
         if end_effector.urdf_path is None or not end_effector.urdf_path.is_file():
-            if end_effector.ee_class == "dexterous_hand":
+            # Report a missing model once, from the observed-track rule.
+            if end_effector.ee_class == "dexterous_hand" and check == "fk_residual":
                 report.add(
                     WARNING,
                     "fk_unavailable",
@@ -675,7 +687,7 @@ def _check_fk_residual(rule, context, report) -> None:
             passed.append(f"{side} within {worst:.4f} m")
     if not problems and not passed:
         return
-    _report_problems(rule, report, "fk_residual", problems, "; ".join(passed))
+    _report_problems(rule, report, check, problems, "; ".join(passed))
 
 
 #: Named checks whose ``margin`` bounds registry hand-joint limit excursions,
@@ -828,19 +840,28 @@ def _check_tactile_declaration(rule, context, report) -> None:
     resolved: ResolvedEmbodiment | None = context.get("resolved")
     if resolved is None:
         return
-    suffix = rule.get("suffix", "obs_tactile")
+    suffixes = rule.get("suffixes") or [rule.get("suffix", "obs_tactile")]
     problems = []
     declared = 0
     for side, end_effector in sorted(resolved.end_effectors.items()):
-        if f"{side}.{suffix}" not in context["arrays"]:
-            continue
-        if end_effector.tactile is None:
-            problems.append(
-                f"{side}.{suffix} is stored, but end-effector "
-                f"{end_effector.name!r} declares no `tactile:` block; a taxel "
-                "count without a unit cannot be compared across hands"
-            )
-        else:
+        for suffix in suffixes:
+            key = f"{side}.{suffix}"
+            if key not in context["arrays"]:
+                continue
+            if end_effector.tactile is None:
+                problems.append(
+                    f"{key} is stored, but end-effector "
+                    f"{end_effector.name!r} declares no `tactile:` block; a taxel "
+                    "count without a unit cannot be compared across hands"
+                )
+                continue
+            if suffix.endswith("_image"):
+                problem = _tactile_image_problem(
+                    context["features"].get(key), end_effector.tactile.taxels
+                )
+                if problem:
+                    problems.append(f"{key}: {problem}")
+                    continue
             declared += 1
     if not problems and not declared:
         return
@@ -853,11 +874,34 @@ def _check_tactile_declaration(rule, context, report) -> None:
     )
 
 
+def _tactile_image_problem(feature, taxels: int) -> str | None:
+    """Return why a tactile image description is unusable, or ``None``."""
+    if not isinstance(feature, Mapping) or feature.get("dtype") != "jpeg":
+        return "features must describe it as dtype jpeg"
+    shape = feature.get("shape")
+    if (
+        not isinstance(shape, (list, tuple))
+        or len(shape) != 3
+        or not all(isinstance(n, int) and n > 0 for n in shape)
+        or shape[2] not in (1, 3)
+        or shape[1] % taxels
+    ):
+        return (
+            f"features shape {shape!r} must be [height, width, 1 or 3] with one "
+            f"equal-width tile for each of the {taxels} taxels"
+        )
+    return None
+
+
 def _check_annotation_text(rule, context, report) -> None:
     delimiters = tuple(rule.get("banned_delimiters") or ())
     texts = [
-        (f"annotation {i}", a.get("text", ""))
-        for i, a in enumerate(_annotations(context, rule.get("key", "annotations")))
+        (
+            f"annotation {i}" if key == "annotations" else f"{key} {i}",
+            a.get("text", ""),
+        )
+        for key in _annotation_keys(rule)
+        for i, a in enumerate(_annotations(context, key))
     ]
     texts.append(("task_description", context["attrs"].get("task_description") or ""))
     problems = []
@@ -1192,6 +1236,8 @@ def _check_features(context, report, *, required):
         elif (
             not key.startswith("images.")
             and key != "annotations"
+            # Encoded arrays describe the decoded item, not the stored bytes.
+            and feature.get("dtype") not in ("jpeg", "json")
             and tuple(shape) != array.shape[1:]
         ):
             report.add(

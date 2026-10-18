@@ -56,7 +56,11 @@ _END_EFFECTOR_FIELDS = MODEL_FIELDS | frozenset(
     }
 )
 _AUX_FIELDS = frozenset({"dof", "joint_names"})
-_TACTILE_FIELDS = frozenset({"taxels", "channels", "units", "taxel_links"})
+_TACTILE_FIELDS = frozenset(
+    {"taxels", "channels", "units", "taxel_links", "channel_names", "channel_units"}
+)
+#: ``tactile.units`` value meaning that ``channel_units`` gives one unit per channel.
+PER_CHANNEL_UNITS = "per_channel"
 _KEYPOINT_FIELDS = frozenset({"topology", "valid"})
 
 
@@ -104,24 +108,39 @@ class AuxChainSpec:
 class TactileSpec:
     """Describe a flattened per-frame tactile array.
 
+    Values are stored taxel-major: all channels of taxel 0, then taxel 1.
+
     Attributes:
         taxels: The number of sensing sites.
         channels: The number of values stored per taxel per frame.
         units: The physical unit shared by the stored values, such as ``N`` or
-            ``kPa``.
+            ``kPa``, or ``per_channel`` when ``channel_units`` gives one unit
+            per channel (a force/torque sensor stores N and N*m).
         taxel_links: The URDF link associated with each taxel, in taxel order.
             An empty tuple means that link associations were not declared.
+        channel_names: One name per channel, in channel order, such as
+            ``fx``. An empty tuple means that names were not declared.
+        channel_units: One physical unit per channel when ``units`` is
+            ``per_channel``; otherwise empty.
     """
 
     taxels: int
     channels: int
     units: str
     taxel_links: tuple[str, ...] = ()
+    channel_names: tuple[str, ...] = ()
+    channel_units: tuple[str, ...] = ()
 
     @property
     def width(self) -> int:
         """Return the stored width of one tactile frame."""
         return self.taxels * self.channels
+
+    def unit(self, channel: int) -> str:
+        """Return the physical unit of one channel."""
+        if self.units == PER_CHANNEL_UNITS:
+            return self.channel_units[channel]
+        return self.units
 
 
 class ModelAssets:
@@ -380,9 +399,40 @@ def _parse_tactile(raw, where: str) -> TactileSpec | None:
         raise RegistryError(
             f"{where}.tactile: {len(taxel_links)} taxel_links for {taxels} taxels"
         )
+    channel_names = _channel_strings(raw, "channel_names", channels, where)
+    if len(set(channel_names)) != len(channel_names):
+        raise RegistryError(f"{where}.tactile: `channel_names` must be unique")
+    channel_units = _channel_strings(raw, "channel_units", channels, where)
+    if (units == PER_CHANNEL_UNITS) != bool(channel_units):
+        raise RegistryError(
+            f"{where}.tactile: declare `channel_units` exactly when `units` is "
+            f"{PER_CHANNEL_UNITS!r}"
+        )
     return TactileSpec(
-        taxels=taxels, channels=channels, units=units, taxel_links=taxel_links
+        taxels=taxels,
+        channels=channels,
+        units=units,
+        taxel_links=taxel_links,
+        channel_names=channel_names,
+        channel_units=channel_units,
     )
+
+
+def _channel_strings(raw: dict, name: str, channels: int, where: str):
+    """Return an optional per-channel list of non-empty strings as a tuple."""
+    values = raw.get(name)
+    if values is None:
+        return ()
+    if (
+        not isinstance(values, list)
+        or len(values) != channels
+        or not all(isinstance(v, str) and v.strip() for v in values)
+    ):
+        raise RegistryError(
+            f"{where}.tactile: `{name}` must list {channels} non-empty strings, "
+            f"one per channel, got {values!r}"
+        )
+    return tuple(values)
 
 
 def _parse_end_effector(name: str, block: dict) -> EndEffectorSpec:

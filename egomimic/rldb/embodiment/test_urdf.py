@@ -1,5 +1,7 @@
 """Test the URDF reader and the joints-versus-keypoints residual."""
 
+import re
+
 import numpy as np
 import pytest
 
@@ -278,3 +280,58 @@ def test_tactile_width_is_taxels_times_channels() -> None:
     )
 
     assert spec.tactile.width == 60
+
+
+def test_tactile_units_can_be_declared_per_channel() -> None:
+    tactile = {
+        "taxels": 5,
+        "channels": 6,
+        "units": "per_channel",
+        "channel_names": ["fx", "fy", "fz", "tx", "ty", "tz"],
+        "channel_units": ["N", "N", "N", "N*m", "N*m", "N*m"],
+    }
+    spec = _parse_end_effector("h", _entry(tactile=tactile)).tactile
+
+    assert spec.width == 30
+    assert spec.channel_names[3] == "tx"
+    assert (spec.unit(0), spec.unit(5)) == ("N", "N*m")
+    single = _parse_end_effector(
+        "h", _entry(tactile={"taxels": 2, "units": "kPa"})
+    ).tactile
+    assert single.unit(0) == "kPa" and single.channel_units == ()
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        ({"channel_units": None}, "exactly when `units` is 'per_channel'"),
+        ({"units": "N"}, "exactly when `units` is 'per_channel'"),
+        ({"channel_units": ["N"] * 5}, "must list 6 non-empty strings"),
+        ({"channel_names": ["fx"] * 6}, "must be unique"),
+        ({"channel_names": ["fx", "fy", "fz", "tx", "ty", ""]}, "non-empty"),
+    ],
+)
+def test_malformed_per_channel_tactile_declarations_are_refused(
+    change, message
+) -> None:
+    tactile = {
+        "taxels": 5,
+        "channels": 6,
+        "units": "per_channel",
+        "channel_names": ["fx", "fy", "fz", "tx", "ty", "tz"],
+        "channel_units": ["N", "N", "N", "N*m", "N*m", "N*m"],
+    }
+    tactile = {k: v for k, v in (tactile | change).items() if v is not None}
+    with pytest.raises(RegistryError, match=re.escape(message)):
+        _parse_end_effector("h", _entry(tactile=tactile))
+
+
+def test_the_sharpa_hands_declare_fingertip_force_torque_sensors() -> None:
+    from egomimic.rldb.embodiment.registry import load_end_effectors
+
+    for side in ("left", "right"):
+        spec = load_end_effectors()[f"sharpa_wave_v1_{side}"]
+        assert (spec.tactile.taxels, spec.tactile.channels) == (5, 6)
+        assert spec.tactile.width == 30
+        assert spec.tactile.taxel_links[-1] == f"{side}_pinky_fingertip"
+        assert [spec.tactile.unit(c) for c in (2, 3)] == ["N", "N*m"]

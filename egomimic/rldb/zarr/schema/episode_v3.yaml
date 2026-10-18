@@ -153,7 +153,7 @@ checks:
   - name: pose_degeneracy
     required: true
     severity: diagnostic
-    suffixes: [obs_ee_pose, cmd_ee_pose, obs_head_pose]
+    suffixes: [obs_ee_pose, cmd_ee_pose, obs_head_pose, obs_head_link_pose]
     identity_rotation_fraction: 0.01
 
   # Report an exact identity pose stored for a non-reference camera, or a
@@ -181,7 +181,7 @@ checks:
   - name: annotation_intervals
     required: true
     severity: integrity
-    key: annotations
+    keys: [annotations, annotations_skill]
 
   # For each side whose registry entry declares a URDF, sample at most 64
   # evenly spaced retained rows. Transform `obs_hand_keypoints` from the
@@ -194,6 +194,16 @@ checks:
     joints_suffix: obs_hand_joints
     keypoints_suffix: obs_hand_keypoints
     pose_suffix: obs_ee_pose
+    sample_frames: 64
+
+  # The same comparison for commanded keypoints, when an episode stores them.
+  - name: fk_residual
+    report_as: fk_residual_cmd
+    required: true
+    severity: integrity
+    joints_suffix: cmd_hand_joints
+    keypoints_suffix: cmd_hand_keypoints
+    pose_suffix: cmd_ee_pose
     sample_frames: 64
 
   # Registry hand-joint limits, in two tiers. `margin` is in the joint's unit
@@ -230,19 +240,20 @@ checks:
     jump: 1.0
     max_abs: 6.2832
 
-  # A stored tactile array requires the side's end-effector registry entry to
-  # declare its taxel count, channel count, and physical unit.
+  # A stored tactile array or tactile image requires the side's end-effector
+  # registry entry to declare its taxel count, channel count, and physical
+  # unit. A tactile image must be JPEG with one equal-width tile per taxel.
   - name: tactile_declaration
     required: true
     severity: integrity
-    suffix: obs_tactile
+    suffixes: [obs_tactile, obs_tactile_image]
 
   # Forbid the exact substring ` | ` in annotation text and task_description;
   # structured metadata needs a separate schema field.
   - name: annotation_text
     required: true
     severity: integrity
-    key: annotations
+    keys: [annotations, annotations_skill]
     banned_delimiters: [" | "]
 
 arrays:
@@ -337,6 +348,15 @@ arrays:
     # Observed robot-hand XYZ positions, flattened in the registry topology's
     # slot order and expressed in the same episode frame as `obs_ee_pose`.
 
+  - key: "{side}.cmd_hand_keypoints"
+    when: {end_effector_class: dexterous_hand}
+    required: false
+    severity: integrity
+    shape: [T, kp3]
+    dtype: float
+    # Forward kinematics of `cmd_hand_joints`, laid out like
+    # `obs_hand_keypoints` and expressed in the frame of `cmd_ee_pose`.
+
   - key: "{side}.obs_keypoints"
     when: {end_effector_class: human_hand}
     required: false
@@ -374,14 +394,32 @@ arrays:
     severity: integrity
     shape: [T, tactile]
     dtype: float
-    # Flattened taxel channels. The registry supplies the expected width and
-    # physical unit.
+    # Flattened taxel channels, taxel-major. The registry supplies the
+    # expected width and the physical unit of each channel.
+
+  - key: "{side}.obs_tactile_image"
+    required: false
+    severity: integrity
+    shape: [T]
+    dtype: object
+    # One JPEG per frame holding the side's taxel images side by side in taxel
+    # order. The name carries no `images.` segment: it is not a camera stream
+    # and needs no camera matrix.
 
   - key: obs_head_pose
     required: false
     severity: integrity
     shape: [T, 7]
     dtype: float
+
+  - key: obs_head_link_pose
+    required: false
+    severity: integrity
+    shape: [T, 7]
+    dtype: float
+    # Forward kinematics of the platform's head link in the episode frame. It
+    # is a link pose, not a camera pose: `obs_head_pose` stays reserved for a
+    # calibrated front_1 optical frame.
 
   # Canonical RGB timestamp array. When present it must be one-dimensional,
   # integer-valued, and at least `total_frames` long.
@@ -402,6 +440,14 @@ arrays:
     dtype: object
 
   - key: annotations
+    required: false
+    severity: integrity
+    shape: ["*"]
+    dtype: object
+
+  # Second-level labels (for example a skill per subtask span), stored like
+  # `annotations`.
+  - key: annotations_skill
     required: false
     severity: integrity
     shape: ["*"]

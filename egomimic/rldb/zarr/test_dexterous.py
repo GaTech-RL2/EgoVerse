@@ -309,3 +309,100 @@ def test_smooth_motion_has_no_spikes(write_dexterous) -> None:
     report = validate_episode(write_dexterous(numeric={"left.obs_joints": joints}))
 
     assert _levels(report)["joint_spikes"] == OK
+
+
+def _tactile_strip(taxels: int = 30, tile: int = 4, height: int = 8):
+    """Return per-frame grayscale JPEGs and their ``[H, W, 1]`` shape."""
+    import simplejpeg
+
+    frames = np.empty(LENGTH, dtype=object)
+    for t in range(LENGTH):
+        image = np.full((height, taxels * tile, 1), 40 + 10 * t, dtype=np.uint8)
+        frames[t] = simplejpeg.encode_jpeg(image, colorspace="GRAY")
+    return frames, [height, taxels * tile, 1]
+
+
+def test_a_grayscale_tactile_image_is_not_a_camera_stream(write_dexterous) -> None:
+    path = write_dexterous(
+        pre_encoded_image_data={"left.obs_tactile_image": _tactile_strip()}
+    )
+
+    report = validate_episode(path)
+
+    assert report.ok, report.text()
+    levels = _levels(report)
+    assert levels["left.obs_tactile_image"] == OK
+    assert levels["tactile_declaration"] == OK
+    assert "features" not in levels
+    assert levels["camera_coverage"] == OK
+
+
+def test_a_tactile_image_needs_one_tile_per_taxel(write_dexterous) -> None:
+    frames, _ = _tactile_strip(tile=4)
+    path = write_dexterous(
+        pre_encoded_image_data={"left.obs_tactile_image": (frames, [8, 121, 1])}
+    )
+
+    report = validate_episode(path)
+
+    assert _levels(report)["tactile_declaration"] == ERROR
+    assert "equal-width tile for each of the 30" in _message(
+        report, "tactile_declaration"
+    )
+
+
+def test_commanded_keypoints_are_checked_against_commanded_joints(
+    write_dexterous, hand_track
+) -> None:
+    joints, keypoints, poses = hand_track(LENGTH)
+    consistent = {
+        "left.cmd_hand_joints": joints,
+        "left.cmd_hand_keypoints": keypoints,
+        "left.cmd_ee_pose": poses,
+    }
+    report = validate_episode(write_dexterous(numeric=consistent))
+    assert report.ok, report.text()
+    assert _levels(report)["fk_residual_cmd"] == OK
+
+    rolled = {**consistent, "left.cmd_hand_joints": np.roll(joints, 1, axis=1)}
+    report = validate_episode(write_dexterous(numeric=rolled))
+    assert _levels(report)["fk_residual_cmd"] == ERROR
+    assert "left.cmd_hand_keypoints" in _message(report, "fk_residual_cmd")
+    assert _levels(report)["fk_residual"] == OK
+
+
+def test_episodes_without_commanded_keypoints_skip_their_check(
+    write_dexterous,
+) -> None:
+    assert "fk_residual_cmd" not in _levels(validate_episode(write_dexterous()))
+
+
+def test_a_head_link_pose_is_a_pose_track(write_dexterous, hand_track) -> None:
+    _, _, poses = hand_track(LENGTH)
+    report = validate_episode(write_dexterous(numeric={"obs_head_link_pose": poses}))
+    assert report.ok, report.text()
+    assert _levels(report)["obs_head_link_pose"] == OK
+
+    bad = poses.copy()
+    bad[:, 3:] *= 2
+    report = validate_episode(write_dexterous(numeric={"obs_head_link_pose": bad}))
+    errors = [f.message for f in report.errors if f.check == "obs_head_link_pose"]
+    assert any("unit norm" in m for m in errors)
+
+
+def test_skill_annotations_follow_the_annotation_rules(write_dexterous) -> None:
+    from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+
+    path = write_dexterous()
+    writer = ZarrWriter(episode_path=path)
+    writer.append_annotations("annotations_skill", [("grasp", 0, LENGTH)])
+    report = validate_episode(path)
+    assert report.ok, report.text()
+    assert _levels(report)["annotations_skill"] == OK
+
+    writer.append_annotations(
+        "annotations_skill", [("grasp | Skill: pinch", 2, LENGTH + 3)], mode="w"
+    )
+    report = validate_episode(path)
+    assert "annotations_skill: span [2, 9)" in _message(report, "annotation_intervals")
+    assert "annotations_skill 0 encodes metadata" in _message(report, "annotation_text")
