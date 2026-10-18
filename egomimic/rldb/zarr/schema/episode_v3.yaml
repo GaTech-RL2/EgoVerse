@@ -196,6 +196,40 @@ checks:
     pose_suffix: obs_ee_pose
     sample_frames: 64
 
+  # Registry hand-joint limits, in two tiers. `margin` is in the joint's unit
+  # (radians for revolute joints). Observed joints more than 0.26 rad (15 deg)
+  # outside the limits are an integrity error: an excursion that size points
+  # at degrees, shifted columns or a corrupt frame rather than at the hand.
+  - name: joint_limit_gross
+    required: true
+    severity: integrity
+    suffixes: [obs_hand_joints]
+    margin: 0.26
+
+  # Smaller excursions, and any commanded excursion, are diagnostic. Hand
+  # firmware stops sit inside the URDF limits and teleoperation commands
+  # overshoot them, so real deliveries carry these without being wrong.
+  - name: joint_limit_excursion
+    required: true
+    severity: diagnostic
+    suffixes: [obs_hand_joints, cmd_hand_joints]
+    margin: 0.035
+
+  # Report isolated one-frame jumps (more than `jump` away and back) and values
+  # beyond `max_abs` on joint arrays; both mark corrupt frames, not motion.
+  - name: joint_spikes
+    required: true
+    severity: diagnostic
+    suffixes:
+      - obs_joints
+      - cmd_joints
+      - obs_hand_joints
+      - cmd_hand_joints
+      - obs_aux_joints
+      - cmd_aux_joints
+    jump: 1.0
+    max_abs: 6.2832
+
   # A stored tactile array requires the side's end-effector registry entry to
   # declare its taxel count, channel count, and physical unit.
   - name: tactile_declaration

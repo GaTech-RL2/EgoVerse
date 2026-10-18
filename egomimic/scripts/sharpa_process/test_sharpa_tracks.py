@@ -129,7 +129,16 @@ def test_excursions_are_reported_and_clipped_per_column(kinematics):
     assert record["array"] == "right.obs_hand_joints"
     assert record["frames_above"] == 2 and record["frames_below"] == 0
     assert record["max_above"] == pytest.approx(0.15, abs=1e-6)
-    assert record["validator_checked"]
+    # 0.15 rad is past the warning margin and inside the error margin.
+    assert record["validator_check"] == "joint_limit_excursion"
+    assert not record["validator_checked"]
+    raw[1, column] = upper + 0.3
+    [gross] = joint_limit_excursions(raw, "obs", kinematics)
+    assert (
+        gross["validator_check"] == "joint_limit_gross" and gross["validator_checked"]
+    )
+    [command] = joint_limit_excursions(raw, "cmd", kinematics)
+    assert command["validator_check"] == "joint_limit_excursion"
     clipped = clip_to_limits(raw, kinematics)
     assert clipped.dtype == np.float32
     assert joint_limit_excursions(clipped, "obs", kinematics) == []

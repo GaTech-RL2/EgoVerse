@@ -410,10 +410,29 @@ def test_complete_path_passes_the_delivery_profile(
     assert validate.main([str(path), *flags, "--ego-overlay"]) == 0
 
 
+def test_small_joint_limit_excursions_are_warnings_not_errors(tmp_path, kinematics):
+    dataset = build_dataset(tmp_path / "data", kinematics, excursion=0.1)
+    out = tmp_path / "out"
+    assert _convert(dataset, out, "--episodes", "0", "--validate") == 0
+    [path] = list(out.glob("*.zarr"))
+    attrs = zarr.open_group(path, mode="r").attrs
+    limits = attrs["conversion_report"]["joint_limits"]
+    [record] = limits["source_excursions"]["obs"]
+    assert record["validator_check"] == "joint_limit_excursion"
+    assert limits["stored_excursions_checked_by_validator"] == 0
+    # The default (strict) policy still keeps any excursion out of `complete`.
+    assert attrs["data_status"] == "structural_sample"
+    assert any("limits" in r for r in attrs["conversion_report"]["data_status_reasons"])
+    report = validate.validate_episode(path)
+    assert report.ok, report.text()
+    warnings = {f.check: f.message for f in report.warnings}
+    assert LIMITED_JOINT in warnings["joint_limit_excursion"]
+
+
 def test_joint_limit_conflicts_are_reported_not_hidden(
     tmp_path, kinematics, calibration
 ):
-    dataset = build_dataset(tmp_path / "data", kinematics, excursion=0.2)
+    dataset = build_dataset(tmp_path / "data", kinematics, excursion=0.3)
     raw = tmp_path / "raw"
     assert _convert(dataset, raw, "--episodes", "0", "--validate") == 2
     [path] = list(raw.glob("*.zarr"))
@@ -423,13 +442,15 @@ def test_joint_limit_conflicts_are_reported_not_hidden(
     assert record["joint"] == LIMITED_JOINT
     assert record["array"] == "left.obs_hand_joints"
     assert record["frames_above"] == 3
-    assert record["max_above"] == pytest.approx(0.2, abs=1e-5)
+    assert record["max_above"] == pytest.approx(0.3, abs=1e-5)
+    assert record["validator_check"] == "joint_limit_gross"
     assert (
         not limits["clipped"] and limits["stored_excursions_checked_by_validator"] == 1
     )
     report = validate.validate_episode(path)
     errors = {f.check: f.message for f in report.errors}
-    assert "exceed registry limits" in errors["left.obs_hand_joints"]
+    assert LIMITED_JOINT in errors["joint_limit_gross"]
+    assert "left.obs_hand_joints" in errors["joint_limit_gross"]
 
     clipped = tmp_path / "clipped"
     args = ["--episodes", "0", "--clip-joint-limits", "--validate"]

@@ -822,13 +822,14 @@ def convert_episode(job: Job, args, kinematics, calibration_rigs, zone) -> dict:
         worst = max(max(r["max_above"], r["max_below"]) for r in checked)
         _warn_box(
             [
-                f"{job.episode_hash} ({job.recording_id}): {len(joints)} hand joint "
-                f"column(s) exceed the registry limits by up to {worst:.4f} rad:",
+                f"{job.episode_hash} ({job.recording_id}): {len(joints)} observed "
+                f"hand joint column(s) exceed the registry limits by up to "
+                f"{worst:.4f} rad:",
                 *[f"  {j}" for j in joints],
-                "This episode FAILS the validator's joint-limit integrity check: "
-                "Sharpa's joint data",
-                "conflicts with the provided URDF/registry limits. Raise it with "
-                "Sharpa; --clip-joint-limits",
+                "This episode FAILS the validator's joint_limit_gross integrity "
+                "check: an excursion this",
+                "large points at units, column order or corrupt frames. Raise it "
+                "with Sharpa; --clip-joint-limits",
                 "is for local experiments only. Details: "
                 f"{job.episode_hash}.conversion.json",
             ]

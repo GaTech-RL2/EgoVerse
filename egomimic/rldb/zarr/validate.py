@@ -678,6 +678,152 @@ def _check_fk_residual(rule, context, report) -> None:
     _report_problems(rule, report, "fk_residual", problems, "; ".join(passed))
 
 
+#: Named checks whose ``margin`` bounds registry hand-joint limit excursions,
+#: from the integrity tier to the diagnostic tier.
+LIMIT_CHECKS = ("joint_limit_gross", "joint_limit_excursion")
+
+
+def limit_margins(schema: Mapping | None = None) -> dict[str, float]:
+    """Return the schema's hand-joint limit margins keyed by check name.
+
+    Converters label excursions with these so a report never disagrees with
+    the validator about which tier an excursion falls in.
+    """
+    schema = load_schema() if schema is None else schema
+    return {
+        rule["name"]: float(rule["margin"])
+        for rule in schema.get("checks", [])
+        if rule.get("name") in LIMIT_CHECKS
+    }
+
+
+def _limit_excursions(rule, context) -> tuple[list[str], int]:
+    """Describe registry hand-joint values more than ``margin`` outside limits.
+
+    Returns:
+        ``(problems, checked)``: one message per offending array, and the
+        number of arrays compared with their limits.
+    """
+    resolved: ResolvedEmbodiment | None = context.get("resolved")
+    if resolved is None:
+        return [], 0
+    margin = float(rule["margin"])
+    problems, checked = [], 0
+    for side, spec in sorted(resolved.end_effectors.items()):
+        if not spec.joint_limits:
+            continue
+        limits = np.asarray(spec.joint_limits, dtype=np.float64)
+        for suffix in rule.get("suffixes") or ():
+            key = f"{side}.{suffix}"
+            array = context["arrays"].get(key)
+            if (
+                array is None
+                or tuple(array.shape[1:]) != (len(limits),)
+                or _dtype_kind(array.dtype) != "float"
+            ):
+                # Array rules report a missing or misshapen track.
+                continue
+            checked += 1
+            values = _read(array, context.get("total_frames")).astype(np.float64)
+            excess = np.maximum(limits[:, 0] - values, values - limits[:, 1])
+            excess[np.isnan(excess)] = -np.inf
+            outside = excess > margin
+            if not outside.any():
+                continue
+            columns = np.nonzero(outside.any(axis=0))[0]
+            worst = int(columns[np.argmax(excess[:, columns].max(axis=0))])
+            lower, upper = limits[worst]
+            problems.append(
+                f"{key}: {len(columns)} joint(s) exceed the registry limits by "
+                f"more than {margin:g} on {int(outside.any(axis=1).sum())} "
+                f"frame(s); worst {spec.joint_names[worst]} by "
+                f"{float(excess[:, worst].max()):.4f} outside [{lower:g}, {upper:g}]"
+            )
+    return problems, checked
+
+
+def _check_joint_limit_gross(rule, context, report) -> None:
+    problems, checked = _limit_excursions(rule, context)
+    if not problems and not checked:
+        return
+    if problems:
+        problems.append("check units, joint order and corrupt frames")
+    _report_problems(
+        rule,
+        report,
+        "joint_limit_gross",
+        problems,
+        f"{checked} hand joint track(s) within {rule['margin']:g} of the limits",
+    )
+
+
+def _check_joint_limit_excursion(rule, context, report) -> None:
+    problems, checked = _limit_excursions(rule, context)
+    if not problems and not checked:
+        return
+    if problems:
+        problems.append(
+            "expected near firmware stops and in teleoperation commands; "
+            "stored values are unchanged"
+        )
+    _report_problems(
+        rule,
+        report,
+        "joint_limit_excursion",
+        problems,
+        f"{checked} hand joint track(s) within {rule['margin']:g} of the limits",
+    )
+
+
+def _check_joint_spikes(rule, context, report) -> None:
+    suffixes = tuple(rule.get("suffixes") or ())
+    jump = float(rule.get("jump", 1.0))
+    max_abs = float(rule.get("max_abs", 2 * np.pi))
+    problems, checked = [], 0
+    for key, array in context["arrays"].items():
+        if (
+            key.rpartition(".")[2] not in suffixes
+            or len(array.shape) != 2
+            or _dtype_kind(array.dtype) != "float"
+        ):
+            continue
+        checked += 1
+        values = _read(array, context.get("total_frames")).astype(np.float64)
+        bad = np.abs(values) > max_abs
+        if len(values) >= 3:
+            # Far from both neighbours, which agree with each other.
+            middle = values[1:-1]
+            bad[1:-1] |= (
+                (np.abs(middle - values[:-2]) > jump)
+                & (np.abs(values[2:] - middle) > jump)
+                & (np.abs(values[2:] - values[:-2]) < jump / 2)
+            )
+        if not bad.any():
+            continue
+        frames = np.nonzero(bad.any(axis=1))[0]
+        column = int(np.nonzero(bad[frames[0]])[0][0])
+        feature = context["features"].get(key)
+        names = (
+            feature.get("joint_names") if isinstance(feature, Mapping) else None
+        ) or []
+        joint = names[column] if column < len(names) else f"column {column}"
+        problems.append(
+            f"{key}: {len(frames)} frame(s) hold a one-frame jump of more than "
+            f"{jump:g} or a value beyond {max_abs:g} (first at frame "
+            f"{int(frames[0])}, {joint} = {values[frames[0], column]:.4g}); "
+            "treat them as corrupt frames"
+        )
+    if not problems and not checked:
+        return
+    _report_problems(
+        rule,
+        report,
+        "joint_spikes",
+        problems,
+        f"{checked} joint track(s) free of one-frame spikes",
+    )
+
+
 def _check_tactile_declaration(rule, context, report) -> None:
     resolved: ResolvedEmbodiment | None = context.get("resolved")
     if resolved is None:
@@ -736,6 +882,9 @@ _NAMED_CHECKS = {
     "timestamps": _check_timestamps,
     "annotation_intervals": _check_annotation_intervals,
     "fk_residual": _check_fk_residual,
+    "joint_limit_gross": _check_joint_limit_gross,
+    "joint_limit_excursion": _check_joint_limit_excursion,
+    "joint_spikes": _check_joint_spikes,
     "tactile_declaration": _check_tactile_declaration,
     "annotation_text": _check_annotation_text,
 }
@@ -884,14 +1033,6 @@ def _check_numeric_values(key, array, context, report, side):
         report.add(ERROR, key, "nonfinite retained values in valid slots")
     if "keypoints" in key and (np.abs(values) >= 1e8).any():
         report.add(ERROR, key, "invalid retained keypoint estimates in valid slots")
-    if key.endswith("hand_joints") and spec is not None and spec.joint_limits:
-        limits = np.asarray(spec.joint_limits)
-        if ((values < limits[:, 0] - 1e-6) | (values > limits[:, 1] + 1e-6)).any():
-            report.add(
-                ERROR,
-                key,
-                "retained joints exceed registry limits; check units and joint order",
-            )
 
 
 def _expand_key(template: str, arrays: Mapping, sides) -> list[tuple[str, str | None]]:

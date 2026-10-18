@@ -39,7 +39,7 @@ HAND_DOF = 22
 SIDE_OFFSETS = {"left": 0, "right": ARM_DOF + HAND_DOF}
 AUX_OFFSET = 2 * (ARM_DOF + HAND_DOF)
 HEAD_LINK = "head_base_link"
-#: Margin the validator allows around registry hand-joint limits.
+#: Margin below which a value outside its limits is not counted as an excursion.
 LIMIT_TOLERANCE = 1e-6
 #: Frames per forward-kinematics batch; bounds transient memory.
 FK_BLOCK = 4096
@@ -254,8 +254,14 @@ def joint_limit_excursions(
 
     Returns:
         One record per column with an excursion, in column order.
-        ``validator_checked`` marks hand columns, which the validator rejects.
+        ``validator_check`` names the validator tier that reports the column
+        (``joint_limit_gross``: an error; ``joint_limit_excursion``: a
+        warning; ``None``: not reported). ``validator_checked`` marks the
+        columns the validator rejects.
     """
+    from egomimic.rldb.zarr.validate import limit_margins
+
+    margins = limit_margins()
     values = check_raw(raw).astype(np.float64)
     lower = kinematics.limits[:, 0] - tolerance
     upper = kinematics.limits[:, 1] + tolerance
@@ -266,6 +272,15 @@ def joint_limit_excursions(
         key = kinematics.array_key(column, prefix)
         under = kinematics.limits[column, 0] - values[below[:, column], column]
         over = values[above[:, column], column] - kinematics.limits[column, 1]
+        worst = max(
+            under.max() if len(under) else 0.0, over.max() if len(over) else 0.0
+        )
+        check = None
+        if key.endswith("hand_joints"):
+            if prefix == "obs" and worst > margins["joint_limit_gross"]:
+                check = "joint_limit_gross"
+            elif worst > margins["joint_limit_excursion"]:
+                check = "joint_limit_excursion"
         records.append(
             {
                 "array": key,
@@ -279,7 +294,8 @@ def joint_limit_excursions(
                 "frames_above": int(above[:, column].sum()),
                 "max_below": float(under.max()) if len(under) else 0.0,
                 "max_above": float(over.max()) if len(over) else 0.0,
-                "validator_checked": key.endswith("hand_joints"),
+                "validator_check": check,
+                "validator_checked": check == "joint_limit_gross",
             }
         )
     return records

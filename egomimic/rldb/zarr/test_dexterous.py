@@ -5,7 +5,7 @@ import pytest
 
 from egomimic.rldb.conftest import HAND_DOF
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.zarr.validate import ERROR, OK, validate_episode
+from egomimic.rldb.zarr.validate import ERROR, OK, WARNING, validate_episode
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 K = np.array([[200.0, 0.0, 160.0, 0.0], [0.0, 200.0, 120.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
@@ -209,3 +209,103 @@ def test_a_tactile_array_needs_a_registry_declaration(
 
     assert _levels(report)["tactile_declaration"] == ERROR
     assert "declares no `tactile:` block" in _message(report, "tactile_declaration")
+
+
+@pytest.fixture
+def limited_hand(monkeypatch, write_dexterous, hand_spec):
+    """Give the generated hand registry limits of [-1, 1] rad on every joint."""
+    from dataclasses import replace
+
+    from egomimic.rldb.embodiment.registry import load_end_effectors
+
+    limited = replace(
+        hand_spec, joint_limits=tuple((-1.0, 1.0) for _ in range(HAND_DOF))
+    )
+    entries = load_end_effectors() | {limited.name: limited}
+    monkeypatch.setattr(
+        "egomimic.rldb.embodiment.embodiment.load_end_effectors", lambda: entries
+    )
+    return limited
+
+
+def _hand_with(hand_track, column: int, value: float):
+    """Return FK-consistent tracks whose joint ``column`` reads ``value`` at frame 2."""
+    joints = np.random.default_rng(0).uniform(-0.6, 0.6, size=(LENGTH, HAND_DOF))
+    joints[2, column] = value
+    joints, keypoints, poses = hand_track(LENGTH, joints=joints)
+    return {
+        "left.obs_hand_joints": joints,
+        "left.obs_hand_keypoints": keypoints,
+        "left.obs_ee_pose": poses,
+    }
+
+
+def test_a_small_observed_limit_excursion_is_a_warning(
+    write_dexterous, limited_hand, hand_track
+) -> None:
+    report = validate_episode(write_dexterous(numeric=_hand_with(hand_track, 3, 1.1)))
+
+    assert report.ok, report.text()
+    levels = _levels(report)
+    assert levels["joint_limit_excursion"] == WARNING
+    assert levels["joint_limit_gross"] == OK
+    assert "j_0_3 by 0.1000" in _message(report, "joint_limit_excursion")
+
+
+def test_a_gross_observed_limit_excursion_is_an_error(
+    write_dexterous, limited_hand, hand_track
+) -> None:
+    report = validate_episode(write_dexterous(numeric=_hand_with(hand_track, 3, 1.3)))
+
+    assert _levels(report)["joint_limit_gross"] == ERROR
+    assert "check units, joint order" in _message(report, "joint_limit_gross")
+    assert _levels(report)["fk_residual"] == OK
+
+
+def test_a_commanded_overshoot_is_only_a_warning(write_dexterous, limited_hand) -> None:
+    joints = np.zeros((LENGTH, HAND_DOF))
+    joints[:, 5] = 1.4
+    report = validate_episode(write_dexterous(numeric={"left.cmd_hand_joints": joints}))
+
+    assert report.ok, report.text()
+    assert "left.cmd_hand_joints" in _message(report, "joint_limit_excursion")
+
+
+def test_degrees_stored_where_radians_belong_fail_the_gross_limit_tier(
+    write_dexterous, limited_hand, hand_track
+) -> None:
+    joints, keypoints, poses = hand_track(LENGTH)
+    path = write_dexterous(numeric={"left.obs_hand_joints": np.degrees(joints)})
+
+    assert _levels(validate_episode(path))["joint_limit_gross"] == ERROR
+
+
+def test_within_limit_joints_pass_both_tiers(write_dexterous, limited_hand) -> None:
+    levels = _levels(validate_episode(write_dexterous()))
+
+    assert levels["joint_limit_gross"] == levels["joint_limit_excursion"] == OK
+
+
+def test_a_one_frame_joint_spike_is_a_warning(write_dexterous) -> None:
+    joints = np.zeros((LENGTH, ARM_DOF))
+    joints[3, 2] = 3.0
+    report = validate_episode(write_dexterous(numeric={"right.cmd_joints": joints}))
+
+    assert report.ok, report.text()
+    message = _message(report, "joint_spikes")
+    assert "right.cmd_joints: 1 frame(s)" in message and "first at frame 3" in message
+
+
+def test_a_value_beyond_two_pi_is_a_spike(write_dexterous) -> None:
+    joints = np.zeros((LENGTH, AUX_DOF))
+    joints[:, 0] = 96.5
+    report = validate_episode(write_dexterous(numeric={"cmd_aux_joints": joints}))
+
+    assert f"cmd_aux_joints: {LENGTH} frame(s)" in _message(report, "joint_spikes")
+
+
+def test_smooth_motion_has_no_spikes(write_dexterous) -> None:
+    joints = np.linspace(0.0, 2.0, LENGTH)[:, None] * np.ones((1, ARM_DOF))
+    report = validate_episode(write_dexterous(numeric={"left.obs_joints": joints}))
+
+    assert _levels(report)["joint_spikes"] == OK

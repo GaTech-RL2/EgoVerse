@@ -203,7 +203,7 @@ def test_structural_sample_cli_is_not_a_complete_delivery_pass(
     assert "status eligible=no" in capsys.readouterr().out
 
 
-def test_unused_robot_slots_are_ignored_but_joint_limits_are_enforced(
+def test_unused_robot_slots_are_ignored_and_joint_limits_are_tiered(
     complete_delivery, hand_spec, monkeypatch
 ):
     from dataclasses import replace
@@ -223,6 +223,12 @@ def test_unused_robot_slots_are_ignored_but_joint_limits_are_enforced(
     group = zarr.open_group(complete_delivery, mode="a")
     group["left.obs_hand_keypoints"][:, 6:] = np.nan
     assert validate_episode(complete_delivery, ego_overlay=True).ok
+    # A commanded overshoot is a diagnostic, however large.
     group["left.cmd_hand_joints"][5, 0] = 2
     report = validate_episode(complete_delivery)
-    assert any("registry limits" in f.message for f in report.errors)
+    assert report.ok, report.text()
+    assert any(f.check == "joint_limit_excursion" for f in report.warnings)
+    # An observed value 1 rad outside its limits is an integrity error.
+    group["left.obs_hand_joints"][5, 0] = 2
+    report = validate_episode(complete_delivery)
+    assert any(f.check == "joint_limit_gross" for f in report.errors)
