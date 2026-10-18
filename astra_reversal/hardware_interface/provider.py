@@ -1,4 +1,4 @@
-"""Metered, tool-only Astra sessions using the Responses API; no silent fallback."""
+"""Metered, tool-only model sessions using the Responses API; no silent fallback."""
 
 import copy
 import json
@@ -39,6 +39,8 @@ class Meter:
                 "token_count_requests": 0,
                 "failed_transport_requests": 0,
                 "provider_wall_seconds": 0.0,
+                "client_admission_seconds": 0.0,
+                "client_retry_backoff_seconds": 0.0,
             }
             for role in ("actor", "observer")
         }
@@ -223,6 +225,17 @@ class Session:
             body["text"] = {"format": text_format, "verbosity": "low"}
         if tools:
             body["tool_choice"] = "required"
+        if self.model.get("responses_dialect") == "deepseek-v4.1":
+            # DeepSeek retains plain reasoning items in `output`; history below
+            # replays them verbatim. These OpenAI-only options are unsupported.
+            for key in ("store", "truncation", "include", "parallel_tool_calls"):
+                body.pop(key)
+            if text_format:
+                body["text"].pop("verbosity")
+            if tools:
+                # DeepSeek always enables parallel calls at the API level. Keep
+                # the one-call execution contract and fail closed on violations.
+                body["instructions"] += "\nIssue exactly one tool call per response."
         count_body = {
             k: body[k]
             for k in (
@@ -332,7 +345,16 @@ class Session:
                     raise
                 # No response has been dispatched: retrying cannot execute a robot
                 # action twice. Unknown provider usage remains in the receipt.
+                backoff_start = time.monotonic()
                 time.sleep(2 ** (attempt + 1))
+                backoff = time.monotonic() - backoff_start
+                self.meter.usage[self.role]["client_retry_backoff_seconds"] += backoff
+                self.events.emit(
+                    "provider_retry_backoff",
+                    role=self.role,
+                    wait_seconds=backoff,
+                    attempt=attempt,
+                )
                 remaining_time = self.limits.response_seconds
                 if self.limits.wall_seconds is not None:
                     remaining_time = timeout - (time.monotonic() - start)

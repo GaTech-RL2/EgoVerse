@@ -91,6 +91,10 @@ class Admission:
         ):
             session.post.opener = Headers(session.post.opener, self)
         waited = self.wait()
+        usage = session.meter.usage[session.role]
+        usage["client_admission_seconds"] = (
+            usage.get("client_admission_seconds", 0.0) + waited
+        )
         session.events.emit(
             "provider_admission",
             role=session.role,

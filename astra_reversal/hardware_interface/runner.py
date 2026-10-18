@@ -317,7 +317,9 @@ def run_trial(
     instructions = shared_prompt + "\n\n" + common
     # Keep the goal in every request even if the provider needs to truncate old
     # conversation items at its actual context-window boundary.
-    if model.get("context_truncation") == "auto":
+    if model.get("context_truncation") == "auto" or model.get(
+        "repeat_task_instruction"
+    ):
         instructions += "\nCurrent user task: " + json.dumps(task_instruction)
     if condition in ("F", ADAPTIVE):
         instructions += (
@@ -389,10 +391,20 @@ def run_trial(
         "terminal_reason": proxy.terminal,
         "sim_steps": proxy.step_count,
         "wall_s": proxy.clock() - proxy.wall_start,
+        "first_success_wall_seconds": proxy.first_success_wall_seconds,
+        "simulated_control_seconds": proxy.step_count
+        / proxy.controller["frequency_hz"],
         "simulator_and_step_evaluator_seconds": proxy.simulator_seconds,
         "provider_wall_seconds": sum(
             v["provider_wall_seconds"] for v in meter.usage.values()
         ),
+        "client_admission_seconds": sum(
+            v["client_admission_seconds"] for v in meter.usage.values()
+        ),
+        "client_retry_backoff_seconds": sum(
+            v["client_retry_backoff_seconds"] for v in meter.usage.values()
+        ),
+        "timing_contract": "v1: actor start to terminal; excludes provisioning/reset/replay; provider round trips include network and server queue/inference; client waits are separate; tool timings overlap nested calls",
         "tool_latency_note": "Per-tool timings are in events; scratch and observer tool latencies include nested calls and must not be summed as disjoint phases.",
         "actor_started": actor_started,
         "tool_calls": router.calls,

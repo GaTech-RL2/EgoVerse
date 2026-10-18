@@ -12,7 +12,15 @@ from pathlib import Path
 import yaml
 
 
-def prepare(destination, *, stage="commission", pool="groot-l40s-01", adaptive=False):
+def prepare(
+    destination,
+    *,
+    stage="commission",
+    pool="groot-l40s-01",
+    adaptive=False,
+    manifest_name=None,
+    inference_credential="astra-hardware-inference-20261010",
+):
     if stage not in ("staging-check", "commission", "smoke", "pilot"):
         raise ValueError("unknown_hardware_stage")
     platform = {"groot-l40s-01": "ovx-l40s", "groot-l40-05": "ovx-l40"}[pool]
@@ -56,10 +64,21 @@ def prepare(destination, *, stage="commission", pool="groot-l40s-01", adaptive=F
     if payload_text.stat().st_size > 950_000:
         raise ValueError("source_payload_exceeds_file_injection_limit")
     image = json.loads((study / "locks/container.json").read_text())["image"]
-    manifest_name = (
+    manifest_name = manifest_name or (
         "preregistration-adaptive.yaml" if adaptive else "preregistration.yaml"
     )
+    if Path(manifest_name).name != manifest_name:
+        raise ValueError("study_manifest_filename_required")
     manifest = yaml.safe_load((study / manifest_name).read_text())
+    if (
+        manifest.get("model_replication")
+        and stage != "commission"
+        and (
+            not inference_credential
+            or inference_credential == "astra-hardware-inference-20261010"
+        )
+    ):
+        raise ValueError("explicit_deepseek_credential_required")
     bootstrap = destination / "bootstrap.sh"
     bootstrap.write_bytes((study / "tools/bootstrap.sh").read_bytes())
     spec = {
@@ -121,9 +140,9 @@ def prepare(destination, *, stage="commission", pool="groot-l40s-01", adaptive=F
         spec["workflow"]["tasks"][0]["environment"]["HARDWARE_API_KEY_FILE"] = (
             "/osmo/run/workspace/inference-api-key"
         )
-        spec["workflow"]["tasks"][0]["credentials"][
-            "astra-hardware-inference-20261010"
-        ] = "/run/hardware-inference"
+        spec["workflow"]["tasks"][0]["credentials"][inference_credential] = (
+            "/run/hardware-inference"
+        )
     if stage == "pilot":
         sys.path.insert(0, str(root))
         from astra_reversal.hardware_interface.protocol import RESOURCE_CAPS, validate
@@ -152,12 +171,15 @@ def prepare(destination, *, stage="commission", pool="groot-l40s-01", adaptive=F
         "workflow": str(destination / "workflow.yaml"),
         "scope": "unscored Linux simulator/interface/isolation commissioning"
         + (
-            " plus live Astra transport and %d-arm smoke" % len(manifest["conditions"])
+            " plus live model transport and %d-arm smoke" % len(manifest["conditions"])
             if stage in ("smoke", "pilot")
             else "; zero model requests"
         ),
         "stage": stage,
         "conditions": manifest["conditions"],
+        "inference_credential_name": inference_credential
+        if stage != "commission"
+        else None,
         "manifest_sha256": hashlib.sha256(
             (study / manifest_name).read_bytes()
         ).hexdigest(),
@@ -197,6 +219,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--adaptive", action="store_true", help="Separate matched F/F-adaptive cohort"
     )
+    parser.add_argument("--manifest-name")
+    parser.add_argument(
+        "--inference-credential", default="astra-hardware-inference-20261010"
+    )
     args = parser.parse_args()
     print(
         json.dumps(
@@ -205,6 +231,8 @@ if __name__ == "__main__":
                 stage=args.stage,
                 pool=args.pool,
                 adaptive=args.adaptive,
+                manifest_name=args.manifest_name,
+                inference_credential=args.inference_credential,
             )
         )
     )

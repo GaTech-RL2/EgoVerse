@@ -14,14 +14,28 @@ import yaml
 from .prepare_osmo import prepare
 
 
-def prepare_shard(destination, plan_path, index, *, adaptive=False):
+def prepare_shard(
+    destination,
+    plan_path,
+    index,
+    *,
+    adaptive=False,
+    manifest_name=None,
+    inference_credential="astra-hardware-inference-20261010",
+    label=None,
+):
     root = Path(__file__).resolve().parents[3]
     plan = json.loads(Path(plan_path).read_text())
     assignment = plan["shards"][index]
     if assignment["index"] != index or not assignment["trial_ids"]:
         raise ValueError("empty_or_invalid_shard")
     receipt = prepare(
-        destination, stage="pilot", pool="groot-l40s-01", adaptive=adaptive
+        destination,
+        stage="pilot",
+        pool="groot-l40s-01",
+        adaptive=adaptive,
+        manifest_name=manifest_name,
+        inference_credential=inference_credential,
     )
     destination = Path(destination)
     orchestration = receipt["source_commit"]
@@ -90,7 +104,7 @@ def prepare_shard(destination, plan_path, index, *, adaptive=False):
     plan_file.write_text(json.dumps(plan, indent=2) + "\n")
     spec_path = destination / "workflow.yaml"
     spec = yaml.safe_load(spec_path.read_text())
-    label = "adaptive" if adaptive else "original"
+    label = label or ("adaptive" if adaptive else "original")
     spec["workflow"]["name"] = (
         "libero-hardware-interface-20261008-" + label + "-s" + str(index)
     )

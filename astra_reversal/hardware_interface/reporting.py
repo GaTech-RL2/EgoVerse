@@ -127,6 +127,12 @@ def export(outcomes, manifest, destination, *, split):
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     result = analyze(outcomes, manifest, split=split)
+    if manifest.get("speed_analysis"):
+        from .speed import analyze_speed, plot_speed
+
+        result["speed"] = analyze_speed(outcomes, manifest, split=split)
+        write_json(destination / "speed.json", result["speed"])
+        plot_speed(result["speed"], destination)
     write_json(destination / "analysis.json", result)
     rows = []
     for arm, tasks in result["per_task"].items():
@@ -255,6 +261,9 @@ def export(outcomes, manifest, destination, *, split):
                 Path(__file__).with_name("analysis.py")
             ),
             "reporting_source_sha256": file_hash(__file__),
+            "speed_source_sha256": file_hash(Path(__file__).with_name("speed.py"))
+            if manifest.get("speed_analysis")
+            else None,
             "files": {
                 p.name: file_hash(p)
                 for p in sorted(destination.iterdir())

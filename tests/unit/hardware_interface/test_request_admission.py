@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from astra_reversal.hardware_interface.provider import ModelFailure
+from astra_reversal.hardware_interface.provider import Meter, ModelFailure
 from experiments.libero_hardware_interface.tools.request_admission import (
     Admission,
     retry_seconds,
@@ -44,6 +44,7 @@ def test_rejected_attempt_is_not_reissued_inside_admission():
     session = SimpleNamespace(
         post=None,
         role="actor",
+        meter=Meter(None),
         events=SimpleNamespace(emit=lambda kind, **value: events.append((kind, value))),
     )
     body = {"input": ["exact same input"]}
@@ -59,6 +60,7 @@ def test_rejected_attempt_is_not_reissued_inside_admission():
     assert len(calls) == 1
     assert admission.invoke(original, session, "responses", body, 180) == {"ok": True}
     assert clock.now >= 60
+    assert session.meter.usage["actor"]["client_admission_seconds"] == clock.now
     assert all(call is body for call in calls)
     assert any(kind == "provider_rate_cooldown" for kind, _ in events)
 

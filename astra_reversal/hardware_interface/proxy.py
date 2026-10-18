@@ -94,6 +94,7 @@ class Proxy:
         self.captured_utc = utc()
         self.terminal = None
         self.success = False
+        self.first_success_wall_seconds = None
         self.simulator_seconds = 0.0
         self.invalid_actions = self.safety_attempts = self.applied_violations = 0
         self.bounds = (controller["input_min"], controller["input_max"])
@@ -360,9 +361,14 @@ class Proxy:
             )
             # Private evaluator check on EVERY step, never relay reward/done/info.
             self.success = bool(self.env.check_success())
+            if self.success and self.first_success_wall_seconds is None:
+                self.first_success_wall_seconds = self.clock() - self.wall_start
             self.simulator_seconds += time.monotonic() - started
             self.events.emit(
-                "evaluator_result", simulator_step=self.step_count, success=self.success
+                "evaluator_result",
+                simulator_step=self.step_count,
+                success=self.success,
+                first_success_wall_seconds=self.first_success_wall_seconds,
             )
             if self.success:
                 self.terminal = "SUCCESS"

@@ -94,3 +94,31 @@ def project(rows, expected, selected):
     ):
         raise ValueError("parallel_schedule_changed")
     return [r for r in rows if r["split"] != "pilot" or r["trial_id"] in selected]
+
+
+def create_fresh_plan(manifest, rows, *, source, source_sha256, cohort, shards=4):
+    """Assign every block of a new cohort; there is no already-running parent."""
+    if type(shards) is not int or not 1 <= shards <= 4:
+        raise ValueError("fresh_cohort_requires_one_to_four_shards")
+    assignments = [[] for _ in range(shards)]
+    pilot = [r for r in rows if r["split"] == "pilot"]
+    owner_by_block = {}
+    for row in pilot:
+        owner = owner_by_block.setdefault(block(row), len(owner_by_block) % shards)
+        assignments[owner].append(row["trial_id"])
+    if any(not ids for ids in assignments):
+        raise ValueError("fresh_cohort_empty_shard")
+    result = {
+        "version": 1,
+        "parent_workflow": cohort,
+        "fresh_cohort": True,
+        "experiment_source_commit": source,
+        "experiment_source_sha256": source_sha256,
+        "design_sha256": design_hash(manifest),
+        "schedule_sha256": digest(rows),
+        "parent_trial_ids": [],
+        "boundary_trial_id": pilot[0]["trial_id"],
+        "shards": [{"index": i, "trial_ids": ids} for i, ids in enumerate(assignments)],
+    }
+    validate_plan(result, manifest, rows)
+    return result

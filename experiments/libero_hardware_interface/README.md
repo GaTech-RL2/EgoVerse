@@ -332,3 +332,63 @@ need a separate documented valid-run sensitivity; they are never automatic.
 interface tools and measured system-identification probes. Its separate matched
 F/F-adaptive manifest and `--adaptive` OSMO launcher preserve the original
 F/B0/B cohort. Implementation and tests do not constitute a rollout result.
+
+## DeepSeek replication and speed
+
+`preregistration-deepseek.yaml` and `preregistration-deepseek-adaptive.yaml`
+replicate the 150-trial F/B0/B and separate 100-trial F/F-adaptive designs with
+DeepSeek-V4.1-Flash-1017. Official tasks, start hashes, seeds, randomized arm
+order, observations, action limits and no-resource-budget policy are preserved.
+The B observer uses DeepSeek too. The original Astra manifests and results are
+unchanged, and the two F cohorts are never pooled.
+
+The official DeepSeek API documents `deepseek-flash` as the requested checkpoint
+as of 2026-10-18. The requested Hugging Face revision is recorded separately from
+this unpinned serving alias. Recheck that mapping before launch. The NVIDIA
+gateway's generic V4 Flash route is not a verified substitute: its backend list
+includes `DeepSeek-V4-Flash-0731`. An NVIDIA credential must not be sent to the
+DeepSeek endpoint. Supply an OSMO generic credential containing
+`inference_api_key` that authenticates to the declared provider.
+
+DeepSeek's Responses API retains plain reasoning, does not support automatic
+context truncation, and ignores the parallel-tool-call switch. The adapter omits
+unsupported fields, preserves reasoning and images, adds the same one-call
+instruction in every actor arm, and keeps the existing one-call execution
+validation. Its live multimodal/tool/observer smoke must pass before policy
+trials. No context is silently dropped. Explicit `high` reasoning matches
+DeepSeek's documented mapping of medium/high/xhigh; it does not imply equal
+reasoning compute to Astra medium. These differences are recorded in each
+manifest rather than concealed as an identical cross-model compute contract.
+
+Prepare frozen plans without a credential, or add a provider-specific credential
+name to also package eight OSMO L40S workers (four per cohort):
+
+```bash
+python -m experiments.libero_hardware_interface.tools.prepare_deepseek \
+  /path/to/new/deepseek-campaign --catalog /path/to/verified/catalog.json
+# With serving access verified, prepare a new destination and add:
+# --inference-credential YOUR_DEEPSEEK_OSMO_CREDENTIAL
+```
+
+Preparation requires committed, tested sources and never submits automatically.
+Each worker checks native reset/interface/isolation, live transport, and a
+disjoint 20-step execution/replay smoke before its assigned 1,000-step trials.
+Matched method blocks stay on the same worker. The existing eight-slot request
+pacing scheme is retained; admission and retry waiting are explicitly measured.
+
+The primary speed figures show verified success versus elapsed time and native
+control steps using **all assigned starts** as the denominator. Missing trials
+are shown explicitly; partial curves are observed lower bounds. Early failures
+never count as fast completions. A second figure compares times on jointly
+successful matched starts, labeled conditional and descriptive. Every trial
+records first evaluator-success time, simulated control seconds, provider round
+trips, client admission/backoff, simulator/evaluator time, role-specific usage,
+and residual local work. Nested tool times are never summed as disjoint phases.
+Provider queue, network, prefill and decode time cannot be separated without
+provider telemetry, so output-token throughput is not called decode speed.
+Report timestamps are analysis points, not runtime limits.
+
+Astra's existing results may be shown as a historical reference, with terminal
+wall-time fallbacks labeled. Different providers, dates, reasoning settings and
+load prevent a controlled cross-model wall-clock speed claim. The primary
+comparison is between interfaces within the new DeepSeek cohort.
