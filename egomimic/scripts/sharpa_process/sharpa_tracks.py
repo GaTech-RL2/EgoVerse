@@ -172,6 +172,7 @@ def derive_tracks(
     *,
     kinematics: SharpaKinematics | None = None,
     links: Iterable[str] = (HEAD_LINK,),
+    command_keypoints: bool = False,
 ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     """Derive canonical arrays from observed and commanded 65-column vectors.
 
@@ -181,13 +182,16 @@ def derive_tracks(
         kinematics: Loaded models; ``None`` loads the registry models.
         links: Platform or hand links whose observed ``robot_base_T_link``
             tracks to return, such as camera mount parents.
+        command_keypoints: Also return ``{side}.cmd_hand_keypoints``, the
+            same forward kinematics over the commanded vector.
 
     Returns:
         ``(tracks, link_poses)``. ``tracks`` holds ``{side}.{obs,cmd}_joints``,
         ``{side}.{obs,cmd}_hand_joints`` and ``{obs,cmd}_aux_joints`` in the
         input dtype; float64 ``{side}.{obs,cmd}_ee_pose`` palm poses
         ``[x, y, z, qw, qx, qy, qz]``; and float64 ``{side}.obs_hand_keypoints``
-        ``(T, 63)``. ``link_poses`` maps each requested link to ``(T, 4, 4)``.
+        ``(T, 63)`` (and ``{side}.cmd_hand_keypoints`` when requested).
+        ``link_poses`` maps each requested link to ``(T, 4, 4)``.
         Poses and keypoints are in ``robot_base``. FK uses the values exactly
         as given, after a float64 cast.
 
@@ -211,12 +215,14 @@ def derive_tracks(
     total = len(observed)
     tracks = {**split_columns(observed, "obs"), **split_columns(commanded, "cmd")}
     specs = kin.resolved.end_effectors
+    keypoint_prefixes = ("obs", "cmd") if command_keypoints else ("obs",)
     for side, spec in specs.items():
         for prefix in ("obs", "cmd"):
             tracks[f"{side}.{prefix}_ee_pose"] = np.empty((total, 7))
-        tracks[f"{side}.obs_hand_keypoints"] = np.zeros(
-            (total, 3 * spec.keypoints.n_slots)
-        )
+        for prefix in keypoint_prefixes:
+            tracks[f"{side}.{prefix}_hand_keypoints"] = np.zeros(
+                (total, 3 * spec.keypoints.n_slots)
+            )
     link_poses = {link: np.empty((total, 4, 4)) for link in links}
     for start in range(0, total, FK_BLOCK):
         block = slice(start, min(total, start + FK_BLOCK))
@@ -226,9 +232,9 @@ def derive_tracks(
                 base_T_flange = platform[f"{side}_hand_base_link"]
                 palm = base_T_flange @ hands[side][spec.ee_pose_link]
                 tracks[f"{side}.{prefix}_ee_pose"][block] = _matrix_to_xyzwxyz(palm)
-                if prefix != "obs":
+                if prefix not in keypoint_prefixes:
                     continue
-                points = tracks[f"{side}.obs_hand_keypoints"][block]
+                points = tracks[f"{side}.{prefix}_hand_keypoints"][block]
                 points = points.reshape(len(palm), spec.keypoints.n_slots, 3)
                 for slot, link in spec.keypoint_links:
                     points[:, slot] = (base_T_flange @ hands[side][link])[:, :3, 3]
@@ -301,6 +307,98 @@ def joint_limit_excursions(
     return records
 
 
+#: Sharpa's arm TCP in ``robot_base``, fitted over SharpaDex-v1.0 observed
+#: joints: ``R_tcp = R_link7 @ R_tool`` (residual below 0.001 deg) and
+#: ``p_tcp = p_link7 + R_link7 @ tool + base_shift`` (5 mm RMS; the rest is
+#: lower-body geometry the URDF does not model).
+TCP_MODEL = {
+    "left": {
+        "tool_rotvec_deg": (127.279, 0.0, 127.279),
+        "tool_m": (0.0692, 0.0002, -0.0001),
+        "base_shift_m": (0.0006, 0.0155, 0.071),
+    },
+    "right": {
+        "tool_rotvec_deg": (0.0, 90.0, 0.0),
+        "tool_m": (0.0693, 0.0004, -0.0002),
+        "base_shift_m": (0.0012, -0.0169, 0.071),
+    },
+}
+#: Link whose pose the TCP model composes.
+TCP_LINK = "{side}_arm_Link_7"
+#: Largest accepted median TCP rotation and 95th-percentile position errors.
+TCP_ROTATION_TOLERANCE_DEG = 2.0
+TCP_POSITION_TOLERANCE_M = 0.05
+
+
+def tcp_side_check(tcp_pose, link_poses: dict[str, np.ndarray]) -> dict:
+    """Compare Sharpa's observed TCP poses with forward kinematics per side.
+
+    Args:
+        tcp_pose: ``(T, 12)`` ``observation.state.tcp_pose``: per side
+            ``[x, y, z, rotvec]``, left first, in ``robot_base``.
+        link_poses: ``robot_base_T_link`` tracks for ``left_arm_Link_7`` and
+            ``right_arm_Link_7`` over the same frames.
+
+    Returns:
+        ``{"passed": bool, "sides": {...}, "problems": [...]}``. Each side
+        records the median rotation error against its own arm and against
+        the other arm; a swapped pairing that fits better fails the check.
+    """
+    from scipy.spatial.transform import Rotation
+
+    tcp_pose = np.asarray(tcp_pose, dtype=np.float64)
+    if tcp_pose.ndim != 2 or tcp_pose.shape[1] != 12:
+        raise ValueError(f"tcp_pose must have shape (T, 12), got {tcp_pose.shape}")
+    vendor = {
+        side: (
+            tcp_pose[:, 6 * i : 6 * i + 3],
+            Rotation.from_rotvec(tcp_pose[:, 6 * i + 3 : 6 * i + 6]),
+        )
+        for i, side in enumerate(("left", "right"))
+    }
+    predicted = {}
+    for side, model in TCP_MODEL.items():
+        link = np.asarray(link_poses[TCP_LINK.format(side=side)], dtype=np.float64)
+        rotation = Rotation.from_matrix(link[:, :3, :3])
+        tool = Rotation.from_rotvec(np.radians(model["tool_rotvec_deg"]))
+        position = (
+            link[:, :3, 3] + rotation.apply(model["tool_m"]) + model["base_shift_m"]
+        )
+        predicted[side] = (position, rotation * tool)
+    sides, problems = {}, []
+    for side, other in (("left", "right"), ("right", "left")):
+        position, rotation = vendor[side]
+
+        def angle(fk_side):
+            error = rotation.inv() * predicted[fk_side][1]
+            return float(np.degrees(np.median(error.magnitude())))
+
+        own, swapped = angle(side), angle(other)
+        offset = np.linalg.norm(position - predicted[side][0], axis=1)
+        sides[side] = {
+            "rotation_error_deg_median": own,
+            "swapped_rotation_error_deg_median": swapped,
+            "position_error_m_p95": float(np.percentile(offset, 95)),
+        }
+        if own > TCP_ROTATION_TOLERANCE_DEG:
+            problems.append(
+                f"{side} TCP rotation differs from forward kinematics by {own:.2f} deg "
+                f"(median; tolerance {TCP_ROTATION_TOLERANCE_DEG:g})"
+            )
+        if swapped <= own:
+            problems.append(
+                f"{side} TCP matches the {other} arm better ({swapped:.2f} vs "
+                f"{own:.2f} deg): the arm columns look swapped"
+            )
+        if sides[side]["position_error_m_p95"] > TCP_POSITION_TOLERANCE_M:
+            problems.append(
+                f"{side} TCP position differs from forward kinematics by "
+                f"{sides[side]['position_error_m_p95']:.3f} m (p95; tolerance "
+                f"{TCP_POSITION_TOLERANCE_M:g})"
+            )
+    return {"passed": not problems, "sides": sides, "problems": problems}
+
+
 def clip_to_limits(raw, kinematics: SharpaKinematics) -> np.ndarray:
     """Return ``raw`` clipped to each column's joint limits, keeping dtype."""
     raw = check_raw(raw)
@@ -312,6 +410,8 @@ def clip_to_limits(raw, kinematics: SharpaKinematics) -> np.ndarray:
 __all__ = [
     "HEAD_LINK",
     "LIMIT_TOLERANCE",
+    "TCP_LINK",
+    "TCP_MODEL",
     "SharpaKinematics",
     "arm_joint_names",
     "check_raw",
@@ -319,4 +419,5 @@ __all__ = [
     "derive_tracks",
     "joint_limit_excursions",
     "split_columns",
+    "tcp_side_check",
 ]

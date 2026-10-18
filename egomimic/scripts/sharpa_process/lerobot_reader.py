@@ -8,8 +8,10 @@ Sharpa publishes each recording session ("season") as its own LeRobot dataset::
         lerobot3.0/    meta/info.json, data/chunk-000/file-000.parquet,
                        videos/<video_key>/chunk-000/file-000.mp4
 
-A season directory may also be a LeRobot root itself. ``meta/info.json``
-``codebase_version`` selects the layout. A v3.0 data or video file holds
+SharpaDex releases spell the subdirectories ``lerobot_v2.1`` / ``lerobot_v3.0``
+and nest seasons under task folders (``<release_root>/<task>/<season>``); see
+``discover_task_seasons``. A season directory may also be a LeRobot root
+itself. ``meta/info.json`` ``codebase_version`` selects the layout. A v3.0 data or video file holds
 several episodes; ``meta/episodes`` locates each episode's rows and its
 ``[from_timestamp, to_timestamp)`` video span.
 
@@ -34,8 +36,12 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 VERSIONS = ("v2.1", "v3.0")
-#: Season subdirectories holding each layout, in ``auto`` preference order.
-VERSION_DIRS = {"v2.1": "lerobotv2.1", "v3.0": "lerobot3.0"}
+#: Season subdirectories holding each layout, in ``auto`` preference order;
+#: each layout accepts the public-sample and the SharpaDex spelling.
+VERSION_DIRS = {
+    "v2.1": ("lerobotv2.1", "lerobot_v2.1"),
+    "v3.0": ("lerobot3.0", "lerobot_v3.0"),
+}
 VIDEO_PREFIX = "observation.images."
 SEASON_NAME = re.compile(
     r"^season_(?P<rig>POC[0-9A-Za-z]+)_(?P<start>\d{4}(?:_\d{2}){5})(?:_.*)?$"
@@ -297,8 +303,9 @@ def find_root(season_dir: Path, version: str = "auto") -> Path | None:
     if version not in ("auto", *VERSIONS):
         raise ValueError(f"version must be auto, v2.1 or v3.0, got {version!r}")
     candidates = [season_dir] + [
-        season_dir / VERSION_DIRS[v]
+        season_dir / name
         for v in (VERSIONS if version == "auto" else (version,))
+        for name in VERSION_DIRS[v]
     ]
     for root in candidates:
         if not (root / "meta" / "info.json").is_file():
@@ -426,6 +433,54 @@ def discover_seasons(
     return seasons
 
 
+def discover_task_seasons(
+    release_root: Path,
+    pattern: str = "*",
+    version: str = "auto",
+    tasks: str = "*",
+) -> list[Season]:
+    """Open every season under ``<release_root>/<task>/`` matching the globs.
+
+    A season's task is ``season.path.parent.name``. The same season name may
+    appear under several task folders; each is opened separately.
+    """
+    release_root = Path(release_root)
+    seasons = []
+    for task_dir in sorted(p for p in release_root.iterdir() if p.is_dir()):
+        if not fnmatch.fnmatchcase(task_dir.name, tasks) or _is_season(task_dir):
+            continue
+        seasons.extend(discover_seasons(task_dir, pattern, version))
+    return seasons
+
+
+def episode_annotations(season: Season) -> dict[int, dict]:
+    """Return SharpaDex ``meta/annotations.jsonl`` rows keyed by episode.
+
+    The v3.0 export carries no annotations; they are read from the season's
+    v2.1 root when the season was opened as v3.0. A season without the file
+    returns an empty mapping.
+    """
+    roots = [season.root]
+    if season.version != "v2.1":
+        v21 = find_root(season.path, "v2.1")
+        if v21 is not None:
+            roots.append(v21)
+    for root in roots:
+        path = root / "meta" / "annotations.jsonl"
+        if not path.is_file():
+            continue
+        try:
+            rows = [
+                json.loads(line)
+                for line in path.read_text().splitlines()
+                if line.strip()
+            ]
+        except (OSError, json.JSONDecodeError) as exc:
+            raise LeRobotError(f"{path}: cannot read annotations ({exc})") from exc
+        return {int(r["episode_index"]): r for r in rows if "episode_index" in r}
+    return {}
+
+
 def _column_array(table: pa.Table, name: str) -> np.ndarray:
     """Return a fixed-width list column as ``(T, width)`` or a scalar as ``(T,)``."""
     column = table.column(name)
@@ -528,6 +583,8 @@ __all__ = [
     "VideoSpan",
     "decode_frames",
     "discover_seasons",
+    "discover_task_seasons",
+    "episode_annotations",
     "find_root",
     "load_episode",
     "open_season",

@@ -80,6 +80,24 @@ and unit quaternions. Keypoints must describe the physical robot hand and agree
 with its observed joints and palm pose, within the registered FK tolerance when
 a model is provided.
 
+The validator checks hand joints against the registered limits in two tiers.
+Observed joints more than 0.26 rad outside are an integrity error
+(`joint_limit_gross`): an excursion that size points at units, column order or
+a corrupt frame. Observed or commanded joints more than 0.035 rad outside are a
+warning (`joint_limit_excursion`), because firmware stops and teleoperation
+overshoot produce them. One-frame jumps and values beyond 2π on any joint array
+are reported as `joint_spikes` warnings.
+
+These arrays are optional:
+
+| Array | Shape | Contents |
+|---|---|---|
+| `<side>.cmd_hand_keypoints` | `(T, 63)` | FK of the commanded joints, in the frame of `<side>.cmd_ee_pose`; checked like the observed keypoints (`fk_residual_cmd`) |
+| `<side>.obs_tactile` | `(T, taxels × channels)` | Tactile values, taxel-major. The registry's `tactile:` block declares the taxels, channels and units (`units: per_channel` with `channel_units` for mixed units) |
+| `<side>.obs_tactile_image` | `(T,)` JPEG | One image per frame with the taxel images side by side in taxel order; features `dtype: jpeg`, `shape: [H, W, 1 or 3]` with `W` a multiple of the taxel count. Not a camera stream |
+| `obs_head_link_pose` | `(T, 7)` | FK pose of the platform's head link. A link pose, not the optical camera pose `obs_head_pose` |
+| `annotations_skill` | `(N,)` JSON | Second-level labels (for example a skill per subtask), stored like `annotations` |
+
 ## Use the MANO-style landmark order
 
 Map robot landmarks to the nearest anatomical equivalents in this 21-slot order:

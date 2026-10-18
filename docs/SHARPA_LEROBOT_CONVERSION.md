@@ -52,8 +52,12 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | Option | Effect |
 |---|---|
 | `--seasons GLOB`, `--episodes 0,3,5-7` | Select seasons by directory name and episodes by index (default: all). |
-| `--lerobot-version auto\|v2.1\|v3.0` | `auto` prefers a root at the season directory, then `lerobotv2.1/`, then `lerobot3.0/`. |
-| `--task-name`, `--task-description` | Required because the source task string is the placeholder `north ces task`. |
+| `--lerobot-version auto\|v2.1\|v3.0` | `auto` prefers a root at the season directory, then `lerobotv2.1/` (or `lerobot_v2.1/`), then `lerobot3.0/` (or `lerobot_v3.0/`). |
+| `--task-name`, `--task-description` | Required because the source task string is the placeholder `north ces task`. `--profile sharpadex` takes them from the task folder and Sharpa's tags instead. |
+| `--profile default\|sharpadex`, `--manifest FILE`, `--tasks GLOB` | Convert a SharpaDex release; see [SharpaDex releases](#sharpadex-releases). |
+| `--status-policy strict\|provenance` | How `data_status` is decided; see [Reach `data_status: complete`](#reach-data_status-complete). Default `strict`. |
+| `--store-tactile` | Also store `{side}.obs_tactile` and `{side}.obs_tactile_image`. |
+| `--command-keypoints` | Also store `{side}.cmd_hand_keypoints`. |
 | `--calibration FILE` | Rig calibration YAML; see [Calibration](#fill-in-the-calibration). |
 | `--utc-timestamp-column NAME` | A parquet column of int64 UTC capture nanoseconds. |
 | `--source-utc-offset +08:00` | Time zone of the season-folder times, used only when the clock is synthesized. |
@@ -137,15 +141,24 @@ FK palm. Either `tcp` is not the hand position, or the arm chain or joint
 convention used by Sharpa's controller differs from
 `NTH_POC1_0_URDF_250905v4.urdf`. Until Sharpa confirms the arm joint order,
 signs and zeros, or supplies reference pairs of joint vectors and controller
-TCP poses, treat the FK-derived poses and keypoints as unverified.
+TCP poses, treat the FK-derived poses and keypoints of these public samples as
+unverified.
+
+SharpaDex-v1.0 supplies those pairs (`observation.state.tcp_pose`). One
+constant tool transform per side maps FK of `<side>_arm_Link_7` onto it: the
+rotation agrees to within 0.001° on every rig, and the position to 5 mm RMS
+(the remainder follows the lower-body joints, so it is lower-body geometry the
+URDF does not model). The old samples' TCP still fails under the same model,
+so their disagreement lies in that data. `--profile sharpadex` repeats the
+check per episode.
 
 ### Not stored
 
 | Source | Reason |
 |---|---|
-| `observation.tactile` (60 values per frame) | The Sharpa hand registry entries declare no tactile taxel count, channels or physical unit. EgoVerse cannot interpret the values without them. |
+| `observation.tactile` (60 values per frame) | Stored as `{side}.obs_tactile` only with `--store-tactile` (the registry now declares five fingertip force/torque sensors per hand). |
 | `observation.state.joint_torque`, `observation.state.tcp` | No contract array exists. |
-| `observation.images.tactile_*` videos | Never stored. |
+| `observation.images.tactile_*` videos | `tactile_deform` is stored as `{side}.obs_tactile_image` with `--store-tactile`; `tactile_raw` is never stored. |
 | `timestamp` | It is `frame_index / fps` within the episode, not a capture clock. |
 
 `--keep-vendor-arrays` stores these columns unchanged:
@@ -187,8 +200,7 @@ but it is not a measured capture time. It keeps the episode a
 | Measured front-camera calibration | No `calibration` block, `obs_head_pose` or intrinsics. Keypoint overlays and `--ego-overlay` are unavailable, and the episode cannot be `complete`. |
 | Wrist-camera calibration | Wrist streams lack a camera matrix (a `camera_coverage` warning). |
 | Real capture clock | The clock is synthesized, and the episode cannot be `complete`. |
-| Joint values within the URDF/registry limits | The validator reports an integrity error and the episode cannot be `complete` (see below). |
-| Tactile units in the hand registry | Tactile values are not stored under the contract keys. |
+| Joint values within the URDF/registry limits | Observed hand joints more than 0.26 rad outside are a validator integrity error. Smaller excursions, and commanded ones, are warnings. Under `--status-policy strict` any excursion keeps the episode from `complete` (see below). |
 
 ### Joint-limit conflict
 
@@ -208,11 +220,16 @@ outside the limits. Commanded DIP joints sit at exactly π/2 against a limit of
 1.3963 rad, observed DIP joints reach 1.617 rad, and observed pinky CMC reaches
 0.49 rad against 0.2618.
 
-The validator treats any hand joint outside the registry limits as an integrity
-error, so such episodes fail validation. The converter writes the values
-unchanged and lists every affected joint in
+The validator checks registry hand limits in two tiers. `joint_limit_gross`
+(integrity) rejects observed hand joints more than 0.26 rad (15°) outside the
+limits, which is what degrees, shifted columns or a corrupt frame produce.
+`joint_limit_excursion` (diagnostic) warns about observed or commanded joints
+more than 0.035 rad outside: hand firmware stops sit inside the URDF limits and
+teleoperation commands overshoot them, so these occur in real deliveries. The
+converter writes the values unchanged and lists every affected joint in
 `conversion_report.joint_limits.source_excursions` (frame counts, largest
-excess, and which limit). It also prints a warning.
+excess, which limit, and the validator tier in `validator_check`). It prints a
+warning for excursions the validator rejects.
 
 Please check whether the data, the URDF limits, or the joint zero offsets are
 wrong. Then send corrected data or corrected URDF limits. `--clip-joint-limits`
@@ -250,14 +267,80 @@ fixed.
 
 ## Reach `data_status: complete`
 
-An episode is `complete` only when all of these hold:
+Under the default `--status-policy strict`, an episode is `complete` only when
+all of these hold:
 
 1. `--calibration` gives measured `head_left` intrinsics and mount for the rig.
-2. `--utc-timestamp-column` names a real capture clock.
+2. `--utc-timestamp-column` (or a manifest's per-episode start) names a real
+   capture clock.
 3. No joint value is outside its limits, and `--clip-joint-limits` is not used.
 4. The episode is not truncated with `--max-frames`.
 
+Under `--status-policy provenance`, only defects in the stored data make a
+`structural_sample`: no `head_left` video, observed hand joints past the
+validator's error margin, clipping, truncation, or a failed arm TCP check. What
+the delivery does not provide (calibration, a measured clock, a head camera
+pose, joint excursions inside the error margin) is listed in the
+`data_limitations` attribute instead, and `status_policy` records the policy.
+A consumer that needs one of those inputs must filter on it.
+
 The conversion report lists the reasons for any `structural_sample`.
+
+## SharpaDex releases
+
+SharpaDex releases (for example `Sharpa-Robotics/SharpaDex-v1.0`) nest seasons
+under task folders, `<release>/<task>/<season>/lerobot_v2.1/`, and add
+per-episode annotations. Plan the whole release first, then convert with the
+plan:
+
+```bash
+uv run python -m egomimic.scripts.sharpa_process.sharpadex_manifest \
+  --release-root /data/SharpaDex-v1.0 --output manifest.jsonl \
+  --source-revision <hf-sha> \
+  --exclude-file egomimic/scripts/sharpa_process/sharpadex_v1_exclusions.yaml
+
+uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr --profile sharpadex \
+  --dataset-root /data/SharpaDex-v1.0 --manifest manifest.jsonl --tasks iron_garment \
+  --output-dir converted_sharpadex/ --status-policy provenance --validate --save-mp4
+```
+
+The manifest reads metadata only. It:
+
+- takes each episode's recording start from Sharpa's per-episode recording name
+  (one-second resolution, site-local time; `--source-utc-offset`), else the
+  season start plus the frame offset;
+- keeps one copy of identical episodes that share a `source_uid` (preferring
+  the task folder that matches Sharpa's `task_name` tag);
+- holds `source_uid`s that name different data, and episodes whose observed
+  hand joints pass the validator's error margin;
+- applies the exclusion list (corrupt single frames);
+- names every kept episode uniquely, also against `--existing-hashes` and, with
+  `--check-sql`, the episode table. A clash moves the start by whole
+  milliseconds, recorded as `hash_offset_ms`.
+
+`--profile sharpadex` converts only the manifest's kept episodes, under the
+manifest's names and clocks. In addition to the arrays above it stores:
+
+| Array or attribute | Source |
+|---|---|
+| `annotations`, `annotations_skill` | Subtask spans (`end_step` is inclusive, so `end_idx = end_step + 1`); the ` \| Skill: …` suffix becomes a separate skill span. |
+| `{side}.obs_tactile` `[T, 30]` | `observation.tactile`, five fingertip sensors × `fx..tz` (N, N·m; inferred, not confirmed by Sharpa). |
+| `{side}.obs_tactile_image` | `tactile_deform`, one grayscale 240×1200 JPEG strip per hand, fingertips thumb to little. `tactile_raw` is not stored. |
+| `{side}.cmd_hand_keypoints` | FK of the commanded joints, checked by `fk_residual_cmd`. |
+| `obs_head_link_pose` | FK of `head_base_link`. A link pose, not a camera pose. |
+| `sharpa.joint_torque`, `sharpa.tcp`, `sharpa.{obs,cmd}_tcp_pose`, `sharpa.subtask_index` | Vendor arrays, outside the contract. |
+| `task_name`, `task_description` | The task folder; Sharpa's `task_instruction` tag. |
+| `source_dataset`, `source_revision`, `source_uid`, `source_score`, `source_tags`, `quality_flags`, `hash_offset_ms`, `calibration_source` | Provenance from the manifest. |
+
+The profile also fails a season whose column names or tactile mosaic differ
+from the layout it slices, requires a licence in a README above the season,
+and compares `observation.state.tcp_pose` with forward kinematics of each arm:
+a TCP that disagrees, or matches the other arm better, makes the episode a
+`structural_sample` (`conversion_report.tcp_check`).
+
+SharpaDex episodes have no `obs_head_pose` (no measured head camera mount), so
+the Dexmate keymaps that read it cannot train on them yet. Keep them in their
+own `processed_v3` folder and filter training configs by `lab`.
 
 ## Verify
 

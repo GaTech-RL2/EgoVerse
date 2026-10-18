@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import datetime, timezone
 from fractions import Fraction
@@ -340,6 +341,10 @@ def test_public_data_path_is_a_valid_structural_sample(dataset, tmp_path):
     assert not any(
         "tactile" in k or "relative_timestamp" in k for k in group.array_keys()
     )
+    # The default profile adds none of the SharpaDex arrays or attributes.
+    for key in ("left.cmd_hand_keypoints", "obs_head_link_pose", "annotations_skill"):
+        assert key not in group, key
+    assert "status_policy" not in attrs and "source_uid" not in attrs
     stamps = group["obs_rgb_timestamps_ns"][: LENGTHS[1]]
     expected = SEASON_START_NS + (LENGTHS[0] * 10**9) // FPS
     expected += (np.arange(LENGTHS[1], dtype=np.int64) * 10**9) // FPS
@@ -559,3 +564,409 @@ def test_the_template_and_malformed_calibrations_are_rejected(
         path.write_text(yaml.safe_dump(broken))
         with pytest.raises(ConversionError, match=message):
             load_calibration_file(path, kinematics)
+
+
+# ---------------------------------------------------------------------------
+# SharpaDex profile
+# ---------------------------------------------------------------------------
+
+DEX_TASK = "iron_garment"
+DEX_EPISODE_IDS = (
+    f"{RIG}_2026_01_02_03_04_05_train",
+    f"{RIG}_2026_01_02_03_05_00_train",
+)
+#: The second recording starts 55 s after the season.
+DEX_SECOND_START_NS = SEASON_START_NS + 55 * 10**9
+DEX_TAGS = {
+    "task_name": "Iron_Clothes",
+    "task_instruction": "Grip the iron head and iron the garment.",
+    "score": "S",
+    "SOP": "V1.0",
+}
+DEX_CAMERAS = ("head_left", "wrist_left", "wrist_right", "head_right")
+DEFORM = (480, 1200)
+
+
+def _tcp_pose(kinematics, observed):
+    """Sharpa's TCP for ``observed`` joints, from the fitted TCP model."""
+    from scipy.spatial.transform import Rotation
+
+    from egomimic.scripts.sharpa_process.sharpa_tracks import (
+        TCP_LINK,
+        TCP_MODEL,
+        derive_tracks,
+    )
+
+    links = [TCP_LINK.format(side=side) for side in ("left", "right")]
+    _, poses = derive_tracks(observed, observed, kinematics=kinematics, links=links)
+    out = []
+    for side in ("left", "right"):
+        model, link = TCP_MODEL[side], poses[TCP_LINK.format(side=side)]
+        rotation = Rotation.from_matrix(link[:, :3, :3])
+        position = (
+            link[:, :3, 3] + rotation.apply(model["tool_m"]) + model["base_shift_m"]
+        )
+        tool = Rotation.from_rotvec(np.radians(model["tool_rotvec_deg"]))
+        out += [position, (rotation * tool).as_rotvec()]
+    return np.concatenate(out, axis=1).astype(np.float32)
+
+
+def _deform(global_index):
+    """A grayscale 2 x 5 mosaic whose tiles differ by hand and finger."""
+    rows, cols = DEFORM
+    image = np.empty((rows, cols, 3), np.uint8)
+    for row in range(2):
+        for col in range(5):
+            value = (global_index * 3 + row * 90 + col * 30) % 200 + 20
+            image[row * 240 : (row + 1) * 240, col * 240 : (col + 1) * 240] = value
+    return image
+
+
+def _write_video_shape(path: Path, frames, shape):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with av.open(str(path), "w") as container:
+        stream = container.add_stream("libx264", rate=FPS)
+        stream.height, stream.width = shape
+        stream.pix_fmt = "yuv420p"
+        stream.options = {"qp": "0", "preset": "ultrafast"}
+        for index, image in enumerate(frames):
+            frame = av.VideoFrame.from_ndarray(image, format="rgb24")
+            frame.pts, frame.time_base = index, Fraction(1, FPS)
+            for packet in stream.encode(frame):
+                container.mux(packet)
+        for packet in stream.encode():
+            container.mux(packet)
+
+
+def _stats_block(values):
+    values = np.asarray(values, dtype=np.float64)
+    return {
+        "min": values.min(0).tolist(),
+        "max": values.max(0).tolist(),
+        "mean": values.mean(0).tolist(),
+        "std": values.std(0).tolist(),
+    }
+
+
+def build_sharpadex(root: Path, kinematics, *, swap_tcp=False, license="CC-BY-NC-4.0"):
+    """Write one SharpaDex task/season (v2.1 only) under ``root``."""
+    from egomimic.scripts.sharpa_process.sharpa_to_zarr import expected_vendor_names
+
+    names = expected_vendor_names()
+    if license:
+        (root).mkdir(parents=True, exist_ok=True)
+        (root / "README.md").write_text(f"---\nlicense: {license}\n---\n# SharpaDex\n")
+    v21 = root / DEX_TASK / SEASON / "lerobot_v2.1"
+    (v21 / "meta").mkdir(parents=True)
+    features = {}
+    for name, width in (
+        ("observation.state", 65),
+        ("action", 65),
+        ("observation.state.joint_torque", 65),
+        ("observation.state.tcp", 24),
+        ("observation.state.tcp_pose", 12),
+        ("action.tcp_pose", 12),
+        ("observation.tactile", 60),
+    ):
+        feature = {"dtype": "float32", "shape": [width]}
+        if name in names:
+            feature["names"] = names[name]
+        features[name] = feature
+    for camera in DEX_CAMERAS:
+        features[f"observation.images.{camera}"] = {
+            "dtype": "video",
+            "shape": [SIZE, SIZE, 3],
+        }
+    features["observation.images.tactile_deform"] = {
+        "dtype": "video",
+        "shape": [*DEFORM, 3],
+    }
+    for name in (
+        "frame_index",
+        "episode_index",
+        "index",
+        "task_index",
+        "subtask_index",
+    ):
+        features[name] = {"dtype": "int64", "shape": [1]}
+    info = {
+        "codebase_version": "v2.1",
+        "robot_type": "robot",
+        "fps": FPS,
+        "chunks_size": 1000,
+        "total_episodes": len(LENGTHS),
+        "data_path": "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet",
+        "video_path": "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4",
+        "features": features,
+    }
+    (v21 / "meta/info.json").write_text(json.dumps(info))
+    task = (
+        f"Task: {DEX_TAGS['task_name']} | Instruction: {DEX_TAGS['task_instruction']}"
+    )
+    (v21 / "meta/tasks.jsonl").write_text(
+        json.dumps({"task_index": 0, "task": task}) + "\n"
+    )
+    offsets = np.concatenate([[0], np.cumsum(LENGTHS)[:-1]]).tolist()
+    episodes, stats, annotations = [], [], []
+    for e, (n, o) in enumerate(zip(LENGTHS, offsets)):
+        observed = _joints(kinematics, n, e)
+        commanded = _joints(kinematics, n, e + 0.5)
+        tcp = _tcp_pose(kinematics, observed)
+        if swap_tcp:
+            tcp = np.concatenate([tcp[:, 6:], tcp[:, :6]], axis=1)
+        rng = np.random.default_rng(e)
+        tactile = rng.normal(size=(n, 60)).astype(np.float32)
+        frames = np.arange(n)
+        table = pa.table(
+            {
+                "observation.state": _list_column(observed),
+                "action": _list_column(commanded),
+                "observation.state.joint_torque": _list_column(
+                    rng.normal(size=(n, 65)).astype(np.float32)
+                ),
+                "observation.state.tcp": _list_column(
+                    rng.normal(size=(n, 24)).astype(np.float32)
+                ),
+                "observation.state.tcp_pose": _list_column(tcp),
+                "action.tcp_pose": _list_column(tcp),
+                "observation.tactile": _list_column(tactile),
+                "subtask_index": pa.array((frames >= 10).astype(np.int64)),
+                "timestamp": pa.array((frames / FPS).astype(np.float32)),
+                "frame_index": pa.array(frames),
+                "episode_index": pa.array(np.full(n, e)),
+                "index": pa.array(o + frames),
+                "task_index": pa.array(np.zeros(n, np.int64)),
+            }
+        )
+        data = v21 / f"data/chunk-000/episode_{e:06d}.parquet"
+        data.parent.mkdir(parents=True, exist_ok=True)
+        pq.write_table(table, data)
+        for c, camera in enumerate(DEX_CAMERAS):
+            _write_video(
+                v21
+                / f"videos/chunk-000/observation.images.{camera}/episode_{e:06d}.mp4",
+                [_frame(o + i, c) for i in range(n)],
+            )
+        _write_video_shape(
+            v21
+            / f"videos/chunk-000/observation.images.tactile_deform/episode_{e:06d}.mp4",
+            [_deform(o + i) for i in range(n)],
+            DEFORM,
+        )
+        episodes.append({"episode_index": e, "tasks": [task], "length": n})
+        stats.append(
+            {
+                "episode_index": e,
+                "stats": {
+                    "observation.state": _stats_block(observed),
+                    "action": _stats_block(commanded),
+                    "observation.tactile": _stats_block(tactile),
+                },
+            }
+        )
+        segments = [
+            {
+                "label": "subtasks",
+                "start_step": 0,
+                "end_step": 9,
+                "id": "subtask-001",
+                "text": "Grip the iron head. | Skill: grip",
+                "task_skill": "grip",
+            },
+            {
+                "label": "subtasks",
+                "start_step": 10,
+                "end_step": n - 1,
+                "id": "subtask-002",
+                "text": "Iron the garment. | Skill: press",
+                "task_skill": "press",
+            },
+        ]
+        annotations.append(
+            {
+                "episode_index": e,
+                "source_uid": f"uid{e}",
+                "episode_id": DEX_EPISODE_IDS[e],
+                "tags": DEX_TAGS,
+                "segments": segments,
+            }
+        )
+    for name, rows in (
+        ("episodes", episodes),
+        ("episodes_stats", stats),
+        ("annotations", annotations),
+    ):
+        (v21 / f"meta/{name}.jsonl").write_text(
+            "".join(json.dumps(r) + "\n" for r in rows)
+        )
+    return root
+
+
+def _plan_manifest(release: Path, out: Path) -> Path:
+    from egomimic.scripts.sharpa_process import sharpadex_manifest
+
+    path = out / "manifest.jsonl"
+    args = ["--release-root", str(release), "--output", str(path)]
+    assert sharpadex_manifest.main([*args, "--source-revision", "abc123"]) == 0
+    return path
+
+
+def _convert_dex(release, manifest, output, *extra):
+    return sharpa_to_zarr.main(
+        [
+            "--profile",
+            "sharpadex",
+            "--dataset-root",
+            str(release),
+            "--manifest",
+            str(manifest),
+            "--output-dir",
+            str(output),
+            *extra,
+        ]
+    )
+
+
+@pytest.fixture(scope="module")
+def sharpadex(tmp_path_factory, kinematics):
+    root = tmp_path_factory.mktemp("sharpadex")
+    release = build_sharpadex(root / "release", kinematics)
+    return release, _plan_manifest(release, root)
+
+
+def test_sharpadex_profile_converts_a_complete_provenance_episode(
+    sharpadex, kinematics, tmp_path
+):
+    import simplejpeg
+
+    release, manifest_path = sharpadex
+    out = tmp_path / "out"
+    args = ["--episodes", "0-1", "--status-policy", "provenance", "--validate"]
+    assert _convert_dex(release, manifest_path, out, *args, "--include-head-right") == 0
+    second = out / f"{timestamp_ms_to_episode_hash(DEX_SECOND_START_NS // 10**6)}.zarr"
+    group = zarr.open_group(second, mode="r")
+    attrs = group.attrs
+    assert attrs["data_status"] == "complete", attrs["conversion_report"]
+    assert attrs["task_name"] == DEX_TASK
+    assert attrs["task_description"] == DEX_TAGS["task_instruction"]
+    assert attrs["license"] == "CC-BY-NC-4.0"
+    assert attrs["timestamp_source"] == "vendor_episode_start+frame_index"
+    assert attrs["status_policy"] == "provenance"
+    assert any("calibration" in x for x in attrs["data_limitations"])
+    assert attrs["source_uid"] == "uid1" and attrs["source_revision"] == "abc123"
+    assert attrs["source_score"] == "S" and attrs["hash_offset_ms"] == 0
+    assert attrs["calibration_source"] == "none"
+    np.testing.assert_array_equal(
+        group["obs_rgb_timestamps_ns"][:3],
+        DEX_SECOND_START_NS + (np.arange(3) * 10**9) // FPS,
+    )
+
+    # Subtask spans become [start, end); the skill moves to its own list.
+    def spans(key):
+        return [json.loads(bytes(x)) for x in group[key][:]]
+
+    assert spans("annotations") == [
+        {"text": "Grip the iron head.", "start_idx": 0, "end_idx": 10},
+        {"text": "Iron the garment.", "start_idx": 10, "end_idx": LENGTHS[1]},
+    ]
+    assert [s["text"] for s in spans("annotations_skill")] == ["grip", "press"]
+
+    source = load_episode(open_season(release / DEX_TASK / SEASON, "v2.1"), 1)
+    tactile = source.columns["observation.tactile"]
+    np.testing.assert_array_equal(
+        group["left.obs_tactile"][: LENGTHS[1]], tactile[:, :30]
+    )
+    np.testing.assert_array_equal(
+        group["right.obs_tactile"][: LENGTHS[1]], tactile[:, 30:]
+    )
+    assert attrs["features"]["right.obs_tactile"]["names"][6] == "index_fx"
+    strip = simplejpeg.decode_jpeg(
+        group["right.obs_tactile_image"][0:1][0], colorspace="GRAY"
+    )
+    assert strip.shape == (240, 1200, 1)
+    expected = _deform(LENGTHS[0])[240:, :, 0]
+    assert np.abs(strip[..., 0].astype(int) - expected).max() <= 3
+    assert group["images.head_right"].shape[0] >= LENGTHS[1]
+    for key in ("left.cmd_hand_keypoints", "obs_head_link_pose", "sharpa.obs_tcp_pose"):
+        assert key in group, key
+    assert attrs["conversion_report"]["tcp_check"]["passed"]
+
+    report = _report(out / f"{second.stem}.validation.json")
+    assert report["ok"], report
+    levels = {f["check"]: f["level"] for f in report["findings"]}
+    assert levels["fk_residual_cmd"] == "ok"
+    assert levels["tactile_declaration"] == "ok"
+    assert "features" not in levels
+
+
+def test_sharpadex_strict_policy_keeps_today_s_status(sharpadex, tmp_path):
+    release, manifest_path = sharpadex
+    out = tmp_path / "out"
+    assert _convert_dex(release, manifest_path, out, "--episodes", "0") == 0
+    [path] = list(out.glob("*.zarr"))
+    attrs = zarr.open_group(path, mode="r").attrs
+    assert attrs["data_status"] == "structural_sample"
+    assert "status_policy" not in attrs and "data_limitations" not in attrs
+    reasons = attrs["conversion_report"]["data_status_reasons"]
+    assert reasons == ["no measured front_1 calibration (--calibration)"]
+
+
+def test_a_swapped_tcp_layout_makes_a_structural_sample(kinematics, tmp_path):
+    release = build_sharpadex(tmp_path / "release", kinematics, swap_tcp=True)
+    manifest_path = _plan_manifest(release, tmp_path)
+    out = tmp_path / "out"
+    args = ["--episodes", "0", "--status-policy", "provenance", "--max-frames", "6"]
+    assert _convert_dex(release, manifest_path, out, *args) == 0
+    [path] = list(out.glob("*.zarr"))
+    attrs = zarr.open_group(path, mode="r").attrs
+    assert attrs["data_status"] == "structural_sample"
+    tcp = attrs["conversion_report"]["tcp_check"]
+    assert not tcp["passed"]
+    assert any(
+        "TCP check failed" in r
+        for r in attrs["conversion_report"]["data_status_reasons"]
+    )
+
+
+def test_the_manifest_selects_and_the_licence_is_required(
+    sharpadex, kinematics, tmp_path, caplog
+):
+    from egomimic.scripts.sharpa_process.sharpadex_manifest import (
+        read_manifest,
+        write_manifest,
+    )
+
+    caplog.set_level(logging.INFO)
+    release, manifest_path = sharpadex
+    header, records = read_manifest(manifest_path)
+    records[f"{DEX_TASK}/{SEASON}/0"].decision = "exclude"
+    records[f"{DEX_TASK}/{SEASON}/0"].reasons = ["corrupt frame"]
+    edited = tmp_path / "edited.jsonl"
+    write_manifest(edited, list(records.values()), header)
+    out = tmp_path / "out"
+    assert (
+        _convert_dex(release, edited, out, "--episodes", "0-1", "--max-frames", "4")
+        == 0
+    )
+    assert len(list(out.glob("*.zarr"))) == 1
+    assert "skipped" in caplog.text and "corrupt frame" in caplog.text
+
+    bare = build_sharpadex(tmp_path / "bare", kinematics, license=None)
+    bare_manifest = _plan_manifest(bare, tmp_path / "bare_plan")
+    out = tmp_path / "no_license"
+    assert (
+        _convert_dex(bare, bare_manifest, out, "--episodes", "0", "--max-frames", "4")
+        == 1
+    )
+    assert "no license" in caplog.text
+    with pytest.raises(SystemExit, match="needs --manifest"):
+        sharpa_to_zarr.main(
+            [
+                "--profile",
+                "sharpadex",
+                "--dataset-root",
+                str(bare),
+                "--output-dir",
+                str(out),
+            ]
+        )
