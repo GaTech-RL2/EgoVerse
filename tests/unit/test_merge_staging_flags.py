@@ -1,0 +1,109 @@
+"""Merge guards: fail on a hash conflict, and copy the licence from attributes."""
+
+from __future__ import annotations
+
+import sys
+
+import pytest
+
+from egomimic.scripts.backfill_scripts import merge_staging_to_episodes as merge
+
+STAGING_COLUMNS = [
+    "episode_hash",
+    "embodiment",
+    "task",
+    "task_description",
+    "num_frames",
+    "zarr_processed_path",
+    "created_at",
+    "source_folder",
+    "raw_attrs",
+]
+
+
+class _Result:
+    def __init__(self, value):
+        self.value = value
+        self.rowcount = 2
+
+    def all(self):
+        return self.value
+
+    def scalar(self):
+        return self.value
+
+
+class _Engine:
+    """Answer the merge's queries: columns, then four counts, then the insert."""
+
+    def __init__(self, counts):
+        self.counts = list(counts)
+        self.sql: list[str] = []
+
+    def connect(self):
+        return self
+
+    begin = connect
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, clause, params=None):
+        sql = str(clause)
+        self.sql.append(sql)
+        if "information_schema" in sql:
+            return _Result([(c,) for c in STAGING_COLUMNS])
+        if "COUNT(*)" in sql:
+            return _Result(self.counts.pop(0))
+        return _Result(None)
+
+    def dispose(self):
+        pass
+
+
+def _run(monkeypatch, counts, *flags):
+    engine = _Engine(counts)
+    monkeypatch.setattr(merge, "create_default_engine", lambda: engine)
+    monkeypatch.setattr(
+        sys, "argv", ["merge", "--staging-table", "app.staging_sharpa_dex", *flags]
+    )
+    return merge.main(), engine
+
+
+def test_a_conflict_fails_before_anything_is_written(monkeypatch, capsys):
+    status, engine = _run(monkeypatch, [5, 0, 1, 4], "--fail-on-conflict", "--apply")
+
+    assert status == 1
+    assert "FAILED: 1 staged hash" in capsys.readouterr().out
+    assert not any("INSERT INTO" in sql for sql in engine.sql)
+
+
+def test_without_the_flag_conflicts_are_skipped_as_before(monkeypatch):
+    status, engine = _run(monkeypatch, [5, 0, 1, 4], "--apply")
+
+    assert status == 0
+    [insert] = [sql for sql in engine.sql if "INSERT INTO" in sql]
+    assert "license" not in insert
+
+
+def test_the_licence_comes_from_the_staged_attributes(monkeypatch):
+    status, engine = _run(
+        monkeypatch,
+        [4, 0, 0, 4],
+        "--fail-on-conflict",
+        "--license-from-attrs",
+        "--apply",
+    )
+
+    assert status == 0
+    [insert] = [sql for sql in engine.sql if "INSERT INTO" in sql]
+    assert "license" in insert and "s.raw_attrs->>'license'" in insert
+
+
+def test_licence_copy_needs_staged_attributes(monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "STAGING_COLUMNS", STAGING_COLUMNS[:-1])
+    with pytest.raises(SystemExit, match="raw_attrs"):
+        _run(monkeypatch, [4, 0, 0, 4], "--license-from-attrs")
