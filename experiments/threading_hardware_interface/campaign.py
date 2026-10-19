@@ -129,6 +129,23 @@ def shard():
     manifest = load(manifest_path)
     index = int(os.environ["THREADING_SHARD"])
     workers = int(os.environ["THREADING_WORKERS"])
+    # Warm native controller/Numba kernels in a separate, unscored environment.
+    # Every measured trial still constructs its untouched paired reset afresh.
+    warm = environment({"env_seed": 10000 + index}, manifest)
+    try:
+        started = time.monotonic()
+        warm.step([0, 0, 0, 0, 0, 0, -1])
+        write_json(
+            root / "simulator-warmup.json",
+            {
+                "scored_result": False,
+                "separate_environment": True,
+                "native_steps": 1,
+                "seconds": time.monotonic() - started,
+            },
+        )
+    finally:
+        warm.close()
     for row in schedule(manifest):
         if row["init_state_index"] % workers != index:
             continue

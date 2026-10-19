@@ -39,6 +39,9 @@ denominator, plus jointly successful paired times, tokens, model round trips and
 client backoff. Astra medium and DeepSeek numeric effort 75 have different serving
 systems and reasoning settings; cross-model speed is an end-to-end measurement,
 not an isolated inference-speed claim. Ten starts support descriptive results.
+Each worker warms native simulator/controller kernels in a separate environment
+before measured trials, so the first cell does not pay one-time compilation cost.
+The actual trial still begins from its untouched hashed paired reset.
 
 There are no experiment token, call or wall-time budgets. The native episode
 horizon and technical request/scratch limits remain enforced. Do not rerun or
