@@ -52,3 +52,19 @@ OSMO commissioning uses one L40S; pinned DeepSeek serving uses eight H100s with
 Engram CPU offload. A standalone serving smoke preserves downloaded weights and
 receipts on the task-owned shared prefix and releases its GPUs on exit. It does
 not start any LIBERO trials.
+
+A two-node pilot was cancelled by cluster quota enforcement before model
+startup completed; it produced no scored rollouts. The replacement launch uses
+one task with eight H100s. DeepSeek keeps the same pinned vLLM image and serving
+settings. The native Python image is unpacked into a separate chroot and renders
+both cameras with OSMesa on CPU. All four cells use that same rendering backend;
+earlier GPU-rendered commissioning traces remain unscored and separate. End-to-end
+times therefore include CPU camera rendering. Source, native checks, and the
+compute/rendering receipt are retained with the run.
+
+`colocated-native` validates the native image, software camera output, isolation,
+paired starts and replay without any model calls. Only then launch
+`colocated-pilot`. Serving logs and evaluator artifacts are preserved on the
+task-owned shared cache during execution, including after cluster cancellation.
+The launcher records an exclusive persistent claim and never automatically
+repeats a cohort or redispatches an action.

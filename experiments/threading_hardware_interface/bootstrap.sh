@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 set +x
 export DEBIAN_FRONTEND=noninteractive
-export PYTHONUNBUFFERED=1 MUJOCO_GL=egl PYOPENGL_PLATFORM=egl
+export PYTHONUNBUFFERED=1
+export MUJOCO_GL="${HARDWARE_RENDER_BACKEND:-egl}" PYOPENGL_PLATFORM="${HARDWARE_RENDER_BACKEND:-egl}"
 export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
 mkdir -p /workspace/threading-study/artifacts/runtime /osmo/run/workspace
 cd /workspace/threading-study
@@ -35,7 +36,11 @@ git -C upstream-mimicgen checkout --detach FETCH_HEAD
 python -m pip install --no-deps -e upstream-robosuite -e upstream-mimicgen >> dependency-install.log 2>&1 || { tail -n 80 dependency-install.log; exit 1; }
 python --version > artifacts/runtime/python.txt
 python -m pip freeze --all > artifacts/runtime/pip-freeze.txt
-nvidia-smi > artifacts/runtime/gpu.txt
+if [[ "$MUJOCO_GL" == osmesa ]]; then
+    echo 'CPU rendering: OSMesa; no simulator GPU allocation.' > artifacts/runtime/gpu.txt
+else
+    nvidia-smi > artifacts/runtime/gpu.txt
+fi
 python -m pytest --confcutdir=tests/unit/hardware_interface tests/unit/hardware_interface -q --junitxml=artifacts/runtime/unit-tests.xml > artifacts/runtime/unit-tests.log 2>&1 || { cat artifacts/runtime/unit-tests.log; exit 1; }
 if [[ "${HARDWARE_STAGE:-commission}" == pilot ]]; then
     python -m experiments.threading_hardware_interface.campaign
