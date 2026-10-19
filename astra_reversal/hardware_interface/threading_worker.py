@@ -67,7 +67,7 @@ def isolated_replay(directory, manifest_path):
         [
             sys.executable,
             "-m",
-            __name__,
+            "astra_reversal.hardware_interface.threading_worker",
             "replay",
             "--manifest",
             str(manifest_path),

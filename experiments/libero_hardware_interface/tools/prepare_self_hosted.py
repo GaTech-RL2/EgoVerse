@@ -58,7 +58,7 @@ python3 -m experiments.libero_hardware_interface.tools.self_hosted_server
         "environment": {
             "PAYLOAD_SHA256": receipt["payload_sha256"],
             "HARDWARE_WORKFLOW": "{{workflow_id}}",
-            "HARDWARE_SERVING_CACHE": "/mnt/amlfs-01/shared/egoverse/rpunamiya/deepseek-v41-1017-20261019",
+            "HARDWARE_SERVING_CACHE": "/mnt/amlfs-07/shared/egoverse/rpunamiya/deepseek-v41-1017-20261019",
             "HARDWARE_SERVER_ARTIFACTS": "/tmp/serving-artifacts",
             "PYTHONUNBUFFERED": "1",
             "VLLM_USE_V2_MODEL_RUNNER": "1",
@@ -68,7 +68,7 @@ python3 -m experiments.libero_hardware_interface.tools.self_hosted_server
             "HF_XET_HIGH_PERFORMANCE": "1",
             "OMP_NUM_THREADS": "8",
             "NVIDIA_DRIVER_CAPABILITIES": "compute,utility",
-            "VLLM_CACHE_ROOT": "/mnt/amlfs-01/shared/egoverse/rpunamiya/deepseek-v41-1017-20261019/vllm-cache",
+            "VLLM_CACHE_ROOT": "/mnt/amlfs-07/shared/egoverse/rpunamiya/deepseek-v41-1017-20261019/vllm-cache",
         },
         "files": [
             {"localpath": str(server_bootstrap), "path": "/tmp/server-bootstrap.sh"},

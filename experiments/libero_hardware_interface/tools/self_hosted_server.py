@@ -6,6 +6,7 @@ import importlib.metadata
 import io
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -239,6 +240,30 @@ def main():
         )
         if info.sha != DEEPSEEK_REVISION:
             raise RuntimeError("checkpoint_revision_mismatch")
+        expected_bytes = sum(
+            f.size or 0 for f in info.siblings if f.rfilename.endswith(".safetensors")
+        )
+        cached = (
+            sum(
+                p.stat().st_size
+                for p in (root / "huggingface").rglob("*")
+                if p.is_file() and not p.is_symlink()
+            )
+            if (root / "huggingface").exists()
+            else 0
+        )
+        disk = shutil.disk_usage(root)
+        write(
+            artifacts / "storage.json",
+            {
+                "cache": str(root),
+                "free_bytes": disk.free,
+                "expected_weight_bytes": expected_bytes,
+                "existing_cache_bytes": cached,
+            },
+        )
+        if disk.free < max(0, expected_bytes - cached) + 20 * 1024**3:
+            raise RuntimeError("checkpoint_cache_insufficient_free_space")
         STATE.update(phase="downloading", image=VLLM_IMAGE, vllm_version=version)
         print(json.dumps(STATE), flush=True)
         snapshot = Path(

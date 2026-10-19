@@ -6,6 +6,8 @@ from pathlib import Path
 
 import yaml
 
+from astra_reversal.hardware_interface.common import file_hash
+from astra_reversal.hardware_interface.threading_protocol import ARMS, STUDY
 from experiments.libero_hardware_interface.tools.prepare_osmo import prepare
 from experiments.libero_hardware_interface.tools.prepare_self_hosted import (
     prepare_group,
@@ -27,6 +29,8 @@ def prepare_native(destination):
     receipt.update(
         scope="Native Threading_D0 renderer, ten paired reset seeds, F-adaptive CAP/direct routing and fresh-process replay; zero model calls",
         planned_trials=0,
+        conditions=list(ARMS),
+        manifest_sha256=file_hash(STUDY / "preregistration.yaml"),
     )
     path.write_text(yaml.safe_dump(spec, sort_keys=False))
     (destination / "launch-receipt.json").write_text(
@@ -61,6 +65,45 @@ def prepare_serving_smoke(destination):
         inference_gpus=8,
         evaluator_gpus=0,
         scope="Exact pinned DeepSeek startup and image/tool/history transport smoke only; release node afterwards; preserve weights and receipts on own shared cache",
+        conditions=list(ARMS),
+        image=receipt["serving_image"],
+        manifest_sha256=file_hash(STUDY / "preregistration.yaml"),
+    )
+    path.write_text(yaml.safe_dump(spec, sort_keys=False))
+    (destination / "launch-receipt.json").write_text(
+        json.dumps(receipt, indent=2) + "\n"
+    )
+    return receipt
+
+
+def prepare_pilot(destination):
+    destination = Path(destination).resolve()
+    receipt = prepare_group(destination)
+    path = destination / "workflow.yaml"
+    spec = yaml.safe_load(path.read_text())
+    workflow = spec["workflow"]
+    inference, evaluation = workflow["groups"][0]["tasks"]
+    workflow["name"] = "threading-hardware-20261019-pilot"
+    workflow["groups"][0]["name"] = "threading-study"
+    bootstrap = destination / "bootstrap.sh"
+    bootstrap.write_bytes(Path(__file__).with_name("bootstrap.sh").read_bytes())
+    for task in (inference, evaluation):
+        task["exitActions"] = {"COMPLETE": "0", "FAIL": "1-9999"}
+    evaluation["environment"].update(
+        HARDWARE_STAGE="pilot",
+        HARDWARE_API_KEY_FILE="/osmo/run/workspace/inference-api-key",
+    )
+    evaluation["environment"].pop("HARDWARE_MANIFEST", None)
+    evaluation["credentials"]["astra-hardware-inference-20261010"] = (
+        "/run/hardware-inference"
+    )
+    receipt.update(
+        stage="threading_pilot",
+        planned_trials=40,
+        conditions=list(ARMS),
+        manifest_sha256=file_hash(STUDY / "preregistration.yaml"),
+        hosted_api_credentials=True,
+        scope="Four-cell F-adaptive Threading pilot, ten matched starts, native and model transport gates, eight balanced-block workers and independent replay; no LIBERO trials",
     )
     path.write_text(yaml.safe_dump(spec, sort_keys=False))
     (destination / "launch-receipt.json").write_text(
@@ -71,13 +114,15 @@ def prepare_serving_smoke(destination):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("native", "serving-smoke"))
+    parser.add_argument("stage", choices=("native", "serving-smoke", "pilot"))
     parser.add_argument("destination")
     args = parser.parse_args()
     print(
         json.dumps(
-            (prepare_native if args.stage == "native" else prepare_serving_smoke)(
-                args.destination
-            )
+            {
+                "native": prepare_native,
+                "serving-smoke": prepare_serving_smoke,
+                "pilot": prepare_pilot,
+            }[args.stage](args.destination)
         )
     )

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+import yaml
 from test_adaptive import ScratchFixture, command, router
 
 from astra_reversal.hardware_interface import threading_worker as worker
@@ -82,6 +83,28 @@ def test_direct_native_action_and_no_executable_controller(tmp_path):
     assert r.proxy.step_count == 1
 
 
+def test_replay_subprocess_uses_importable_module_from_cli_and_drops_credentials(
+    tmp_path, monkeypatch
+):
+    calls = []
+    monkeypatch.setattr(worker, "__name__", "__main__")
+    monkeypatch.setattr(
+        worker.subprocess, "run", lambda args, **kwargs: calls.append((args, kwargs))
+    )
+    monkeypatch.setenv("HARDWARE_API_KEY_FILE", "/private/key")
+    monkeypatch.setenv("R2_SECRET_ACCESS_KEY", "fixture")
+    worker.isolated_replay(tmp_path, tmp_path / "manifest.yaml")
+    args, kwargs = calls[0]
+    assert args[1:4] == [
+        "-m",
+        "astra_reversal.hardware_interface.threading_worker",
+        "replay",
+    ]
+    assert not any(
+        k in kwargs["env"] for k in ("HARDWARE_API_KEY_FILE", "R2_SECRET_ACCESS_KEY")
+    )
+
+
 def test_schedule_is_four_cells_on_the_same_ten_starts():
     manifest = load()
     rows = schedule(manifest)
@@ -95,6 +118,59 @@ def test_schedule_is_four_cells_on_the_same_ten_starts():
     bad["limits"]["steps"] = 1000
     with pytest.raises(ValueError, match="design_changed"):
         validate(bad)
+
+
+def test_pilot_workflow_has_separate_model_credentials_and_no_libero_launch(
+    tmp_path, monkeypatch
+):
+    from experiments.threading_hardware_interface import prepare as package
+
+    def base(destination):
+        destination.mkdir()
+        (destination / "bootstrap.sh").write_text("old LIBERO launch")
+        (destination / "workflow.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "workflow": {
+                        "name": "old",
+                        "groups": [
+                            {
+                                "name": "old",
+                                "tasks": [
+                                    {"name": "inference", "environment": {}},
+                                    {
+                                        "name": "evaluation",
+                                        "environment": {
+                                            "HARDWARE_MANIFEST": "old-libero.yaml"
+                                        },
+                                        "credentials": {"r2": {}},
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                }
+            )
+        )
+        return {"source_commit": "a" * 40}
+
+    monkeypatch.setattr(package, "prepare_group", base)
+    destination = tmp_path / "pilot"
+    receipt = package.prepare_pilot(destination)
+    spec = yaml.safe_load((destination / "workflow.yaml").read_text())
+    inference, evaluation = spec["workflow"]["groups"][0]["tasks"]
+    assert "credentials" not in inference
+    assert (
+        evaluation["credentials"]["astra-hardware-inference-20261010"]
+        == "/run/hardware-inference"
+    )
+    assert "HARDWARE_MANIFEST" not in evaluation["environment"]
+    assert evaluation["environment"]["HARDWARE_STAGE"] == "pilot"
+    assert "RESCHEDULE" not in evaluation["exitActions"]
+    assert receipt["planned_trials"] == 40 and receipt["conditions"] == list(ARMS)
+    bootstrap = (destination / "bootstrap.sh").read_text()
+    assert "python -m experiments.threading_hardware_interface.campaign" in bootstrap
+    assert "self_hosted_campaign" not in bootstrap
 
 
 class ReplayEnvironment:
