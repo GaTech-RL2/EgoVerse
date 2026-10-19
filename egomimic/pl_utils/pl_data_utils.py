@@ -6,6 +6,24 @@ from torch.utils.data import DataLoader, default_collate
 
 logger = logging.getLogger(__name__)
 
+# Val heads that can carry a metric loader, in val_dataloader() order.
+VAL_HEADS = ("valid", "train_viz", "unseen_op_valid")
+# Suffix of the video-only companion loader of a head (``valid`` ->
+# ``valid_video``). ModelWrapper.validation_step splits on it.
+VIDEO_SUFFIX = "_video"
+
+
+def video_loader_name(head: str) -> str:
+    return f"{head}{VIDEO_SUFFIX}"
+
+
+def head_of_loader(name: str) -> tuple[str, bool]:
+    """``("valid", False)`` for a metric loader, ``("valid", True)`` for its
+    video-only companion."""
+    if name.endswith(VIDEO_SUFFIX):
+        return name[: -len(VIDEO_SUFFIX)], True
+    return name, False
+
 
 class MultiDataModuleWrapper(LightningDataModule):
     """
@@ -26,6 +44,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         unseen_op_valid_dataloader_params: dict | None = None,
         valid_prefix: str | None = None,
         held_out_operators: list | None = None,
+        video_datasets: dict | None = None,
+        metric_frames_per_episode: dict | None = None,
+        video_episodes: dict | None = None,
     ):
         """
         Args:
@@ -54,6 +75,23 @@ class MultiDataModuleWrapper(LightningDataModule):
                 the train/valid filter lambdas; hydra.instantiate(cfg.data)
                 forwards every root key here, so it must be accepted. Kept as
                 an attribute for provenance only.
+            video_datasets: optional ``{head: {dataset_name: dataset}}`` for the
+                video-ONLY companion loaders (``<head>_video``). Built by
+                trainHydra from ``data.video_episodes``: the head's own split
+                restricted to the pinned episode hashes, contiguous and
+                unsubsampled so the overlay video stays watchable while the
+                metric loader is per-episode subsampled. A head with no pins
+                gets no video loader (today's behaviour). The video loader
+                reuses that head's ``*_dataloader_params`` (unshuffled).
+            metric_frames_per_episode: config-only ``{head: K}``. trainHydra
+                wraps each val head's dataset in ``EvenStrideDataset(base,
+                frames_per_episode=K)`` so the ``limit_val_batches`` window
+                covers every episode of the split instead of the leading
+                hash-sorted slice. Forwarded here by hydra.instantiate (it
+                rejects undeclared root keys); kept for provenance only.
+            video_episodes: config-only ``{head: [episode_hash, ...]}`` -- the
+                pinned video episodes, one per operator per head. Provenance
+                only; trainHydra is what reads it.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -80,6 +118,15 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.unseen_op_valid_dataloader_params = unseen_op_valid_dataloader_params or {}
         self.valid_prefix = valid_prefix
         self.held_out_operators = list(held_out_operators or [])
+        # {head: {dataset_name: dataset}}; heads with no pinned episodes are
+        # dropped so `val_loader_names()` only grows for configs that ask for it.
+        self.video_datasets = {
+            head: {k: v for k, v in (datasets or {}).items() if v is not None}
+            for head, datasets in (video_datasets or {}).items()
+        }
+        self.video_datasets = {h: d for h, d in self.video_datasets.items() if d}
+        self.metric_frames_per_episode = dict(metric_frames_per_episode or {})
+        self.video_episodes = dict(video_episodes or {})
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -117,18 +164,8 @@ class MultiDataModuleWrapper(LightningDataModule):
             )
         return CombinedLoader(iterables, "max_size_cycle")
 
-    def val_loader_names(self) -> list[str]:
-        """Names of the val loaders in ``val_dataloader()`` order; position i is
-        Lightning's ``dataloader_idx`` i. ModelWrapper dispatches on these."""
-        names = ["valid"]
-        if self.train_viz_datasets:
-            names.append("train_viz")
-        if self.unseen_op_valid_datasets:
-            names.append("unseen_op_valid")
-        return names
-
-    def val_dataloader(self):
-        sources = {
+    def _metric_sources(self) -> dict:
+        return {
             "valid": (self.valid_datasets, self.valid_dataloader_params),
             "train_viz": (self.train_viz_datasets, self.train_viz_dataloader_params),
             "unseen_op_valid": (
@@ -136,9 +173,36 @@ class MultiDataModuleWrapper(LightningDataModule):
                 self.unseen_op_valid_dataloader_params,
             ),
         }
+
+    def val_loader_names(self) -> list[str]:
+        """Names of the val loaders in ``val_dataloader()`` order; position i is
+        Lightning's ``dataloader_idx`` i. ModelWrapper dispatches on these.
+
+        Metric loaders first, in the historical order, so a config with no
+        pinned video episodes gets exactly today's list and today's indices;
+        the video-only loaders are appended after them in the same head order.
+        """
+        metric = [
+            name
+            for name in VAL_HEADS
+            if name == "valid" or self._metric_sources()[name][0]
+        ]
+        return metric + [
+            video_loader_name(name) for name in metric if name in self.video_datasets
+        ]
+
+    def val_dataloader(self):
+        sources = self._metric_sources()
+        for head, datasets in self.video_datasets.items():
+            # The video loader reuses its head's params (batch size / workers /
+            # unshuffled); only the dataset differs.
+            sources[video_loader_name(head)] = (datasets, sources[head][1])
         names = self.val_loader_names()
         loaders = [
-            self._build_val_style_loader(*sources[name], kind=name) for name in names
+            # kind names the *_dataloader_params block in the error message, and
+            # a video loader borrows its head's block.
+            self._build_val_style_loader(*sources[name], kind=head_of_loader(name)[0])
+            for name in names
         ]
         if len(loaders) == 1:
             return loaders[0]
