@@ -11,6 +11,7 @@ Patterns:
   chunk1   Aria keypoints keymap: 30-step action chunks, proprio, 1 front frame
   numeric  same keymap without the camera
   frames8  chunk1 with 8 consecutive front frames (camera history 8)
+  rdt      RDT base's sample: chunk1 plus the front frame 0.1 s back (image_history_gap_s)
 """
 
 import argparse
@@ -31,7 +32,11 @@ CONTEXT = {"zarr": "fork", "zarr_fast": "fork", "lance": "forkserver"}
 def keymap(pattern: str) -> dict:
     from egomimic.rldb.embodiment.human import Human
 
-    km = Human.get_keymap(keymap_mode="keypoints", include_ee_pose=True)
+    km = Human.get_keymap(
+        keymap_mode="keypoints",
+        include_ee_pose=True,
+        image_history_gap_s=0.1 if pattern == "rdt" else None,
+    )
     if pattern == "numeric":
         return {k: v for k, v in km.items() if v.get("key_type") != "camera_keys"}
     if pattern == "frames8":
@@ -88,24 +93,32 @@ def build(args, key_map):
                 Path(args.root), key_map=key_map, transform_list=None
             ).resolve(filters=filters, expected_embodiment=args.embodiment)
     else:
+        from egomimic.rldb.embodiment.human import Human
         from egomimic.rldb.lance.dataset import (
             LanceEpisodeResolver,
             LanceStreamingResolver,
         )
 
         has_cam = any(v.get("key_type") == "camera_keys" for v in key_map.values())
+        transforms = (
+            Human.get_transform_list(mode="keypoints_headframe_6d", stride=3)
+            if args.transforms
+            else None
+        )
         cams = {"images.front_1": args.camera} if has_cam else {}
         if remote:
             r = LanceStreamingResolver(
                 args.root,
-                video_chunks={"images.front_1": f"{args.camera}_k8"} if has_cam else {},
+                video_chunks={"images.front_1": f"{args.camera}_k{args.chunk_k}"}
+                if has_cam
+                else {},
                 key_map=key_map,
-                transform_list=None,
+                transform_list=transforms,
                 cameras=cams,
             )
         else:
             r = LanceEpisodeResolver(
-                args.root, key_map=key_map, transform_list=None, cameras=cams
+                args.root, key_map=key_map, transform_list=transforms, cameras=cams
             )
         leaves = r.resolve(filters=filters, expected_embodiment=args.embodiment)
     t1 = time.time()
@@ -123,9 +136,17 @@ def main():
         "--root", required=True, help="zarr store dir / Lance root, local or s3://"
     )
     ap.add_argument(
-        "--pattern", choices=["chunk1", "numeric", "frames8"], default="chunk1"
+        "--pattern", choices=["chunk1", "numeric", "frames8", "rdt"], default="chunk1"
+    )
+    ap.add_argument(
+        "--transforms",
+        action="store_true",
+        help="Lance only: apply the training transforms (keypoints_headframe_6d)",
     )
     ap.add_argument("--camera", default="front_1_480")
+    ap.add_argument(
+        "--chunk-k", type=int, default=8, help="s3:// Lance: frames per video chunk"
+    )
     ap.add_argument(
         "--embodiment", default="human_bimanual", help="'' for every recording"
     )
@@ -194,6 +215,8 @@ def main():
             location="s3" if args.root.startswith("s3://") else "local",
             root=args.root,
             pattern=args.pattern,
+            transforms=args.transforms,
+            chunk_k=args.chunk_k,
             workers=args.workers,
             context=context,
             batch_size=args.batch_size,
