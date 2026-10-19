@@ -80,9 +80,16 @@ class DenoisingPolicy(nn.Module):
         )
         return self.inference(noise, global_cond, generator)
 
-    def forward(self, global_cond):
+    def forward(self, global_cond, generator=None):
+        """Sample actions from the conditioning.
+
+        ``generator`` is threaded down to ``sample_action`` so the eval path can
+        make sampling reproducible (see ``HPT.forward_eval``). It defaults to
+        ``None``, i.e. the global RNG, so training and every other caller are
+        unchanged.
+        """
         cond, embodiment = global_cond
-        return self.sample_action(cond, embodiment)
+        return self.sample_action(cond, embodiment, generator=generator)
 
     def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
         """
