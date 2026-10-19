@@ -68,3 +68,9 @@ paired starts and replay without any model calls. Only then launch
 task-owned shared cache during execution, including after cluster cancellation.
 The launcher records an exclusive persistent claim and never automatically
 repeats a cohort or redispatches an action.
+
+Single-task OSMO does not guarantee a DNS record for its own task host template.
+The co-located launcher pins its pod's private IPv4 address and tests a real HTTP
+round trip from the native chroot before starting DeepSeek. Astra's unscored
+camera/tool transport checks run while DeepSeek loads; the scored cell schedule
+is unchanged and starts only after both models pass their gates.

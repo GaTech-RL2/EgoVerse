@@ -1,17 +1,100 @@
 """Co-located execution preserves native isolation, credentials and trial records."""
 
 import json
+import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
 
+from experiments.threading_hardware_interface import colocated
 from experiments.threading_hardware_interface import prepare as package
 from experiments.threading_hardware_interface.colocated import (
     NATIVE_IMAGE,
     child_environments,
     mirror,
 )
+
+
+@pytest.mark.parametrize(
+    "addresses",
+    [
+        [],
+        ["127.0.0.1"],
+        ["0.0.0.0"],
+        ["8.8.8.8"],
+        ["169.254.1.2"],
+        ["224.0.0.1"],
+        ["10.1.2.3", "10.1.2.4"],
+    ],
+)
+def test_pod_address_rejects_non_private_or_ambiguous_results(monkeypatch, addresses):
+    monkeypatch.setattr(
+        colocated.socket,
+        "getaddrinfo",
+        lambda *a, **kw: [
+            (None, None, None, None, (value, 8001)) for value in addresses
+        ],
+    )
+    with pytest.raises(ValueError, match="one_private_pod_ipv4_required"):
+        colocated.local_serving_host()
+
+
+def test_pod_address_is_pinned_without_task_service_dns(monkeypatch):
+    def addresses(host, port, **kwargs):
+        assert host == "own-pod" and port == 8001
+        return [(None, None, None, None, ("10.1.2.3", port))] * 2
+
+    monkeypatch.setattr(colocated.socket, "gethostname", lambda: "own-pod")
+    monkeypatch.setattr(colocated.socket, "getaddrinfo", addresses)
+    assert colocated.local_serving_host() == "10.1.2.3"
+
+
+@pytest.mark.parametrize("passed", [True, False])
+def test_real_native_connection_gate_is_required_before_pinning_host(
+    tmp_path, monkeypatch, passed
+):
+    closed = []
+
+    class Server:
+        server_port = 12345
+
+        def __init__(self, address, handler):
+            assert address == ("10.1.2.3", 0)
+
+        def serve_forever(self):
+            pass
+
+        def shutdown(self):
+            closed.append("shutdown")
+
+        def server_close(self):
+            closed.append("close")
+
+    def run(command, **kwargs):
+        assert command[:4] == ["chroot", "/native", "/usr/local/bin/python3", "-c"]
+        assert command[5].startswith("http://10.1.2.3:12345/")
+        assert "ProxyHandler({})" in command[4]
+        assert kwargs["timeout"] == 30 and kwargs["check"]
+        if not passed:
+            raise subprocess.CalledProcessError(1, command)
+        return SimpleNamespace(stdout="native_parent_connection_passed\n")
+
+    monkeypatch.setattr(colocated, "local_serving_host", lambda: "10.1.2.3")
+    monkeypatch.setattr(colocated, "ThreadingHTTPServer", Server)
+    monkeypatch.setattr(colocated.subprocess, "run", run)
+    environment = {"HARDWARE_INFERENCE_HOST": "missing-task-service"}
+    if passed:
+        colocated.native_network_gate(Path("/native"), tmp_path, environment)
+        assert environment["HARDWARE_INFERENCE_HOST"] == "10.1.2.3"
+        assert json.loads((tmp_path / "network-gate.json").read_text())["passed"]
+    else:
+        with pytest.raises(subprocess.CalledProcessError):
+            colocated.native_network_gate(Path("/native"), tmp_path, environment)
+        assert environment["HARDWARE_INFERENCE_HOST"] == "missing-task-service"
+        assert not (tmp_path / "network-gate.json").exists()
+    assert closed == ["shutdown", "close"]
 
 
 def test_native_runtime_is_the_original_pinned_image():
@@ -112,6 +195,7 @@ def test_colocated_workflow_uses_eight_gpus_total_and_preserves_both_models(
         "commission" if native_only else "pilot"
     )
     assert "HARDWARE_MANIFEST" not in task["environment"]
+    assert "HARDWARE_INFERENCE_HOST" not in task["environment"]
     assert (
         "astra-hardware-inference-20261010" in task["credentials"]
     ) is not native_only

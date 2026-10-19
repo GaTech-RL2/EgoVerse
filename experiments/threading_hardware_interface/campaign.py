@@ -40,9 +40,15 @@ from experiments.libero_hardware_interface.tools.self_hosted_campaign import (
 )
 
 
-def transport(root, prepared, manifest):
+def transport(root, prepared, manifest, *, model_key):
     """Exercise each actual tool schema and image/history transport without motion."""
-    rows = [r for r in schedule(manifest) if r["env_seed"] == 0]
+    rows = [
+        r
+        for r in schedule(manifest)
+        if r["env_seed"] == 0 and r["model_key"] == model_key
+    ]
+    if len(rows) != 2:
+        raise ValueError("two_policy_modes_required_for_transport")
     for row in rows:
         events = Events(
             root / "transport" / row["condition"],
@@ -289,8 +295,11 @@ def main():
             },
         )
         prepared = prepare(root, manifest, manifest_path)
+        # Hosted transport does not depend on the separate GPU model startup.
+        # These probes remain unscored and do not change the frozen trial order.
+        transport(root, prepared, manifest, model_key="astra")
         wait_for_server(host, root / "serving-identity.json")
-        transport(root, prepared, manifest)
+        transport(root, prepared, manifest, model_key="deepseek")
         collect(root, manifest)
         results(root, manifest)
     except BaseException as error:

@@ -126,9 +126,9 @@ def prepare_colocated(destination, *, native_only=False):
     )
     environment = {**evaluation["environment"], **inference["environment"]}
     environment.pop("HARDWARE_MANIFEST", None)
+    environment.pop("HARDWARE_INFERENCE_HOST", None)
     environment.update(
         HARDWARE_STAGE="commission" if native_only else "pilot",
-        HARDWARE_INFERENCE_HOST="{{host:study}}",
         HARDWARE_SERVER_IMAGE=VLLM_IMAGE,
     )
     credentials = evaluation["credentials"]
@@ -181,6 +181,7 @@ def prepare_colocated(destination, *, native_only=False):
         native_runtime="Original pinned Python 3.8 image unpacked in a separate chroot",
         hosted_api_credentials=not native_only,
         hosted_key_provided_to_vllm=False,
+        serving_connection="Literal private pod IPv4, verified from native chroot before model startup",
         persistent_artifacts="Own shared cache /colocated/<workflow_id>/; five-second evaluator snapshots and live serving logs",
         manifest_sha256=file_hash(STUDY / "preregistration.yaml"),
         scope="Single-node Threading native validation only; zero model calls"

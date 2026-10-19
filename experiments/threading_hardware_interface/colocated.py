@@ -1,21 +1,115 @@
 """One allocated H100 node: pinned vLLM plus the pinned native image in chroot."""
 
 import fcntl
+import ipaddress
 import json
 import os
+import secrets
 import shutil
 import signal
+import socket
 import stat
 import subprocess
 import sys
 import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from astra_reversal.hardware_interface.common import write_json
 
 NATIVE_IMAGE = "docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307"
 SERVER_MODULE = "experiments.libero_hardware_interface.tools.self_hosted_server"
+
+
+def local_serving_host():
+    """Use this pod's literal IP; single-task OSMO service DNS may not exist."""
+    addresses = {
+        ipaddress.ip_address(result[4][0])
+        for result in socket.getaddrinfo(
+            socket.gethostname(), 8001, family=socket.AF_INET, type=socket.SOCK_STREAM
+        )
+    }
+    if len(addresses) != 1:
+        raise ValueError("one_private_pod_ipv4_required")
+    address = addresses.pop()
+    if (
+        address.version != 4
+        or not address.is_private
+        or address.is_loopback
+        or address.is_unspecified
+        or address.is_multicast
+        or address.is_link_local
+    ):
+        raise ValueError("one_private_pod_ipv4_required")
+    return str(address)
+
+
+def native_network_gate(root, artifacts, native_env):
+    """Verify the real chroot can reach its parent before loading GPU weights."""
+    host = local_serving_host()
+    token = secrets.token_hex(16)
+
+    class Probe(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def do_GET(self):
+            if self.path != "/" + token:
+                self.send_error(404)
+                return
+            raw = json.dumps({"probe": token}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+    server = ThreadingHTTPServer((host, 0), Probe)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = "http://%s:%d/%s" % (host, server.server_port, token)
+    code = (
+        "import json,sys,urllib.request; "
+        "opener=urllib.request.build_opener(urllib.request.ProxyHandler({})); "
+        "response=opener.open(sys.argv[1],timeout=10); "
+        "assert json.load(response)=={'probe':sys.argv[2]}; "
+        "print('native_parent_connection_passed')"
+    )
+    try:
+        result = subprocess.run(
+            [
+                "chroot",
+                str(root),
+                "/usr/local/bin/python3",
+                "-c",
+                code,
+                url,
+                token,
+            ],
+            env=native_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
+        )
+        if result.stdout.strip() != "native_parent_connection_passed":
+            raise RuntimeError("native_parent_connection_failed")
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+    write_json(
+        artifacts / "network-gate.json",
+        {
+            "passed": True,
+            "host": host,
+            "literal_private_pod_ipv4": True,
+            "native_chroot_roundtrip": True,
+            "scored_result": False,
+        },
+    )
+    native_env["HARDWARE_INFERENCE_HOST"] = host
+    print(json.dumps({"native_network_passed": True, "host": host}), flush=True)
 
 
 def child_environments(base, artifacts):
@@ -179,6 +273,7 @@ def main():
         subprocess.run(["nvidia-smi"], check=True, stdout=stream)
     native_root = rootfs(cache, artifacts)
     server_env, native_env = child_environments(os.environ, artifacts)
+    native_network_gate(native_root, artifacts, native_env)
     stop = threading.Event()
     snapshot_lock = threading.RLock()
     seen = {}
