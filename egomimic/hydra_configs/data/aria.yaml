@@ -1,3 +1,6 @@
+# One pinned aria episode (stored as human_bimanual) on the 144-D wrist-frame
+# hand-keypoint action; see data/human.yaml for the layout and the cartesian
+# override.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -8,10 +11,12 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: keypoints
+        include_ee_pose: true
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_6d
+        mode: keypoints_wristframe_6d
+        include_ee_pose: true
         # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
         # State: prompt bins align with the robot 20-D layout on every config.
         pad_proprio_gripper: true

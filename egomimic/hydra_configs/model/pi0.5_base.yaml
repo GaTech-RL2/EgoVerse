@@ -7,6 +7,11 @@ robomimic_model:
     pytorch_weight_path: ${oc.env:EGOVERSE_PI05_WEIGHTS,/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch}
     model:
       pi05: true
+      # Width of the model's action vector. 32 is openpi's pretrained width
+      # (the cartesian block layout fits in it). Configs with a human domain
+      # raise it to 144 for the wrist-first hand-keypoint action; PI then
+      # re-initializes only openpi's two action projections at that width
+      # and zero-pads narrower embodiments (eva's 20-D) into the same vector.
       action_dim: 32
       action_horizon: 100
       max_token_len: 180

@@ -227,6 +227,49 @@ def bimanual_cartesian_layout(width: int) -> dict | None:
     return BIMANUAL_CARTESIAN_LAYOUTS.get(int(width))
 
 
+# Wrist-first bimanual hand-keypoint layouts, per hand
+#   [wrist xyz (3) | wrist rot (3 ypr or 6 rot6d) | 21 MANO keypoints (63)]
+# x {left, right}. ``wrist_xyz`` / ``rot`` index the wrist pose channels,
+# ``keypoints`` the flattened (21, 3) keypoint block of each hand.
+def _keypoint_layout(rot_width: int) -> dict:
+    per_hand = 3 + rot_width + 63
+    wrist_xyz, rot, kp = [], [], []
+    for hand in range(2):
+        o = hand * per_hand
+        wrist_xyz += list(range(o, o + 3))
+        rot += list(range(o + 3, o + 3 + rot_width))
+        kp += list(range(o + 3 + rot_width, o + per_hand))
+    return {
+        "wrist_xyz": tuple(wrist_xyz),
+        "rot": tuple(rot),
+        "keypoints": tuple(kp),
+        "per_hand": per_hand,
+    }
+
+
+BIMANUAL_KEYPOINT_LAYOUTS = {
+    138: _keypoint_layout(3),  # ypr wrist rotation
+    144: _keypoint_layout(6),  # rot6d wrist rotation (the default)
+}
+
+
+def bimanual_keypoint_layout(width: int) -> dict | None:
+    """Index layout for a wrist-first bimanual keypoint action/proprio vector.
+
+    Returns a dict with ``wrist_xyz`` / ``rot`` / ``keypoints`` index tuples
+    and the per-hand block width, or ``None`` for an unrecognized width
+    (138 = ypr wrist, 144 = rot6d wrist).
+
+    MANO keypoint 0 IS the wrist, so per hand the wrist position appears twice:
+    once as ``wrist_xyz`` and once as the first keypoint. Deliberate -- 21
+    keypoints is the MANO interface every consumer reshapes to -- and it is a
+    duplicate, not a constant: the only place it degenerates is the wrist-frame
+    PROPRIO, where kp0 sits at its own frame origin and normalization treats it
+    as a constant channel (NORM_MIN_RANGE).
+    """
+    return BIMANUAL_KEYPOINT_LAYOUTS.get(int(width))
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
@@ -327,10 +370,25 @@ def _split_action_pose(actions):
     return left_xyz, left_ypr, right_xyz, right_ypr
 
 
-def _split_keypoints(keypoints, wrist_in_data: bool = False, is_quat: bool = True):
+def _split_keypoints(
+    keypoints,
+    wrist_in_data: bool = False,
+    is_quat: bool = True,
+    is_rot6d: bool = False,
+):
+    """Split a bimanual keypoint vector into its per-hand blocks.
+
+    With ``wrist_in_data`` the layout is wrist-first per hand,
+    ``[wrist xyz | wrist rot | 21 keypoints]`` x 2, where the rotation block is
+    a quaternion (4, ``is_quat``), rot6d columns (6, ``is_rot6d``) or ypr (3);
+    returns the six blocks in order. Without it the vector is just
+    ``[left keypoints (63) | right keypoints (63)]`` and two blocks are returned.
+    """
     if wrist_in_data:
         xyz_size = 3
-        if is_quat:
+        if is_rot6d:
+            angle_size = 6
+        elif is_quat:
             angle_size = 4
         else:
             angle_size = 3
