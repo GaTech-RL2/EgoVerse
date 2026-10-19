@@ -16,7 +16,7 @@ from .isolation import Scratch
 from .libero import Environment, asset_manifest, configure
 from .preflight import probe, source_hash
 from .protocol import load_manifest, save_schedule, schedule, validate
-from .provider import HTTP
+from .provider import model_http
 from .proxy import NATIVE_KEYS, Proxy
 from .reporting import export, power_worksheet
 from .runner import run_trial
@@ -189,10 +189,13 @@ def run(args, manifest, *, smoke=False):
         ):
             raise ValueError("schedule_changed")
     # Auth data stays in the parent model transport, never in jail/process args.
-    post = HTTP(manifest["model"]["base_url"])
+    post = model_http(manifest["model"])
     reset_groups = {}
     results = []
     for row in selected:
+        stop_file = os.environ.get("HARDWARE_STOP_AFTER_TRIAL_FILE")
+        if stop_file and Path(stop_file).exists():
+            break
         suite = manifest["smoke"]["suite"] if smoke else manifest["suite"]
         block = (row["task_id"], row["init_state_index"])
         if block not in reset_groups:

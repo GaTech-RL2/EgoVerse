@@ -1,0 +1,217 @@
+protocol_version: 2-implementation-3-transport-recovery
+study_date_utc: '2026-10-18T00:00:00+00:00'
+scope: Unscored four-arm native, transport and execution/replay commissioning; separate
+  cohorts are frozen in their own manifests
+libero_url: https://github.com/Lifelong-Robot-Learning/LIBERO
+libero_commit: f78abd68ee283de9f9be3c8f7e2a9ad60246e95c
+robosuite_version: 1.4.1
+python_version: 3.8.13
+container_digest: docker.io/library/python@sha256:2c5a13f5b99b8c50187668f0c27157c43fef5b3615036a396fd7ee7d76c73307
+model:
+  provider: responses
+  identifier: deepseek-ai/DeepSeek-V4.1-Flash-1017
+  serving_provider: osmo-vllm
+  snapshot_pinned: true
+  reasoning_effort: high
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    seed: 42
+  retries: 3
+  request_logging: input_hashes
+  base_url: http://127.0.0.1:18080/v1
+  input_reservation:
+    mode: usage_only
+  context_truncation: disabled
+  responses_dialect: deepseek-v4.1-vllm
+  repeat_task_instruction: true
+  numeric_reasoning_effort: 75
+observer_model: deepseek-ai/DeepSeek-V4.1-Flash-1017
+observer_stateless_per_request: true
+conditions:
+- F
+- B0
+- B
+- F_adaptive
+primary_contrast:
+- F_adaptive
+- F
+secondary_contrast: null
+suite: libero_10
+task_ids:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+pilot_indices:
+- 0
+- 1
+- 2
+- 3
+- 4
+confirmatory_indices:
+- 5
+- 6
+- 7
+- 8
+- 9
+- 10
+- 11
+- 12
+- 13
+- 14
+replicates: 1
+environment_seed: 137
+randomization_seed: 20261008
+smoke:
+  suite: libero_spatial
+  task_id: 0
+  init_state_index: 0
+limits:
+  steps: 1000
+  wall_seconds: null
+  workflow_tokens: null
+  tool_calls: null
+  max_repeat: 10
+  observer_calls: null
+  actor_output_tokens: null
+  observer_output_tokens: null
+  context_tokens: null
+  response_seconds: 180
+settling_steps: 10
+image_size: 128
+evaluate_success_after_each_step: true
+simulator_pauses_during_model_calls: true
+official_success_predicate: ControlEnv.check_success -> env._check_success
+safety:
+  attempted_violation: finite command outside native controller input bounds
+  applied_violation: command applied despite a validation rejection
+  normal_grasp_contact_is_violation: false
+  extra_workspace_limits: null
+  physical_safety_claim: false
+scratch:
+  wall_seconds: 15
+  cpu_seconds: 2
+  memory_bytes: 268435456
+  isolation: Linux chroot, dropped uid/gid, no_new_privs, seccomp
+infrastructure_exclusions:
+- reset_failure_before_actor_start
+- evaluator_failure
+- provider_outage_before_any_agent_action
+power:
+  status: pending_deepseek_replication_pilot
+  target_risk_difference: 0.15
+  alpha: 0.05
+  power: 0.8
+  confirmation_frozen: false
+analysis:
+  bootstrap_samples: 10000
+  bootstrap_seed: 20261008
+  success_improvement: positive paired task-macro difference and 95% CI excludes zero
+  noninferiority_margin: 0.05
+  efficiency_improvement_fraction: 0.1
+  confirmatory_contrasts:
+  - F_adaptive_minus_F
+resolved: null
+readiness: null
+amendment:
+  date: '2026-10-19'
+  authority: User requested self-inference on L40/H100 and then instructed continue
+  pool_with_prior_cohort: false
+  usage_policy: Record tokens, calls and elapsed time without experiment resource
+    budgets.
+  recovery: Keep three transient transport retries, no action redispatch or trial
+    restart; unresolved infrastructure failures stop collection.
+  archive_policy: Archive each completed trial and independent replay; retain the
+    original and adaptive cohorts separately.
+interface_evolution:
+  version: 1
+  condition: F_adaptive
+  reset_each_trial: true
+  cross_trial_transfer: false
+  additional_information: robot_proprioception_and_camera_calibration
+  modifications: sandboxed_python_tools_and_interface_notes
+  calibration_steps: count_in_episode
+contrasts:
+- - F_adaptive
+  - F
+- - F
+  - B0
+- - F
+  - B
+extension:
+  authority: User requested the same F-adaptive study with DeepSeek
+  pool_with_prior_cohort: false
+  interpretation: Combined interface evolution and optional additional hardware information;
+    not a same-information ablation
+model_replication:
+  requested_model: deepseek-ai/DeepSeek-V4.1-Flash-1017
+  requested_hf_revision: 1bae0e1088993b9b82de08f59de5be5a34e42170
+  reference_source_commit: 9c2278d2b9e52434ff06950b6b2a5b94071a971c
+  pool_with_astra: false
+  checkpoint_identity: Hugging Face download pinned to requested_hf_revision; server
+    receipt verifies revision, index, shard sizes and image identity before actors
+    start.
+  identity_source: https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170
+  transport_source: https://github.com/vllm-project/recipes/blob/main/models/deepseek-ai/DeepSeek-V4.1-Flash.yaml
+  thinking_source: https://api-docs.deepseek.com/guides/thinking_mode/
+  transport_amendments:
+  - Keep plain-text reasoning output verbatim in subsequent input; omit unsupported
+    encrypted reasoning, store and truncation fields.
+  - Native API always enables parallel tool calls. Add exactly-one-tool-call instruction
+    in all actor arms, preserve strict one-call execution validation; smoke must pass
+    before trials.
+  - Keep full context; native API does not support automatic truncation. Context/vision
+    limits are infrastructure failures, never silent history dropping.
+  - 'Use explicit high reasoning: DeepSeek maps medium/high/xhigh to high. Reasoning
+    compute is not matched to Astra medium.'
+  - Keep current task in instructions, matching Astra's automatic-truncation prompt.
+    Observer remains stateless and uses the same DeepSeek model.
+  - Self-hosted vLLM 0.31.0 Responses API through a credential-free loopback relay
+    inside one private OSMO group. Hosted API credentials are not read or forwarded.
+  - Numeric reasoning effort 75 matches the official API high mapping documented in
+    the vLLM recipe; preserve prior reasoning explicitly (drop_thinking=false). Sampling
+    is temperature=1, top_p=1, seed=42 in all arms.
+  - One TP8 H100 server with Engram CPU offload, DSpark speculative decoding, 1M context
+    and 4096 batched tokens. Serving configuration is identical in all arms.
+  - All evaluator workers share one separately allocated H100 for EGL rendering; server
+    receives its own eight H100s. Model serving and simulator rendering are separate
+    tasks.
+  historical_comparison: Astra is a historical reference only. Different providers,
+    dates, reasoning levels and load preclude a controlled cross-model wall-clock
+    speed claim.
+  self_hosted: true
+  serving_image: docker.io/vllm/vllm-openai@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3
+speed_analysis:
+  version: 1
+  primary: Verified success by elapsed actor-to-first-success wall time, with all
+    assigned trials as denominator; missing trials shown separately.
+  secondary:
+  - Verified success by native control steps
+  - Matched-pair time difference and ratio on jointly successful starts, conditional
+    and descriptive
+  - Provider round trips, client admission/backoff, simulator/evaluator and residual
+    local time
+  - Actor/observer tokens, calls and total-output-token throughput per provider round-trip
+    second
+  report_times_seconds:
+  - 60
+  - 300
+  - 600
+  - 1200
+  - 1800
+  - 3600
+  - 7200
+  - 14400
+  - 28800
+  report_times_are_limits: false
+  server_queue_and_decode_separable: false
+  server_metrics: Archive vLLM Prometheus snapshots. Per-request round trips remain
+    the measured actor latency; aggregate server metrics cannot be subtracted from
+    individual concurrent requests.

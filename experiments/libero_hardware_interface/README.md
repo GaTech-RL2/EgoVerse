@@ -392,3 +392,28 @@ Astra's existing results may be shown as a historical reference, with terminal
 wall-time fallbacks labeled. Different providers, dates, reasoning settings and
 load prevent a controlled cross-model wall-clock speed claim. The primary
 comparison is between interfaces within the new DeepSeek cohort.
+
+The self-hosted companion uses `preregistration-deepseek-selfhost*.yaml` and
+`python -m experiments.libero_hardware_interface.tools.prepare_self_hosted DEST`.
+It prepares one private OSMO group on `groot-h100-02`: eight H100s for a vLLM
+0.31.0 TP8 server and a separately allocated H100 for eight evaluator processes.
+The checkpoint revision and serving image digest are pinned. Engram tables use
+CPU offload; DSpark is enabled in every arm. Weights and compilation caches live
+in a new experiment directory on the cluster's shared filesystem.
+
+The evaluator uses a credential-free loopback relay to its group's server. It
+verifies serving identity, then runs native commissioning, four-arm image/tool
+transport and 20-step live/replay checks before launching the separate 150- and
+100-trial cohorts. Each trial is independently replayed and archived. A worker
+failure lets peers finish their current trial, then stops them before the next
+trial; it never automatically reruns a trial. Server logs, checkpoint metadata
+and aggregate Prometheus snapshots are archived with the evaluator. The server
+exits when collection or commissioning ends.
+
+Requests explicitly use numeric reasoning effort 75, preserving API-high's
+documented effort mapping. vLLM's top-level effort string overrides the numeric
+template setting, so the adapter omits that string, retains reasoning in the
+conversation, disables response storage and context truncation, and requests one
+tool call at a time. All arms share temperature 1, top-p 1 and seed 42. These
+settings are a separate documented serving protocol, not a claim of matched
+compute with the historical Astra endpoint.

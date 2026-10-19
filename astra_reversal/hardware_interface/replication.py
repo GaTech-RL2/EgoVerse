@@ -4,6 +4,7 @@ import copy
 
 DEEPSEEK_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017"
 DEEPSEEK_REVISION = "1bae0e1088993b9b82de08f59de5be5a34e42170"
+VLLM_IMAGE = "docker.io/vllm/vllm-openai@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3"
 ASTRA_MODELS = ("gpt-6-astra", "openai/openai/gpt-6-astra", "azure/openai/gpt-6-astra")
 
 
@@ -30,6 +31,18 @@ def validate_model(manifest):
         "repeat_task_instruction": True,
         "sampling": {},
     }
+    if replication.get("self_hosted") is True:
+        required.update(
+            identifier=DEEPSEEK_MODEL,
+            base_url="http://127.0.0.1:18080/v1",
+            serving_provider="osmo-vllm",
+            responses_dialect="deepseek-v4.1-vllm",
+            snapshot_pinned=True,
+            numeric_reasoning_effort=75,
+            sampling={"temperature": 1.0, "top_p": 1.0, "seed": 42},
+        )
+        if replication.get("serving_image") != VLLM_IMAGE:
+            raise ValueError("unrecognized_serving_image")
     if (
         replication.get("requested_model") != DEEPSEEK_MODEL
         or replication.get("requested_hf_revision") != DEEPSEEK_REVISION
@@ -107,5 +120,44 @@ def deepseek_design(manifest):
     result["power"]["status"] = "pending_deepseek_replication_pilot"
     result["power"]["confirmation_frozen"] = False
     result["resolved"] = result["readiness"] = None
+    validate_model(result)
+    return result
+
+
+def self_hosted_design(manifest):
+    """Pin the exact weights and local serving protocol in a separate cohort."""
+    result = deepseek_design(manifest)
+    result["model"].update(
+        identifier=DEEPSEEK_MODEL,
+        base_url="http://127.0.0.1:18080/v1",
+        serving_provider="osmo-vllm",
+        responses_dialect="deepseek-v4.1-vllm",
+        snapshot_pinned=True,
+        numeric_reasoning_effort=75,
+        sampling={"temperature": 1.0, "top_p": 1.0, "seed": 42},
+    )
+    result["observer_model"] = DEEPSEEK_MODEL
+    result["model_replication"].update(
+        self_hosted=True,
+        serving_image=VLLM_IMAGE,
+        checkpoint_identity="Hugging Face download pinned to requested_hf_revision; server receipt verifies revision, index, shard sizes and image identity before actors start.",
+        identity_source="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170",
+        transport_source="https://github.com/vllm-project/recipes/blob/main/models/deepseek-ai/DeepSeek-V4.1-Flash.yaml",
+    )
+    result["model_replication"]["transport_amendments"].extend(
+        [
+            "Self-hosted vLLM 0.31.0 Responses API through a credential-free loopback relay inside one private OSMO group. Hosted API credentials are not read or forwarded.",
+            "Numeric reasoning effort 75 matches the official API high mapping documented in the vLLM recipe; preserve prior reasoning explicitly (drop_thinking=false). Sampling is temperature=1, top_p=1, seed=42 in all arms.",
+            "One TP8 H100 server with Engram CPU offload, DSpark speculative decoding, 1M context and 4096 batched tokens. Serving configuration is identical in all arms.",
+            "All evaluator workers share one separately allocated H100 for EGL rendering; server receives its own eight H100s. Model serving and simulator rendering are separate tasks.",
+        ]
+    )
+    result["amendment"]["date"] = "2026-10-19"
+    result["amendment"]["authority"] = (
+        "User requested self-inference on L40/H100 and then instructed continue"
+    )
+    result["speed_analysis"]["server_metrics"] = (
+        "Archive vLLM Prometheus snapshots. Per-request round trips remain the measured actor latency; aggregate server metrics cannot be subtracted from individual concurrent requests."
+    )
     validate_model(result)
     return result

@@ -107,13 +107,13 @@ class HTTP:
         self.opener = urllib.request.build_opener(NoRedirect)
 
     def __call__(self, path, body, timeout):
+        headers = {"Content-Type": "application/json"}
+        if self.key:
+            headers["Authorization"] = "Bearer " + self.key
         request = urllib.request.Request(
             self.base_url + "/" + path,
             data=encoded(body),
-            headers={
-                "Authorization": "Bearer " + self.key,
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
         try:
             with self.opener.open(request, timeout=timeout) as response:
@@ -130,6 +130,22 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+class LoopbackHTTP(HTTP):
+    """Credential-free local relay to the server in this OSMO workflow group."""
+
+    def __init__(self, base_url):
+        if base_url != "http://127.0.0.1:18080/v1":
+            raise ValueError("self_hosted_loopback_endpoint_required")
+        self.base_url, self.key = base_url, None
+        self.opener = urllib.request.build_opener(NoRedirect)
+
+
+def model_http(model):
+    if model.get("serving_provider") == "osmo-vllm":
+        return LoopbackHTTP(model["base_url"])
+    return HTTP(model["base_url"])
 
 
 def observation_content(value):
@@ -175,7 +191,7 @@ class Session:
             events,
             role,
         )
-        self.post = post or HTTP(model["base_url"])
+        self.post = post or model_http(model)
         self.history = []
 
     def _post(self, path, body, timeout):
@@ -225,7 +241,10 @@ class Session:
             body["text"] = {"format": text_format, "verbosity": "low"}
         if tools:
             body["tool_choice"] = "required"
-        if self.model.get("responses_dialect") == "deepseek-v4.1":
+        if self.model.get("responses_dialect") in (
+            "deepseek-v4.1",
+            "deepseek-v4.1-vllm",
+        ):
             # DeepSeek retains plain reasoning items in `output`; history below
             # replays them verbatim. These OpenAI-only options are unsupported.
             for key in ("store", "truncation", "include", "parallel_tool_calls"):
@@ -236,6 +255,20 @@ class Session:
                 # DeepSeek always enables parallel calls at the API level. Keep
                 # the one-call execution contract and fail closed on violations.
                 body["instructions"] += "\nIssue exactly one tool call per response."
+            if self.model.get("responses_dialect") == "deepseek-v4.1-vllm":
+                # vLLM 0.31's Responses adapter lets a top-level effort string
+                # override the numeric chat-template value. Send only the
+                # explicit numeric value so API-high parity really stays 75.
+                body.pop("reasoning")
+                body.update(
+                    store=False, truncation="disabled", parallel_tool_calls=False
+                )
+                body["chat_template_kwargs"] = {
+                    "thinking": True,
+                    "reasoning_effort": self.model["numeric_reasoning_effort"],
+                    "drop_thinking": False,
+                }
+                body.update(self.model["sampling"])
         count_body = {
             k: body[k]
             for k in (

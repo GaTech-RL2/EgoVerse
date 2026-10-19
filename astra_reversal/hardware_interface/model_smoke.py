@@ -3,7 +3,7 @@
 import base64
 
 from .common import Events, strict_json, write_json
-from .provider import HTTP, Meter, Observer, Session
+from .provider import Meter, Observer, Session, model_http
 from .proxy import Limits
 from .runner import tools_for
 
@@ -12,7 +12,7 @@ def transport_smoke(manifest, prepared, destination):
     limits = Limits(**manifest["limits"])
     events = Events(destination, {"kind": "model_transport_commissioning"})
     meter = Meter(limits.workflow_tokens)
-    post = HTTP(manifest["model"]["base_url"])
+    post = model_http(manifest["model"])
     actor = Session(manifest["model"], limits, meter, events, post=post)
     cameras = {}
     for label in ("front", "wrist"):
