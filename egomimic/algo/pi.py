@@ -16,6 +16,8 @@ from overrides import override
 from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
+from egomimic.models import openpi_compat
+from egomimic.models.paligemma_init import load_paligemma_weights, select_init_source
 from egomimic.models.preprocess_pi_obs import (
     PI_CAMERA_SLOTS,
     _concat_proprio,
@@ -33,6 +35,10 @@ logger = logging.getLogger(__name__)
 # Child loggers inherit from parent, but we explicitly set level to ensure INFO messages appear
 logger.setLevel(logging.INFO)
 logger.propagate = True  # Explicitly enable propagation (default, but ensures it works)
+
+# openpi targets transformers 4.53 (this repo's pin); these shims let it run on a
+# 5.x venv too. See egomimic/models/openpi_compat.py.
+openpi_compat.apply()
 
 
 class PI(Algo):
@@ -173,7 +179,20 @@ class PI(Algo):
 
         self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
 
-        if self.config.pytorch_weight_path is not None:
+        # Three mutually exclusive starting points, in decreasing order of what
+        # is pretrained: the full pi0.5 base checkpoint, PaliGemma only (the
+        # action expert and the action/time projections stay at their init), or
+        # nothing at all.
+        paligemma_weight_path = getattr(self.config, "paligemma_weight_path", None)
+        init_source = select_init_source(
+            self.config.pytorch_weight_path, paligemma_weight_path
+        )
+        target = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        if init_source == "pi05_base":
             model_path = os.path.join(
                 self.config.pytorch_weight_path, "model.safetensors"
             )
@@ -181,21 +200,23 @@ class PI(Algo):
                 raise FileNotFoundError(
                     f"Pretrained weight file not found: {model_path}"
                 )
-            target = (
-                self.model.module
-                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                else self.model
-            )
             safetensors.torch.load_model(target, model_path)
             logger.info(
                 "Loaded pretrained weights from %s (%d parameters)",
                 model_path,
                 sum(p.numel() for p in target.parameters()),
             )
+        elif init_source == "paligemma":
+            load_paligemma_weights(
+                target,
+                paligemma_weight_path,
+                allow_mirror=getattr(self.config, "paligemma_allow_mirror", False),
+            )
         else:
             logger.warning(
-                "No pytorch_weight_path: no base weights loaded. The weights must "
-                "come from a checkpoint; otherwise this trains from scratch."
+                "Neither pytorch_weight_path nor paligemma_weight_path is set: no "
+                "base weights loaded. The weights must come from a checkpoint; "
+                "otherwise this trains from scratch, VLM included."
             )
         # openpi's PyTorch port hard-codes 32-wide action projections
         # regardless of ``Pi0Config.action_dim``. Wider action spaces (the
