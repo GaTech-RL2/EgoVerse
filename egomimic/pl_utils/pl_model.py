@@ -7,6 +7,7 @@ import hydra
 import numpy as np
 import torch
 from lightning import LightningModule
+from lightning.fabric.utilities.seed import _collect_rng_states, _set_rng_states
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
@@ -79,7 +80,7 @@ class ModelWrapper(LightningModule):
         self.evaluator = evaluator
         # Optional second evaluator that runs against a train-sampled
         # dataloader during the same validation pass (dataloader_idx=1).
-        # See egomimic/eval/eval_train_viz.py.
+        # trainHydra builds it as instantiate(cfg.evaluator, prefix="train_viz").
         self.train_viz_evaluator = None
         # Optional third evaluator for the unseen_op_valid loader (held-out
         # operators in the opsplit data configs).
@@ -105,8 +106,13 @@ class ModelWrapper(LightningModule):
         )
 
     def _maybe_compile(self, config_tree) -> None:
-        """Hand the algo's hot submodules to ``torch.compile`` when
+        """``nn.Module.compile`` the algo's ``compile_targets()`` when
         ``model.compile.enabled`` is set.
+
+        ``Module.compile``, not ``torch.compile(module)``: it swaps the call in
+        place, so ``state_dict`` keys keep no ``_orig_mod.`` prefix and older
+        checkpoints still load. It only routes ``__call__``, hence the algo
+        names the modules that are actually called.
 
         Here, not in the algo's ``__init__``: this runs on every DDP rank right
         after the rank builds its own copy on CPU and before Lightning wraps it,
@@ -117,15 +123,13 @@ class ModelWrapper(LightningModule):
         opts = cfg.model.get("compile")
         if not opts or not opts.get("enabled", False):
             return
-        compiled = self.model.compile_for_training(
-            mode=opts.get("mode"), dynamic=bool(opts.get("dynamic", False))
-        )
-        if not compiled:
-            print(
-                f"[compile] model.compile.enabled is set but "
-                f"{type(self.model).__name__} compiled nothing",
-                flush=True,
-            )
+        kwargs = {"dynamic": bool(opts.get("dynamic", False))}
+        if opts.get("mode"):
+            kwargs["mode"] = opts.get("mode")
+        targets = self.model.compile_targets()
+        for module in targets:
+            module.compile(**kwargs)
+        print(f"[compile] {kwargs}: {len(targets)} module(s)", flush=True)
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
@@ -236,13 +240,15 @@ class ModelWrapper(LightningModule):
         }
 
     def on_validation_start(self):
-        # Deterministic eval: rewind the algo's per-pass RNG counter so this
-        # pass replays the same prompts and sampling noise as any other pass
-        # over the same batches (egomimic/algo/hpt.py). Algos without the hook
-        # (e.g. PI) are unaffected.
-        reset_eval_rng = getattr(self.model, "reset_eval_pass_counter", None)
-        if callable(reset_eval_rng):
-            reset_eval_rng()
+        # Deterministic eval: every pass starts from the same per-rank seed, so
+        # two passes over the same batches draw the same prompts, sampling noise
+        # and val-loss noise. The training RNG state is put back in
+        # on_validation_end, so validating does not shift training's stream.
+        self._train_rng_states = _collect_rng_states()
+        seed = self.global_rank
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
 
         heads = [h for h in self._val_heads().values() if h is not None]
         if not heads:
@@ -310,6 +316,7 @@ class ModelWrapper(LightningModule):
         for head in self._val_heads().values():
             if head is not None:
                 head.on_validation_end()
+        _set_rng_states(self._train_rng_states)
 
         print(
             f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",

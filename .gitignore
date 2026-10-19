@@ -65,5 +65,5 @@ build/
 dist/
 docs/
 
-# per-worktree venv for the Pi benchmarks (the shared emimic/ venv is off-pin)
+# old per-worktree venv of the removed Pi benchmarks; kept so leftover dirs stay untracked
 .venv-pi/

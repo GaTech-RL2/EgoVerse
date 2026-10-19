@@ -1,9 +1,11 @@
 """BatchedColorJitter must match torchvision's per-image adjustments, keep
-per-sample randomness, and hand anything it cannot batch back to the loop."""
+per-sample randomness, and refuse anything it cannot batch; HPT applies the
+per-sample augs in train mode and the batched eval augs otherwise."""
 
 import pytest
 import torch
 import torchvision.transforms.functional as F
+from torch import nn
 from torchvision import transforms as T
 
 from egomimic.models.image_augs import BatchedColorJitter, PerSampleAugs
@@ -48,20 +50,17 @@ def test_vectorizes_the_shipped_aug_list():
             ]
         )
     )
-    assert augs.vectorized is not None
     assert isinstance(augs.vectorized[0], BatchedColorJitter)
 
 
-def test_falls_back_for_unbatchable_transforms(images):
-    augs = PerSampleAugs(T.Compose([T.RandomHorizontalFlip(), IMAGENET]))
-    assert augs.vectorized is None
-    assert augs(images).shape == images.shape
+def test_rejects_unbatchable_transforms():
+    with pytest.raises(ValueError, match="RandomHorizontalFlip"):
+        PerSampleAugs(T.Compose([T.RandomHorizontalFlip(), IMAGENET]))
 
 
 def test_deterministic_aug_list_is_unchanged(images):
     """Eval augs have no random member, so the batched path must be exact."""
     augs = PerSampleAugs(T.Compose([IMAGENET]))
-    assert augs.vectorized is not None
     assert torch.allclose(augs(images), IMAGENET(images), atol=1e-6)
 
 
@@ -107,3 +106,58 @@ def test_absent_camera_stays_zero_per_sample():
     assert torch.equal(out[1], torch.zeros_like(out[1]))
     assert not torch.equal(out[0], images[0]), "present samples are augmented"
     assert torch.equal(HPT._apply_image_augs(stub, images, "not_an_encoder"), images)
+
+
+def _hpt_stub(train_image_augs=None, eval_image_augs=None, training=True):
+    """A bare HPT carrying only what ``_apply_image_augs`` reads; constructing
+    a real HPT would build the trunk and stems."""
+    from egomimic.algo.hpt import HPT
+
+    algo = HPT.__new__(HPT)
+    algo.nets = nn.ModuleDict()
+    algo.nets.train(training)
+    algo.encoders = {"front_img_1": {}}
+    algo.train_image_augs = (
+        PerSampleAugs(train_image_augs) if train_image_augs is not None else None
+    )
+    algo.eval_image_augs = eval_image_augs
+    return algo
+
+
+def test_apply_image_augs_is_per_sample_in_train_mode():
+    torch.manual_seed(0)
+    algo = _hpt_stub(train_image_augs=T.ColorJitter(brightness=0.5), training=True)
+    out = algo._apply_image_augs(torch.full((64, 3, 16, 16), 0.5), "front_img_1")
+    assert out.flatten(1).mean(dim=1).std().item() > 0.01
+
+
+def test_apply_image_augs_eval_mode_equals_batched_normalize(images):
+    eval_augs = T.Compose([IMAGENET])
+    algo = _hpt_stub(
+        train_image_augs=T.ColorJitter(brightness=0.5),
+        eval_image_augs=eval_augs,
+        training=False,
+    )
+    torch.testing.assert_close(
+        algo._apply_image_augs(images, "front_img_1"), eval_augs(images), rtol=0, atol=0
+    )
+    # a camera with no encoder passes through untouched
+    assert torch.equal(algo._apply_image_augs(images, "wrist_img_1"), images)
+
+
+def test_per_sample_augs_preserves_shape_dtype_device_and_grad():
+    images = torch.rand(4, 3, 16, 16, dtype=torch.float32, requires_grad=True)
+    out = PerSampleAugs(T.Compose([IMAGENET]))(images)
+
+    assert out.shape == images.shape
+    assert out.dtype == images.dtype
+    assert out.device == images.device
+    out.sum().backward()
+    assert images.grad is not None and torch.isfinite(images.grad).all()
+
+
+def test_missing_train_augs_pass_through():
+    """__init__ allows train_image_augs=None; the helper must not call it."""
+    algo = _hpt_stub(train_image_augs=None, eval_image_augs=None, training=True)
+    images = torch.rand(2, 3, 8, 8)
+    assert algo._apply_image_augs(images, "front_img_1") is images

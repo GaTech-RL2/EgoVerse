@@ -162,117 +162,83 @@ def _rot6d_to_ypr(six: np.ndarray) -> np.ndarray:
     returns:
         (..., 3) array of [yaw, pitch, roll] (radians, ZYX convention).
 
-    Reconstructs a proper rotation via Gram-Schmidt (mirroring
-    ``_reconstruct_R_from_cols`` in ``action_utils``) before extracting euler
+    Reconstructs a proper rotation via Gram-Schmidt
+    (``action_utils._reconstruct_R_from_cols``) before extracting euler
     angles, so a non-orthonormal model prediction still yields a valid pose
     and ``_rot6d_to_ypr(_ypr_to_rot6d(ypr)) == ypr``.
     """
+    # Lazy: the dataset browser imports this module in a torch-free viz venv.
+    import torch
+
+    from egomimic.utils.action_utils import _reconstruct_R_from_cols
+
     six = np.asarray(six)
     if six.shape[-1] != 6:
         raise ValueError(f"Expected (..., 6) rot6d, got shape {six.shape}")
     dtype = six.dtype if np.issubdtype(six.dtype, np.floating) else np.float64
     shape = six.shape[:-1]
-    flat = six.reshape(-1, 6).astype(np.float64)
-    c1 = flat[:, 0:3]
-    c2 = flat[:, 3:6]
-    eps = 1e-8
-    c1n = c1 / np.clip(np.linalg.norm(c1, axis=-1, keepdims=True), eps, None)
-    proj = np.sum(c2 * c1n, axis=-1, keepdims=True) * c1n
-    c2o = c2 - proj
-    c2n = c2o / np.clip(np.linalg.norm(c2o, axis=-1, keepdims=True), eps, None)
-    c3n = np.cross(c1n, c2n)
-    mats = np.stack([c1n, c2n, c3n], axis=-1)  # columns
+    flat = torch.from_numpy(six.reshape(-1, 6).astype(np.float64))
+    mats = _reconstruct_R_from_cols(flat[:, 0:3], flat[:, 3:6]).numpy()
     ypr = R.from_matrix(mats).as_euler("ZYX", degrees=False)
     return ypr.reshape(*shape, 3).astype(dtype, copy=False)
 
 
-# [left arm | right arm]; per-arm blocks are one of:
-#   ypr: xyz(3) + ypr(3)            [+ gripper(1)]
-#   6d:  xyz(3) + col0(3) + col1(3) [+ gripper(1)]
-# Mapping width -> {xyz, rot, grip} channel indices. xyz/grip are bounded,
-# linearly-interpolated channels; the rot channels are either Euler (wrap at
-# +-pi) or continuous 6D columns (bounded in ~[-1, 1]), so quantile bounds on
-# them are meaningless. The norm-stat bounds check and the eval metrics both
-# consume this to know which channel is which.
+def _bimanual_layout(rot: int, tail: int, names: tuple[str, str, str]) -> dict:
+    """``[xyz (3) | rot | tail] x {left, right}``: index tuples of each block."""
+    per = 3 + rot + tail
+    bounds = (0, 3, 3 + rot, per)
+    return {
+        name: tuple(h * per + i for h in range(2) for i in range(lo, hi))
+        for name, lo, hi in zip(names, bounds, bounds[1:])
+    }
+
+
+# [left arm | right arm]; per-arm blocks are xyz(3) + rot (ypr 3 or 6D
+# col0 col1 6) [+ gripper(1)]: width 12/14 ypr, 18/20 6D. xyz/grip are
+# bounded, linearly-interpolated channels; the rot channels are either Euler
+# (wrap at +-pi) or continuous 6D columns, so quantile bounds on them are
+# meaningless. The norm-stat bounds check and the eval metrics both consume
+# this to know which channel is which.
 BIMANUAL_CARTESIAN_LAYOUTS = {
-    12: {  # human ypr:  [L xyz ypr | R xyz ypr]
-        "xyz": (0, 1, 2, 6, 7, 8),
-        "rot": (3, 4, 5, 9, 10, 11),
-        "grip": (),
-    },
-    14: {  # robot ypr:  [L xyz ypr g | R xyz ypr g]
-        "xyz": (0, 1, 2, 7, 8, 9),
-        "rot": (3, 4, 5, 10, 11, 12),
-        "grip": (6, 13),
-    },
-    18: {  # human 6d:   [L xyz c0 c1 | R xyz c0 c1]
-        "xyz": (0, 1, 2, 9, 10, 11),
-        "rot": (3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17),
-        "grip": (),
-    },
-    20: {  # robot 6d:   [L xyz c0 c1 g | R xyz c0 c1 g]
-        "xyz": (0, 1, 2, 10, 11, 12),
-        "rot": (3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18),
-        "grip": (9, 19),
-    },
+    2 * (3 + rot + grip): _bimanual_layout(rot, grip, ("xyz", "rot", "grip"))
+    for rot in (3, 6)
+    for grip in (0, 1)
+}
+
+# Wrist-first bimanual hand-keypoint layouts, per hand
+#   [wrist xyz (3) | wrist rot (3 ypr or 6 rot6d) | 21 MANO keypoints (63)]
+# x {left, right}: 138 = ypr wrist, 144 = rot6d wrist (the default).
+#
+# MANO keypoint 0 IS the wrist, so per hand the wrist position appears twice:
+# once as ``wrist_xyz`` and once as the first keypoint. Deliberate -- 21
+# keypoints is the MANO interface every consumer reshapes to -- and it is a
+# duplicate, not a constant: the only place it degenerates is the wrist-frame
+# PROPRIO, where kp0 sits at its own frame origin and normalization treats it
+# as a constant channel (NORM_MIN_RANGE).
+BIMANUAL_KEYPOINT_LAYOUTS = {
+    2 * (66 + rot): {
+        **_bimanual_layout(rot, 63, ("wrist_xyz", "rot", "keypoints")),
+        "per_hand": 66 + rot,
+    }
+    for rot in (3, 6)
 }
 
 
 def bimanual_cartesian_layout(width: int) -> dict | None:
-    """Index layout for a bimanual cartesian action/proprio vector.
-
-    Returns a dict with ``xyz`` / ``rot`` / ``grip`` index tuples, or ``None``
-    if ``width`` is not a recognized native width (12/14 ypr, 18/20 6D).
-    """
     return BIMANUAL_CARTESIAN_LAYOUTS.get(int(width))
 
 
-# Wrist-first bimanual hand-keypoint layouts, per hand
-#   [wrist xyz (3) | wrist rot (3 ypr or 6 rot6d) | 21 MANO keypoints (63)]
-# x {left, right}. ``wrist_xyz`` / ``rot`` index the wrist pose channels,
-# ``keypoints`` the flattened (21, 3) keypoint block of each hand.
-def _keypoint_layout(rot_width: int) -> dict:
-    per_hand = 3 + rot_width + 63
-    wrist_xyz, rot, kp = [], [], []
-    for hand in range(2):
-        o = hand * per_hand
-        wrist_xyz += list(range(o, o + 3))
-        rot += list(range(o + 3, o + 3 + rot_width))
-        kp += list(range(o + 3 + rot_width, o + per_hand))
-    return {
-        "wrist_xyz": tuple(wrist_xyz),
-        "rot": tuple(rot),
-        "keypoints": tuple(kp),
-        "per_hand": per_hand,
-    }
-
-
-BIMANUAL_KEYPOINT_LAYOUTS = {
-    138: _keypoint_layout(3),  # ypr wrist rotation
-    144: _keypoint_layout(6),  # rot6d wrist rotation (the default)
-}
-
-
 def bimanual_keypoint_layout(width: int) -> dict | None:
-    """Index layout for a wrist-first bimanual keypoint action/proprio vector.
-
-    Returns a dict with ``wrist_xyz`` / ``rot`` / ``keypoints`` index tuples
-    and the per-hand block width, or ``None`` for an unrecognized width
-    (138 = ypr wrist, 144 = rot6d wrist).
-
-    MANO keypoint 0 IS the wrist, so per hand the wrist position appears twice:
-    once as ``wrist_xyz`` and once as the first keypoint. Deliberate -- 21
-    keypoints is the MANO interface every consumer reshapes to -- and it is a
-    duplicate, not a constant: the only place it degenerates is the wrist-frame
-    PROPRIO, where kp0 sits at its own frame origin and normalization treats it
-    as a constant channel (NORM_MIN_RANGE).
-    """
     return BIMANUAL_KEYPOINT_LAYOUTS.get(int(width))
 
 
-# Keys whose last dim is one of the layouts above.
-_CARTESIAN_KEYS = ("actions_cartesian", "observations.state.ee_pose")
-_KEYPOINT_KEYS = ("actions_keypoints", "observations.state.keypoints")
+def key_layout(zarr_key: str, width: int) -> dict | None:
+    """The bimanual layout of ``zarr_key`` at ``width``, or None if unknown."""
+    if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+        return bimanual_cartesian_layout(width)
+    if zarr_key in ("actions_keypoints", "observations.state.keypoints"):
+        return bimanual_keypoint_layout(width)
+    return None
 
 
 def rot6d_channels(zarr_key: str, width: int) -> tuple[int, ...] | None:
@@ -282,11 +248,10 @@ def rot6d_channels(zarr_key: str, width: int) -> tuple[int, ...] | None:
     ypr layouts: an Euler angle is not a rotation-matrix column and has none of
     the properties that make these channels special.
     """
-    if zarr_key in _CARTESIAN_KEYS and int(width) in (18, 20):
-        return bimanual_cartesian_layout(width)["rot"]
-    if zarr_key in _KEYPOINT_KEYS and int(width) == 144:
-        return bimanual_keypoint_layout(width)["rot"]
-    return None
+    layout = key_layout(zarr_key, width)
+    if layout is None or len(layout["rot"]) != 12:  # 2 arms x 6D
+        return None
+    return layout["rot"]
 
 
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:

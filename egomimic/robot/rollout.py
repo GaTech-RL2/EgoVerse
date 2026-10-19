@@ -260,23 +260,20 @@ class PolicyRollout(Rollout):
         self.debug = debug
         self.transform_mode = self._checkpoint_transform_mode()
         # Inference: a checkpoint recorded before the 6D conversion, or none at
-        # all, is exactly the case allow_legacy_rotation exists for.
-        if self.transform_mode is None:
-            # Legacy checkpoint: keep the historical input pipeline and use
-            # the predictions as-is.
-            self.transform_list = Eva.get_transform_list(
-                mode=self.LEGACY_TRANSFORM_MODE, allow_legacy_rotation=True
-            )
-            self.revert_transform_list = None
-        else:
-            self.transform_list = Eva.get_transform_list(
-                mode=self.transform_mode, allow_legacy_rotation=True
-            )
-            # Maps predictions (wrist frame and/or 6D rotation) back to the
-            # camera-frame xyz+ypr+gripper layout the command path expects.
-            self.revert_transform_list = Eva.get_revert_transform_list(
-                self.transform_mode
-            )
+        # all, is exactly the case allow_legacy_rotation exists for. A legacy
+        # checkpoint (no mode) keeps the historical inputs and uses the
+        # predictions as-is; otherwise the revert maps them (wrist frame and/or
+        # 6D rotation) back to the camera-frame xyz+ypr+gripper layout the
+        # command path expects.
+        self.transform_list = Eva.get_transform_list(
+            mode=self.transform_mode or self.LEGACY_TRANSFORM_MODE,
+            allow_legacy_rotation=True,
+        )
+        self.revert_transform_list = (
+            Eva.get_revert_transform_list(self.transform_mode)
+            if self.transform_mode
+            else None
+        )
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate
@@ -327,6 +324,11 @@ class PolicyRollout(Rollout):
     # Input pipeline used for checkpoints whose config names no mode (the
     # rollout hard-coded it before the mode was read from the checkpoint).
     LEGACY_TRANSFORM_MODE = "cartesian_wristframe_ypr"
+    ARM_EMBODIMENT = {
+        "both": "eva_bimanual",
+        "right": "eva_right_arm",
+        "left": "eva_left_arm",
+    }
 
     def _checkpoint_transform_mode(self):
         """Eva ``transform_list.mode`` the checkpoint was trained with, so the
@@ -334,11 +336,7 @@ class PolicyRollout(Rollout):
         ``None`` if the checkpoint config does not record it."""
         from omegaconf import OmegaConf
 
-        name = {
-            "both": "eva_bimanual",
-            "right": "eva_right_arm",
-            "left": "eva_left_arm",
-        }[self.arm]
+        name = self.ARM_EMBODIMENT[self.arm]
         cfg = self.policy._as_config(getattr(self.policy.hparams, "config_tree", None))
         mode = None
         if cfg is not None:
@@ -438,13 +436,7 @@ class PolicyRollout(Rollout):
                     "observations.state.ee_pose"
                 ].clone()
             }
-            if self.arm == "both":
-                embodiment_name = "eva_bimanual"
-            elif self.arm == "right":
-                embodiment_name = "eva_right_arm"
-
-            elif self.arm == "left":
-                embodiment_name = "eva_left_arm"
+            embodiment_name = self.ARM_EMBODIMENT[self.arm]
             batch = {
                 embodiment_name: transform_list_batch,
             }

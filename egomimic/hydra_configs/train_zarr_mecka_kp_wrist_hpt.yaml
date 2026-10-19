@@ -1,17 +1,31 @@
 # Composed recipe: ~300M HPT (+ Qwen text stem) BC on the 144-D wrist-frame
 # MANO keypoint action, mecka freeform fold-clothes, held-out-operator split.
+# Any freeform / all-mecka cartesian 6D data config takes the keypoint pipeline
+# from the `data:` block below, e.g. data=mecka_fold_freeform_opscale1_6d for a
+# rung of the operator ladder. The flagship configs ship proprio_history 3: use
+# train_zarr_mecka_flagship_kp_hpt for them, which resets it.
 #
 #   python egomimic/trainHydra.py --config-name=train_zarr_mecka_kp_wrist_hpt \
 #     norm_stats.precomputed_norm_path=<out>/norm_stats
 #
-# The norm stats must come from data=mecka_fold_freeform_opsplit_hpt_keypoints
-# (see that file for the precompute command).
+# Norm stats are data-specific: precompute them with this recipe and the same
+# data choice (precompute_norm_stats.py --config-name train_zarr_mecka_kp_wrist_hpt
+# --data <data> --model hpt_bc_keypoints_wrist_300M --out <out>).
 defaults:
   - train_zarr_cartesian
-  # Second eval head: metrics + videos on TRAIN data each val (train_viz/).
-  # (A plain entry, so it must precede the overrides.)
-  - evaluator@train_viz_evaluator: train_viz_hpt_keypoints_wrist
   - override model: hpt_bc_keypoints_wrist_300M
-  - override data: mecka_fold_freeform_opsplit_hpt_keypoints
+  - override data: mecka_fold_freeform_opsplit_6d
   - override evaluator: eval_hpt_keypoints_wrist
   - _self_
+
+# Keypoints: actions_keypoints (100, 144) and observations.state.keypoints (144)
+# with no ee_pose proprio (HPT has no stem for it). The val heads interpolate
+# this resolver.
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          keymap_mode: keypoints
+        transform_list:
+          mode: keypoints_wristframe_6d

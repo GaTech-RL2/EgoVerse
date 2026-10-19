@@ -17,7 +17,7 @@ from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
 from egomimic.models import openpi_compat
-from egomimic.models.paligemma_init import load_paligemma_weights, select_init_source
+from egomimic.models.paligemma_init import load_paligemma_weights
 from egomimic.models.preprocess_pi_obs import (
     PI_CAMERA_SLOTS,
     _concat_proprio,
@@ -28,7 +28,6 @@ from egomimic.models.preprocess_pi_obs import (
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry, pad_to_width
-from egomimic.utils.compile_utils import compile_modules
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -79,6 +78,14 @@ class PI(Algo):
         proprio_keys_for_prompt: list[str] | None = None,
         **kwargs,
     ):
+        paligemma_weight_path = getattr(config, "paligemma_weight_path", None)
+        if config.pytorch_weight_path is not None and paligemma_weight_path is not None:
+            raise ValueError(
+                "pytorch_weight_path and paligemma_weight_path are both set. The "
+                "pi0.5 base checkpoint already contains a trained PaliGemma; set "
+                "pytorch_weight_path=null to start from PaliGemma with a fresh "
+                "action expert."
+            )
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
 
@@ -149,7 +156,6 @@ class PI(Algo):
         self.action_converters = action_converters
 
         self.action_registry = ConverterRegistry()
-        self._packed_widths: dict[tuple, int] = {}
 
         arcfg = self.action_converters
         default_ac_key = getattr(arcfg, "ac_key", "actions_cartesian")
@@ -183,16 +189,12 @@ class PI(Algo):
         # is pretrained: the full pi0.5 base checkpoint, PaliGemma only (the
         # action expert and the action/time projections stay at their init), or
         # nothing at all.
-        paligemma_weight_path = getattr(self.config, "paligemma_weight_path", None)
-        init_source = select_init_source(
-            self.config.pytorch_weight_path, paligemma_weight_path
-        )
         target = (
             self.model.module
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else self.model
         )
-        if init_source == "pi05_base":
+        if self.config.pytorch_weight_path is not None:
             model_path = os.path.join(
                 self.config.pytorch_weight_path, "model.safetensors"
             )
@@ -206,12 +208,8 @@ class PI(Algo):
                 model_path,
                 sum(p.numel() for p in target.parameters()),
             )
-        elif init_source == "paligemma":
-            load_paligemma_weights(
-                target,
-                paligemma_weight_path,
-                allow_mirror=getattr(self.config, "paligemma_allow_mirror", False),
-            )
+        elif paligemma_weight_path is not None:
+            load_paligemma_weights(target, paligemma_weight_path)
         else:
             logger.warning(
                 "Neither pytorch_weight_path nor paligemma_weight_path is set: no "
@@ -457,19 +455,17 @@ class PI(Algo):
 
         return processed_batch
 
-    @override
-    def compile_for_training(self, mode=None, dynamic=False):
-        """Compile openpi's ``PI0Pytorch.forward`` (the flow-matching training
-        pass: SigLIP tower, PaliGemma prefix and the action expert).
+    def compile_targets(self) -> list:
+        """What ``model.compile.enabled`` compiles: openpi's ``PI0Pytorch``,
+        i.e. its forward, the flow-matching training pass (SigLIP tower,
+        PaliGemma prefix and the action expert).
 
         ``sample_actions`` is already compiled by openpi itself, so only the
         training pass is left. The observation preprocessing at the top of that
         forward is Python-level dict work, so expect dynamo to graph-break there
         and compile the transformer stack behind it.
         """
-        return compile_modules(
-            [("pi0", self.nets["policy"])], mode=mode, dynamic=dynamic
-        )
+        return [self.nets["policy"]]
 
     @override
     def forward_training(self, batch):
@@ -571,19 +567,9 @@ class PI(Algo):
         elif not isinstance(losses, torch.Tensor):
             losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
         if losses.ndim == 3:
-            losses = losses[..., : self._packed_width(action, embodiment_id, ac_key)]
-        return losses.mean()
-
-    def _packed_width(self, action, embodiment_id, ac_key) -> int:
-        """Width the embodiment's converter packs into, cached per pairing: it
-        is a property of the converter, not of the batch."""
-        key = (embodiment_id, ac_key)
-        if key not in self._packed_widths:
             converter = self.action_registry.get(embodiment_id, ac_key)
-            self._packed_widths[key] = int(
-                converter.to32_norm_6d(action[:1, :1]).shape[-1]
-            )
-        return self._packed_widths[key]
+            losses = losses[..., : converter.to32_norm_6d(action[:1, :1]).shape[-1]]
+        return losses.mean()
 
     def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
         """Raw ``sample_actions`` output -> unnormalized native action dict.

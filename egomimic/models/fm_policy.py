@@ -40,7 +40,7 @@ class FMPolicy(DenoisingPolicy):
         return x_t + self.dt * v_t, t + self.dt
 
     @override
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(self, noise, global_cond) -> torch.Tensor:
         self.dt = -1.0 / self.num_inference_steps
         x_t = noise
         time = torch.ones((len(global_cond)), device=global_cond.device)

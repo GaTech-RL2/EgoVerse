@@ -11,14 +11,18 @@ Slurm never sweeps it once it is reparented to init.
 clears what an earlier job left on its node, before it touches CUDA itself.
 
 Nothing is imported from torch here -- this has to run before CUDA init.
+
+The cluster-level fix is ``ProctrackType=proctrack/cgroup`` (sweeps by cgroup,
+not PPID tree), which would make this module unnecessary; that needs admin.
+
+``python -m egomimic.utils.gpu_orphans [--kill]`` lists (and kills) this node's
+orphans; ``reap_gpu_orphans.sh`` runs it on a node over srun.
 """
 
 import ctypes
 import logging
 import os
 import signal
-
-from egomimic.utils.type_utils import str2bool
 
 logger = logging.getLogger(__name__)
 
@@ -52,21 +56,8 @@ def die_with_parent(_worker_id: int = 0) -> None:
 
 
 def orphan_guarded(params: dict) -> dict:
-    """``params`` with ``die_with_parent`` run before any caller ``worker_init_fn``."""
-    params = dict(params)
-    if params.get("num_workers", 0) == 0:
-        return params
-    user_init = params.get("worker_init_fn")
-    if user_init is None:
-        params["worker_init_fn"] = die_with_parent
-    else:
-
-        def _chained(worker_id: int, _user_init=user_init) -> None:
-            die_with_parent(worker_id)
-            _user_init(worker_id)
-
-        params["worker_init_fn"] = _chained
-    return params
+    """``params`` with ``die_with_parent`` as the ``worker_init_fn``."""
+    return {**params, "worker_init_fn": die_with_parent}
 
 
 def _ppid(proc_root: str, pid: str) -> int | None:
@@ -147,6 +138,9 @@ def reap_orphans(dry_run: bool = False) -> list[int]:
     Off outside Slurm: only there do we know every process of ours on the node
     belongs to a job, so that a PPID-1 GPU holder can only be wreckage.
     """
+    # imported here: it pulls numpy, and the __main__ probe must run on a bare python3
+    from egomimic.utils.type_utils import str2bool
+
     if not str2bool(os.environ.get(_DISABLE_ENV, "1")):
         return []
     if "SLURM_JOB_ID" not in os.environ:
@@ -173,3 +167,16 @@ def reap_orphans(dry_run: bool = False) -> list[int]:
         except OSError as e:
             logger.warning("could not kill orphan %d: %s", pid, e)
     return orphans
+
+
+if __name__ == "__main__":
+    import sys
+
+    orphans = find_orphans()
+    print(f"node={os.uname().nodename} orphans={orphans}")
+    if "--kill" in sys.argv[1:]:
+        for pid in orphans:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:  # exited since the scan
+                pass

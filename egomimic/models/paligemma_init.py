@@ -12,7 +12,6 @@ a SigLIP-so400m/14 tower, which is exactly the ``paligemma-3b-*-224``
 architecture, so the released checkpoint drops straight in.
 """
 
-import hashlib
 import logging
 import os
 import re
@@ -23,24 +22,8 @@ from safetensors import safe_open
 
 logger = logging.getLogger(__name__)
 
+# License-gated: pulling it needs an HF token that has accepted the Gemma terms.
 CANONICAL_REPO = "google/paligemma-3b-pt-224"
-
-# `CANONICAL_REPO` is license-gated: a machine without an HF token that has
-# accepted the Gemma terms gets a 401 on the weight shards (the repo *metadata*
-# stays anonymously readable, which is what makes the check below possible).
-# These repos carry the same three shards. Every one is sha256-checked against
-# the canonical repo's file metadata before it is used, so a mirror cannot
-# substitute different weights -- it is only a transport. Opt-in
-# (`paligemma_allow_mirror`): integrity is checked, but the weights of record
-# should come from the canonical repo unless a run says otherwise.
-MIRROR_REPOS = (
-    "leo009/paligemma-3b-pt-224",
-    "hehe156/paligemma-3b-pt-224",
-)
-
-# Only the shards: the loader reads nothing else and openpi builds the config in
-# code, so an unverified json would only sit in the HF cache.
-_ALLOW_PATTERNS = ["*.safetensors"]
 
 # Released PaliGemma checkpoint keys -> the module tree. These are what
 # transformers applies via
@@ -114,129 +97,19 @@ def _fit(name: str, tensor: torch.Tensor, param: torch.Tensor) -> torch.Tensor:
     )
 
 
-def select_init_source(
-    pytorch_weight_path: str | None, paligemma_weight_path: str | None
-) -> str:
-    """Which set of starting weights a PI run uses: the full pi0.5 base
-    checkpoint (``"pi05_base"``), PaliGemma with a fresh action expert
-    (``"paligemma"``), or nothing at all (``"none"``)."""
-    if pytorch_weight_path is not None and paligemma_weight_path is not None:
-        raise ValueError(
-            "pytorch_weight_path and paligemma_weight_path are both set. The "
-            "pi0.5 base checkpoint already contains a trained PaliGemma; set "
-            "pytorch_weight_path=null to start from PaliGemma with a fresh "
-            "action expert."
-        )
-    if pytorch_weight_path is not None:
-        return "pi05_base"
-    if paligemma_weight_path is not None:
-        return "paligemma"
-    return "none"
-
-
-def _shard_digests(repo: str) -> dict[str, str]:
-    """``{shard filename: sha256}`` from a repo's file metadata."""
-    from huggingface_hub import HfApi
-
-    info = HfApi().model_info(repo, files_metadata=True)
-    digests = {}
-    for sibling in info.siblings:
-        if not sibling.rfilename.endswith(".safetensors"):
-            continue
-        lfs = getattr(sibling, "lfs", None)
-        sha = (
-            lfs.get("sha256") if isinstance(lfs, dict) else getattr(lfs, "sha256", None)
-        )
-        if sha:
-            digests[sibling.rfilename] = sha
-    return digests
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(16 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
-def _verify_shards(directory: str, expected: dict[str, str]) -> None:
-    root = Path(directory)
-    for name, sha in expected.items():
-        shard = root / name
-        if not shard.is_file():
-            raise FileNotFoundError(f"{shard} is missing from the mirror snapshot")
-        actual = _sha256(shard)
-        if actual != sha:
-            raise ValueError(
-                f"{shard} does not match {CANONICAL_REPO}: expected sha256 {sha}, "
-                f"got {actual}. Refusing to initialize from it."
-            )
-
-
-def resolve_paligemma_dir(source: str, *, allow_mirror: bool = False) -> str:
-    """Local directory holding the PaliGemma checkpoint named by ``source``.
-
-    ``source`` is a local path (returned as-is) or a Hugging Face repo id. When
-    it is the gated canonical repo, this machine is not authorized for it (401
-    or 403, not a rate limit or an outage) and ``allow_mirror`` is set, fall
-    back to a sha256-verified mirror.
-    """
+def resolve_paligemma_dir(source: str) -> str:
+    """Local directory holding the PaliGemma checkpoint named by ``source``: a
+    local path as-is, else the Hugging Face repo's shards."""
     if os.path.isdir(source):
         return source
-
     from huggingface_hub import snapshot_download
-    from huggingface_hub.errors import GatedRepoError, HfHubHTTPError
 
-    try:
-        return snapshot_download(source, allow_patterns=_ALLOW_PATTERNS)
-    except HfHubHTTPError as gated:
-        status = getattr(getattr(gated, "response", None), "status_code", None)
-        unauthorized = isinstance(gated, GatedRepoError) or status in (401, 403)
-        if not (allow_mirror and unauthorized and source == CANONICAL_REPO):
-            raise
-        logger.warning(
-            "%s is gated for this machine (%s) and paligemma_allow_mirror is set. "
-            "Falling back to a mirror, sha256-verified against %s. Set HF_TOKEN "
-            "to a token that has accepted the Gemma terms to pull the canonical "
-            "repo instead.",
-            CANONICAL_REPO,
-            type(gated).__name__,
-            CANONICAL_REPO,
-        )
-
-    expected = _shard_digests(CANONICAL_REPO)
-    if not expected:
-        raise RuntimeError(
-            f"Cannot read shard checksums for {CANONICAL_REPO}; refusing to use "
-            "an unverified mirror."
-        )
-
-    failures = []
-    for mirror in MIRROR_REPOS:
-        try:
-            if _shard_digests(mirror) != expected:
-                raise ValueError("shard checksums differ from the canonical repo")
-            directory = snapshot_download(mirror, allow_patterns=_ALLOW_PATTERNS)
-            _verify_shards(directory, expected)
-        except Exception as exc:  # try the next mirror, report them all if none works
-            failures.append(f"{mirror}: {type(exc).__name__}: {exc}")
-            continue
-        logger.warning(
-            "Initializing PaliGemma from mirror %s (all %d shards sha256-match %s).",
-            mirror,
-            len(expected),
-            CANONICAL_REPO,
-        )
-        return directory
-
-    raise RuntimeError(
-        f"{CANONICAL_REPO} is gated and no verified mirror worked:\n  "
-        + "\n  ".join(failures)
-    )
+    # Only the shards: the loader reads nothing else and openpi builds the
+    # config in code.
+    return snapshot_download(source, allow_patterns=["*.safetensors"])
 
 
-def load_paligemma_weights(model, source: str, *, allow_mirror: bool = False) -> str:
+def load_paligemma_weights(model, source: str) -> str:
     """Copy a PaliGemma checkpoint into ``model``'s VLM prefix, in place.
 
     ``model`` is an ``openpi.models_pytorch.pi0_pytorch.PI0Pytorch``. Only
@@ -244,7 +117,7 @@ def load_paligemma_weights(model, source: str, *, allow_mirror: bool = False) ->
     action/time projections are left at their init. Returns the directory the
     weights came from.
     """
-    directory = resolve_paligemma_dir(source, allow_mirror=allow_mirror)
+    directory = resolve_paligemma_dir(source)
     target = model.paligemma_with_expert.paligemma
 
     # remove_duplicate=False so a tied lm_head.weight is reachable under both

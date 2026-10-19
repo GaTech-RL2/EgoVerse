@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from fixtures.poses import bounds_shell
 from omegaconf import OmegaConf
 
 import egomimic
@@ -110,19 +111,8 @@ def _raw_poses(tmp_path, key: str) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# 1. dataset: backward window, front padding, mask
+# 1. dataset: strided backward window, front padding
 # ---------------------------------------------------------------------------
-
-
-def test_history_window_is_the_last_k_frames(tmp_path):
-    leaf = _leaf(_dataset(tmp_path, proprio_history=4))
-    for key in PROPRIO_KEYS:
-        raw = _raw_poses(tmp_path, key)
-        got = np.asarray(leaf[10][key])
-        assert got.shape == (4, 7)
-        np.testing.assert_allclose(got, raw[7:11], rtol=0, atol=1e-6)
-        # The current frame is always last.
-        np.testing.assert_allclose(got[-1], raw[10], rtol=0, atol=1e-6)
 
 
 def test_history_stride_spaces_the_window_out(tmp_path):
@@ -134,9 +124,6 @@ def test_history_stride_spaces_the_window_out(tmp_path):
         got = np.asarray(leaf[12][key])
         assert got.shape == (3, 7)
         np.testing.assert_allclose(got, raw[[2, 7, 12]], rtol=0, atol=1e-6)
-    np.testing.assert_array_equal(
-        np.asarray(leaf[12]["proprio_history_mask"]), np.ones(3, dtype=np.float32)
-    )
 
 
 def test_strided_history_front_pads_at_the_episode_start(tmp_path):
@@ -145,59 +132,6 @@ def test_strided_history_front_pads_at_the_episode_start(tmp_path):
     # idx 7: frames 7 and 2 are real, idx-10 would be negative
     got = np.asarray(leaf[7][PROPRIO_KEYS[0]])
     np.testing.assert_allclose(got, raw[[2, 2, 7]], rtol=0, atol=1e-6)
-    np.testing.assert_array_equal(
-        np.asarray(leaf[7]["proprio_history_mask"]),
-        np.array([0, 1, 1], dtype=np.float32),
-    )
-    # idx 3: only the current frame is real
-    np.testing.assert_array_equal(
-        np.asarray(leaf[3]["proprio_history_mask"]),
-        np.array([0, 0, 1], dtype=np.float32),
-    )
-
-
-def test_stride_one_is_the_contiguous_window(tmp_path):
-    a = _leaf(_dataset(tmp_path, proprio_history=4))
-    b = _leaf(_dataset(tmp_path, proprio_history=4, history_stride=1))
-    for key in PROPRIO_KEYS:
-        np.testing.assert_array_equal(np.asarray(a[10][key]), np.asarray(b[10][key]))
-
-
-def test_history_mask_is_all_ones_away_from_the_episode_start(tmp_path):
-    leaf = _leaf(_dataset(tmp_path, proprio_history=4))
-    mask = np.asarray(leaf[10]["proprio_history_mask"])
-    assert mask.shape == (4,)
-    np.testing.assert_array_equal(mask, np.ones(4, dtype=np.float32))
-
-
-def test_history_front_pads_by_repeating_the_first_real_frame(tmp_path):
-    leaf = _leaf(_dataset(tmp_path, proprio_history=4))
-    for key in PROPRIO_KEYS:
-        raw = _raw_poses(tmp_path, key)
-        got = np.asarray(leaf[1][key])
-        assert got.shape == (4, 7)
-        expected = np.stack([raw[0], raw[0], raw[0], raw[1]])
-        np.testing.assert_allclose(got, expected, rtol=0, atol=1e-6)
-
-    # NOTE: the brief's example mask for idx=1 reads [0, 0, 0, 1]; the rule it
-    # states ("1 = real, 0 = front padding") gives [0, 0, 1, 1] -- frames 0 and
-    # 1 are both real reads, only the two leading copies of frame 0 are
-    # padding. The rule wins; the mask is informational only (it is dropped in
-    # process_batch_for_training and the padded steps already look exactly like
-    # a history-dropout sample).
-    mask = np.asarray(leaf[1]["proprio_history_mask"])
-    np.testing.assert_array_equal(mask, np.array([0, 0, 1, 1], dtype=np.float32))
-
-    np.testing.assert_array_equal(
-        np.asarray(leaf[0]["proprio_history_mask"]),
-        np.array([0, 0, 0, 1], dtype=np.float32),
-    )
-
-
-def test_history_mask_is_float32(tmp_path):
-    value = _leaf(_dataset(tmp_path, proprio_history=4))[3]["proprio_history_mask"]
-    assert isinstance(value, torch.Tensor)
-    assert value.dtype == torch.float32
 
 
 def test_k1_sample_is_bit_for_bit_todays_sample(tmp_path):
@@ -216,21 +150,11 @@ def test_k1_sample_is_bit_for_bit_todays_sample(tmp_path):
 
     a, b = _sample(baseline), _sample(with_arg)
     assert set(a) == set(b)
-    assert "proprio_history_mask" not in a
     for key in PROPRIO_KEYS:
         assert tuple(a[key].shape) == (7,)
     for key, value in a.items():
         if isinstance(value, torch.Tensor):
             torch.testing.assert_close(value, b[key])
-
-
-def test_keys_without_history_keep_the_single_frame_read(tmp_path):
-    """Only the proprio keys the model consumes get a time axis: the head pose
-    (the frame everything is expressed in) and the action chunks do not."""
-    leaf = _leaf(_dataset(tmp_path, proprio_history=4))
-    sample = leaf[10]
-    assert tuple(sample["obs_head_pose"].shape) == (7,)
-    assert tuple(sample["left.action_ee_pose"].shape) == (HORIZON, 7)
 
 
 # ---------------------------------------------------------------------------
@@ -310,26 +234,9 @@ def test_dataset_and_transforms_compose_to_a_k_by_20_state(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _norm_shell(key: str, width: int, *, lo=-1.0, hi=1.0):
-    md = MultiDataset.__new__(MultiDataset)
-    md.norm_mode = "quantile"
-    md.norm_stats = {
-        0: {
-            key: {
-                "quantile_1": np.full(width, lo, dtype=np.float32),
-                "quantile_99": np.full(width, hi, dtype=np.float32),
-            }
-        }
-    }
-    md.zarr_keys = {0: {key: key}}
-    md.key_types = {0: {key: "proprio_keys"}}
-    md._warned_violations = set()
-    return md
-
-
 def test_per_channel_stats_broadcast_over_the_time_axis():
     key = "observations.state.ee_pose"
-    md = _norm_shell(key, 20, lo=-2.0, hi=4.0)
+    md = bounds_shell(key, width=20, lo=-2.0, hi=4.0)
     stats = md.norm_stats[0][key]
     g = torch.Generator().manual_seed(0)
     arr = torch.randn(4, 20, generator=g)
@@ -341,7 +248,7 @@ def test_per_channel_stats_broadcast_over_the_time_axis():
 
 def test_bounds_check_catches_a_violation_in_a_past_step():
     key = "observations.state.ee_pose"
-    md = _norm_shell(key, 20)
+    md = bounds_shell(key, width=20)
     arr = np.zeros((4, 20), dtype=np.float32)
     assert md._check_bounds({"embodiment": 0, key: arr.copy()}, None, 0, "ep") is None
     bad = arr.copy()
@@ -601,12 +508,11 @@ def test_history_length_mismatch_raises_naming_both():
         _to_hpt(algo, torch.randn(3, 4, 20))
 
 
-def _process(action_pad_mask=None, history_mask=None, S: int = 6):
+def _process(S: int = 6):
     algo = HPT.__new__(HPT)
     algo.norm_stats = _NoRenameNormStats()
     algo.device = "cpu"
     algo.annotation_key = None
-    algo.use_pad_mask = False
     emb = "human_bimanual"
     emb_id = get_embodiment_id(emb)
     algo.ac_keys = {emb_id: "actions_cartesian"}
@@ -614,22 +520,12 @@ def _process(action_pad_mask=None, history_mask=None, S: int = 6):
         "actions_cartesian": torch.zeros(2, S, 18),
         "observations.state.ee_pose": torch.zeros(2, 4, 20),
     }
-    if action_pad_mask is not None:
-        inner["action_pad_mask"] = action_pad_mask
-    if history_mask is not None:
-        inner["proprio_history_mask"] = history_mask
     return HPT.process_batch_for_training(algo, {emb: inner})[emb_id]
 
 
-def test_process_batch_drops_the_history_mask():
-    out = _process(history_mask=torch.ones(2, 4))
-    assert "proprio_history_mask" not in out
-    assert out["observations.state.ee_pose"].shape == (2, 4, 20)
-
-
-def test_process_batch_is_unchanged_without_the_history_mask():
+def test_process_batch_keeps_the_proprio_time_axis():
     out = _process()
-    assert "proprio_history_mask" not in out
+    assert out["observations.state.ee_pose"].shape == (2, 4, 20)
     torch.testing.assert_close(out["pad_mask"], torch.ones(2, 6, 1))
 
 
@@ -641,34 +537,6 @@ RECIPE = "train_zarr_mecka_flagship_6d_hpt"
 DATA = "data=mecka_fold_flagship_opsplit_hpt_6d"
 KEYMAP = "data.train_datasets.human_bimanual.resolver.key_map"
 STEM = "model.robomimic_model.stem_specs.human_bimanual.state_ee_pose"
-
-
-def test_flagship_ships_k_three_stride_five(compose_resolve):
-    cfg = compose_resolve(RECIPE, [DATA])
-    km = cfg.data.train_datasets.human_bimanual.resolver.key_map
-    assert km.proprio_history == 3
-    assert km.history_stride == 5
-    stem = cfg.model.robomimic_model.stem_specs.human_bimanual.state_ee_pose
-    assert stem.history_len == km.proprio_history, "data K and stem K must agree"
-    assert stem.history_dropout == 0.2
-
-
-def test_k_one_baseline_is_still_reachable(compose_resolve):
-    cfg = compose_resolve(
-        RECIPE,
-        [
-            DATA,
-            f"{KEYMAP}.proprio_history=1",
-            f"{KEYMAP}.history_stride=1",
-            f"{STEM}.history_len=1",
-        ],
-    )
-    km = cfg.data.train_datasets.human_bimanual.resolver.key_map
-    assert km.proprio_history == 1 and km.history_stride == 1
-    assert (
-        cfg.model.robomimic_model.stem_specs.human_bimanual.state_ee_pose.history_len
-        == 1
-    )
 
 
 def test_k_two_override_reaches_every_loader(compose_resolve):
@@ -766,8 +634,9 @@ def test_every_human_revert_list_selects_the_current_proprio_step():
     }
     for name, obs_key in builders.items():
         tl = getattr(human_mod, name)()
-        assert isinstance(tl[0], SelectCurrentStep), name
-        assert tl[0].keys == [obs_key], name
+        assert any(
+            isinstance(t, SelectCurrentStep) and t.keys == [obs_key] for t in tl
+        ), name
 
 
 # --- the evaluator itself -----------------------------------------------
@@ -802,11 +671,6 @@ def _eval_once(proprio):
 
     emb_id = get_embodiment_id("human_bimanual")
     emb_name = "human_bimanual"
-    # Action horizon 1: the evaluator's paired/final MSE does
-    # ``pred[:, -1].cpu()``, which is a real (contiguous) copy for the CUDA
-    # tensors a run produces but a non-contiguous view for the CPU tensors a
-    # test hands it, and torchmetrics' ``view(-1)`` rejects that. S = 1 keeps
-    # the slice contiguous; the proprio path under test is unaffected.
     g = torch.Generator().manual_seed(11)
     actions = torch.randn(2, 1, 18, generator=g)
     preds = {

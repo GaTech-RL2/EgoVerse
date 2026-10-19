@@ -92,46 +92,6 @@ def rigid_fit(src, dst):
     return R, mu_d - mu_s @ R.T
 
 
-def _interp_step(chunk, p):
-    lo = min(int(np.floor(p)), len(chunk) - 2)
-    w = p - lo
-    return (1 - w) * chunk[lo] + w * chunk[lo + 1]
-
-
-def infer_stride(clip: ReplayClip, max_stride: int = 4, offsets: int = 8):
-    """Frames per chunk step, from the GT alone: the chunk anchored at ``a``,
-    read at step ``j / stride``, is the same hand as frame ``a + j``'s own
-    step 0, up to a rigid camera motion, so the right stride has the smallest
-    fit residual. Candidates are ``D / (H - 1)`` for a whole number ``D`` of
-    frames spanned by the chunk, up to ``max_stride`` frames per step.
-
-    None when the layout has no keypoints to fit or the clip is too short.
-    """
-    if clip.gt.shape[-1] != _KP_WIDTH or len(clip) < 2:
-        return None
-    horizon = clip.gt.shape[1]
-    anchors = range(0, max(1, len(clip) - 32), 4)[:5]
-    errors = {}
-    for span in range(1, max_stride * (horizon - 1) + 1):
-        stride = span / (horizon - 1)
-        res = []
-        for a in anchors:
-            js = np.unique(
-                np.linspace(1, min(span, 32, len(clip) - 1 - a), offsets).astype(int)
-            )
-            for j in js[js >= 1]:
-                src = _interp_step(clip.gt[a], j / stride).reshape(-1, 3)
-                dst = clip.gt[a + j, 0].reshape(-1, 3)
-                ok = _valid_points(src) & _valid_points(dst)
-                if ok.sum() < 3:
-                    continue
-                R, t = rigid_fit(src, dst)
-                res.append(np.linalg.norm(src[ok] @ R.T + t - dst[ok], axis=1).mean())
-        if res:
-            errors[stride] = float(np.mean(res))
-    return min(errors, key=errors.get) if errors else None
-
-
 def _apply_rigid(chunk, R, t):
     pts = chunk.reshape(*chunk.shape[:-1], -1, 3)
     return (pts @ R.T + t).reshape(chunk.shape).astype(np.float32)
@@ -184,7 +144,7 @@ def render_replay(
     clip: ReplayClip,
     embodiment_cls,
     mode: str,
-    stride: int | None = None,
+    stride: float,
     trail: int = 5,
     viz_kwargs: dict | None = None,
 ):
@@ -193,15 +153,12 @@ def render_replay(
     The 126-D keypoint layout draws each step as both hands' skeletons;
     any other layout draws the last ``trail`` steps with ``embodiment_cls.viz``.
 
-    ``stride`` (frames per chunk step, possibly fractional) is inferred when
-    None; see infer_stride.
+    ``stride`` is frames per chunk step, possibly fractional.
 
     Returns ``(frames (M, H, W, 3) uint8, consumed)``; ``clip.tail(consumed)``
     holds the frames a later clip needs to complete the next chunk.
     """
     viz_kwargs = viz_kwargs or {}
-    if stride is None:
-        stride = infer_stride(clip) or 1
     n, horizon = len(clip), clip.gt.shape[1]
     span = int(np.ceil(horizon * stride - 1e-6))
     keypoints = clip.gt.shape[-1] == _KP_WIDTH

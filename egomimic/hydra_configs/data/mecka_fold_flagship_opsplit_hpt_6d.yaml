@@ -3,7 +3,7 @@
 # under processed_v3/mecka/flagship/, 20 operators; a DIFFERENT set from the
 # 462-ep FREEFORM 'folding_clothes' episodes of mecka_fold_freeform_opsplit_6d,
 # zero operator overlap), with a SEEN- and an UNSEEN-operator validation set.
-# Standalone (no defaults inheritance).
+# Pipeline and loader params: mecka_all_6d.
 #
 # THREE-WAY SPLIT (chosen 2026-09-11 from SQL app.episodes):
 #   unseen val  = the 2 operators in `held_out_operators`, ALL their episodes
@@ -36,14 +36,6 @@
 # contiguous VIDEO-only loader over pinned episodes (no metrics). See
 # `metric_frames_per_episode` / `video_episodes` at the bottom of this file.
 #
-# PIPELINE: WRIST-frame CARTESIAN actions with the continuous 6D rotation
-# (18D = xyz+6D per arm, no gripper): each arm's 100-step chunk is expressed
-# relative to that wrist's current pose; the head-frame proprio ee_pose is
-# 6D-encoded too and padded 18 -> 20 (zero grip slots at 9/19).
-# fix_left_wrist_convention: processed_v3 mecka zarrs have the LEFT wrist frame
-# double-mirrored; Rz(180)-corrected before any frame math. stride 1 (mecka
-# is recorded at the target rate). Prompts from the `annotations` track.
-#
 # NORMALIZATION: quantile-normalize proprio + action keys from stats
 # precomputed on THIS config (train side = the 18 operators):
 #   python egomimic/scripts/precompute_norm_stats.py --config-name train_zarr_mecka_flagship_6d_hpt \
@@ -54,11 +46,12 @@
 # (the train_viz head wraps it automatically); see
 # train_zarr_mecka_flagship_6d_hpt.yaml for the composed recipe.
 
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+defaults:
+  - mecka_all_6d
+  - _self_
 
 # The 2 held-out (UNSEEN) operator ids (SQL app.episodes.operator). Referenced
 # by the filter lambdas below via the mounted path `data.held_out_operators`.
-# MultiDataModuleWrapper accepts this key (config-only).
 held_out_operators:
   - 6871d82a1aaf88556f0c6041
   - 6903a36c466be157ec64562d
@@ -69,14 +62,8 @@ valid_prefix: seen_op_valid
 
 train_datasets:
   human_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: cartesian
-        annotation_key: annotations
         # Proprio observation history: the ee_pose keys read K steps spaced
         # `history_stride` frames apart, (K, 20) with the current frame last.
         # At 30 fps the median wrist translation is 6.8 mm over 1 frame but
@@ -89,34 +76,14 @@ train_datasets:
         # The two val loaders interpolate this resolver, so they follow.
         proprio_history: 3
         history_stride: 5
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: cartesian_wristframe_6d
-        stride: 1
-        fix_left_wrist_convention: true
-        pad_proprio_gripper: true
     filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
         - "lambda row: str(row.get('task', '')).lower() == 'fold_clothes'"
         - "lambda row: '/mecka/flagship/' in str(row.get('zarr_processed_path', ''))"
         # OPERATOR SPLIT: train = every operator NOT in the held-out list.
         - "lambda row: str(row.get('operator', '')) not in ${data.held_out_operators}"
-    # Seeded 95/5 episode split within the train operators; the 5 % is the
-    # seen-operator val (valid_datasets below).
-    mode: train
-    valid_ratio: 0.05
-
-# SEEN operators, held-out episodes (the complement of train's 95 %) ->
-# seen_op_valid/ metrics via the canonical evaluator.
-valid_datasets:
-  human_bimanual:
-    _target_: ${data.train_datasets.human_bimanual._target_}
-    resolver: ${data.train_datasets.human_bimanual.resolver}
-    filters: ${data.train_datasets.human_bimanual.filters}
-    mode: valid
-    valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
+      exclude_hashes: null
 
 # UNSEEN operators: all episodes of the held-out operators -> unseen_op_valid/
 # metrics via a second copy of the canonical evaluator.
@@ -134,20 +101,6 @@ unseen_op_valid_datasets:
         - "lambda row: str(row.get('operator', '')) in ${data.held_out_operators}"
     mode: total
 
-train_dataloader_params:
-  human_bimanual:
-    batch_size: 64
-    num_workers: 8
-
-# Unshuffled (both val loaders): the same leading slice every val, comparable
-# across epochs with a coherent overlay video. Capped per pass by the
-# trainer's limit_val_batches. The train_viz loader reuses these params.
-valid_dataloader_params:
-  human_bimanual:
-    batch_size: 64
-    num_workers: 8
-    shuffle: false
-
 unseen_op_valid_dataloader_params:
   human_bimanual:
     batch_size: 64
@@ -157,38 +110,19 @@ unseen_op_valid_dataloader_params:
 # ---------------------------------------------------------------------------
 # METRIC LOADERS: K evenly spaced frames per EPISODE (lane A, 2026-09-15).
 # ---------------------------------------------------------------------------
-# Config-only (trainHydra reads them; MultiDataModuleWrapper declares them
-# because hydra.instantiate(cfg.data) forwards every root key).
-#
 # WHY: the val loaders are unshuffled so the overlay video is coherent, so the
-# metric window was just the first limit_val_batches x batch_size x world_size
-# = 80 x 64 x W frames in episode-hash order (DistributedSampler strides, so
-# the ranks between them walk one contiguous head of the split). Measured
-# 2026-09-15 at W = 1 (lane-0 diagnostic, docs .../reports/lane0-coverage.md):
-# the seen-op head scored 25/70 episodes and 6/11 operators, and the unseen
-# head 33/191 episodes with an 81/19 operator mix on a split that is 52/48.
-# trainHydra now wraps each val head in EvenStrideDataset(base,
-# frames_per_episode=K), which takes K evenly spaced frames from EVERY episode
-# (all of them when the episode is shorter than K), so every episode and
-# operator is scored at the SAME 80-batch cost.
-#
-# K below is the SINGLE-RANK value, floor(5120 / episodes-in-that-split);
-# trainHydra multiplies it by trainer.devices x num_nodes, so a 4-GPU run
-# scores 4x these frames in the same 80 batches per rank rather than a quarter
-# of what it scored before subsampling existed. Episode counts measured from
-# the real splits, 2026-09-15:
-#   valid            70 eps / 13,744 frames  -> K = floor(5120/70)   =  73
-#                     -> 70 x 73  = 5,110 frames = 79.8 batches
-#   train_viz     1,346 eps / 271,247 frames -> K = floor(5120/1346) =   3
-#                     -> 1346 x 3 = 4,038 frames = 63.1 batches
-#   unseen_op_valid 191 eps / 30,937 frames  -> K = floor(5120/191)  =  26
-#                     -> 191 x 26 = 4,966 frames = 77.6 batches
+# metric window was just the first limit_val_batches x batch_size frames in
+# episode-hash order (measured 2026-09-15: the seen-op head scored 25/70
+# episodes and 6/11 operators). trainHydra wraps each val head in
+# EvenStrideDataset(base, frames_per_episode=K), K evenly spaced frames from
+# EVERY episode; `auto` is K = floor(limit_val_batches * batch_size / episodes)
+# of the resolved split, so the top3 / topop children need no override.
 # NOTE: per-batch Frechet _min/_max now span many episodes instead of ~2 s of
 # one, so those curves are NOT comparable with pre-2026-09-15 runs.
 metric_frames_per_episode:
-  valid: 73
-  train_viz: 3
-  unseen_op_valid: 26
+  valid: auto
+  train_viz: auto
+  unseen_op_valid: auto
 
 # ---------------------------------------------------------------------------
 # VIDEO LOADERS: pinned, contiguous episodes (`<head>_video` loaders).

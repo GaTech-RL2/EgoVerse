@@ -225,7 +225,7 @@ def _data(history_len=1, text=True, frames=2, memory_frames=0):
     return data
 
 
-ALL_DROPS = {"state": 1.0, "lang": 1.0, "img": 1.0}
+ALL_DROPS = {"state": 1.0, "lang": 1.0}
 
 
 def test_model_streams_and_shapes():
@@ -278,9 +278,8 @@ def test_model_rejects_a_frame_count_the_config_did_not_declare():
         _model(frames=2).forward_features(DOMAIN, _data(frames=1))
 
 
-def test_condition_dropout_is_train_only_and_never_blinds_one_camera():
+def test_condition_dropout_is_train_only():
     model = _model(cond_drop=ALL_DROPS)
-    assert not hasattr(model, "null_img")  # one camera: img dropout is inert
     seen = []
     stem = model.stems["shared_annotation"]
     real = stem.forward_with_mask
@@ -347,19 +346,12 @@ def _pairing_algo(augs):
     return algo
 
 
-class _Shift(nn.Module):  # a "random" aug with no batched form: one draw per call
-    def forward(self, image):
-        return image + torch.rand(())
-
-
-@pytest.mark.parametrize("vectorized", [True, False])
-def test_algo_pairs_history_frames_under_one_augmentation(vectorized):
+def test_algo_pairs_history_frames_under_one_augmentation():
     """(past, current) reach the model as one (B, 2, 1, 3, H, W) input, jittered
-    with the same per-sample draw, on the batched and the per-image aug path."""
+    with the same per-sample draw."""
     from torchvision.transforms import ColorJitter
 
-    algo = _pairing_algo(ColorJitter(0.4, 0.4, 0.4, 0.1) if vectorized else _Shift())
-    assert (algo.train_image_augs.vectorized is not None) == vectorized
+    algo = _pairing_algo(ColorJitter(0.4, 0.4, 0.4, 0.1))
     cam = "observations.images.front_img_1"
     frame = torch.rand(1, 3, 8, 8).expand(B, -1, -1, -1).contiguous()
     batch = {
@@ -381,7 +373,7 @@ def test_algo_pairs_history_frames_under_one_augmentation(vectorized):
 
 
 def test_algo_keeps_past_and_current_in_order():
-    algo = _pairing_algo(nn.Identity())
+    algo = _pairing_algo(T.Compose([]))
     cam = "observations.images.front_img_1"
     batch = {
         cam: torch.ones(B, 3, 8, 8),
@@ -410,15 +402,13 @@ def _pair_batch(current, past):
     }
 
 
-@pytest.mark.parametrize("vectorized", [True, False])
-def test_a_frames_contrast_mean_is_its_own(vectorized):
+def test_a_frames_contrast_mean_is_its_own():
     """Side by side, contrast took one mean over both frames, so the past
     frame's pixels depended on the current frame's."""
     import torchvision.transforms.functional as F
     from torchvision.transforms import ColorJitter
 
-    jitter = ColorJitter(contrast=(0.5, 0.5))
-    algo = _pairing_algo(jitter if vectorized else T.Compose([jitter, _Shift()]))
+    algo = _pairing_algo(ColorJitter(contrast=(0.5, 0.5)))
     past = torch.rand(B, 3, 8, 8)
     outs = []
     for current in (torch.zeros(B, 3, 8, 8) + 0.9, torch.rand(B, 3, 8, 8)):
@@ -430,11 +420,7 @@ def test_a_frames_contrast_mean_is_its_own(vectorized):
         )
     reference = F.adjust_contrast(past, 0.5)
     for out in outs:
-        # _Shift adds one random offset per sample on the per-image path
-        offset = (out - reference).flatten(1)
-        assert torch.allclose(offset, offset[:, :1].expand_as(offset), atol=1e-5)
-        if vectorized:
-            assert torch.allclose(out, reference, atol=1e-5)
+        assert torch.allclose(out, reference, atol=1e-5)
 
 
 def test_a_resize_runs_per_frame():
@@ -472,20 +458,15 @@ def test_compile_traces_the_dit_through_the_heads():
         return gm.forward
 
     model = _model().train()
-    original = nn.Module.compile
-
-    def compile_with(self, **kwargs):
-        kwargs.pop("mode", None)
-        return original(self, backend=backend, **kwargs)
-
     torch._dynamo.reset()
     try:
-        nn.Module.compile = compile_with
-        RDT.compile_for_training(types.SimpleNamespace(nets={"policy": model}))
+        for module in RDT.compile_targets(
+            types.SimpleNamespace(nets={"policy": model})
+        ):
+            module.compile(backend=backend, dynamic=False)
         torch.manual_seed(0)
         model.compute_loss({"domain": DOMAIN, "data": _data()}).backward()
     finally:
-        nn.Module.compile = original
         torch._dynamo.reset()
     assert any("blocks" in g.code and "backbone" in g.code for g in graphs)
     assert all(
@@ -653,7 +634,7 @@ def test_memory_encoder_must_pool_each_frame_to_one_token():
 
 
 def test_algo_hands_the_memory_window_over_unaugmented():
-    algo = _pairing_algo(_Shift())
+    algo = _pairing_algo(T.ColorJitter(0.4))
     window = torch.rand(B, 4, 3, 8, 8)
     mask = torch.tensor([[0.0, 1.0, 1.0, 1.0]] * B)
     cam, batch = _pair_batch(torch.rand(B, 3, 8, 8), torch.rand(B, 3, 8, 8))

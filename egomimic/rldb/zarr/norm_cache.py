@@ -201,9 +201,21 @@ def find_cached(
     return p
 
 
-@functools.lru_cache(maxsize=1)
-def _git_sha() -> str | None:
-    return git_sha()
+def _atomic_write(path: Path, write) -> bool:
+    """``write(tmp)`` then rename onto ``path``; False (with a warning) if that
+    failed -- a cache write must never fail a training run. Every DDP rank and
+    any job sharing the cache dir writes, so each writer gets its own tmp."""
+    tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write(tmp)
+        os.replace(tmp, path)
+    except OSError as e:
+        logger.warning("norm cache write failed (%s): %s", path, e)
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        return False
+    return True
 
 
 def write_cached(
@@ -230,20 +242,10 @@ def write_cached(
             "key": key,
             "inputs": inputs,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "git_sha": _git_sha(),
+            "git_sha": git_sha(),
         },
     }
-    # Every DDP rank runs train(), and two jobs (on any node) can share
-    # EGOVERSE_CACHE_DIR, so each writer needs its own tmp file.
-    tmp = p.with_name(f"{p.name}.{uuid.uuid4().hex}.tmp")
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps(payload, indent=2))
-        os.replace(tmp, p)
-    except OSError as e:
-        logger.warning("norm cache write failed (%s): %s", p, e)
-        with contextlib.suppress(OSError):
-            tmp.unlink()
+    if not _atomic_write(p, lambda tmp: tmp.write_text(json.dumps(payload, indent=2))):
         return None
     logger.info("norm cache written: %s", p)
     return p
