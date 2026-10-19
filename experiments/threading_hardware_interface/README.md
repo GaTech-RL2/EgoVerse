@@ -84,3 +84,13 @@ description, including how a fresh read packet supplies the episode ID and step.
 The command validator, control authority, model settings, horizon and ten paired
 starts remain the same. Native commissioning now exercises read-to-act freshness
 inside generated programs. All four conditions restart fresh under version 2.
+
+Version 3 retains that command documentation and makes model-format feedback
+recoverable. DeepSeek sometimes emits two tool calls despite the API's single-call
+setting. The dispatcher rejects the whole response before executing any tool and
+returns validation feedback to each call. The next model response continues the
+same trial; all inference time, tokens and rejection counts remain included.
+Zero-call outputs receive the same feedback. This applies to all four cells and
+does not restart a trial or redispatch a rejected command. The version-2 attempt
+hit this format failure before its node was drained for maintenance; those partial
+traces remain separate. Version 3 uses a fresh matched four-condition cohort.

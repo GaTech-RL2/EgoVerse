@@ -572,6 +572,69 @@ def test_trial_finishes_and_event_chain_detects_tampering(tmp_path):
     assert audit(tmp_path, require_replay=False)["status"] == "failed"
 
 
+@pytest.mark.parametrize("first_count", [0, 2])
+@pytest.mark.parametrize("condition", ["F", "B0"])
+def test_invalid_model_call_count_never_dispatches_and_retains_time_and_usage(
+    tmp_path, first_count, condition
+):
+    manifest = without_resource_budgets(design("fixture"))
+    clock, requests = [0.0], []
+    p = proxy(
+        tmp_path,
+        success_at=1,
+        limits=Limits(**manifest["limits"]),
+        clock=lambda: clock[0],
+    )
+
+    def post(path, body, timeout):
+        assert path == "responses"
+        index = len(requests)
+        requests.append(body)
+        clock[0] += 7
+        if index:
+            assert p.step_count == 0  # Neither rejected command was applied.
+            feedback = [
+                item
+                for item in body["input"]
+                if item.get("type") == "function_call_output"
+            ]
+            assert len(feedback) == first_count
+            assert all(
+                json.loads(item["output"])["executed"] is False for item in feedback
+            )
+        arguments = (
+            {"envelope": envelope(repeat=1)}
+            if condition == "F"
+            else {"action": [0.0] * 7, "repeat_steps": 1, "observation_step": 0}
+        )
+        count = first_count if index == 0 else 1
+        return {
+            "model": body["model"],
+            "status": "completed",
+            "usage": {"input_tokens": 10, "output_tokens": 4},
+            "output": [
+                {
+                    "type": "function_call",
+                    "name": "act" if condition == "F" else "step",
+                    "call_id": "%d-%d" % (index, j),
+                    "arguments": json.dumps(arguments),
+                }
+                for j in range(count)
+            ],
+        }
+
+    result = run_trial(
+        p, Source(), condition, "task", manifest["model"], scratch=None, post=post
+    )
+    p.events.close()
+    assert result["success"] and result["sim_steps"] == 1
+    assert len(p.env.actions) == 1 and len(requests) == 2
+    assert result["model_output_rejections"] == 1
+    assert result["known_workflow_tokens"] == 28
+    assert result["first_success_wall_seconds"] == 14
+    assert audit(tmp_path, require_replay=False)["status"] == "passed"
+
+
 def manifest():
     return design("docker.io/library/python@sha256:" + "a" * 64)
 

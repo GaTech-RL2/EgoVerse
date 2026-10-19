@@ -33,8 +33,8 @@ def design():
     limits = copy.deepcopy(astra["limits"])
     limits["steps"] = HORIZON
     return {
-        "study": "threading-four-combination-f-adaptive-20261019-api-v2",
-        "version": 2,
+        "study": "threading-four-combination-f-adaptive-20261019-api-v3",
+        "version": 3,
         "stage": "descriptive_pilot",
         "task": "Threading_D0",
         "robot": "Panda",
@@ -62,6 +62,7 @@ def design():
         "success": "Unmodified native Threading_D0._check_success after each native control step; private to evaluator.",
         "adaptation": "Fresh per trial; hardware sensors, calibration, bounded dynamics probes, notes and read-only observation/coordinate helpers in all four cells. CAP additionally runs generated robot-control programs through scratch_execute. Direct issues native act commands through model calls.",
         "command_api": "CAP receives the exact nested act envelope JSON Schema and read-packet freshness fields; direct receives that same schema through its act tool. Version-1 attempts hid the CAP command schema and are diagnostic only, excluded from this comparison.",
+        "model_output_contract": "Exactly one tool call per response. Reject the entire zero-call or multi-call output without dispatch and return validation feedback; the actor may correct its next response within the same trial. All elapsed time, model usage, and rejection counts are retained. No rejected action is executed or automatically redispatched. Version-2 attempts halted on this recoverable format error and were interrupted by node maintenance; retain them separately.",
         "pairing": "Identical seeded native reset state, model and initial sensor hashes for every cell; independent fresh-process action replay.",
         "restart_policy": "No automatic trial reruns or action redispatch. Archive completed trials and halt on unresolved infrastructure failure.",
         "timing": "Actor start to first native success; excludes provisioning/reset/replay. Provider round trips include actual server queue/compute; client backoff separately recorded. Cross-model timing includes different serving systems and reasoning settings.",

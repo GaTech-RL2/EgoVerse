@@ -351,6 +351,7 @@ def run_trial(
         source_sha256=source.manifest["sha256"],
     )
     actor_started = True
+    model_output_rejections = 0
     try:
         while proxy.terminal is None:
             proxy.available()
@@ -367,7 +368,32 @@ def run_trial(
             proxy.available()
             calls = [r for r in response["output"] if r.get("type") == "function_call"]
             if len(calls) != 1:
-                raise ModelFailure("one_tool_call_required")
+                # A provider may ignore parallel_tool_calls=False. Reject the
+                # entire output before dispatch; let the actor correct its next
+                # response in this same trial, including all time and usage.
+                model_output_rejections += 1
+                router.invalid_commands += 1
+                feedback = {
+                    "error": "one_tool_call_required",
+                    "executed": False,
+                    "simulator_step": proxy.step_count,
+                    "required": "Issue exactly one tool call in the next response.",
+                }
+                proxy.events.emit(
+                    "model_output_rejected",
+                    reason="one_tool_call_required",
+                    call_count=len(calls),
+                    executed=False,
+                    simulator_step=proxy.step_count,
+                )
+                if calls:
+                    for call in calls:
+                        actor.tool_result(call["call_id"], feedback)
+                else:
+                    actor.history.append(
+                        {"role": "user", "content": json.dumps(feedback)}
+                    )
+                continue
             call = calls[0]
             dispatch = getattr(router, "dispatch_model", router.dispatch)
             result = dispatch(call["name"], strict_json(call["arguments"]))
@@ -417,6 +443,7 @@ def run_trial(
         "actor_started": actor_started,
         "tool_calls": router.calls,
         "invalid_commands": router.invalid_commands,
+        "model_output_rejections": model_output_rejections,
         "invalid_actions": proxy.invalid_actions,
         "safety_attempts": proxy.safety_attempts,
         "applied_safety_violations": proxy.applied_violations,
