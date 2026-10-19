@@ -57,6 +57,45 @@ def reset_identity(env):
     }
 
 
+def record_reset_evidence(env, directory):
+    """Keep native reset evidence before a pairing rejection, outside actor tools."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    initial = reset_identity(env)
+    write_json(directory / "reset-identity.json", initial)
+    (directory / "reset-model.xml").write_text(env.reset_model_xml)
+    np.savez_compressed(
+        directory / "reset-evidence.npz",
+        state=env.env.sim.get_state().flatten(),
+        body_pos=env.env.sim.model.body_pos,
+        body_quat=env.env.sim.model.body_quat,
+        **{key: np.asarray(env.observation[key]) for key in sorted(NATIVE_KEYS)},
+    )
+    return initial
+
+
+def check_reset_pair(reference, actual, directory):
+    if reference == actual:
+        return True
+    receipt = {
+        "different_fields": sorted(
+            key
+            for key in set(reference) | set(actual)
+            if reference.get(key) != actual.get(key)
+        ),
+        "different_reset_fields": sorted(
+            key
+            for key in set(reference["reset"]) | set(actual["reset"])
+            if reference["reset"].get(key) != actual["reset"].get(key)
+        ),
+        "reference": reference,
+        "actual": actual,
+    }
+    write_json(Path(directory) / "reset-mismatch.json", receipt)
+    print(json.dumps({"threading_reset_mismatch": receipt}), flush=True)
+    return False
+
+
 def isolated_replay(directory, manifest_path):
     clean = {
         k: v
@@ -229,9 +268,11 @@ def run_one(row, manifest, prepared, root, manifest_path, *, native=False):
     env, proxy = None, None
     try:
         env = environment(row, manifest)
-        initial = reset_identity(env)
+        initial = record_reset_evidence(env, events.directory)
         catalog = strict_json((prepared / "catalog.json").read_bytes())
-        if initial != catalog[str(row["env_seed"])]:
+        if not check_reset_pair(
+            catalog[str(row["env_seed"])], initial, events.directory
+        ):
             raise ValueError("threading_paired_initial_state_mismatch")
         identity["init_state_hash"] = digest(initial)
         events.emit("reset", receipt=env.reset_receipt)
@@ -375,7 +416,7 @@ def prepare(root, manifest, manifest_path):
             rejected = proxy.step([2, 0, 0, 0, 0, 0, -1], 1, 0)
             if rejected["accepted"] or proxy.step_count:
                 raise ValueError("threading_bounds_guard_failed")
-            catalog[str(seed)] = reset_identity(env)
+            catalog[str(seed)] = record_reset_evidence(env, events.directory)
             if seed == 0:
                 save_frames(env, prepared, "commissioning")
                 write_json(prepared / "hardware.json", proxy.describe())

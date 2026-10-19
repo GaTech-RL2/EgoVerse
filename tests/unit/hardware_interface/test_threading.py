@@ -120,6 +120,23 @@ def test_schedule_is_four_cells_on_the_same_ten_starts():
         validate(bad)
 
 
+def test_failed_reset_pair_preserves_the_mismatched_fields(tmp_path):
+    reference = {
+        "reset": {"state_sha256": "same", "model_sha256": "before"},
+        "initial_sensor_sha256": "before",
+    }
+    actual = copy.deepcopy(reference)
+    assert worker.check_reset_pair(reference, actual, tmp_path)
+    assert not (tmp_path / "reset-mismatch.json").exists()
+    actual["reset"]["model_sha256"] = "after"
+    actual["initial_sensor_sha256"] = "after"
+    assert not worker.check_reset_pair(reference, actual, tmp_path)
+    mismatch = json.loads((tmp_path / "reset-mismatch.json").read_text())
+    assert mismatch["different_fields"] == ["initial_sensor_sha256", "reset"]
+    assert mismatch["different_reset_fields"] == ["model_sha256"]
+    assert mismatch["reference"] == reference and mismatch["actual"] == actual
+
+
 def test_pilot_workflow_has_separate_model_credentials_and_no_libero_launch(
     tmp_path, monkeypatch
 ):
