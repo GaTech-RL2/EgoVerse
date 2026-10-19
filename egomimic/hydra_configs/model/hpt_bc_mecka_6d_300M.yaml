@@ -123,6 +123,16 @@ robomimic_model:
         input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
         output_dim: 840
         widths: [840]
+        # Proprio observation history: K tokens (one per step, current step
+        # last) plus a learned zero-init time-step embedding, instead of the
+        # single current-step token. Must equal the data config's
+        # `proprio_history` (which also sets how far apart the steps are).
+        # `history_dropout` replaces the whole past by the current step for a
+        # sample (train only) so the policy still works when history is
+        # missing at episode start -- it is live at history_len 3, and it is
+        # what keeps the policy from reading its own past as the answer.
+        history_len: 3
+        history_dropout: 0.2
         specs:
           random_horizon_masking: false
           cross_attn:
