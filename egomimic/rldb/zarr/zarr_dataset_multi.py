@@ -52,6 +52,7 @@ from egomimic.utils.action_utils import (
     _apply_unnorm_one,
 )
 from egomimic.utils.env import load_env
+from egomimic.utils.pose_utils import rot6d_channels
 
 
 def create_default_engine():
@@ -985,6 +986,9 @@ class MultiDataset(torch.utils.data.Dataset):
     """
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
+    # Saved in the state: a model trained before rot6d passed through
+    # normalization must keep normalizing it (see _load_state).
+    rot6d_passthrough = True
 
     def __init__(
         self,
@@ -1379,7 +1383,17 @@ class MultiDataset(torch.utils.data.Dataset):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        pool_horizon: bool = False,
     ):
+        """Fill ``self.norm_stats[embodiment]`` from a precomputed file or by
+        sampling ``dataset``.
+
+        ``pool_horizon``: compute each chunked key's stats over every timestep
+        of the chunk (one set per channel, like openpi) instead of per
+        (timestep, channel) cell. The pooled stats are tiled back to the
+        ``(T, D)`` shape, so normalize / bounds check / checkpoints see the
+        same layout either way.
+        """
         embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
@@ -1464,7 +1478,15 @@ class MultiDataset(torch.utils.data.Dataset):
             collected[k] = self._drop_nonfinite_rows(
                 np.concatenate(collected[k], axis=0), k
             )
-            stats_np = self._compute_stats_for_array(collected[k])
+            X = collected[k]
+            if pool_horizon and X.ndim > 2:
+                stats_np = self._compute_stats_for_array(X.reshape(-1, X.shape[-1]))
+                stats_np = {
+                    name: np.broadcast_to(arr, X.shape[1:]).copy()
+                    for name, arr in stats_np.items()
+                }
+            else:
+                stats_np = self._compute_stats_for_array(X)
             self.norm_stats[embodiment][k] = {
                 name: np.asarray(arr, dtype=np.float32)
                 for name, arr in stats_np.items()
@@ -1580,11 +1602,30 @@ class MultiDataset(torch.utils.data.Dataset):
 
     # ---- normalize / unnormalize ----
 
-    def _apply_norm_one(self, tensor, stats):
-        return _apply_norm_one(tensor, stats, self.norm_mode)
+    def _apply_norm_one(self, tensor, stats, zarr_key=None):
+        return _apply_norm_one(
+            tensor, stats, self.norm_mode, self._identity_channels(zarr_key, tensor)
+        )
 
-    def _apply_unnorm_one(self, tensor, stats):
-        return _apply_unnorm_one(tensor, stats, self.norm_mode)
+    def _apply_unnorm_one(self, tensor, stats, zarr_key=None):
+        return _apply_unnorm_one(
+            tensor, stats, self.norm_mode, self._identity_channels(zarr_key, tensor)
+        )
+
+    def _identity_channels(self, zarr_key, tensor):
+        """Channels this key leaves unnormalized: the rot6d columns.
+
+        A 6D rotation is two columns of a rotation matrix, already bounded in
+        [-1, 1], and per-channel scaling and shifting pulls the pair off the
+        manifold for no gain in resolution -- which is why the two projects
+        that anchor an action chunk at near-identity, TRI's LBM and UMI, both
+        exclude rotation from normalization outright. It also removes the t=0
+        identity-rotation degeneracy at its source instead of catching it with
+        NORM_MIN_RANGE.
+        """
+        if zarr_key is None or not self.rot6d_passthrough:
+            return None
+        return rot6d_channels(zarr_key, tensor.shape[-1])
 
     def normalize(self, data: dict, embodiment_id: int) -> dict:
         if not self.norm_stats.get(embodiment_id):
@@ -1605,7 +1646,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     tensor = torch.from_numpy(tensor).float()
                 else:
                     continue
-            out[zarr_key] = self._apply_norm_one(tensor, stats)
+            out[zarr_key] = self._apply_norm_one(tensor, stats, zarr_key)
         return out
 
     def unnormalize(self, data: dict, embodiment_id: int) -> dict:
@@ -1629,7 +1670,9 @@ class MultiDataset(torch.utils.data.Dataset):
                     value = torch.from_numpy(value).float()
                 else:
                     continue
-            out[data_key] = self._apply_unnorm_one(value, stats)
+            out[data_key] = self._apply_unnorm_one(
+                value, stats, self.zarr_keys.get(embodiment_id, {}).get(key_name)
+            )
         return out
 
     # ---- transform attachment ----
@@ -1680,6 +1723,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
+            "rot6d_passthrough": self.rot6d_passthrough,
         }
 
     @classmethod
@@ -1697,6 +1741,12 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         self.shapes = copy.deepcopy(state.get("shapes", {}))
         self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        # A checkpoint state saved before the flag existed normalized the rot6d
+        # channels; an empty state (fresh stats, e.g. trainHydra) keeps the default.
+        if "rot6d_passthrough" in state:
+            self.rot6d_passthrough = bool(state["rot6d_passthrough"])
+        elif state.get("norm_stats"):
+            self.rot6d_passthrough = False
         for emb in self.embodiments:
             self.key_types.setdefault(emb, {})
             self.zarr_keys.setdefault(emb, {})

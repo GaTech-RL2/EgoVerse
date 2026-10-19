@@ -239,6 +239,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         from egomimic.rldb.zarr import norm_cache
 
         sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        pool_horizon = bool(
+            OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False)
+        )
         explicit_path = OmegaConf.select(
             cfg, "norm_stats.precomputed_norm_path", default=None
         )
@@ -274,6 +277,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     episodes,
                     cfg.data.train_datasets[dataset_name],
                     sample_frac,
+                    pool_horizon,
                 )
                 key = norm_cache.norm_cache_key(inputs)
                 cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
@@ -289,6 +293,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 precomputed_norm_path=explicit_path
                 if explicit_path is not None
                 else cached,
+                pool_horizon=pool_horizon,
             )
             if key is not None and cached is None:
                 if norm_stats.norm_stats.get(emb):
