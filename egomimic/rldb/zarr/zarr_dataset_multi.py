@@ -88,6 +88,11 @@ SEED = 42
 
 
 def _episode_table() -> pd.DataFrame:
+    # EGOVERSE_EPISODE_TABLE=<pickle of app.episodes rows>: clusters without
+    # SQL access (Lambda) resolve from a snapshot exported where SQL exists.
+    path = os.environ.get("EGOVERSE_EPISODE_TABLE")
+    if path:
+        return memoized(("episode_table", path), lambda: pd.read_pickle(path))
     return memoized(
         ("episode_table",), lambda: episode_table_to_df(create_default_engine())
     )

@@ -1,0 +1,45 @@
+# Freeform fold-clothes OPERATOR ladder, RDT-1B: the RDT recipe at 1B on one
+# rung of data/mecka_fold_freeform_opscale{1,2,4}_6d; 1000 x 100 steps at global
+# batch 64 (32 x 2 GPUs), val every 25 epochs, a checkpoint every 100 (the bases
+# the ABC-sim fine-tunes start from). Norm stats per rung, at startup.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_fold_ladder_rdt1b \
+#     data=mecka_fold_freeform_opscale1_6d name=fold_ladder description=k1
+defaults:
+  - train_zarr_mecka_flagship_6d_rdt
+  - override model: rdt_1b_bc_mecka_6d_dinov3_vitb
+  - override data: mecka_fold_freeform_opscale4_6d
+  - _self_
+
+launch_params:
+  gpus_per_node: 2
+  nodes: 1
+
+data:
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+      num_workers: 12
+  valid_dataloader_params:
+    human_bimanual:
+      batch_size: 32
+
+trainer:
+  max_epochs: 1000
+  min_epochs: 1000
+  check_val_every_n_epoch: 25
+  limit_train_batches: 100
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: 100
+
+# The GT/pred replay needs the true frames per chunk step: the mecka cartesian
+# chunk is 30 raw frames resampled to 100 steps (29/99), and the replay's own
+# stride inference only fits keypoint layouts (it falls back to 1: a 3.4x-slow
+# replay that drifts off the hand). The train_viz head composes its own copy.
+evaluator:
+  action_stride: 0.29292929292929293
+train_viz_evaluator:
+  base:
+    action_stride: 0.29292929292929293

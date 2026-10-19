@@ -1,0 +1,10 @@
+# RDT_1B_ABC_JOINTS_DINOV3_VITB: rdt_abc_joints_dinov3_vitb at RDT-1B width
+# (rdt_1b_bc_mecka_6d_dinov3_vitb's width and heads).
+defaults:
+  - rdt_abc_joints_dinov3_vitb
+  - _self_
+
+robomimic_model:
+  width: 2048
+  trunk:
+    num_heads: 32

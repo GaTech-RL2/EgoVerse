@@ -40,3 +40,33 @@ def load_checkpoint_weights(
             "on random weights. Is this checkpoint from the same model config?"
         )
     log.info("Loaded weights from %s", ckpt_path)
+
+
+# A fine-tune init that matched less than this share of the model is not one.
+MIN_INIT_FRACTION = 0.5
+
+
+def init_weights_from_checkpoint(model: torch.nn.Module, ckpt_path: str | os.PathLike) -> None:
+    """Fine-tune initialization: copy every tensor of a Lightning checkpoint's
+    ``state_dict`` whose name and shape match ``model``; leave the rest at their
+    fresh init. Unlike ``ckpt_path`` (a full resume: optimizer, scheduler,
+    epoch) nothing but weights is read, so a new embodiment's stems / head and
+    a different action width start fresh while the shared trunk transfers.
+    Raises when under MIN_INIT_FRACTION of the model's elements matched: an
+    unrelated checkpoint would otherwise "fine-tune" from random init."""
+    ckpt_sd = torch.load(ckpt_path, map_location="cpu", weights_only=False, mmap=True)["state_dict"]
+    own_sd = model.state_dict()
+    loaded = {k: v for k, v in ckpt_sd.items() if k in own_sd and own_sd[k].shape == v.shape}
+    fresh = sorted(k for k in own_sd if k not in loaded)
+    model.load_state_dict(loaded, strict=False)
+    fraction = sum(own_sd[k].numel() for k in loaded) / max(sum(v.numel() for v in own_sd.values()), 1)
+    log.info(
+        "init_weights_ckpt %s: loaded %d tensors (%.1f%% of the model's elements); "
+        "%d checkpoint tensors unused; %d left at fresh init, e.g. %s",
+        ckpt_path, len(loaded), 100 * fraction, len(ckpt_sd) - len(loaded), len(fresh), fresh[:5],
+    )
+    if fraction < MIN_INIT_FRACTION:
+        raise RuntimeError(
+            f"init_weights_ckpt {ckpt_path}: only {100 * fraction:.1f}% of the model's "
+            f"weights matched; is it from the same model family? e.g. fresh {fresh[:5]}"
+        )

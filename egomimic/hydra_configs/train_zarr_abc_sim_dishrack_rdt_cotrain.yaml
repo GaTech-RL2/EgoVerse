@@ -1,0 +1,40 @@
+# Dish-rack human + sim cotrain: abc_sim load_plates_into_dish_rack (robot, joint space,
+# converted to $ABC_SIM_ZARR_ROOT/dishrack) + the Mecka episodes whose description has
+# dishes and a rack (human, wrist-frame 6D; 232 episodes / 5.4 h on 2026-10-03), one batch
+# of each per step. Base RDT (width 1024) from scratch with the real-bottles recipe's
+# deployable settings: the robot prompt is fixed in the model, no image history.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_dishrack_rdt_cotrain
+defaults:
+  - train_zarr_abc_real_rdt
+  - override data: abc_sim_joints_cotrain_mecka
+  - _self_
+
+model:
+  robomimic_model:
+    domains: ["human_bimanual", "eva_bimanual"]
+    default_prompt: "load the plates into the dish rack"
+
+data:
+  train_datasets:
+    eva_bimanual:
+      resolver:
+        folder_path: ${oc.env:ABC_SIM_ZARR_ROOT,/workspace/users/agao81/datasets/abc_sim/zarr}/dishrack
+    human_bimanual:
+      resolver:
+        key_map:
+          image_history_gap_s: null  # trunk.image_history is 1
+      filters:
+        filter_lambdas:
+          - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+          # the SQL selection of 2026-10-03: a rack, and dishes, in the episode description
+          - "lambda row: bool(__import__('re').search(r'\\b(?:dish|drying|plate|draining)[ -]?rack|\\brack\\b', str(row.get('task_description') or ''), 2))"
+          - "lambda row: bool(__import__('re').search(r'dish|plate|bowl|cup|mug', str(row.get('task_description') or ''), 2))"
+
+# 500 x 100 steps on one full node: 32 robot + 32 human samples per GPU per step
+trainer:
+  max_epochs: 500
+  min_epochs: 500
+
+launch_params:
+  gpus_per_node: 8

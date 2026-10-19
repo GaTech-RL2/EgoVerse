@@ -13,6 +13,10 @@ defaults:
 name: test
 description: test
 ckpt_path: null
+# Weights-only fine-tune init from a Lightning checkpoint (fresh optimizer,
+# schedule and epoch; name+shape-matched tensors only, so new embodiment
+# stems / heads start fresh). Ignored when ckpt_path resumes a run.
+init_weights_ckpt: null
 mode: train
 
 hydra:

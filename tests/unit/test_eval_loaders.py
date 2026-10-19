@@ -315,39 +315,15 @@ def test_every_head_can_be_subsampled_independently():
         th._metric_frames_per_episode(_cfg(metric={"valid": 0}), "valid")
 
 
-def test_k_scales_with_the_world_size():
-    """K in the config is the single-rank value. DistributedSampler strides,
-    so W ranks between them read W times the frames in the same number of
-    batches each; without the scaling a 4-GPU run scores a quarter of what the
-    same config scores on one GPU."""
+def test_k_is_the_same_on_every_rank():
+    """The val loaders are not sharded (no DistributedSampler inside the
+    CombinedLoaders; every rank runs every val batch), so K is per-rank and
+    must not grow with the world size: a W-scaled K had each rank score only
+    the first 1/W of the subsample."""
     cfg = _cfg(metric={"valid": 7})
-    for devices, nodes, expected in (
-        (1, 1, 7),
-        (4, 1, 28),
-        (8, 2, 112),
-        ([0, 1], 1, 14),
-        ("auto", 1, 7),  # unknown at config time: stay single-rank
-        (-1, 1, 7),
-    ):
+    for devices, nodes in ((1, 1), (4, 1), (8, 2), ([0, 1], 1)):
         cfg.trainer = {"devices": devices, "num_nodes": nodes}
-        assert th._metric_frames_per_episode(cfg, "valid") == expected, devices
-    # a split shorter than K is kept whole, so scaling cannot truncate
-    cfg.trainer = {"devices": 4, "num_nodes": 1}
-    split = {HUMAN: _split({"ep0": 20})}
-    assert len(th._subsample_val_datasets(cfg, "valid", split)[HUMAN]) == 20
-
-
-def test_eval_mode_is_single_rank():
-    """Eval runs are forced onto one device after the loaders are built, so
-    their val split must be subsampled for one rank, not the training W."""
-    cfg = _cfg(metric={"valid": 7})
-    cfg.trainer = {"devices": 4, "num_nodes": 2}
-    assert th._metric_frames_per_episode(cfg, "valid") == 56
-    cfg.mode = "eval"
-    assert th._metric_frames_per_episode(cfg, "valid") == 7
-    del cfg["mode"]
-    cfg.eval = True
-    assert th._metric_frames_per_episode(cfg, "valid") == 7
+        assert th._metric_frames_per_episode(cfg, "valid") == 7, devices
 
 
 @pytest.mark.parametrize("trainer_cfg", ["ddp", "ddp_pi"])
@@ -362,18 +338,17 @@ def test_ddp_devices_are_per_node(trainer_cfg, compose_resolve):
         ],
     )
     assert cfg.trainer.devices == 8 and cfg.trainer.num_nodes == 2
-    assert th._trainer_world_size(cfg) == 16
 
 
 def test_auto_k_is_derived_from_the_resolved_split():
     """`auto` = floor(limit_val_batches * batch_size / episodes), per dataset,
-    from the head's own loader batch size, then scaled by the world size."""
+    from the head's own loader batch size, the same on every rank."""
     cfg = _cfg(metric={"valid": "auto"})
     cfg.trainer = {"limit_val_batches": 4, "devices": 2}
     split = {HUMAN: _split({"ep0": 100, "ep1": 100, "ep2": 100})}
     params = {HUMAN: {"batch_size": 5}}
     wrapped = th._subsample_val_datasets(cfg, "valid", split, params)[HUMAN]
-    assert wrapped.frames_per_episode == (4 * 5 // 3) * 2
+    assert wrapped.frames_per_episode == 4 * 5 // 3
     for limit in (1.0, None, True):
         cfg.trainer.limit_val_batches = limit
         with pytest.raises(ValueError, match="auto"):

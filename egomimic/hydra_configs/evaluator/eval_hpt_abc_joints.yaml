@@ -1,0 +1,17 @@
+# HPT/RDT evaluator for the ABC joint-space runs: eva_bimanual (ABC station,
+# actions_joints) gets the joint metrics (Valid/eva_bimanual_actions_joints_
+# joint_abs_err_deg_*, _grip_*) and no video; human_bimanual keeps the
+# wrist-frame 6D revert + overlay of eval_hpt_wristframe_6d. The closed-loop
+# number for these runs is the abc_sim rollout, not this.
+defaults:
+  - viz@viz_func: abc_joints_human_cartesian
+  - _self_
+
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+viz_every_n_epochs: 100
+viz_max_batches: 10
+
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list

@@ -1,0 +1,15 @@
+# Single-task cotrain: one abc_sim task (robot, joint space) + one mecka task
+# (human, wrist-frame 6D), RDT-1B with both heads, one batch of each per step.
+# Ryan's suggested starting point for the ABC tests (2026-09-27): single-task
+# cotrain before the all-mecka base.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_rdt_cotrain \
+#     name=abc_sim_cotrain description=put_bottles_cup_on_saucer
+defaults:
+  - train_zarr_abc_sim_rdt_ft
+  - override data: abc_sim_joints_cotrain_mecka
+  - _self_
+
+model:
+  robomimic_model:
+    domains: ["human_bimanual", "eva_bimanual"]

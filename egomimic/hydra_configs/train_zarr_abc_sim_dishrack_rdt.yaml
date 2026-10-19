@@ -1,0 +1,20 @@
+# Dish-rack sim only: abc_sim load_plates_into_dish_rack (robot, joint space, converted to
+# $ABC_SIM_ZARR_ROOT/dishrack), base RDT (width 1024) from scratch with the real-bottles
+# recipe's deployable settings (robot prompt fixed in the model, no image history). The
+# matched control for train_zarr_abc_sim_dishrack_rdt_cotrain.
+#
+#   python egomimic/trainHydra.py --config-name=train_zarr_abc_sim_dishrack_rdt
+defaults:
+  - train_zarr_abc_real_rdt
+  - override data: abc_sim_joints
+  - _self_
+
+model:
+  robomimic_model:
+    default_prompt: "load the plates into the dish rack"
+
+data:
+  train_datasets:
+    eva_bimanual:
+      resolver:
+        folder_path: ${oc.env:ABC_SIM_ZARR_ROOT,/workspace/users/agao81/datasets/abc_sim/zarr}/dishrack

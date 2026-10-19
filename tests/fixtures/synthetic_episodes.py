@@ -52,6 +52,11 @@ def _pose(T: int, rng: np.random.Generator) -> np.ndarray:
     return np.repeat(one, T, axis=0).astype(np.float64)
 
 
+def _joints(T: int, rng: np.random.Generator) -> np.ndarray:
+    """One random 6-joint pose (radians) held constant for all T frames."""
+    return np.repeat(rng.uniform(-1.5, 1.5, (1, 6)), T, axis=0).astype(np.float32)
+
+
 def _scalar(T: int, rng: np.random.Generator) -> np.ndarray:
     """One uniform(0,1) value held constant for all T frames, shape (T, 1)."""
     return np.full((T, 1), rng.uniform(0.0, 1.0))
@@ -93,6 +98,11 @@ def write_episode(
                 "right.obs_gripper": _scalar(T, rng),
                 "left.cmd_gripper": _scalar(T, rng),
                 "right.cmd_gripper": _scalar(T, rng),
+                # ABC / YAM joint space (Eva mode "joints"): 6 joints per arm.
+                "left.obs_joints": _joints(T, rng),
+                "right.obs_joints": _joints(T, rng),
+                "left.cmd_joints": _joints(T, rng),
+                "right.cmd_joints": _joints(T, rng),
             }
         )
         extrinsics = {
