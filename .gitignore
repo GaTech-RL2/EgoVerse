@@ -54,6 +54,7 @@ slurmoutputs/
 
 scratch/
 sample_data/
+/fb/
 external_ckpts/
 external/MANO/
 ann_backup/
