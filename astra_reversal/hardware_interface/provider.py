@@ -1,14 +1,20 @@
 """Metered, tool-only model sessions using the Responses API; no silent fallback."""
 
+import base64
+import binascii
 import copy
+import io
 import json
 import os
 import re
 import stat
+import struct
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from PIL import Image
 
 from .common import digest, encoded, strict_json
 from .protocol import OBSERVER_PROMPT
@@ -148,16 +154,50 @@ def model_http(model):
     return HTTP(model["base_url"])
 
 
+def _png_frame(node):
+    """Only complete RGB camera payloads become image attachments, never previews."""
+    if not isinstance(node, dict) or node.get("encoding") != "image/png":
+        return False
+    shape, data = node.get("shape"), node.get("base64")
+    if (
+        type(shape) is not list
+        or len(shape) != 3
+        or any(type(size) is not int or size <= 0 for size in shape)
+        or shape[2] != 3
+        or type(data) is not str
+    ):
+        return False
+    try:
+        raw = base64.b64decode(data, validate=True)
+        with Image.open(io.BytesIO(raw)) as frame:
+            if (
+                frame.format != "PNG"
+                or frame.mode != "RGB"
+                or list(frame.size) != [shape[1], shape[0]]
+            ):
+                return False
+            frame.verify()
+        # verify checks PNG chunks; load also checks the actual compressed pixels.
+        with Image.open(io.BytesIO(raw)) as frame:
+            frame.load()
+    except (
+        ValueError,
+        OSError,
+        SyntaxError,
+        struct.error,
+        binascii.Error,
+        Image.DecompressionBombError,
+    ):
+        return False
+    return True
+
+
 def observation_content(value):
     """Keep images out of token-expensive JSON strings; attach the exact pixels."""
     frames = []
 
     def visit(node, path):
-        if (
-            isinstance(node, dict)
-            and node.get("encoding") == "image/png"
-            and "base64" in node
-        ):
+        if _png_frame(node):
             frames.append((path, node["base64"]))
             return {
                 "image_attachment": path,

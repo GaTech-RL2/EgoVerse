@@ -94,3 +94,14 @@ Zero-call outputs receive the same feedback. This applies to all four cells and
 does not restart a trial or redispatch a rejected command. The version-2 attempt
 hit this format failure before its node was drained for maintenance; those partial
 traces remain separate. Version 3 uses a fresh matched four-condition cohort.
+
+Version 3 reached real policy rollouts but halted when a generated CAP debugging
+summary contained the first 80 base64 characters of a camera image. The image
+adapter interpreted that summary as a full image, and vLLM rejected the next
+request with HTTP 400. Version 4 validates the declared RGB shape and complete PNG
+before creating an image attachment. Debug summaries remain exact text; valid
+camera bytes are unchanged. Regression checks cover the actual nested preview,
+truncated images with otherwise valid shapes, and simultaneous real images.
+All four cells restart as a fresh matched cohort; the earlier valid unsuccessful
+rollouts and the infrastructure failure remain available separately. Model,
+controller, native success, seeds, action horizon and concurrency are unchanged.
