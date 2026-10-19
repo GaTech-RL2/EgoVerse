@@ -4,6 +4,7 @@ import copy
 import ipaddress
 import json
 import os
+import re
 import select
 import socket
 import socketserver
@@ -31,10 +32,33 @@ from .parallel_plan import create_fresh_plan
 
 
 def serving_host(value):
-    address = ipaddress.ip_address(value)
-    if not address.is_private or address.is_loopback or address.is_unspecified:
+    try:
+        addresses = [ipaddress.ip_address(value)]
+    except ValueError:
+        # OSMO's host template expands to a Kubernetes service name on H100.
+        # Resolve it once and pin the private IPv4 address for all connections.
+        label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+        if len(value) > 253 or not re.fullmatch(
+            r"(?:" + label + r"\.)+svc\.cluster\.local", value
+        ):
+            raise ValueError("private_osmo_group_address_required") from None
+        addresses = [
+            ipaddress.ip_address(result[4][0])
+            for result in socket.getaddrinfo(
+                value, 8000, family=socket.AF_INET, type=socket.SOCK_STREAM
+            )
+        ]
+    if not addresses or any(
+        not address.is_private
+        or address.is_loopback
+        or address.is_unspecified
+        or address.is_multicast
+        or address.is_link_local
+        or address.version != 4
+        for address in addresses
+    ):
         raise ValueError("private_osmo_group_address_required")
-    return str(address)
+    return str(addresses[0])
 
 
 def relay(host):

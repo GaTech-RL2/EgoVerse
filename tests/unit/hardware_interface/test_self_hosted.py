@@ -3,6 +3,7 @@
 import copy
 import io
 import json
+import socket
 from pathlib import Path
 
 import pytest
@@ -157,3 +158,55 @@ def test_serving_group_targets_private_address_and_native_mixed_precision():
         json.loads(args[args.index("--speculative-config") + 1])["method"] == "dspark"
     )
     assert "--language-model-only" not in args
+
+
+def test_osmo_group_dns_resolves_and_pins_private_address(monkeypatch):
+    hostname = (
+        "ca4beee439c844cf82a831bfc1d40d41."
+        "osmo-62197168c0cf4f0ca3127c74738cdf01.osmo-prod.svc.cluster.local"
+    )
+    calls = []
+
+    def resolve(host, port, **options):
+        calls.append((host, port, options))
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.244.21.18", port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    assert serving_host(hostname) == "10.244.21.18"
+    assert calls == [
+        (hostname, 8000, {"family": socket.AF_INET, "type": socket.SOCK_STREAM})
+    ]
+    for invalid in (
+        "https://" + hostname,
+        hostname + "/redirect",
+        hostname + ".example.com",
+        "evil@" + hostname,
+        "-bad.svc.cluster.local",
+    ):
+        with pytest.raises(ValueError, match="private_osmo_group_address_required"):
+            serving_host(invalid)
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    "resolved",
+    [
+        [],
+        ["8.8.8.8"],
+        ["127.0.0.1"],
+        ["0.0.0.0"],
+        ["169.254.1.1"],
+        ["10.0.0.1", "8.8.8.8"],
+    ],
+)
+def test_osmo_group_dns_rejects_nonprivate_or_empty_answers(monkeypatch, resolved):
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 8000))
+            for address in resolved
+        ],
+    )
+    with pytest.raises(ValueError, match="private_osmo_group_address_required"):
+        serving_host("inference.osmo-prod.svc.cluster.local")
