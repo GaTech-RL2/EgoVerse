@@ -218,6 +218,12 @@ def plot_speed(result, destination):
     import matplotlib.pyplot as plt
 
     colors = {"F": "#247b7b", "B0": "#d87924", "B": "#8260a8", "F_adaptive": "#2365d1"}
+    colors.update(
+        astra_CAP="#247b7b",
+        astra_direct="#57b2ae",
+        deepseek_CAP="#8260a8",
+        deepseek_direct="#d87924",
+    )
     figure, axes = plt.subplots(1, 2, figsize=(11, 4.4), constrained_layout=True)
     wall_max = max(
         [1]

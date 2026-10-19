@@ -31,6 +31,7 @@ def prepare(
         "astra_reversal/hardware_interface",
         "experiments/libero_hardware_interface",
         "experiments/robocasa_hardware_interface",
+        "experiments/threading_hardware_interface",
         "experiments/liberomax_hardware_interface/tools/prepare_plus_assets.py",
         "tests/unit/hardware_interface",
     ]

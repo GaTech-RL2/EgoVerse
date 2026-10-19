@@ -1,0 +1,135 @@
+study: threading-four-combination-f-adaptive-20261019
+version: 1
+stage: descriptive_pilot
+task: Threading_D0
+robot: Panda
+controller: OSC_POSE
+interface: F_adaptive
+conditions:
+- astra_CAP
+- astra_direct
+- deepseek_CAP
+- deepseek_direct
+models:
+  astra:
+    provider: responses
+    identifier: openai/openai/gpt-6-astra
+    serving_provider: nvidia-inference
+    snapshot_pinned: false
+    reasoning_effort: medium
+    sampling: {}
+    retries: 3
+    request_logging: input_hashes
+    base_url: https://inference-api.nvidia.com/v1
+    input_reservation:
+      mode: usage_only
+    context_truncation: auto
+  deepseek:
+    provider: responses
+    identifier: deepseek-ai/DeepSeek-V4.1-Flash-1017
+    serving_provider: osmo-vllm
+    snapshot_pinned: true
+    reasoning_effort: high
+    sampling:
+      temperature: 1.0
+      top_p: 1.0
+      seed: 42
+    retries: 3
+    request_logging: input_hashes
+    base_url: http://127.0.0.1:18080/v1
+    input_reservation:
+      mode: usage_only
+    context_truncation: disabled
+    responses_dialect: deepseek-v4.1-vllm
+    repeat_task_instruction: true
+    numeric_reasoning_effort: 75
+deepseek_identity:
+  requested_model: deepseek-ai/DeepSeek-V4.1-Flash-1017
+  requested_hf_revision: 1bae0e1088993b9b82de08f59de5be5a34e42170
+  pool_with_astra: false
+  self_hosted: true
+  serving_image: docker.io/vllm/vllm-openai@sha256:c1c9f6fd5c109ba7f0546a59f5b2f15fb87f64c77782e90a27b648b42a8e67c3
+source_pins:
+  mimicgen: 72bd767c255545f462e7ccfb2731f2e5d4c1d9bb
+  robosuite: c848ca848020d0c4ccdd10c5056bd06f2a195ba2
+environment_seeds:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+randomization_seed: 20261019
+image_size: 256
+control_frequency: 20
+limits:
+  steps: 400
+  wall_seconds: null
+  workflow_tokens: null
+  tool_calls: null
+  max_repeat: 10
+  observer_calls: null
+  actor_output_tokens: null
+  observer_output_tokens: null
+  context_tokens: null
+  response_seconds: 180
+additional_settling_steps: 0
+success: Unmodified native Threading_D0._check_success after each native control step;
+  private to evaluator.
+adaptation: Fresh per trial; hardware sensors, calibration, bounded dynamics probes,
+  notes and read-only observation/coordinate helpers in all four cells. CAP additionally
+  runs generated robot-control programs through scratch_execute. Direct issues native
+  act commands through model calls.
+pairing: Identical seeded native reset state, model and initial sensor hashes for
+  every cell; independent fresh-process action replay.
+restart_policy: No automatic trial reruns or action redispatch. Archive completed
+  trials and halt on unresolved infrastructure failure.
+timing: Actor start to first native success; excludes provisioning/reset/replay. Provider
+  round trips include actual server queue/compute; client backoff separately recorded.
+  Cross-model timing includes different serving systems and reasoning settings.
+conditions_analysis: Pilot only, ten starts; no confirmatory performance claim.
+task_ids:
+- 0
+pilot_indices:
+- 0
+- 1
+- 2
+- 3
+- 4
+- 5
+- 6
+- 7
+- 8
+- 9
+replicates: 1
+primary_contrast:
+- astra_CAP
+- astra_direct
+contrasts:
+- - astra_CAP
+  - astra_direct
+- - deepseek_CAP
+  - deepseek_direct
+- - astra_CAP
+  - deepseek_CAP
+- - astra_direct
+  - deepseek_direct
+analysis:
+  bootstrap_samples: 10000
+  bootstrap_seed: 20261019
+speed_analysis:
+  report_times_seconds:
+  - 60
+  - 300
+  - 600
+  - 1200
+  - 1800
+  - 3600
+  - 7200
+  - 14400
+  - 28800
+  report_times_are_limits: false

@@ -47,7 +47,7 @@ base64 --decode /tmp/hardware-payload.tar.gz.b64 > /tmp/serving-payload.tar.gz
 echo "$PAYLOAD_SHA256  /tmp/serving-payload.tar.gz" | sha256sum --check --status
 tar xzf /tmp/serving-payload.tar.gz
 ulimit -l unlimited 2>/dev/null || true
-python -m experiments.libero_hardware_interface.tools.self_hosted_server
+python3 -m experiments.libero_hardware_interface.tools.self_hosted_server
 """)
     inference = {
         "name": "inference",

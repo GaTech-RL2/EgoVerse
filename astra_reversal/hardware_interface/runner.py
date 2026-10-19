@@ -291,6 +291,8 @@ def run_trial(
     post=None,
     shared_prompt=SHARED_PROMPT,
     source_entry="libero/libero/envs/env_wrapper.py",
+    router_factory=None,
+    policy_instructions="",
 ):
     meter = Meter(proxy.limits.workflow_tokens)
     actor = Session(model, proxy.limits, meter, proxy.events, post=post)
@@ -303,7 +305,9 @@ def run_trial(
         if condition == "B"
         else None
     )
-    router = Router(proxy, source, condition, scratch=scratch, observer=observer)
+    router = (router_factory or Router)(
+        proxy, source, condition, scratch=scratch, observer=observer
+    )
     common = (
         "Shared source entry point: " + source_entry + ". "
         "Inspect native controller and observation conventions through source tools. "
@@ -330,11 +334,14 @@ def run_trial(
             instructions += "\n" + ADAPTIVE_PROMPT
     elif condition == "B":
         instructions += "\nThe separate observer can report current visible evidence with describe_visible; its usage is included in the workflow totals."
+    if policy_instructions:
+        instructions += "\n" + policy_instructions
     actor.history = [{"role": "user", "content": task_instruction}]
     proxy.wall_start = proxy.clock()
     proxy.events.emit(
         "trial_start",
-        condition=condition,
+        condition=proxy.events.identity.get("condition", condition),
+        interface_condition=condition,
         instruction=task_instruction,
         system_prompt=instructions,
         system_prompt_sha256=digest(instructions),
@@ -362,7 +369,8 @@ def run_trial(
             if len(calls) != 1:
                 raise ModelFailure("one_tool_call_required")
             call = calls[0]
-            result = router.dispatch(call["name"], strict_json(call["arguments"]))
+            dispatch = getattr(router, "dispatch_model", router.dispatch)
+            result = dispatch(call["name"], strict_json(call["arguments"]))
             actor.tool_result(call["call_id"], result)
     except BudgetEnd as error:
         proxy.terminal = (

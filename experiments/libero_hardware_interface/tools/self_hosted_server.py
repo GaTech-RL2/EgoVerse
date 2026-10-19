@@ -1,5 +1,6 @@
 """Pinned TP8 DeepSeek service; lifecycle belongs to this OSMO group only."""
 
+import base64
 import hashlib
 import importlib.metadata
 import io
@@ -112,6 +113,104 @@ def command(snapshot):
         "--speculative-config",
         '{"method":"dspark","num_speculative_tokens":5,"draft_sample_method":"probabilistic","rejection_sample_method":"block","enable_adaptive_verification":true}',
     ]
+
+
+def serving_smoke():
+    """One image/tool round trip, outside all measured actor trials."""
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (128, 128), (32, 96, 160)).save(buffer, format="PNG")
+    tool = {
+        "type": "function",
+        "name": "report_frame",
+        "description": "Report whether an image was supplied.",
+        "strict": True,
+        "parameters": {
+            "type": "object",
+            "properties": {"image_supplied": {"type": "boolean"}},
+            "required": ["image_supplied"],
+            "additionalProperties": False,
+        },
+    }
+    body = {
+        "model": DEEPSEEK_MODEL,
+        "instructions": "Transport check only. Call report_frame once with image_supplied=true. Do not answer in prose.",
+        "input": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": "Inspect the supplied image and call the tool.",
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": "data:image/png;base64,"
+                        + base64.b64encode(buffer.getvalue()).decode(),
+                    },
+                ],
+            }
+        ],
+        "tools": [tool],
+        "parallel_tool_calls": False,
+        "chat_template_kwargs": {
+            "thinking": True,
+            "reasoning_effort": 75,
+            "drop_thinking": False,
+        },
+        "store": False,
+        "truncation": "disabled",
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "seed": 42,
+    }
+    records = []
+    for turn in range(2):
+        request = urllib.request.Request(
+            "http://127.0.0.1:8000/v1/responses",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        started = time.monotonic()
+        with urllib.request.urlopen(request, timeout=180) as response:
+            value = json.load(response)
+        calls = [
+            item
+            for item in value.get("output", [])
+            if item.get("type") == "function_call"
+        ]
+        if (
+            len(calls) != 1
+            or calls[0]["name"] != "report_frame"
+            or json.loads(calls[0]["arguments"]) != {"image_supplied": True}
+        ):
+            raise RuntimeError("self_hosted_multimodal_tool_smoke_failed")
+        records.append(
+            {
+                "turn": turn,
+                "wall_seconds": time.monotonic() - started,
+                "usage": value.get("usage"),
+                "response_model": value.get("model"),
+            }
+        )
+        body["input"].extend(value["output"])
+        body["input"].append(
+            {
+                "type": "function_call_output",
+                "call_id": calls[0]["call_id"],
+                "output": "Image received. Repeat report_frame(image_supplied=true) once to verify tool history.",
+            }
+        )
+    return {
+        "passed": True,
+        "scored_result": False,
+        "model": DEEPSEEK_MODEL,
+        "revision": DEEPSEEK_REVISION,
+        "image_tool_and_history_roundtrip": True,
+        "requests": records,
+    }
 
 
 def main():
@@ -231,6 +330,19 @@ def main():
                         ),
                         flush=True,
                     )
+                    if os.environ.get("HARDWARE_SERVING_SMOKE_ONLY") == "1":
+                        receipt = serving_smoke()
+                        write(artifacts / "serving-smoke.json", receipt)
+                        print(
+                            json.dumps(
+                                {
+                                    "serving_smoke_passed": True,
+                                    "requests": receipt["requests"],
+                                }
+                            ),
+                            flush=True,
+                        )
+                        STOP.set()
                 if healthy and time.monotonic() - last_metrics >= 60:
                     with urllib.request.urlopen(
                         "http://127.0.0.1:8000/metrics", timeout=5
