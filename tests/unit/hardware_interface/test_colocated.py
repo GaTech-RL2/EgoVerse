@@ -48,6 +48,7 @@ def test_native_runtime_and_model_environment_are_separate(tmp_path):
     )
     assert native["MUJOCO_GL"] == native["PYOPENGL_PLATFORM"] == "osmesa"
     assert native["CUDA_VISIBLE_DEVICES"] == ""
+    assert native["HARDWARE_BOOTSTRAP_FILE_LOG"] == "1"
 
 
 def test_persistent_mirror_preserves_updates_and_excludes_scratch(tmp_path):

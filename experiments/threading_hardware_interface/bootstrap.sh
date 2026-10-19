@@ -7,7 +7,12 @@ export MUJOCO_GL="${HARDWARE_RENDER_BACKEND:-egl}" PYOPENGL_PLATFORM="${HARDWARE
 export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2
 mkdir -p /workspace/threading-study/artifacts/runtime /osmo/run/workspace
 cd /workspace/threading-study
-exec > >(tee bootstrap.log) 2>&1
+if [[ "${HARDWARE_BOOTSTRAP_FILE_LOG:-0}" == 1 ]]; then
+    # The native chroot deliberately has no host /proc or /dev/fd.
+    exec > bootstrap.log 2>&1
+else
+    exec > >(tee bootstrap.log) 2>&1
+fi
 base64 --decode /tmp/hardware-payload.tar.gz.b64 > /osmo/run/workspace/threading-payload.tar.gz
 echo "$PAYLOAD_SHA256  /osmo/run/workspace/threading-payload.tar.gz" | sha256sum --check --status
 tar xzf /osmo/run/workspace/threading-payload.tar.gz

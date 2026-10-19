@@ -38,6 +38,7 @@ def child_environments(base, artifacts):
         PYOPENGL_PLATFORM="osmesa",
         CUDA_VISIBLE_DEVICES="",
         LP_NUM_THREADS="2",
+        HARDWARE_BOOTSTRAP_FILE_LOG="1",
     )
     return server, native
 
@@ -136,6 +137,17 @@ def rootfs(cache, artifacts):
     return root
 
 
+def forward_log(path, offset):
+    if path.exists():
+        with path.open("rb") as stream:
+            stream.seek(offset)
+            raw = stream.read()
+        sys.stdout.buffer.write(raw)
+        sys.stdout.flush()
+        return offset + len(raw)
+    return offset
+
+
 def main():
     cache = Path(os.environ["HARDWARE_SERVING_CACHE"])
     cache.mkdir(parents=True, exist_ok=True)
@@ -223,6 +235,7 @@ def main():
         start_new_session=True,
     )
     jobs.append(native)
+    native_log_offset = 0
     print(
         json.dumps(
             {
@@ -236,9 +249,13 @@ def main():
     )
     try:
         while native.poll() is None:
+            native_log_offset = forward_log(
+                native_work / "bootstrap.log", native_log_offset
+            )
             if server is not None and server.poll() not in (None, 0):
                 raise RuntimeError("colocated_model_server_failed")
             time.sleep(2)
+        forward_log(native_work / "bootstrap.log", native_log_offset)
         if native.returncode:
             raise RuntimeError(
                 "colocated_native_process_failed_" + str(native.returncode)
