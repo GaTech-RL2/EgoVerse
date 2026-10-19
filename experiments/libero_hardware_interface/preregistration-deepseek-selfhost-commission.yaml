@@ -180,9 +180,12 @@ model_replication:
     is temperature=1, top_p=1, seed=42 in all arms.
   - One TP8 H100 server with Engram CPU offload, DSpark speculative decoding, 1M context
     and 4096 batched tokens. Serving configuration is identical in all arms.
-  - All evaluator workers share one separately allocated H100 for EGL rendering; server
-    receives its own eight H100s. Model serving and simulator rendering are separate
-    tasks.
+  - The pool requires whole eight-GPU nodes. Eight evaluator workers receive one H100
+    each on a separate node; the TP8 server receives its own eight H100s. Model serving
+    and simulator rendering are separate tasks.
+  - 'No external-provider rate limit or artificial client request pacing: eight actor
+    workers use vLLM continuous batching (max_num_seqs=8). Provider round trips include
+    actual model queue/compute; retry backoff remains separately timed.'
   historical_comparison: Astra is a historical reference only. Different providers,
     dates, reasoning levels and load preclude a controlled cross-model wall-clock
     speed claim.

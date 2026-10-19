@@ -141,6 +141,7 @@ def collect_cohorts(root, commissioned):
                 "HARDWARE_SHARD_INDEX": str(index),
                 "HARDWARE_ORCHESTRATION_COMMIT": source,
                 "HARDWARE_REQUEST_SLOT_INDEX": str(2 * index + (0 if suffix else 1)),
+                "MUJOCO_EGL_DEVICE_ID": str(2 * index + (0 if suffix else 1)),
                 "HARDWARE_WORKER_ROOT": str(worker.resolve()),
             }
             log = (worker / "worker.log").open("w")
@@ -216,15 +217,22 @@ def collect_cohorts(root, commissioned):
 
 def shard():
     from .parallel_worker import collect_shard
-    from .request_admission import install
 
     root = Path(os.environ["HARDWARE_WORKER_ROOT"])
     # The launcher checks the marker at exclusive trial creation boundaries.
     os.environ["HARDWARE_STOP_AFTER_TRIAL_FILE"] = str(
         root / "stop-after-current-trial"
     )
-    install(int(os.environ["HARDWARE_REQUEST_SLOT_INDEX"]))
     manifest = load_manifest(os.environ["HARDWARE_MANIFEST"])
+    write_json(
+        root / "request-admission.json",
+        {
+            "mode": "self_hosted_continuous_batching",
+            "artificial_client_pacing": False,
+            "concurrent_actor_workers": 8,
+            "server_max_num_seqs": 8,
+        },
+    )
     try:
         collect_shard(root, manifest)
     finally:

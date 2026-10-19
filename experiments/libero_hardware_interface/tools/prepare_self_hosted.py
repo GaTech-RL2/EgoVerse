@@ -89,7 +89,7 @@ python -m experiments.libero_hardware_interface.tools.self_hosted_server
                 "platform": "dgx-h100",
             },
             "evaluation": {
-                "gpu": 1,
+                "gpu": 8,
                 "cpu": 24,
                 "memory": "64Gi",
                 "storage": "40Gi",
@@ -110,12 +110,12 @@ python -m experiments.libero_hardware_interface.tools.self_hosted_server
         pool="groot-h100-02",
         platform="dgx-h100",
         stage="self_hosted_pilot",
-        scope="Pinned 8xH100 TP8 server plus separate 1xH100 EGL evaluator; native, multimodal/tool and independent replay gates, then 150 + 100 matched trials",
+        scope="Pinned 8xH100 TP8 server plus separate 8xH100 evaluator node, one GPU per worker; native, multimodal/tool and independent replay gates, then 150 + 100 matched trials",
         serving_image=VLLM_IMAGE,
         hosted_api_credentials=False,
         planned_trials=250,
         inference_gpus=8,
-        evaluator_gpus=1,
+        evaluator_gpus=8,
     )
     (destination / "launch-receipt.json").write_text(
         json.dumps(receipt, indent=2) + "\n"

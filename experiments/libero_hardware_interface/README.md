@@ -396,10 +396,13 @@ comparison is between interfaces within the new DeepSeek cohort.
 The self-hosted companion uses `preregistration-deepseek-selfhost*.yaml` and
 `python -m experiments.libero_hardware_interface.tools.prepare_self_hosted DEST`.
 It prepares one private OSMO group on `groot-h100-02`: eight H100s for a vLLM
-0.31.0 TP8 server and a separately allocated H100 for eight evaluator processes.
+0.31.0 TP8 server and a second eight-H100 node for the evaluator processes.
+This pool requires whole eight-GPU allocations; each evaluator uses one GPU.
 The checkpoint revision and serving image digest are pinned. Engram tables use
 CPU offload; DSpark is enabled in every arm. Weights and compilation caches live
 in a new experiment directory on the cluster's shared filesystem.
+Self-hosted workers use continuous batching without the hosted API's artificial
+request pacing. Queueing and compute are measured in actual provider round trips.
 
 The evaluator uses a credential-free loopback relay to its group's server. It
 verifies serving identity, then runs native commissioning, four-arm image/tool

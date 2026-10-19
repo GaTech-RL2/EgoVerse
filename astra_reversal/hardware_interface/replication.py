@@ -149,7 +149,8 @@ def self_hosted_design(manifest):
             "Self-hosted vLLM 0.31.0 Responses API through a credential-free loopback relay inside one private OSMO group. Hosted API credentials are not read or forwarded.",
             "Numeric reasoning effort 75 matches the official API high mapping documented in the vLLM recipe; preserve prior reasoning explicitly (drop_thinking=false). Sampling is temperature=1, top_p=1, seed=42 in all arms.",
             "One TP8 H100 server with Engram CPU offload, DSpark speculative decoding, 1M context and 4096 batched tokens. Serving configuration is identical in all arms.",
-            "All evaluator workers share one separately allocated H100 for EGL rendering; server receives its own eight H100s. Model serving and simulator rendering are separate tasks.",
+            "The pool requires whole eight-GPU nodes. Eight evaluator workers receive one H100 each on a separate node; the TP8 server receives its own eight H100s. Model serving and simulator rendering are separate tasks.",
+            "No external-provider rate limit or artificial client request pacing: eight actor workers use vLLM continuous batching (max_num_seqs=8). Provider round trips include actual model queue/compute; retry backoff remains separately timed.",
         ]
     )
     result["amendment"]["date"] = "2026-10-19"
