@@ -249,19 +249,21 @@ def _check_pins(
     pins = filters.episode_hashes
     if not pins:
         return
-    # Duplicate rows for one hash would make `row[...]` a Series instead of a
-    # scalar, so collapse to one row per hash before indexing.
-    by_hash = (
-        df.drop_duplicates("episode_hash").set_index("episode_hash", drop=False)
-        if "episode_hash" in df.columns
-        else None
-    )
+    # First row per pinned hash, as dicts: a per-pin `.loc` took ~17 s for 41k
+    # pins.
+    by_hash = {}
+    if "episode_hash" in df.columns:
+        rows = df[df["episode_hash"].astype(str).isin(pins)]
+        by_hash = {
+            str(r["episode_hash"]): r
+            for r in rows.drop_duplicates("episode_hash").to_dict("records")
+        }
     problems: list[str] = []
     for h in sorted(pins):
-        if by_hash is None or h not in by_hash.index:
+        if h not in by_hash:
             problems.append(f"{h}: not in app.episodes")
             continue
-        row = by_hash.loc[h]
+        row = by_hash[h]
         if not _is_missing_filter_value(row.get("is_deleted")) and bool(
             row["is_deleted"]
         ):
@@ -570,11 +572,16 @@ class S3EpisodeResolver(EpisodeResolver):
             logger.info("Episode table is empty.")
             return []
 
-        mask = df.apply(
-            lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
-            axis=1,
-        )
-        matched = df.loc[mask]
+        if filters.episode_hashes:
+            # matches() rejects every other row anyway; the table has ~10x
+            # more rows than a full-lab pin list and 1e5x more than a val pin.
+            df = df[df["episode_hash"].astype(str).isin(filters.episode_hashes)]
+        # records, not a row-wise df.apply(row.to_dict()): ~20x faster on the
+        # full table, where the apply cost ~50 s per resolve.
+        mask = [
+            filters.matches(_normalize_filter_row(row)) for row in df.to_dict("records")
+        ]
+        matched = df.loc[mask] if mask else df
         n_matched_sql = len(matched)
 
         matched = matched[
@@ -1276,6 +1283,9 @@ class MultiDataset(torch.utils.data.Dataset):
     # bad, and got there via 975 sequential zarr/S3 reads per call per worker,
     # which looks like a hang rather than a failure.
     MAX_FALLBACK_ATTEMPTS = 100
+    # Episodes tried per key_map/transform group before populate_from_datasets
+    # falls back to the raw key_map.
+    POPULATE_PROBES = 8
 
     def __getitem__(self, idx, _attempts: int | None = None):
         attempts = _attempts
@@ -1405,10 +1415,12 @@ class MultiDataset(torch.utils.data.Dataset):
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
         Populate per-embodiment key inventory by walking leaves and probing
-        one post-transform sample per leaf. ``datasets`` defaults to
-        ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
+        one post-transform sample per (embodiment, key_map, transform list).
+        ``datasets`` defaults to ``self.datasets`` so the typical call is just
+        ``mds.populate_from_datasets()``.
         """
         graph = datasets if datasets is not None else self.datasets
+        groups: dict[tuple, list] = {}
         for ds in graph.values():
             for leaf in self._iter_leaves(ds):
                 emb = getattr(leaf, "embodiment", None)
@@ -1416,44 +1428,57 @@ class MultiDataset(torch.utils.data.Dataset):
                 if emb is None or key_map is None:
                     continue
                 emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
-                self.embodiments.add(emb_id)
-                self.key_types.setdefault(emb_id, {})
-                self.zarr_keys.setdefault(emb_id, {})
-                self.shapes.setdefault(emb_id, {})
-                self.norm_stats.setdefault(emb_id, {})
+                # A resolver hands every episode the same key_map and transform
+                # objects, so one probe covers them all: probing each leaf read a
+                # full sample per episode (~20 min on 41k mecka episodes).
+                key = (emb_id, id(key_map), id(getattr(leaf, "transform", None)))
+                groups.setdefault(key, [emb_id, key_map, []])[2].append(leaf)
 
-                sample_keys: set | None = None
+        for emb_id, key_map, leaves in groups.values():
+            self.embodiments.add(emb_id)
+            self.key_types.setdefault(emb_id, {})
+            self.zarr_keys.setdefault(emb_id, {})
+            self.shapes.setdefault(emb_id, {})
+            self.norm_stats.setdefault(emb_id, {})
+
+            sample_keys: set | None = None
+            for leaf in leaves[: self.POPULATE_PROBES]:
                 try:
                     sample = leaf[0]
-                    if isinstance(sample, dict):
-                        sample_keys = set(sample.keys())
                 except Exception as e:
                     logger.warning(
                         f"[MultiDataset] Could not probe leaf for post-transform "
-                        f"keys (emb={emb_id}): {e}. Falling back to raw key_map."
+                        f"keys (emb={emb_id}): {e}. Trying the next episode."
                     )
-
-                if sample_keys is None:
-                    for key_name, info in key_map.items():
-                        self.key_types[emb_id][key_name] = info.get(
-                            "key_type", "metadata_keys"
-                        )
-                        self.zarr_keys[emb_id][key_name] = info["zarr_key"]
                     continue
+                if isinstance(sample, dict):
+                    sample_keys = set(sample.keys())
+                    break
+            if sample_keys is None:
+                logger.warning(
+                    f"[MultiDataset] No probe succeeded (emb={emb_id}). "
+                    "Falling back to raw key_map."
+                )
+                for key_name, info in key_map.items():
+                    self.key_types[emb_id][key_name] = info.get(
+                        "key_type", "metadata_keys"
+                    )
+                    self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+                continue
 
-                # Identity zarr_keys map (data_key is the algo-side name).
-                for data_key in sample_keys:
-                    if data_key in key_map:
-                        info = key_map[data_key]
-                        self.key_types[emb_id][data_key] = info.get(
-                            "key_type", "metadata_keys"
-                        )
-                    else:
-                        inferred = _infer_key_type(data_key)
-                        if inferred is None:
-                            continue
-                        self.key_types[emb_id][data_key] = inferred
-                    self.zarr_keys[emb_id][data_key] = data_key
+            # Identity zarr_keys map (data_key is the algo-side name).
+            for data_key in sample_keys:
+                if data_key in key_map:
+                    info = key_map[data_key]
+                    self.key_types[emb_id][data_key] = info.get(
+                        "key_type", "metadata_keys"
+                    )
+                else:
+                    inferred = _infer_key_type(data_key)
+                    if inferred is None:
+                        continue
+                    self.key_types[emb_id][data_key] = inferred
+                self.zarr_keys[emb_id][data_key] = data_key
 
     # ---- key lookups ----
 
@@ -1504,9 +1529,14 @@ class MultiDataset(torch.utils.data.Dataset):
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
         pool_horizon: bool = False,
+        episode_cache: str | Path | None = None,
     ):
         """Fill ``self.norm_stats[embodiment]`` from a precomputed file or by
         sampling ``dataset``.
+
+        ``episode_cache``: a per-episode sample store
+        (``episode_norm_samples.cache_root``). Rows are read from, and new
+        episodes written to, it instead of sampling the whole dataset.
 
         ``pool_horizon``: compute each chunked key's stats over every timestep
         of the chunk (one set per channel, like openpi) instead of per
@@ -1564,14 +1594,17 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
 
-        loader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            shuffle=True,
-            generator=torch.Generator().manual_seed(seed),
-            worker_init_fn=die_with_parent,
-        )
+        if episode_cache is not None and not all(
+            not isinstance(ds, MultiDataset)
+            and getattr(ds, "episode_path", None) is not None
+            for ds in dataset.datasets.values()
+        ):
+            logger.warning(
+                "[MultiDataset] per-episode norm cache needs a flat dataset of "
+                "zarr episodes; sampling the whole dataset instead"
+            )
+            episode_cache = None
+
         N = len(dataset)
         if N <= 0:
             raise ValueError("Dataset is empty")
@@ -1586,9 +1619,37 @@ class MultiDataset(torch.utils.data.Dataset):
         )
 
         loading_start = time.time()
-        collected = self._collect_norm_samples(
-            loader, norm_keys, embodiment, n_samples, batch_size, num_workers
-        )
+        episode_meta = {}
+        if episode_cache is not None:
+            from egomimic.rldb.zarr import episode_norm_samples
+
+            zarr_keys = {
+                k: z
+                for k in norm_keys
+                if (z := self.keyname_to_zarr_key(k, embodiment)) is not None
+            }
+            collected, episode_meta = episode_norm_samples.collect(
+                Path(episode_cache),
+                dataset.datasets,
+                zarr_keys,
+                n_samples,
+                seed=seed,
+                num_workers=num_workers,
+            )
+            for k in norm_keys:
+                collected.setdefault(k, [])
+        else:
+            loader = torch.utils.data.DataLoader(
+                dataset,
+                batch_size=batch_size,
+                num_workers=num_workers,
+                shuffle=True,
+                generator=torch.Generator().manual_seed(seed),
+                worker_init_fn=die_with_parent,
+            )
+            collected = self._collect_norm_samples(
+                loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+            )
         for k in [k for k, v in collected.items() if not v]:
             del collected[k]
             norm_keys.remove(k)
@@ -1621,6 +1682,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "loading_time": loading_time,
             "computing_time": computing_time,
             "frames": n_samples,
+            **episode_meta,
         }
         logger.info(
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
