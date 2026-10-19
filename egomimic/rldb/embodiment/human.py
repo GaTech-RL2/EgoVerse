@@ -483,10 +483,8 @@ class Human(Embodiment):
             )
         if mode == "cartesian_6d":
             # Head/camera-frame cartesian (12D xyz+ypr per arm pair) with the
-            # rotation re-expressed as the continuous 6D representation (18D)
-            # for pi0.5. The proprio ee_pose is 6D-encoded too: normalized YPR
-            # saturates yaw/roll at +-pi, so per-dim normalization needs the
-            # continuous representation.
+            # rotation as continuous 6D (18D) for pi0.5, on the proprio ee_pose
+            # as well as the actions -- see CartesianYPRToRot6D.
             return (
                 prefix
                 + _build_human_cartesian_bimanual_transform_list(stride=stride)
@@ -759,6 +757,17 @@ def _build_human_keypoints_eef_frame_transform_list(
                 output_key=right_keypoints_obs_headframe,
                 shape=(21, 3),
             ),
+            # per_step_target: with proprio_history K, step k's keypoints go
+            # into step k's OWN wrist frame, not the current step's. Otherwise
+            # a past hand is measured from today's wrist, which smears wrist
+            # motion into the articulation channels -- the palm-rigid knuckles
+            # (MANO 1/5/13/17) have a very tight legitimate range and land far
+            # outside it, worsening with age (measured 2026-09-17: 10.3/6.9/3.3
+            # out-of-range cells per sample at steps 0/1/2, 0.0 at the current
+            # step). Per-step framing keeps every step a genuine state, so
+            # keypoint 0 is 0 at EVERY step and the norm stats / bounds check
+            # describe all of them. The ACTION chunk keeps the current-step
+            # frame: its leading axis is the forward horizon, not history.
             PoseCoordinateFrameTransform(
                 target_world=left_wrist_obs_headframe,
                 pose_world=left_keypoints_obs_headframe,
