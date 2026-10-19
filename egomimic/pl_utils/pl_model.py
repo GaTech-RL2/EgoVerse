@@ -57,6 +57,7 @@ class ModelWrapper(LightningModule):
 
         if config_tree is not None:
             self.model = self._instantiate_model(config_tree, norm_stats_state)
+            self._maybe_compile(config_tree)
         elif robomimic_model is not None:  # legacy support
             self.model = robomimic_model
         else:
@@ -102,6 +103,29 @@ class ModelWrapper(LightningModule):
             cfg.model.robomimic_model,
             norm_stats=norm_stats,
         )
+
+    def _maybe_compile(self, config_tree) -> None:
+        """Hand the algo's hot submodules to ``torch.compile`` when
+        ``model.compile.enabled`` is set.
+
+        Here, not in the algo's ``__init__``: this runs on every DDP rank right
+        after the rank builds its own copy on CPU and before Lightning wraps it,
+        so each rank compiles for the GPU it is about to land on. Compilation
+        itself is lazy -- nothing is traced until the first batch.
+        """
+        cfg = self._as_config(config_tree)
+        opts = cfg.model.get("compile")
+        if not opts or not opts.get("enabled", False):
+            return
+        compiled = self.model.compile_for_training(
+            mode=opts.get("mode"), dynamic=bool(opts.get("dynamic", False))
+        )
+        if not compiled:
+            print(
+                f"[compile] model.compile.enabled is set but "
+                f"{type(self.model).__name__} compiled nothing",
+                flush=True,
+            )
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
