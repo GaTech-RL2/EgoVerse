@@ -160,6 +160,7 @@ def _model(
     frame_dropout=0.0,
     memory=None,
     short_dropout=0.0,
+    lang_pad_to=None,
 ):
     torch.manual_seed(0)
     model = RDTModel(
@@ -171,6 +172,7 @@ def _model(
         image_history_dropout=frame_dropout,
         memory=memory,
         short_dropout=short_dropout,
+        lang_pad_to=lang_pad_to,
     )
     shared = {"front_img_1": MLPPolicyStem(input_dim=D, output_dim=D, widths=[D])}
     if text:
@@ -237,6 +239,21 @@ def test_model_streams_and_shapes():
     assert cond.lang_mask.sum(1).tolist() == [1, 2, 3]
     assert cond.freq.tolist() == [30.0] * B
     assert cond.backbone is model.trunk["trunk"]
+
+
+def test_lang_pad_to_fixes_the_length_without_changing_the_output():
+    data = _data()
+    plain, padded = _model().eval(), _model(lang_pad_to=8).eval()
+    cond, _ = plain.forward_features(DOMAIN, data)
+    cond_pad, _ = padded.forward_features(DOMAIN, data)
+    assert cond_pad.lang.shape == (B, 8, D)
+    assert cond_pad.lang_mask.sum(1).tolist() == [1, 2, 3]
+    torch.manual_seed(3)
+    x, t = torch.randn(B, SEQ, ACT), torch.rand(B)
+    with torch.no_grad():
+        out = plain.heads[DOMAIN].model(x, t, cond)
+        out_pad = padded.heads[DOMAIN].model(x, t, cond_pad)
+    torch.testing.assert_close(out_pad, out)
 
 
 def test_model_shares_the_dit_in_the_trunk_not_the_head():
@@ -395,6 +412,26 @@ def test_algo_keeps_past_and_current_in_order():
         batch, [cam, f"{cam}_hist"], [], [], "actions"
     )["front_img_1"]
     assert frames[:, 0].sum() == 0 and frames[:, 1].min() == 1  # current frame last
+
+
+def test_algo_stacks_a_multi_frame_history_oldest_first():
+    algo = _pairing_algo(nn.Identity())
+    cam = "observations.images.front_img_1"
+    past = torch.arange(3.0).view(1, 3, 1, 1, 1).expand(B, 3, 3, 8, 8).contiguous()
+    batch = {
+        cam: torch.full((B, 3, 8, 8), 3.0),
+        f"{cam}_hist": past,
+        f"{cam}_hist_mask": torch.ones(B, 3),
+        "actions": torch.zeros(B, SEQ, ACT),
+        "pad_mask": torch.ones(B, SEQ, 1),
+        "embodiment": torch.tensor([3]),
+        "fps": torch.full((B,), 30.0),
+    }
+    frames = algo._robomimic_to_hpt_data(
+        batch, [cam, f"{cam}_hist"], [], [], "actions"
+    )["front_img_1"]
+    assert frames.shape == (B, 4, 1, 3, 8, 8)
+    assert frames.flatten(2).mean(-1)[0].tolist() == [0.0, 1.0, 2.0, 3.0]
 
 
 def _pair_batch(current, past):

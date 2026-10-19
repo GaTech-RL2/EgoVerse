@@ -207,6 +207,7 @@ class Human(Embodiment):
         history_stride: int = 1,
         history_stride_s: float | None = None,
         image_history_gap_s: float | None = None,
+        image_history: int = 2,
         image_memory: int = 0,
         image_memory_stride_s: float = 1.0,
     ):
@@ -233,7 +234,9 @@ class Human(Embodiment):
         one (frames = gap x the episode's fps; frame 0 at an episode start).
         The algo must consume it explicitly: HPT has no stem for it and skips
         augs and normalization on cameras outside its encoders, so under plain
-        HPT it is decoded and dropped.
+        HPT it is decoded and dropped. ``image_history`` (T) > 2 makes it
+        the T - 1 past frames that many seconds apart, ``(T - 1, 3, H, W)``
+        oldest first, plus a ``<front key>_hist_mask``.
 
         ``history_stride_s`` replaces ``history_stride`` by a spacing in
         seconds, read in each episode's fps. ``image_memory`` (N) adds
@@ -253,10 +256,16 @@ class Human(Embodiment):
         )
         if image_history_gap_s is not None:
             front = key_map[cls.VIZ_IMAGE_KEY]
-            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = {
-                **front,
-                "lag_s": float(image_history_gap_s),
-            }
+            if image_history < 2:
+                raise ValueError(
+                    f"image_history must be >= 2 with image_history_gap_s, "
+                    f"got {image_history}"
+                )
+            past = {**front, "lag_s": float(image_history_gap_s)}
+            if image_history > 2:
+                past["history"] = int(image_history) - 1
+                past["history_stride_s"] = float(image_history_gap_s)
+            key_map[f"{cls.VIZ_IMAGE_KEY}{IMAGE_HISTORY_SUFFIX}"] = past
         if image_memory > 0:
             if image_memory_stride_s <= 0:
                 raise ValueError(
