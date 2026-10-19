@@ -1,6 +1,7 @@
 """Generated Python control versus direct actions through one adaptive interface."""
 
 import copy
+import json
 
 from .adaptive import CONDITION
 from .runner import Router
@@ -25,6 +26,22 @@ class PolicyRouter(Router):
         hidden = {"act"} if policy_mode == "CAP" else {"scratch_execute"}
         self.tools = [copy.deepcopy(t) for t in self.tools if t["name"] not in hidden]
         for tool in self.tools:
+            if tool["name"] == "scratch_execute":
+                # Removing the top-level act tool must preserve its wire contract
+                # for generated controllers. Direct sees this same schema in act.
+                tool["description"] += (
+                    "\nScratch functions: read(channel,max_age_ms=1000), "
+                    "read_capability(name), act(envelope). read returns a sensor "
+                    "envelope whose metadata contains episode_id and simulator_step. "
+                    "For each act, copy the current read metadata.episode_id into "
+                    "command metadata.episode_id and metadata.simulator_step into "
+                    "command metadata.observation_step. duration_steps is bounded "
+                    "by the device's max_duration_steps. act takes the object "
+                    "described by this JSON Schema.\nact(envelope) schema: "
+                    + json.dumps(
+                        self.schemas["act"]["properties"]["envelope"], sort_keys=True
+                    )
+                )
             if tool["name"] == "define_interface_tool":
                 tool["parameters"]["properties"]["read_only"] = {
                     "type": "boolean",

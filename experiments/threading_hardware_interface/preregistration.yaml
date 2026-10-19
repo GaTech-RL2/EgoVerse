@@ -1,5 +1,5 @@
-study: threading-four-combination-f-adaptive-20261019
-version: 1
+study: threading-four-combination-f-adaptive-20261019-api-v2
+version: 2
 stage: descriptive_pilot
 task: Threading_D0
 robot: Panda
@@ -84,6 +84,10 @@ adaptation: Fresh per trial; hardware sensors, calibration, bounded dynamics pro
   notes and read-only observation/coordinate helpers in all four cells. CAP additionally
   runs generated robot-control programs through scratch_execute. Direct issues native
   act commands through model calls.
+command_api: CAP receives the exact nested act envelope JSON Schema and read-packet
+  freshness fields; direct receives that same schema through its act tool. Version-1
+  attempts hid the CAP command schema and are diagnostic only, excluded from this
+  comparison.
 pairing: Identical seeded native reset state, model and initial sensor hashes for
   every cell; independent fresh-process action replay.
 restart_policy: No automatic trial reruns or action redispatch. Archive completed

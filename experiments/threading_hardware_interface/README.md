@@ -74,3 +74,13 @@ The co-located launcher pins its pod's private IPv4 address and tests a real HTT
 round trip from the native chroot before starting DeepSeek. Astra's unscored
 camera/tool transport checks run while DeepSeek loads; the scored cell schedule
 is unchanged and starts only after both models pass their gates.
+
+The first policy attempts exposed a CAP documentation defect: hiding the direct
+`act` tool also hid its command-envelope schema. CAP could read observations but
+had to guess required wire fields, while direct had the full schema. Those
+version-1 attempts are retained as diagnostics and excluded from comparison.
+Protocol version 2 supplies that exact schema in CAP's `scratch_execute`
+description, including how a fresh read packet supplies the episode ID and step.
+The command validator, control authority, model settings, horizon and ten paired
+starts remain the same. Native commissioning now exercises read-to-act freshness
+inside generated programs. All four conditions restart fresh under version 2.

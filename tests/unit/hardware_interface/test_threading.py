@@ -4,6 +4,7 @@ import copy
 import json
 from types import SimpleNamespace
 
+import jsonschema
 import numpy as np
 import pytest
 import yaml
@@ -44,6 +45,39 @@ def test_cap_only_runs_control_through_generated_programs(tmp_path):
         "scratch_execute", {"code": "result = act(" + repr(stale) + ")"}
     )
     assert not result["result"]["accepted"] and r.proxy.step_count == 1
+
+
+def test_cap_can_discover_and_execute_the_same_command_contract_as_direct(tmp_path):
+    cap, direct = policy(tmp_path, "CAP"), policy(tmp_path, "direct")
+    tools = {tool["name"]: tool for tool in cap.tools}
+    assert "act" not in tools
+    description = tools["scratch_execute"]["description"]
+    contract = json.loads(description.split("\nact(envelope) schema: ", 1)[1])
+    direct_contract = next(t for t in direct.tools if t["name"] == "act")["parameters"][
+        "properties"
+    ]["envelope"]
+    assert contract == direct_contract
+    jsonschema.validate(command(cap), contract)
+    # A generated program uses only its documented read packet for fresh IDs.
+    result = cap.dispatch_model(
+        "scratch_execute",
+        {
+            "code": "\n".join(
+                [
+                    "results=[]",
+                    "for _ in range(2):",
+                    " packet=read('robot.eef_position')",
+                    " envelope=" + repr(command(cap)),
+                    " envelope['metadata']['episode_id']=packet['metadata']['episode_id']",
+                    " envelope['metadata']['observation_step']=packet['metadata']['simulator_step']",
+                    " results.append(act(envelope))",
+                    "result=results",
+                ]
+            )
+        },
+    )
+    assert all(row["accepted"] for row in result["result"])
+    assert cap.proxy.step_count == 2
 
 
 @pytest.mark.parametrize("mode", ["CAP", "direct"])

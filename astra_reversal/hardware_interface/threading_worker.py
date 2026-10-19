@@ -226,19 +226,14 @@ def native_post(row, proxy, model):
     def post(path, body, timeout):
         i, count[0] = count[0], count[0] + 1
         if row["policy_mode"] == "CAP" and i == 0:
-            code = "\n".join(
-                "result = act("
-                + repr(
-                    {
-                        **envelope(a, n),
-                        "metadata": {
-                            **envelope(a, n)["metadata"],
-                            "observation_step": sum(t[1] for t in actions[:j]),
-                        },
-                    }
-                )
-                + ")"
-                for j, (a, n) in enumerate(actions)
+            code = (
+                "for action, repeat in " + repr(actions) + ":\n"
+                " packet = read('robot.eef_position',1000)\n"
+                " result = act({'channel':'robot.controller_command',"
+                "'value':action,'duration_steps':repeat,'metadata':{"
+                "'mode':'configured_controller','units':'normalized_controller_input',"
+                "'episode_id':packet['metadata']['episode_id'],"
+                "'observation_step':packet['metadata']['simulator_step']}})\n"
             )
             name, args = "scratch_execute", {"code": code}
         elif row["policy_mode"] == "direct" and i < len(actions):

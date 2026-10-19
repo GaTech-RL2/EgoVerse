@@ -33,8 +33,8 @@ def design():
     limits = copy.deepcopy(astra["limits"])
     limits["steps"] = HORIZON
     return {
-        "study": "threading-four-combination-f-adaptive-20261019",
-        "version": 1,
+        "study": "threading-four-combination-f-adaptive-20261019-api-v2",
+        "version": 2,
         "stage": "descriptive_pilot",
         "task": "Threading_D0",
         "robot": "Panda",
@@ -61,6 +61,7 @@ def design():
         "additional_settling_steps": 0,
         "success": "Unmodified native Threading_D0._check_success after each native control step; private to evaluator.",
         "adaptation": "Fresh per trial; hardware sensors, calibration, bounded dynamics probes, notes and read-only observation/coordinate helpers in all four cells. CAP additionally runs generated robot-control programs through scratch_execute. Direct issues native act commands through model calls.",
+        "command_api": "CAP receives the exact nested act envelope JSON Schema and read-packet freshness fields; direct receives that same schema through its act tool. Version-1 attempts hid the CAP command schema and are diagnostic only, excluded from this comparison.",
         "pairing": "Identical seeded native reset state, model and initial sensor hashes for every cell; independent fresh-process action replay.",
         "restart_policy": "No automatic trial reruns or action redispatch. Archive completed trials and halt on unresolved infrastructure failure.",
         "timing": "Actor start to first native success; excludes provisioning/reset/replay. Provider round trips include actual server queue/compute; client backoff separately recorded. Cross-model timing includes different serving systems and reasoning settings.",
