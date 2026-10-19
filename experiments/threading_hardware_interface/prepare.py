@@ -137,7 +137,7 @@ def prepare_colocated(destination, *, native_only=False):
         environment["HARDWARE_API_KEY_FILE"] = "/osmo/run/workspace/inference-api-key"
     workflow.update(
         name="threading-hardware-20261019-colocated-"
-        + ("native" if native_only else "pilot-api-v4"),
+        + ("native" if native_only else "pilot-api-v5"),
         resources={
             "study": {
                 "gpu": 8,
@@ -172,7 +172,7 @@ def prepare_colocated(destination, *, native_only=False):
     )
     receipt.update(
         stage="colocated_native" if native_only else "colocated_pilot",
-        protocol_version=4,
+        protocol_version=5,
         planned_trials=0 if native_only else 40,
         conditions=list(ARMS),
         allocated_gpus=8,

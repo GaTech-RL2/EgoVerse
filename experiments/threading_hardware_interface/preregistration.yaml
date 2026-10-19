@@ -1,5 +1,5 @@
-study: threading-four-combination-f-adaptive-20261019-api-v4
-version: 4
+study: threading-four-combination-f-adaptive-20261019-api-v5
+version: 5
 stage: descriptive_pilot
 task: Threading_D0
 robot: Panda
@@ -67,7 +67,7 @@ randomization_seed: 20261019
 image_size: 256
 control_frequency: 20
 limits:
-  steps: 400
+  steps: 1000
   wall_seconds: null
   workflow_tokens: null
   tool_calls: null
@@ -77,6 +77,22 @@ limits:
   observer_output_tokens: null
   context_tokens: null
   response_seconds: 180
+reference_horizon_steps: 400
+termination: No voluntary early finish in scored trials. Continue the same episode
+  until native success or all 1,000 control steps are used; do not pad or replay actions.
+  Keep technical failures explicit. The unscored eight-action routing smoke may finish
+  early. Report success within 400 steps as a secondary prefix of these extended-horizon
+  policies, separately from the original 400-step-policy protocol.
+video:
+  selection: all_trials
+  frame_stride: 1
+  fps: 20
+  cameras:
+  - agentview
+  - robot0_eye_in_hand
+  scope: Initial frame and every native action through the actual terminal step; uncropped
+    front/wrist side by side. Independent replay video excludes model reasoning waits
+    and is outside actor timing. Save exact frame-count and duration receipts.
 additional_settling_steps: 0
 success: Unmodified native Threading_D0._check_success after each native control step;
   private to evaluator.

@@ -117,6 +117,37 @@ def test_direct_native_action_and_no_executable_controller(tmp_path):
     assert r.proxy.step_count == 1
 
 
+@pytest.mark.parametrize("mode", ["CAP", "direct"])
+@pytest.mark.parametrize("success_at", [None, 3])
+def test_scored_policy_cannot_finish_early_but_native_success_still_ends(
+    tmp_path, mode, success_at
+):
+    r = policy(tmp_path, mode)
+    r.proxy.env.check_success = lambda: r.proxy.env.steps == success_at
+    assert "finish" not in {tool["name"] for tool in r.tools}
+    for dispatch in (r.dispatch_model, r.dispatch):
+        assert dispatch("finish", {})["error"] == "tool_not_allowed"
+        assert r.proxy.terminal is None and r.proxy.step_count == 0
+    while r.proxy.terminal is None:
+        if mode == "CAP":
+            result = r.dispatch_model(
+                "scratch_execute", {"code": "result = act(" + repr(command(r)) + ")"}
+            )["result"]
+        else:
+            result = r.dispatch_model("act", {"envelope": command(r)})
+        assert result["accepted"]
+    assert r.proxy.step_count == (success_at or r.proxy.limits.steps)
+    assert r.proxy.terminal == ("SUCCESS" if success_at else "TIMEOUT_STEPS")
+
+
+def test_unscored_native_smoke_can_end_after_its_routing_check(tmp_path):
+    base = router(tmp_path, "F")
+    r = PolicyRouter(
+        base.proxy, None, "F_adaptive", policy_mode="direct", allow_early_finish=True
+    )
+    assert r.dispatch_model("finish", {}) == {"episode_ended": True}
+
+
 def test_replay_subprocess_uses_importable_module_from_cli_and_drops_credentials(
     tmp_path, monkeypatch
 ):
@@ -149,7 +180,7 @@ def test_schedule_is_four_cells_on_the_same_ten_starts():
         assert {r["interface_condition"] for r in block} == {"F_adaptive"}
         assert len({r["init_state_index"] for r in block}) == 1
     bad = copy.deepcopy(manifest)
-    bad["limits"]["steps"] = 1000
+    bad["limits"]["steps"] = 400
     with pytest.raises(ValueError, match="design_changed"):
         validate(bad)
 
@@ -251,6 +282,60 @@ class ReplayEnvironment:
         pass
 
 
+@pytest.mark.parametrize("seed_index", [0, 7])
+def test_video_includes_every_action_and_terminal_frame_for_every_start(
+    tmp_path, monkeypatch, seed_index
+):
+    manifest, env = load(), ReplayEnvironment()
+    frames, closed = [], []
+    env.read_sensors = lambda: {
+        "agentview_image": np.full((2, 2, 3), env.steps, dtype=np.uint8),
+        "robot0_eye_in_hand_image": np.full((2, 2, 3), 10 + env.steps, dtype=np.uint8),
+    }
+    writer = SimpleNamespace(
+        append_data=lambda frame: frames.append(frame.copy()),
+        close=lambda: closed.append(True),
+    )
+    monkeypatch.setattr(worker, "environment", lambda *_: env)
+    monkeypatch.setattr(
+        worker, "video_writer", lambda path, fps: writer if fps == 20 else None
+    )
+    write_json(
+        tmp_path / "trial.json",
+        {
+            "row": {"init_state_index": seed_index},
+            "manifest_sha256": digest(manifest),
+            "source_sha256": source_hash(),
+            "initial": worker.reset_identity(env),
+        },
+    )
+    write_json(
+        tmp_path / "outcome.json",
+        {
+            "success": False,
+            "sim_steps": 2,
+            "terminal_reason": "TASK_FAILURE",
+            "wall_s": 37.0,
+        },
+    )
+    (tmp_path / "events.jsonl").write_text(
+        "\n".join(
+            json.dumps({"event": "action_applied", "applied_action": [0] * 7})
+            for _ in range(2)
+        )
+    )
+    np.savez(tmp_path / "terminal.npz", state=[2], body_pos=[0], body_quat=[0])
+    worker.replay(tmp_path, manifest)
+    assert len(frames) == 3 and closed == [True]
+    assert [int(frame[0, 0, 0]) for frame in frames] == [0, 1, 2]
+    assert [int(frame[0, -1, 0]) for frame in frames] == [10, 11, 12]
+    receipt = json.loads((tmp_path / "replay-video.json").read_text())
+    assert receipt["last_native_step"] == receipt["native_steps"] == 2
+    assert receipt["frames"] == 3 and receipt["fps"] == 20
+    assert receipt["frame_stride"] == 1 and receipt["horizon_steps"] == 1000
+    assert receipt["actor_wall_seconds"] == 37.0
+
+
 @pytest.mark.parametrize(
     "fault", [None, "early_success", "terminal_model_changed", "success_changed"]
 )
@@ -263,6 +348,7 @@ def test_replay_checks_first_success_and_full_terminal_state(
         model_changed=fault == "terminal_model_changed",
     )
     monkeypatch.setattr(worker, "environment", lambda *_: env)
+    monkeypatch.setattr(worker, "video_writer", lambda *_: None)
     write_json(
         tmp_path / "trial.json",
         {

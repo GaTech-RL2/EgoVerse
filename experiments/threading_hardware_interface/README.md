@@ -22,16 +22,17 @@ per trial; no handcrafted threading controller, expert trajectory, hidden object
 state, reward or success query is supplied.
 
 The task is MimicGen's unmodified **Threading_D0**, registered with robosuite
-1.4.1, using Panda and OSC_POSE. The 400-step horizon follows the
+1.4.1, using Panda and OSC_POSE. The 400-step reference horizon follows the
 [published task registry](https://github.com/NVlabs/mimicgen/blob/72bd767c255545f462e7ccfb2731f2e5d4c1d9bb/mimicgen/__init__.py),
-rather than the task constructor's generic 1,000-step default. Control runs at
+registry. The current user-requested extended protocol runs to native success or
+1,000 steps and disables voluntary early finish. Control runs at
 20 Hz, each command repeats at most ten steps, and front/wrist RGB inputs are
 256×256. Native success is checked privately after every control step. Seeds 0–9
 select native randomized resets, not expert demonstrations; hashed reset state,
 robot/controller configuration and initial sensor values must match in all cells.
 Cell order rotates within seed blocks. Independent fresh-process replay verifies
-first success and terminal simulator/model state. The first paired start has a
-replay video per cell; all trials retain initial/terminal images and exact events.
+first success and terminal simulator/model state. Every completed trial has a
+full replay video with both cameras, initial/terminal images and exact events.
 
 Provisioning, reset and replay are excluded from actor time. Report success by
 elapsed wall time and native steps using all ten assigned starts per cell as the
@@ -105,3 +106,22 @@ truncated images with otherwise valid shapes, and simultaneous real images.
 All four cells restart as a fresh matched cohort; the earlier valid unsuccessful
 rollouts and the infrastructure failure remain available separately. Model,
 controller, native success, seeds, action horizon and concurrency are unchanged.
+
+Version 5 follows the user's request for longer episodes and more videos. All
+four cells now use **1,000 native steps** (50 seconds of robot control), continue
+after unsuccessful manipulation attempts, and cannot voluntarily call `finish`.
+Native task success still ends immediately; infrastructure errors remain explicit.
+The eight-action unscored routing check retains its early stop. Every completed
+trial gets a front/wrist replay video with the initial frame and every native step
+at 20 fps, through the true terminal action. `replay-video.json` records exact frame
+count, terminal step, actor wall time and control/video durations. These movies
+exclude the time physics waits for model reasoning; that time stays in the actor
+metrics and exact event logs. No clips are cropped or limited to seed zero.
+
+Report the longer-horizon results as a separate protocol. The success-by-step
+curve also gives the 400-step prefix of these policies, whose planning horizon is
+1,000; that prefix is not a reproduction of the earlier 400-step-policy protocol.
+The prior queued version-4 job was cancelled by OSMO quota enforcement before it
+started, producing no policy calls or results. Historical videos may be rendered
+from preserved actions, but their shorter original episodes cannot be extended by
+inventing additional actions or padding their videos.

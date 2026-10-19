@@ -118,6 +118,14 @@ def isolated_replay(directory, manifest_path):
     )
 
 
+def video_writer(path, fps):
+    import imageio.v2 as imageio
+
+    return imageio.get_writer(
+        str(path), fps=fps, macro_block_size=16, ffmpeg_params=["-threads", "2"]
+    )
+
+
 def replay(directory, manifest):
     directory = Path(directory)
     trial = strict_json((directory / "trial.json").read_bytes())
@@ -137,16 +145,13 @@ def replay(directory, manifest):
             )
             if row["event"] == "action_applied"
         ]
-        # Only the first paired start gets a full process video in each cell.
-        # This replay rendering is outside measured actor time.
-        if trial["row"]["init_state_index"] == 0:
-            import imageio.v2 as imageio
-
-            writer = imageio.get_writer(
-                str(directory / "replay.mp4"), fps=4, macro_block_size=16
-            )
+        # Every completed trial gets every native frame. Rendering and encoding
+        # remain outside measured actor time and never shorten a live episode.
+        writer = video_writer(directory / "replay.mp4", manifest["video"]["fps"])
+        frame_count = 0
 
         def frame():
+            nonlocal frame_count
             if writer is not None:
                 obs = env.read_sensors()
                 writer.append_data(
@@ -158,13 +163,13 @@ def replay(directory, manifest):
                         axis=1,
                     )
                 )
+                frame_count += 1
 
         frame()
         first_success = None
         for step, action in enumerate(actions, 1):
             env.step(action)
-            if step % 5 == 0 or step == len(actions):
-                frame()
+            frame()
             if env.check_success():
                 first_success = step
                 if step != len(actions):
@@ -194,6 +199,25 @@ def replay(directory, manifest):
             "fresh_process": True,
         }
         write_json(directory / "independent-replay.json", receipt)
+        if writer is not None:
+            write_json(
+                directory / "replay-video.json",
+                {
+                    "native_steps": len(actions),
+                    "frames": frame_count,
+                    "fps": manifest["video"]["fps"],
+                    "frame_stride": 1,
+                    "initial_frame_included": True,
+                    "last_native_step": len(actions),
+                    "control_seconds": len(actions) / manifest["control_frequency"],
+                    "video_seconds": frame_count / manifest["video"]["fps"],
+                    "horizon_steps": manifest["limits"]["steps"],
+                    "terminal_reason": outcome["terminal_reason"],
+                    "actor_wall_seconds": outcome["wall_s"],
+                    "native_replay_verified": True,
+                    "model_reasoning_waits_included": False,
+                },
+            )
         return receipt
     finally:
         if writer is not None:
@@ -311,7 +335,7 @@ def run_one(row, manifest, prepared, root, manifest_path, *, native=False):
             shared_prompt=SHARED_PROMPT,
             source_entry="robosuite/controllers/osc.py",
             router_factory=functools.partial(
-                PolicyRouter, policy_mode=row["policy_mode"]
+                PolicyRouter, policy_mode=row["policy_mode"], allow_early_finish=native
             ),
             policy_instructions=INSTRUCTIONS[row["policy_mode"]],
         )

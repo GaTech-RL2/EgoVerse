@@ -13,6 +13,7 @@ from .robosuite_benchmark import HORIZON, MIMICGEN_COMMIT, ROBOSUITE_COMMIT
 
 STUDY = Path(__file__).resolve().parents[2] / "experiments/threading_hardware_interface"
 ARMS = ("astra_CAP", "astra_direct", "deepseek_CAP", "deepseek_direct")
+ROLLOUT_HORIZON = 1000
 RESOURCE_CAPS = (
     "wall_seconds",
     "workflow_tokens",
@@ -31,10 +32,10 @@ def design():
         (base / "preregistration-deepseek-selfhost-adaptive.yaml").read_text()
     )
     limits = copy.deepcopy(astra["limits"])
-    limits["steps"] = HORIZON
+    limits["steps"] = ROLLOUT_HORIZON
     return {
-        "study": "threading-four-combination-f-adaptive-20261019-api-v4",
-        "version": 4,
+        "study": "threading-four-combination-f-adaptive-20261019-api-v5",
+        "version": 5,
         "stage": "descriptive_pilot",
         "task": "Threading_D0",
         "robot": "Panda",
@@ -58,6 +59,15 @@ def design():
         "image_size": 256,
         "control_frequency": 20,
         "limits": limits,
+        "reference_horizon_steps": HORIZON,
+        "termination": "No voluntary early finish in scored trials. Continue the same episode until native success or all 1,000 control steps are used; do not pad or replay actions. Keep technical failures explicit. The unscored eight-action routing smoke may finish early. Report success within 400 steps as a secondary prefix of these extended-horizon policies, separately from the original 400-step-policy protocol.",
+        "video": {
+            "selection": "all_trials",
+            "frame_stride": 1,
+            "fps": 20,
+            "cameras": ["agentview", "robot0_eye_in_hand"],
+            "scope": "Initial frame and every native action through the actual terminal step; uncropped front/wrist side by side. Independent replay video excludes model reasoning waits and is outside actor timing. Save exact frame-count and duration receipts.",
+        },
         "additional_settling_steps": 0,
         "success": "Unmodified native Threading_D0._check_success after each native control step; private to evaluator.",
         "adaptation": "Fresh per trial; hardware sensors, calibration, bounded dynamics probes, notes and read-only observation/coordinate helpers in all four cells. CAP additionally runs generated robot-control programs through scratch_execute. Direct issues native act commands through model calls.",
@@ -105,7 +115,10 @@ def load(path=None):
 def validate(manifest):
     if manifest != design():
         raise ValueError("threading_pilot_design_changed")
-    if manifest["limits"]["steps"] != 400 or manifest["limits"]["max_repeat"] != 10:
+    if (
+        manifest["limits"]["steps"] != ROLLOUT_HORIZON
+        or manifest["limits"]["max_repeat"] != 10
+    ):
         raise ValueError("native_horizon_or_repeat_changed")
     if any(manifest["limits"][key] is not None for key in RESOURCE_CAPS):
         raise ValueError("threading_pilot_requires_no_resource_caps")
