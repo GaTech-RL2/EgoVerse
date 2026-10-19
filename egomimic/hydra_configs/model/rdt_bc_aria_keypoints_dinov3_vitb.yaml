@@ -1,0 +1,120 @@
+# RDT ~300M (rdt_bc_mecka_6d_dinov3_vitb) on Aria wrist-first keypoints: 144-D
+# head-frame action and proprio (keypoints_headframe_6d), one front frame, 4:3
+# Aria images. Aria samples carry no annotation key, so language is the fixed
+# default_prompt.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.rdt.RDT
+  camera_transforms: {}
+  dims:
+    human_bimanual: {proprio: 144, action: 144}
+  width: 1024
+  ac_keys:
+    human_bimanual: "actions_keypoints"
+
+  diffusion: true
+  6dof: true
+
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  annotation_modality: "annotation"
+  default_prompt: ""
+
+  use_pad_mask: false
+
+  trunk:
+    embed_dim: ${model.robomimic_model.width}
+    depth: 28
+    num_heads: 16
+    mlp_ratio: 1.0
+    cond_drop: {state: 0.1, lang: 0.1, img: 0.0}
+    image_history: 1
+    image_history_dropout: 0.0
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: null
+  domains: ["human_bimanual"]
+  shared_obs_keys: ["front_img_1", "annotation"]
+
+  head_specs:
+    human_bimanual:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 10
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        human_bimanual: ${model.robomimic_model.dims.human_bimanual.action}
+      model:
+        _target_: egomimic.models.rdt_nets.RDTDenoiser
+        act_dim: ${model.robomimic_model.dims.human_bimanual.action}
+        act_seq: 100
+        hidden_dim: ${model.robomimic_model.width}
+        n_state_tokens: 1
+        time_scale: 1000.0
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: ${model.robomimic_model.width}
+      output_dim: ${model.robomimic_model.width}
+      widths: ["${model.robomimic_model.width}"]
+    annotation:
+      _target_: egomimic.models.hpt_nets.QwenPerTokenEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 128
+      freeze: true
+      dtype: "float16"
+      cache_text_features: true
+      text_cache_max_entries: 8192
+      output_dim: ${model.robomimic_model.width}
+
+  stem_specs:
+    human_bimanual:
+      state_keypoints:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: ${model.robomimic_model.dims.human_bimanual.proprio}
+        output_dim: ${model.robomimic_model.width}
+        widths:
+          - ${model.robomimic_model.width}
+          - ${model.robomimic_model.width}
+        history_len: 1
+        history_dropout: 0.0
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.DINOv3Stem
+      model_name: "vit_base_patch16_dinov3.lvd1689m"
+      output_dim: ${model.robomimic_model.width}
+      freeze_backbone: false
+      # Aria front_1 frames are 4:3 (360x480); 15x20 patches.
+      image_size: [240, 320]
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+  eval_image_augs: null
+
+backbone_lr_scale: 0.1
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  _convert_: all
+  lr: 1e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.95]
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1.0e-3
+  end_factor: 1.0
+  total_iters: 1000
+scheduler_interval: step
