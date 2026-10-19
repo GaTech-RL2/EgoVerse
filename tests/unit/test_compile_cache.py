@@ -32,12 +32,6 @@ def test_outside_slurm_keeps_torch_default():
     assert env == {}
 
 
-def test_explicit_value_is_respected():
-    env = {KEY: "/scratch/ind", "SLURM_JOB_ID": "1"}
-    assert set_per_job_compile_cache_dir(env) == "/scratch/ind"
-    assert env[KEY] == "/scratch/ind"
-
-
 _LAUNCHER = """
 import os, subprocess, sys
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir as s

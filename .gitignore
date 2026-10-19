@@ -45,10 +45,20 @@ annotations_test/**
 log_conversion/**
 debug_model_inputs/**
 temp_dir/**
+/datasets/
+apikey.txt
+slurm-*.out
+slurmoutputs/
+*.log
+.inductor_cache/
+
 scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+ann_backup/
+aria_ann_backup/
+sort_annotations/
 
 # setuptools build output
 build/
