@@ -1091,6 +1091,8 @@ class HPT(DeterministicEvalMixin, Algo):
             # exactly a history-dropout sample -- so the stem needs nothing
             # extra and downstream keys stay as they were.
             processed_batch[embodiment_id].pop("proprio_history_mask", None)
+            # MultiDataset already zeroed an untracked hand's proprio.
+            processed_batch[embodiment_id].pop("proprio_hand_valid", None)
             if self.use_pad_mask and action_pad_mask is not None:
                 if action_pad_mask.shape[-1] != S:
                     raise ValueError(
