@@ -65,6 +65,10 @@ dependencies = [
     "openai",
     "scikit-learn>=1.8.0",
     "scipy",
+    # Vendor MCAP deliveries (egomimic/rldb/mcap)
+    "mcap==1.5.0",
+    "mcap-protobuf-support==0.5.4",
+    "foxglove-schemas-protobuf==0.4.0",
 ]
 
 # Not declared: `openpi` (egomimic/algo/pi.py). The fork at external/openpi pins
@@ -84,7 +88,12 @@ where = ["."]
 include = ["egomimic*"]
 
 [tool.setuptools.package-data]
-egomimic = ["hydra_configs/**/*.yaml", "resources/*", "resources/blocklists/*.txt"]
+egomimic = [
+    "hydra_configs/**/*.yaml",
+    "resources/*",
+    "resources/blocklists/*.txt",
+    "rldb/mcap/proto/*.proto",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
