@@ -661,6 +661,19 @@ class LanceEpisodeResolver:
             self.versions[name] = want
         return uri, want, _table(uri, want)
 
+    def manifest(self) -> dict:
+        """What this resolver read: {"root", "versions": {table: version}, "tags":
+        {table: [tags on that version]}}."""
+        tags = {
+            name: sorted(
+                t
+                for t, info in _table(f"{self.root}/{name}", v).tags.list().items()
+                if info["version"] == v
+            )
+            for name, v in self.versions.items()
+        }
+        return {"root": self.root, "versions": dict(self.versions), "tags": tags}
+
     def recordings(self) -> pd.DataFrame:
         """One row per recording of `lab`, with SQL-style names (`lab` is the site)."""
         _, _, rec = self._open("recordings.lance")
@@ -884,6 +897,16 @@ class LanceEpisodeResolver:
                     axis=1,
                 ),
                 **ann_kw,
+            )
+        untagged = sorted(n for n, t in self.manifest()["tags"].items() if not t)
+        if untagged:
+            logger.warning(
+                "read untagged versions of %s under %s (%s): this run can be "
+                "reproduced only until cleanup_old_versions drops them; tag them "
+                "(commit.tag) to keep them",
+                untagged,
+                self.root,
+                {n: self.versions[n] for n in untagged},
             )
         if no_anchor:
             logger.warning(
