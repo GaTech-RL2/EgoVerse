@@ -111,11 +111,15 @@ class EpisodeLeaf(torch.utils.data.Dataset):
         """``seconds`` in this episode's fps, at least one frame."""
         return max(1, round(float(seconds) * self._fps()))
 
+    def _history_floor(self, idx: int) -> int:
+        """First frame history and lagged reads for ``idx`` may reach back to."""
+        return 0
+
     def _lagged_idx(self, idx: int, lag_s: float) -> int:
         """Frame ``lag_s`` seconds before ``idx`` (at least one frame back),
-        clamped at the episode start -- so the first samples read frame 0,
-        the same front padding a history window gets."""
-        return max(0, idx - self._seconds_to_frames(lag_s))
+        clamped at the history floor -- so the first samples read the floor
+        frame, the same front padding a history window gets."""
+        return max(self._history_floor(idx), idx - self._seconds_to_frames(lag_s))
 
     def _history_stride(self, spec: dict) -> int:
         """Frames between history steps: ``history_stride_s`` (seconds, so a
@@ -130,17 +134,18 @@ class EpisodeLeaf(torch.utils.data.Dataset):
         ``(K,)`` float32 mask.
 
         The newest step is ``idx`` or, with ``lag_s``, that many seconds before
-        it. Steps before the episode start are masked 0 and repeat the oldest
-        real step (frame 0 when none is real), so the newest step is always
-        ``[-1]``.
+        it. Steps before the history floor (the episode start) are masked 0
+        and repeat the oldest real step (the floor frame when none is real), so
+        the newest step is always ``[-1]``.
         """
         history = int(spec["history"])
         newest = idx
         if spec.get("lag_s") is not None:
             newest = idx - self._seconds_to_frames(spec["lag_s"])
         steps = newest - self._history_stride(spec) * np.arange(history - 1, -1, -1)
-        real = steps >= 0
-        fill = steps[real][0] if real.any() else 0
+        floor = self._history_floor(idx)
+        real = steps >= floor
+        fill = steps[real][0] if real.any() else floor
         return np.where(real, steps, fill), real.astype(np.float32)
 
     @staticmethod

@@ -321,6 +321,9 @@ class LanceRecordingDataset(EpisodeLeaf):
         content_digest: str | None = None,
         annotations: tuple[np.ndarray, np.ndarray, list[str]] | None = None,
         clamp_actions: bool = False,
+        segments: np.ndarray | None = None,
+        action_clamp: str = "task",
+        history_floor: str = "recording",
     ):
         self.episode_path = name
         self.content_digest = content_digest
@@ -346,6 +349,14 @@ class LanceRecordingDataset(EpisodeLeaf):
         # annotations rows under the resolver's `annotations` config.
         self._ann = annotations
         self._clamp_actions = clamp_actions
+        # (S, 2) frame spans of the segments sampled, sorted by start.
+        self.segments = (
+            np.asarray(segments, np.int64).reshape(-1, 2)
+            if segments is not None
+            else np.array([[0, num_frames]], np.int64)
+        )
+        self.action_clamp = action_clamp
+        self.history_floor = history_floor
         super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
@@ -364,6 +375,8 @@ class LanceRecordingDataset(EpisodeLeaf):
             for k in sorted(self.videos):
                 h.update(f"{k}\0{self.videos[k]}\0".encode())
         h.update(self.anchors.tobytes())
+        h.update(f"{self.action_clamp}\0{self.history_floor}\0".encode())
+        h.update(self.segments.tobytes())
         if self._clamp_actions and self._ann is not None:
             h.update(b"clamp\0" + self._ann[0].tobytes() + self._ann[1].tobytes())
         return h.hexdigest()
@@ -398,9 +411,24 @@ class LanceRecordingDataset(EpisodeLeaf):
             return []
         return [self._ann[2][j] for j in self._covering(frame_idx)]
 
+    def _segment(self, frame: int) -> tuple[int, int]:
+        """The innermost sampled segment holding `frame` (the recording when none does)."""
+        s, e = self.segments[:, 0], self.segments[:, 1]
+        on = (s <= frame) & (frame < e)
+        if not on.any():
+            return 0, self.total_frames
+        return int(s[on].max()), int(e[on].min())
+
+    def _history_floor(self, idx: int) -> int:
+        return self._segment(idx)[0] if self.history_floor == "task" else 0
+
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         end = super()._chunk_end_idx(start_idx, horizon, key_type)
-        if not self._clamp_actions or key_type != "action_keys" or self._ann is None:
+        if key_type != "action_keys":
+            return end
+        if self.action_clamp == "task":
+            end = min(end, self._segment(start_idx)[1])
+        if not self._clamp_actions or self._ann is None:
             return end
         cover = self._covering(start_idx)
         return min(end, int(self._ann[1][cover].min())) if len(cover) else end
@@ -519,9 +547,18 @@ class StepsRows(NamedTuple):
 class LanceEpisodeResolver:
     """Resolves recordings from local Lance tables into LanceRecordingDataset leaves.
 
-    Filter lambdas see each recording joined with its task, with SQL-style field names
-    (`episode_hash`, `lab`, `task`, ...), so existing filter configs apply. Recordings
-    are read from the steps table of their (lab, embodiment, end_effector).
+    Leaves are keyed by recording_id. Filter lambdas run once per segment of a
+    recording: each tasks row, plus each untasked gap (`task` None) when
+    `include_taskless_frames`. They see the recording joined with the segment, with
+    SQL-style field names (`episode_hash` is the recording_id, `lab`, `task`,
+    `task_instance_id`, ...), so existing filter configs apply. Pins and excludes name
+    a recording_id or an old clip episode_hash, meaning that clip's time range. Each
+    recording is read from the steps table of its (lab, embodiment, end_effector).
+
+    `action_clamp` "task" ends action chunks at the end of the anchor's segment
+    (repeat-last padding, flagged in `action_pad_mask`); "recording" runs them on.
+    `history_floor` "recording" lets history reach into earlier segments; "task" pads
+    and masks it at the segment start.
 
     Each table is read at `versions[name]` (a number or tag), else at `tag`, else at its
     latest version. Tags are resolved to numbers once, here, so a tag moved later does
@@ -552,7 +589,13 @@ class LanceEpisodeResolver:
         tag: str | None = None,
         annotations: dict | None = None,
         include_taskless_frames: bool = False,
+        action_clamp: str = "task",
+        history_floor: str = "recording",
     ):
+        if action_clamp not in ("task", "recording"):
+            raise ValueError(f"action_clamp {action_clamp!r}: 'task' or 'recording'")
+        if history_floor not in ("task", "recording"):
+            raise ValueError(f"history_floor {history_floor!r}: 'task' or 'recording'")
         self.root = str(lance_root).rstrip("/")
         self.key_map = key_map
         self.transform_list = transform_list
@@ -560,6 +603,8 @@ class LanceEpisodeResolver:
         self.tag = tag
         self.versions = dict(versions or {})
         self.include_taskless_frames = include_taskless_frames
+        self.action_clamp = action_clamp
+        self.history_floor = history_floor
         self.annotations = None
         if annotations is not None:
             unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
@@ -772,6 +817,9 @@ class LanceEpisodeResolver:
                 key_map=self.key_map,
                 transform_list=self.transform_list,
                 content_digest=getattr(row, "content_digest", None),
+                segments=sorted(passing),
+                action_clamp=self.action_clamp,
+                history_floor=self.history_floor,
                 **ann_kw,
             )
         if no_anchor:
