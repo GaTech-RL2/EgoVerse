@@ -141,7 +141,7 @@ def load_deliveries(
             t_end_ns=m["t_end_ns"],
         )
         videos = {cam: d / f"{cam}.mp4" for cam in ("front_1", "front_1_480")}
-        deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
+        deliveries.append(commit.Delivery(recording, [task], alias, steps, videos))
     return deliveries, rejected
 
 
@@ -191,7 +191,7 @@ def load_eva_deliveries(
             t_end_ns=m["t_end_ns"],
         )
         videos = {cam: d / f"{cam}.mp4" for cam in m["videos"]}
-        deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
+        deliveries.append(commit.Delivery(recording, [task], alias, steps, videos))
     return deliveries, rejected
 
 

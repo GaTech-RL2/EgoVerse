@@ -55,7 +55,7 @@ def _deliveries(src: Path) -> list[commit.Delivery]:
         videos = {cam: src / p for cam, p in r["video_path"] if cam == CAMERA}
         rec = {k: v for k, v in r.items() if k not in ("video_path", "content_digest")}
         st = steps.to_table(filter=f"recording_id = '{rid}'")
-        out.append(commit.Delivery(rec, tasks[rid], aliases[rid], st, videos))
+        out.append(commit.Delivery(rec, [tasks[rid]], aliases[rid], st, videos))
     return out
 
 
@@ -67,7 +67,7 @@ def _shift_head(d: commit.Delivery, dx: float) -> commit.Delivery:
     steps = d.steps.set_column(
         d.steps.schema.get_field_index("head_pose"), "head_pose", new
     )
-    return commit.Delivery(d.recording, d.task, d.alias, steps, d.videos)
+    return commit.Delivery(d.recording, d.tasks, d.alias, steps, d.videos)
 
 
 def _key_map():
@@ -200,7 +200,7 @@ def test_versioned_commits(pilot, tmp_path):
         "tasks.lance",
         pa.table(
             {
-                "task_instance_id": [edited.task["task_instance_id"]],
+                "task_instance_id": [edited.tasks[0]["task_instance_id"]],
                 "task_description": ["edited text"],
             }
         ),

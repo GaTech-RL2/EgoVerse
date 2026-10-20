@@ -44,7 +44,7 @@ def test_valid_episode_passes(tmp_path, embodiment, kw):
     r = validate_episode(write_mcap_episode(tmp_path, embodiment, **kw))
     assert r.problems == []
     assert r.embodiment == embodiment
-    assert r.recording_id == spec.recording_id("aria", "acme-rec-0001")
+    assert r.recording_id == spec.recording_id("aria", "acme-rec-0")
 
 
 # (embodiment, breakage, [(group, topic, substring of the message), ...])
@@ -135,7 +135,7 @@ def test_cli_pass_fail_and_summary(tmp_path, capsys):
     assert f"PASS {good}" in out
     assert f"FAIL {bad}" in out and "[imu] /imu: 100 Hz" in out
     assert "1/2 passed" in out
-    assert spec.recording_id("aria", "acme-rec-0001") in out
+    assert spec.recording_id("aria", "acme-rec-good") in out
 
 
 def test_missing_and_unreadable_episodes(tmp_path):

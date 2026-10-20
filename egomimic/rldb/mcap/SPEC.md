@@ -173,8 +173,13 @@ the Lance annotation review (`egomimic/rldb/lance/annotations.py`), not a re-exp
 | `positions` | `(x, y, z)` in m per `hand-joints` entry, flattened; or empty for devices without keypoints. |
 | `confidence` | Whole-hand tracking confidence in [0, 1]. |
 | `joint_confidence` | Optional: one value in [0, 1] per joint. |
-| `wrist_pose` | Optional: T_frame_wrist. Required when `positions` is empty. |
+| `wrist_pose` | Optional: T_frame_wrist, in the Aria MPS wrist convention below. Required when `positions` is empty. |
 | `valid` | `false` when the hand is not tracked. **Never write zeros instead.** |
+
+**Wrist frame** (Aria MPS's, measured on real recordings): origin at the wrist; +y out of
+the back of the hand (the palm faces −y); +z from the pinky side toward the index side;
++x = y × z, which points toward the fingers on the left hand and toward the forearm on
+the right.
 
 **`hand-joints`** names the joints the device tracks, in its own order, from this
 vocabulary: the 21 MANO joints `wrist`, `{thumb}_{cmc,mcp,ip,tip}`,
@@ -257,6 +262,10 @@ all of it and rejects an episode where any message is not exactly one frame.
 
 ## 10. Where each Lance field comes from
 
+`python -m egomimic.scripts.mcap_process.mcap_to_lance --lance <root> episode_<id>/...`
+validates each episode, converts it and commits it (`convert_and_commit` is the same per
+episode, for a pipeline to call). Lance times stay absolute Unix ns, as delivered.
+
 | Lance | MCAP |
 |---|---|
 | `recordings.recording_id` | `recording_id(lab, vendor-recording-id)` |
@@ -264,8 +273,8 @@ all of it and rejects an episode where any message is not exactly one frame.
 | `recordings.operator` | `operator-id` |
 | `recordings.captured_at` | `start-time-unix` |
 | `recordings.num_frames`, `fps` | Decoded steps-clock frames and their timestamps |
-| `recordings.video_path` | Assigned when each camera topic is extracted |
-| `recordings.intrinsics` / `extrinsics` | Each camera's `-info` (+ `-info-extra`) / `/tf_static` and the moving links |
+| `recordings.video_path` | One video per camera, one frame per steps row: the steps camera as `front_1_480` (480×640) and `front_1` (360×480) pinhole outputs, every other camera under its topic name (`/left-wrist-camera` → `left_wrist`) at its native size and focal |
+| `recordings.intrinsics` / `extrinsics` | The pinhole K of each video (Aria's front outputs use `ARIA_INTRINSICS`; other sources keep their native field of view) / each camera's pose relative to `head_pose` (the front camera, upright), from `/tf_static` |
 | `tasks.*` | `/task` messages, or the episode-info task keys over the whole recording |
 | `annotations.*` | `/subtask-annotation` (type, text, vendor, span) |
 | `steps.timestamp_ns` | Steps-clock frame times |
