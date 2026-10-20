@@ -308,3 +308,47 @@ def test_clip_pins_through_multidataset(segmented):
     assert _frames(video.datasets["clip_b2"]) == [4, 5, 6, 7]
     with pytest.raises(PinError):
         pinned_episode_subset(whole, ["nope"])
+
+
+HISTORY_KEY_MAP = {
+    **KEY_MAP,
+    "obs_head_pose": {
+        "key_type": "proprio_keys",
+        "zarr_key": "obs_head_pose",
+        "history": 3,
+    },
+}
+
+
+def _at(leaf, frame):
+    return leaf[_frames(leaf).index(frame)]
+
+
+def test_action_chunks_stop_at_the_task_end_unless_asked(segmented):
+    root, a, _ = segmented
+    leaf = _resolve(root)[a]
+    assert _at(leaf, 2)["action_pad_mask"].tolist() == [1, 1, 0]
+    head = _at(leaf, 2)["left.action_ee_pose"][:, 0].tolist()
+    assert head == [2.5, 3.5, 3.5]
+    through = _resolve(root, action_clamp="recording")[a]
+    assert _at(through, 2)["action_pad_mask"].tolist() == [1, 1, 1]
+    gaps = _resolve(root, include_taskless_frames=True)[a]
+    assert _at(gaps, 4)["action_pad_mask"].tolist() == [1, 1, 0]
+
+
+def test_history_floor_at_the_task_start_when_asked(segmented):
+    root, a, _ = segmented
+    reach_back = LanceEpisodeResolver(
+        root, key_map=HISTORY_KEY_MAP, cameras={}
+    ).resolve()[a]
+    s = _at(reach_back, 7)
+    assert s["obs_head_pose"][:, 0].tolist() == [5, 6, 7]
+    assert s["proprio_history_mask"].tolist() == [1, 1, 1]
+    floored = LanceEpisodeResolver(
+        root, key_map=HISTORY_KEY_MAP, cameras={}, history_floor="task"
+    ).resolve()[a]
+    s = _at(floored, 7)
+    assert s["obs_head_pose"][:, 0].tolist() == [6, 6, 7]
+    assert s["proprio_history_mask"].tolist() == [0, 1, 1]
+    with pytest.raises(ValueError, match="history_floor"):
+        LanceEpisodeResolver(root, history_floor="episode")
