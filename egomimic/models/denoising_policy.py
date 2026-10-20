@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from egomimic.models.denoising_nets import ConditionalUnet1D
+from egomimic.utils.pose_utils import hand_channel_mask
 
 
 class DenoisingPolicy(nn.Module):
@@ -144,4 +145,28 @@ class DenoisingPolicy(nn.Module):
     def compute_loss(self, global_cond, data):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
-        return self.loss_fn(pred, target, pad_mask=data.get("pad_mask"))
+        # Unlike the pad mask, always applied: an untracked hand's action channels
+        # hold fill values, not motion.
+        mask = _with_hand_mask(
+            data.get("pad_mask"), data.get("action_hand_mask"), actions
+        )
+        return self.loss_fn(pred, target, pad_mask=mask)
+
+
+def _with_hand_mask(pad_mask, hand_mask, actions):
+    """``pad_mask`` (B, S, 1) times the per-channel mask of ``hand_mask`` (B, 2)
+    [left, right] over the bimanual layout of ``actions`` (B, S, D), so an untracked
+    hand's channels drop out of the loss."""
+    if hand_mask is None:
+        return pad_mask
+    channels = hand_channel_mask(
+        hand_mask.to(actions.device, actions.dtype), actions.shape[-1]
+    )
+    if channels is None:
+        if bool((hand_mask == 1).all()):
+            return pad_mask
+        raise ValueError(
+            f"action width {actions.shape[-1]} has no bimanual layout to mask a hand in"
+        )
+    channels = channels[:, None, :]
+    return channels if pad_mask is None else pad_mask.to(actions.dtype) * channels
