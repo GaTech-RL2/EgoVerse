@@ -244,7 +244,8 @@ def convert(args) -> dict:
         "gaps": int(after_gap.sum()),
         "graph_changes": int(graph_change.sum()),
         "t_start_ns": int(ts[0]),
-        "t_end_ns": int(ts[-1]),
+        # Half-open like every Lance interval: the last frame is inside its task and alias.
+        "t_end_ns": int(ts[-1]) + round(1e9 / FPS),
         "mano": bool(args.mano),
         "intrinsics": {
             "front_1": k360.reshape(-1).tolist(),
