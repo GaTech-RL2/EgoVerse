@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import socket
 import stat
 import struct
 import time
@@ -127,6 +128,10 @@ class HTTP:
         except urllib.error.HTTPError as error:
             # Provider error bodies may echo credential fragments; never return them.
             raise ModelFailure("provider_http_" + str(error.code)) from None
+        except (socket.timeout, TimeoutError):
+            # Python 3.8 names socket.timeout "timeout"; newer runtimes alias
+            # TimeoutError. Keep the configured transport retries identical.
+            raise ModelFailure("provider_TimeoutError") from None
         except Exception as error:
             raise ModelFailure("provider_" + type(error).__name__) from None
 
