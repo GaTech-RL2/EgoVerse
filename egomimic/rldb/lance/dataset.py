@@ -136,21 +136,46 @@ def _runs(ids: pa.ChunkedArray) -> tuple[list, np.ndarray]:
     return values, np.asarray(starts, dtype=np.int64)
 
 
-def eligible_intervals(valid: dict[str, np.ndarray], hands, horizon: int) -> np.ndarray:
-    """(K, 2) half-open frame intervals of anchors whose action chunk is valid for every hand.
+REQUIRE_HANDS = ("none", "either", "both", "left", "right")
 
-    The chunk is [t, min(t + horizon, n)); the head pose must be valid at t because
-    actions are expressed in the anchor's head frame.
+
+def _chunk_valid(v: np.ndarray, horizon: int) -> np.ndarray:
+    """Per anchor t: `v` holds over the whole chunk [t, min(t + horizon, n))."""
+    n = len(v)
+    c = np.r_[0, np.cumsum(v.astype(np.int64))]
+    end = np.minimum(np.arange(n) + horizon, n)
+    return (c[end] - c[:n]) == (end - np.arange(n))
+
+
+def eligible_intervals(
+    valid: dict[str, np.ndarray], hands, horizon: int, require: str = "both"
+) -> np.ndarray:
+    """(K, 2) half-open frame intervals of the anchors `require` admits.
+
+    `hands` are the embodiment's hands. `require` names which of them must be valid
+    over the action chunk [t, min(t + horizon, n)): all ("both"), any ("either"), one
+    ("left" / "right"), or none ("none", which also skips the head check). Otherwise
+    the head pose must be valid at t, because actions are expressed in the anchor's
+    head frame.
     """
     n = len(valid["head"])
+    if require == "none":
+        return np.array([[0, n]] if n else [], np.int64).reshape(-1, 2)
+    if require in ("left", "right"):
+        if require not in hands:
+            raise ValueError(
+                f"require_hands_in_frame {require!r}: the embodiment has hands {tuple(hands)}"
+            )
+        hands = (require,)
+    oks = [_chunk_valid(valid[h], horizon) for h in hands]
     ok = valid["head"].copy()
-    for h in hands:
-        v = valid[h].astype(np.int64)
-        c = np.r_[0, np.cumsum(v)]
-        end = np.minimum(np.arange(n) + horizon, n)
-        ok &= (c[end] - c[:n]) == (end - np.arange(n))
-    edges = np.flatnonzero(np.diff(np.r_[0, ok.astype(np.int8), 0]))
-    return edges.reshape(-1, 2)
+    if oks:
+        ok &= (
+            np.logical_or.reduce(oks)
+            if require == "either"
+            else np.logical_and.reduce(oks)
+        )
+    return _intervals(ok)
 
 
 def _mask(spans, n: int) -> np.ndarray:
@@ -323,6 +348,7 @@ class LanceRecordingDataset(EpisodeLeaf):
         segments: np.ndarray | None = None,
         action_clamp: str = "task",
         history_floor: str = "recording",
+        hand_valid: np.ndarray | None = None,
     ):
         self.episode_path = name
         self.content_digest = content_digest
@@ -356,6 +382,13 @@ class LanceRecordingDataset(EpisodeLeaf):
         )
         self.action_clamp = action_clamp
         self.history_floor = history_floor
+        # (num_frames, 2) [left, right] tracked per frame; a hand the embodiment
+        # lacks is always True so it never masks anything.
+        self.hand_valid = (
+            np.asarray(hand_valid, bool)
+            if hand_valid is not None
+            else np.ones((num_frames, 2), bool)
+        )
         super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
@@ -376,6 +409,7 @@ class LanceRecordingDataset(EpisodeLeaf):
         h.update(self.anchors.tobytes())
         h.update(f"{self.action_clamp}\0{self.history_floor}\0".encode())
         h.update(self.segments.tobytes())
+        h.update(b"hands\0" + np.packbits(self.hand_valid).tobytes())
         if self._clamp_actions and self._ann is not None:
             h.update(b"clamp\0" + self._ann[0].tobytes() + self._ann[1].tobytes())
         return h.hexdigest()
@@ -420,6 +454,17 @@ class LanceRecordingDataset(EpisodeLeaf):
 
     def _history_floor(self, idx: int) -> int:
         return self._segment(idx)[0] if self.history_floor == "task" else 0
+
+    def _hand_masks(self, idx: int) -> dict:
+        out = {}
+        horizon = self._action_horizon()
+        if horizon is not None:
+            end = self._chunk_end_idx(idx, horizon, "action_keys")
+            out["action_hand_mask"] = self.hand_valid[idx:end].all(0).astype(np.float32)
+        spec = self._proprio_history_spec()
+        frames = self._history_indices(idx, spec)[0] if spec is not None else idx
+        out["proprio_hand_valid"] = self.hand_valid[frames].astype(np.float32)
+        return out
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         end = super()._chunk_end_idx(start_idx, horizon, key_type)
@@ -541,6 +586,13 @@ class LanceEpisodeResolver:
     `history_floor` "recording" lets history reach into earlier segments; "task" pads
     and masks it at the segment start.
 
+    `require_hands_in_frame` (none | either | both | left | right, default both) picks
+    the anchors: the named hands of the embodiment valid over the whole action chunk,
+    and the head pose valid at the anchor unless "none". It only gates sampling. Each
+    sample carries `action_hand_mask` ([left, right] valid over the chunk) and
+    `proprio_hand_valid` ([left, right] per proprio frame), which the losses, norm
+    stats and bounds check use to leave out an untracked hand.
+
     Each table is read at `versions[name]` (a number or tag), else at `tag`, else at its
     latest version. Tags are resolved to numbers once, here, so a tag moved later does
     not change what an existing resolver reads.
@@ -573,7 +625,12 @@ class LanceEpisodeResolver:
         include_taskless_frames: bool = False,
         action_clamp: str = "task",
         history_floor: str = "recording",
+        require_hands_in_frame: str = "both",
     ):
+        if require_hands_in_frame not in REQUIRE_HANDS:
+            raise ValueError(
+                f"require_hands_in_frame {require_hands_in_frame!r}: one of {REQUIRE_HANDS}"
+            )
         if action_clamp not in ("task", "recording"):
             raise ValueError(f"action_clamp {action_clamp!r}: 'task' or 'recording'")
         if history_floor not in ("task", "recording"):
@@ -588,6 +645,7 @@ class LanceEpisodeResolver:
         self.include_taskless_frames = include_taskless_frames
         self.action_clamp = action_clamp
         self.history_floor = history_floor
+        self.require_hands_in_frame = require_hands_in_frame
         self.annotations = None
         if annotations is not None:
             unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
@@ -759,10 +817,9 @@ class LanceEpisodeResolver:
                 mask &= _mask([clock.frames(r) for r in pins[rid]], n)
             mask &= ~_mask([clock.frames(r) for r in excludes.get(rid, [])], n)
             valid = {h: a[r0 : r0 + n] for h, a in all_valid.items()}
+            hands = HANDS_OF.get(row.embodiment, ("left", "right"))
             eligible = _mask(
-                eligible_intervals(
-                    valid, HANDS_OF.get(row.embodiment, ("left", "right")), horizon
-                ),
+                eligible_intervals(valid, hands, horizon, self.require_hands_in_frame),
                 n,
             )
             anchors = _intervals(mask & eligible)
@@ -819,6 +876,13 @@ class LanceEpisodeResolver:
                 segments=sorted(passing),
                 action_clamp=self.action_clamp,
                 history_floor=self.history_floor,
+                hand_valid=np.stack(
+                    [
+                        valid[h] if h in hands else np.ones(n, bool)
+                        for h in ("left", "right")
+                    ],
+                    axis=1,
+                ),
                 **ann_kw,
             )
         if no_anchor:
