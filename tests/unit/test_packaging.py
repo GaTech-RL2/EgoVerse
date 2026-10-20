@@ -77,3 +77,8 @@ def test_wheel_ships_robot_resources(wheel_files):
     # XML relative to egomimic.__file__.
     assert "egomimic/resources/model_x5.xml" in wheel_files
     assert "egomimic/resources/model_arx.urdf" in wheel_files
+
+
+def test_wheel_ships_mcap_proto(wheel_files):
+    # The .proto handed to vendors; egomimic.rldb.mcap.schemas renders the same text.
+    assert "egomimic/rldb/mcap/proto/egoverse.proto" in wheel_files
