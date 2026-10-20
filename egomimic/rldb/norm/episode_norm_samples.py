@@ -26,7 +26,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from egomimic.rldb.multi import worker_context
+from egomimic.rldb.multi import KEEP_SUFFIX, hand_keep, worker_context
 from egomimic.rldb.norm import norm_cache
 from egomimic.utils.gpu_orphans import die_with_parent
 
@@ -124,10 +124,11 @@ def _to_numpy(x):
 
 
 class _Frames(torch.utils.data.Dataset):
-    def __init__(self, leaves, tasks, zarr_keys: Mapping[str, str]):
+    def __init__(self, leaves, tasks, zarr_keys: Mapping[str, str], key_types=None):
         self.leaves = leaves
         self.tasks = tasks
         self.zarr_keys = dict(zarr_keys)
+        self.key_types = dict(key_types or {})
 
     def __len__(self):
         return len(self.tasks)
@@ -140,11 +141,17 @@ class _Frames(torch.utils.data.Dataset):
             # ZarrDataset already retried inside the episode; this one is bad.
             logger.warning(f"norm sample failed ({type(e).__name__}: {e}) {h}[{idx}]")
             return h, idx, None
-        return (
-            h,
-            idx,
-            {k: _to_numpy(data[z]) for k, z in self.zarr_keys.items() if z in data},
-        )
+        row = {}
+        for k, z in self.zarr_keys.items():
+            if z not in data:
+                continue
+            row[k] = _to_numpy(data[z])
+            keep = hand_keep(data, self.key_types.get(k), z, data[z])
+            if keep is not None:
+                row[f"{k}{KEEP_SUFFIX}"] = np.broadcast_to(
+                    keep.numpy(), row[k].shape
+                ).copy()
+        return h, idx, row
 
 
 def _as_list(batch):
@@ -158,6 +165,7 @@ def _sample_episodes(
     zarr_keys: Mapping[str, str],
     stride: int,
     num_workers: int,
+    key_types: Mapping[str, str | None] | None = None,
 ) -> None:
     tasks = [
         (h, int(i))
@@ -175,7 +183,7 @@ def _sample_episodes(
         return
 
     loader = torch.utils.data.DataLoader(
-        _Frames(leaves, tasks, zarr_keys),
+        _Frames(leaves, tasks, zarr_keys, key_types),
         batch_size=64,
         num_workers=num_workers,
         collate_fn=_as_list,
@@ -211,6 +219,7 @@ def collect(
     *,
     seed: int = 42,
     num_workers: int = 4,
+    key_types: Mapping[str, str | None] | None = None,
 ) -> tuple[dict[str, list[np.ndarray]], dict]:
     """``n_target`` rows per norm key (fewer if the episodes hold fewer frames),
     drawn uniformly from ``leaves`` (episode hash -> ZarrDataset). Episodes
@@ -227,7 +236,9 @@ def collect(
         f"episodes cached under {root}, sampling {len(missing)}"
     )
     if missing:
-        _sample_episodes(root, missing, fingerprints, zarr_keys, stride, num_workers)
+        _sample_episodes(
+            root, missing, fingerprints, zarr_keys, stride, num_workers, key_types
+        )
         for h in missing:
             files[h] = _file(root, h, fingerprints[h], stride)
 
@@ -247,13 +258,18 @@ def collect(
             at_stride[h] = at_stride[h][keep[offset : offset + n]]
             offset += n
 
-    collected: dict[str, list[np.ndarray]] = {k: [] for k in zarr_keys}
+    collected: dict[str, list] = {k: [] for k in zarr_keys}
     for h in order:
         if not len(at_stride[h]):
             continue
-        for k, v in _read(files[h], at_stride[h]).items():
-            if k in collected:
-                collected[k].append(v)
+        rows = _read(files[h], at_stride[h])
+        for k in zarr_keys:
+            if k in rows:
+                collected[k].append(rows[k])
+                # Aligned with collected[k]: None for an episode without hand flags.
+                collected.setdefault(f"{k}{KEEP_SUFFIX}", []).append(
+                    rows.get(f"{k}{KEEP_SUFFIX}")
+                )
     meta = {
         "stride": stride,
         "episodes": len(leaves),

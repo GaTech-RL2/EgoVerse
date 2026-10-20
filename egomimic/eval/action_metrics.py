@@ -27,9 +27,27 @@ from egomimic.utils.metrics import dtw_distance, frechet_gaussian_over_time
 from egomimic.utils.pose_utils import (
     bimanual_cartesian_layout,
     bimanual_keypoint_layout,
+    hand_channel_mask,
 )
 
 _RAD2DEG = 180.0 / math.pi
+
+
+def fill_untracked_from_pred(batch: dict, ac_key: str, pred) -> dict:
+    """``batch`` with an untracked hand's ``ac_key`` channels (``action_hand_mask``)
+    taken from ``pred``: they hold fill values, not motion, so they add no error to
+    the metrics and the viz transforms never see the degenerate fill pose."""
+    hands = batch.get("action_hand_mask")
+    if hands is None or pred is None:
+        return batch
+    gt = batch[ac_key]
+    keep = hand_channel_mask(hands.to(gt.device), gt.shape[-1])
+    if keep is None:
+        return batch
+    return {
+        **batch,
+        ac_key: torch.where(keep[:, None, :] > 0.5, gt, pred.to(gt.device, gt.dtype)),
+    }
 
 
 def _paired_mse(pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:

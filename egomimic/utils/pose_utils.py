@@ -270,6 +270,19 @@ def bimanual_keypoint_layout(width: int) -> dict | None:
     return BIMANUAL_KEYPOINT_LAYOUTS.get(int(width))
 
 
+def hand_channel_mask(hands, width: int):
+    """Per-hand flags ``(..., 2)`` [left, right] spread over the channels of a bimanual
+    vector of ``width`` ([left | right] halves), ``(..., width)``; None when ``width``
+    is not a known bimanual layout. Works on numpy arrays and tensors."""
+    if (
+        bimanual_cartesian_layout(width) is None
+        and bimanual_keypoint_layout(width) is None
+    ):
+        return None
+    half = int(width) // 2
+    return hands[..., [0] * half + [1] * half]
+
+
 # Keys whose last dim is one of the layouts above.
 _CARTESIAN_KEYS = ("actions_cartesian", "observations.state.ee_pose")
 _KEYPOINT_KEYS = ("actions_keypoints", "observations.state.keypoints")
