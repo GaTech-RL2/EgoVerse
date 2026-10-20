@@ -49,7 +49,7 @@ class Delivery:
     """One validated recording: catalog rows without `video_path`/`content_digest`, its steps and local MP4s."""
 
     recording: dict
-    task: dict
+    tasks: list[dict]  # a recording can hold several tasks (e.g. iron, fold, pack)
     alias: dict
     steps: pa.Table
     videos: dict[str, Path]
@@ -304,7 +304,7 @@ def _stage(root, d: Delivery) -> dict[str, pa.Table]:
     return {
         "steps": d.steps,
         "aliases.lance": pa.Table.from_pylist([d.alias], schema=ALIASES),
-        "tasks.lance": pa.Table.from_pylist([d.task], schema=TASKS),
+        "tasks.lance": pa.Table.from_pylist(d.tasks, schema=TASKS),
         "recordings.lance": pa.Table.from_pylist([rec], schema=RECORDINGS),
     }
 

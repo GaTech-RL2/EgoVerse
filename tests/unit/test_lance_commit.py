@@ -51,15 +51,17 @@ def _delivery(tmp, i, n, offset=None, video=b"mp4", **rec):
             extrinsics=[],
         )
         | rec,
-        task=dict(
-            task_instance_id=f"t{i}",
-            recording_id=rid,
-            t_start_ns=0,
-            t_end_ns=n * 33_333_333,
-            task_name="fold",
-            task_description=f"task {i}",
-            objects=[],
-        ),
+        tasks=[
+            dict(
+                task_instance_id=f"t{i}",
+                recording_id=rid,
+                t_start_ns=0,
+                t_end_ns=n * 33_333_333,
+                task_name="fold",
+                task_description=f"task {i}",
+                objects=[],
+            )
+        ],
         alias=dict(
             episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n * 33_333_333
         ),

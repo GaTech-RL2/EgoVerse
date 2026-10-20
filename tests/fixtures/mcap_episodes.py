@@ -62,7 +62,7 @@ def _times(hz: float) -> list[int]:
     return [T0 + round(i * 1e9 / hz) for i in range(int(DURATION_S * hz) + 1)]
 
 
-def _metadata(embodiment: str, declared: str) -> dict[str, str]:
+def _metadata(embodiment: str, declared: str, episode_id: str) -> dict[str, str]:
     info = {
         "task_name": "fold_clothes",
         "operator": "op_7",
@@ -75,7 +75,7 @@ def _metadata(embodiment: str, declared: str) -> dict[str, str]:
         "device_serial": "SN0001",
         "start_time_unix": str(T0 // 10**6),
         "end_time_unix": str((T0 + DURATION_S * 10**9) // 10**6),
-        "vendor_recording_id": "acme-rec-0001",
+        "vendor_recording_id": f"acme-rec-{episode_id}",
         "spec_version": spec.SPEC_VERSION,
         "license": "CC-BY-4.0",
     }
@@ -93,6 +93,19 @@ def _tf(links: list[tuple[str, str]], bad_rotation: bool) -> FrameTransforms:
         x.translation.z = 0.1
         x.rotation.w = 2.0 if bad_rotation and i == 0 else 1.0
     return tf
+
+
+def _hand_points(side: str, drift: float) -> list[float]:
+    """21 MANO joints (canonical order) of an open hand in front of the head: wrist, then
+    4 joints per finger fanned out sideways, so wrist + knuckles span a plane."""
+    y0 = 0.2 if side == "left" else -0.2
+    pts = [(0.4 + drift, y0, 1.2)]
+    for f in range(5):  # thumb .. pinky
+        for j in range(1, 5):
+            pts.append(
+                (0.4 + drift + 0.02 + 0.02 * j, y0 + 0.02 * (f - 2), 1.2 - 0.003 * j)
+            )
+    return [c for p in pts for c in p]
 
 
 def _rigid(z: float) -> list[float]:
@@ -127,6 +140,8 @@ def write_mcap_episode(
     unlink_main_camera: bool = False,
     bad_tf_rotation: bool = False,
     bad_upright_rotation: bool = False,
+    upright_rotation_cw_deg: int = 0,
+    drop_video_frame: int | None = None,
     # 5. imu
     imu_hz: int = IMU_HZ,
     gravity_removed: bool = False,
@@ -141,6 +156,10 @@ def write_mcap_episode(
     nan_eye_gaze: bool = False,
     joint_names_mismatch: bool = False,
     multi_frame_video: bool = False,
+    multi_frame_from: int = 0,
+    hand_frame: str = spec.WORLD_FRAME,
+    head_lost_from_s: float | None = None,
+    gaze_until_s: float | None = None,
     # 7. tasks & labels
     labels_in: str | None = "annotation",
     task_past_end: bool = False,
@@ -155,6 +174,7 @@ def write_mcap_episode(
     principal_x: float = WIDTH / 2,
     repeat_frame_time: bool = False,
     tamper: Callable | None = None,
+    slam_camera: bool = False,
     distortion_model: str = "",
     distortion_coeffs: tuple[float, ...] = (),
     bad_annotation_type: bool = False,
@@ -183,6 +203,9 @@ def write_mcap_episode(
       unlink_main_camera    /tf_static has no transform for the main camera
       bad_tf_rotation       first /tf_static transform has a non-unit quaternion
       bad_upright_rotation  every camera's -info-extra says to turn it 45 degrees
+      upright_rotation_cw_deg valid: every camera's -info-extra turn (0/90/180/270)
+      drop_video_frame      valid: this frame (odd index = a P-frame before a keyframe) is
+                            missing from every camera, as a dropped frame would be
       imu_hz                /imu sample rate
       gravity_removed       /imu reads ~0 m/s^2 at rest
       nan_head_pose         one /head-pose position is NaN
@@ -194,6 +217,10 @@ def write_mcap_episode(
       bad_wrist_pose        one /left-hand-keypoints wrist_pose has a non-unit rotation
       joint_names_mismatch  robot: one arm's state lists 5 joint names for 6 joints
       multi_frame_video     /main-camera (or /top-camera) packs 2 frames per message
+      multi_frame_from      ...only from this message on (past the validator's sample)
+      hand_frame            valid: frame_id the hands are given in ("world" or "head")
+      head_lost_from_s      valid: /head-pose-quality is LOST from this second on
+      gaze_until_s          valid: /eye-gaze stops at this second
       nan_eye_gaze          one valid /eye-gaze message has a NaN yaw
       labels_in             where the label topics go: "annotation" (annotation.mcap),
                             "episode" (inline, as ABC does) or None (left out)
@@ -209,6 +236,7 @@ def write_mcap_episode(
       calibration_twice     every camera's -info is published twice
       principal_x           cx in every camera's K (default: the image centre)
       repeat_frame_time     frame 21 of every camera repeats frame 20's timestamp
+      slam_camera           valid: also a /slam-left-camera, linked to the head
       tamper                tamper(topic, msg, t) -> None | (msg, t), applied to every
                             message before it is written (both files): any breakage
       distortion_model, distortion_coeffs  every camera's -info lens model and D
@@ -219,7 +247,7 @@ def write_mcap_episode(
     out = Path(root) / f"episode_{episode_id}"
     out.mkdir(parents=True, exist_ok=True)
 
-    info = _metadata(embodiment, declared_embodiment or embodiment)
+    info = _metadata(embodiment, declared_embodiment or embodiment, episode_id)
     if drop_metadata_key:
         info.pop(drop_metadata_key)
     info.update(metadata_override or {})
@@ -239,10 +267,17 @@ def write_mcap_episode(
     ]
     if repeat_frame_time:
         video_times[21] = video_times[20]
+    if drop_video_frame is not None:
+        packets = packets[:drop_video_frame] + packets[drop_video_frame + 1 :]
+        del video_times[drop_video_frame]
 
     if human:
         cameras = {"/main-camera": "main-camera"}
+        if slam_camera:
+            cameras["/slam-left-camera"] = "slam-left"
         links = [("head", "main-camera"), ("head", "imu"), ("head", "et")]
+        if slam_camera:
+            links.append(("head", "slam-left"))
         if unlink_main_camera:
             links.remove(("head", "main-camera"))
     else:
@@ -288,15 +323,18 @@ def write_mcap_episode(
                 schemas.CameraInfoExtra(
                     frame_id=frame_id,
                     valid_radius=0.0,
-                    upright_rotation_cw_deg=45 if bad_upright_rotation else 0,
+                    upright_rotation_cw_deg=45
+                    if bad_upright_rotation
+                    else upright_rotation_cw_deg,
                 ),
                 T0,
             )
             pairs = list(zip(packets, video_times))
             if multi_frame_video and topic in ("/main-camera", "/top-camera"):
-                pairs = [
+                k = multi_frame_from
+                pairs = pairs[:k] + [
                     (b"".join(d for d, _ in pairs[i : i + 2]), pairs[i][1])
-                    for i in range(0, len(pairs), 2)
+                    for i in range(k, len(pairs), 2)
                 ]
             for data, t in pairs:
                 write(
@@ -322,6 +360,9 @@ def write_mcap_episode(
                 hands_wrist_only=hands_wrist_only,
                 bad_wrist_pose=bad_wrist_pose,
                 nan_eye_gaze=nan_eye_gaze,
+                hand_frame=hand_frame,
+                head_lost_from_s=head_lost_from_s,
+                gaze_until_s=gaze_until_s,
             )
         else:
             _write_robot(
@@ -344,6 +385,8 @@ def write_mcap_episode(
                 bad_annotation_type,
             )
 
+    if labels_in != "annotation":  # rewriting an episode: no stale labels file
+        (out / spec.ANNOTATION_FILE).unlink(missing_ok=True)
     if labels_in == "annotation":
         with open(out / spec.ANNOTATION_FILE, "wb") as f, Writer(f) as w:
 
@@ -438,6 +481,9 @@ def _write_human(
     hands_wrist_only,
     bad_wrist_pose,
     nan_eye_gaze,
+    hand_frame,
+    head_lost_from_s,
+    gaze_until_s,
 ) -> None:
     write(
         "/imu-info",
@@ -461,6 +507,7 @@ def _write_human(
         pose_times[10], pose_times[11] = pose_times[11], pose_times[10]
     for i, t in enumerate(pose_times):
         p = PoseInFrame(frame_id=spec.WORLD_FRAME)
+        p.pose.position.x = 0.001 * i  # slow drift: real trackers never hold still
         p.pose.position.z = 1.5
         p.pose.orientation.w = 1.0
         if nan_head_pose and i == 5:
@@ -468,22 +515,26 @@ def _write_human(
         write("/head-pose", p, t)
 
     for i, t in enumerate(_times(POSE_HZ)):
+        if gaze_until_s is not None and t > T0 + gaze_until_s * 1e9:
+            break
         g = schemas.EyeGaze(frame_id="et", yaw=0.1, pitch=-0.3, depth=0.8, valid=True)
         if nan_eye_gaze and i == 5:
             g.yaw = float("nan")
         write("/eye-gaze", g, t)
 
     ok = schemas.TrackingQuality.OK
-    hand = np.linspace(0.1, 0.5, 63).tolist()
-    for t in _times(POSE_HZ):
-        write("/head-pose-quality", schemas.TrackingQuality(state=ok), t)
+    for i, t in enumerate(_times(POSE_HZ)):
+        lost = head_lost_from_s is not None and t >= T0 + head_lost_from_s * 1e9
+        state = schemas.TrackingQuality.LOST if lost else ok
+        write("/head-pose-quality", schemas.TrackingQuality(state=state), t)
         for s in sides:
             in_gap = s == "left" and T0 + 0.5e9 < t < T0 + (0.5 + hand_gap_s) * 1e9
             if in_gap:
                 continue
             zero = zeroed_left_hand and s == "left"
+            hand = _hand_points(s, drift=0.001 * i)
             k = schemas.HandKeypoints(
-                frame_id=spec.WORLD_FRAME,
+                frame_id=hand_frame,
                 positions=[] if hands_wrist_only else [0.0] * 63 if zero else hand,
                 confidence=1.5
                 if bad_hand_confidence and s == "left" and t == T0
@@ -491,7 +542,8 @@ def _write_human(
                 joint_confidence=[] if hands_wrist_only else [0.9] * 21,
                 valid=True,
             )
-            k.wrist_pose.position.z = 1.2
+            p = k.wrist_pose.position
+            p.x, p.y, p.z = hand[:3]  # the wrist joint
             k.wrist_pose.orientation.w = (
                 2.0 if bad_wrist_pose and s == "left" and t == T0 else 1.0
             )
