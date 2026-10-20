@@ -269,6 +269,7 @@ class MultiDataset(torch.utils.data.Dataset):
         # Dedup bounds-check warnings: keyed by f"bounds:{episode}:{zarr_key}"
         self._warned_violations: set[str] = set()
         self.train_collections: set = set()
+        self.source_manifest: dict | None = None
         self.valid_collections: set = set()
 
         if state is not None:
@@ -677,7 +678,11 @@ class MultiDataset(torch.utils.data.Dataset):
                 "were skipped by the resolver (see the log above)."
             )
 
-        return cls(datasets=resolved, **kwargs)
+        ds = cls(datasets=resolved, **kwargs)
+        manifest = getattr(resolver, "manifest", None)
+        # Which table versions the leaves came from; trainHydra writes it to the run dir.
+        ds.source_manifest = manifest() if manifest is not None else None
+        return ds
 
     # =====================================================================
     # Stats / normalization
