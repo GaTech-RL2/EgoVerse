@@ -25,6 +25,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.filters import PinError
 from egomimic.rldb.multi import EvenStrideDataset, MultiDataset, pinned_episode_subset
 from egomimic.rldb.resolve_memo import resolve_once
+from egomimic.utils import run_manifest
 from egomimic.utils.checkpoint_utils import load_checkpoint_weights
 from egomimic.utils.compile_cache import set_per_job_compile_cache_dir
 from egomimic.utils.env import load_env
@@ -813,6 +814,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log_hyperparameters(object_dict)
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
+    if trainer.is_global_zero:
+        manifest = run_manifest.run_manifest(
+            datamodule.train_datasets, datamodule.valid_datasets
+        )
+        if mode == "train":
+            run_manifest.warn_on_split_drift(
+                cfg.get("ckpt_path"), manifest[run_manifest.SPLIT_FILE]
+            )
+        run_manifest.write(trainer.default_root_dir, manifest)
 
     # Both modes: a head with pinned video episodes adds a <head>_video loader.
     model.val_loader_names = datamodule.val_loader_names()
