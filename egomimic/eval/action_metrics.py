@@ -30,9 +30,53 @@ from egomimic.utils.pose_utils import (
     _KEYPOINT_KEYS,
     bimanual_cartesian_layout,
     bimanual_keypoint_layout,
+    hand_channel_mask,
 )
 
 _RAD2DEG = 180.0 / math.pi
+
+
+def fill_untracked_from_pred(batch: dict, ac_key: str, pred) -> dict:
+    """``batch`` with an untracked hand's ``ac_key`` channels (``action_hand_mask``)
+    taken from ``pred``: they hold fill values, not motion, so they add no error to
+    the metrics and the viz transforms never see the degenerate fill pose."""
+    hands = batch.get("action_hand_mask")
+    if hands is None or pred is None:
+        return batch
+    gt = batch[ac_key]
+    keep = hand_channel_mask(hands.to(gt.device), gt.shape[-1])
+    if keep is None:
+        return batch
+    return {
+        **batch,
+        ac_key: torch.where(keep[:, None, :] > 0.5, gt, pred.to(gt.device, gt.dtype)),
+    }
+
+
+def tracked_hand_fraction(batch: dict, ac_key: str) -> float | None:
+    """Fraction of ``ac_key``'s hand channels that are tracked, over the batch; None
+    when ``fill_untracked_from_pred`` has nothing to fill."""
+    hands = batch.get("action_hand_mask")
+    if hands is None or hand_channel_mask(hands, batch[ac_key].shape[-1]) is None:
+        return None
+    return float(hands.float().mean())
+
+
+# Not means over channels, so a fill deflates them by an unknown amount.
+_NOT_CHANNEL_MEANS = ("_dtw_", "_frechet_")
+
+
+def per_tracked_hand(metrics: dict, tracked: float | None) -> dict:
+    """``metrics`` as means over the tracked hands' channels only. A filled hand adds
+    zero error but still counts in a mean over channels split evenly between the
+    hands, so each such mean is divided by ``tracked``. DTW and Frechet stay as they
+    are. The keys never change: log_dict(sync_dist=True) needs them on every rank."""
+    if tracked is None or tracked in (0.0, 1.0):
+        return metrics
+    return {
+        k: v if any(s in k for s in _NOT_CHANNEL_MEANS) else v / tracked
+        for k, v in metrics.items()
+    }
 
 
 def _paired_mse(pred: torch.Tensor, gt: torch.Tensor) -> torch.Tensor:
