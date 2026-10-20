@@ -86,6 +86,20 @@ class EpisodeLeaf(torch.utils.data.Dataset):
         mask[: max(n_real, 0)] = 1.0
         return mask
 
+    def _hand_masks(self, idx: int) -> dict:
+        """Per-hand validity keys for sample ``idx`` (``action_hand_mask``,
+        ``proprio_hand_valid``); none when the store tracks no per-hand validity."""
+        return {}
+
+    def _proprio_history_spec(self) -> dict | None:
+        """The first non-camera keymap entry with ``history`` > 1, else None."""
+        for spec in self.key_map.values():
+            if spec.get("key_type") == "camera_keys":
+                continue
+            if int(spec.get("history") or 1) > 1:
+                return spec
+        return None
+
     def _fps(self) -> float:
         """The episode's frame rate (zarr ``fps`` attr; 30 when absent)."""
         return float(self.metadata.get("fps") or 30)
@@ -194,6 +208,8 @@ class EpisodeLeaf(torch.utils.data.Dataset):
                 # Unlike proprio, a padded frame has to be masked out of
                 # attention, so each image window carries its own mask.
                 data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(idx, spec)[1]
+
+        data.update(self._hand_masks(idx))
 
         if self.transform:
             for transform in self.transform or []:
