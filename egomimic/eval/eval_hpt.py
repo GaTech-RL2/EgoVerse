@@ -3,7 +3,7 @@ import copy
 import torch
 from torchmetrics import MeanSquaredError
 
-from egomimic.eval.action_metrics import layout_metrics
+from egomimic.eval.action_metrics import fill_untracked_from_pred, layout_metrics
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.metrics import frechet_gaussian_over_time
@@ -35,6 +35,9 @@ class HPTEvalVideo(EvalVideo):
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = algo.ac_keys[embodiment_id]
+            _batch = fill_untracked_from_pred(
+                _batch, ac_key, preds.get(f"{embodiment_name}_{ac_key}")
+            )
 
             loss_key = f"{embodiment_name}_loss"
             if loss_key in preds:

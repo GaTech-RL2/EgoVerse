@@ -29,6 +29,7 @@ from egomimic.models.preprocess_pi_obs import (
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry, pad_to_width
 from egomimic.utils.compile_utils import compile_modules
+from egomimic.utils.pose_utils import hand_channel_mask
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -409,10 +410,10 @@ class PI(Algo):
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
-            # Carry forward episode_hash from the data dict (other keys are
-            # built inline below via _tokenize_prompts).
-            if "episode_hash" in _batch:
-                processed_batch[embodiment_id]["episode_hash"] = _batch["episode_hash"]
+            # Not keymap keys, so the filter above drops them.
+            for key in ("episode_hash", "action_hand_mask"):
+                if key in _batch:
+                    processed_batch[embodiment_id][key] = _batch[key]
 
             ac_key = self.ac_keys[embodiment_id]
             if ac_key not in processed_batch[embodiment_id]:
@@ -498,7 +499,13 @@ class PI(Algo):
             # __call__, not .forward: nn.Module.compile only routes __call__, so
             # a direct .forward() would silently run uncompiled.
             losses = self.nets["policy"](processed_obs, action)
-            loss = self._reduce_loss(losses, _batch[ac_key], embodiment_id, ac_key)
+            loss = self._reduce_loss(
+                losses,
+                _batch[ac_key],
+                embodiment_id,
+                ac_key,
+                _batch.get("action_hand_mask"),
+            )
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
@@ -537,7 +544,11 @@ class PI(Algo):
                 # Flow-matching val loss — same call as forward_training.
                 losses = self.nets["policy"](processed_obs, action)
                 unnorm_preds[f"{embodiment_name}_loss"] = self._reduce_loss(
-                    losses, _batch[ac_key], embodiment_id, ac_key
+                    losses,
+                    _batch[ac_key],
+                    embodiment_id,
+                    ac_key,
+                    _batch.get("action_hand_mask"),
                 )
 
                 pred_actions = self.nets["policy"].sample_actions(
@@ -555,7 +566,9 @@ class PI(Algo):
 
         return unnorm_preds
 
-    def _reduce_loss(self, losses, action, embodiment_id, ac_key) -> torch.Tensor:
+    def _reduce_loss(
+        self, losses, action, embodiment_id, ac_key, hand_mask=None
+    ) -> torch.Tensor:
         """Mean flow-matching loss over the embodiment's packed action width.
 
         openpi returns the per-element loss ``(B, H, action_dim)``. With
@@ -564,14 +577,46 @@ class PI(Algo):
         its loss over 112 zero-padded "predict the noise" dims and contribute
         a fraction of the gradient signal it had at width 32; restrict the
         mean to the slots the converter actually packs.
+
+        ``hand_mask`` (B, 2) [left, right] leaves an untracked hand's packed slots
+        out of the mean.
         """
         if isinstance(losses, (list, tuple)):
             losses = torch.stack(losses)
         elif not isinstance(losses, torch.Tensor):
             losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
-        if losses.ndim == 3:
-            losses = losses[..., : self._packed_width(action, embodiment_id, ac_key)]
-        return losses.mean()
+        if losses.ndim != 3:
+            return losses.mean()
+        losses = losses[..., : self._packed_width(action, embodiment_id, ac_key)]
+        if hand_mask is None:
+            return losses.mean()
+        mask = self._packed_hand_mask(hand_mask, action, embodiment_id, ac_key)
+        if mask is None:
+            return losses.mean()
+        mask = mask[:, None, : losses.shape[-1]].expand_as(losses)
+        return (losses * mask).sum() / mask.sum().clamp(min=1.0)
+
+    def _packed_hand_mask(self, hand_mask, action, embodiment_id, ac_key):
+        """``hand_mask`` spread over the converter's packed slots, (B, packed width);
+        slots the converter inserts (gripper zeros, padding) stay 1."""
+        channels = hand_channel_mask(
+            hand_mask.to(device=action.device, dtype=torch.float32),
+            action.shape[-1],
+        )
+        if channels is None:
+            if bool((hand_mask == 1).all()):
+                return None
+            raise ValueError(
+                f"action width {action.shape[-1]} has no bimanual layout to mask a hand in"
+            )
+        converter = self.action_registry.get(embodiment_id, ac_key)
+        packed = 1.0 - converter.to32_norm_6d((1.0 - channels)[:, None, :])[:, 0]
+        if not bool(((packed == 0) | (packed == 1)).all()):
+            raise ValueError(
+                f"the {type(converter).__name__} converter mixes channels; "
+                "a per-hand loss mask cannot follow it"
+            )
+        return packed
 
     def _packed_width(self, action, embodiment_id, ac_key) -> int:
         """Width the embodiment's converter packs into, cached per pairing: it
