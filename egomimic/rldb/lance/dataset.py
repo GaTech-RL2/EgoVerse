@@ -8,6 +8,7 @@ over these datasets must use a forkserver or spawn worker context.
 """
 
 import concurrent.futures as cf
+import copy
 import functools
 import hashlib
 import logging
@@ -24,7 +25,7 @@ import pyarrow.compute as pc
 import torch
 
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
-from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
+from egomimic.rldb.lance.schema import STEPS_KEY, steps_path, task_instance_id
 from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,55 @@ def eligible_intervals(
     return edges.reshape(-1, 2)
 
 
+def _mask(spans, n: int) -> np.ndarray:
+    """Frames [0, n) inside any half-open (start, end) span."""
+    on = np.zeros(n + 1, np.int64)
+    for a, b in spans:
+        if a < b:
+            on[a] += 1
+            on[b] -= 1
+    return np.cumsum(on)[:n] > 0
+
+
+def _intervals(mask: np.ndarray) -> np.ndarray:
+    """(K, 2) half-open runs of True in `mask`."""
+    return np.flatnonzero(np.diff(np.r_[0, mask.astype(np.int8), 0])).reshape(-1, 2)
+
+
+def _spans_of(df: pd.DataFrame | None) -> list[tuple[int, int]]:
+    if df is None:
+        return []
+    return list(zip(df.t_start_ns.tolist(), df.t_end_ns.tolist()))
+
+
+def _spans_array(spans, texts) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """(start frames, end frames, texts) of (start, end) frame `spans`, empty ones dropped."""
+    se = np.asarray(spans, np.int64).reshape(-1, 2)
+    s, e = se[:, 0], se[:, 1]
+    keep = s < e
+    return s[keep], e[keep], [t for t, k in zip(texts, keep) if k]
+
+
+class _Clock:
+    """Recording time to frames: frame f covers [ts[f], ts[f + 1]). `ts` is None when
+    every range asked of it covers the whole recording."""
+
+    def __init__(self, n: int, first: int, last: int, ts: np.ndarray | None):
+        self.n, self.first, self.last, self.ts = n, int(first), int(last), ts
+
+    def frames(self, span: tuple[int, int] | None) -> tuple[int, int]:
+        """Half-open frames whose timestamps fall in the half-open `span`; None is all."""
+        if span is None or (span[0] <= self.first and span[1] > self.last):
+            return 0, self.n
+        a, b = np.searchsorted(self.ts, span, "left")
+        return int(a), int(b)
+
+    def time(self, frame: int) -> int:
+        if frame >= self.n:
+            return self.last + 1
+        return self.first if frame == 0 else int(self.ts[frame])
+
+
 def _frames_of(window) -> np.ndarray:
     if isinstance(window, np.ndarray):
         return window.astype(np.int64)
@@ -275,6 +325,7 @@ class LanceRecordingDataset(EpisodeLeaf):
         videos: dict[str, str],
         task_text: str,
         key_map: dict,
+        clips: dict[str, tuple[int, int]] | None = None,
         transform_list: list | None = None,
         content_digest: str | None = None,
         annotations: tuple[np.ndarray, np.ndarray, list[str]] | None = None,
@@ -298,7 +349,10 @@ class LanceRecordingDataset(EpisodeLeaf):
         self._image_keys = {k for k in videos}
         self.anchors = np.asarray(anchors, dtype=np.int64).reshape(-1, 2)
         self._cum = np.r_[0, np.cumsum(self.anchors[:, 1] - self.anchors[:, 0])]
-        # (start frames, end frames, texts) sorted by start; None: the task text stands in.
+        # Old clip episode_hashes aliased to this recording: {hash: (start, end frame)}.
+        self.clips = dict(clips or {})
+        # (start frames, end frames, texts) sorted by start: the tasks rows, or the
+        # annotations rows under the resolver's `annotations` config.
         self._ann = annotations
         self._clamp_actions = clamp_actions
         super().__init__(key_map=key_map, transform_list=transform_list)
@@ -342,9 +396,19 @@ class LanceRecordingDataset(EpisodeLeaf):
         s, e, _ = self._ann
         return np.flatnonzero((s <= frame_idx) & (frame_idx < e))
 
+    def clip(self, episode_hash: str) -> "LanceRecordingDataset":
+        """This leaf sampling only the frames of one aliased clip."""
+        a, b = self.clips[episode_hash]
+        leaf = copy.copy(self)
+        leaf.anchors = _intervals(
+            _mask(self.anchors, self.total_frames) & _mask([(a, b)], self.total_frames)
+        )
+        leaf._cum = np.r_[0, np.cumsum(leaf.anchors[:, 1] - leaf.anchors[:, 0])]
+        return leaf
+
     def _annotation_text_for_frame(self, frame_idx: int):
         if self._ann is None:
-            return [self.task_text]
+            return []
         return [self._ann[2][j] for j in self._covering(frame_idx)]
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
@@ -447,6 +511,14 @@ class LanceStreamingDataset(LanceRecordingDataset):
         return self.assemble_sample(plan, self.fetch_planned([(self, plan)])[0])
 
 
+def _by_table(located: dict) -> dict[tuple[str, int], list[str]]:
+    """{(steps uri, version): [recording_id]} over `_steps_rows` output."""
+    out: dict = {}
+    for rid, loc in located.items():
+        out.setdefault((loc.uri, loc.version), []).append(rid)
+    return out
+
+
 class StepsRows(NamedTuple):
     """Where a recording's frames sit in its steps table."""
 
@@ -492,6 +564,7 @@ class LanceEpisodeResolver:
         versions: dict[str, int | str] | None = None,
         tag: str | None = None,
         annotations: dict | None = None,
+        include_taskless_frames: bool = False,
     ):
         self.root = str(lance_root).rstrip("/")
         self.key_map = key_map
@@ -499,6 +572,7 @@ class LanceEpisodeResolver:
         self.cameras = cameras or {"images.front_1": "front_1"}
         self.tag = tag
         self.versions = dict(versions or {})
+        self.include_taskless_frames = include_taskless_frames
         self.annotations = None
         if annotations is not None:
             unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
@@ -514,17 +588,32 @@ class LanceEpisodeResolver:
             self.versions[name] = want
         return uri, want, _table(uri, want)
 
-    def catalog(self) -> pd.DataFrame:
+    def recordings(self) -> pd.DataFrame:
+        """One row per recording."""
         _, _, rec = self._open("recordings.lance")
-        _, _, tasks = self._open("tasks.lance")
-        _, _, aliases = self._open("aliases.lance")
-        r = rec.to_table().to_pandas()
-        t = tasks.to_table(
-            columns=["recording_id", "task_name", "task_description", "objects"]
-        ).to_pandas()
-        a = aliases.to_table(columns=["recording_id", "episode_hash"]).to_pandas()
-        df = r.merge(t, on="recording_id").merge(a, on="recording_id")
-        return df.rename(columns={"task_name": "task"}).reset_index(drop=True)
+        return rec.to_table().to_pandas()
+
+    def _table_df(self, name: str, columns: list[str]) -> pd.DataFrame:
+        _, _, tbl = self._open(name)
+        return tbl.to_table(columns=columns).to_pandas()
+
+    @functools.cached_property
+    def _aliases(self) -> pd.DataFrame:
+        """aliases.lance, read once: its version is fixed by the first `_open`."""
+        return self._table_df(
+            "aliases.lance", ["episode_hash", "recording_id", "t_start_ns", "t_end_ns"]
+        )
+
+    def dataset_keys(self, hashes) -> dict[str, str]:
+        """{pin: dataset key} for pins naming a recording_id or an aliased clip hash."""
+        hashes = set(hashes)
+        if not hashes:
+            return {}
+        rids = set(self._table_df("recordings.lance", ["recording_id"]).recording_id)
+        a = self._aliases
+        out = dict(zip(a.episode_hash, a.recording_id))
+        out.update({r: r for r in rids})
+        return {h: out[h] for h in hashes if h in out}
 
     def _annotation_rows(self) -> dict[str, pd.DataFrame]:
         """{recording_id: rows passing the `annotations` filters, sorted by start}."""
@@ -538,26 +627,6 @@ class LanceEpisodeResolver:
             keep &= df.quality_score.notna() & (df.quality_score >= cfg["min_quality"])
         df = df[keep].sort_values(["recording_id", "t_start_ns", "t_end_ns"])
         return {rid: g for rid, g in df.groupby("recording_id")}
-
-    @staticmethod
-    def _frame_spans(rows: pd.DataFrame, ts: np.ndarray):
-        """Half-open frame ranges of half-open time ranges; empty ones are dropped."""
-        a = np.searchsorted(ts, rows.t_start_ns.to_numpy(), "left")
-        b = np.searchsorted(ts, rows.t_end_ns.to_numpy(), "left")
-        keep = a < b
-        return a[keep], b[keep], rows.text[keep].tolist()
-
-    @staticmethod
-    def _covered(anchors: np.ndarray, starts, ends, n: int) -> np.ndarray:
-        on = np.zeros(n + 1, np.int64)
-        np.add.at(on, starts, 1)
-        np.add.at(on, ends, -1)
-        cover = np.cumsum(on)[:n] > 0
-        mask = np.zeros(n, bool)
-        for s, e in anchors:
-            mask[s:e] = True
-        edges = np.flatnonzero(np.diff(np.r_[0, (mask & cover).astype(np.int8), 0]))
-        return edges.reshape(-1, 2)
 
     def _horizon(self) -> int:
         hs = [
@@ -588,65 +657,140 @@ class LanceEpisodeResolver:
             out.update(lag + stride * i for i in range(k))
         return sorted(out)
 
+    def _ranges(self, hashes, recs: pd.DataFrame, what: str) -> dict[str, list]:
+        """{recording_id: [(t_start_ns, t_end_ns) | None]} for pins or excludes; None
+        is the whole recording. A hash is a recording_id or an aliased clip hash."""
+        out: dict[str, list] = {}
+        if not hashes:
+            return out
+        rids = set(recs.recording_id)
+        a = self._aliases
+        a = a[a.episode_hash.isin(hashes) & a.recording_id.isin(rids)]
+        for row in a.itertuples():
+            out.setdefault(row.recording_id, []).append(
+                (int(row.t_start_ns), int(row.t_end_ns))
+            )
+        for h in hashes & rids:
+            out.setdefault(h, []).append(None)
+        if what == "pins":
+            missing = sorted(hashes - rids - set(a.episode_hash))
+            if missing:
+                raise PinError(f"pinned episodes not in the Lance catalog: {missing}")
+        return out
+
     def resolve(
         self,
         filters: DatasetFilter | None = None,
         expected_embodiment: str | None = None,
     ):
+        """{recording_id: leaf}. A recording's samples are the eligible anchors inside
+        its segments (tasks rows, plus the untasked gaps with `include_taskless_frames`)
+        that pass the filter lambdas, narrowed to pinned and minus excluded ranges."""
         filters = _ensure_dataset_filter(filters)
-        cat = self.catalog()
-        keep = cat[[filters.matches(row) for row in cat.to_dict("records")]]
+        recs = self.recordings()
         if expected_embodiment is not None:
-            keep = keep[keep.embodiment.str.lower() == expected_embodiment.lower()]
-        missing = sorted(set(filters.episode_hashes) - set(keep.episode_hash))
-        if missing:
-            raise PinError(f"pinned episodes not in the Lance catalog: {missing}")
+            recs = recs[recs.embodiment.str.lower() == expected_embodiment.lower()]
+        pins = self._ranges(set(filters.episode_hashes), recs, "pins")
+        excludes = self._ranges(set(filters.exclude_hashes), recs, "excludes")
+        if filters.episode_hashes:
+            recs = recs[recs.recording_id.isin(set(pins))]
+        tasks = {
+            rid: g.sort_values("t_start_ns")
+            for rid, g in self._table_df(
+                "tasks.lance",
+                [
+                    "task_instance_id",
+                    "recording_id",
+                    "t_start_ns",
+                    "t_end_ns",
+                    "task_name",
+                    "task_description",
+                    "objects",
+                ],
+            ).groupby("recording_id")
+        }
+        clips = {rid: g for rid, g in self._aliases.groupby("recording_id")}
 
-        located = self._steps_rows(keep)
+        located = self._steps_rows(recs)
+        ann_rows = self._annotation_rows() if self.annotations is not None else {}
+        ranges = {
+            rid: [
+                *_spans_of(tasks.get(rid)),
+                *_spans_of(clips.get(rid)),
+                *_spans_of(ann_rows.get(rid)),
+                *(r for r in pins.get(rid, []) + excludes.get(rid, []) if r),
+            ]
+            for rid in recs.recording_id
+        }
+        clocks = {}
+        for (uri, version), rids in _by_table(located).items():
+            clocks.update(
+                self._clocks(
+                    _table(uri, version),
+                    {r: (located[r].row_start, located[r].num_frames) for r in rids},
+                    ranges,
+                )
+            )
         horizon = self._horizon()
         tables = self._leaf_tables()
-        ann_rows, ann_ts = {}, {}
-        if self.annotations is not None:
-            ann_rows = self._annotation_rows()
-            ann_ts = self._timestamps(
-                located, [r for r in keep.recording_id if r in ann_rows]
-            )
-        no_ann = []
 
-        out = {}
-        for row in keep.itertuples():
-            uri, version, r0, n, valid = located[row.recording_id]
-            anchors = eligible_intervals(
-                valid,
-                HANDS_OF.get(row.embodiment, ("left", "right")),
-                horizon,
-                history=self._history_offsets(float(row.fps)),
+        out, no_ann, no_anchor = {}, [], []
+        for row in recs.itertuples():
+            rid, clock = row.recording_id, clocks[row.recording_id]
+            uri, version, r0, n, valid = located[rid]
+            segs = self._segments(row, tasks.get(rid), clock)
+            passing = [
+                (a, b)
+                for seg, (a, b) in segs
+                if a < b and filters.passes_lambdas({**row._asdict(), **seg})
+            ]
+            mask = _mask(passing, n)
+            if filters.episode_hashes:
+                mask &= _mask([clock.frames(r) for r in pins[rid]], n)
+            mask &= ~_mask([clock.frames(r) for r in excludes.get(rid, [])], n)
+            eligible = _mask(
+                eligible_intervals(
+                    valid,
+                    HANDS_OF.get(row.embodiment, ("left", "right")),
+                    horizon,
+                    history=self._history_offsets(float(row.fps)),
+                ),
+                n,
             )
-            if not len(anchors):
-                logger.warning("recording %s has no eligible anchors", row.episode_hash)
-                continue
-            ann_kw = {}
+            anchors = _intervals(mask & eligible)
+            task_texts = [
+                t.task_description or t.task_name
+                for t in (tasks[rid].itertuples() if rid in tasks else ())
+            ]
+            ann_kw = dict(
+                annotations=_spans_array(
+                    [clock.frames(r) for r in _spans_of(tasks.get(rid))], task_texts
+                )
+            )
             if self.annotations is not None:
-                spans = (np.empty(0, np.int64), np.empty(0, np.int64), [])
-                if row.recording_id in ann_ts:
-                    spans = self._frame_spans(
-                        ann_rows[row.recording_id], ann_ts[row.recording_id]
-                    )
+                g = ann_rows.get(rid)
+                spans = _spans_array(
+                    [clock.frames(r) for r in _spans_of(g)],
+                    g.text.tolist() if g is not None else [],
+                )
                 if self.annotations["require"]:
-                    anchors = self._covered(anchors, spans[0], spans[1], n)
+                    anchors = _intervals(_mask(anchors, n) & _mask(zip(*spans[:2]), n))
                     if not len(anchors):
-                        no_ann.append(row.episode_hash)
+                        no_ann.append(rid)
                         continue
                 ann_kw = dict(
                     annotations=spans, clamp_actions=self.annotations["clamp_actions"]
                 )
+            if not len(anchors):
+                no_anchor.append(rid)
+                continue
             intr = dict(row.intrinsics) if row.intrinsics is not None else {}
             vids = dict(row.video_path)
             cam = next(iter(self.cameras.values()))
-            out[row.episode_hash] = self._leaf(
+            out[rid] = self._leaf(
                 row,
                 tables,
-                name=row.episode_hash,
+                name=rid,
                 steps_uri=uri,
                 steps_version=version,
                 row_start=r0,
@@ -656,11 +800,22 @@ class LanceEpisodeResolver:
                 fps=float(row.fps),
                 intrinsics=np.asarray(intr[cam]) if cam in intr else None,
                 videos={zk: f"{self.root}/{vids[c]}" for zk, c in self.cameras.items()},
-                task_text=row.task_description or row.task,
+                # The first task's; per-frame task text comes from `annotations`.
+                task_text=task_texts[0] if task_texts else "",
+                clips={
+                    c.episode_hash: clock.frames((c.t_start_ns, c.t_end_ns))
+                    for c in (clips[rid].itertuples() if rid in clips else ())
+                },
                 key_map=self.key_map,
                 transform_list=self.transform_list,
                 content_digest=getattr(row, "content_digest", None),
                 **ann_kw,
+            )
+        if no_anchor:
+            logger.warning(
+                "%d recordings have no sampleable anchors, e.g. %s",
+                len(no_anchor),
+                no_anchor[:5],
             )
         if self.annotations is not None and self.annotations["require"]:
             logger.info(
@@ -694,36 +849,81 @@ class LanceEpisodeResolver:
                 rid, n = row.recording_id, int(row.num_frames)
                 if counts.get(rid) != n:
                     raise ValueError(
-                        f"{row.episode_hash}: {counts.get(rid, 0)} steps rows at {uri}@{version}, num_frames {n}"
+                        f"{rid}: {counts.get(rid, 0)} steps rows at {uri}@{version}, num_frames {n}"
                     )
                 r0 = int(starts[rid])
                 valid = {h: a[r0 : r0 + n] for h, a in all_valid.items()}
                 out[rid] = StepsRows(uri, version, r0, n, valid)
         return out
 
-    @staticmethod
-    def _timestamps(located: dict, rids) -> dict[str, np.ndarray]:
-        """{recording_id: timestamp_ns per frame}, one take per steps table."""
-        by_table: dict = {}
-        for rid in rids:
-            loc = located[rid]
-            by_table.setdefault((loc.uri, loc.version), []).append(rid)
-        out = {}
-        for (uri, version), ids in by_table.items():
-            rows = np.concatenate(
-                [
-                    np.arange(
-                        located[r].row_start,
-                        located[r].row_start + located[r].num_frames,
-                    )
-                    for r in ids
-                ]
+    def _segments(self, row, tasks: pd.DataFrame | None, clock: "_Clock") -> list:
+        """[(filter fields, (frame start, frame end))]: one per tasks row, plus one per
+        untasked gap when `include_taskless_frames`."""
+        segs, covered = [], np.zeros(clock.n, bool)
+        for t in tasks.itertuples() if tasks is not None else ():
+            a, b = clock.frames((t.t_start_ns, t.t_end_ns))
+            covered[a:b] = True
+            seg = dict(
+                task_instance_id=t.task_instance_id,
+                t_start_ns=t.t_start_ns,
+                t_end_ns=t.t_end_ns,
+                task=t.task_name,
+                task_description=t.task_description,
+                objects=t.objects,
             )
-            ts = _table(uri, version).take(rows.tolist(), columns=["timestamp_ns"])
-            ts = ts.column(0).to_numpy()
-            at = np.cumsum([0] + [located[r].num_frames for r in ids])
-            out.update({r: ts[at[j] : at[j + 1]] for j, r in enumerate(ids)})
-        return out
+            segs.append((seg, (a, b)))
+        if self.include_taskless_frames:
+            for a, b in _intervals(~covered):
+                t0 = clock.time(a)
+                seg = dict(
+                    task_instance_id=task_instance_id(row.recording_id, None, t0),
+                    t_start_ns=t0,
+                    t_end_ns=clock.time(b),
+                    task=None,
+                    task_description=None,
+                    objects=[],
+                )
+                segs.append((seg, (int(a), int(b))))
+        for seg, _ in segs:
+            seg["episode_hash"] = row.recording_id
+        return segs
+
+    @staticmethod
+    def _clocks(steps, rows: dict, ranges: dict) -> dict[str, "_Clock"]:
+        """{recording_id: _Clock}. Reads every timestamp only of recordings with a range
+        that starts or ends inside them; the rest map time to frames from their ends."""
+        rids = list(rows)
+        ends = (
+            steps.take(
+                [
+                    r
+                    for rid in rids
+                    for r in (rows[rid][0], rows[rid][0] + rows[rid][1] - 1)
+                ],
+                columns=["timestamp_ns"],
+            )
+            .column(0)
+            .to_numpy()
+            .reshape(-1, 2)
+        )
+        bounds = dict(zip(rids, ends))
+        need = [
+            rid
+            for rid in rids
+            if any(
+                not (t0 <= bounds[rid][0] and t1 > bounds[rid][1])
+                for t0, t1 in ranges[rid]
+            )
+        ]
+        ts = {}
+        if need:
+            take = np.concatenate([np.arange(rows[r][0], sum(rows[r])) for r in need])
+            col = (
+                steps.take(take.tolist(), columns=["timestamp_ns"]).column(0).to_numpy()
+            )
+            at = np.cumsum([0] + [rows[r][1] for r in need])
+            ts = {r: col[at[j] : at[j + 1]] for j, r in enumerate(need)}
+        return {rid: _Clock(rows[rid][1], *bounds[rid], ts.get(rid)) for rid in rids}
 
     def _leaf_tables(self) -> dict:
         return {}
@@ -763,7 +963,7 @@ class LanceStreamingResolver(LanceEpisodeResolver):
 
     def _leaf(self, row, tables: dict, **kwargs) -> LanceStreamingDataset:
         chunks = {
-            zk: _chunks_of(t, row.recording_id, kwargs["num_frames"], row.episode_hash)
+            zk: _chunks_of(t, row.recording_id, kwargs["num_frames"], kwargs["name"])
             for zk, t in tables.items()
         }
         return LanceStreamingDataset(

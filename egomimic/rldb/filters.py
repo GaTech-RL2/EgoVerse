@@ -95,12 +95,17 @@ class DatasetFilter:
         )
 
     def matches(self, row: Mapping[str, Any]) -> bool:
-        row = dict(row)
-        if row.get("is_deleted", False):
-            return False
         if self.episode_hashes and row.get("episode_hash") not in self.episode_hashes:
             return False
         if row.get("episode_hash") in self.exclude_hashes:
+            return False
+        return self.passes_lambdas(row)
+
+    def passes_lambdas(self, row: Mapping[str, Any]) -> bool:
+        """`matches` without the pins and excludes, for resolvers that apply those to
+        time ranges themselves (Lance)."""
+        row = dict(row)
+        if row.get("is_deleted", False):
             return False
         for expr, predicate in zip(self.filter_lambdas, self.filters, strict=True):
             result = predicate(row)

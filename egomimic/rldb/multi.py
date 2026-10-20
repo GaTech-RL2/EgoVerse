@@ -271,6 +271,16 @@ class MultiDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.index_map)
 
+    def episode(self, episode_hash: str):
+        """The leaf keyed `episode_hash`, or a Lance leaf narrowed to the aliased clip of
+        that hash; None when neither is here."""
+        if episode_hash in self.datasets:
+            return self.datasets[episode_hash]
+        for leaf in self.datasets.values():
+            if episode_hash in getattr(leaf, "clips", {}):
+                return leaf.clip(episode_hash)
+        return None
+
     @staticmethod
     def _episode_name_for_dataset(dataset, dataset_name: str) -> str:
         episode_path = getattr(dataset, "episode_path", None)
@@ -571,7 +581,9 @@ class MultiDataset(torch.utils.data.Dataset):
         )
 
         pins = filters.episode_hashes if isinstance(filters, DatasetFilter) else ()
-        dropped = sorted(set(pins) - set(resolved))
+        # Lance keys leaves by recording_id; a pin may name the recording or an old clip.
+        keys = getattr(resolver, "dataset_keys", lambda ps: {p: p for p in ps})(pins)
+        dropped = sorted(p for p in pins if keys.get(p) not in resolved)
         if dropped:
             raise PinError(
                 f"{len(dropped)} pinned episode(s) not in dataset "
@@ -1250,7 +1262,7 @@ def pinned_episode_subset(
     episodes in config order.
     """
     hashes = [str(h) for h in (episode_hashes or [])]
-    missing = [h for h in hashes if h not in base.datasets]
+    missing = [h for h in hashes if base.episode(h) is None]
     if missing:
         raise PinError(
             f"{len(missing)} pinned video episode(s) not in dataset "
@@ -1264,7 +1276,7 @@ def pinned_episode_subset(
             f"'{dataset_name or '<unnamed>'}'"
         )
     subset = MultiDataset(
-        datasets={h: base.datasets[h] for h in hashes},
+        datasets={h: base.episode(h) for h in hashes},
         mode="total",
         norm_mode=base.norm_mode,
     )
