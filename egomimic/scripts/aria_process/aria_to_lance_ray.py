@@ -1,8 +1,8 @@
 """Convert raw Aria recordings (VRS + MPS) into the Lance tables, one Ray task per recording.
 
 Workers run aria_to_lance.convert into `<deliveries>/<vendor id>/`; the driver is the only
-Lance writer. As conversions finish it validates them (lance_pilot/commit.py), appends the
-recordings' video chunk rows when --chunk-k is set, then commits them in batches. Reruns
+Lance writer. As conversions finish it validates them (lance_pilot/commit.py), then
+commits them in batches. Reruns
 skip recordings already delivered or committed, so a killed run resumes where it stopped.
 
     python -m egomimic.scripts.aria_process.aria_to_lance_ray \\
@@ -19,14 +19,10 @@ import traceback
 from pathlib import Path
 from types import SimpleNamespace
 
-import lance
-import pyarrow as pa
 import ray
-from lance.blob import blob_array
 
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import recording_id
-from egomimic.scripts.lance_pilot.chunk_videos import SCHEMA as CHUNK_SCHEMA
 from egomimic.scripts.lance_pilot.commit import load_deliveries, sql_rows
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 
@@ -72,61 +68,11 @@ def convert_one(vid: str, embodiment: str, opts: dict) -> tuple[str, str | None]
         return vid, traceback.format_exc()
 
 
-@ray.remote
-def chunk_one(mp4: str, k: int) -> list[bytes]:
-    from egomimic.scripts.lance_pilot.chunk_videos import chunk_mp4
-
-    return chunk_mp4(Path(mp4), k)
-
-
-def chunked_ids(uri: Path) -> set[str]:
-    if not (uri / "_versions").exists():
-        return set()
-    col = lance.dataset(str(uri)).to_table(columns=["recording_id"]).column(0)
-    return set(col.unique().to_pylist())
-
-
-def append_chunks(uri: Path, deliveries: list, camera: str, k: int) -> None:
-    """Chunk rows for deliveries not yet in the chunk table, each recording's rows contiguous."""
-    have = chunked_ids(uri)
-    todo = [d for d in deliveries if d.recording_id not in have]
-    refs = [chunk_one.remote(str(d.videos[camera]), k) for d in todo]
-    for d, chunks in zip(todo, ray.get(refs), strict=True):
-        nf = d.recording["num_frames"]
-        starts = list(range(0, len(chunks) * k, k))
-        if sum(min(k, nf - s) for s in starts) != nf:
-            raise ValueError(
-                f"{d.recording_id}: {len(chunks)} chunks of {k} for {nf} frames"
-            )
-        tbl = pa.table(
-            {
-                "recording_id": [d.recording_id] * len(chunks),
-                "chunk_index": list(range(len(chunks))),
-                "frame_start": starts,
-                "num_frames": [min(k, nf - s) for s in starts],
-                "data": blob_array(chunks),
-            },
-            schema=CHUNK_SCHEMA,
-        )
-        uri.parent.mkdir(parents=True, exist_ok=True)
-        lance.write_dataset(
-            tbl,
-            str(uri),
-            mode="append" if (uri / "_versions").exists() else "create",
-            max_rows_per_file=1 << 20,
-        )
-
-
 def commit_dirs(args, dirs: list[Path], report: dict) -> None:
     if not dirs:
         return
     deliveries, rejected = load_deliveries(dirs)
     report["rejected"].update(rejected)
-    # Chunks go first: chunk rows for an uncommitted recording are ignored by readers,
-    # but a committed recording without chunk rows fails the streaming resolver.
-    if args.chunk_k:
-        uri = args.lance / "video_chunks" / f"{args.camera}_k{args.chunk_k}.lance"
-        append_chunks(uri, deliveries, args.camera, args.chunk_k)
     added = commit.append(args.lance, deliveries)
     report["committed"] += added
     log.info("committed %d recordings (%d rejected)", len(added), len(rejected))
@@ -145,13 +91,6 @@ def main():
     ap.add_argument("--cpus-per-task", type=float, default=4)
     ap.add_argument("--commit-every", type=int, default=32)
     ap.add_argument(
-        "--chunk-k",
-        type=int,
-        default=8,
-        help="frames per video chunk row for streaming reads; 0 skips chunking",
-    )
-    ap.add_argument("--camera", default="front_1")
-    ap.add_argument(
         "--embodiment",
         help="use this for every recording instead of looking it up in SQL",
     )
@@ -163,8 +102,6 @@ def main():
     ap.add_argument("--tag", help="tag every table's version after the last commit")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
-    if args.chunk_k % 2:
-        ap.error("--chunk-k must be even: deliveries are encoded with GOP 2")
 
     have = commit.committed_ids(args.lance)
     vids = [v for v in discover(args.raw_dir) if recording_id("aria", v) not in have]
