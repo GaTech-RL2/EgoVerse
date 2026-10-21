@@ -192,6 +192,7 @@ ANNOTATIONS = pa.schema(
 )
 
 # One row per committer batch; `tag` names the version of every table the batch produced.
+# `lab` is "annotations" for an annotation commit.
 CHANGES = pa.schema(
     [
         ("tag", pa.string()),
@@ -201,6 +202,8 @@ CHANGES = pa.schema(
         ("steps_tables", pa.list_(pa.string())),
         ("committed_at", pa.timestamp("ms", tz="UTC")),
         ("operator", pa.string()),
+        # A delivery batch's recordings appended and replaced; for source "annotations",
+        # the recordings gaining and losing annotation rows.
         ("added", pa.list_(pa.string())),
         ("replaced", pa.list_(pa.string())),
     ]

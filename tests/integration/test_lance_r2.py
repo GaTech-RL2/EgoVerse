@@ -59,6 +59,34 @@ def test_staged_deliveries_commit_to_r2_and_stream(prefix, tmp_path):
     assert len(batch["added"]) == 2 and report["rejected"] == {}
     assert commit.list_files(commit.join(staging, "eva")) == {}
 
+    from egomimic.rldb.lance.annotations import review
+
+    rid = batch["added"][0]
+    t0 = next(
+        t
+        for t in open_table(commit.join(root, "tasks.lance")).to_table().to_pylist()
+        if t["recording_id"] == rid
+    )
+    rv = review(
+        root,
+        pa.Table.from_pylist(
+            [
+                dict(
+                    op="add",
+                    recording_id=rid,
+                    t_start_ns=t0["t_start_ns"],
+                    t_end_ns=t0["t_end_ns"],
+                    annotation_type="language",
+                    text="lift the cup",
+                    annotation_vendor="scale",
+                )
+            ]
+        ),
+    )
+    assert not rv.errors
+    ann = commit.commit_annotations(root, rv.adds, rv.deletes)
+    assert ann["rows"] == {"added": 1, "deleted": 0} and ann["added"] == [rid]
+
     key_map = {
         "img": {"key_type": "camera_keys", "zarr_key": "images.front_1"},
         "left.cmd_ee_pose": {

@@ -1,4 +1,9 @@
+import argparse
+import json
+
+import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 lance = pytest.importorskip("lance")
@@ -246,14 +251,9 @@ def test_edit_refuses_annotation_content_columns(annotated):
         )
 
 
-def test_migrate_zarr_maps_clip_frames_onto_the_recording_clock(tmp_path):
-    import argparse
-
-    import numpy as np
-    import pyarrow.parquet as pq
-
+def test_from_zarr_maps_clip_frames_onto_the_recording_clock(tmp_path):
     from egomimic.rldb.zarr.zarr_writer import ZarrWriter
-    from egomimic.scripts.lance_pilot.annotations import cmd_migrate_zarr
+    from egomimic.scripts.lance_annotations import cmd_from_zarr
 
     root = tmp_path / "lance"
     recs = write_catalog(root)
@@ -277,8 +277,10 @@ def test_migrate_zarr_maps_clip_frames_onto_the_recording_clock(tmp_path):
         vendor_recording_id="synthetic_session",
     )
     out = tmp_path / "changes.parquet"
-    cmd_migrate_zarr(
-        argparse.Namespace(lance=root, zarr=tmp_path / "zarr", vendor="scale", out=out)
+    cmd_from_zarr(
+        argparse.Namespace(
+            lance=str(root), zarr=tmp_path / "zarr", vendor="scale", out=out
+        )
     )
     rows = pq.read_table(out).to_pylist()
     spans = {r["text"]: (r["t_start_ns"], r["t_end_ns"]) for r in rows}
@@ -289,3 +291,70 @@ def test_migrate_zarr_maps_clip_frames_onto_the_recording_clock(tmp_path):
     assert "bad" not in spans
     rv = review(root, pq.read_table(out))
     assert not rv.errors and rv.adds.num_rows == 2
+
+
+def test_from_bucket_counts_frames_from_the_alias_start(tmp_path):
+    from fixtures.lance_tables import alias
+
+    from egomimic.scripts.lance_annotations import cmd_from_bucket
+
+    root = tmp_path / "lance"
+    recs = write_catalog(
+        root, aliases=lambda recs: [alias(rid, 3, n, h) for rid, h, n in recs]
+    )
+    (rid, h, n), (_, h2, _) = recs
+    bucket = tmp_path / "bucket"
+    bucket.mkdir()
+    spans = [
+        {"text": "reach", "start_idx": 0, "end_idx": 2},
+        {"text": "fold", "start_idx": 2, "end_idx": n - 3},
+        {"text": "too long", "start_idx": 0, "end_idx": n},
+    ]
+    (bucket / f"{h}_annotations.json").write_text(json.dumps(spans))
+    (bucket / "unknown_annotations.json").write_text(json.dumps(spans))
+    (bucket / f"{h2}_other.json").write_text(json.dumps(spans))
+    out = tmp_path / "changes.parquet"
+    cmd_from_bucket(
+        argparse.Namespace(
+            lance=str(root),
+            bucket=str(bucket),
+            key="annotations",
+            vendor="scale",
+            out=out,
+        )
+    )
+    rows = pq.read_table(out).to_pylist()
+    assert {r["text"]: (r["t_start_ns"], r["t_end_ns"]) for r in rows} == {
+        "reach": (3 * PERIOD_NS, 5 * PERIOD_NS),
+        "fold": (5 * PERIOD_NS, n * PERIOD_NS),
+    }
+    assert {r["recording_id"] for r in rows} == {rid}
+    assert not review(root, pq.read_table(out)).errors
+
+
+def test_commit_annotations_records_and_tags_the_change(annotated):
+    root, recs = annotated
+    rid = recs[0][0]
+    old = _rows(recs)[0]
+    rv = review(
+        root,
+        _changes(
+            [
+                _change("delete", annotation_id=old["annotation_id"]),
+                _add(recs[1][0], 0, PERIOD_NS, text="new"),
+            ]
+        ),
+    )
+    out = commit.commit_annotations(root, rv.adds, rv.deletes, operator="me")
+    assert out["tag"].startswith("annotations-")
+    assert out["rows"] == {"added": 1, "deleted": 1}
+    (row,) = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
+    assert (row["lab"], row["added"], row["replaced"], row["operator"]) == (
+        "annotations",
+        [recs[1][0]],
+        [rid],
+        "me",
+    )
+    ds = lance.dataset(str(root / "annotations.lance"))
+    assert ds.tags.list()[out["tag"]]["version"] == ds.version
+    assert commit.commit_annotations(root, rv.adds.slice(0, 0), []) is None
