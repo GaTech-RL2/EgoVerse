@@ -55,6 +55,7 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | `--lerobot-version auto\|v2.1\|v3.0` | `auto` prefers a root at the season directory, then `lerobotv2.1/` (or `lerobot_v2.1/`), then `lerobot3.0/` (or `lerobot_v3.0/`). |
 | `--task-name`, `--task-description` | Required because the source task string is the placeholder `north ces task`. `--profile sharpadex` takes them from the task folder and Sharpa's tags instead. |
 | `--profile default\|sharpadex`, `--manifest FILE`, `--tasks GLOB` | Convert a SharpaDex release; see [SharpaDex releases](#sharpadex-releases). |
+| `--recording-ids FILE` | SharpaDex only: convert exactly the listed manifest ids (`task/season/index`, one per line; blank and `#` lines are ignored). Every id must be an episode the manifest keeps. Replaces `--tasks`, `--seasons` and `--episodes`. |
 | `--status-policy strict\|provenance` | How `data_status` is decided; see [Reach `data_status: complete`](#reach-data_status-complete). Default `strict`. |
 | `--store-tactile` | Also store `{side}.obs_tactile` and `{side}.obs_tactile_image`. |
 | `--command-keypoints` | Also store `{side}.cmd_hand_keypoints`. |
@@ -69,6 +70,7 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | `--validate` | Validate each episode and write `<hash>.validation.json`. |
 | `--save-mp4` | Write a `<hash>.mp4` preview of the front camera. |
 | `--overwrite` | Replace an existing output of the same recording. |
+| `--skip-done` | Skip an episode whose `<hash>.conversion.json` names the same recording. That file is written last, so a rerun resumes a killed run; a store without it is converted again (with `--overwrite`). |
 
 For each episode the converter writes:
 
@@ -314,9 +316,18 @@ The manifest reads metadata only. It:
 - holds `source_uid`s that name different data, and episodes whose observed
   hand joints pass the validator's error margin;
 - applies the exclusion list (corrupt single frames);
-- names every kept episode uniquely, also against `--existing-hashes` and, with
-  `--check-sql`, the episode table. A clash moves the start by whole
-  milliseconds, recorded as `hash_offset_ms`.
+- names every kept episode uniquely, also against `--existing-hashes`, the S3
+  listing of `--s3-hashes` and, with `--check-sql`, the episode table. A clash
+  moves the start by whole milliseconds, recorded as `hash_offset_ms`. The
+  header records which checks ran; `collision_check_complete` is true only
+  with both `--s3-hashes` and `--check-sql`.
+
+`existing_hashes_s3 --output s3_hashes.tsv` lists the `<hash>.zarr` stores
+under `processed_v3/` (read-only) for `--s3-hashes`. After conversion starts,
+the manifest's names are frozen: do not rebuild it, check it with
+`sharpadex_manifest --verify-frozen manifest.jsonl --s3-hashes s3_hashes.tsv
+--check-sql`, which exits 1 if another lab's episode uses a kept name (episodes
+of `--own-lab`, default `sharpa_dex`, are earlier ingests of this release).
 
 `--profile sharpadex` converts only the manifest's kept episodes, under the
 manifest's names and clocks. In addition to the arrays above it stores:
