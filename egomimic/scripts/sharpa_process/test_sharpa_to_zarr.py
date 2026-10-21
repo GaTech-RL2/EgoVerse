@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 import shutil
 from datetime import datetime, timezone
 from fractions import Fraction
@@ -970,3 +972,196 @@ def test_the_manifest_selects_and_the_licence_is_required(
                 str(out),
             ]
         )
+
+
+# ---------------------------------------------------------------------------
+# Selecting by recording id and resuming
+# ---------------------------------------------------------------------------
+
+OTHER_TASK = "fold_towel"
+SEASON_B = f"season_{RIG}_2026_01_03_03_04_05_train"
+
+
+def _copy_season(release: Path, task: str, season: str) -> None:
+    """Copy the SharpaDex fixture season to ``task/season`` as new recordings.
+
+    New ``source_uid``s keep the copies from being deduplicated; without an
+    ``episode_id`` their clock comes from the season name.
+    """
+    target = release / task / season
+    shutil.copytree(release / DEX_TASK / SEASON, target)
+    path = target / "lerobot_v2.1/meta/annotations.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    for row in rows:
+        row["source_uid"] = f"{task}/{season}/{row['source_uid']}"
+        del row["episode_id"]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+
+@pytest.fixture(scope="module")
+def sharpadex_seasons(tmp_path_factory, kinematics):
+    """Three seasons: two of ``DEX_TASK`` and ``SEASON`` again under ``OTHER_TASK``."""
+    root = tmp_path_factory.mktemp("sharpadex_ids")
+    release = build_sharpadex(root / "release", kinematics)
+    _copy_season(release, DEX_TASK, SEASON_B)
+    _copy_season(release, OTHER_TASK, SEASON)
+    return release, _plan_manifest(release, root)
+
+
+def _ids_file(path: Path, lines) -> Path:
+    path.write_text("".join(f"{line}\n" for line in lines))
+    return path
+
+
+def _id_order(recording_id: str):
+    task, season, index = recording_id.split("/")
+    return task, season, int(index)
+
+
+def _mtimes(folder: Path) -> dict[str, int]:
+    return {str(p.relative_to(folder)): p.stat().st_mtime_ns for p in folder.rglob("*")}
+
+
+def test_recording_ids_convert_exactly_the_listed_episodes(
+    sharpadex_seasons, tmp_path, monkeypatch, caplog
+):
+    from egomimic.scripts.sharpa_process.sharpadex_manifest import read_manifest
+
+    caplog.set_level(logging.INFO)
+    release, manifest_path = sharpadex_seasons
+    _, records = read_manifest(manifest_path)
+    assert all(r.decision == "keep" for r in records.values()) and len(records) == 6
+    wanted = [
+        f"{DEX_TASK}/{SEASON_B}/1",
+        f"{OTHER_TASK}/{SEASON}/0",
+        f"{DEX_TASK}/{SEASON_B}/0",
+    ]
+    lines = ["# chunk_0000", "", f"  {wanted[0]}  ", wanted[1], wanted[0], wanted[2]]
+    ids = _ids_file(tmp_path / "ids.txt", lines)
+
+    def no_scan(*args, **kwargs):
+        raise AssertionError("--recording-ids must not scan the release")
+
+    monkeypatch.setattr(sharpa_to_zarr, "discover_task_seasons", no_scan)
+    out = tmp_path / "out"
+    args = ["--recording-ids", str(ids), "--max-frames", "4"]
+    assert _convert_dex(release, manifest_path, out, *args) == 0
+    # DEX_TASK/SEASON shares a season name with OTHER_TASK/SEASON; not opened.
+    assert "3 episode(s) from 2 season(s)" in caplog.text
+    owners = {
+        path.stem: zarr.open_group(path, mode="r").attrs["vendor_recording_id"]
+        for path in out.glob("*.zarr")
+    }
+    assert owners == {records[r].episode_hash: r for r in wanted}
+    other = out / f"{records[wanted[1]].episode_hash}.zarr"
+    attrs = zarr.open_group(other, mode="r").attrs
+    assert attrs["task_name"] == attrs["source_task_folder"] == OTHER_TASK
+    converted = [
+        m.split(" <- ")[1].split(": ")[0] for m in caplog.messages if " <- " in m
+    ]
+    assert converted == sorted(wanted, key=_id_order)
+
+
+def test_recording_ids_must_be_kept_manifest_episodes(sharpadex_seasons, tmp_path):
+    from egomimic.scripts.sharpa_process.sharpadex_manifest import (
+        read_manifest,
+        write_manifest,
+    )
+
+    release, manifest_path = sharpadex_seasons
+    header, records = read_manifest(manifest_path)
+    held = f"{DEX_TASK}/{SEASON_B}/1"
+    records[held].decision = "hold_gross_excursion"
+    edited = tmp_path / "edited.jsonl"
+    write_manifest(edited, list(records.values()), header)
+    good = f"{DEX_TASK}/{SEASON}/0"
+    out = tmp_path / "out"
+
+    def run(lines, *extra):
+        ids = _ids_file(tmp_path / "ids.txt", lines)
+        return _convert_dex(release, edited, out, "--recording-ids", str(ids), *extra)
+
+    with pytest.raises(SystemExit, match=r"1 recording id\(s\).*nope/s/0 \(not in"):
+        run([good, "nope/s/0"])
+    with pytest.raises(SystemExit, match=re.escape(f"{held} (hold_gross_excursion)")):
+        run([good, held])
+    with pytest.raises(
+        SystemExit, match=r"12 recording id\(s\).*s/9 .* and 2 more$"
+    ) as info:
+        run([f"nope/s/{i}" for i in range(12)])
+    assert "nope/s/10" not in str(info.value)
+    with pytest.raises(SystemExit, match="drop --tasks"):
+        run([good], "--tasks", DEX_TASK)
+    with pytest.raises(SystemExit, match="drop --seasons, --episodes"):
+        run([good], "--seasons", SEASON, "--episodes", "0")
+    with pytest.raises(SystemExit, match="lists no recording ids"):
+        run(["# nothing yet", ""])
+    with pytest.raises(SystemExit, match="needs --profile sharpadex"):
+        _convert(release / DEX_TASK, out, "--recording-ids", str(tmp_path / "ids.txt"))
+    assert not out.exists()
+
+
+def test_skip_done_resumes_without_touching_finished_outputs(
+    sharpadex_seasons, tmp_path, capsys, caplog
+):
+    from egomimic.scripts.sharpa_process.sharpadex_manifest import read_manifest
+
+    caplog.set_level(logging.INFO)
+    release, manifest_path = sharpadex_seasons
+    _, records = read_manifest(manifest_path)
+    redo, keep = f"{DEX_TASK}/{SEASON_B}/0", f"{OTHER_TASK}/{SEASON}/1"
+    redo_hash, keep_hash = records[redo].episode_hash, records[keep].episode_hash
+    ids = _ids_file(tmp_path / "ids.txt", [keep, redo])
+    out = tmp_path / "out"
+
+    def run(*extra):
+        capsys.readouterr()
+        caplog.clear()
+        args = ["--recording-ids", str(ids), "--max-frames", "4", *extra]
+        return _convert_dex(release, manifest_path, out, *args), capsys.readouterr().out
+
+    def kept_outputs(mtimes):
+        return {k: v for k, v in mtimes.items() if k.startswith(keep_hash)}
+
+    # Without the flag the summary line is unchanged.
+    code, printed = run()
+    assert code == 0 and "already done" not in printed
+    # Age every output so that any rewrite shows.
+    for path in out.rglob("*"):
+        os.utime(path, ns=(10**18, 10**18))
+    before = _mtimes(out)
+
+    code, printed = run("--skip-done")
+    assert code == 0
+    assert "Converted 0 episode(s), 0 failed, 2 already done, 0 skipped" in printed
+    assert f"already done {redo}" in caplog.text
+    assert _mtimes(out) == before
+
+    # A store without its conversion.json is unfinished: redone, given --overwrite.
+    (out / f"{redo_hash}.conversion.json").unlink()
+    code, _ = run("--skip-done")
+    assert code == 1 and "pass --overwrite" in caplog.text
+    code, printed = run("--skip-done", "--overwrite")
+    assert code == 0
+    assert "Converted 1 episode(s), 0 failed, 1 already done, 0 skipped" in printed
+    after = _mtimes(out)
+    assert after[f"{redo_hash}.zarr"] != before[f"{redo_hash}.zarr"]
+    assert _report(out / f"{redo_hash}.conversion.json")["vendor_recording_id"] == redo
+    assert kept_outputs(after) == kept_outputs(before)
+
+    # A cut-off conversion.json (a killed write) is not done either.
+    sidecar = out / f"{keep_hash}.conversion.json"
+    text = sidecar.read_text()
+    sidecar.write_text(text[:20])
+    code, printed = run("--skip-done", "--overwrite")
+    assert (
+        code == 0
+        and "Converted 1 episode(s), 0 failed, 1 already done, 0 skipped" in printed
+    )
+    assert _report(sidecar)["vendor_recording_id"] == keep
+
+    # A conversion.json naming another recording is never replaced.
+    sidecar.write_text(text.replace(keep, "another/recording/0"))
+    code, _ = run("--skip-done", "--overwrite")
+    assert code == 1 and "already holds another/recording/0" in caplog.text
+    assert "another/recording/0" in sidecar.read_text()

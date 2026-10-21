@@ -29,6 +29,9 @@ task name from the task folder and the description from Sharpa's tags, stores
 subtask and skill annotations, both hands' tactile vectors and deformation
 images, commanded keypoints, the head-link pose and provenance attributes, and
 checks the vendor column layout and the arm TCPs against forward kinematics.
+``--recording-ids FILE`` converts exactly the listed manifest ids, and
+``--skip-done`` passes over episodes whose ``<hash>.conversion.json`` (written
+last) names them, so a killed run resumes where it stopped.
 """
 
 from __future__ import annotations
@@ -71,6 +74,7 @@ from egomimic.scripts.sharpa_process.lerobot_reader import (
     discover_task_seasons,
     episode_annotations,
     load_episode,
+    open_season,
 )
 from egomimic.scripts.sharpa_process.sharpa_tracks import (
     EMBODIMENT,
@@ -390,6 +394,8 @@ class Job:
     record: object | None = None
     #: Why the manifest leaves this episode out, if it does.
     skipped: str | None = None
+    #: ``--skip-done``: an earlier run's ``conversion.json`` names this episode.
+    done: bool = False
 
 
 def parse_indices(text: str | None) -> list[int] | None:
@@ -408,19 +414,76 @@ def parse_indices(text: str | None) -> list[int] | None:
     return sorted(indices)
 
 
+def read_recording_ids(path: Path) -> list[str]:
+    """Read one ``task/season/index`` per line, skipping blanks and ``#`` lines.
+
+    A repeated id is dropped; the first keeps its place.
+    """
+    ids = []
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            ids.append(line)
+    return list(dict.fromkeys(ids))
+
+
+def select_recordings(ids, manifest) -> dict[tuple[str, str], list[int]]:
+    """Group recording ids the manifest keeps by ``(task, season)``.
+
+    Returns:
+        ``{(task, season): sorted indices}`` in sorted key order.
+
+    Raises:
+        ConversionError: If an id is not in the manifest or not kept.
+    """
+    selection: dict[tuple[str, str], list[int]] = {}
+    bad = []
+    for recording_id in ids:
+        record = manifest.get(recording_id)
+        if record is None or record.decision != "keep":
+            why = "not in the manifest" if record is None else record.decision
+            bad.append(f"{recording_id} ({why})")
+            continue
+        key = (record.task, record.season)
+        selection.setdefault(key, []).append(record.episode_index)
+    if bad:
+        more = f" and {len(bad) - 10} more" if len(bad) > 10 else ""
+        raise ConversionError(
+            f"{len(bad)} recording id(s) are not kept manifest episodes: "
+            + ", ".join(bad[:10])
+            + more
+        )
+    return {key: sorted(selection[key]) for key in sorted(selection)}
+
+
+def _sidecar_owner(path: Path):
+    """Return the ``vendor_recording_id`` a ``conversion.json`` names, if any."""
+    try:
+        return json.loads(path.read_text()).get("vendor_recording_id")
+    except (OSError, ValueError, AttributeError):  # absent or cut off
+        return None
+
+
 def plan_jobs(seasons, indices, args, zone, manifest=None) -> list[Job]:
     """Name every requested episode before decoding anything.
 
-    A name shared by two requested episodes, or held by an existing output
-    from another recording, fails those jobs up front. With a ``manifest``
+    ``indices`` lists the episodes taken from every season (``None``: all), or
+    maps a season's ``(task folder, season name)`` to its own list. A name
+    shared by two requested episodes, or held by an existing output from
+    another recording, fails those jobs up front. With a ``manifest``
     (``{recording_id: record}``), the record supplies the name and start, and
-    an episode the manifest does not keep is skipped.
+    an episode the manifest does not keep is skipped. With ``--skip-done``, an
+    episode whose ``<hash>.conversion.json`` names it is marked done.
     """
     jobs = []
     for season in seasons:
-        selected = sorted(season.episodes) if indices is None else indices
+        task = season.path.parent.name
+        if isinstance(indices, dict):
+            selected = indices[(task, season.name)]
+        else:
+            selected = sorted(season.episodes) if indices is None else indices
         for index in selected:
-            job = Job(season, index, f"{season.path.parent.name}/{season.name}/{index}")
+            job = Job(season, index, f"{task}/{season.name}/{index}")
             jobs.append(job)
             if index not in season.episodes:
                 job.error = f"episode {index} is not declared in {season.name}"
@@ -447,6 +510,19 @@ def plan_jobs(seasons, indices, args, zone, manifest=None) -> list[Job]:
                 )
             continue
         job = group[0]
+        if args.skip_done:
+            # conversion.json is written last: it marks a finished episode.
+            sidecar = args.output_dir / f"{name}.conversion.json"
+            owner = _sidecar_owner(sidecar)
+            if owner == job.recording_id:
+                job.done = True
+                continue
+            if owner is not None:
+                job.error = (
+                    f"{sidecar} already holds {owner}; refusing to replace it "
+                    f"with {job.recording_id}"
+                )
+                continue
         existing = args.output_dir / f"{name}.zarr"
         if existing.exists():
             try:
@@ -1354,6 +1430,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Glob over task folder names (sharpadex profile; default: all).",
     )
     parser.add_argument(
+        "--recording-ids",
+        type=Path,
+        help="File of kept manifest ids (task/season/index), one per line; "
+        "convert exactly those (sharpadex profile; replaces --tasks, --seasons "
+        "and --episodes).",
+    )
+    parser.add_argument(
         "--status-policy",
         choices=("strict", "provenance"),
         default="strict",
@@ -1428,6 +1511,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Replace an existing output of the same recording.",
     )
+    parser.add_argument(
+        "--skip-done",
+        action="store_true",
+        help="Skip an episode whose <hash>.conversion.json names the same "
+        "recording (finished by an earlier run).",
+    )
     return parser
 
 
@@ -1446,7 +1535,23 @@ def main(argv=None) -> int:
         raise SystemExit("--max-frames must be positive")
     if args.chunk_timesteps < 1:
         raise SystemExit("--chunk-timesteps must be positive")
-    manifest = None
+    if args.recording_ids is not None:
+        if args.profile != "sharpadex":
+            raise SystemExit("--recording-ids needs --profile sharpadex")
+        mixed = [
+            flag
+            for flag, given in (
+                ("--tasks", args.tasks != "*"),
+                ("--seasons", args.seasons != "*"),
+                ("--episodes", args.episodes is not None),
+            )
+            if given
+        ]
+        if mixed:
+            raise SystemExit(
+                f"--recording-ids selects the episodes; drop {', '.join(mixed)}"
+            )
+    manifest = selection = None
     if args.profile == "sharpadex":
         args.store_tactile = args.command_keypoints = True
         if args.manifest is None:
@@ -1460,6 +1565,18 @@ def main(argv=None) -> int:
             args.manifest_header, manifest = read_manifest(args.manifest)
         except (ManifestError, OSError, ValueError) as exc:
             raise SystemExit(f"sharpa_to_zarr: {exc}") from exc
+        if args.recording_ids is not None:
+            try:
+                ids = read_recording_ids(args.recording_ids)
+                selection = select_recordings(ids, manifest)
+            except (ConversionError, OSError) as exc:
+                raise SystemExit(
+                    f"sharpa_to_zarr: {args.recording_ids}: {exc}"
+                ) from exc
+            if not selection:
+                raise SystemExit(
+                    f"sharpa_to_zarr: {args.recording_ids} lists no recording ids"
+                )
     elif args.task_name is None:
         raise SystemExit("--task-name is required")
     elif args.manifest is not None:
@@ -1477,7 +1594,13 @@ def main(argv=None) -> int:
             if args.calibration is None
             else load_calibration_file(args.calibration, kinematics)
         )
-        if args.profile == "sharpadex":
+        if selection is not None:
+            # Open only the listed seasons, by exact name.
+            seasons = [
+                open_season(args.dataset_root / task / name, args.lerobot_version)
+                for task, name in selection
+            ]
+        elif args.profile == "sharpadex":
             seasons = discover_task_seasons(
                 args.dataset_root, args.seasons, args.lerobot_version, args.tasks
             )
@@ -1492,13 +1615,22 @@ def main(argv=None) -> int:
             f"sharpa_to_zarr: no {args.lerobot_version} season matches "
             f"{args.seasons!r} under {args.dataset_root}"
         )
-    jobs = plan_jobs(seasons, args.episodes, args, zone, manifest)
+    indices = args.episodes if selection is None else selection
+    jobs = plan_jobs(seasons, indices, args, zone, manifest)
     logger.info("%d episode(s) from %d season(s)", len(jobs), len(seasons))
-    converted, failed, skipped = [], [], []
+    converted, failed, skipped, done = [], [], [], []
     for job in jobs:
         if job.skipped and job.error is None:
             skipped.append(job)
             logger.info("skipped %s: %s", job.recording_id, job.skipped)
+            continue
+        if job.done:
+            done.append(job)
+            logger.info(
+                "already done %s: %s.conversion.json",
+                job.recording_id,
+                job.episode_hash,
+            )
             continue
         if job.error is None:
             try:
@@ -1526,6 +1658,7 @@ def main(argv=None) -> int:
     invalid = [s for s in converted if not s.get("validation", {}).get("ok", True)]
     print(
         f"Converted {len(converted)} episode(s), {len(failed)} failed"
+        + (f", {len(done)} already done" if args.skip_done else "")
         + (f", {len(skipped)} skipped by the manifest" if manifest is not None else "")
         + (f", {len(invalid)} with validation errors" if args.validate else "")
         + f"; output in {args.output_dir}"
