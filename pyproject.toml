@@ -53,6 +53,7 @@ dependencies = [
     "tslearn",
     "typing_extensions",
     "pyarrow",
+    "pylance==13.0.0",
     "simplejpeg",
     "prettytable",
     "datasets==4.0.0",
