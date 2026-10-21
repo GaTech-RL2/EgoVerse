@@ -6,7 +6,7 @@ formats are measured on read + decode only):
          under an s3:// prefix opened through obstore (s3patch)
   zarr_fast  the same stores through format_bench/zarr_fast.py: arrays opened once per worker,
          shard indexes cached, a sample's (or a batch's) inner-chunk ranges read concurrently
-  lance  LanceEpisodeResolver + MP4 decode (local), LanceStreamingResolver + chunk table (s3://)
+  lance  LanceEpisodeResolver + MP4 decode (local), LanceStreamingResolver + MP4 ranges (s3://)
 Patterns:
   chunk1   Aria keypoints keymap: 30-step action chunks, proprio, 1 front frame
   numeric  same keymap without the camera
@@ -109,9 +109,6 @@ def build(args, key_map):
         if remote:
             r = LanceStreamingResolver(
                 args.root,
-                video_chunks={"images.front_1": f"{args.camera}_k{args.chunk_k}"}
-                if has_cam
-                else {},
                 key_map=key_map,
                 transform_list=transforms,
                 cameras=cams,
@@ -144,9 +141,6 @@ def main():
         help="Lance only: apply the training transforms (keypoints_headframe_6d)",
     )
     ap.add_argument("--camera", default="front_1_480")
-    ap.add_argument(
-        "--chunk-k", type=int, default=8, help="s3:// Lance: frames per video chunk"
-    )
     ap.add_argument(
         "--embodiment", default="human_bimanual", help="'' for every recording"
     )
@@ -216,7 +210,6 @@ def main():
             root=args.root,
             pattern=args.pattern,
             transforms=args.transforms,
-            chunk_k=args.chunk_k,
             workers=args.workers,
             context=context,
             batch_size=args.batch_size,

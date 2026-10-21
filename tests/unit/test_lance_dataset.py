@@ -120,9 +120,7 @@ def test_streaming_getitems_batches_reads_and_local_does_not(catalog, monkeypatc
         datasets=LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={}).resolve(),
         mode="total",
     )
-    leaves = LanceStreamingResolver(
-        root, video_chunks={}, key_map=KEY_MAP, cameras={}
-    ).resolve()
+    leaves = LanceStreamingResolver(root, key_map=KEY_MAP, cameras={}).resolve()
     ds = MultiDataset(datasets=leaves, mode="total")
     idxs = [0, len(ds) - 1, 3, 3, len(ds) // 2, 1]
     want = [local[i] for i in idxs]
@@ -155,16 +153,6 @@ def test_streaming_getitems_batches_reads_and_local_does_not(catalog, monkeypatc
         _same_sample(a, b)
 
 
-def test_streaming_resolver_needs_a_chunk_table_per_camera(catalog):
-    root, _ = catalog
-    key_map = {
-        **KEY_MAP,
-        "front_img_1": {"key_type": "camera_keys", "zarr_key": "images.front_1"},
-    }
-    with pytest.raises(ValueError, match="images.front_1"):
-        LanceStreamingResolver(root, video_chunks={}, key_map=key_map)
-
-
 @pytest.mark.parametrize("overlap_reads", [True, False])
 def test_streaming_getitems_split_into_parts_matches(
     catalog, monkeypatch, overlap_reads
@@ -180,7 +168,6 @@ def test_streaming_getitems_split_into_parts_matches(
     ds = MultiDataset(
         datasets=LanceStreamingResolver(
             root,
-            video_chunks={},
             fetch_split=2,
             overlap_reads=overlap_reads,
             key_map=KEY_MAP,
