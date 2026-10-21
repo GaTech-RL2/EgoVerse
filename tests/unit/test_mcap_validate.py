@@ -201,6 +201,23 @@ def _head_in_odom(topic, msg, t):
         return msg, t
 
 
+def _nan_static_translation(topic, msg, t):
+    if topic == "/tf_static":
+        msg.transforms[0].translation.x = float("nan")
+        return msg, t
+
+
+def _main_camera_fixed_in_world(topic, msg, t):
+    """A consistent camera frame, rigidly mounted to the world instead of the head."""
+    if topic.startswith("/main-camera"):
+        msg.frame_id = "room_cam"
+        return msg, t
+    if topic == "/tf_static":
+        x = msg.transforms.add(parent_frame_id="world", child_frame_id="room_cam")
+        x.rotation.w = 1.0
+        return msg, t
+
+
 def _point_label_at_task_end(topic, msg, t):
     if topic == "/subtask-annotation" and not msg.end_time_unix_ns:
         return msg, T0 + 10**9 - 10_000_000  # 10 ms before task 1 ends: not a frame
@@ -215,6 +232,14 @@ def _point_label_at_task_end(topic, msg, t):
         ),
         (_head_in_odom, ("calibration", "/head-pose", "must be in frame 'world'")),
         (
+            _nan_static_translation,
+            ("calibration", "/tf_static", "1 transforms have a NaN / Inf translation"),
+        ),
+        (
+            _main_camera_fixed_in_world,
+            ("calibration", "/main-camera", "no fixed path to 'head'"),
+        ),
+        (
             _point_label_at_task_end,
             ("labels", "/subtask-annotation", "inside one /task"),
         ),
@@ -225,6 +250,22 @@ def test_tampered_episode_reports_exactly_its_problem(tmp_path, tamper, expected
     assert len(found) == 1, found
     group, topic, message = found[0]
     assert (group, topic) == expected[:2] and expected[2] in message, found
+
+
+def test_calibration_naming_another_frame_than_the_video_is_caught(tmp_path):
+    """The calibration (and -info-extra) moved to `world`, the video frames not: the
+    camera has two frames, and the steps camera is no longer on the head."""
+
+    def calib_in_world(topic, msg, t):
+        if topic in ("/main-camera-info", "/main-camera-info-extra"):
+            msg.frame_id = "world"
+            return msg, t
+
+    found = problems(tmp_path, tamper=calib_in_world)
+    assert ("calibration", "/main-camera") == found[0][:2]
+    assert any("video frames name ['main_cam']" in m or "video frames name" in m
+               for *_, m in found), found  # fmt: skip
+    assert any("no fixed path to 'head'" in m for *_, m in found), found
 
 
 def test_wrong_message_type_is_reported_not_raised(tmp_path):

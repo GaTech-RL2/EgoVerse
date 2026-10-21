@@ -58,6 +58,15 @@ STREAM_KINDS = {
 }
 
 
+def _reach(edges: dict, start: str) -> set[str]:
+    reached, todo = {start}, [start]
+    while todo:
+        for nxt in edges[todo.pop()] - reached:
+            reached.add(nxt)
+            todo.append(nxt)
+    return reached
+
+
 def frames_in_message(data: bytes, codec: str) -> int:
     """Pictures (access units) in one video message; the spec wants exactly 1, so every
     frame has its own capture time. Counted with the parser: the decoder silently drops
@@ -569,6 +578,18 @@ def check_calibration(ep: _Episode, embodiment: str) -> list[Problem]:
                 )
             )
             continue
+        video = ep.streams.get(cam)
+        if video and video.msgs and hasattr(video.msgs[0], "frame_id"):
+            named = {str(m.frame_id) for m in video.msgs}
+            if named != {str(calib.frame_id)}:
+                out.append(
+                    Problem(
+                        "calibration",
+                        cam,
+                        f"video frames name {sorted(named)} but its calibration names "
+                        f"{calib.frame_id!r}: they must be the camera's one frame",
+                    )
+                )
         info = ep.streams[cam + spec.CALIBRATION_SUFFIX]
         if info.schema != "foxglove.CameraCalibration" or info.n != 1:
             out.append(
@@ -653,19 +674,31 @@ def check_calibration(ep: _Episode, embodiment: str) -> list[Problem]:
 
     # Frame graph: /tf_static edges plus the moving links whose topic is present.
     edges = defaultdict(set)
+    static = defaultdict(set)  # /tf_static alone: what is rigidly mounted to what
     tf = ep.streams.get("/tf_static")
-    bad_rot = 0
+    bad_rot = bad_tr = 0
     for msg in tf.msgs if tf else ():
         for x in msg.transforms:
-            edges[x.parent_frame_id].add(x.child_frame_id)
-            edges[x.child_frame_id].add(x.parent_frame_id)
+            for g in (edges, static):
+                g[x.parent_frame_id].add(x.child_frame_id)
+                g[x.child_frame_id].add(x.parent_frame_id)
             bad_rot += not _quat_ok(x.rotation)
+            t = x.translation
+            bad_tr += not all(math.isfinite(v) for v in (t.x, t.y, t.z))
     if bad_rot:
         out.append(
             Problem(
                 "calibration",
                 "/tf_static",
                 f"{bad_rot} transforms have a non-unit rotation",
+            )
+        )
+    if bad_tr:
+        out.append(
+            Problem(
+                "calibration",
+                "/tf_static",
+                f"{bad_tr} transforms have a NaN / Inf translation",
             )
         )
     sides = spec.arm_sides(embodiment)
@@ -675,11 +708,25 @@ def check_calibration(ep: _Episode, embodiment: str) -> list[Problem]:
         ):
             edges[link.parent].add(link.child)
             edges[link.child].add(link.parent)
-    reached, todo = {spec.WORLD_FRAME}, [spec.WORLD_FRAME]
-    while todo:
-        for nxt in edges[todo.pop()] - reached:
-            reached.add(nxt)
-            todo.append(nxt)
+    reached = _reach(edges, spec.WORLD_FRAME)
+
+    # A head-worn rig's steps camera rides on the head: its frame must be rigidly
+    # mounted to the head (a /tf_static path), which is how the steps are placed.
+    profile = spec.profile_for(embodiment)
+    if any(link.child == spec.HEAD_FRAME for link in profile.moving_links):
+        clock = _calibration(ep, profile.step_clock)
+        fid = str(clock.frame_id) if clock is not None else ""
+        # (An unplaced frame is already reported below as having no path to world.)
+        if fid in reached and fid not in _reach(static, spec.HEAD_FRAME):
+            out.append(
+                Problem(
+                    "calibration",
+                    profile.step_clock,
+                    f"frame {clock.frame_id!r} has no fixed path to "
+                    f"{spec.HEAD_FRAME!r} via /tf_static: the steps camera must be "
+                    "mounted on the head",
+                )
+            )
 
     # Cameras and the IMU must name their frame; every frame any topic names (hands,
     # wrist poses, gaze, ...) must be placed in the world.
