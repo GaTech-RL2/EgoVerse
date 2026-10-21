@@ -51,10 +51,10 @@ def annotations_uri(root: Path) -> Path:
     return Path(root) / "annotations.lance"
 
 
-def table_uris(root: Path, lab: str) -> list[Path]:
-    """Every table, in write order."""
+def table_uris(root: Path) -> list[Path]:
+    """Every table, in write order: each lab's steps, then the catalog."""
     return [
-        steps_uri(root, lab),
+        *sorted((Path(root) / "steps").glob("*.lance")),
         *(Path(root) / n for n in CATALOG),
         annotations_uri(root),
     ]
@@ -211,11 +211,11 @@ def add_columns(root: Path, table: str, columns: dict[str, str]) -> None:
     lance.dataset(Path(root) / table).add_columns(columns)
 
 
-def tag(root: Path, name: str, lab: str = "aria") -> dict[str, int]:
+def tag(root: Path, name: str) -> dict[str, int]:
     """Tag the current version of every table with `name`; returns {table: version}."""
     _ensure_annotations(root)
     out = {}
-    for uri in table_uris(root, lab):
+    for uri in table_uris(root):
         ds = lance.dataset(uri)
         if name in ds.tags.list():
             raise ValueError(f"tag {name} already exists on {uri}")
@@ -228,8 +228,8 @@ def index(root: Path, lab: str = "aria") -> None:
     lance.dataset(steps_uri(root, lab)).create_scalar_index("recording_id", "BTREE")
 
 
-def compact(root: Path, lab: str = "aria") -> None:
-    for uri in filter(_exists, table_uris(root, lab)):
+def compact(root: Path) -> None:
+    for uri in filter(_exists, table_uris(root)):
         ds = lance.dataset(uri)
         ds.optimize.compact_files()
         if lance.dataset(uri).describe_indices():
@@ -238,14 +238,13 @@ def compact(root: Path, lab: str = "aria") -> None:
 
 def cleanup(
     root: Path,
-    lab: str = "aria",
     older_than: datetime.timedelta = datetime.timedelta(days=14),
 ) -> None:
     """Drop untagged versions older than `older_than`, then videos no remaining version references.
 
     `older_than` must exceed the longest training run that resolved an untagged version.
     """
-    for uri in filter(_exists, table_uris(root, lab)):
+    for uri in filter(_exists, table_uris(root)):
         lance.dataset(uri).cleanup_old_versions(
             older_than=older_than, error_if_tagged_old_versions=False
         )

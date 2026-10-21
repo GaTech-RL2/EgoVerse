@@ -24,7 +24,7 @@ import pyarrow.compute as pc
 import torch
 
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
-from egomimic.rldb.lance.schema import task_instance_id
+from egomimic.rldb.lance.schema import ARM, task_instance_id
 from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
@@ -44,11 +44,25 @@ ZARR_TO_LANCE = {
         )
     },
 }
+# Robot steps columns already carry the zarr key names.
+COLUMNS_OF_LAB = {
+    "eva": {f"{s}.{f}": f"{s}.{f}" for s in ("left", "right") for f in ARM.names}
+}
+
+
+def zarr_to_lance(lab: str) -> dict[str, str]:
+    return COLUMNS_OF_LAB.get(lab, ZARR_TO_LANCE)
+
+
+# A flag missing from a steps table (robots have no head) is True everywhere.
 VALIDITY = {"left": "left_valid", "right": "right_valid", "head": "head_pose_valid"}
 HANDS_OF = {
     "human_bimanual": ("left", "right"),
     "human_left_arm": ("left",),
     "human_right_arm": ("right",),
+    "eva_bimanual": ("left", "right"),
+    "eva_left_arm": ("left",),
+    "eva_right_arm": ("right",),
 }
 
 _TABLES: dict[tuple[str, int], "lance.LanceDataset"] = {}
@@ -260,14 +274,16 @@ def _fetch_numeric(items: list) -> list[dict]:
                 ]
             )
         )
-        cols = sorted({ZARR_TO_LANCE[zk] for j in js for zk in items[j][1]["needs"]})
+        cols = sorted(
+            {items[j][0].columns[zk] for j in js for zk in items[j][1]["needs"]}
+        )
         tbl = _table(uri, version).take(rows.tolist(), columns=cols)
         arrays = {c: _column(tbl, c) for c in cols}
         for j in js:
             leaf, plan = items[j]
             for zk, frames in plan["needs"].items():
                 at = np.searchsorted(rows, frames + leaf.row_start)
-                out[j][zk] = arrays[ZARR_TO_LANCE[zk]][at]
+                out[j][zk] = arrays[leaf.columns[zk]][at]
     return out
 
 
@@ -349,8 +365,11 @@ class LanceRecordingDataset(EpisodeLeaf):
         action_clamp: str = "task",
         history_floor: str = "recording",
         hand_valid: np.ndarray | None = None,
+        columns: dict[str, str] | None = None,
     ):
         self.episode_path = name
+        # zarr key -> steps column; the steps table's lab decides it.
+        self.columns = columns or ZARR_TO_LANCE
         self.content_digest = content_digest
         self.steps_uri = steps_uri
         self.steps_version = steps_version
@@ -780,7 +799,8 @@ class LanceEpisodeResolver:
         }
 
         uri, version, steps = self._open(f"steps/{self.lab}.lance")
-        cols = steps.to_table(columns=["recording_id", *VALIDITY.values()])
+        flags = {h: c for h, c in VALIDITY.items() if c in steps.schema.names}
+        cols = steps.to_table(columns=["recording_id", *flags.values()])
         n_rows = cols.num_rows
         first, change = _runs(cols.column("recording_id"))
         starts = dict(zip(first, change))
@@ -795,8 +815,12 @@ class LanceEpisodeResolver:
                     f"{row.recording_id}: {counts.get(row.recording_id, 0)} steps rows at {uri}@{version}, num_frames {row.num_frames}"
                 )
         all_valid = {
-            h: cols.column(c).to_numpy(zero_copy_only=False)
-            for h, c in VALIDITY.items()
+            h: (
+                cols.column(flags[h]).to_numpy(zero_copy_only=False)
+                if h in flags
+                else np.ones(n_rows, bool)
+            )
+            for h in VALIDITY
         }
         ann_rows = self._annotation_rows() if self.annotations is not None else {}
         clocks = self._clocks(
@@ -889,6 +913,7 @@ class LanceEpisodeResolver:
                 segments=sorted(passing),
                 action_clamp=self.action_clamp,
                 history_floor=self.history_floor,
+                columns=zarr_to_lance(self.lab),
                 hand_valid=np.stack(
                     [
                         valid[h] if h in hands else np.ones(n, bool)
