@@ -152,11 +152,13 @@ the Lance annotation review (`egomimic/rldb/lance/annotations.py`), not a re-exp
 - A transform or pose is **T_parent_child**: the child frame's pose in the parent
   (Foxglove's `FrameTransform` / `PoseInFrame` convention).
 - Every camera frame is a Foxglove optical frame: +x right, +y down, +z forward, in the
-  raw sensor orientation (see `upright_rotation_cw_deg`, §7).
+  raw sensor orientation (see `upright_rotation_cw_deg`, §7). A camera's video,
+  `-info` and `-info-extra` all name that one frame.
 - **Every frame any topic names must reach `world`** through `/tf_static` plus the
   moving links the profile defines:
   - **Human:** `world → head` moves via `/head-pose`. `/tf_static` links `head` to each
-    camera, the IMU, the gaze frame, and any frame hands are given in.
+    camera, the IMU, the gaze frame, and any frame hands are given in. The main camera
+    must be rigidly mounted on the head: a `/tf_static` path from `head` to its frame.
   - **Robot:** `world → {side}_arm_base` and the top camera in `/tf_static`;
     `{side}_arm_base → {side}_ee` moves via `/{side}-arm-state`; the wrist camera hangs
     off `{side}_ee` in `/tf_static`.
@@ -242,7 +244,7 @@ problem fails the episode.
 | everything there | Required topics present with the exact type and encoding; required fields non-empty on every message; every episode-info key present, slugs / integers / enums valid; `embodiment` matches the topics; `annotation.mcap` holds only label topics. |
 | video usable | Codec h264 / h265; first message a keyframe; one frame per message; frames decode; size matches the calibration; ≥ 30 fps. |
 | clocks | Unix ns (after 2015); never decreasing; no gap over 0.5 s; streams cover the recording to within 1 s; start / end times match the data to within 1 s; head pose and quality ≥ 30 Hz. |
-| calibration | Every camera has a valid `-info` with a known lens model and its coefficient count; `-info-extra` values valid; every named frame reaches `world`; `/tf_static` rotations unit. |
+| calibration | Every camera has a valid `-info` with a known lens model and its coefficient count; `-info-extra` values valid; a camera's video and calibration name the same frame; every named frame reaches `world`; a head-worn rig's main camera has a `/tf_static` path to `head`; `/tf_static` rotations unit and translations finite. |
 | imu | ≥ 200 Hz; mean \|accel\| in the stillest 1 s within 0.5 m/s² of 9.81 (gravity not removed); noise values > 0. |
 | poses | No NaN / Inf, unit rotations (head, wrist, `/tf_static`); hand positions match `hand-joints`; confidences in [0, 1]; no all-zero hands marked valid; gaze finite when valid; `ee_pose` a rigid 4×4; joint arrays match `joint_names`; grippers in [0, 1]. |
 | tasks & labels | Spans end after they start (labels may be points); inside the recorded data; each label inside one task; `annotation_type` known. |
