@@ -1,14 +1,14 @@
-"""Convert raw Aria recordings (VRS + MPS) into the Lance tables, one Ray task per recording.
+"""Convert raw Aria recordings (VRS + MPS) into staged deliveries, one Ray task per recording.
 
-Workers run aria_to_lance.convert into `<deliveries>/<vendor id>/`; the driver is the only
-Lance writer. As conversions finish it validates them (lance_pilot/commit.py), then
-commits them in batches. Reruns
-skip recordings already delivered or committed, so a killed run resumes where it stopped.
+Workers run aria_to_lance.convert into `<deliveries>/<vendor id>/`; the driver stages each
+finished delivery under `<stage-to>/aria/<vendor id>/` for the committer
+(egomimic/scripts/lance_commit.py), which is the only Lance writer. Reruns skip recordings
+already delivered or committed, so a killed run resumes where it stopped.
 
     python -m egomimic.scripts.aria_process.aria_to_lance_ray \\
         --raw-dir /coc/flash7/scratch/lance_pilot/raw \\
         --deliveries /coc/flash7/scratch/lance_pilot/deliveries \\
-        --lance /coc/flash7/scratch/lance_pilot/lance
+        --stage-to s3://rldb/lance_staging --lance s3://rldb/lance
 """
 
 import argparse
@@ -23,7 +23,7 @@ import ray
 
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import recording_id
-from egomimic.scripts.lance_pilot.commit import load_deliveries, sql_rows
+from egomimic.scripts.lance_commit import sql_rows
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 
 log = logging.getLogger("aria_to_lance_ray")
@@ -68,14 +68,9 @@ def convert_one(vid: str, embodiment: str, opts: dict) -> tuple[str, str | None]
         return vid, traceback.format_exc()
 
 
-def commit_dirs(args, dirs: list[Path], report: dict) -> None:
-    if not dirs:
-        return
-    deliveries, rejected = load_deliveries(dirs)
-    report["rejected"].update(rejected)
-    added = commit.append(args.lance, deliveries)
-    report["committed"] += added
-    log.info("committed %d recordings (%d rejected)", len(added), len(rejected))
+def stage_dir(args, d: Path, report: dict) -> None:
+    commit.stage(d, commit.join(args.stage_to, "aria", d.name))
+    report["staged"].append(d.name)
 
 
 def main():
@@ -84,12 +79,14 @@ def main():
     )
     ap.add_argument("--raw-dir", type=Path, required=True)
     ap.add_argument("--deliveries", type=Path, required=True)
-    ap.add_argument("--lance", type=Path, required=True)
+    ap.add_argument("--stage-to", required=True, help="staging root (s3:// or local)")
+    ap.add_argument(
+        "--lance", required=True, help="Lance root, read to skip committed recordings"
+    )
     ap.add_argument(
         "--ray-address", help="existing cluster; default starts a local one"
     )
     ap.add_argument("--cpus-per-task", type=float, default=4)
-    ap.add_argument("--commit-every", type=int, default=32)
     ap.add_argument(
         "--embodiment",
         help="use this for every recording instead of looking it up in SQL",
@@ -99,7 +96,6 @@ def main():
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
     ap.add_argument("--ffmpeg", default="/coc/flash7/rco3/ffmpeg-7.1-shared/bin/ffmpeg")
-    ap.add_argument("--tag", help="tag every table's version after the last commit")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
 
@@ -111,9 +107,8 @@ def main():
     todo = [v for v in vids if v not in delivered][: args.limit]
     emb = dict.fromkeys(todo, args.embodiment) if args.embodiment else embodiments(todo)
     report = {
-        "committed": [],
+        "staged": [],
         "failed": {v: "no embodiment in SQL" for v in todo if v not in emb},
-        "rejected": {},
     }
     log.info(
         "%d uncommitted recordings: %d to convert, %d already delivered",
@@ -130,7 +125,8 @@ def main():
     )
     task = convert_one.options(num_cpus=args.cpus_per_task)
     pending = [task.remote(v, e, opts) for v, e in emb.items()]
-    ready = [args.deliveries / v for v in sorted(delivered)]
+    for v in sorted(delivered):
+        stage_dir(args, args.deliveries / v, report)
     t0, done = time.time(), 0
     while pending:
         finished, pending = ray.wait(pending, num_returns=1)
@@ -140,20 +136,12 @@ def main():
             report["failed"][vid] = err
             log.warning("%s failed:\n%s", vid, err)
         else:
-            ready.append(args.deliveries / vid)
+            stage_dir(args, args.deliveries / vid, report)
         log.info("%d/%d converted, %.0fs", done, len(emb), time.time() - t0)
-        if len(ready) >= args.commit_every:
-            commit_dirs(args, ready, report)
-            ready = []
-    commit_dirs(args, ready, report)
-
-    if args.tag and report["committed"]:
-        report["tag"] = commit.tag(args.lance, args.tag)
     out = args.deliveries / f"ray_report_{time.strftime('%Y%m%d_%H%M%S')}.json"
     out.write_text(json.dumps(report, indent=1))
     print(
-        f"committed {len(report['committed'])}, failed {len(report['failed'])}, "
-        f"rejected {len(report['rejected'])}; report at {out}"
+        f"staged {len(report['staged'])}, failed {len(report['failed'])}; report at {out}"
     )
 
 

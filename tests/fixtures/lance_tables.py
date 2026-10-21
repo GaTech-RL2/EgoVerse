@@ -1,8 +1,11 @@
 """Synthetic Lance steps rows for unit tests."""
 
+import json
+
 import lance
 import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 
 from egomimic.rldb.lance.schema import (
     ALIASES,
@@ -19,6 +22,7 @@ from egomimic.rldb.lance.schema import (
 )
 
 PERIOD_NS = 33_333_333
+EVA_DELIVERY_FRAMES = 6
 
 
 def annotation(rid, f0, f1, text, vendor="scale", quality=None):
@@ -217,3 +221,37 @@ def write_catalog(
         tmp_path / "annotations.lance",
     )
     return recs
+
+
+def eva_delivery(out, vid, frames_in_video=EVA_DELIVERY_FRAMES, offset=0):
+    """An eva_to_lance-shaped delivery directory for a bimanual demo of EVA_DELIVERY_FRAMES frames."""
+    d = out / vid
+    d.mkdir(parents=True)
+    rid = recording_id("eva", vid)
+    pq.write_table(
+        eva_steps_table(rid, EVA_DELIVERY_FRAMES, offset), d / "steps.parquet"
+    )
+    from fixtures.videos import write_av1
+
+    write_av1(d / "front_1.mp4", frames_in_video)
+    meta = {
+        "vendor_recording_id": vid,
+        "recording_id": rid,
+        "episode_hash": f"clip-{vid}",
+        "embodiment": "eva_bimanual",
+        "site": "rl2",
+        "operator": "op",
+        "scene": "1",
+        "task_name": "cup_on_saucer",
+        "task_description": "cup on saucer",
+        "objects": ["cup"],
+        "fps": 30.0,
+        "num_frames": EVA_DELIVERY_FRAMES,
+        "videos": ["front_1"],
+        "t_start_ns": 0,
+        "t_end_ns": EVA_DELIVERY_FRAMES * PERIOD_NS,
+        "intrinsics": {"front_1": [1.0] * 9},
+        "extrinsics": {},
+    }
+    (d / "meta.json").write_text(json.dumps(meta))
+    return d
