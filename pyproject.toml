@@ -53,6 +53,8 @@ dependencies = [
     "tslearn",
     "typing_extensions",
     "pyarrow",
+    "pylance==13.0.0",
+    "torchcodec==0.4.0",  # matches torch 2.7; Lance loader and converter decode with it
     "simplejpeg",
     "prettytable",
     "datasets==4.0.0",
@@ -70,6 +72,10 @@ dependencies = [
     "mcap-protobuf-support==0.5.4",
     "foxglove-schemas-protobuf==0.4.0",
 ]
+
+[project.optional-dependencies]
+# format_bench and lance_pilot bench_* object-store benchmarks.
+bench = ["obstore==0.11.1", "google-crc32c==1.8.0"]
 
 # Not declared: `openpi` (egomimic/algo/pi.py). The fork at external/openpi pins
 # lerobot -> av>=14.2, which conflicts with av==12.0.0 above, so it cannot be a
