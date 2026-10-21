@@ -163,6 +163,7 @@ ANNOTATIONS = pa.schema(
 )
 
 # One row per committer batch; `tag` names the version of every table the batch produced.
+# `lab` is "annotations" for an annotation commit.
 CHANGES = pa.schema(
     [
         ("tag", pa.string()),
