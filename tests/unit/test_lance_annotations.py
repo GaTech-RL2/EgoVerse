@@ -39,9 +39,8 @@ def annotated(tmp_path):
 
 
 def _leaves(root, resolver=LanceEpisodeResolver, **ann):
-    kw = {"video_chunks": {}} if resolver is LanceStreamingResolver else {}
     return resolver(
-        root, key_map=KEY_MAP, cameras={}, annotations=ann or None, **kw
+        root, key_map=KEY_MAP, cameras={}, annotations=ann or None
     ).resolve()
 
 
