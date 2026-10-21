@@ -102,6 +102,31 @@ HUMAN_STEPS = pa.schema(
     ]
 )
 
+# Robot arm, robot base frame: poses xyz (m) + quaternion wxyz, joints in rad, gripper in [0, 1].
+ARM = pa.struct(
+    [
+        ("obs_ee_pose", _vec(7)),
+        ("obs_joints", _vec(6)),
+        ("obs_gripper", pa.float32()),
+        ("cmd_ee_pose", _vec(7)),
+        ("cmd_joints", _vec(6)),
+        ("cmd_gripper", pa.float32()),
+    ]
+)
+
+# An arm the robot lacks is zeros with its flag False (Arrow's parquet reader rejects
+# null fixed-size lists); an all-zero pose frame is forward-filled and flagged False.
+EVA_STEPS = pa.schema(
+    [
+        ("recording_id", pa.string()),
+        ("timestamp_ns", pa.int64()),
+        ("left", ARM),
+        ("right", ARM),
+        ("left_valid", pa.bool_()),
+        ("right_valid", pa.bool_()),
+    ]
+)
+
 RECORDINGS = pa.schema(
     [
         ("recording_id", pa.string()),
