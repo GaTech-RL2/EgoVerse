@@ -7,6 +7,8 @@ import pyarrow as pa
 from egomimic.rldb.lance.schema import (
     ALIASES,
     ANNOTATIONS,
+    ARM,
+    EVA_STEPS,
     HUMAN_STEPS,
     RECORDINGS,
     TASKS,
@@ -76,6 +78,42 @@ def steps_table(rid, n, offset, valid=None):
     )
 
 
+def eva_steps_table(rid, n, offset, arms=("left", "right"), valid=None):
+    """Robot rows: obs_ee_pose x = frame + offset (+0.5 left, +0.25 right), cmd x one
+    frame ahead; an arm not in `arms` is zeros and flagged False."""
+    t = np.arange(n, dtype=np.float32)
+
+    def arm(side, s):
+        on = float(side in arms)
+        pose = lambda x: vec(  # noqa: E731
+            on * np.c_[x, np.zeros((n, 3)), np.ones(n), np.zeros((n, 2))], 7
+        )
+        return pa.StructArray.from_arrays(
+            [
+                pose(t + offset + s),
+                vec(np.zeros((n, 6)), 6),
+                pa.array(np.full(n, 0.5 * on, np.float32)),
+                pose(t + offset + s + 1),
+                vec(np.zeros((n, 6)), 6),
+                pa.array((on * t / n).astype(np.float32)),
+            ],
+            fields=list(ARM),
+        )
+
+    flags = {f"{a}_valid": np.full(n, a in arms) for a in ("left", "right")}
+    flags.update(valid or {})
+    return pa.table(
+        {
+            "recording_id": pa.array([rid] * n),
+            "timestamp_ns": pa.array(np.arange(n, dtype=np.int64) * PERIOD_NS),
+            "left": arm("left", 0.5),
+            "right": arm("right", 0.25),
+            **{k: pa.array(v) for k, v in flags.items()},
+        },
+        schema=EVA_STEPS,
+    )
+
+
 def task(rid, f0, f1, name="fold_clothes", description="folding clothes"):
     """A TASKS row over frames [f0, f1) of a `steps_table` recording."""
     t0 = f0 * PERIOD_NS
@@ -105,24 +143,41 @@ def write_catalog(
     tasks=lambda recs: [task(rid, 0, n) for rid, _, n in recs],
     aliases=lambda recs: [alias(rid, 0, n, h) for rid, h, n in recs],
     valid=lambda rid, n: {},
+    source="aria",
 ):
-    """Steps, recordings, tasks, aliases and annotations tables for two aria recordings
-    under ``tmp_path``; returns their sorted ``(recording_id, episode_hash, num_frames)``.
-    ``annotations(recs)``, ``tasks(recs)`` and ``aliases(recs)`` give those rows (by
-    default one task and one alias per whole recording); ``valid(rid, n)`` overrides
-    validity columns of a recording's steps."""
+    """Steps, recordings, tasks, aliases and annotations tables for two recordings of
+    lab rl2 from `source` under ``tmp_path``; returns their sorted ``(recording_id,
+    episode_hash, num_frames)``. ``annotations(recs)``, ``tasks(recs)`` and
+    ``aliases(recs)`` give those rows (by default one task and one alias per whole
+    recording); ``valid(rid, n)`` overrides validity columns of a recording's steps.
+    For "eva" (grippers) the first recording is bimanual and the second left-arm only,
+    each in its own steps table; aria ones (hands) are bimanual."""
     recs = [
-        (recording_id("aria", "1"), "2025-01-01-00-00-00-000000", 12),
-        (recording_id("aria", "2"), "2025-01-01-00-00-01-000000", 8),
+        (recording_id(source, "1"), "2025-01-01-00-00-00-000000", 12),
+        (recording_id(source, "2"), "2025-01-01-00-00-01-000000", 8),
     ]
+    embodiment = {recs[0][0]: "human_bimanual", recs[1][0]: "human_bimanual"}
+    end_effector = "hand"
+    if source == "eva":
+        end_effector = "gripper"
+        embodiment = {recs[0][0]: "eva_bimanual", recs[1][0]: "eva_left_arm"}
     recs.sort()
-    steps = pa.concat_tables(
-        [
-            steps_table(rid, n, 100 * i, valid(rid, n))
-            for i, (rid, _, n) in enumerate(recs)
-        ]
-    )
-    lance.write_dataset(steps, tmp_path / steps_path("rl2", "human_bimanual", "hand"))
+
+    def rows(i, rid, n):
+        if source != "eva":
+            return steps_table(rid, n, 100 * i, valid(rid, n))
+        arms = ("left", "right") if embodiment[rid] == "eva_bimanual" else ("left",)
+        return eva_steps_table(rid, n, 100 * i, arms, valid(rid, n))
+
+    for emb in sorted(set(embodiment.values())):
+        steps = pa.concat_tables(
+            [
+                rows(i, rid, n)
+                for i, (rid, _, n) in enumerate(recs)
+                if embodiment[rid] == emb
+            ]
+        )
+        lance.write_dataset(steps, tmp_path / steps_path("rl2", emb, end_effector))
     k = [200.0, 0, 240, 0, 200.0, 180, 0, 0, 1]
     lance.write_dataset(
         pa.Table.from_pylist(
@@ -131,8 +186,8 @@ def write_catalog(
                     recording_id=rid,
                     vendor_recording_id=h,
                     lab="rl2",
-                    embodiment="human_bimanual",
-                    end_effector="hand",
+                    embodiment=embodiment[rid],
+                    end_effector=end_effector,
                     rig_name="aria_gen1",
                     operator="op",
                     scene="1",
