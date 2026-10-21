@@ -150,9 +150,7 @@ def test_streaming_getitems_batches_reads_and_local_does_not(catalog, monkeypatc
         datasets=LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={}).resolve(),
         mode="total",
     )
-    leaves = LanceStreamingResolver(
-        root, video_chunks={}, key_map=KEY_MAP, cameras={}
-    ).resolve()
+    leaves = LanceStreamingResolver(root, key_map=KEY_MAP, cameras={}).resolve()
     ds = MultiDataset(datasets=leaves, mode="total")
     idxs = [0, len(ds) - 1, 3, 3, len(ds) // 2, 1]
     want = [local[i] for i in idxs]
@@ -185,46 +183,6 @@ def test_streaming_getitems_batches_reads_and_local_does_not(catalog, monkeypatc
         _same_sample(a, b)
 
 
-def test_streaming_resolver_finds_each_recordings_chunk_rows(catalog):
-    root, recs = catalog
-    k, rows = 4, []
-    for rid, _, n in recs:
-        rows += [(rid, c, s, min(k, n - s)) for c, s in enumerate(range(0, n, k))]
-    cols = list(zip(*rows))
-    lance.write_dataset(
-        pa.table(
-            {
-                "recording_id": pa.array(cols[0]),
-                "chunk_index": pa.array(cols[1], pa.int32()),
-                "frame_start": pa.array(cols[2], pa.int32()),
-                "num_frames": pa.array(cols[3], pa.int32()),
-                "data": pa.array([b""] * len(rows), pa.large_binary()),
-            }
-        ),
-        root / "video_chunks" / "front_1_k4.lance",
-    )
-    leaves = LanceStreamingResolver(
-        root,
-        video_chunks={"images.front_1": "front_1_k4"},
-        key_map=KEY_MAP,
-        cameras={},
-    ).resolve()
-    first = 0
-    for rid, _, n in recs:
-        assert leaves[rid].chunks["images.front_1"][2:] == (first, k)
-        first += -(-n // k)
-
-
-def test_streaming_resolver_needs_a_chunk_table_per_camera(catalog):
-    root, _ = catalog
-    key_map = {
-        **KEY_MAP,
-        "front_img_1": {"key_type": "camera_keys", "zarr_key": "images.front_1"},
-    }
-    with pytest.raises(ValueError, match="images.front_1"):
-        LanceStreamingResolver(root, video_chunks={}, key_map=key_map)
-
-
 @pytest.mark.parametrize("overlap_reads", [True, False])
 def test_streaming_getitems_split_into_parts_matches(
     catalog, monkeypatch, overlap_reads
@@ -240,7 +198,6 @@ def test_streaming_getitems_split_into_parts_matches(
     ds = MultiDataset(
         datasets=LanceStreamingResolver(
             root,
-            video_chunks={},
             fetch_split=2,
             overlap_reads=overlap_reads,
             key_map=KEY_MAP,
@@ -271,9 +228,7 @@ def test_even_stride_getitems_reads_strided_samples(catalog):
         mode="total",
     )
     ds = MultiDataset(
-        datasets=LanceStreamingResolver(
-            root, video_chunks={}, key_map=KEY_MAP, cameras={}
-        ).resolve(),
+        datasets=LanceStreamingResolver(root, key_map=KEY_MAP, cameras={}).resolve(),
         mode="total",
     )
     strided = EvenStrideDataset(ds, stride=3)
@@ -288,6 +243,89 @@ def test_intrinsics_reshapes_flat_k(n, shape):
     leaf = LanceRecordingDataset.__new__(LanceRecordingDataset)
     leaf._intrinsics = np.arange(n, dtype=np.float32)
     assert leaf.intrinsics.shape == shape
+
+
+IMAGE_KEY_MAP = {
+    **KEY_MAP,
+    "front_img_1": {"key_type": "camera_keys", "zarr_key": "images.front_1"},
+}
+
+
+def _videos(root, recs, short=None):
+    av = pytest.importorskip("av")
+    from fixtures.videos import write_av1
+
+    for rid, _, n in recs:
+        path = root / "videos" / rid / "front_1.mp4"
+        path.parent.mkdir(parents=True)
+        try:
+            write_av1(path, n - 1 if rid == short else n)
+        except (av.FFmpegError, ValueError) as e:
+            pytest.skip(f"no AV1 encoder: {e}")
+
+
+class _PyAVDecoder:
+    """Stands in for torchcodec: a full sequential decode, independent of mp4_ranges."""
+
+    def __init__(self, path):
+        import av
+
+        with av.open(path) as c:
+            self._frames = np.stack(
+                [f.to_ndarray(format="rgb24") for f in c.decode(video=0)]
+            )
+
+    def get_frames_at(self, indices):
+        import types
+
+        return types.SimpleNamespace(
+            data=types.SimpleNamespace(numpy=lambda: self._frames[indices])
+        )
+
+
+def test_streaming_frames_from_byte_ranges_match_a_full_decode(catalog, monkeypatch):
+    from egomimic.rldb.lance import dataset as lance_dataset
+    from egomimic.rldb.lance import mp4_ranges
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    root, recs = catalog
+    _videos(root, recs)
+    monkeypatch.setattr(lance_dataset, "_decoder", _PyAVDecoder)
+    monkeypatch.setattr(lance_dataset, "_MP4S", lance_dataset.OrderedDict())
+    kw = dict(key_map=IMAGE_KEY_MAP, cameras={"images.front_1": "front_1"})
+    local = MultiDataset(
+        datasets=LanceEpisodeResolver(root, **kw).resolve(), mode="total"
+    )
+    ds = MultiDataset(
+        datasets=LanceStreamingResolver(root, **kw).resolve(), mode="total"
+    )
+    indexed = []
+    real_index = mp4_ranges.read_index
+    monkeypatch.setattr(
+        mp4_ranges,
+        "read_index",
+        lambda read, *a: indexed.append(read) or real_index(read, *a),
+    )
+    # Two samples per recording, so a batch shares each MP4 between samples.
+    idxs = [0, 1, len(ds) - 1, len(ds) - 2, 3]
+    got = ds.__getitems__(idxs)
+    for a, i in zip(got, idxs, strict=True):
+        b = local[i]
+        assert a["front_img_1"].shape == (3, 48, 64)
+        _same_sample(a, b)
+    assert len(indexed) == len(recs)  # each MP4's index is read once per process
+
+
+def test_streaming_frames_reject_an_mp4_with_the_wrong_frame_count(catalog):
+    from egomimic.rldb.lance import dataset as lance_dataset
+
+    root, recs = catalog
+    _videos(root, recs, short=recs[0][0])
+    leaf = LanceStreamingResolver(
+        root, key_map=IMAGE_KEY_MAP, cameras={"images.front_1": "front_1"}
+    ).resolve()[recs[0][0]]
+    with pytest.raises(ValueError, match="frames, num_frames"):
+        lance_dataset._fetch_range_frames([(leaf, leaf.plan_sample(0))])
 
 
 def _all_valid(rid, n):

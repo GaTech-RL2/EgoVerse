@@ -25,6 +25,7 @@ import pyarrow.compute as pc
 import torch
 
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
+from egomimic.rldb.lance import mp4_ranges
 from egomimic.rldb.lance.schema import ARM, STEPS_KEY, steps_path, task_instance_id
 from egomimic.rldb.leaf import EpisodeLeaf
 
@@ -307,52 +308,83 @@ def _fetch_numeric(items: list) -> list[dict]:
     return out
 
 
-def _fetch_chunk_frames(items: list) -> list[dict]:
-    """Frames per image key from video chunk rows: one `read_blobs` per chunk table,
-    each chunk decoded once."""
+def read_range(url: str, start: int, end: int) -> bytes:
+    """Bytes [start, end) of a local file or an s3:// object."""
+    if not _is_remote(url):
+        with open(url, "rb") as f:
+            f.seek(start)
+            return f.read(end - start)
+    bucket, key = url[len("s3://") :].split("/", 1)
+    resp = _s3_client().get_object(
+        Bucket=bucket, Key=key, Range=f"bytes={start}-{end - 1}"
+    )
+    return resp["Body"].read()
+
+
+_MP4S: "OrderedDict[str, mp4_ranges.Decoder]" = OrderedDict()
+_MAX_MP4S = 1024
+
+
+def _mp4(url: str) -> "mp4_ranges.Decoder":
+    dec = _MP4S.pop(url, None)
+    if dec is None:
+        dec = mp4_ranges.Decoder(
+            mp4_ranges.read_index(lambda a, b: read_range(url, a, b))
+        )
+    _MP4S[url] = dec
+    while len(_MP4S) > _MAX_MP4S:
+        _MP4S.popitem(last=False)
+    return dec
+
+
+def _fetch_range_frames(items: list) -> list[dict]:
+    """Frames per image key straight from the MP4s: each MP4's sample table is read once
+    per process, then one range GET per merged run of needed packets, all concurrent."""
     out = [{} for _ in items]
-    want: dict[tuple, dict[int, list]] = {}
+    want: dict[str, list] = {}
     for j, (leaf, plan) in enumerate(items):
         for k, (zk, frames) in plan["images"].items():
-            uri, version, c0, kf = leaf.chunks[zk]
-            per_chunk = want.setdefault((uri, version), {})
-            for n, f in enumerate(frames):
-                per_chunk.setdefault(c0 + int(f) // kf, []).append(
-                    (j, k, n, int(f) % kf, len(frames))
-                )
-    if want:
-        from torchcodec.decoders import VideoDecoder
-    for (uri, version), per_chunk in want.items():
-        rows = sorted(per_chunk)
-        blobs = _table(uri, version).read_blobs(
-            "data", indices=rows, preserve_order=True
+            want.setdefault(leaf.videos[zk], []).append((j, k, frames, leaf))
+    if not want:
+        return out
+    if any(map(_is_remote, want)):
+        # Built before the pool's threads race to build it; concurrent first calls stall for seconds.
+        _s3_client()
+    pool = _get_pool()
+    urls = list(want)
+    decs = dict(zip(urls, pool.map(_mp4, urls)))
+    for url, uses in want.items():
+        n = uses[0][3].total_frames
+        if decs[url].index.num_frames != n:
+            raise ValueError(
+                f"{url}: {decs[url].index.num_frames} frames, num_frames {n}"
+            )
+    jobs = [
+        (url, rg)
+        for url, uses in want.items()
+        for rg in mp4_ranges.ranges(
+            decs[url].index, np.concatenate([u[2] for u in uses])
         )
-        for row, (_, data) in zip(rows, blobs, strict=True):
-            uses = per_chunk[row]
-            offsets = sorted({u[3] for u in uses})
-            # torchcodec does not hold a reference to `data`; it stays alive in this scope.
-            dec = VideoDecoder(data, seek_mode="exact", dimension_order="NHWC")
-            got = dict(zip(offsets, dec.get_frames_at(indices=offsets).data.numpy()))
-            del dec
-            for j, k, n, off, total in uses:
-                if k not in out[j]:
-                    out[j][k] = np.empty((total, *got[off].shape), got[off].dtype)
-                out[j][k][n] = got[off]
+    ]
+    fetched: dict[str, dict] = {url: {} for url in urls}
+    for (url, rg), data in zip(jobs, pool.map(lambda j: read_range(j[0], *j[1]), jobs)):
+        fetched[url][rg] = data
+    for url, uses in want.items():
+        for j, k, frames, _ in uses:
+            out[j][k] = decs[url].frames(frames, fetched[url])
     return out
 
 
 @functools.cache
 def _read_pool() -> cf.ThreadPoolExecutor:
-    """Per-process pool for the chunk reads that overlap a batch's steps `take`."""
-    return cf.ThreadPoolExecutor(max_workers=8, thread_name_prefix="lance-chunks")
+    """Per-process pool for the frame fetch that overlaps a batch's steps `take`."""
+    return cf.ThreadPoolExecutor(max_workers=8, thread_name_prefix="lance-frames")
 
 
-def _chunks_of(table: dict, recording_id: str, num_frames: int, name: str) -> tuple:
-    if table["frames"].get(recording_id) != num_frames:
-        raise ValueError(
-            f"{name}: {table['frames'].get(recording_id, 0)} frames in {table['uri']}, num_frames {num_frames}"
-        )
-    return (table["uri"], table["version"], table["rows"][recording_id], table["k"])
+@functools.cache
+def _get_pool() -> cf.ThreadPoolExecutor:
+    """Per-process pool for range GETs; separate from `_read_pool`, which waits on it."""
+    return cf.ThreadPoolExecutor(max_workers=16, thread_name_prefix="lance-gets")
 
 
 class LanceRecordingDataset(EpisodeLeaf):
@@ -573,23 +605,20 @@ class LanceRecordingDataset(EpisodeLeaf):
 
 class LanceStreamingDataset(LanceRecordingDataset):
     """One recording read straight from object storage (or any Lance URI): frames come
-    from K-frame video chunk rows (`video_chunks/<name>.lance`, `chunk_videos.py`)
-    instead of whole MP4s, and `MultiDataset.__getitems__` fetches a DataLoader batch
-    through `fetch_planned`, so a batch costs about two round trips."""
+    from byte ranges of the faststart MP4s (`mp4_ranges`), not whole files, and
+    `MultiDataset.__getitems__` fetches a DataLoader batch through `fetch_planned`, so a
+    batch costs one `take` plus one concurrent round of range GETs."""
 
     batched_fetch = True
 
     def __init__(
         self,
         *,
-        chunks: dict[str, tuple[str, int, int, int]],
         fetch_split: int | None = None,
         overlap_reads: bool = True,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        # {zarr image key: (chunk table uri, version, first chunk row, frames per chunk)}
-        self.chunks = dict(chunks)
         # MultiDataset.__getitems__ fetches a batch in parts of this many samples,
         # concurrently, and assembles each part as it lands; None = one fetch.
         self.fetch_split = fetch_split
@@ -597,15 +626,15 @@ class LanceStreamingDataset(LanceRecordingDataset):
 
     @staticmethod
     def fetch_planned(items: list) -> list[tuple[dict, dict]]:
-        """Reads for many planned samples at once: one `take` per steps table and one
-        `read_blobs` per chunk table, issued concurrently. `items` is [(leaf, plan)];
+        """Reads for many planned samples at once: one `take` per steps table and the
+        MP4 range GETs, issued concurrently. `items` is [(leaf, plan)];
         returns [(numeric {zarr key: rows}, frames {key: uint8 NHWC})] in order."""
         if items and items[0][0].overlap_reads:
-            frames = _read_pool().submit(_fetch_chunk_frames, items)
+            frames = _read_pool().submit(_fetch_range_frames, items)
             numeric = _fetch_numeric(items)
             frames = frames.result()
         else:
-            numeric, frames = _fetch_numeric(items), _fetch_chunk_frames(items)
+            numeric, frames = _fetch_numeric(items), _fetch_range_frames(items)
         return list(zip(numeric, frames, strict=True))
 
     def __getitem__(self, i: int) -> dict[str, torch.Tensor]:
@@ -885,7 +914,6 @@ class LanceEpisodeResolver:
                 )
             )
         horizon = self._horizon()
-        tables = self._leaf_tables()
 
         out, no_ann, no_anchor = {}, [], []
         for row in recs.itertuples():
@@ -944,7 +972,6 @@ class LanceEpisodeResolver:
             cam = next(iter(self.cameras.values()))
             out[rid] = self._leaf(
                 row,
-                tables,
                 name=rid,
                 steps_uri=uri,
                 steps_version=version,
@@ -1106,68 +1133,26 @@ class LanceEpisodeResolver:
             ts = {r: col[at[j] : at[j + 1]] for j, r in enumerate(need)}
         return {rid: _Clock(rows[rid][1], *bounds[rid], ts.get(rid)) for rid in rids}
 
-    def _leaf_tables(self) -> dict:
-        return {}
-
-    def _leaf(self, row, tables: dict, **kwargs) -> LanceRecordingDataset:
+    def _leaf(self, row, **kwargs) -> LanceRecordingDataset:
         return LanceRecordingDataset(**kwargs)
 
 
 class LanceStreamingResolver(LanceEpisodeResolver):
     """Resolves recordings into LanceStreamingDataset leaves, for training straight from
-    object storage (`lance_root` may be s3://). `video_chunks` names the chunk table
-    for each camera key: {"images.front_1": "front_1_k8"}."""
+    object storage (`lance_root` may be s3://)."""
 
     def __init__(
         self,
         lance_root: str | Path,
-        video_chunks: dict[str, str],
         fetch_split: int | None = None,
         overlap_reads: bool = True,
         **kwargs,
     ):
         super().__init__(lance_root, **kwargs)
-        self.video_chunks = dict(video_chunks)
         self.fetch_split = fetch_split
         self.overlap_reads = overlap_reads
-        used = {
-            s["zarr_key"]
-            for s in self.key_map.values()
-            if s.get("key_type") == "camera_keys"
-        }
-        missing = sorted(used & set(self.cameras) - set(self.video_chunks))
-        if missing:
-            raise ValueError(f"no video_chunks table for camera keys {missing}")
 
-    def _leaf_tables(self) -> dict:
-        return {zk: self._chunk_table(name) for zk, name in self.video_chunks.items()}
-
-    def _leaf(self, row, tables: dict, **kwargs) -> LanceStreamingDataset:
-        chunks = {
-            zk: _chunks_of(t, row.recording_id, kwargs["num_frames"], kwargs["name"])
-            for zk, t in tables.items()
-        }
+    def _leaf(self, row, **kwargs) -> LanceStreamingDataset:
         return LanceStreamingDataset(
-            chunks=chunks,
-            fetch_split=self.fetch_split,
-            overlap_reads=self.overlap_reads,
-            **kwargs,
+            fetch_split=self.fetch_split, overlap_reads=self.overlap_reads, **kwargs
         )
-
-    def _chunk_table(self, name: str) -> dict:
-        uri, version, tbl = self._open(f"video_chunks/{name}.lance")
-        cols = tbl.to_table(columns=["recording_id", "num_frames"])
-        ids, starts = _runs(cols.column("recording_id"))
-        if len(set(ids)) != len(ids):
-            raise ValueError(
-                f"{uri}@{version}: a recording's chunks are not contiguous"
-            )
-        nf = cols.column("num_frames").to_numpy()
-        frames = np.add.reduceat(nf, starts) if len(starts) else np.zeros(0, np.int64)
-        return {
-            "uri": uri,
-            "version": version,
-            "k": int(nf.max()) if len(nf) else 0,
-            "rows": dict(zip(ids, starts.tolist())),
-            "frames": dict(zip(ids, frames.tolist())),
-        }

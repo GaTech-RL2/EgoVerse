@@ -217,18 +217,6 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
     assert len(list((root / "videos").rglob("*.mp4"))) == 2
 
 
-def test_tag_covers_video_chunk_tables(tmp_path):
-    root = tmp_path / "lance"
-    commit.append(root, [_delivery(tmp_path, 0, 10)])
-    chunks = root / "video_chunks" / "front_1_k2.lance"
-    lance.write_dataset(pa.table({"recording_id": ["x"]}), chunks)
-    assert commit.steps_uris(root) == [root / STEPS]
-    assert chunks in commit.table_uris(root)
-    tagged = commit.tag(root, "t1")
-    assert tagged["video_chunks/front_1_k2.lance"] == lance.dataset(chunks).version
-    assert "t1" in lance.dataset(chunks).tags.list()
-
-
 def test_append_after_interrupted_append_does_not_duplicate_steps(
     tmp_path, monkeypatch
 ):

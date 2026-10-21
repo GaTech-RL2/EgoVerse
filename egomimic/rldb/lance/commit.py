@@ -100,20 +100,12 @@ def annotations_uri(root: Path) -> Path:
     return Path(root) / ANNOTATIONS_TABLE
 
 
-def chunk_uris(root: Path) -> list[Path]:
-    """The `video_chunks/*.lance` tables (chunk_videos.py)."""
-    return sorted(
-        p for p in (Path(root) / "video_chunks").glob("*.lance") if _exists(p)
-    )
-
-
 def table_uris(root: Path) -> list[Path]:
-    """Every table: steps, catalog in write order, annotations, then video chunks."""
+    """Every table, in write order."""
     return [
         *steps_uris(root),
         *(Path(root) / n for n in CATALOG),
         annotations_uri(root),
-        *chunk_uris(root),
     ]
 
 

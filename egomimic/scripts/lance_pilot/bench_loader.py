@@ -89,12 +89,11 @@ def build(args):
         resolver = (
             LanceStreamingResolver(
                 args.lance_root,
-                video_chunks={"images.front_1": args.video_chunks},
                 fetch_split=args.fetch_split or None,
                 overlap_reads=not args.no_overlap,
                 **kw,
             )
-            if args.video_chunks
+            if args.stream
             else LanceEpisodeResolver(args.lance_root, **kw)
         )
         leaves = resolver.resolve(filters=filters, expected_embodiment="human_bimanual")
@@ -119,8 +118,9 @@ def main():
         "--hashes", type=Path, help="whitespace-separated episode hashes to pin"
     )
     ap.add_argument(
-        "--video-chunks",
-        help="stream through LanceStreamingResolver with this chunk table, e.g. front_1_k8",
+        "--stream",
+        action="store_true",
+        help="read through LanceStreamingResolver: batched fetches, MP4 byte ranges",
     )
     ap.add_argument(
         "--per-sample", action="store_true", help="disable the batched __getitems__"
@@ -185,7 +185,7 @@ def main():
                 if args.no_images
                 else (args.camera if args.format == "lance" else "jpeg"),
                 context=context,
-                video_chunks=args.video_chunks,
+                stream=args.stream,
                 fetch="per_sample" if args.per_sample else "batched",
                 fetch_split=args.fetch_split,
                 overlap=not args.no_overlap,
