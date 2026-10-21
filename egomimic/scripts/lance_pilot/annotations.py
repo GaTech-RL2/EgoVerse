@@ -58,7 +58,7 @@ def cmd_commit(args):
         f"on {datetime.date.today()}"
     )
     if args.tag:
-        print(f"tagged {args.tag}: {commit.tag(args.lance, args.tag, args.lab)}")
+        print(f"tagged {args.tag}: {commit.tag(args.lance, args.tag)}")
 
 
 def _zarr_annotations(path: Path) -> tuple[list[dict], np.ndarray]:

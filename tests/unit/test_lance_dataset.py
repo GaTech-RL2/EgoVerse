@@ -435,3 +435,71 @@ def test_norm_stats_leave_out_untracked_hand_chunks(catalog, tmp_path, episode_c
         np.mean(tracked, axis=0),
         rtol=1e-5,
     )
+
+
+EVA_KEY_MAP = {
+    "left.cmd_ee_pose": {
+        "key_type": "action_keys",
+        "zarr_key": "left.cmd_ee_pose",
+        "horizon": 3,
+    },
+    "left.cmd_gripper": {
+        "key_type": "action_keys",
+        "zarr_key": "left.cmd_gripper",
+        "horizon": 3,
+    },
+    "right.obs_ee_pose": {"key_type": "proprio_keys", "zarr_key": "right.obs_ee_pose"},
+    "left.obs_gripper": {"key_type": "proprio_keys", "zarr_key": "left.obs_gripper"},
+}
+
+
+def _eva(tmp_path, valid=lambda rid, n: {}):
+    recs = write_catalog(tmp_path, lab="eva", valid=valid)
+    (a, _, _), (b, _, _) = _by_length(recs)
+    return tmp_path, a, b
+
+
+def _resolve_eva(root, key_map=EVA_KEY_MAP, **kw):
+    return LanceEpisodeResolver(
+        root, lab="eva", key_map=key_map, cameras={}, **kw
+    ).resolve()
+
+
+def test_eva_reads_robot_columns_by_their_zarr_keys(tmp_path):
+    root, a, b = _eva(tmp_path)
+    leaf = _resolve_eva(root)[a]
+    assert _frames(leaf) == list(range(12))
+    s = _at(leaf, 2)
+    offset = 100 * sorted([a, b]).index(a)
+    np.testing.assert_allclose(
+        s["left.cmd_ee_pose"][:, 0].numpy(), offset + 0.5 + np.arange(3, 6)
+    )
+    assert s["left.cmd_gripper"].shape == (3, 1)
+    np.testing.assert_allclose(
+        s["left.cmd_gripper"][:, 0].numpy(), np.arange(2, 5) / 12
+    )
+    assert float(s["right.obs_ee_pose"][0]) == offset + 2.25
+    assert float(s["left.obs_gripper"][0]) == 0.5
+    assert s["action_hand_mask"].tolist() == [1, 1]
+
+
+def test_eva_arm_dropouts_gate_anchors_and_mask_the_arm(tmp_path):
+    def dropout(rid, n):
+        v = np.ones(n, bool)
+        v[4] = False
+        return {"right_valid": v} if n == 12 else {}
+
+    root, a, _ = _eva(tmp_path, valid=dropout)
+    assert _frames(_resolve_eva(root)[a]) == [0, 1, *range(5, 12)]
+    either = _resolve_eva(root, require_hands_in_frame="either")[a]
+    assert _at(either, 3)["action_hand_mask"].tolist() == [1, 0]
+
+
+def test_eva_single_arm_robot_never_masks_the_missing_arm(tmp_path):
+    root, _, b = _eva(tmp_path)
+    key_map = {k: v for k, v in EVA_KEY_MAP.items() if not k.startswith("right.")}
+    leaf = _resolve_eva(root, key_map=key_map)[b]
+    assert _frames(leaf) == list(range(8))
+    assert leaf[0]["action_hand_mask"].tolist() == [1, 1]
+    with pytest.raises(ValueError, match="require_hands_in_frame"):
+        _resolve_eva(root, key_map=key_map, require_hands_in_frame="right")

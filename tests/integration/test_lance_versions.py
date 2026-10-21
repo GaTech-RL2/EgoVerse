@@ -256,7 +256,7 @@ def test_versioned_commits(pilot, tmp_path):
         str(Path(u).relative_to(root)): [
             v["version"] for v in lance.dataset(u).versions()
         ]
-        for u in commit.table_uris(root, "aria")
+        for u in commit.table_uris(root)
     }
     t1 = _resolver(root, tag="t1").resolve()
     assert _all_same(s1, _samples(t1), s1) == []

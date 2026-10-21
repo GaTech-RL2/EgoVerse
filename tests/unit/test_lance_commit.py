@@ -6,7 +6,7 @@ import pytest
 
 lance = pytest.importorskip("lance")
 
-from fixtures.lance_tables import steps_table  # noqa: E402
+from fixtures.lance_tables import eva_steps_table, steps_table  # noqa: E402
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
@@ -202,3 +202,13 @@ def test_drop_task_annotations_brings_old_tables_to_the_schema(tmp_path):
     assert lance.dataset(tasks).schema.names == TASKS.names
     assert commit.append(root, [second]) == [second.recording_id]
     commit.drop_task_annotations(root)
+
+
+def test_tag_covers_every_labs_steps_table(tmp_path):
+    root = tmp_path / "lance"
+    commit.append(root, [_delivery(tmp_path, 0, 10)])
+    rid = recording_id("eva", "0")
+    lance.write_dataset(eva_steps_table(rid, 5, 0), root / "steps" / "eva.lance")
+    tagged = commit.tag(root, "t1")
+    assert {"steps/aria.lance", "steps/eva.lance"} <= set(tagged)
+    assert "t1" in lance.dataset(root / "steps" / "eva.lance").tags.list()
