@@ -1,0 +1,44 @@
+# Lance pilot: bimanual EVA cup_on_saucer demos converted from raw HDF5 by
+# eva_to_lance, read through the Lance catalog. Same keymap and transforms as
+# eva.yaml. Lance is not fork-safe, so workers use forkserver
+# (https://lance.org/integrations/pytorch/).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.lance.dataset.LanceEpisodeResolver
+      lance_root: /coc/flash7/scratch/lance_pilot/lance_eva
+      lab: eva
+      cameras:
+        images.front_1: front_1
+        images.left_wrist: left_wrist
+        images.right_wrist: right_wrist
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian_wristframe_6d
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual'"
+    mode: total
+
+valid_datasets:
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 4
+    multiprocessing_context: forkserver
+    persistent_workers: true
