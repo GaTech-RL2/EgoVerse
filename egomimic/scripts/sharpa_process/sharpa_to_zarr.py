@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -505,13 +506,15 @@ def planned_start_ns(season: Season, index: int, args, zone) -> int:
 class _Preview:
     """Stream RGB frames into an H.264 ``<hash>.mp4`` preview."""
 
-    def __init__(self, path: Path, fps: int):
+    def __init__(self, path: Path, fps: int, threads: int | None = None):
         self.path = path
         self.container = av.open(str(path), mode="w", format="mp4")
         codec = "libx264" if "libx264" in av.codecs_available else "h264"
         self.stream = self.container.add_stream(codec, rate=Fraction(fps, 1))
         self.stream.pix_fmt = "yuv420p"
         self.stream.options = {"crf": "23", "preset": "fast"}
+        if threads:
+            self.stream.thread_count = threads
         self.started = False
 
     def add(self, image: np.ndarray) -> None:
@@ -534,7 +537,17 @@ class _Preview:
         self.container.close()
 
 
-def encode_camera(episode: Episode, camera: str, quality: int, preview=None):
+def available_cpus() -> int:
+    """Return the CPUs this process may run on (a Slurm job's share)."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count() or 1
+
+
+def encode_camera(
+    episode: Episode, camera: str, quality: int, preview=None, threads=None
+):
     """Decode one stream and JPEG-encode every frame.
 
     Returns:
@@ -542,7 +555,7 @@ def encode_camera(episode: Episode, camera: str, quality: int, preview=None):
     """
     encoded = np.empty(episode.length, dtype=object)
     shape = None
-    for i, image in enumerate(episode.frames(camera)):
+    for i, image in enumerate(episode.frames(camera, threads=threads)):
         if shape is None:
             shape = list(image.shape)
         elif list(image.shape) != shape:
@@ -626,7 +639,7 @@ def split_tactile(values: np.ndarray) -> dict[str, np.ndarray]:
     }
 
 
-def encode_tactile_images(episode: Episode, quality: int):
+def encode_tactile_images(episode: Episode, quality: int, threads=None):
     """Decode ``tactile_deform`` and JPEG-encode one grayscale strip per hand.
 
     Returns:
@@ -637,7 +650,7 @@ def encode_tactile_images(episode: Episode, quality: int):
     """
     out = {side: np.empty(episode.length, dtype=object) for side in ("left", "right")}
     shape = [TACTILE_TILE, len(FINGERS) * TACTILE_TILE, 1]
-    for i, image in enumerate(episode.frames("tactile_deform")):
+    for i, image in enumerate(episode.frames("tactile_deform", threads=threads)):
         if image.shape != (2 * TACTILE_TILE, len(FINGERS) * TACTILE_TILE, 3):
             raise ConversionError(f"tactile_deform frame {i} is {image.shape}")
         wide = image.astype(np.int16)
@@ -1008,13 +1021,17 @@ def convert_episode(job: Job, args, kinematics, calibration_rigs, zone) -> dict:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     partial = args.output_dir / f".{job.episode_hash}.zarr.partial"
     preview_path = args.output_dir / f".{job.episode_hash}.mp4.partial"
+    # Every stream decodes at once; split this process's CPUs between them so
+    # FFmpeg does not start a thread per host CPU in each decoder.
+    streams = max(1, len(present) + bool(tactile_images))
+    threads = max(1, available_cpus() // streams)
     preview = (
-        _Preview(preview_path, season.fps)
+        _Preview(preview_path, season.fps, threads=threads)
         if args.save_mp4 and "head_left" in present
         else None
     )
     try:
-        with ThreadPoolExecutor(max_workers=max(1, len(present))) as pool:
+        with ThreadPoolExecutor(max_workers=streams) as pool:
             futures = {
                 name: pool.submit(
                     encode_camera,
@@ -1022,11 +1039,12 @@ def convert_episode(job: Job, args, kinematics, calibration_rigs, zone) -> dict:
                     s,
                     args.jpeg_quality,
                     preview if s == "head_left" else None,
+                    threads,
                 )
                 for s, name in present.items()
             }
             tactile = (
-                pool.submit(encode_tactile_images, episode, args.jpeg_quality)
+                pool.submit(encode_tactile_images, episode, args.jpeg_quality, threads)
                 if tactile_images
                 else None
             )

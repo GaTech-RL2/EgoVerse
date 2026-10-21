@@ -183,8 +183,11 @@ class Episode:
             raise LeRobotError(f"{path}: declared video file is missing")
         return path
 
-    def frames(self, camera: str) -> Iterator[np.ndarray]:
+    def frames(self, camera: str, threads: int | None = None) -> Iterator[np.ndarray]:
         """Yield exactly ``length`` ``(H, W, 3)`` uint8 RGB frames.
+
+        ``threads`` caps the decoder's threads; ``None`` lets FFmpeg choose,
+        which sizes to every CPU on the host rather than to a job's share.
 
         A full v2.1 episode must decode to exactly its parquet row count. A
         v3.0 episode must start at ``from_timestamp`` and contain its row
@@ -200,6 +203,7 @@ class Episode:
             expected=self.info.length,
             start=None if span is None else span.from_timestamp,
             end=None if span is None else span.to_timestamp,
+            threads=threads,
         )
 
 
@@ -211,6 +215,7 @@ def decode_frames(
     expected: int,
     start: float | None = None,
     end: float | None = None,
+    threads: int | None = None,
 ) -> Iterator[np.ndarray]:
     """Decode ``count`` RGB frames, checking them against ``expected`` rows.
 
@@ -221,6 +226,7 @@ def decode_frames(
         expected: The episode's full parquet row count.
         start: v3.0 span start in seconds; ``None`` reads from the beginning.
         end: v3.0 span end in seconds, exclusive.
+        threads: Decoder thread count; ``None`` lets FFmpeg choose.
 
     Raises:
         LeRobotError: If decoding yields a different number of frames than
@@ -236,6 +242,8 @@ def decode_frames(
     with av.open(str(path)) as container:
         stream = container.streams.video[0]
         stream.thread_type = "AUTO"
+        if threads:
+            stream.thread_count = threads
         if start is None and count < expected and stream.frames not in (0, expected):
             raise LeRobotError(
                 f"{path}: container declares {stream.frames} frames, parquet has "
