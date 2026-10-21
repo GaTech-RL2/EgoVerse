@@ -1,8 +1,8 @@
 """Convert one raw Aria recording (VRS + MPS) into a delivery: per-frame parquet plus MP4s.
 
 Unlike aria_to_zarr, every RGB frame is kept; untracked hands, missing poses and timing
-gaps become validity flags instead of deleted rows. The committer
-(egomimic/scripts/lance_pilot/commit.py) appends deliveries to the Lance tables.
+gaps become validity flags instead of deleted rows. With --stage-to the delivery is staged
+for the committer (egomimic/scripts/lance_commit.py), which appends it to the Lance tables.
 """
 
 import argparse
@@ -21,6 +21,7 @@ from projectaria_tools.core.sensor_data import TimeDomain
 from projectaria_tools.core.stream_id import StreamId
 
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
+from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import HUMAN_STEPS, recording_id
 from egomimic.rldb.lance.timeline import build_timeline, nearest_dt, pose_outliers
 from egomimic.scripts.aria_process.aria_utils import (
@@ -269,10 +270,18 @@ def main():
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
     ap.add_argument("--ffmpeg", default="/coc/flash7/rco3/ffmpeg-7.1-shared/bin/ffmpeg")
+    ap.add_argument(
+        "--stage-to", help="staging root (s3:// or local) for the committer"
+    )
     args = ap.parse_args()
     args.recording_id = recording_id("aria", args.vendor_recording_id)
     logging.basicConfig(level=logging.INFO)
     print(json.dumps(convert(args), indent=1))
+    if args.stage_to:
+        commit.stage(
+            args.out_dir / args.vendor_recording_id,
+            commit.join(args.stage_to, "aria", args.vendor_recording_id),
+        )
 
 
 if __name__ == "__main__":
