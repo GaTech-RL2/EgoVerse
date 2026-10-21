@@ -1,6 +1,6 @@
 # Lance pilot, streamed: the aria_pilot_lance.yaml recordings read straight from R2,
-# frames from 8-frame video chunk rows, one batched fetch per DataLoader batch
-# (MultiDataset.__getitems__). Needs R2_* credentials in the environment.
+# frames from byte ranges of the faststart MP4s, one batched fetch per DataLoader
+# batch (MultiDataset.__getitems__). Needs R2_* credentials in the environment.
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -11,8 +11,6 @@ train_datasets:
       lance_root: s3://rldb/scratch/rco3/lance_pilot/lance_faststart
       cameras:
         images.front_1: front_1
-      video_chunks:
-        images.front_1: front_1_k8
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: keypoints
