@@ -8,7 +8,6 @@ gaps become validity flags instead of deleted rows. The committer
 import argparse
 import json
 import logging
-import subprocess
 import time
 from pathlib import Path
 
@@ -30,6 +29,7 @@ from egomimic.scripts.aria_process.aria_utils import (
     mano_keypoints_to_cartesian,
     slam_to_rgb,
 )
+from egomimic.utils.video_utils import open_av1_encoder
 
 log = logging.getLogger("aria_to_lance")
 
@@ -62,18 +62,6 @@ def make_undistort(provider, height=480, width=640):
         )
 
     return f
-
-
-def open_encoder(path: Path, h: int, w: int, ffmpeg: str):
-    cmd = [
-        ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
-        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(int(FPS)), "-i", "-",
-        "-c:v", "libsvtav1", "-g", "2", "-crf", "30", "-preset", "12", "-pix_fmt", "yuv420p",
-        # Index at the front, so a reader over HTTP range requests can seek without fetching the tail.
-        "-movflags", "+faststart",
-        str(path),
-    ]  # fmt: skip
-    return subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
 
 def hand_arrays(kp_rows: np.ndarray, side_offset: int):
@@ -208,7 +196,7 @@ def convert(args) -> dict:
 
     undistort = make_undistort(provider)
     enc = {
-        k: open_encoder(out / f"{k}.mp4", h, w, args.ffmpeg)
+        k: open_av1_encoder(out / f"{k}.mp4", h, w, FPS, args.ffmpeg)
         for k, (h, w) in VIDEOS.items()
     }
     last_src, frame = -1, None
