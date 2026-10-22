@@ -148,3 +148,18 @@ def test_restaging_a_committed_recording_needs_replace(env, tmp_path):
     assert [b["replaced"] for b in report["batches"]] == [[recording_id("eva", "100")]]
     rows = lance.dataset(root / EVA_STEPS).to_table().to_pylist()
     assert len(rows) == N and rows[0]["left"]["obs_ee_pose"][0] == 50.5
+
+
+def test_delivery_provenance_is_kept_in_changes(env, tmp_path):
+    staging, root, stage, run = env
+    src = eva_delivery(tmp_path / "prov", "100")
+    meta = json.loads((src / "meta.json").read_text())
+    meta["provenance"] = {"converter": "abc123"}
+    (src / "meta.json").write_text(json.dumps(meta))
+    commit.stage(src, commit.join(staging, "eva", "100"))
+    stage("200")
+    run()
+    (row,) = _changes(root)
+    assert json.loads(row["provenance"]) == {
+        recording_id("eva", "100"): {"converter": "abc123"}
+    }

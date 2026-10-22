@@ -2,8 +2,10 @@
 Scale annotation bucket.
 
     review       validate a change file against the tables and print the per-recording diff
-    commit       the same, then apply it as one commit on annotations.lance, recorded in
-                 changes.lance and tagged annotations-<UTC time>
+    stage        the same, then put it under <staging>/annotations/ for the committer
+                 (egomimic.scripts.lance_commit --lab annotations), which applies it as one
+                 commit on annotations.lance, recorded in changes.lance and tagged
+                 annotations-<UTC time>
     from-zarr    change file from zarr episodes' annotations, mapped onto the recording clock
                  through each episode's obs_rgb_timestamps_ns
     from-bucket  change file from <episode_hash>_<key>.json span lists, as
@@ -18,9 +20,11 @@ the change file format.
 """
 
 import argparse
-import datetime
+import hashlib
 import json
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -58,20 +62,34 @@ def cmd_review(args):
     sys.exit(1 if _review(args).errors else 0)
 
 
-def cmd_commit(args):
+def stage(file: Path, staging, approver: str) -> str:
+    """Upload a reviewed change file to `<staging>/annotations/<id>/`, meta.json last; `<id>`
+    is the file's content hash, so staging the same file again changes nothing. A Lance
+    change file is staged as parquet, which is what the committer reads."""
+    with tempfile.TemporaryDirectory() as t:
+        parquet = Path(file)
+        if parquet.is_dir():
+            parquet = Path(t) / "changes.parquet"
+            pq.write_table(read_changes(file), parquet)
+        sid = hashlib.sha256(parquet.read_bytes()).hexdigest()[:16]
+        dst = commit.join(staging, "annotations", sid)
+        commit.put_file(parquet, commit.join(dst, "changes.parquet"))
+        rows = pq.read_metadata(parquet).num_rows
+    meta = {
+        "approver": approver,
+        "source": Path(file).name,
+        "rows": rows,
+        "staged_at": time.time(),
+    }
+    commit.put_bytes(json.dumps(meta, indent=1).encode(), commit.join(dst, "meta.json"))
+    return dst
+
+
+def cmd_stage(args):
     rv = _review(args)
     if rv.errors:
-        sys.exit("not committed: fix the errors above")
-    message = f"{args.file}, approved by {args.approver} on {datetime.date.today()}"
-    out = commit.commit_annotations(
-        args.lance, rv.adds, rv.deletes, args.approver, message
-    )
-    if out is None:
-        print(f"nothing to commit from {args.file}")
-        return
-    print(
-        f"committed +{out['rows']['added']} -{out['rows']['deleted']} from {message} as {out['tag']}"
-    )
+        sys.exit("not staged: fix the errors above")
+    print(f"staged {args.file} as {stage(args.file, args.staging, args.approver)}")
 
 
 def _aliases(root) -> dict[str, dict]:
@@ -224,10 +242,13 @@ def main():
     p.add_argument("file", type=Path)
     p.set_defaults(fn=cmd_review)
 
-    p = sub.add_parser("commit", help="review, then commit and tag a change file")
+    p = sub.add_parser("stage", help="review, then stage a change file to commit")
     p.add_argument("file", type=Path)
+    p.add_argument(
+        "--staging", required=True, help="staging root (dir or s3:// prefix)"
+    )
     p.add_argument("--approver", required=True)
-    p.set_defaults(fn=cmd_commit)
+    p.set_defaults(fn=cmd_stage)
 
     p = sub.add_parser("from-zarr", help="change file from zarr annotations")
     p.add_argument(
