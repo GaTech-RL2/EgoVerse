@@ -277,6 +277,7 @@ def _hand(
     is_right: bool,
     mano: bool,
     mano_iters: int,
+    mano_model_dir: str | None = None,
 ) -> dict[str, np.ndarray]:
     """Per camera frame: wrist pose, ee pose, MANO keypoints, Aria keypoints, confidence, ok."""
     from egomimic.scripts.aria_process.aria_utils import (
@@ -317,8 +318,9 @@ def _hand(
         aria = _reorder(raw, joints, _aria_slots())
         aria = np.where(np.isfinite(aria) & (tracked & has_kp)[:, None], aria, 1e9)
         keypoints = convert_aria_keypoints_to_mano(
-            aria, is_rhand=is_right, n_iters=mano_iters, lr=0.05
-        )
+            aria, is_rhand=is_right, model_dir=mano_model_dir, n_iters=mano_iters,
+            lr=0.05,
+        )  # fmt: skip
     elif aria_layout:  # --no-mano on Aria data, as aria_to_lance --no-mano
         keypoints = raw
     else:
@@ -591,6 +593,7 @@ def convert(
     vendor: str,
     mano: bool = True,
     mano_iters: int = 2400,
+    mano_model_dir: str | None = None,
     ffmpeg: str = "ffmpeg",
     codec: str = "libsvtav1",
 ) -> Converted:
@@ -683,6 +686,7 @@ def convert(
             h = _hand(
                 series[topic], cam_t, T_world_head, frames, joints, head_usable,
                 is_right=side == "right", mano=mano, mano_iters=mano_iters,
+                mano_model_dir=mano_model_dir,
             )  # fmt: skip
         else:  # single-arm embodiment
             z7, z63 = np.zeros((len(cam_t), 7)), np.zeros((len(cam_t), 63))
@@ -961,6 +965,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
+    ap.add_argument(
+        "--mano-model-dir", help="MANO_LEFT/RIGHT.pkl (default: external_ckpts/mano)"
+    )
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument("--codec", default="libsvtav1", choices=sorted(ENCODER_OPTS))
     ap.add_argument("--work-dir", type=Path, help="scratch for videos (default: tmp)")
@@ -978,6 +985,7 @@ def main(argv: list[str] | None = None) -> int:
             work_dir=args.work_dir,
             mano=args.mano,
             mano_iters=args.mano_iters,
+            mano_model_dir=args.mano_model_dir,
             ffmpeg=args.ffmpeg,
             codec=args.codec,
         )
