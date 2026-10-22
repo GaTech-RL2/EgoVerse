@@ -6,6 +6,11 @@ commits them in batches (each batch tagged `<lab>-<UTC time>` on every table and
 in `changes`), and deletes their staged files. A delivery that fails validation gets
 REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
 Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
+A delivery's meta.json "provenance" is kept in its batch's `changes` row.
+
+`--lab annotations` commits annotation change files that `lance_annotations stage` put under
+`<staging>/annotations/<id>/`, one commit and tag each, oldest first; each is reviewed again
+against the tables as they are now and rejected like a bad delivery if it no longer applies.
 See egomimic/rldb/lance/commit.py for the table operations.
 
     python -m egomimic.scripts.lance_commit --staging s3://rldb/lance_staging \\
@@ -27,6 +32,7 @@ import pyarrow.parquet as pq
 from sqlalchemy import text
 
 from egomimic.rldb.lance import commit, mp4_ranges
+from egomimic.rldb.lance.annotations import read_changes, review
 from egomimic.rldb.lance.dataset import read_range
 from egomimic.rldb.lance.schema import task_instance_id
 from egomimic.utils.aws.aws_sql import (
@@ -36,6 +42,7 @@ from egomimic.utils.aws.aws_sql import (
 )
 
 REJECTED = "REJECTED.json"
+ANNOTATIONS = "annotations"
 
 
 def sql_rows(hashes: list[str]) -> pd.DataFrame:
@@ -236,6 +243,56 @@ def pending(staging: str, lab: str, replace: bool = False) -> list[tuple[str, st
     return out
 
 
+def _reject(staging: str, lab: str, vid: str, errs, digest: str, committed=False):
+    note = {
+        "errors": errs,
+        "digest": digest,
+        "committed": committed,
+        "rejected_at": time.time(),
+    }
+    commit.put_bytes(
+        json.dumps(note, indent=1).encode(), commit.join(staging, lab, vid, REJECTED)
+    )
+
+
+def _unstage(staging: str, lab: str, vid: str) -> None:
+    prefix = commit.join(staging, lab, vid)
+    commit.remove([commit.join(prefix, name) for name in commit.list_files(prefix)])
+
+
+def commit_staged_annotations(staging: str, lance_root: str, work_dir: Path) -> dict:
+    """Commit every pending staged annotation change, oldest first, one commit each."""
+    report = {"batches": [], "rejected": {}}
+    todo = []
+    for sid, digest in pending(staging, ANNOTATIONS):
+        prefix = commit.join(staging, ANNOTATIONS, sid)
+        meta = json.loads(commit.get_bytes(commit.join(prefix, "meta.json")))
+        todo.append((meta["staged_at"], sid, digest, meta))
+    for _, sid, digest, meta in sorted(todo):
+        local = work_dir / ANNOTATIONS / sid
+        commit.get_file(
+            commit.join(staging, ANNOTATIONS, sid, "changes.parquet"),
+            local / "changes.parquet",
+        )
+        rv = review(lance_root, read_changes(local / "changes.parquet"))
+        if rv.errors:
+            _reject(staging, ANNOTATIONS, sid, rv.errors, digest)
+            report["rejected"][sid] = rv.errors
+        else:
+            out = commit.commit_annotations(
+                lance_root,
+                rv.adds,
+                rv.deletes,
+                operator=meta["approver"],
+                provenance={k: meta[k] for k in ("approver", "source", "staged_at")},
+            )
+            if out:
+                report["batches"].append(out)
+            _unstage(staging, ANNOTATIONS, sid)
+        shutil.rmtree(local, ignore_errors=True)
+    return report
+
+
 def commit_staged(
     staging: str,
     lab: str,
@@ -247,6 +304,8 @@ def commit_staged(
 ) -> dict:
     """Commit every pending staged delivery of `lab`, `batch_size` at a time; returns
     {"batches": [commit_batch results], "rejected": {vendor id: errors}}."""
+    if lab == ANNOTATIONS:
+        return commit_staged_annotations(staging, lance_root, work_dir)
     report = {"batches": [], "rejected": {}}
     todo = pending(staging, lab, replace)
     have = commit.committed_ids(lance_root)
@@ -268,33 +327,29 @@ def commit_staged(
                 rejected[d.recording["vendor_recording_id"]] = [
                     "already committed; rerun with --replace to replace it"
                 ]
+        provenance = {}
+        for d in deliveries:
+            meta = local[d.recording["vendor_recording_id"]] / "meta.json"
+            p = json.loads(meta.read_text()).get("provenance")
+            if p is not None:
+                provenance[d.recording_id] = p
         result = commit.commit_batch(
-            lance_root, deliveries, lab, replace_committed=replace, operator=operator
+            lance_root,
+            deliveries,
+            lab,
+            replace_committed=replace,
+            operator=operator,
+            provenance=provenance or None,
         )
         if result:
             report["batches"].append(result)
             have |= set(result["added"])
+        skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
         for vid, errs in rejected.items():
-            note = {
-                "errors": errs,
-                "digest": batch[vid],
-                "committed": vid
-                in {d.recording["vendor_recording_id"] for d in skipped},
-                "rejected_at": time.time(),
-            }
-            commit.put_bytes(
-                json.dumps(note, indent=1).encode(),
-                commit.join(staging, lab, vid, REJECTED),
-            )
+            _reject(staging, lab, vid, errs, batch[vid], vid in skipped_ids)
         report["rejected"].update(rejected)
-        done = [d.recording["vendor_recording_id"] for d in deliveries]
-        commit.remove(
-            [
-                commit.join(staging, lab, vid, name)
-                for vid in done
-                for name in commit.list_files(commit.join(staging, lab, vid))
-            ]
-        )
+        for d in deliveries:
+            _unstage(staging, lab, d.recording["vendor_recording_id"])
         for path in local.values():
             shutil.rmtree(path, ignore_errors=True)
     return report
@@ -307,7 +362,7 @@ def main():
         required=True,
         help="staging root (s3:// or local); deliveries are under <staging>/<lab>/<vendor id>/",
     )
-    ap.add_argument("--lab", choices=sorted(LOADERS), required=True)
+    ap.add_argument("--lab", choices=sorted([*LOADERS, ANNOTATIONS]), required=True)
     ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
     ap.add_argument(
         "--work-dir",
