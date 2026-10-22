@@ -74,8 +74,14 @@ def frames_in_message(data: bytes, codec: str) -> int:
     import av
 
     parser = av.CodecContext.create("hevc" if codec == "h265" else "h264", "r")
-    with av.logging.Capture():  # lone P-frames log "non-existing PPS"
+    # A lone P-frame makes ffmpeg log "non-existing PPS"; Capture does not hold back
+    # PyAV's batched "repeated N more times" lines, so mute ffmpeg for the parse.
+    level = av.logging.get_level()
+    av.logging.set_level(av.logging.PANIC)
+    try:
         return len(parser.parse(data)) + len(parser.parse(None))
+    finally:
+        av.logging.set_level(level)
 
 
 # Topics allowed in annotation.mcap.
