@@ -320,7 +320,8 @@ The manifest reads metadata only. It:
   listing of `--s3-hashes` and, with `--check-sql`, the episode table. A clash
   moves the start by whole milliseconds, recorded as `hash_offset_ms`. The
   header records which checks ran; `collision_check_complete` is true only
-  with both `--s3-hashes` and `--check-sql`.
+  with `--check-sql` and an `--s3-hashes` listing that covers all of
+  `processed_v3/`.
 
 `existing_hashes_s3 --output s3_hashes.tsv` lists the `<hash>.zarr` stores
 under `processed_v3/` (read-only) for `--s3-hashes`. After conversion starts,
@@ -352,6 +353,66 @@ a TCP that disagrees, or matches the other arm better, makes the episode a
 SharpaDex episodes have no `obs_head_pose` (no measured head camera mount), so
 the Dexmate keymaps that read it cannot train on them yet. Keep them in their
 own `processed_v3` folder and filter training configs by `lab`.
+
+### Converting a whole release in chunks
+
+SharpaDex v1.0 is about 2.3 TB of input (v2.1 without `tactile_raw`) and 5.9 TB
+of output with `head_right`, more than a shared disk holds at once.
+`sharpadex_ingest` splits the kept episodes into chunks that fit a byte budget
+and takes each chunk through fetch, convert, verify, upload and clean. Every
+stage resumes, so a job that hits a time limit or is preempted is simply
+submitted again.
+
+```bash
+I="uv run python -m egomimic.scripts.sharpa_process.sharpadex_ingest --state-dir state/"
+# Once: chunks of at most 250 GB in + out. --sizes is the Hub listing at the
+# pinned revision (path,size); output per frame comes from a pilot's verify report.
+$I plan --manifest manifest.jsonl --sizes hf_files.csv --budget-gb 250 \
+  --out-bytes-per-frame 182500 --mp4-bytes-per-episode 2.6e6
+# Per chunk (a Slurm job: egomimic/scripts/sharpa_process/sharpadex_chunk.sbatch).
+$I fetch   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I convert --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I verify  --chunk chunk_0000 --work-root work/
+$I upload  --chunk chunk_0000 --work-root work/   # dry run: writes s5cmd batches
+$I clean   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I status
+```
+
+- `fetch` downloads only the chunk's parquet and video files at the pinned
+  revision, checks every size against the listing, and refuses to start when
+  the disk would fall below `--floor-gb` (default 300).
+- `convert` runs one converter process per `--cpus-per-worker` CPUs (default 4),
+  each pinned to its own CPUs, with `--recording-ids --skip-done`. It refuses a
+  node whose load exceeds its CPU count. Oversubscribed nodes convert tens of
+  times slower: a 404-frame episode took 12 s on a quiet node and 10 min on one
+  at load 109. `--shard i/n` lets n jobs split one chunk.
+- `fetch` and `convert` refuse a manifest whose `collision_check_complete` is
+  not true; `--allow-provisional-hashes` is for trial runs only.
+- `verify` passes when every episode has its sidecars, no validator errors, a
+  passed TCP check, `data_status: complete` (or only `--allow-reason` reasons)
+  and a name unique across all verified chunks.
+- `upload` writes two `s5cmd` batches: the arrays first, then each root
+  `zarr.json` and mp4, so staging never sees half an episode. It runs them only
+  with `--execute --licence-approved` and R2 credentials. Before relying on it,
+  check `s5cmd version` (2.x) and spot-check one uploaded episode's object count.
+- `clean` deletes only the files `fetch` downloaded, and outputs only after a
+  confirmed upload (or with `--discard-outputs`).
+- The ledger (`state/ledger.jsonl`, append-only) records every stage.
+
+Every chunk uploads to the same folder, `processed_v3/sharpa_dex/`. Register
+them all at the end with one `stage_processed_folder --folder sharpa_dex
+--no-ray`, then `merge_staging_to_episodes --staging-table
+app.staging_sharpa_dex --fail-on-conflict --license-from-attrs`, first as a dry
+run, then with `--apply`. `stage_processed_folder` restages the whole folder,
+so after a first merge `--fail-on-conflict` reports this release's own
+episodes. Never stage while an upload is running.
+
+Measured on the 115-episode pilot (one episode from each of 59 tasks; 8 workers
+× 4 CPUs): 0.036 worker-seconds per frame (about 28 frames/s per worker),
+182 KB of Zarr per frame plus a 2.6 MB mp4 per episode. Hub downloads ran at
+about 63 MB/s with 8 threads. For the 32.1M kept frames that is about 320
+worker-hours, roughly 6–7 h on 200 CPUs, plus about 10 h of downloads at that
+rate unless fetches overlap conversion.
 
 ## Verify
 
