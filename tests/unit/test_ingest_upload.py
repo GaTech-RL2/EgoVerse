@@ -87,7 +87,7 @@ def test_a_vendor_uploads_a_delivery_through_the_api(app, store, monkeypatch):
     assert code == 200 and out["files"] == {"annotation.mcap": 6, "episode.mcap": 10}
     d = store.get_delivery(A)
     assert d.complete and store.completion(A)["by"] == "acme-ops"
-    path = store.root / "deliveries/acme/episode_0001/episode.mcap"
+    path = store.root / "ingest-acme/episode_0001/episode.mcap"
     assert path.read_bytes() == b"0123456789"
     code, out = api("GET", "/api/deliveries/episode_0001")
     assert out["state"] == "queued" and out["uploads"] == []
@@ -271,7 +271,7 @@ def test_the_cli_uploads_a_folder_and_a_correction_replaces_it(
     assert out["files"] == {"annotation.mcap": 9, "episode.mcap": 768}
     d = store.get_delivery(A)
     assert d.complete
-    bucket = store.root / "deliveries/acme/episode_0001"
+    bucket = store.root / "ingest-acme/episode_0001"
     assert (bucket / "episode.mcap").read_bytes() == bytes(range(256)) * 3
 
     (folder / "annotation.mcap").unlink()  # the correction drops the labels
@@ -313,7 +313,7 @@ def test_the_cli_aborts_a_file_that_fails(app, store, tmp_path, monkeypatch):
     with pytest.raises(upload.UploadError, match="network down"):
         upload.upload_delivery(c, folder, "episode_0001", log=lambda *a, **k: 0)
     assert store.uploads_in_progress(A) == []  # aborted, nothing left behind
-    assert not (store.root / "deliveries/acme/episode_0001/_complete.json").exists()
+    assert not (store.root / "ingest-acme/episode_0001/_complete.json").exists()
 
 
 def test_the_cli_refuses_plain_http_to_a_remote_dashboard(capsys):
@@ -392,7 +392,7 @@ def test_a_file_bigger_than_declared_is_removed(app, store, monkeypatch):
     ]
     code, out = api("POST", f"{base}/finish", {**ref, "parts": etags})
     assert code == 422 and "removed" in out["error"]
-    assert not (store.root / "deliveries/acme/episode_0001/episode.mcap").exists()
+    assert not (store.root / "ingest-acme/episode_0001/episode.mcap").exists()
     assert store.uploads_in_progress(A) == []
 
 

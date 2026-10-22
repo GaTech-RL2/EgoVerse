@@ -9,8 +9,9 @@ over plain http when running on localhost, and EGOVERSE_DASHBOARD_PROXIES=<n> wh
 trusted proxies (the AWS load balancer) forward requests, so login throttling sees the
 client's address rather than the proxy's.
 
-The dashboard only reads and writes the bucket (accounts, statuses, later uploads and
-decisions); the watcher on SkyNet does the work.
+The dashboard only reads and writes the ingest buckets (accounts, statuses, uploads into
+each vendor's bucket, decisions); the watcher on the ingest box does the work
+(egomimic/ingest/aws/README.md).
 """
 
 from __future__ import annotations
