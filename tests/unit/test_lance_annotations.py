@@ -17,6 +17,8 @@ from egomimic.rldb.lance.dataset import (  # noqa: E402
     LanceStreamingResolver,
 )
 from egomimic.rldb.lance.schema import ANNOTATIONS, annotation_id  # noqa: E402
+from egomimic.scripts.lance_annotations import cmd_stage, stage  # noqa: E402
+from egomimic.scripts.lance_commit import REJECTED, commit_staged  # noqa: E402
 
 KEY_MAP = {
     "left.action_ee_pose": {
@@ -338,3 +340,88 @@ def test_commit_annotations_records_and_tags_the_change(annotated):
     ds = lance.dataset(str(root / "annotations.lance"))
     assert ds.tags.list()[out["tag"]]["version"] == ds.version
     assert commit.commit_annotations(root, rv.adds.slice(0, 0), []) is None
+
+
+@pytest.fixture
+def staged(annotated, tmp_path_factory):
+    root, recs = annotated
+    base = tmp_path_factory.mktemp("committer")
+
+    def put(rows, name="change.parquet"):
+        f = base / name
+        pq.write_table(_changes(rows), f)
+        return stage(f, base / "staging", "me")
+
+    def run():
+        return commit_staged(
+            str(base / "staging"), "annotations", str(root), base / "work"
+        )
+
+    return root, recs, base / "staging", put, run
+
+
+def test_staged_annotations_commit_through_the_committer(staged):
+    root, recs, staging, put, run = staged
+    rid = recs[1][0]
+    first = put([_add(rid, 0, PERIOD_NS, text="new")])
+    assert put([_add(rid, 0, PERIOD_NS, text="new")]) == first
+    report = run()
+    (batch,) = report["batches"]
+    assert batch["tag"].startswith("annotations-") and batch["added"] == [rid]
+    (row,) = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
+    prov = json.loads(row["provenance"])
+    assert (row["operator"], prov["approver"], prov["source"]) == (
+        "me",
+        "me",
+        "change.parquet",
+    )
+    assert commit.list_files(staging / "annotations") == {}
+    assert run() == {"batches": [], "rejected": {}}
+
+
+def test_a_staged_change_that_no_longer_applies_is_rejected_until_restaged(staged):
+    root, recs, staging, put, run = staged
+    old = _rows(recs)[0]
+    put([_change("delete", annotation_id=old["annotation_id"])], "a.parquet")
+    second = put(
+        [
+            _change("delete", annotation_id=old["annotation_id"]),
+            _add(recs[1][0], 0, PERIOD_NS, text="late"),
+        ],
+        "b.parquet",
+    )
+    report = run()
+    assert [b["rows"] for b in report["batches"]] == [{"added": 0, "deleted": 1}]
+    (sid,) = report["rejected"]
+    assert second.endswith(sid) and "delete of" in report["rejected"][sid][0]
+    assert (staging / "annotations" / sid / REJECTED).exists()
+    assert run() == {"batches": [], "rejected": {}}
+
+
+def test_stage_refuses_a_change_file_with_errors(annotated, tmp_path_factory):
+    root, recs = annotated
+    base = tmp_path_factory.mktemp("bad")
+    f = base / "bad.parquet"
+    pq.write_table(_changes([_add("no-such-recording", 0, PERIOD_NS)]), f)
+    args = argparse.Namespace(
+        lance=root, file=f, staging=base / "staging", approver="me"
+    )
+    with pytest.raises(SystemExit, match="not staged"):
+        cmd_stage(args)
+    assert not (base / "staging").exists()
+
+
+def test_a_changes_table_from_before_provenance_gains_the_column(annotated):
+    root, recs = annotated
+    old = commit.CHANGES.remove(commit.CHANGES.get_field_index("provenance"))
+    lance.write_dataset(
+        pa.Table.from_pylist(
+            [dict(tag="t0", lab="eva", operator="x", added=[], replaced=[])],
+            schema=old,
+        ),
+        str(root / "changes.lance"),
+    )
+    rv = review(root, _changes([_add(recs[1][0], 0, PERIOD_NS, text="new")]))
+    commit.commit_annotations(root, rv.adds, rv.deletes, provenance={"approver": "me"})
+    rows = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
+    assert [r["provenance"] for r in rows] == [None, '{"approver": "me"}']

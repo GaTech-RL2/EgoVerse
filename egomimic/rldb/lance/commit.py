@@ -13,6 +13,7 @@ environment (dataset.storage_options).
 import datetime
 import getpass
 import hashlib
+import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -342,6 +343,9 @@ def _ensure_tables(root) -> None:
     ):
         if not _exists(uri):
             _append(uri, schema.empty_table())
+    changes = _open(changes_uri(root))
+    if "provenance" not in changes.schema.names:
+        changes.add_columns({"provenance": "CAST(NULL AS STRING)"})
 
 
 def apply_annotations(root, adds: pa.Table, deletes: list[str]) -> dict[str, int]:
@@ -364,7 +368,11 @@ def apply_annotations(root, adds: pa.Table, deletes: list[str]) -> dict[str, int
 
 
 def commit_annotations(
-    root, adds: pa.Table, deletes: list[str], operator: str | None = None
+    root,
+    adds: pa.Table,
+    deletes: list[str],
+    operator: str | None = None,
+    provenance: dict | None = None,
 ) -> dict | None:
     """`apply_annotations`, recorded in `changes` under source "annotations" (added: recordings
     gaining rows, replaced: recordings losing rows) and tagged. None when nothing changed."""
@@ -380,7 +388,10 @@ def commit_annotations(
     if not any(counts.values()):
         return None
     added = sorted(set(adds.column("recording_id").to_pylist()))
-    return {"rows": counts, **_record(root, "annotations", added, gone, operator)}
+    return {
+        "rows": counts,
+        **_record(root, "annotations", added, gone, operator, provenance),
+    }
 
 
 def drop_task_annotations(root) -> None:
@@ -417,6 +428,7 @@ def commit_batch(
     source: str,
     replace_committed: bool = False,
     operator: str | None = None,
+    provenance: dict | None = None,
 ) -> dict | None:
     """Append new recordings (and replace committed ones when asked), record the batch
     in `changes` and tag every table `<source>-<UTC time to the ms>`. `source` names the
@@ -432,11 +444,17 @@ def commit_batch(
         return None
     done = set(added) | set(replaced)
     steps = {steps_path(*d.steps_key) for d in deliveries if d.recording_id in done}
-    return _record(root, source, added, replaced, operator, sorted(steps))
+    return _record(root, source, added, replaced, operator, provenance, sorted(steps))
 
 
 def _record(
-    root, source: str, added: list, replaced: list, operator, steps_tables=()
+    root,
+    source: str,
+    added: list,
+    replaced: list,
+    operator,
+    provenance=None,
+    steps_tables=(),
 ) -> dict:
     now = datetime.datetime.now(datetime.timezone.utc)
     name = f"{source}-{now:%Y%m%dT%H%M%S.%f}"[:-3]
@@ -448,7 +466,11 @@ def _record(
         operator=operator or getpass.getuser(),
         added=added,
         replaced=replaced,
+        provenance=None
+        if provenance is None
+        else json.dumps(provenance, sort_keys=True),
     )
+    _ensure_tables(root)
     _append(changes_uri(root), pa.Table.from_pylist([row], schema=CHANGES))
     return {
         "tag": name,
