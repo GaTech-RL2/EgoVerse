@@ -4,7 +4,7 @@
     EGOVERSE_TEST_ARIA_LANCE_DIR=<dir of aria_to_lance deliveries, one per vendor id>  # optional
     pytest --integration tests/integration/test_mcap_to_lance_aria.py
 
-Every episode converts and commits. Where aria_to_lance output for the same recording is
+Every episode converts, stages and commits. Where aria_to_lance output for the same recording is
 given (run with --no-mano, as here), steps rows line up one to one on the same clock, and
 the head pose matches wherever both picked the same pose sample: aria_to_lance uses
 projectaria's search, which lands one sample off on about half the frames, while this
@@ -22,7 +22,8 @@ import pytest
 lance = pytest.importorskip("lance")
 pq = pytest.importorskip("pyarrow.parquet")
 
-from egomimic.scripts.mcap_process.mcap_to_lance import convert_and_commit  # noqa: E402
+from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
+from egomimic.scripts.mcap_process.mcap_to_lance import convert_and_stage  # noqa: E402
 
 
 def _codec() -> str:
@@ -44,8 +45,13 @@ def test_real_episodes_convert_and_match_aria_to_lance(tmp_path):
     ryan_root = os.environ.get("EGOVERSE_TEST_ARIA_LANCE_DIR")
     codec = _codec()
     for ep in eps:
-        r = convert_and_commit(ep, tmp_path / "lance", codec=codec, mano=False)
-        assert r.status == "committed", r
+        r = convert_and_stage(
+            ep, tmp_path / "staging", tmp_path / "lance", codec=codec, mano=False
+        )
+        assert r.status == "staged", r
+        commit_staged(
+            str(tmp_path / "staging"), r.lab, str(tmp_path / "lance"), tmp_path / "work"
+        )
         assert r.valid_frac["head"] > 0.9, r
         if not ryan_root:
             continue
