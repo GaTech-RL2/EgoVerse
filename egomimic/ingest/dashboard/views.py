@@ -12,16 +12,15 @@ from egomimic.ingest.store import Listed, Ref, Store
 STATES = {
     "uploading": "Upload in progress",
     "queued": "Waiting to be checked",
-    "processing": "Checking and converting",
+    "converting": "Checking and converting",
     "rejected": "Rejected: fix the problems and upload again",
     "unsupported": "Not a format we accept",
     "failed": "Failed on our side; we are looking into it",
     "ready": "Converted; waiting for EgoVerse review",
     "approved": "Approved; added to the dataset at the next pass",
-    "committing": "Approved; being added to the dataset",
     "committed": "In the dataset",
+    "commit_rejected": "Approved, but not added yet; EgoVerse is looking into it",
     "declined": "Declined by EgoVerse",
-    "stale": "Being converted again",
 }
 
 

@@ -238,17 +238,31 @@ def test_upload_convert_approve_commit(app, store, tmp_path):
     lance = pytest.importorskip("lance")
     from fixtures.mcap_episodes import write_mcap_episode
 
+    from egomimic.ingest.launch import LocalLauncher
+    from egomimic.ingest.run import commit_round
     from egomimic.ingest.watch import run_pass
 
-    settings = dict(codec="libx264", mano=False)
     root, work = tmp_path / "lance", tmp_path / "work"
+    staging = str(tmp_path / "lance_staging")
+    launcher = LocalLauncher(
+        store, str(root), tmp_path / "jobs", codec="libx264", mano=False
+    )
+
+    def watch():
+        return run_pass(
+            store, launcher, work, raw_root=str(tmp_path / "raw"),
+            lance_staging=staging, revision="r1",
+        )  # fmt: skip
+
     store.upload_delivery(A, write_mcap_episode(tmp_path / "ep"), {"by": "acme-ops"})
-    assert run_pass(store, root, work, **settings).staged == ["acme/episode_0001"]
+    assert watch().staged == ["acme/episode_0001"]
     c = login(app, "simar")
     page = c.get("/d/acme/episode_0001").get_data(as_text=True)
     stage = re.search(r'name="stage" value="([0-9a-f]{64})"', page).group(1)
     decide(c, A, "approve", stage=stage)
-    assert run_pass(store, root, work, **settings).committed == ["acme/episode_0001"]
+    assert watch().approved == ["acme/episode_0001"]
+    commit_round(staging, str(root), work)
+    assert watch().committed == ["acme/episode_0001"]
     assert lance.dataset(root / "recordings.lance").count_rows() == 1
     page = login(app, "acme-ops").get("/d/acme/episode_0001").get_data(as_text=True)
     assert "In the dataset" in page

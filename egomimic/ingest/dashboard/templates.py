@@ -29,8 +29,8 @@ th { color: var(--muted); font-weight: 500; }
 .state { white-space: nowrap; font-weight: 500; }
 .state.committed, .state.ready, .state.approved { color: var(--ok); }
 .state.rejected, .state.failed, .state.unsupported, .state.declined { color: var(--bad); }
-.state.uploading, .state.queued, .state.processing, .state.committing,
-.state.stale { color: var(--warn); }
+.state.uploading, .state.queued, .state.converting,
+.state.commit_rejected { color: var(--warn); }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
   padding: 12px 16px; }
 ul.problems { margin: 0; padding-left: 20px; }
