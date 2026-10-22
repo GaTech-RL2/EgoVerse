@@ -1,10 +1,11 @@
-"""What a delivery is, decided from its files, and how to prepare and commit it.
+"""What a delivery is, decided from its files, and how to prepare it.
 
 Deliveries land under deliveries/<vendor>/<delivery_id>/ without declaring a format. A
 format recognizes its deliveries by file names, says which files it accepts, and supplies
-the prepare / commit pair (egomimic/ingest/stage.py shape). The watcher calls
-prepare_delivery and commit_delivery and never needs to know which format it is
-handling; a delivery no format recognizes is `unsupported`, not guessed at.
+its prepare (egomimic/ingest/stage.py shape), which turns a delivery into a staged
+delivery the committer (egomimic.scripts.lance_commit) can take as it is. The conversion
+job calls prepare_delivery and never needs to know which format it is handling; a
+delivery no format recognizes is `unsupported`, not guessed at.
 
     mcap   episode.mcap (+ optional annotation.mcap): vendor MCAP spec 0.1
 """
@@ -28,7 +29,6 @@ class Format:
     prepare: Callable[
         ..., Prepared
     ]  # (delivery, staged, lance_root, *, fingerprint, ...)
-    commit: Callable[..., dict]  # (staged, lance_root, *, approved_stage, fingerprint)
 
     def matches(self, names: set[str]) -> bool:
         return self.required <= names
@@ -62,7 +62,6 @@ def _mcap() -> Format:
         optional=frozenset({spec.ANNOTATION_FILE}),
         max_file_bytes=200 * 1024**3,  # a long multi-camera recording
         prepare=stage.prepare,
-        commit=stage.commit_staged,
     )
 
 
@@ -129,20 +128,4 @@ def prepare_delivery(
         return Prepared("rejected", problems=problems)
     return fmt.prepare(
         delivery, staged, lance_root, fingerprint=fingerprint, **settings
-    )
-
-
-def commit_delivery(
-    staged: Path,
-    lance_root: Path,
-    *,
-    approved_stage: str,
-    fingerprint: str | None = None,
-) -> dict:
-    """Commit an approved staged result with the format that staged it (its pin)."""
-    from egomimic.ingest.stage import read_pin
-
-    fmt = by_name(read_pin(staged)["format"])
-    return fmt.commit(
-        staged, lance_root, approved_stage=approved_stage, fingerprint=fingerprint
     )

@@ -1,24 +1,23 @@
-"""One pass of the ingestion loop: stage new deliveries, commit approved ones.
+"""One pass of the ingestion loop: convert new deliveries, hand approved ones to the committer.
 
-    python -m egomimic.ingest.watch --lance <root> --work <dir> [--bucket rldb | --local-store <dir>]
+Each pass:
 
-Each pass, idempotent and safe to repeat (a Slurm job runs it every few minutes):
+1. Collect conversion outcomes: a delivery whose job recorded one becomes `ready` (staged,
+   for review), `rejected` or `failed`; a job that ended without one fails it.
+2. Submit conversions for every complete delivery that is new or re-uploaded, after the
+   checks a listing allows (format, file sizes): at most `max_in_flight` running at once,
+   and while a vendor has nothing approved at the current converter revision, only
+   `canary` of its deliveries at a time (the rest wait as `queued`).
+3. Act on staff decisions given for a delivery's current stage: decline drops the stage;
+   approve hands it off. The raw files go to <raw_root>/<vendor>/<delivery>/<stage>/ and
+   the staged delivery to <lance_staging>/<lab>/<vendor recording id>/ (meta.json last,
+   carrying the provenance), both copied server-side; then the delivery and its stage
+   are deleted from the ingest buckets.
+4. Follow handed-off deliveries: `committed` once the committer took them, or
+   `commit_rejected` with its errors (e.g. the recording is already committed, which
+   needs lance_commit --replace).
 
-1. Stage every complete delivery that is new, re-uploaded (its fingerprint moved) or
-   whose last stage went stale: check sizes from the listing, download and verify the
-   snapshot, prepare it with its format, upload the staged result to the bucket under
-   its digest, and record the outcome in its status (what vendors and staff see).
-2. Act on staff decisions given for a delivery's current stage: approve -> download the
-   stage, verify it against the approved digest and commit it (this pass is the only
-   Lance writer); decline -> drop the stage. Decisions for an older stage are ignored.
-3. Optionally tag every table's version after commits.
-
-A delivery that fails is recorded and the pass moves on. Before committing, the
-delivery is read fresh from the bucket and must still be complete with the fingerprint
-its stage was made from (staging other deliveries can take long enough for a vendor to
-start a correction). Locks on the work folder and on the Lance root keep two passes from
-overlapping, or from writing one Lance root through different work folders; watchers on
-different machines writing one Lance root are not covered (run exactly one).
+egomimic.ingest.run runs a pass and then the committer every few minutes.
 """
 
 from __future__ import annotations
@@ -26,7 +25,6 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
-import shutil
 import sys
 import traceback
 from contextlib import contextmanager
@@ -34,18 +32,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from egomimic.ingest import formats
-from egomimic.ingest.stage import StaleStage, read_pin, stage_digest
-from egomimic.ingest.store import (
-    DeliveryChanged,
-    Listed,
-    LocalStore,
-    R2Store,
-    Ref,
-    Store,
-    now,
-)
+from egomimic.ingest.launch import ENDED, Launcher
+from egomimic.ingest.stage import META, STAGE, StageCorrupt, verify
+from egomimic.ingest.store import Listed, Ref, Store, now
 
 HISTORY = 20  # state changes kept in each status record
+WAITING = ("converting", "ready")  # count against a vendor's canary
+APPROVED = ("approved", "committed")
 
 
 class Busy(Exception):
@@ -66,23 +59,17 @@ def _flock(path: Path):
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-@contextmanager
-def _lock(work: Path, lance_root: Path):
-    """The work folder and the Lance root: one pass per folder, one writer per root."""
-    with _flock(Path(work) / ".watch.lock"), _flock(Path(lance_root) / ".ingest.lock"):
-        yield
-
-
 @dataclass
 class Summary:
+    submitted: list[str] = field(default_factory=list)
+    queued: list[str] = field(default_factory=list)  # held back by the caps
     staged: list[str] = field(default_factory=list)
     rejected: list[str] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)
-    committed: list[str] = field(default_factory=list)
     declined: list[str] = field(default_factory=list)
-    stale: list[str] = field(default_factory=list)
-    skipped: list[str] = field(default_factory=list)  # changed mid-download: next pass
-    tag: dict | None = None
+    approved: list[str] = field(default_factory=list)
+    committed: list[str] = field(default_factory=list)
+    commit_rejected: list[str] = field(default_factory=list)
 
 
 def _key(ref: Ref) -> str:
@@ -99,115 +86,131 @@ def _set(store: Store, ref: Ref, old: dict | None, **fields) -> dict:
     return status
 
 
-# ---------------------------------------------------------------- staging
+def _drop_stage(store: Store, ref: Ref, digest: str) -> None:
+    if digest and store.has_staged(ref, digest):
+        store.delete_staged(ref, digest)
 
 
-def _needs_staging(d: Listed, status: dict | None) -> bool:
+# ---------------------------------------------------------------- conversion
+
+
+def _needs_conversion(d: Listed, status: dict | None) -> bool:
     if not d.complete:
         return False
-    if status is None or status.get("fingerprint") != d.fingerprint:
+    if status is None or status.get("state") == "queued":
         return True
-    # "processing" while this pass holds the lock means an earlier pass was killed
-    # (timeout, preemption) mid-staging: start it again.
-    return status.get("state") in ("stale", "processing")
+    return status.get("fingerprint") != d.fingerprint
 
 
-def _drop_superseded(store: Store, ref: Ref, old_stage: str) -> None:
-    """A delivery's previous stage, once a new outcome replaced it: delete it."""
-    new = (store.get_status(ref) or {}).get("stage", "")
-    if old_stage and old_stage != new and store.has_staged(ref, old_stage):
-        store.delete_staged(ref, old_stage)
+FRESH = {
+    "problems": [],
+    "error": "",
+    "stage": "",
+    "diff": {},
+    "report": {},
+    "recording_id": "",
+    "provenance": {},
+}
 
 
-def _stage(
-    store: Store, d: Listed, status: dict | None, lance_root, work, settings, summary
-):
-    ref = d.ref
-    name = _key(ref)
-    names = set(d.files)
-    fresh = {
-        "fingerprint": d.fingerprint,
-        "problems": [],
-        "error": "",
-        "stage": "",
-        "diff": {},
-        "report": {},
-        "format": "",
-        "recording_id": "",
-        "provenance": {},
-    }
-    old_stage = (status or {}).get("stage", "")
+def _precheck(d: Listed) -> tuple[str, dict] | None:
+    """A refusal the listing alone decides (no format, ambiguous, oversized), or None."""
     try:
-        fmt = formats.detect(names)
+        fmt = formats.detect(d.files)
     except formats.AmbiguousFormat as e:
-        _set(store, ref, status, state="failed", **{**fresh, "error": str(e)})
-        summary.failed.append(name)
-        _drop_superseded(store, ref, old_stage)
-        return
-    if fmt is not None:
-        too_big = fmt.oversize({n: size for n, (size, _) in d.files.items()})
-        if too_big:  # refuse before downloading hundreds of GB
-            _set(
-                store,
-                ref,
-                status,
-                state="rejected",
-                **{**fresh, "format": fmt.name, "problems": too_big},
-            )
-            summary.rejected.append(name)
-            _drop_superseded(store, ref, old_stage)
-            return
-    status = _set(store, ref, status, state="processing", **fresh)
-    local = work / "deliveries" / ref.vendor / ref.delivery_id
-    staged = work / "staged" / ref.vendor / ref.delivery_id
-    try:
-        try:
-            store.download(d, local)
-        except DeliveryChanged:
-            # Re-uploaded while we looked: try again next pass.
-            _set(store, ref, status, state="queued", fingerprint="")
-            summary.skipped.append(name)
-            return
-        p = formats.prepare_delivery(
-            local, staged, lance_root, fingerprint=d.fingerprint, **settings
+        return "failed", {"error": str(e)}
+    if fmt is None:
+        known = "; ".join(
+            f"{f.name}: {', '.join(sorted(f.required))}" for f in formats.formats()
         )
-        fields = {
-            "format": fmt.name if fmt else "",
-            "recording_id": p.recording_id,
-            "problems": p.problems,
-            "error": p.error,
-            "report": p.report,
-            "diff": p.diff,
+        return "unsupported", {
+            "problems": [f"no known format has files {sorted(d.files)} ({known})"]
         }
-        if p.status == "staged":
-            digest = stage_digest(p.staged)
-            store.put_staged(ref, digest, p.staged)
-            # Which code and settings made it, kept after the stage is deleted on commit.
-            pin = read_pin(p.staged)
-            fields["provenance"] = {
-                k: pin.get(k) for k in ("converter", "settings", "content_digest")
-            }
-            _set(store, ref, status, state="ready", stage=digest, **fields)
-            summary.staged.append(name)
-        else:
-            _set(store, ref, status, state=p.status, **fields)
-            (summary.failed if p.status == "failed" else summary.rejected).append(name)
-    except Exception as e:  # never let one delivery stop the pass
-        _set(
-            store, ref, status, state="failed",
-            error=f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=5)}",
-        )  # fmt: skip
-        summary.failed.append(name)
-    finally:
-        shutil.rmtree(local, ignore_errors=True)
-        shutil.rmtree(staged, ignore_errors=True)
-        _drop_superseded(store, ref, old_stage)
+    problems = fmt.oversize({n: size for n, (size, _) in d.files.items()})
+    extra = fmt.unexpected(set(d.files))
+    if extra:
+        problems.insert(0, f"{fmt.name} deliveries hold only {sorted(fmt.allowed)}")
+    return (
+        ("rejected", {"problems": problems, "format": fmt.name}) if problems else None
+    )
 
 
-# ---------------------------------------------------------------- decisions
+def _collect(store: Store, launcher: Launcher, ref: Ref, status: dict, summary):
+    out = store.get_job(ref, status["fingerprint"])
+    name = _key(ref)
+    if out is None:
+        if launcher.state(status.get("job", "")) == ENDED:
+            _set(
+                store, ref, status, state="failed",
+                error="the conversion job ended without an outcome "
+                "(killed, out of memory, or interrupted past its retries)",
+            )  # fmt: skip
+            summary.failed.append(name)
+        return
+    if out["status"] == "superseded":  # re-uploaded meanwhile: convert the new one
+        _set(store, ref, status, state="queued", fingerprint="")
+        return
+    fields = {k: out.get(k, FRESH.get(k)) for k in FRESH}
+    if out["status"] == "staged":
+        fields |= {k: out[k] for k in ("lab", "vendor_recording_id")}
+        _set(store, ref, status, state="ready", **fields)
+        summary.staged.append(name)
+    else:
+        _set(store, ref, status, state=out["status"], **fields)
+        (summary.failed if out["status"] == "failed" else summary.rejected).append(name)
+    _drop_stage(store, ref, status.get("previous_stage", ""))
 
 
-def _decide(store: Store, ref: Ref, status: dict, lance_root, work, summary):
+def _canary_room(statuses: dict, vendor: str, revision: str, canary: int) -> int | None:
+    """How many more of `vendor`'s deliveries may convert at `revision`: None (no limit)
+    once one was approved at it, else what is left of the canary."""
+    mine = [
+        s
+        for r, s in statuses.items()
+        if r.vendor == vendor and s.get("revision") == revision
+    ]
+    if any(s.get("state") in APPROVED for s in mine):
+        return None
+    return max(0, canary - sum(s.get("state") in WAITING for s in mine))
+
+
+# ---------------------------------------------------------------- hand-off
+
+
+def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> str:
+    """Copy an approved stage and its raw delivery out of the ingest buckets; returns
+    where the committer will find it."""
+    import hashlib
+
+    from egomimic.rldb.lance import commit
+
+    digest = status["stage"]
+    pin_bytes = store.get_staged_file(ref, digest, STAGE)
+    if pin_bytes is None or hashlib.sha256(pin_bytes).hexdigest() != digest:
+        raise StageCorrupt(f"stored stage {digest} does not hash to its own digest")
+    pin = json.loads(pin_bytes)
+    verify(pin, store.staged_files(ref, digest))
+    current = store.get_delivery(ref)
+    raw = commit.join(raw_root, ref.vendor, ref.delivery_id, digest)
+    for name in current.files:
+        store.copy_out(ref.file_key(name), commit.join(raw, name))
+    dst = commit.join(lance_staging, pin["lab"], pin["vendor_recording_id"])
+    for name in pin["files"]:
+        if name != META:
+            store.copy_out(ref.staged_prefix(digest) + name, commit.join(dst, name))
+    meta = json.loads(store.get_staged_file(ref, digest, META))
+    meta["provenance"] = {
+        **meta.get("provenance", {}),
+        "stage": digest,
+        "raw": raw,
+        "vendor": ref.vendor,
+        "delivery_id": ref.delivery_id,
+    }
+    commit.put_bytes(json.dumps(meta, indent=1).encode(), commit.join(dst, META))
+    return dst
+
+
+def _decide(store: Store, ref: Ref, status: dict, raw_root, lance_staging, summary):
     stage = status.get("stage", "")
     decisions = [x for x in store.decisions(ref) if x.get("stage") == stage]
     if not stage or not decisions:
@@ -215,46 +218,49 @@ def _decide(store: Store, ref: Ref, status: dict, lance_root, work, summary):
     last = decisions[-1]
     name = _key(ref)
     if last["decision"] == "decline":
-        store.delete_staged(ref, stage)
+        _drop_stage(store, ref, stage)
         _set(store, ref, status, state="declined", decision=last)
         summary.declined.append(name)
         return
-    # Read the delivery fresh: it may have been re-uploaded, or a correction started
-    # (which clears completion), while this pass staged other deliveries.
+    # Read the delivery fresh: it may have been re-uploaded, or a correction started,
+    # since it was staged. The next pass converts the new version for review.
     current = store.get_delivery(ref)
     if (
         current is None
         or not current.complete
         or current.fingerprint != status.get("fingerprint")
     ):
-        return  # the next pass stages the new version for review
-    local = work / "commit" / ref.vendor / ref.delivery_id
+        return
     try:
-        status = _set(store, ref, status, state="committing", decision=last)
-        store.get_staged(ref, stage, local)
-        if stage_digest(local) != stage:
-            raise StaleStage(f"stored stage {stage} does not hash to its own digest")
-        out = formats.commit_delivery(
-            local,
-            lance_root,
-            approved_stage=stage,
-            fingerprint=current.fingerprint,
-        )
-        _set(store, ref, status, state="committed", committed=out)
-        store.delete_staged(ref, stage)
-        summary.committed.append(name)
-    except StaleStage as e:
-        # Lance or the delivery moved on since the review: re-stage and re-review.
-        _set(store, ref, status, state="stale", error=str(e))
-        summary.stale.append(name)
-    except Exception as e:
+        dst = _hand_off(store, ref, status, raw_root, lance_staging)
+    except Exception as e:  # stays ready and approved: retried next pass
         _set(
-            store, ref, status, state="ready",  # stays approved; retried next pass
-            error=f"commit failed: {type(e).__name__}: {e}",
+            store, ref, status,
+            error=f"hand-off failed: {type(e).__name__}: {e}\n"
+            f"{traceback.format_exc(limit=3)}",
         )  # fmt: skip
         summary.failed.append(name)
-    finally:
-        shutil.rmtree(local, ignore_errors=True)
+        return
+    store.delete_delivery(ref)
+    _drop_stage(store, ref, stage)
+    store.delete_jobs(ref)
+    _set(store, ref, status, state="approved", decision=last, handed_off=dst, error="")
+    summary.approved.append(name)
+
+
+def _follow(store: Store, ref: Ref, status: dict, summary) -> None:
+    from egomimic.rldb.lance import commit
+    from egomimic.scripts.lance_commit import REJECTED
+
+    dst = status["handed_off"]
+    files = commit.list_files(dst)
+    if REJECTED in files:
+        note = json.loads(commit.get_bytes(commit.join(dst, REJECTED)))
+        _set(store, ref, status, state="commit_rejected", problems=note["errors"])
+        summary.commit_rejected.append(_key(ref))
+    elif not files:  # the committer removes what it committed
+        _set(store, ref, status, state="committed")
+        summary.committed.append(_key(ref))
 
 
 # ---------------------------------------------------------------- pass
@@ -262,54 +268,80 @@ def _decide(store: Store, ref: Ref, status: dict, lance_root, work, summary):
 
 def run_pass(
     store: Store,
-    lance_root: Path,
+    launcher: Launcher,
     work: Path,
     *,
-    tag: str | None = None,
-    **settings,
+    raw_root,
+    lance_staging,
+    revision: str,
+    max_in_flight: int = 56,
+    canary: int = 3,
 ) -> Summary:
-    """One pass over the bucket. `settings` go to the format's prepare (e.g. codec,
-    mano). Raises Busy if another pass is running."""
-    lance_root, work = Path(lance_root), Path(work)
+    """One pass over the ingest buckets. Raises Busy if another pass is running."""
     summary = Summary()
-    with _lock(work, lance_root):
-        listed = {d.ref: d for d in store.list_deliveries()}
-        statuses = store.statuses()
-        for ref, d in listed.items():
-            if _needs_staging(d, statuses.get(ref)):
-                _stage(store, d, statuses.get(ref), lance_root, work, settings, summary)
-        statuses = store.statuses()  # what staging just wrote
-        for ref, status in sorted(statuses.items()):
-            # "committing" under the lock: an earlier pass was killed mid-commit. Its
-            # approved stage is still in the bucket and the commit resumes (stage
-            # commit_staged finishes a partial multi-table write).
-            if status.get("state") in ("ready", "committing"):
-                _decide(store, ref, status, lance_root, work, summary)
-        if tag and summary.committed:
-            from egomimic.rldb.lance import commit
+    with _flock(Path(work) / ".watch.lock"):
 
-            summary.tag = commit.tag(
-                lance_root, tag, lab=_lab_of(store, summary.committed)
-            )
+        def collect():
+            for ref, status in sorted(store.statuses().items()):
+                if status.get("state") == "converting":
+                    _collect(store, launcher, ref, status, summary)
+
+        collect()
+        statuses = store.statuses()
+        in_flight = sum(s.get("state") == "converting" for s in statuses.values())
+        for d in store.list_deliveries():
+            ref, status = d.ref, statuses.get(d.ref)
+            if not _needs_conversion(d, status):
+                continue
+            refused = _precheck(d)
+            if refused:
+                state, fields = refused
+                statuses[ref] = _set(
+                    store, ref, status, state=state, fingerprint=d.fingerprint,
+                    **{**FRESH, **fields},
+                )  # fmt: skip
+                (summary.failed if state == "failed" else summary.rejected).append(
+                    _key(ref)
+                )
+                _drop_stage(store, ref, (status or {}).get("stage", ""))
+                continue
+            room = _canary_room(statuses, ref.vendor, revision, canary)
+            if in_flight >= max_in_flight or room == 0:
+                if (status or {}).get("state") != "queued":
+                    statuses[ref] = _set(
+                        store, ref, status, state="queued", fingerprint="", **FRESH
+                    )
+                summary.queued.append(_key(ref))
+                continue
+            try:
+                job = launcher.submit(ref, d.fingerprint)
+            except Exception as e:
+                statuses[ref] = _set(
+                    store, ref, status, state="queued", fingerprint="",
+                    error=f"submit failed: {type(e).__name__}: {e}",
+                )  # fmt: skip
+                summary.queued.append(_key(ref))
+                continue
+            statuses[ref] = _set(
+                store, ref, status, state="converting", fingerprint=d.fingerprint,
+                job=job, revision=revision,
+                previous_stage=(status or {}).get("stage", ""), **FRESH,
+            )  # fmt: skip
+            in_flight += 1
+            summary.submitted.append(_key(ref))
+        collect()  # jobs that ran in-process are already done
+        for ref, status in sorted(store.statuses().items()):
+            if status.get("state") == "ready":
+                _decide(store, ref, status, raw_root, lance_staging, summary)
+        for ref, status in sorted(store.statuses().items()):
+            if status.get("state") == "approved":
+                _follow(store, ref, status, summary)
     return summary
 
 
-def _lab_of(store: Store, committed: list[str]) -> str:
-    labs = set()
-    for name in committed:
-        status = store.get_status(Ref(*name.split("/", 1))) or {}
-        versions = (status.get("committed") or {}).get("versions", {})
-        labs |= {Path(k).stem for k in versions if k.startswith("steps/")}
-    if len(labs) != 1:
-        raise ValueError(
-            f"--tag covers one steps table; this pass committed {sorted(labs)}"
-        )
-    return labs.pop()
-
-
 def mano_problem(model_dir: str | None = None) -> str | None:
-    """Why the MANO fit cannot run here, or None. Checked before a pass, so a missing
-    package or model file stops the job instead of failing every Aria delivery."""
+    """Why the MANO fit cannot run here, or None. Checked before converting, so a
+    missing package or model file stops the job instead of failing every delivery."""
     try:
         import mano  # noqa: F401  (optional, license-gated: not in the lockfile)
 
@@ -326,36 +358,69 @@ def mano_problem(model_dir: str | None = None) -> str | None:
     return None
 
 
+def add_pass_args(ap: argparse.ArgumentParser) -> None:
+    from egomimic.ingest.convert_job import add_convert_args, add_store_args
+
+    ap.add_argument("--lance", required=True, help="Lance root (read by the jobs)")
+    ap.add_argument("--work", type=Path, required=True, help="local scratch")
+    ap.add_argument("--raw-root", default="s3://rldb/raw_v2")
+    ap.add_argument("--lance-staging", default="s3://rldb/lance_staging")
+    ap.add_argument("--launcher", choices=("local", "batch"), default="batch")
+    ap.add_argument("--batch-queue", default="egoverse-convert")
+    ap.add_argument("--batch-definition", default="egoverse-convert")
+    ap.add_argument("--job-work", default="/scratch", help="the job's local scratch")
+    ap.add_argument("--max-in-flight", type=int, default=56)
+    ap.add_argument("--canary", type=int, default=3)
+    add_store_args(ap)
+    add_convert_args(ap)
+
+
+def launcher_from_args(args, store: Store) -> Launcher:
+    from egomimic.ingest.convert_job import convert_settings
+    from egomimic.ingest.launch import BatchLauncher, LocalLauncher
+
+    if args.launcher == "local":
+        return LocalLauncher(
+            store, args.lance, args.work / "jobs", **convert_settings(args)
+        )
+    job_args = ["--lance", str(args.lance), "--work", args.job_work]
+    job_args += ["--bucket", args.bucket, "--vendor-bucket", args.vendor_bucket]
+    if args.root:
+        job_args += ["--root", args.root]
+    job_args += ["--codec", args.codec, "--mano-iters", str(args.mano_iters)]
+    job_args += ["--mano" if args.mano else "--no-mano"]
+    if args.mano_model_dir:
+        job_args += ["--mano-model-dir", args.mano_model_dir]
+    return BatchLauncher(args.batch_queue, args.batch_definition, job_args)
+
+
+def pass_from_args(args, store: Store) -> Summary:
+    from egomimic.ingest.stage import converter_revision
+
+    return run_pass(
+        store,
+        launcher_from_args(args, store),
+        args.work,
+        raw_root=args.raw_root,
+        lance_staging=args.lance_staging,
+        revision=converter_revision()["revision"],
+        max_in_flight=args.max_in_flight,
+        canary=args.canary,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
+    from egomimic.ingest.convert_job import store_from_args
+
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--lance", type=Path, required=True, help="Lance root")
-    ap.add_argument("--work", type=Path, required=True, help="scratch for downloads")
-    src = ap.add_mutually_exclusive_group()
-    src.add_argument("--bucket", default="rldb", help="R2 bucket (default rldb)")
-    src.add_argument("--local-store", type=Path, help="a directory instead of R2")
-    ap.add_argument("--root", default="", help="R2 key prefix, e.g. _test/run1/")
-    ap.add_argument("--tag", help="tag every table's version after commits")
-    ap.add_argument("--codec", default="libsvtav1")
-    ap.add_argument("--ffmpeg", default="ffmpeg")
-    ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument(
-        "--mano-model-dir", help="MANO_LEFT/RIGHT.pkl (default: external_ckpts/mano)"
-    )
+    add_pass_args(ap)
     args = ap.parse_args(argv)
-    if args.mano and (problem := mano_problem(args.mano_model_dir)):
-        print(json.dumps({"error": f"{problem}; install it or pass --no-mano"}))
-        return 2
-    store = (
-        LocalStore(args.local_store)
-        if args.local_store
-        else R2Store(args.bucket, root=args.root)
-    )
+    if args.launcher == "local" and args.mano:
+        if problem := mano_problem(args.mano_model_dir):
+            print(json.dumps({"error": f"{problem}; install it or pass --no-mano"}))
+            return 2
     try:
-        s = run_pass(
-            store, args.lance, args.work, tag=args.tag,
-            codec=args.codec, ffmpeg=args.ffmpeg, mano=args.mano,
-            mano_model_dir=args.mano_model_dir,
-        )  # fmt: skip
+        s = pass_from_args(args, store_from_args(args))
     except Busy as e:
         print(json.dumps({"busy": str(e)}))
         return 0
