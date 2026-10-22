@@ -3,9 +3,11 @@ tests/unit/test_ingest_store.py cannot prove.
 
     EGOVERSE_TEST_R2=1 pytest --integration tests/integration/test_ingest_r2.py
 
-Everything lives under one disposable prefix, _test/ingest-<time>-<random>/ in the rldb
-bucket (R2_* credentials from ~/.egoverse_env), and is deleted afterwards, pass or fail:
-every object under it and every unfinished multipart upload. About 80 MB of traffic.
+Everything lives under one disposable prefix, _test/ingest-<time>-<random>/, in the
+pipeline bucket (EGOVERSE_TEST_R2_BUCKET, default ingest) and the test vendor's bucket
+(ingest-<EGOVERSE_TEST_R2_VENDOR>, default ingest-test-ci), with R2_* credentials that
+can write both. It is deleted afterwards, pass or fail: every object under it and every
+unfinished multipart upload. About 80 MB of traffic.
 """
 
 import hashlib
@@ -18,44 +20,60 @@ import pytest
 from egomimic.ingest.store import R2Store, Ref, now
 
 MiB = 1024 * 1024
-BUCKET = "rldb"
-REF = Ref("test-ci", "episode_0001")
+BUCKET = os.environ.get("EGOVERSE_TEST_R2_BUCKET", "ingest")
+VENDOR = os.environ.get("EGOVERSE_TEST_R2_VENDOR", "test-ci")
+BUCKETS = (BUCKET, f"ingest-{VENDOR}")
+REF = Ref(VENDOR, "episode_0001")
+
+
+def _vendor_key(root: str, name: str) -> dict:
+    return {"Bucket": f"ingest-{VENDOR}", "Key": f"{root}{REF.delivery_id}/{name}"}
 
 
 def _sweep(s3, root: str) -> int:
-    """Delete everything under `root`; returns how much was left to delete."""
+    """Delete everything under `root` in both buckets; returns how much was left."""
     left = 0
-    for page in s3.get_paginator("list_multipart_uploads").paginate(
-        Bucket=BUCKET, Prefix=root
-    ):
-        for up in page.get("Uploads", []):
-            s3.abort_multipart_upload(
-                Bucket=BUCKET, Key=up["Key"], UploadId=up["UploadId"]
-            )
-            left += 1
-    for page in s3.get_paginator("list_objects_v2").paginate(
-        Bucket=BUCKET, Prefix=root
-    ):
-        for obj in page.get("Contents", []):
-            s3.delete_object(Bucket=BUCKET, Key=obj["Key"])
-            left += 1
+    for bucket in BUCKETS:
+        for page in s3.get_paginator("list_multipart_uploads").paginate(
+            Bucket=bucket, Prefix=root
+        ):
+            for up in page.get("Uploads", []):
+                s3.abort_multipart_upload(
+                    Bucket=bucket, Key=up["Key"], UploadId=up["UploadId"]
+                )
+                left += 1
+        for page in s3.get_paginator("list_objects_v2").paginate(
+            Bucket=bucket, Prefix=root
+        ):
+            for obj in page.get("Contents", []):
+                s3.delete_object(Bucket=bucket, Key=obj["Key"])
+                left += 1
     return left
 
 
 @pytest.fixture(scope="module")
 def r2():
     if os.environ.get("EGOVERSE_TEST_R2") != "1":
-        pytest.skip("set EGOVERSE_TEST_R2=1 to run against the real rldb bucket")
+        pytest.skip("set EGOVERSE_TEST_R2=1 to run against the real ingest buckets")
     from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
     s3 = get_boto3_s3_client()
     root = f"_test/ingest-{now()[:15]}-{uuid.uuid4().hex[:8]}/"
     try:
-        yield R2Store(BUCKET, client=s3, root=root), s3, root
+        store = R2Store(BUCKET, client=s3, root=root)
+        store.add_vendor(VENDOR, f"ingest-{VENDOR}")
+        yield store, s3, root
     finally:
         removed = _sweep(s3, root)
-        objs = s3.list_objects_v2(Bucket=BUCKET, Prefix=root).get("KeyCount", 0)
-        ups = s3.list_multipart_uploads(Bucket=BUCKET, Prefix=root).get("Uploads", [])
+        objs = sum(
+            s3.list_objects_v2(Bucket=b, Prefix=root).get("KeyCount", 0)
+            for b in BUCKETS
+        )
+        ups = [
+            u
+            for b in BUCKETS
+            for u in s3.list_multipart_uploads(Bucket=b, Prefix=root).get("Uploads", [])
+        ]
         print(
             f"\ncleanup: removed {removed} items under {root}; left {objs} + {len(ups)}"
         )
@@ -120,7 +138,7 @@ def test_presigned_multipart_round_trip_and_correction(r2, tmp_path):
     (d,) = store.list_deliveries("test-ci")
     assert d.complete and set(d.files) == {"episode.mcap"}
     with pytest.raises(ClientError) as e:
-        s3.head_object(Bucket=BUCKET, Key=root + REF.file_key("annotation.mcap"))
+        s3.head_object(**_vendor_key(root, "annotation.mcap"))
     assert e.value.response["Error"]["Code"] in ("404", "NoSuchKey")
     assert store.download(d, tmp_path / "dl")  # replaced dest: exactly the new files
     assert sorted(p.name for p in (tmp_path / "dl").iterdir()) == ["episode.mcap"]
@@ -132,13 +150,11 @@ def test_presigned_multipart_round_trip_and_correction(r2, tmp_path):
 
     # 11. R2's error code for a gone upload, and stale cleanup treating it as done.
     with pytest.raises(ClientError) as e:
-        s3.abort_multipart_upload(
-            Bucket=BUCKET, Key=root + REF.file_key("extra.bin"), UploadId=uid
-        )
+        s3.abort_multipart_upload(**_vendor_key(root, "extra.bin"), UploadId=uid)
     assert e.value.response["Error"]["Code"] == "NoSuchUpload"
     uid = store.start_upload(REF, "stale.bin")
     s3.abort_multipart_upload(  # gone behind the record's back (e.g. lifecycle rule)
-        Bucket=BUCKET, Key=root + REF.file_key("stale.bin"), UploadId=uid
+        **_vendor_key(root, "stale.bin"), UploadId=uid
     )
     (rec,) = store.uploads_in_progress(REF)
     store.clear_upload(REF, rec["record"])
