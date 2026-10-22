@@ -1,5 +1,8 @@
-"""Staging (egomimic/ingest/stage.py): convert now, commit exactly that result later."""
+"""Staging (egomimic/ingest/stage.py): convert now into a staged delivery the committer
+takes as it is, pinned so an approval applies to exactly that result."""
 
+import hashlib
+import json
 import shutil
 import subprocess
 
@@ -17,61 +20,61 @@ if not (
     pytest.skip("needs ffmpeg with libx264", allow_module_level=True)
 
 from egomimic.ingest.stage import (  # noqa: E402
+    REVIEW_ONLY,
     StageCorrupt,
-    StaleStage,
-    commit_staged,
-    committed_state,
-    load,
     prepare,
     read_pin,
     stage_digest,
-    table_hashes,
+    verify,
 )
-from egomimic.rldb.lance import commit  # noqa: E402
-from egomimic.scripts.mcap_process.mcap_to_lance import (  # noqa: E402
-    convert_and_commit,
-)
+from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
 
 OPTS = dict(codec="libx264", mano=False)
 
 
-def stage(tmp_path, name="s", fingerprint="fp1", root="lance", **kw):
+def stage(tmp_path, name="s", fingerprint="f" * 64, **kw):
     ep = write_mcap_episode(tmp_path / f"eps_{name}", **kw)
     return prepare(
-        ep, tmp_path / "staged" / name, tmp_path / root, fingerprint=fingerprint, **OPTS
+        ep,
+        tmp_path / "staged" / name,
+        tmp_path / "lance",
+        fingerprint=fingerprint,
+        **OPTS,
     )
 
 
-def approved(staged, root, **kw):
-    """Commit a stage with its own approval (what the approve button will pass)."""
-    return commit_staged(staged, root, approved_stage=stage_digest(staged), **kw)
+def land(tmp_path, staged, replace=False):
+    """Hand a stage to the committer as the watcher does, and commit it."""
+    pin = read_pin(staged)
+    dst = tmp_path / "lance_staging" / pin["lab"] / pin["vendor_recording_id"]
+    dst.mkdir(parents=True, exist_ok=True)
+    for p in sorted(staged.iterdir(), key=lambda p: p.name == "meta.json"):
+        if p.name not in REVIEW_ONLY:
+            shutil.copyfile(p, dst / p.name)
+    return commit_staged(
+        str(tmp_path / "lance_staging"),
+        pin["lab"],
+        str(tmp_path / "lance"),
+        tmp_path / "work",
+        replace=replace,
+    )
 
 
-def rows(root, table, drop=()):
-    t = lance.dataset(root / table).to_table().to_pylist()
-    return [{k: v for k, v in r.items() if k not in drop} for r in t]
+def rows(tmp_path, table):
+    return lance.dataset(tmp_path / "lance" / table).to_table().to_pylist()
 
 
-def test_prepare_then_commit_matches_convert_and_commit(tmp_path):
+def test_a_stage_is_a_delivery_the_committer_takes_as_it_is(tmp_path):
     p = stage(tmp_path)
     assert p.status == "staged"
     assert not (tmp_path / "lance").exists()  # preparing writes nothing to Lance
-    out = approved(p.staged, tmp_path / "lance", fingerprint="fp1")
-    assert out["status"] == "committed" and out["annotations_added"] == 2
-    assert {"recordings.lance", "steps/aria.lance"} <= set(out["versions"])
-
-    ep = write_mcap_episode(tmp_path / "eps_direct")
-    assert convert_and_commit(ep, tmp_path / "direct", **OPTS).status == "committed"
-    a, b = tmp_path / "lance", tmp_path / "direct"
-    video = ("video_path", "content_digest")  # separate encodes of the same frames
-    assert rows(a, "recordings.lance", video) == rows(b, "recordings.lance", video)
-    for table in (
-        "steps/aria.lance",
-        "tasks.lance",
-        "aliases.lance",
-        "annotations.lance",
-    ):
-        assert rows(a, table) == rows(b, table), table
+    report = land(tmp_path, p.staged)
+    assert [b["added"] for b in report["batches"]][0] == [p.recording_id]
+    (rec,) = rows(tmp_path, "recordings.lance")
+    assert rec["recording_id"] == p.recording_id and rec["num_frames"] == 60
+    assert len(rows(tmp_path, "tasks.lance")) == 2
+    assert len(rows(tmp_path, "annotations.lance")) == 2
+    assert len(rows(tmp_path, "steps/aria.lance")) == 60
 
 
 def test_rejected_and_failed_deliveries_stage_nothing(tmp_path):
@@ -85,75 +88,46 @@ def test_rejected_and_failed_deliveries_stage_nothing(tmp_path):
 def test_the_pin_records_inputs_converter_and_every_file(tmp_path):
     p = stage(tmp_path)
     pin = read_pin(p.staged)
-    assert pin["fingerprint"] == "fp1" and pin["format"] == "mcap"
+    assert pin["fingerprint"] == "f" * 64 and pin["format"] == "mcap"
     assert pin["settings"] == {"mano": False, "mano_iters": 2400, "codec": "libx264"}
     assert len(pin["converter"]["revision"]) == 40  # this checkout's commit
-    assert {
+    assert set(pin["files"]) == {
         "steps.parquet",
-        "rows.json",
-        "videos/front_1.mp4",
-        "videos/front_1_480.mp4",
-    } <= set(pin["files"])
-    assert "diff.json" in pin["files"]  # the reviewed diff is pinned too
-    empty = table_hashes(committed_state(tmp_path / "lance", p.recording_id, "aria"))
-    assert pin["base_state"] == empty
-    assert set(pin["staged_state"]) == {
-        "steps",
-        "recording",
-        "alias",
-        "tasks",
-        "annotations",
+        "recordings.parquet",
+        "tasks.parquet",
+        "aliases.parquet",
+        "labels.parquet",
+        "front_1.mp4",
+        "front_1_480.mp4",
+        "meta.json",
     }
-    assert all(pin["staged_state"][k] != empty[k] for k in empty)
+    f = pin["files"]["front_1.mp4"]
+    data = (p.staged / "front_1.mp4").read_bytes()
+    assert f == {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
     assert pin["report"]["num_frames"] == 60 and pin["report"]["labels"] == 2
-    c = load(p.staged)
-    assert c.delivery.recording_id == p.recording_id and len(c.labels) == 2
-
-
-@pytest.mark.parametrize("how", ["edit", "extra", "delete", "diff"])
-def test_a_changed_stage_refuses_to_commit(tmp_path, how):
-    p = stage(tmp_path)
-    if how == "edit":
-        (p.staged / "videos" / "front_1.mp4").write_bytes(b"not the staged video")
-    elif how == "extra":
-        (p.staged / "videos" / "smuggled.mp4").write_bytes(b"x")
-    elif how == "delete":
-        (p.staged / "rows.json").unlink()
-    else:  # what the reviewer saw is part of what gets committed
-        (p.staged / "diff.json").write_text('{"action": "new"}')
-    with pytest.raises(StageCorrupt):
-        approved(p.staged, tmp_path / "lance")
-    assert not (tmp_path / "lance" / "recordings.lance").exists()
-
-
-def test_a_newer_upload_makes_the_stage_stale(tmp_path):
-    p = stage(tmp_path)
-    with pytest.raises(StaleStage):
-        approved(p.staged, tmp_path / "lance", fingerprint="fp2")
-
-
-def test_lance_changing_since_staging_makes_the_stage_stale(tmp_path):
-    a = stage(tmp_path, "a")
-    b = stage(tmp_path, "b", fingerprint="fp2", drop_video_frame=11)  # same recording
+    meta = json.loads((p.staged / "meta.json").read_text())
+    assert meta["format"] == "delivery" and meta["label_vendors"] == ["acme"]
+    assert meta["provenance"]["fingerprint"] == "f" * 64
     assert (
-        a.recording_id == b.recording_id
-        and a.diff["action"] == b.diff["action"] == "new"
+        stage_digest(p.staged)
+        == hashlib.sha256((p.staged / "stage.json").read_bytes()).hexdigest()
     )
-    approved(a.staged, tmp_path / "lance")
-    with pytest.raises(StaleStage):  # b was diffed against a Lance without a
-        approved(b.staged, tmp_path / "lance")
-    b = stage(tmp_path, "b", fingerprint="fp2", drop_video_frame=11)  # re-stage
-    assert b.diff["action"] == "replace"
-    assert approved(b.staged, tmp_path / "lance")["status"] == "replaced"
-    assert len(rows(tmp_path / "lance", "recordings.lance")) == 1
 
 
-def test_committing_twice_is_a_no_op(tmp_path):
+@pytest.mark.parametrize("how", ["resize", "extra", "missing"])
+def test_a_stored_stage_must_match_its_pin(tmp_path, how):
     p = stage(tmp_path)
-    first = approved(p.staged, tmp_path / "lance")
-    again = approved(p.staged, tmp_path / "lance")
-    assert again["status"] == "unchanged" and again["annotations_added"] == 0
-    assert again["versions"] == first["versions"]  # nothing was written
+    pin = read_pin(p.staged)
+    sizes = {n: (p.staged / n).stat().st_size for n in pin["files"]}
+    verify(pin, {**sizes, "stage.json": 1, "diff.json": 1})
+    if how == "resize":
+        sizes["front_1.mp4"] += 1
+    elif how == "extra":
+        sizes["evil.mp4"] = 3
+    else:
+        del sizes["labels.parquet"]
+    with pytest.raises(StageCorrupt):
+        verify(pin, sizes)
 
 
 def test_diff_of_a_new_recording(tmp_path):
@@ -174,14 +148,15 @@ def test_diff_of_a_new_recording(tmp_path):
 
 
 def test_diff_of_a_labels_only_correction(tmp_path):
-    approved(stage(tmp_path, "v1").staged, tmp_path / "lance")
+    land(tmp_path, stage(tmp_path, "v1").staged)
 
     def reword(topic, msg, t):
         if topic == "/subtask-annotation" and msg.data == "pick up the shirt":
             msg.data = "pick up the red shirt"
             return msg, t
 
-    d = stage(tmp_path, "v2", fingerprint="fp2", tamper=reword).diff
+    p = stage(tmp_path, "v2", fingerprint="e" * 64, tamper=reword)
+    d = p.diff
     assert d["action"] == "replace" and d["frames"] == {"new": 60, "old": 60}
     assert d["tasks"] == {"added": [], "removed": [], "changed": []}
     assert d["labels"] == {
@@ -189,200 +164,23 @@ def test_diff_of_a_labels_only_correction(tmp_path):
         "removed": ["pick up the shirt"],
     }
     assert d["valid_frac"]["old"] == {"head": 1.0, "left": 1.0, "right": 1.0}
+    land(tmp_path, p.staged, replace=True)
+    texts = {a["text"] for a in rows(tmp_path, "annotations.lance")}
+    assert texts == {"pick up the red shirt", "drop it in the basket"}
 
 
 def test_restaging_replaces_the_folder_entirely(tmp_path):
     p = stage(tmp_path, "s", slam_camera=True)
-    assert (p.staged / "videos" / "slam_left.mp4").exists()
+    assert (p.staged / "slam_left.mp4").exists()
     p = stage(tmp_path, "s")  # the second camera is gone in the new version
-    assert sorted(x.name for x in (p.staged / "videos").iterdir()) == [
-        "front_1.mp4",
-        "front_1_480.mp4",
-    ]
-    load(p.staged)  # consistent with its own pin
+    assert not (p.staged / "slam_left.mp4").exists()
+    pin = read_pin(p.staged)
+    verify(pin, {x.name: x.stat().st_size for x in p.staged.iterdir()})
     assert sorted(x.name for x in (tmp_path / "staged").iterdir()) == ["s"]  # no temps
 
 
-def test_a_task_only_correction_is_committed_not_skipped(tmp_path):
-    approved(stage(tmp_path, "v1").staged, tmp_path / "lance")
-
-    def redescribe(topic, msg, t):
-        if topic == "/task" and msg.name == "pack_clothes":
-            msg.description = "pack the folded shirt into the basket"
-            return msg, t
-
-    v2 = stage(tmp_path, "v2", fingerprint="fp2", tamper=redescribe)
-    assert v2.diff["tasks"]["changed"] == ["pack_clothes"]
-    assert (
-        read_pin(v2.staged)["content_digest"]
-        == read_pin(tmp_path / "staged" / "v1")["content_digest"]
-    )  # same steps and videos
-    assert approved(v2.staged, tmp_path / "lance")["status"] == "replaced"
-    tasks = {t["task_name"]: t for t in rows(tmp_path / "lance", "tasks.lance")}
-    assert (
-        tasks["pack_clothes"]["task_description"]
-        == "pack the folded shirt into the basket"
-    )
-
-
-def test_a_metadata_only_correction_is_committed(tmp_path):
-    approved(stage(tmp_path, "v1").staged, tmp_path / "lance")
-    v2 = stage(
-        tmp_path, "v2", fingerprint="fp2", metadata_override={"scene": "kitchen_b"}
-    )
-    assert approved(v2.staged, tmp_path / "lance")["status"] == "replaced"
-    (rec,) = rows(tmp_path / "lance", "recordings.lance")
-    assert rec["scene"] == "kitchen_b"
-
-
-def test_a_task_edited_in_lance_after_staging_makes_the_stage_stale(tmp_path):
-    root = tmp_path / "lance"
-    approved(stage(tmp_path, "v1").staged, root)
-    v2 = stage(
-        tmp_path, "v2", fingerprint="fp2", metadata_override={"scene": "kitchen_b"}
-    )
-    tid = rows(root, "tasks.lance")[0]["task_instance_id"]
-    import pyarrow as pa
-
-    commit.edit(  # someone fixes a task description directly; same task id
-        root,
-        "tasks.lance",
-        pa.table({"task_instance_id": [tid], "task_description": ["edited in Lance"]}),
-        on="task_instance_id",
-    )
-    with pytest.raises(StaleStage):
-        approved(v2.staged, root)
-
-
-def test_a_label_added_after_staging_makes_the_stage_stale(tmp_path):
-    from egomimic.rldb.lance.schema import ANNOTATIONS, annotation_id
-
-    root = tmp_path / "lance"
-    v1 = stage(tmp_path, "v1")
-    approved(v1.staged, root)
-    v2 = stage(
-        tmp_path, "v2", fingerprint="fp2", metadata_override={"scene": "kitchen_b"}
-    )
-    task = rows(root, "tasks.lance")[0]
-    row = dict(
-        recording_id=v1.recording_id,
-        t_start_ns=task["t_start_ns"],
-        t_end_ns=task["t_start_ns"] + 10**8,
-        annotation_type="language",
-        text="added by a grader after staging",
-        annotation_vendor="scale",
-        quality_score=None,
-        graded_by=None,
-        rubric_version=None,
-    )
-    row["annotation_id"] = annotation_id(
-        row["recording_id"],
-        "scale",
-        "language",
-        row["t_start_ns"],
-        row["t_end_ns"],
-        row["text"],
-    )
-    import pyarrow as pa
-
-    commit.apply_annotations(root, pa.Table.from_pylist([row], schema=ANNOTATIONS), [])
-    with pytest.raises(StaleStage):
-        approved(v2.staged, root)
-
-
-def test_an_approval_applies_to_exactly_the_reviewed_stage(tmp_path):
-    p = stage(tmp_path)
-    with pytest.raises(StaleStage):
-        commit_staged(p.staged, approved_stage="0" * 64, lance_root=tmp_path / "lance")
-    out = approved(p.staged, tmp_path / "lance")
-    assert out["status"] == "committed"
-
-
-def test_committing_needs_an_approval(tmp_path):
-    p = stage(tmp_path)
-    with pytest.raises(TypeError):
-        commit_staged(p.staged, tmp_path / "lance")  # no approved_stage: not possible
-
-
-class Crash(Exception):
-    pass
-
-
-def crash_after(monkeypatch, n: int):
-    """Make the n-th Lance table write (append or delete+append) succeed and then crash
-    the process, as a kill between Ryan's per-table commits would."""
-    count = {"writes": 0}
-    for name in ("_append", "_replace"):
-        real = getattr(commit, name)
-
-        def wrapped(*a, _real=real, **kw):
-            _real(*a, **kw)
-            count["writes"] += 1
-            if count["writes"] == n:
-                raise Crash(f"killed after write {n}")
-
-        monkeypatch.setattr(commit, name, wrapped)
-    return count
-
-
-def check_finished(root, p):
-    """Lance holds exactly the staged result: no duplicated or orphan rows."""
-    pin = read_pin(p.staged)
-    assert (
-        table_hashes(committed_state(root, p.recording_id, "aria"))
-        == pin["staged_state"]
-    )
-    assert len(rows(root, "steps/aria.lance")) == pin["report"]["num_frames"]
-    assert len(rows(root, "recordings.lance")) == 1
-
-
-# A new recording writes: steps, aliases, tasks, recordings (published), the annotations
-# table, then the labels. A crash after any of them must be finishable by a retry.
-@pytest.mark.parametrize("crash_at", [1, 2, 3, 4, 5, 6])
-def test_a_new_recording_cut_off_between_tables_is_finished_on_retry(
-    tmp_path, monkeypatch, crash_at
-):
-    root = tmp_path / "lance"
-    p = stage(tmp_path)
-    crash_after(monkeypatch, crash_at)
-    with pytest.raises(Crash):
-        approved(p.staged, root)
-    monkeypatch.undo()
-    out = approved(p.staged, root)
-    assert out["status"] == ("unchanged" if crash_at == 6 else "resumed")
-    check_finished(root, p)
-
-
-# A replacement writes: steps, aliases, tasks, recordings, then the labels.
-@pytest.mark.parametrize("crash_at", [1, 2, 3, 4, 5])
-def test_a_replacement_cut_off_between_tables_is_finished_on_retry(
-    tmp_path, monkeypatch, crash_at
-):
-    root = tmp_path / "lance"
-    approved(stage(tmp_path, "v1").staged, root)
-
-    def reword(topic, msg, t):
-        if topic == "/subtask-annotation" and msg.data == "pick up the shirt":
-            msg.data = "pick up the red shirt"
-            return msg, t
-
-    v2 = stage(
-        tmp_path, "v2", fingerprint="fp2", tamper=reword, drop_video_frame=11,
-        metadata_override={"scene": "kitchen_b"},
-    )  # fmt: skip
-    crash_after(monkeypatch, crash_at)
-    with pytest.raises(Crash):
-        approved(v2.staged, root)
-    monkeypatch.undo()
-    out = approved(v2.staged, root)
-    assert out["status"] == ("unchanged" if crash_at == 5 else "resumed")
-    check_finished(root, v2)
-    texts = sorted(a["text"] for a in rows(root, "annotations.lance"))
-    assert texts == ["drop it in the basket", "pick up the red shirt"]
-
-
 def test_a_deployed_copy_pins_its_revision_file(tmp_path, monkeypatch):
-    """deploy.sh copies the code without .git and writes egomimic/ingest/REVISION."""
+    """The converter image copies the code without .git and writes REVISION."""
     import egomimic.ingest.stage as st
 
     copy = tmp_path / "code" / "egomimic" / "ingest"
@@ -390,4 +188,4 @@ def test_a_deployed_copy_pins_its_revision_file(tmp_path, monkeypatch):
     (copy / "REVISION").write_text("abc123\n")
     monkeypatch.setattr(st, "__file__", str(copy / "stage.py"))
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))  # no repo above
-    assert st._git() == {"revision": "abc123", "dirty": False}
+    assert st.converter_revision() == {"revision": "abc123", "dirty": False}

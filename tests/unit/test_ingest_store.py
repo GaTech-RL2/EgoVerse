@@ -23,7 +23,7 @@ class _NoSuchKey(Exception):
 
 
 class FakeS3:
-    """The boto3 S3 calls R2Store makes, against a dict."""
+    """The boto3 S3 calls R2Store makes, against a dict keyed "<bucket>/<key>"."""
 
     class exceptions:
         NoSuchKey = _NoSuchKey
@@ -39,12 +39,14 @@ class FakeS3:
 
         class P:
             def paginate(self, Bucket, Prefix):
-                keys = sorted(k for k in s3.objects if k.startswith(Prefix))
+                full = f"{Bucket}/{Prefix}"
+                keys = sorted(k for k in s3.objects if k.startswith(full))
+                n = len(Bucket) + 1
                 for i in range(0, len(keys), 2):  # two per page: exercises paging
                     yield {
                         "Contents": [
                             {
-                                "Key": k,
+                                "Key": k[n:],
                                 "Size": len(s3.objects[k]),
                                 "ETag": f'"{hashlib.md5(s3.objects[k]).hexdigest()}"',
                             }
@@ -55,28 +57,32 @@ class FakeS3:
         return P()
 
     def get_object(self, Bucket, Key):
-        if Key not in self.objects:
+        if f"{Bucket}/{Key}" not in self.objects:
             raise _NoSuchKey(Key)
-        return {"Body": io.BytesIO(self.objects[Key])}
+        return {"Body": io.BytesIO(self.objects[f"{Bucket}/{Key}"])}
 
     def put_object(self, Bucket, Key, Body, ContentType=None):
-        self.objects[Key] = Body
+        self.objects[f"{Bucket}/{Key}"] = Body
 
     def delete_object(self, Bucket, Key):
-        self.objects.pop(Key, None)
+        self.objects.pop(f"{Bucket}/{Key}", None)
 
     def upload_file(self, Filename, Bucket, Key, Config=None):
         assert Config.multipart_chunksize == 64 * 1024 * 1024
         with open(Filename, "rb") as f:
-            self.objects[Key] = f.read()
+            self.objects[f"{Bucket}/{Key}"] = f.read()
 
     def download_file(self, bucket, key, dest):
         with open(dest, "wb") as f:
-            f.write(self.objects[key])
+            f.write(self.objects[f"{bucket}/{key}"])
+
+    def copy(self, CopySource, Bucket, Key, Config=None):
+        src = f"{CopySource['Bucket']}/{CopySource['Key']}"
+        self.objects[f"{Bucket}/{Key}"] = self.objects[src]
 
     def create_multipart_upload(self, Bucket, Key):
         uid = f"u{len(self.uploads)}"
-        self.uploads[uid] = {"key": Key, "parts": {}}
+        self.uploads[uid] = {"key": f"{Bucket}/{Key}", "parts": {}}
         return {"UploadId": uid}
 
     def generate_presigned_url(self, op, Params, ExpiresIn):
@@ -87,7 +93,7 @@ class FakeS3:
         )
 
     def upload_part(self, Bucket, Key, UploadId, PartNumber, Body):
-        assert self.uploads[UploadId]["key"] == Key
+        assert self.uploads[UploadId]["key"] == f"{Bucket}/{Key}"
         etag = f'"{hashlib.md5(Body).hexdigest()}"'  # quoted, as S3 / R2 return it
         self.uploads[UploadId]["parts"][PartNumber] = (Body, etag)
         return {"ETag": etag}
@@ -103,7 +109,7 @@ class FakeS3:
                 )
         del self.uploads[UploadId]
         nums = [p["PartNumber"] for p in MultipartUpload["Parts"]]
-        self.objects[Key] = b"".join(up["parts"][n][0] for n in nums)
+        self.objects[f"{Bucket}/{Key}"] = b"".join(up["parts"][n][0] for n in nums)
 
     def abort_multipart_upload(self, Bucket, Key, UploadId):
         from botocore.exceptions import ClientError
@@ -121,7 +127,10 @@ class FakeS3:
 def store(request, tmp_path):
     if request.param == "local":
         return LocalStore(tmp_path / "bucket")
-    return R2Store(bucket="rldb", client=FakeS3())
+    r2 = R2Store(client=FakeS3())
+    for vendor in ("acme", "other"):
+        r2.add_vendor(vendor, f"ingest-{vendor}")
+    return r2
 
 
 def upload(store, ref, name, data: bytes, part_size: int = 4) -> None:
@@ -229,7 +238,7 @@ def test_part_urls_presign_on_r2_and_go_direct_locally(tmp_path):
     ref = Ref("acme", "a")
     r2 = R2Store(client=FakeS3())
     url = r2.part_url(ref, "episode.mcap", r2.start_upload(ref, "episode.mcap"), 3)
-    assert url.startswith("https://") and "deliveries/acme/a/episode.mcap" in url
+    assert url.startswith("https://") and "/a/episode.mcap?" in url
     local = LocalStore(tmp_path / "b")
     assert local.part_url(ref, "x", local.start_upload(ref, "x"), 1) is None
 
@@ -309,7 +318,7 @@ def test_r2_completion_sends_part_etags_back_unchanged():
     store = R2Store(client=s3)
     ref = Ref("acme", "a")
     upload(store, ref, "episode.mcap", b"0123456789")  # FakeS3 rejects altered ETags
-    assert s3.objects["deliveries/acme/a/episode.mcap"] == b"0123456789"
+    assert s3.objects["ingest-acme/a/episode.mcap"] == b"0123456789"
     uid = store.start_upload(ref, "x")
     etag = store.upload_part(ref, "x", uid, 1, b"data")
     assert etag.startswith('"')  # quoted, exactly as boto3 returned it
@@ -327,7 +336,7 @@ def test_failed_local_completion_keeps_the_previous_file(tmp_path):
     with pytest.raises(ValueError):  # part 2's etag is wrong, part 3 is missing
         s.finish_upload(ref, "episode.mcap", uid, [(1, e1), (2, "bad"), (3, "x")])
     assert (
-        tmp_path / "b/deliveries/acme/a/episode.mcap"
+        tmp_path / "b/ingest-acme/a/episode.mcap"
     ).read_bytes() == b"the good original"
 
 
@@ -584,15 +593,18 @@ def test_clear_upload_keeps_the_record_when_the_abort_really_fails():
 def test_r2_root_namespaces_every_key():
     s3 = FakeS3()
     store = R2Store(client=s3, root="_test/run1/")
+    store.add_vendor("acme", "ingest-acme")
     ref = Ref("acme", "e1")
     upload(store, ref, "episode.mcap", b"episode")
     store.mark_complete(ref, {}, ["episode.mcap"])
     store.put_status(ref, {"state": "ready"})
-    assert all(k.startswith("_test/run1/") for k in s3.objects), sorted(s3.objects)
+    assert all(
+        k.split("/", 1)[1].startswith("_test/run1/") for k in s3.objects
+    ), sorted(s3.objects)
     (d,) = store.list_deliveries()  # keys come back relative to the root
     assert d.ref == ref and d.complete and store.get_status(ref)["state"] == "ready"
     url = store.part_url(ref, "x", store.start_upload(ref, "x"), 1)
-    assert "_test/run1/deliveries/acme/e1/x" in url
+    assert "_test/run1/e1/x" in url
     with pytest.raises(ValueError):
         R2Store(client=s3, root="/abs/")
 
@@ -730,3 +742,51 @@ def test_real_presigned_links_sign_the_content_length():
     url = r2.part_url(Ref("acme", "a"), "episode.mcap", "uid", 1, length=1234)
     q = urllib.parse.parse_qs(urllib.parse.urlsplit(url).query)
     assert q["X-Amz-SignedHeaders"] == ["content-length;host"]
+
+
+def test_each_vendor_has_its_own_bucket_and_pipeline_records_their_own(tmp_path):
+    s3 = FakeS3()
+    store = R2Store(client=s3)
+    for vendor in ("acme", "other"):
+        store.add_vendor(vendor, f"ingest-{vendor}")
+        upload(store, Ref(vendor, "e1"), "episode.mcap", vendor.encode())
+    store.put_status(Ref("acme", "e1"), {"state": "ready"})
+    buckets = {k.split("/", 1)[0] for k in s3.objects}
+    assert buckets == {"ingest", "ingest-acme", "ingest-other"}
+    assert s3.objects["ingest-other/e1/episode.mcap"] == b"other"
+    assert [d.ref.vendor for d in store.list_deliveries()] == ["acme", "other"]
+    assert store.list_deliveries("other")[0].files["episode.mcap"][0] == 5
+
+
+def test_a_vendors_own_upload_is_complete_once_done_is_written(store, tmp_path):
+    ref = Ref("acme", "own")
+    src = tmp_path / "ep.mcap"
+    src.write_bytes(b"episode")
+    store._upload_file(ref.file_key("episode.mcap"), src)  # the vendor's S3 tool
+    (d,) = [x for x in store.list_deliveries() if x.ref == ref]
+    assert not d.complete
+    store._put(ref.prefix + "_done.json", b"{}")
+    (d,) = [x for x in store.list_deliveries() if x.ref == ref]
+    assert d.complete and set(d.files) == {"episode.mcap"}
+    out = store.download(d, tmp_path / "got")
+    assert sorted(p.name for p in out.iterdir()) == ["episode.mcap"]
+    with pytest.raises(ValueError):
+        store.start_upload(ref, "_done.json")
+
+
+def test_copy_out_lands_a_delivery_file_outside_the_ingest_buckets(store, tmp_path):
+    ref = Ref("acme", "c")
+    upload(store, ref, "episode.mcap", b"payload")
+    store.copy_out(ref.file_key("episode.mcap"), str(tmp_path / "out" / "e.mcap"))
+    assert (tmp_path / "out" / "e.mcap").read_bytes() == b"payload"
+
+
+def test_r2_copy_out_to_another_bucket_stays_server_side():
+    s3 = FakeS3()
+    store = R2Store(client=s3)
+    ref = Ref("acme", "c")
+    upload(store, ref, "episode.mcap", b"payload")
+    store.copy_out(
+        ref.file_key("episode.mcap"), "s3://rldb/raw_v2/acme/c/x/episode.mcap"
+    )
+    assert s3.objects["rldb/raw_v2/acme/c/x/episode.mcap"] == b"payload"

@@ -10,7 +10,6 @@ from egomimic.ingest import formats
 from egomimic.ingest.formats import (
     AmbiguousFormat,
     by_name,
-    commit_delivery,
     detect,
     prepare_delivery,
 )
@@ -78,12 +77,12 @@ def test_unexpected_files_reject_before_any_conversion(tmp_path):
     assert not (tmp_path / "staged").exists()
 
 
-def test_an_mcap_delivery_prepares_and_commits_through_its_format(tmp_path):
+def test_an_mcap_delivery_prepares_through_its_format(tmp_path):
     pytest.importorskip("lance")
     out = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"], capture_output=True)
     if not shutil.which("ffmpeg") or "libx264" not in out.stdout.decode():
         pytest.skip("needs ffmpeg with libx264")
-    from egomimic.ingest.stage import read_pin, stage_digest
+    from egomimic.ingest.stage import read_pin
 
     ep = write_mcap_episode(tmp_path / "eps")
     p = prepare_delivery(
@@ -91,10 +90,6 @@ def test_an_mcap_delivery_prepares_and_commits_through_its_format(tmp_path):
         codec="libx264", mano=False,
     )  # fmt: skip
     assert p.status == "staged" and read_pin(p.staged)["format"] == "mcap"
-    out = commit_delivery(
-        p.staged, tmp_path / "lance", approved_stage=stage_digest(p.staged)
-    )
-    assert out["status"] == "committed"
 
 
 def test_oversized_files_reject_before_any_conversion(tmp_path, monkeypatch):
