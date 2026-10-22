@@ -755,19 +755,28 @@ def _clean_text(text: str) -> tuple[str, bool]:
     return text.split(BANNED_DELIMITER)[0].strip(), True
 
 
+def _join_parts(text: str) -> tuple[str, bool]:
+    """Join text parts split by the banned delimiter with ``"; "``."""
+    parts = [part.strip() for part in str(text).split(BANNED_DELIMITER)]
+    return "; ".join(part for part in parts if part), len(parts) > 1
+
+
 def episode_segments(annotation: dict, length: int):
     """Return subtask and skill spans from one SharpaDex annotation row.
 
     SharpaDex spans are ``[start_step, end_step]`` inclusive and the text
     ends in `` | Skill: <skill>``. EgoVerse spans are ``[start, end)`` and the
     text carries no delimiter-encoded metadata, so the skill moves to its own
-    span list. Spans are clipped to the retained ``length``.
+    span list. Some tasks describe each hand in one span (``Left hand: … |
+    Right hand: …``); those parts are joined with ``"; "`` so no text is
+    lost. Spans are clipped to the retained ``length``.
 
     Returns:
         ``(subtasks, skills, notes)``; each span list holds
         ``(text, start, end)`` tuples.
     """
     subtasks, skills, notes = [], [], []
+    joined = 0
     for segment in annotation.get("segments") or []:
         if segment.get("label") != "subtasks":
             continue
@@ -779,16 +788,15 @@ def episode_segments(annotation: dict, length: int):
         if start >= end:
             continue
         text, _, skill = str(segment.get("text") or "").partition(SKILL_SEPARATOR)
-        text, cut = _clean_text(text)
-        if cut:
-            notes.append(
-                f"{segment.get('id')}: dropped text after {BANNED_DELIMITER!r}"
-            )
+        text, several = _join_parts(text)
+        joined += several
         skill = (segment.get("task_skill") or skill or "").strip()
         if text:
             subtasks.append((text, start, end))
         if skill:
             skills.append((_clean_text(skill)[0], start, end))
+    if joined:
+        notes.append(f"{joined} span(s) joined at {BANNED_DELIMITER!r} with '; '")
     return subtasks, skills, notes
 
 

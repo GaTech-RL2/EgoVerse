@@ -335,7 +335,7 @@ manifest's names and clocks. In addition to the arrays above it stores:
 
 | Array or attribute | Source |
 |---|---|
-| `annotations`, `annotations_skill` | Subtask spans (`end_step` is inclusive, so `end_idx = end_step + 1`); the ` \| Skill: …` suffix becomes a separate skill span. |
+| `annotations`, `annotations_skill` | Subtask spans (`end_step` is inclusive, so `end_idx = end_step + 1`); the ` \| Skill: …` suffix becomes a separate skill span. Other ` \| ` separators (per-hand descriptions, `Left hand: … \| Right hand: …`, in 8 v1.0 tasks) are joined with `; `, since ` \| ` is banned in annotation text. |
 | `{side}.obs_tactile` `[T, 30]` | `observation.tactile`, five fingertip sensors × `fx..tz` (N, N·m; inferred, not confirmed by Sharpa). |
 | `{side}.obs_tactile_image` | `tactile_deform`, one grayscale 240×1200 JPEG strip per hand, fingertips thumb to little. `tactile_raw` is not stored. |
 | `{side}.cmd_hand_keypoints` | FK of the commanded joints, checked by `fk_residual_cmd`. |

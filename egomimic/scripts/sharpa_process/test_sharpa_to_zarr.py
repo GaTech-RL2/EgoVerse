@@ -901,6 +901,35 @@ def test_sharpadex_profile_converts_a_complete_provenance_episode(
     assert "features" not in levels
 
 
+def test_per_hand_subtask_text_is_joined_not_cut():
+    # play_tic_tac_toe and 7 other tasks describe both hands in one span.
+    row = {
+        "segments": [
+            {
+                "label": "subtasks",
+                "start_step": 0,
+                "end_step": 4,
+                "id": "reasoning-language-00001",
+                "text": "Left hand: idle: Stays still. | Right hand: reach: Moves down.",
+            },
+            {
+                "label": "subtasks",
+                "start_step": 5,
+                "end_step": 9,
+                "id": "subtask-002",
+                "text": "Iron the garment. | Skill: press",
+            },
+        ]
+    }
+    subtasks, skills, notes = sharpa_to_zarr.episode_segments(row, 10)
+    assert subtasks == [
+        ("Left hand: idle: Stays still.; Right hand: reach: Moves down.", 0, 5),
+        ("Iron the garment.", 5, 10),
+    ]
+    assert skills == [("press", 5, 10)]
+    assert notes == ["1 span(s) joined at ' | ' with '; '"]
+
+
 def test_sharpadex_strict_policy_keeps_today_s_status(sharpadex, tmp_path):
     release, manifest_path = sharpadex
     out = tmp_path / "out"
