@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from fixtures.mcap_episodes import T0, write_mcap_episode
 
+from egomimic.rldb.lance import commit
 from egomimic.rldb.mcap import spec
 
 lance = pytest.importorskip("lance")
@@ -23,14 +24,42 @@ def _ffmpeg_has(codec: str) -> bool:
 if not _ffmpeg_has("libx264"):
     pytest.skip("needs ffmpeg with libx264", allow_module_level=True)
 
+from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
 from egomimic.scripts.mcap_process.mcap_to_lance import (  # noqa: E402
-    convert_and_commit,
+    convert_and_stage,
 )
+
+
+def commit_all(tmp_path, replace=False):
+    """Run the committer over every lab with staged work, annotations last."""
+    staging = tmp_path / "staging"
+    labs = sorted(p.name for p in staging.iterdir()) if staging.exists() else []
+    for lab in sorted(labs, key=lambda x: x == "annotations"):
+        commit_staged(
+            str(staging),
+            lab,
+            str(tmp_path / "lance"),
+            tmp_path / "work",
+            replace=replace,
+        )
+
+
+def land(tmp_path, ep, replace=False, convert=None):
+    r = (convert or convert_and_stage)(
+        ep,
+        tmp_path / "staging",
+        tmp_path / "lance",
+        codec="libx264",
+        mano=False,
+        replace=replace,
+    )
+    commit_all(tmp_path, replace)
+    return r
 
 
 def run(tmp_path, embodiment="human_bimanual", episode_id="0", **kw):
     ep = write_mcap_episode(tmp_path / "eps", embodiment, episode_id, **kw)
-    return convert_and_commit(ep, tmp_path / "lance", codec="libx264", mano=False)
+    return land(tmp_path, ep)
 
 
 def table(tmp_path, name):
@@ -39,9 +68,9 @@ def table(tmp_path, name):
 
 def test_episode_lands_in_every_table(tmp_path):
     r = run(tmp_path)
-    assert r.status == "committed" and r.problems == []
+    assert r.status == "staged" and r.problems == []
     assert r.recording_id == spec.recording_id("aria", "acme-rec-0")
-    assert (r.num_frames, r.tasks, r.annotations_added) == (60, 2, 2)
+    assert (r.num_frames, r.tasks, r.annotations_staged) == (60, 2, 2)
     assert r.valid_frac == {"head": 1.0, "left": 1.0, "right": 1.0}
 
     (rec,) = table(tmp_path, "recordings.lance")
@@ -60,6 +89,11 @@ def test_episode_lands_in_every_table(tmp_path):
     assert 0 < point["t_end_ns"] - point["t_start_ns"] <= 34_000_000  # one frame wide
     (alias,) = table(tmp_path, "aliases.lance")
     assert alias["recording_id"] == r.recording_id
+    # Half-open: the alias covers the last frame.
+    assert alias["t_end_ns"] > max(
+        s["timestamp_ns"] for s in table(tmp_path, "steps/aria.lance")
+    )
+    assert commit.list_files(tmp_path / "staging" / "aria") == {}
 
     steps = table(tmp_path, "steps/aria.lance")
     ts = np.array([s["timestamp_ns"] for s in steps])
@@ -81,13 +115,10 @@ def test_episode_lands_in_every_table(tmp_path):
 
 
 def test_rerun_skips_and_replace_keeps_one_copy(tmp_path):
-    assert run(tmp_path).status == "committed"
+    assert run(tmp_path).status == "staged"
     assert run(tmp_path).status == "skipped"
-    ep = tmp_path / "eps" / "episode_0"
-    r = convert_and_commit(
-        ep, tmp_path / "lance", codec="libx264", mano=False, replace=True
-    )
-    assert r.status == "replaced"
+    r = land(tmp_path, tmp_path / "eps" / "episode_0", replace=True)
+    assert r.status == "staged"
     assert len(table(tmp_path, "recordings.lance")) == 1
     assert len(table(tmp_path, "tasks.lance")) == 2
     assert len(table(tmp_path, "annotations.lance")) == 2
@@ -97,14 +128,8 @@ def test_rerun_skips_and_replace_keeps_one_copy(tmp_path):
 def test_replace_drops_the_vendors_removed_labels(tmp_path):
     run(tmp_path)
     write_mcap_episode(tmp_path / "eps", labels_in=None)  # re-export without labels
-    r = convert_and_commit(
-        tmp_path / "eps" / "episode_0",
-        tmp_path / "lance",
-        codec="libx264",
-        mano=False,
-        replace=True,
-    )
-    assert r.status == "replaced"
+    r = land(tmp_path, tmp_path / "eps" / "episode_0", replace=True)
+    assert r.status == "staged"
     assert table(tmp_path, "annotations.lance") == []
     # Without /task the episode info is one task over the whole recording.
     (task,) = table(tmp_path, "tasks.lance")
@@ -192,10 +217,20 @@ def test_cli_keeps_going_past_a_failed_episode(tmp_path, capsys):
 
     robot = write_mcap_episode(tmp_path / "eps", "eva_bimanual", "robot")
     human = write_mcap_episode(tmp_path / "eps", "human_bimanual", "human")
-    args = ["--lance", str(tmp_path / "lance"), "--codec", "libx264", "--no-mano"]
+    args = [
+        "--stage-to",
+        str(tmp_path / "staging"),
+        "--lance",
+        str(tmp_path / "lance"),
+        "--codec",
+        "libx264",
+        "--no-mano",
+    ]
     assert main([str(robot), str(human), *args]) == 1
     out = capsys.readouterr().out
-    assert '"status": "failed"' in out and '"status": "committed"' in out
+    assert '"status": "failed"' in out and '"status": "staged"' in out
+    assert not (tmp_path / "lance" / "recordings.lance").exists()
+    commit_all(tmp_path)
     assert len(table(tmp_path, "recordings.lance")) == 1
 
 
@@ -238,17 +273,21 @@ def test_labels_lance_would_refuse_reject_before_any_commit(tmp_path, monkeypatc
     monkeypatch.setattr(
         m, "validate_episode", lambda e: Result("human_bimanual", "x", [])
     )
-    r = m.convert_and_commit(ep, tmp_path / "lance", codec="libx264", mano=False)
+    r = land(tmp_path, ep, convert=m.convert_and_stage)
     assert r.status == "rejected" and "not inside any task" in r.problems[0]
-    assert not (tmp_path / "lance" / "recordings.lance").exists()
+    assert not (tmp_path / "staging").exists()
 
 
 def test_labels_delivered_after_the_commit_are_picked_up(tmp_path):
     r = run(tmp_path, labels_in=None)
-    assert (r.status, r.annotations_added) == ("committed", 0)
+    assert (r.status, r.annotations_staged) == ("staged", 0)
     write_mcap_episode(tmp_path / "eps", labels_without_tasks=True)  # labels arrive
-    r = convert_and_commit(
-        tmp_path / "eps" / "episode_0", tmp_path / "lance", codec="libx264", mano=False
-    )
-    assert (r.status, r.annotations_added) == ("skipped", 2)
+    r = land(tmp_path, tmp_path / "eps" / "episode_0")
+    assert (r.status, r.annotations_staged) == ("skipped", 2)
     assert len(table(tmp_path, "annotations.lance")) == 2
+    (row,) = [
+        c
+        for c in table(tmp_path, "changes.lance")
+        if c["lab"] == "annotations" and c["added"]
+    ]
+    assert row["operator"] == "acme delivery"

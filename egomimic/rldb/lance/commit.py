@@ -15,12 +15,14 @@ import getpass
 import hashlib
 import json
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import lance
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
@@ -162,6 +164,64 @@ def stage(delivery: Path, dst) -> None:
     files = sorted(p for p in Path(delivery).iterdir() if p.is_file())
     for p in sorted(files, key=lambda p: p.name == "meta.json"):
         put_file(p, join(dst, p.name))
+
+
+# A delivery whose catalog rows travel with it, so the committer needs no lookup (SQL for
+# Aria, meta.json fields for EVA): meta.json has "format": "delivery".
+DESCRIBED = "delivery"
+_CATALOG_FILES = {
+    "recordings.parquet": RECORDINGS,
+    "tasks.parquet": TASKS,
+    "aliases.parquet": ALIASES,
+}
+_UNSET = ("video_path", "content_digest")  # filled by the commit
+
+
+def stage_delivery(
+    d: Delivery, dst, labels: pa.Table | None = None, meta: dict | None = None
+) -> None:
+    """Stage `d` with its catalog rows, and optionally its labels (ANNOTATIONS rows), at
+    `dst`; meta.json last, as `stage`."""
+    rows = {
+        "recordings.parquet": [d.recording],
+        "tasks.parquet": d.tasks,
+        "aliases.parquet": [d.alias],
+    }
+    with tempfile.TemporaryDirectory() as t:
+        t = Path(t)
+        pq.write_table(d.steps, t / "steps.parquet")
+        for name, schema in _CATALOG_FILES.items():
+            pq.write_table(pa.Table.from_pylist(rows[name], schema=schema), t / name)
+        if labels is not None:
+            pq.write_table(
+                labels.select(ANNOTATIONS.names).cast(ANNOTATIONS), t / "labels.parquet"
+            )
+        for f in sorted(t.iterdir()):
+            put_file(f, join(dst, f.name))
+    for cam, src in sorted(d.videos.items()):
+        put_file(Path(src), join(dst, f"{cam}.mp4"))
+    meta = {
+        **(meta or {}),
+        "format": DESCRIBED,
+        "recording_id": d.recording_id,
+        "vendor_recording_id": d.recording["vendor_recording_id"],
+        "num_frames": d.recording["num_frames"],
+        "videos": sorted(d.videos),
+    }
+    put_bytes(json.dumps(meta, indent=1, default=str).encode(), join(dst, "meta.json"))
+
+
+def load_staged_delivery(d: Path) -> tuple[Delivery, pa.Table | None]:
+    """The Delivery and labels `stage_delivery` wrote, read from a local copy `d`."""
+    meta = json.loads((d / "meta.json").read_text())
+    rec, tasks, alias = (pq.read_table(d / name).to_pylist() for name in _CATALOG_FILES)
+    recording = {k: v for k, v in rec[0].items() if k not in _UNSET}
+    labels = (
+        pq.read_table(d / "labels.parquet") if (d / "labels.parquet").exists() else None
+    )
+    videos = {cam: d / f"{cam}.mp4" for cam in meta["videos"]}
+    steps = pq.read_table(d / "steps.parquet")
+    return Delivery(recording, tasks, alias[0], steps, videos), labels
 
 
 def _size(uri: str) -> int | None:

@@ -5,8 +5,11 @@ Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
 commits them in batches (each batch tagged `<lab>-<UTC time>` on every table and recorded
 in `changes`), and deletes their staged files. A delivery that fails validation gets
 REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
-Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
-A delivery's meta.json "provenance" is kept in its batch's `changes` row.
+Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json; a
+delivery staged with commit.stage_delivery (meta.json "format": "delivery", e.g. vendor
+MCAP) carries its own catalog rows, and its labels are synced right after its batch: the
+label vendors' committed labels of that recording not among them are deleted. A delivery's
+meta.json "provenance" is kept in its batch's `changes` row.
 
 `--lab annotations` commits annotation change files that `lance_annotations stage` put under
 `<staging>/annotations/<id>/`, one commit and tag each, oldest first; each is reviewed again
@@ -34,6 +37,7 @@ from sqlalchemy import text
 from egomimic.rldb.lance import commit, mp4_ranges
 from egomimic.rldb.lance.annotations import read_changes, review
 from egomimic.rldb.lance.dataset import read_range
+from egomimic.rldb.lance.schema import ANNOTATIONS as ANNOTATIONS_SCHEMA
 from egomimic.rldb.lance.schema import task_instance_id
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -195,6 +199,50 @@ def load_eva_deliveries(
     return deliveries, rejected
 
 
+def load_described(dirs: list[Path]):
+    """Deliveries staged with their catalog rows; also {recording_id: (labels, label
+    vendors)} for the ones carrying labels."""
+    deliveries, rejected, labels = [], {}, {}
+    for d in sorted(dirs):
+        m = json.loads((d / "meta.json").read_text())
+        try:
+            delivery, rows = commit.load_staged_delivery(d)
+            errs = check_delivery(d, m, delivery.steps)
+        except Exception as e:
+            delivery, errs = None, [f"unreadable: {type(e).__name__}: {e}"]
+        if errs:
+            rejected[d.name] = errs
+            continue
+        deliveries.append(delivery)
+        if rows is not None:
+            labels[delivery.recording_id] = (rows, set(m.get("label_vendors", [])))
+    return deliveries, rejected, labels
+
+
+def sync_labels(lance_root: str, labels: dict, operator, provenance) -> dict | None:
+    """Commit each recording's delivered labels in one annotation commit; the label
+    vendors' committed labels of that recording not among them are deleted."""
+    uri = commit.annotations_uri(lance_root)
+    adds, stale = [], []
+    for rid, (rows, vendors) in sorted(labels.items()):
+        new = set(rows.column("annotation_id").to_pylist())
+        if commit._exists(uri):
+            old = commit._open(uri).to_table(
+                columns=["annotation_id", "annotation_vendor"],
+                filter=f"recording_id = {commit._sql_str(rid)}",
+            )
+            stale += [
+                r["annotation_id"]
+                for r in old.to_pylist()
+                if r["annotation_vendor"] in vendors and r["annotation_id"] not in new
+            ]
+        adds.append(rows)
+    table = pa.concat_tables(adds) if adds else ANNOTATIONS_SCHEMA.empty_table()
+    return commit.commit_annotations(
+        lance_root, table, stale, operator=operator, provenance=provenance
+    )
+
+
 LOADERS = {"aria": load_deliveries, "eva": load_eva_deliveries}
 
 
@@ -318,7 +366,17 @@ def commit_staged(
             for name in commit.list_files(src):
                 if name != REJECTED:
                     commit.get_file(commit.join(src, name), local[vid] / name)
-        deliveries, rejected = _load(lab, list(local.values()))
+        described = {
+            vid: path
+            for vid, path in local.items()
+            if json.loads((path / "meta.json").read_text()).get("format")
+            == commit.DESCRIBED
+        }
+        rest = [path for vid, path in local.items() if vid not in described]
+        deliveries, rejected = _load(lab, rest) if rest else ([], {})
+        more, bad, labels = load_described(list(described.values()))
+        deliveries += more
+        rejected.update(bad)
         skipped = []
         if not replace:
             skipped = [d for d in deliveries if d.recording_id in have]
@@ -344,6 +402,14 @@ def commit_staged(
         if result:
             report["batches"].append(result)
             have |= set(result["added"])
+            done = set(result["added"]) | set(result["replaced"])
+            mine = {rid: v for rid, v in labels.items() if rid in done}
+            if mine:
+                synced = sync_labels(
+                    lance_root, mine, operator, {"labels_of": result["tag"]}
+                )
+                if synced:
+                    report["batches"].append(synced)
         skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
         for vid, errs in rejected.items():
             _reject(staging, lab, vid, errs, batch[vid], vid in skipped_ids)

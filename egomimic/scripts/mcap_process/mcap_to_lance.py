@@ -1,12 +1,15 @@
 """Convert vendor MCAP episodes (spec 0.1, egomimic/rldb/mcap) into the Lance tables.
 
-    python -m egomimic.scripts.mcap_process.mcap_to_lance --lance <root> episode_<id>/ ...
+    python -m egomimic.scripts.mcap_process.mcap_to_lance --stage-to <staging> \
+        --lance <root> episode_<id>/ ...
 
 Per episode: validate (any problem rejects it), check its labels against the tasks it
 will have, build one steps row per frame of the steps-clock camera, write a video per
-camera, and commit the recording, its tasks and its labels with
-egomimic.rldb.lance.commit. Everything comes from the MCAP itself: the episode info
-replaces the SQL lookup of the Aria pilot (lance_pilot/commit.py).
+camera, and stage the recording, its tasks and its labels for the committer
+(egomimic.scripts.lance_commit, the only writer of the tables) with
+commit.stage_delivery. Everything comes from the MCAP itself: the episode info replaces
+the SQL lookup of the Aria pilot. `--lance` is only read, to skip recordings already
+committed; their labels are staged as an annotation change instead.
 
 The per-frame math follows aria_to_lance: nearest sample within MATCH_TOL_NS of each
 frame (a true nearest search; projectaria's helper can land one sample off), filler rows
@@ -30,6 +33,7 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.lance import commit
@@ -524,31 +528,26 @@ def _label_errors(rows: list[dict], spans: list[tuple[int, int]]) -> list[str]:
     ]
 
 
-def _sync_labels(root: Path, rid: str, rows: list[dict], vendors: set[str]):
-    """Commit `rows`; the vendors' committed labels of `rid` not among them are deleted
-    (a delivery's labels are authoritative for its vendors). Returns (added, deleted)."""
-    import lance
-
+def _label_changes(root, rid: str, rows: list[dict], vendors: set[str]) -> list[dict]:
+    """Change rows bringing a committed recording's labels to `rows`: adds, and deletes of
+    the vendors' committed labels not among them (a delivery's labels are authoritative
+    for its vendors)."""
     uri = commit.annotations_uri(root)
     new_ids = {r["annotation_id"] for r in rows}
     stale = []
     if commit._exists(uri):
-        old = lance.dataset(uri).to_table(
+        old = commit._open(uri).to_table(
             columns=["annotation_id", "annotation_vendor"],
-            filter=f"recording_id = '{rid}'",
+            filter=f"recording_id = {commit._sql_str(rid)}",
         )
         stale = [
             r["annotation_id"]
             for r in old.to_pylist()
             if r["annotation_vendor"] in vendors and r["annotation_id"] not in new_ids
         ]
-    adds = pa.Table.from_pylist(
-        [{k: r.get(k) for k in ANNOTATIONS.names} for r in rows], schema=ANNOTATIONS
-    )
-    if not adds.num_rows and not stale:
-        return 0, 0
-    out = commit.apply_annotations(root, adds, stale)
-    return out["added"], out["deleted"]
+    return [{**r, "op": "add"} for r in rows] + [
+        {"op": "delete", "annotation_id": a} for a in stale
+    ]
 
 
 # ---------------------------------------------------------------- convert
@@ -561,15 +560,14 @@ class Result:
     episode: str
     recording_id: str = ""
     lab: str = ""
-    status: str = ""  # rejected | failed | committed | replaced | skipped
+    status: str = ""  # rejected | failed | staged | skipped
     problems: list[str] = field(default_factory=list)  # why it was rejected
     error: str = ""  # why a validated episode could not be converted
     num_frames: int = 0
     filler_frames: int = 0
     tasks: int = 0
     videos: list[str] = field(default_factory=list)
-    annotations_added: int = 0
-    annotations_deleted: int = 0
+    annotations_staged: int = 0  # label rows added or deleted, staged for the committer
     valid_frac: dict[str, float] = field(default_factory=dict)
 
 
@@ -810,7 +808,7 @@ def convert(
         episode_hash=timestamp_ms_to_episode_hash(start_ms),
         recording_id=rid,
         t_start_ns=int(ts[0]),
-        t_end_ns=int(ts[-1]),
+        t_end_ns=int(ts[-1] + period),  # half-open: the last frame is inside
     )
     stats = dict(
         filler_frames=int(filler.sum()),
@@ -827,8 +825,6 @@ def convert(
 def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str]:
     """Label rows of an episode whose recording is already committed, with errors
     against its committed tasks."""
-    import lance
-
     files = [episode / spec.EPISODE_FILE]
     if (episode / spec.ANNOTATION_FILE).exists():
         files.append(episode / spec.ANNOTATION_FILE)
@@ -837,8 +833,8 @@ def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str
     rows = _label_rows(series, meta, rid, period)
     spans = [
         (t["t_start_ns"], t["t_end_ns"])
-        for t in lance.dataset(Path(root) / "tasks.lance")
-        .to_table(filter=f"recording_id = '{rid}'")
+        for t in commit._open(commit.join(root, "tasks.lance"))
+        .to_table(filter=f"recording_id = {commit._sql_str(rid)}")
         .to_pylist()
     ]
     errors = _label_errors(rows, spans)
@@ -847,16 +843,21 @@ def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str
     return rows, meta["vendor"]
 
 
-def convert_and_commit(
+def convert_and_stage(
     episode: Path,
-    lance_root: Path,
+    staging,
+    lance_root,
     *,
     replace: bool = False,
     work_dir: Path | None = None,
+    provenance: dict | None = None,
     **convert_kw,
 ) -> Result:
-    """Validate, convert and commit one episode; safe to re-run. A committed recording
-    is skipped, but its labels are brought up to date (labels delivered later)."""
+    """Validate, convert and stage one episode; safe to re-run. A recording already in
+    `lance_root` is skipped unless `replace` (the committer then needs --replace too), but
+    its labels are staged as an annotation change (labels delivered later)."""
+    from egomimic.scripts.lance_annotations import stage as stage_change
+
     res = Result(episode=str(episode))
     try:
         v = validate_episode(Path(episode))
@@ -868,8 +869,7 @@ def convert_and_commit(
         res.status = "rejected"
         res.problems = [str(p) for p in v.problems]
         return res
-    have = commit.committed_ids(lance_root)
-    if v.recording_id in have and not replace:
+    if v.recording_id in commit.committed_ids(lance_root) and not replace:
         res.status = "skipped"
         try:
             rows, vendor = _labels_of_committed(
@@ -879,9 +879,19 @@ def convert_and_commit(
             res.problems = e.problems
             return res
         vendors = {vendor, *(r["annotation_vendor"] for r in rows)}
-        res.annotations_added, res.annotations_deleted = _sync_labels(
-            lance_root, v.recording_id, rows, vendors
-        )
+        changes = _label_changes(lance_root, v.recording_id, rows, vendors)
+        if changes:
+            with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
+                f = Path(tmp) / f"{v.recording_id}-labels.parquet"
+                keys = list(dict.fromkeys(k for r in changes for k in r))
+                pq.write_table(
+                    pa.Table.from_pylist(
+                        [{k: r.get(k) for k in keys} for r in changes]
+                    ),
+                    f,
+                )
+                stage_change(f, staging, f"{vendor} delivery")
+            res.annotations_staged = len(changes)
         return res
     with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
         try:
@@ -894,30 +904,44 @@ def convert_and_commit(
             return res
         d = c.delivery
         res.lab = d.recording["lab"]
-        if d.recording_id in have:
-            commit.replace(lance_root, d, lab=res.lab)
-            res.status = "replaced"
-        else:
-            commit.append(lance_root, [d], lab=res.lab)
-            res.status = "committed"
+        labels = pa.Table.from_pylist(
+            [{k: r.get(k) for k in ANNOTATIONS.names} for r in c.labels],
+            schema=ANNOTATIONS,
+        )
+        meta = {
+            "label_vendors": sorted(
+                {c.vendor, *(r["annotation_vendor"] for r in c.labels)}
+            ),
+            "provenance": provenance,
+        }
+        commit.stage_delivery(
+            d,
+            commit.join(staging, res.lab, d.recording["vendor_recording_id"]),
+            labels=labels,
+            meta=meta,
+        )
+        res.status = "staged"
     res.num_frames = d.recording["num_frames"]
     res.tasks = len(d.tasks)
     res.videos = sorted(d.videos)
     res.filler_frames = c.stats["filler_frames"]
     res.valid_frac = c.stats["valid_frac"]
-    vendors = {c.vendor, *(r["annotation_vendor"] for r in c.labels)}
-    res.annotations_added, res.annotations_deleted = _sync_labels(
-        lance_root, d.recording_id, c.labels, vendors
-    )
+    res.annotations_staged = len(c.labels)
     return res
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("episodes", nargs="+", type=Path, help="episode_<id>/ dirs")
-    ap.add_argument("--lance", type=Path, required=True, help="Lance root")
-    ap.add_argument("--replace", action="store_true", help="re-commit changed episodes")
-    ap.add_argument("--tag", help="tag every table's resulting version")
+    ap.add_argument(
+        "--stage-to", required=True, help="staging root (dir or s3:// prefix)"
+    )
+    ap.add_argument(
+        "--lance", required=True, help="Lance root, read to skip committed recordings"
+    )
+    ap.add_argument(
+        "--replace", action="store_true", help="restage committed recordings"
+    )
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
     ap.add_argument("--ffmpeg", default="ffmpeg")
@@ -927,8 +951,9 @@ def main(argv: list[str] | None = None) -> int:
 
     results = []
     for ep in args.episodes:
-        r = convert_and_commit(
+        r = convert_and_stage(
             ep,
+            args.stage_to,
             args.lance,
             replace=args.replace,
             work_dir=args.work_dir,
@@ -939,12 +964,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         results.append(r)
         print(json.dumps(r.__dict__))
-    labs = {r.lab for r in results if r.status in ("committed", "replaced")}
-    if args.tag and labs:
-        if len(labs) > 1:
-            raise SystemExit(f"--tag covers one steps table; got labs {sorted(labs)}")
-        versions = commit.tag(args.lance, args.tag, lab=labs.pop())
-        print(json.dumps({"tag": args.tag, "versions": versions}))
     # Rejected / failed episodes and refused labels all need a look.
     bad = [r for r in results if r.status in ("rejected", "failed") or r.problems]
     return 1 if bad else 0
