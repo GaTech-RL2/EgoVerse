@@ -1,0 +1,82 @@
+import numpy as np
+import pyarrow.parquet as pq
+import pytest
+
+h5py = pytest.importorskip("h5py")
+
+from egomimic.rldb.lance.schema import EVA_STEPS  # noqa: E402
+from egomimic.scripts.eva_process.eva_to_lance import (  # noqa: E402
+    numeric_columns,
+    steps_table,
+)
+from egomimic.scripts.eva_process.eva_to_zarr import (  # noqa: E402
+    _separate_numeric_and_image,
+    _split_per_arm,
+)
+from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor  # noqa: E402
+
+N = 10
+
+
+def _demo(tmp_path, name="1766709615098"):
+    """A bimanual demo whose right arm reads all zeros at frames 3-4 in every array."""
+    rng = np.random.default_rng(0)
+    path = tmp_path / f"{name}.hdf5"
+    with h5py.File(path, "w") as f:
+        for group, key in (
+            ("observations", "eepose"),
+            ("observations", "joints"),
+            ("actions", "eepose"),
+            ("actions", "joints"),
+        ):
+            a = rng.uniform(0.1, 0.5, (N, 14)).astype(np.float32)
+            a[:, 6] = a[:, 13] = np.linspace(0.002, 0.09, N)
+            a[3:5, 7:13] = 0
+            f[f"{group}/{key}"] = a
+        f["observations/images/front_img_1"] = np.zeros((N, 4, 4, 3), np.uint8)
+    return path
+
+
+def test_steps_match_the_zarr_arrays_and_flag_dropouts(tmp_path):
+    path = _demo(tmp_path)
+    cols, dropout = numeric_columns(path, "both")
+    want = _split_per_arm(
+        _separate_numeric_and_image(EvaHD5Extractor.process_episode(path, "both"))[0],
+        "both",
+    )
+    assert set(want) <= set(cols)
+    for k in want:
+        np.testing.assert_array_equal(cols[k], want[k])
+    assert (
+        dropout[:, 0].sum() == 0 and dropout[3:5, 1].all() and dropout[:, 1].sum() == 2
+    )
+    # Gripper rescale at ingest: a pre-cutoff demo spans [0, 1].
+    assert cols["left.obs_gripper"].min() == 0 and cols["left.obs_gripper"].max() == 1
+
+    valid = {"left": ~dropout[:, 0], "right": ~dropout[:, 1]}
+    tbl = steps_table("r", np.arange(N, dtype=np.int64), cols, valid)
+    assert tbl.schema == EVA_STEPS
+    assert tbl.column("right_valid").to_pylist() == [i not in (3, 4) for i in range(N)]
+    right = tbl.column("right").combine_chunks()
+    np.testing.assert_allclose(
+        np.stack(right.field("cmd_ee_pose").to_numpy(zero_copy_only=False)),
+        want["right.cmd_ee_pose"],
+    )
+    np.testing.assert_allclose(
+        right.field("obs_gripper").to_numpy(), want["right.obs_gripper"][:, 0]
+    )
+
+
+def test_right_arm_robot_reads_the_right_slot_and_zeros_the_left(tmp_path):
+    path = _demo(tmp_path)
+    cols, dropout = numeric_columns(path, "right")
+    both, _ = numeric_columns(path, "both")
+    assert {k.split(".")[0] for k in cols} == {"right"}
+    np.testing.assert_array_equal(cols["right.obs_ee_pose"], both["right.obs_ee_pose"])
+    valid = {"left": np.zeros(N, bool), "right": ~dropout[:, 1]}
+    tbl = steps_table("r", np.arange(N, dtype=np.int64), cols, valid)
+    pq.write_table(tbl, tmp_path / "steps.parquet")
+    tbl = pq.read_table(tmp_path / "steps.parquet")
+    left = tbl.column("left").combine_chunks()
+    assert not np.stack(left.field("obs_ee_pose").to_numpy(zero_copy_only=False)).any()
+    assert tbl.column("right_valid").to_pylist() == list(valid["right"])

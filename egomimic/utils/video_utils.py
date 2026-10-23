@@ -114,3 +114,16 @@ def resize_video_thwc(video: np.ndarray) -> np.ndarray:
     for t in range(video.shape[0]):
         out[t] = cv2.resize(video[t], (640, 480), interpolation=cv2.INTER_AREA)
     return out
+
+
+def open_av1_encoder(path: Path, h: int, w: int, fps: float, ffmpeg: str):
+    """ffmpeg reading rgb24 frames on stdin into the delivery-spec AV1 MP4."""
+    cmd = [
+        ffmpeg, "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(int(fps)), "-i", "-",
+        "-c:v", "libsvtav1", "-g", "2", "-crf", "30", "-preset", "12", "-pix_fmt", "yuv420p",
+        # Index at the front, so a reader over HTTP range requests can seek without fetching the tail.
+        "-movflags", "+faststart",
+        str(path),
+    ]  # fmt: skip
+    return subprocess.Popen(cmd, stdin=subprocess.PIPE)
