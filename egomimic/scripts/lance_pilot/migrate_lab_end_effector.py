@@ -2,13 +2,13 @@ r"""One-off: copy pilot Lance roots written with `lab` = source format ("aria"/"
 and `site` = collecting lab into one new root with one `lab` column (the collecting lab),
 an `end_effector` column, and steps tables keyed `steps/{lab}/{embodiment}/{end_effector}.lance`.
 
-recording_id is unchanged (its hash input stays "aria/<vendor id>"), so tasks, aliases,
+recording_id is unchanged (its hash input stays "<source>/<vendor id>"), so tasks, aliases,
 annotations and changes of every `--src` are unioned; a recording_id or alias
 episode_hash found twice fails the run. The legacy tasks.annotations column is dropped
 (--dry-run counts the rows that carry one). Sources are never written.
 
-Lance history does not carry over: every new table starts at version 1 and is tagged
-`--tag`; tags on the source tables are listed and dropped, and `changes.tag` keeps
+Lance history does not carry over: every new table starts fresh and its migrated version
+is tagged `--tag`; tags on the source tables are listed and dropped, and `changes.tag` keeps
 naming them (they resolve only in the source root). videos/ and any other non-table
 file are copied byte for byte; `video_path` is relative to the root, so it stays valid.
 
@@ -27,6 +27,7 @@ import lance
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance.commit import (
     _exists,
     _is_remote,
@@ -43,40 +44,15 @@ from egomimic.rldb.lance.commit import (
     put_file,
 )
 from egomimic.rldb.lance.dataset import storage_options
+from egomimic.rldb.lance.schema import CHANGES, RECORDINGS, steps_path
 
-# Old `lab` (source format) -> END_EFFECTOR value (egomimic/rldb/embodiment/embodiment.py).
-END_EFFECTOR_OF_SOURCE = {"aria": "human_hand", "eva": "parallel_jaw_gripper"}
-
-# Must match schema.RECORDINGS once the schema commit lands; content_digest is absent
-# from roots written before it existed and stays absent.
-NEW_RECORDINGS_COLUMNS = [
-    "recording_id",
-    "vendor_recording_id",
-    "lab",
-    "embodiment",
-    "end_effector",
-    "rig_name",
-    "operator",
-    "scene",
-    "captured_at",
-    "fps",
-    "num_frames",
-    "video_path",
-    "intrinsics",
-    "extrinsics",
-    "license",
-    "content_digest",
-]
+# Old `lab` (the converter) -> end_effector.
+END_EFFECTOR_OF_SOURCE = {
+    "aria": END_EFFECTOR.HUMAN_HAND.value,
+    "eva": END_EFFECTOR.PARALLEL_JAW_GRIPPER.value,
+}
 
 COPIED_TABLES = ("tasks.lance", "aliases.lance", "annotations.lance")
-
-
-def steps_key(lab: str, embodiment: str, end_effector: str) -> str:
-    return f"{lab}/{embodiment}/{end_effector}"
-
-
-def new_steps_uri(root, key: str) -> str:
-    return join(root, "steps", f"{key}.lance")
 
 
 def migrate_recordings(old: pa.Table, lab_for_null_site: str | None) -> pa.Table:
@@ -105,38 +81,35 @@ def migrate_recordings(old: pa.Table, lab_for_null_site: str | None) -> pa.Table
         "lab": site,
         "end_effector": end_effector,
     }
-    extra = sorted(set(cols) - set(NEW_RECORDINGS_COLUMNS) - {"site"})
+    extra = sorted(set(cols) - set(RECORDINGS.names) - {"site"})
     if extra:
         raise ValueError(
             f"recordings has columns this migration does not know: {extra}"
         )
-    names = [n for n in NEW_RECORDINGS_COLUMNS if n in cols]
-    return pa.table({n: cols[n] for n in names})
+    # content_digest is absent from roots written before it existed.
+    n = old.num_rows
+    return pa.table(
+        {f.name: cols.get(f.name, pa.nulls(n, f.type)) for f in RECORDINGS}
+    ).cast(RECORDINGS)
 
 
 def migrate_changes(old: pa.Table, key_of: dict[str, str]) -> pa.Table:
-    """Old changes rows -> new ones. A delivery row's `lab` (old source) becomes the
-    steps-table key of its recordings; a batch spanning several keys is split into one
-    row per key under the same tag. Rows of other kinds ("annotations") are kept."""
+    """Old changes rows -> CHANGES rows, one each: the old `lab` (the converter, or
+    "annotations") becomes `source`, and `steps_tables` lists the steps tables its
+    recordings live in ([] for annotation commits)."""
     out = []
     for row in old.to_pylist():
-        if row["lab"] not in END_EFFECTOR_OF_SOURCE:
-            out.append(row)
-            continue
-        ids = (row["added"] or []) + (row["replaced"] or [])
-        lost = sorted(set(ids) - set(key_of))
-        if lost:
-            raise ValueError(f"changes {row['tag']}: recordings not committed: {lost}")
-        for key in sorted({key_of[r] for r in ids}):
-            out.append(
-                {
-                    **row,
-                    "lab": key,
-                    "added": [r for r in row["added"] or [] if key_of[r] == key],
-                    "replaced": [r for r in row["replaced"] or [] if key_of[r] == key],
-                }
-            )
-    return pa.Table.from_pylist(out, schema=old.schema)
+        row = {**row, "source": row.pop("lab"), "steps_tables": []}
+        if row["source"] in END_EFFECTOR_OF_SOURCE:
+            ids = (row["added"] or []) + (row["replaced"] or [])
+            lost = sorted(set(ids) - set(key_of))
+            if lost:
+                raise ValueError(
+                    f"changes {row['tag']}: recordings not committed: {lost}"
+                )
+            row["steps_tables"] = sorted({key_of[r] for r in ids})
+        out.append(row)
+    return pa.Table.from_pylist(out, schema=CHANGES)
 
 
 def old_steps_uris(root) -> dict[str, str]:
@@ -156,8 +129,8 @@ def new_steps_uris(root) -> dict[str, str]:
         for emb in list_dirs(join(base, lab)):
             for t in list_dirs(join(base, lab, emb)):
                 if t.endswith(".lance"):
-                    key = steps_key(lab, emb, t[: -len(".lance")])
-                    out[key] = new_steps_uri(root, key)
+                    key = steps_path(lab, emb, t[: -len(".lance")])
+                    out[key] = join(root, key)
     return out
 
 
@@ -184,14 +157,11 @@ def plan(
     """Read the sources and work out every new table's rows, without writing."""
     old_recs = [_open(join(s, "recordings.lance")).to_table() for s in srcs]
     new_rec = _union([migrate_recordings(r, lab_for_null_site) for r in old_recs])
-    new_rec = new_rec.select(
-        [n for n in NEW_RECORDINGS_COLUMNS if n in new_rec.column_names]
-    )
     clash = _duplicates(new_rec["recording_id"].to_pylist())
     if clash:
         raise ValueError(f"recording_id in more than one source: {clash}")
     key_of = {
-        r["recording_id"]: steps_key(r["lab"], r["embodiment"], r["end_effector"])
+        r["recording_id"]: steps_path(r["lab"], r["embodiment"], r["end_effector"])
         for r in new_rec.select(
             ["recording_id", "lab", "embodiment", "end_effector"]
         ).to_pylist()
@@ -218,14 +188,6 @@ def plan(
                     steps_rows[key_of[r]] += rids[r]
             for key, ids in groups.items():
                 by_key.setdefault(key, []).append((uri, sorted(ids)))
-    if orphans and not drop_orphan_steps:
-        raise ValueError(
-            f"steps rows of {len(orphans)} recordings not in recordings.lance "
-            f"({sum(orphans.values())} rows); pass --drop-orphan-steps: {sorted(orphans)}"
-        )
-    for key, parts in by_key.items():
-        if len({_open(u).schema for u, _ in parts}) > 1:
-            raise ValueError(f"steps/{key}: source tables differ in schema")
 
     def union(name):
         parts = [
@@ -233,7 +195,28 @@ def plan(
         ]
         return _union(parts) if parts else None
 
-    copied = {n: union(n) for n in COPIED_TABLES}
+    # A crashed append leaves catalog rows of its recordings too, not only steps rows.
+    copied, orphan_rows = {}, {}
+    committed = new_rec["recording_id"].combine_chunks()
+    for n in COPIED_TABLES:
+        t = union(n)
+        if t is not None:
+            keep = pc.is_in(t["recording_id"], value_set=committed)
+            gone = t.filter(pc.invert(keep))["recording_id"].to_pylist()
+            if gone:
+                orphan_rows[n] = len(gone)
+                t = t.filter(keep)
+        copied[n] = t
+    if (orphans or orphan_rows) and not drop_orphan_steps:
+        raise ValueError(
+            f"steps rows of {len(orphans)} recordings not in recordings.lance "
+            f"({sum(orphans.values())} rows, plus {orphan_rows or 'no'} catalog rows); "
+            f"pass --drop-orphan-steps: {sorted(orphans)}"
+        )
+    for key, parts in by_key.items():
+        if len({_open(u).schema for u, _ in parts}) > 1:
+            raise ValueError(f"{key}: source tables differ in schema")
+
     if copied["aliases.lance"] is not None:
         clash = _duplicates(copied["aliases.lance"]["episode_hash"].to_pylist())
         if clash:
@@ -251,7 +234,7 @@ def plan(
     tables.update({n: t.num_rows for n, t in copied.items() if t is not None})
     if changes is not None:
         tables["changes.lance"] = changes.num_rows
-    tables.update({f"steps/{k}.lance": steps_rows[k] for k in sorted(steps_rows)})
+    tables.update({k: steps_rows[k] for k in sorted(steps_rows)})
 
     files: dict[str, str] = {}
     for src in srcs:
@@ -279,6 +262,7 @@ def plan(
         key_of=key_of,
         steps_sources=by_key,
         orphans=orphans,
+        orphan_rows=orphan_rows,
         files=files,
         others=others,
         task_annotations=task_annotations,
@@ -337,7 +321,7 @@ def migrate(dst, p: dict, tag: str) -> None:
     for rel, src in sorted(p["files"].items()):
         _copy_file(join(src, rel), join(dst, rel))
     for key, parts in sorted(p["steps_sources"].items()):
-        _copy_steps(parts, new_steps_uri(dst, key))
+        _copy_steps(parts, join(dst, key))
     for name, t in p["copied"].items():
         if t is not None:
             _write(join(dst, name), t)
@@ -372,13 +356,17 @@ def verify(dst, p: dict) -> None:
     for r in p["orphans"]:
         del old_rows[r]
     new_rec = _open(join(dst, "recordings.lance")).to_table()
+    for name in COPIED_TABLES:
+        if _exists(join(dst, name)):
+            ids = _open(join(dst, name)).to_table(columns=["recording_id"])[0]
+            if not set(ids.to_pylist()) <= set(new_rec["recording_id"].to_pylist()):
+                raise AssertionError(f"{name} has rows of unknown recordings")
     if set(new_rec["recording_id"].to_pylist()) != old_ids:
         raise AssertionError("recording_id sets differ")
     if new_rec.num_rows != len(old_ids):
         raise AssertionError("recordings rows duplicated")
-    want_cols = [c for c in NEW_RECORDINGS_COLUMNS if c in new_rec.column_names]
-    if new_rec.column_names != want_cols or "end_effector" not in want_cols:
-        raise AssertionError(f"recordings columns {new_rec.column_names}")
+    if new_rec.schema != RECORDINGS:
+        raise AssertionError(f"recordings schema {new_rec.schema}")
     seen: dict[str, str] = {}
     new_rows: Counter = Counter()
     for key, uri in new_steps_uris(dst).items():
@@ -420,7 +408,8 @@ def main(argv=None):
     ap.add_argument(
         "--drop-orphan-steps",
         action="store_true",
-        help="drop steps rows of recordings missing from recordings.lance",
+        help="drop steps, tasks, aliases and annotations rows of recordings missing "
+        "from recordings.lance",
     )
     ap.add_argument("--tag", default="migrate-lab-end-effector")
     a = ap.parse_args(argv)
@@ -435,6 +424,8 @@ def main(argv=None):
         print(f"{n:>10}  {name}")
     if p["orphans"]:
         print(f"dropping {sum(p['orphans'].values())} orphan steps rows")
+    for name, n in p["orphan_rows"].items():
+        print(f"dropping {n} {name} rows of recordings not in recordings.lance")
     if p["task_annotations"] is not None:
         print(
             f"dropping tasks.annotations: {p['task_annotations']} rows have a "
