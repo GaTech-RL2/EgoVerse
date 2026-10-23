@@ -10,7 +10,6 @@ train_datasets:
     resolver:
       _target_: egomimic.rldb.lance.dataset.LanceEpisodeResolver
       lance_root: /coc/flash7/scratch/lance_pilot/lance_eva
-      lab: eva
       cameras:
         images.front_1: front_1
         images.left_wrist: left_wrist
