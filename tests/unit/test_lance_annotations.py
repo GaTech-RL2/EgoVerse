@@ -329,7 +329,7 @@ def test_commit_annotations_records_and_tags_the_change(annotated):
     assert out["tag"].startswith("annotations-")
     assert out["rows"] == {"added": 1, "deleted": 1}
     (row,) = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
-    assert (row["lab"], row["added"], row["replaced"], row["operator"]) == (
+    assert (row["source"], row["added"], row["replaced"], row["operator"]) == (
         "annotations",
         [recs[1][0]],
         [rid],

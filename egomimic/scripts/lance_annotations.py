@@ -30,6 +30,7 @@ import zarr
 
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.annotations import diff, read_changes, review
+from egomimic.rldb.lance.schema import STEPS_KEY
 
 CHANGE_SCHEMA = pa.schema(
     [
@@ -76,19 +77,18 @@ def _aliases(root) -> dict[str, dict]:
 
 
 def _clocks(root, rids: set[str]) -> dict[str, tuple[np.ndarray, float]]:
-    """{recording_id: (sorted steps timestamp_ns, fps)}, one steps read per lab."""
+    """{recording_id: (sorted steps timestamp_ns, fps)}, one read per steps table."""
     recs = commit._open(commit.join(root, "recordings.lance")).to_table(
-        columns=["recording_id", "lab", "fps"]
+        columns=["recording_id", "fps", *STEPS_KEY]
     )
     out = {}
-    for lab in set(recs.column("lab").to_pylist()):
-        mine = [
-            r for r in recs.to_pylist() if r["lab"] == lab and r["recording_id"] in rids
-        ]
-        if not mine:
-            continue
+    by_key: dict[tuple, list[dict]] = {}
+    for r in recs.to_pylist():
+        if r["recording_id"] in rids:
+            by_key.setdefault(tuple(r[c] for c in STEPS_KEY), []).append(r)
+    for key, mine in by_key.items():
         ids = ", ".join(commit._sql_str(r["recording_id"]) for r in mine)
-        t = commit._open(commit.steps_uri(root, lab)).to_table(
+        t = commit._open(commit.steps_uri(root, *key)).to_table(
             columns=["recording_id", "timestamp_ns"], filter=f"recording_id IN ({ids})"
         )
         rid_col = np.asarray(t.column("recording_id").to_pylist())
