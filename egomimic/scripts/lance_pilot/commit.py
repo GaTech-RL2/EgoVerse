@@ -146,9 +146,9 @@ def load_eva_deliveries(
         recording = dict(
             recording_id=rid,
             vendor_recording_id=m["vendor_recording_id"],
-            lab="eva",
-            site=m["site"],
+            lab=m["lab"],
             embodiment=m["embodiment"],
+            end_effector=m.get("end_effector"),
             rig_name="eva",
             operator=m["operator"],
             scene=m["scene"],
@@ -176,6 +176,11 @@ def load_eva_deliveries(
             t_start_ns=m["t_start_ns"],
             t_end_ns=m["t_end_ns"],
         )
+        try:
+            commit.steps_key(recording)
+        except ValueError as e:
+            rejected[m["vendor_recording_id"]] = [str(e)]
+            continue
         videos = {cam: d / f"{cam}.mp4" for cam in m["videos"]}
         deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
     return deliveries, rejected
@@ -197,20 +202,25 @@ def main():
         help="replace committed recordings with these deliveries",
     )
     ap.add_argument("--tag", help="tag every table's resulting version")
-    ap.add_argument("--lab", choices=["aria", "eva"], default="aria")
+    ap.add_argument(
+        "--source",
+        choices=["aria", "eva"],
+        default="aria",
+        help="converter that wrote the deliveries",
+    )
     args = ap.parse_args()
 
     dirs = sorted(p for p in args.deliveries.iterdir() if (p / "meta.json").exists())
-    load = load_eva_deliveries if args.lab == "eva" else load_deliveries
+    load = load_eva_deliveries if args.source == "eva" else load_deliveries
     deliveries, rejected = load(dirs)
 
     have = commit.committed_ids(args.lance)
-    added = commit.append(args.lance, deliveries, lab=args.lab)
+    added = commit.append(args.lance, deliveries)
     replaced = []
     if args.replace:
         for d in deliveries:
             if d.recording_id in have:
-                commit.replace(args.lance, d, lab=args.lab)
+                commit.replace(args.lance, d)
                 replaced.append(d.recording_id)
     print(
         f"appended {len(added)}, replaced {len(replaced)}, skipped {len(deliveries) - len(added) - len(replaced)} already committed"

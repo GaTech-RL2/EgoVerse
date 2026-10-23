@@ -63,7 +63,6 @@ def main():
     )
     lance_res = LanceEpisodeResolver(
         args.lance_root,
-        lab="eva",
         key_map=key_map,
         transform_list=tl,
         cameras=CAMERAS,
