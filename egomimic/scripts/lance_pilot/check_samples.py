@@ -28,7 +28,9 @@ def main():
         "--zarr-dir", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/zarr")
     )
     ap.add_argument(
-        "--lance-root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/lance")
+        "--lance-root",
+        type=Path,
+        default=Path("/coc/flash7/scratch/lance_pilot/lance_v2"),
     )
     ap.add_argument("--hashes", type=Path, required=True)
     ap.add_argument("--per-recording", type=int, default=20)
