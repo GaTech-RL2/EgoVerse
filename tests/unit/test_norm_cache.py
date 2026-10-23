@@ -168,6 +168,18 @@ def test_episode_fingerprint_changes_when_annotations_are_rewritten(tmp_path) ->
     assert len(set(seen)) == len(seen)
 
 
+def test_episode_fingerprint_sees_a_child_only_rewrite(tmp_path) -> None:
+    """A change that rewrites only a child array's zarr.json, not the root's."""
+    write_episode(tmp_path, "aria", seed=0)
+    ep = tmp_path / "aria_00.zarr"
+    root_meta = (ep / "zarr.json").stat()
+    before = norm_cache.episode_fingerprint(ep)
+    time.sleep(0.02)  # past the filesystem's mtime granularity
+    zarr.open_array(str(ep / "obs_head_pose"), mode="r+").attrs["note"] = "x"
+    assert (ep / "zarr.json").stat().st_mtime_ns == root_meta.st_mtime_ns
+    assert norm_cache.episode_fingerprint(ep) != before
+
+
 def test_write_then_find_roundtrip(tmp_path) -> None:
     key = _key()
     stats = {"actions": {"mean": np.zeros(3), "std": np.ones(3)}}
@@ -286,8 +298,9 @@ def test_train_writes_then_reuses_norm_cache(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(
         MultiDataset,
         "infer_norm_from_dataset",
-        lambda self, *a, **k: seen.append(k.get("precomputed_norm_path"))
-        or orig(self, *a, **k),
+        lambda self, *a, **k: (
+            seen.append(k.get("precomputed_norm_path")) or orig(self, *a, **k)
+        ),
     )
 
     train_hydra.train(_cfg(tmp_path, cache_dir, data, out, hashes))
