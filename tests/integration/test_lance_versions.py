@@ -22,6 +22,7 @@ lance = pytest.importorskip("lance")
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
+from egomimic.rldb.lance.schema import STEPS_KEY, steps_path, steps_paths  # noqa: E402
 
 CAMERA = "front_1"
 SAMPLES_PER_LEAF = 3
@@ -46,7 +47,6 @@ def _deliveries(src: Path) -> list[commit.Delivery]:
         r["recording_id"]: r
         for r in lance.dataset(src / "aliases.lance").to_table().to_pylist()
     }
-    steps = lance.dataset(src / "steps" / "aria.lance")
     out = []
     for r in sorted(recs, key=lambda r: r["recording_id"]):
         if r["embodiment"] != "human_bimanual":
@@ -54,6 +54,7 @@ def _deliveries(src: Path) -> list[commit.Delivery]:
         rid = r["recording_id"]
         videos = {cam: src / p for cam, p in r["video_path"] if cam == CAMERA}
         rec = {k: v for k, v in r.items() if k not in ("video_path", "content_digest")}
+        steps = lance.dataset(src / steps_path(*(r[c] for c in STEPS_KEY)))
         st = steps.to_table(filter=f"recording_id = '{rid}'")
         out.append(commit.Delivery(rec, tasks[rid], aliases[rid], st, videos))
     return out
@@ -122,8 +123,9 @@ def _all_same(s1, s2, hashes) -> list[str]:
 
 def _row_count_ok(root, **kw) -> bool:
     r = _resolver(root, **kw)
-    _, _, steps = r._open("steps/aria.lance")
     _, _, recs = r._open("recordings.lance")
+    (name,) = steps_paths(recs.to_table(columns=list(STEPS_KEY)))
+    _, _, steps = r._open(name)
     return (
         steps.count_rows()
         == pc.sum(recs.to_table(columns=["num_frames"]).column(0)).as_py()
@@ -164,7 +166,7 @@ def test_versioned_commits(pilot, tmp_path):
     # v2: one commit per recording, so many fragments
     for d in rest:
         commit.append(root, [d])
-    steps_uri = commit.steps_uri(root, "aria")
+    steps_uri = commit.steps_uri(root, *rest[0].steps_key)
     report["v2_fragments"] = len(lance.dataset(steps_uri).get_fragments())
     assert report["v2_fragments"] == 1 + len(rest)
     r2 = _resolver(root)
@@ -219,7 +221,9 @@ def test_versioned_commits(pilot, tmp_path):
         for f in frag.data_files()
     }
     commit.add_columns(
-        root, "steps/aria.lance", {"both_valid": "left_valid AND right_valid"}
+        root,
+        str(Path(steps_uri).relative_to(root)),
+        {"both_valid": "left_valid AND right_valid"},
     )
     steps5 = lance.dataset(steps_uri)
     files_after = {f.path for frag in steps5.get_fragments() for f in frag.data_files()}
@@ -256,7 +260,7 @@ def test_versioned_commits(pilot, tmp_path):
         str(Path(u).relative_to(root)): [
             v["version"] for v in lance.dataset(u).versions()
         ]
-        for u in commit.table_uris(root, "aria")
+        for u in commit.table_uris(root)
     }
     t1 = _resolver(root, tag="t1").resolve()
     assert _all_same(s1, _samples(t1), s1) == []

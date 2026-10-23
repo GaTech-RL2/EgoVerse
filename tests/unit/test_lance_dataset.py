@@ -20,6 +20,7 @@ from egomimic.rldb.lance.schema import (  # noqa: E402
     RECORDINGS,
     TASKS,
     recording_id,
+    steps_path,
 )
 
 
@@ -67,7 +68,7 @@ def catalog(tmp_path):
     steps = pa.concat_tables(
         [steps_table(rid, n, 100 * i) for i, (rid, _, n) in enumerate(recs)]
     )
-    lance.write_dataset(steps, tmp_path / "steps" / "aria.lance")
+    lance.write_dataset(steps, tmp_path / steps_path("rl2", "human_bimanual", "hand"))
     k = [200.0, 0, 240, 0, 200.0, 180, 0, 0, 1]
     lance.write_dataset(
         pa.Table.from_pylist(
@@ -75,9 +76,9 @@ def catalog(tmp_path):
                 dict(
                     recording_id=rid,
                     vendor_recording_id=h,
-                    lab="aria",
-                    site="rl2",
+                    lab="rl2",
                     embodiment="human_bimanual",
+                    end_effector="hand",
                     rig_name="aria_gen1",
                     operator="op",
                     scene="1",

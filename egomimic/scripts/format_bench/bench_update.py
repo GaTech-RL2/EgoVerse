@@ -183,7 +183,10 @@ class Layout:
 def pilot_layout(pilot: Path, rows: int) -> Layout:
     import lance
 
-    steps = lance.dataset(str(pilot / "lance/steps/aria.lance")).to_table()
+    from egomimic.rldb.lance.schema import only_steps_path
+
+    rec = lance.dataset(str(pilot / "lance/recordings.lance")).to_table()
+    steps = lance.dataset(str(pilot / "lance" / only_steps_path(rec))).to_table()
     with open(pilot / "manifest.csv") as f:
         ep_lens = [int(r["num_frames"]) for r in csv.DictReader(f)]
     return Layout(steps, ep_lens, rows)

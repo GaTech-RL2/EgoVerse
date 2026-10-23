@@ -15,7 +15,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from egomimic.rldb.lance.schema import recording_id
+from egomimic.rldb.lance.schema import only_steps_path, recording_id
 
 
 def place(src: Path, dst: Path, link: bool):
@@ -51,7 +51,8 @@ def main():
     aliases = lance.dataset(str(src_l / "aliases.lance")).to_table().to_pandas()
     aliases = aliases[aliases.episode_hash.isin(hashes)]
     rec = rec[rec.recording_id.isin(aliases.recording_id)]
-    steps_ds = lance.dataset(str(src_l / "steps" / "aria.lance"))
+    steps_rel = only_steps_path(rec)
+    steps_ds = lance.dataset(str(src_l / steps_rel))
     steps = steps_ds.to_table(
         filter=pc.field("recording_id").isin(list(rec.recording_id))
     )
@@ -59,7 +60,7 @@ def main():
 
     out_l = args.out / "lance"
     new_rec, new_tasks, new_alias = [], [], []
-    steps_uri = str(out_l / "steps" / "aria.lance")
+    steps_uri = str(out_l / steps_rel)
     for k in range(args.factor):
         rid_map = {
             r: recording_id("aria", f"dup{k:04d}/{v}")

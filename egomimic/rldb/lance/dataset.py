@@ -24,6 +24,7 @@ import torch
 
 from egomimic.rldb.embodiment.embodiment import HISTORY_MASK_SUFFIX, get_embodiment_id
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     PinError,
     ZarrDataset,
@@ -452,7 +453,8 @@ class LanceEpisodeResolver:
     """Resolves recordings from local Lance tables into LanceRecordingDataset leaves.
 
     Filter lambdas see each recording joined with its task, with SQL-style field names
-    (`episode_hash`, `lab` is the site, `task`, ...), so existing filter configs apply.
+    (`episode_hash`, `lab`, `task`, ...), so existing filter configs apply. Recordings
+    are read from the steps table of their (lab, embodiment, end_effector).
 
     Each table is read at `versions[name]` (a number or tag), else at `tag`, else at its
     latest version. Tags are resolved to numbers once, here, so a tag moved later does
@@ -462,7 +464,6 @@ class LanceEpisodeResolver:
     def __init__(
         self,
         lance_root: str | Path,
-        lab: str = "aria",
         key_map: dict | None = None,
         transform_list: list | None = None,
         cameras: dict[str, str] | None = None,
@@ -470,7 +471,6 @@ class LanceEpisodeResolver:
         tag: str | None = None,
     ):
         self.root = str(lance_root).rstrip("/")
-        self.lab = lab
         self.key_map = key_map
         self.transform_list = transform_list
         self.cameras = cameras or {"images.front_1": "front_1"}
@@ -495,10 +495,7 @@ class LanceEpisodeResolver:
         ).to_pandas()
         a = aliases.to_table(columns=["recording_id", "episode_hash"]).to_pandas()
         df = r.merge(t, on="recording_id").merge(a, on="recording_id")
-        df = df[df.lab == self.lab].rename(
-            columns={"lab": "vendor", "site": "lab", "task_name": "task"}
-        )
-        return df.reset_index(drop=True)
+        return df.rename(columns={"task_name": "task"}).reset_index(drop=True)
 
     def _horizon(self) -> int:
         hs = [
@@ -522,31 +519,14 @@ class LanceEpisodeResolver:
         if missing:
             raise PinError(f"pinned episodes not in the Lance catalog: {missing}")
 
-        uri, version, steps = self._open(f"steps/{self.lab}.lance")
-        cols = steps.to_table(columns=["recording_id", *VALIDITY.values()])
-        n_rows = cols.num_rows
-        first, change = _runs(cols.column("recording_id"))
-        starts = dict(zip(first, change))
-        if len(starts) != len(change):
-            raise ValueError(
-                f"{uri}@{version}: a recording's steps rows are not contiguous"
-            )
-        counts = dict(zip(first, np.diff(np.r_[change, n_rows])))
-        all_valid = {
-            h: cols.column(c).to_numpy(zero_copy_only=False)
-            for h, c in VALIDITY.items()
-        }
+        located = self._steps_rows(keep)
         horizon = self._horizon()
         tables = self._leaf_tables()
 
         out = {}
         for row in keep.itertuples():
-            r0, n = int(starts.get(row.recording_id, -1)), int(row.num_frames)
-            if counts.get(row.recording_id) != n:
-                raise ValueError(
-                    f"{row.episode_hash}: {counts.get(row.recording_id, 0)} steps rows at {uri}@{version}, num_frames {n}"
-                )
-            valid = {h: a[r0 : r0 + n] for h, a in all_valid.items()}
+            uri, version, r0, valid = located[row.recording_id]
+            n = int(row.num_frames)
             anchors = eligible_intervals(
                 valid, HANDS_OF.get(row.embodiment, ("left", "right")), horizon
             )
@@ -574,6 +554,36 @@ class LanceEpisodeResolver:
                 transform_list=self.transform_list,
                 content_digest=getattr(row, "content_digest", None),
             )
+        return out
+
+    def _steps_rows(self, recs: pd.DataFrame) -> dict:
+        """{recording_id: (steps uri, version, first row, {hand: validity per frame})},
+        each recording read from the steps table of its (lab, embodiment, end_effector)."""
+        out = {}
+        for key, group in recs.groupby(list(STEPS_KEY)):
+            uri, version, steps = self._open(steps_path(*key))
+            cols = steps.to_table(columns=["recording_id", *VALIDITY.values()])
+            n_rows = cols.num_rows
+            first, change = _runs(cols.column("recording_id"))
+            starts = dict(zip(first, change))
+            if len(starts) != len(change):
+                raise ValueError(
+                    f"{uri}@{version}: a recording's steps rows are not contiguous"
+                )
+            counts = dict(zip(first, np.diff(np.r_[change, n_rows])))
+            all_valid = {
+                h: cols.column(c).to_numpy(zero_copy_only=False)
+                for h, c in VALIDITY.items()
+            }
+            for row in group.itertuples():
+                rid, n = row.recording_id, int(row.num_frames)
+                if counts.get(rid) != n:
+                    raise ValueError(
+                        f"{row.episode_hash}: {counts.get(rid, 0)} steps rows at {uri}@{version}, num_frames {n}"
+                    )
+                r0 = int(starts[rid])
+                valid = {h: a[r0 : r0 + n] for h, a in all_valid.items()}
+                out[rid] = (uri, version, r0, valid)
         return out
 
     def _leaf_tables(self) -> dict:

@@ -120,7 +120,7 @@ def main():
             continue
         rows.append(
             compare(d, args.root / "zarr" / rec.episode_hash, rec.embodiment)
-            | {"site": rec.lab, "task": rec.task}
+            | {"lab": rec.lab, "task": rec.task}
         )
     df = pd.DataFrame(rows)
     df.to_csv(args.root / "migration_report.csv", index=False)

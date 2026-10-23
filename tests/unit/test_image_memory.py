@@ -48,7 +48,7 @@ def _leaf(tmp_path, fps: int = 30, **keymap_kwargs):
     return next(iter(ds.datasets.values()))
 
 
-@pytest.mark.parametrize("fps", [10, 30])
+@pytest.mark.parametrize("fps", [30, 60])
 def test_memory_frames_are_stride_seconds_apart_ending_at_the_current_frame(
     tmp_path, fps
 ):
@@ -111,7 +111,7 @@ def test_norm_mode_keymap_drops_the_memory_camera():
     assert not [k for k in key_map if "img" in k]
 
 
-@pytest.mark.parametrize("fps", [10, 30])
+@pytest.mark.parametrize("fps", [30, 60])
 def test_proprio_history_stride_in_seconds_follows_the_episode_fps(tmp_path, fps):
     leaf = _leaf(tmp_path, fps, proprio_history=3, history_stride_s=0.5)
     step = round(0.5 * fps)

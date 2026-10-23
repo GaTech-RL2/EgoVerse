@@ -31,6 +31,8 @@ from lerobot.datasets.video_utils import (
     get_video_duration_in_s,
 )
 
+from egomimic.rldb.lance.schema import only_steps_path
+
 VIDEO_KEY = "observation.images.front_1"
 VECTORS = {
     "head_pose": 7,
@@ -262,7 +264,7 @@ def main():
         .to_pandas()
     )
     rec = rec.merge(tasks, on="recording_id")
-    steps_ds = lance.dataset(str(root / "steps/aria.lance"))
+    steps_ds = lance.dataset(str(root / only_steps_path(rec)))
     ids = (
         steps_ds.to_table(columns=["recording_id"])
         .column("recording_id")

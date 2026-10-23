@@ -103,9 +103,9 @@ def main():
         recording = dict(
             recording_id=rid,
             vendor_recording_id=m["vendor_recording_id"],
-            lab="aria",
-            site=text_or_none(s.lab),
+            lab=text_or_none(s.lab),
             embodiment=text_or_none(s.embodiment),
+            end_effector=m.get("end_effector"),
             rig_name=text_or_none(s.rig_name),
             operator=text_or_none(s.operator),
             scene=text_or_none(s.scene),
@@ -134,6 +134,11 @@ def main():
             t_start_ns=m["t_start_ns"],
             t_end_ns=m["t_end_ns"],
         )
+        try:
+            commit.steps_key(recording)
+        except ValueError as e:
+            rejected[m["vendor_recording_id"]] = [str(e)]
+            continue
         videos = {cam: d / f"{cam}.mp4" for cam in ("front_1", "front_1_480")}
         deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
 

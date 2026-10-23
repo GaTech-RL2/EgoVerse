@@ -12,6 +12,7 @@ from pathlib import Path
 
 import lance
 
+from egomimic.rldb.lance.schema import only_steps_path
 from egomimic.scripts.format_bench.common import emit
 
 
@@ -70,9 +71,11 @@ def main():
     ]
 
     root = args.pilot / "lance"
-    rec = lance.dataset(str(root / "recordings.lance")).to_table().to_pylist()
+    rec = lance.dataset(str(root / "recordings.lance")).to_table()
+    steps_rel = only_steps_path(rec)
+    rec = rec.to_pylist()
     lance_frames = sum(r["num_frames"] for r in rec)
-    s_data, s_meta = lance_split(root / "steps/aria.lance")
+    s_data, s_meta = lance_split(root / steps_rel)
     meta = s_meta + sum(
         size(root / t) for t in ("recordings.lance", "aliases.lance", "tasks.lance")
     )

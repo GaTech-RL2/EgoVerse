@@ -46,7 +46,7 @@ def load_rows() -> pd.DataFrame:
 
 
 def select(df: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
-    """Round-robin over (site, task, embodiment) strata, preferring typical lengths."""
+    """Round-robin over (lab, task, embodiment) strata, preferring typical lengths."""
     lo, hi = df.num_frames.quantile([0.1, 0.9])
     pool = df[
         df.num_frames.between(lo, hi)

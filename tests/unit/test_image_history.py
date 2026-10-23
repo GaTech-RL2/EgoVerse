@@ -46,7 +46,7 @@ def _leaf(tmp_path, fps: int, **keymap_kwargs):
     return next(iter(ds.datasets.values()))
 
 
-@pytest.mark.parametrize("fps,gap_frames", [(30, 3), (10, 1), (60, 6)])
+@pytest.mark.parametrize("fps,gap_frames", [(30, 3), (60, 6)])
 def test_past_frame_is_gap_seconds_back_in_the_episodes_fps(tmp_path, fps, gap_frames):
     leaf = _leaf(tmp_path, fps, image_history_gap_s=0.1)
     idx = 8

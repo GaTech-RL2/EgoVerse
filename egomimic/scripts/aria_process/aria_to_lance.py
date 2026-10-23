@@ -21,6 +21,7 @@ from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
 from projectaria_tools.core.sensor_data import TimeDomain
 from projectaria_tools.core.stream_id import StreamId
 
+from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.lance.schema import HUMAN_STEPS, recording_id
 from egomimic.rldb.lance.timeline import build_timeline, nearest_dt, pose_outliers
@@ -239,6 +240,7 @@ def convert(args) -> dict:
         "vendor_recording_id": args.vendor_recording_id,
         "recording_id": args.recording_id,
         "embodiment": args.embodiment,
+        "end_effector": END_EFFECTOR.HAND.value,
         "fps": FPS,
         "rgb_fps_measured": nominal_fps,
         "num_frames": n,
