@@ -14,6 +14,7 @@ import logging
 import os
 from collections import OrderedDict
 from pathlib import Path
+from typing import NamedTuple
 
 import lance
 import numpy as np
@@ -22,14 +23,9 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import torch
 
-from egomimic.rldb.embodiment.embodiment import HISTORY_MASK_SUFFIX, get_embodiment_id
-from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance.schema import STEPS_KEY, steps_path
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    PinError,
-    ZarrDataset,
-    _ensure_dataset_filter,
-)
+from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +245,7 @@ def _chunks_of(table: dict, recording_id: str, num_frames: int, name: str) -> tu
     return (table["uri"], table["version"], table["rows"][recording_id], table["k"])
 
 
-class LanceRecordingDataset(ZarrDataset):
+class LanceRecordingDataset(EpisodeLeaf):
     """One recording from local Lance tables: steps rows plus its MP4s on disk, read
     one sample at a time. `LanceStreamingDataset` is the object-storage variant."""
 
@@ -272,6 +268,8 @@ class LanceRecordingDataset(ZarrDataset):
         key_map: dict,
         transform_list: list | None = None,
         content_digest: str | None = None,
+        annotations: tuple[np.ndarray, np.ndarray, list[str]] | None = None,
+        clamp_actions: bool = False,
     ):
         self.episode_path = name
         self.content_digest = content_digest
@@ -288,14 +286,13 @@ class LanceRecordingDataset(ZarrDataset):
         self._intrinsics = intrinsics
         self.videos = videos
         self.task_text = task_text
-        self.key_map = key_map
-        self.transform = transform_list
         self._image_keys = {k for k in videos}
-        self._json_keys = set()
-        self._annotations = []
         self.anchors = np.asarray(anchors, dtype=np.int64).reshape(-1, 2)
         self._cum = np.r_[0, np.cumsum(self.anchors[:, 1] - self.anchors[:, 0])]
-        torch.utils.data.Dataset.__init__(self)
+        # (start frames, end frames, texts) sorted by start; None: the task text stands in.
+        self._ann = annotations
+        self._clamp_actions = clamp_actions
+        super().__init__(key_map=key_map, transform_list=transform_list)
 
     def cache_fingerprint(self) -> str:
         """Keys on the recording's content digest, so commits to other recordings and
@@ -313,6 +310,8 @@ class LanceRecordingDataset(ZarrDataset):
             for k in sorted(self.videos):
                 h.update(f"{k}\0{self.videos[k]}\0".encode())
         h.update(self.anchors.tobytes())
+        if self._clamp_actions and self._ann is not None:
+            h.update(b"clamp\0" + self._ann[0].tobytes() + self._ann[1].tobytes())
         return h.hexdigest()
 
     @property
@@ -326,8 +325,21 @@ class LanceRecordingDataset(ZarrDataset):
         j = int(np.searchsorted(self._cum, i, side="right")) - 1
         return int(self.anchors[j, 0] + (i - self._cum[j]))
 
+    def _covering(self, frame_idx: int) -> np.ndarray:
+        s, e, _ = self._ann
+        return np.flatnonzero((s <= frame_idx) & (frame_idx < e))
+
     def _annotation_text_for_frame(self, frame_idx: int):
-        return [self.task_text]
+        if self._ann is None:
+            return [self.task_text]
+        return [self._ann[2][j] for j in self._covering(frame_idx)]
+
+    def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
+        end = super()._chunk_end_idx(start_idx, horizon, key_type)
+        if not self._clamp_actions or key_type != "action_keys" or self._ann is None:
+            return end
+        cover = self._covering(start_idx)
+        return min(end, int(self._ann[1][cover].min())) if len(cover) else end
 
     def _read_numeric(self, needs: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """One `take` for every numeric column; returns {zarr key: rows at the requested frames}."""
@@ -379,41 +391,14 @@ class LanceRecordingDataset(ZarrDataset):
         }
         return self.assemble_sample(plan, (numeric, frames))
 
-    def _finish(self, idx: int, data: dict) -> dict:
-        pad_mask = self._action_pad_mask(idx)
-        if pad_mask is not None:
-            data["action_pad_mask"] = pad_mask
-        for k, spec in self.key_map.items():
-            if spec.get("key_type") == "camera_keys" and spec.get("history"):
-                data[f"{k}{HISTORY_MASK_SUFFIX}"] = self._history_indices(idx, spec)[1]
-        history_mask = self._proprio_history_mask(idx)
-        if history_mask is not None:
-            data["proprio_history_mask"] = history_mask
-
-        for transform in self.transform or []:
-            data = transform.transform(data)
-        for k, v in data.items():
-            if isinstance(v, np.ndarray):
-                data[k] = torch.from_numpy(v).to(torch.float32)
-
-        data["embodiment"] = get_embodiment_id(self.embodiment)
-        data["fps"] = torch.tensor(float(self.metadata["fps"]), dtype=torch.float32)
-        K = self._intrinsics
-        K = (
-            np.full((3, 4), np.nan, np.float32)
-            if K is None
-            else np.c_[np.asarray(K, np.float32).reshape(3, 3), np.zeros(3, np.float32)]
-        )
-        data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
-        data["episode_hash"] = self.episode_path
-        return data
-
 
 class LanceStreamingDataset(LanceRecordingDataset):
     """One recording read straight from object storage (or any Lance URI): frames come
     from K-frame video chunk rows (`video_chunks/<name>.lance`, `chunk_videos.py`)
     instead of whole MP4s, and `MultiDataset.__getitems__` fetches a DataLoader batch
     through `fetch_planned`, so a batch costs about two round trips."""
+
+    batched_fetch = True
 
     def __init__(
         self,
@@ -449,6 +434,16 @@ class LanceStreamingDataset(LanceRecordingDataset):
         return self.assemble_sample(plan, self.fetch_planned([(self, plan)])[0])
 
 
+class StepsRows(NamedTuple):
+    """Where a recording's frames sit in its steps table."""
+
+    uri: str
+    version: int
+    row_start: int
+    num_frames: int
+    valid: dict[str, np.ndarray]
+
+
 class LanceEpisodeResolver:
     """Resolves recordings from local Lance tables into LanceRecordingDataset leaves.
 
@@ -459,7 +454,21 @@ class LanceEpisodeResolver:
     Each table is read at `versions[name]` (a number or tag), else at `tag`, else at its
     latest version. Tags are resolved to numbers once, here, so a tag moved later does
     not change what an existing resolver reads.
+
+    `annotations` switches annotation keys from the task description to the rows of
+    `annotations.lance` covering the frame, in start order. Its keys (all optional):
+    `types` (default ["language"]), `vendors`, `min_quality` (ungraded rows fail it),
+    `clamp_actions` (stop action chunks at the end of the covering annotation) and
+    `require` (sample only anchors some annotation covers; drops leaves with none).
     """
+
+    ANNOTATION_DEFAULTS = {
+        "types": ["language"],
+        "vendors": None,
+        "min_quality": None,
+        "clamp_actions": False,
+        "require": False,
+    }
 
     def __init__(
         self,
@@ -469,6 +478,7 @@ class LanceEpisodeResolver:
         cameras: dict[str, str] | None = None,
         versions: dict[str, int | str] | None = None,
         tag: str | None = None,
+        annotations: dict | None = None,
     ):
         self.root = str(lance_root).rstrip("/")
         self.key_map = key_map
@@ -476,6 +486,12 @@ class LanceEpisodeResolver:
         self.cameras = cameras or {"images.front_1": "front_1"}
         self.tag = tag
         self.versions = dict(versions or {})
+        self.annotations = None
+        if annotations is not None:
+            unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
+            if unknown:
+                raise ValueError(f"unknown annotations options {sorted(unknown)}")
+            self.annotations = {**self.ANNOTATION_DEFAULTS, **dict(annotations)}
 
     def _open(self, name: str):
         uri = f"{self.root}/{name}"
@@ -496,6 +512,39 @@ class LanceEpisodeResolver:
         a = aliases.to_table(columns=["recording_id", "episode_hash"]).to_pandas()
         df = r.merge(t, on="recording_id").merge(a, on="recording_id")
         return df.rename(columns={"task_name": "task"}).reset_index(drop=True)
+
+    def _annotation_rows(self) -> dict[str, pd.DataFrame]:
+        """{recording_id: rows passing the `annotations` filters, sorted by start}."""
+        cfg = self.annotations
+        _, _, tbl = self._open("annotations.lance")
+        df = tbl.to_table().to_pandas()
+        keep = df.annotation_type.isin(cfg["types"])
+        if cfg["vendors"] is not None:
+            keep &= df.annotation_vendor.isin(cfg["vendors"])
+        if cfg["min_quality"] is not None:
+            keep &= df.quality_score.notna() & (df.quality_score >= cfg["min_quality"])
+        df = df[keep].sort_values(["recording_id", "t_start_ns", "t_end_ns"])
+        return {rid: g for rid, g in df.groupby("recording_id")}
+
+    @staticmethod
+    def _frame_spans(rows: pd.DataFrame, ts: np.ndarray):
+        """Half-open frame ranges of half-open time ranges; empty ones are dropped."""
+        a = np.searchsorted(ts, rows.t_start_ns.to_numpy(), "left")
+        b = np.searchsorted(ts, rows.t_end_ns.to_numpy(), "left")
+        keep = a < b
+        return a[keep], b[keep], rows.text[keep].tolist()
+
+    @staticmethod
+    def _covered(anchors: np.ndarray, starts, ends, n: int) -> np.ndarray:
+        on = np.zeros(n + 1, np.int64)
+        np.add.at(on, starts, 1)
+        np.add.at(on, ends, -1)
+        cover = np.cumsum(on)[:n] > 0
+        mask = np.zeros(n, bool)
+        for s, e in anchors:
+            mask[s:e] = True
+        edges = np.flatnonzero(np.diff(np.r_[0, (mask & cover).astype(np.int8), 0]))
+        return edges.reshape(-1, 2)
 
     def _horizon(self) -> int:
         hs = [
@@ -522,17 +571,38 @@ class LanceEpisodeResolver:
         located = self._steps_rows(keep)
         horizon = self._horizon()
         tables = self._leaf_tables()
+        ann_rows, ann_ts = {}, {}
+        if self.annotations is not None:
+            ann_rows = self._annotation_rows()
+            ann_ts = self._timestamps(
+                located, [r for r in keep.recording_id if r in ann_rows]
+            )
+        no_ann = []
 
         out = {}
         for row in keep.itertuples():
-            uri, version, r0, valid = located[row.recording_id]
-            n = int(row.num_frames)
+            uri, version, r0, n, valid = located[row.recording_id]
             anchors = eligible_intervals(
                 valid, HANDS_OF.get(row.embodiment, ("left", "right")), horizon
             )
             if not len(anchors):
                 logger.warning("recording %s has no eligible anchors", row.episode_hash)
                 continue
+            ann_kw = {}
+            if self.annotations is not None:
+                spans = (np.empty(0, np.int64), np.empty(0, np.int64), [])
+                if row.recording_id in ann_ts:
+                    spans = self._frame_spans(
+                        ann_rows[row.recording_id], ann_ts[row.recording_id]
+                    )
+                if self.annotations["require"]:
+                    anchors = self._covered(anchors, spans[0], spans[1], n)
+                    if not len(anchors):
+                        no_ann.append(row.episode_hash)
+                        continue
+                ann_kw = dict(
+                    annotations=spans, clamp_actions=self.annotations["clamp_actions"]
+                )
             intr = dict(row.intrinsics) if row.intrinsics is not None else {}
             vids = dict(row.video_path)
             cam = next(iter(self.cameras.values()))
@@ -553,11 +623,19 @@ class LanceEpisodeResolver:
                 key_map=self.key_map,
                 transform_list=self.transform_list,
                 content_digest=getattr(row, "content_digest", None),
+                **ann_kw,
+            )
+        if self.annotations is not None and self.annotations["require"]:
+            logger.info(
+                "kept %d/%d recordings with annotated anchors; dropped e.g. %s",
+                len(out),
+                len(out) + len(no_ann),
+                no_ann[:5],
             )
         return out
 
     def _steps_rows(self, recs: pd.DataFrame) -> dict:
-        """{recording_id: (steps uri, version, first row, {hand: validity per frame})},
+        """{recording_id: StepsRows},
         each recording read from the steps table of its (lab, embodiment, end_effector)."""
         out = {}
         for key, group in recs.groupby(list(STEPS_KEY)):
@@ -583,7 +661,31 @@ class LanceEpisodeResolver:
                     )
                 r0 = int(starts[rid])
                 valid = {h: a[r0 : r0 + n] for h, a in all_valid.items()}
-                out[rid] = (uri, version, r0, valid)
+                out[rid] = StepsRows(uri, version, r0, n, valid)
+        return out
+
+    @staticmethod
+    def _timestamps(located: dict, rids) -> dict[str, np.ndarray]:
+        """{recording_id: timestamp_ns per frame}, one take per steps table."""
+        by_table: dict = {}
+        for rid in rids:
+            loc = located[rid]
+            by_table.setdefault((loc.uri, loc.version), []).append(rid)
+        out = {}
+        for (uri, version), ids in by_table.items():
+            rows = np.concatenate(
+                [
+                    np.arange(
+                        located[r].row_start,
+                        located[r].row_start + located[r].num_frames,
+                    )
+                    for r in ids
+                ]
+            )
+            ts = _table(uri, version).take(rows.tolist(), columns=["timestamp_ns"])
+            ts = ts.column(0).to_numpy()
+            at = np.cumsum([0] + [located[r].num_frames for r in ids])
+            out.update({r: ts[at[j] : at[j + 1]] for j, r in enumerate(ids)})
         return out
 
     def _leaf_tables(self) -> dict:

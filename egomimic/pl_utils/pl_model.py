@@ -11,7 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
 from egomimic.pl_utils.pl_data_utils import head_of_loader, video_loader_name
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.rldb.multi import MultiDataset
 
 
 def _barrier() -> None:

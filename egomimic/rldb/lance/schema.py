@@ -36,6 +36,40 @@ def only_steps_path(recordings) -> str:
     return paths[0]
 
 
+def annotation_id(
+    recording_id: str,
+    annotation_vendor: str,
+    annotation_type: str,
+    t_start_ns: int,
+    t_end_ns: int,
+    text: str,
+) -> str:
+    """Same content, same id: vendors can compute the id of a row they sent, to delete it."""
+    key = "\0".join(
+        map(
+            str,
+            (
+                recording_id,
+                annotation_vendor,
+                annotation_type,
+                t_start_ns,
+                t_end_ns,
+                text,
+            ),
+        )
+    )
+    return str(uuid.uuid5(RECORDING_NAMESPACE, f"annotation/{key}"))
+
+
+def task_instance_id(recording_id: str, task_name: str | None, t_start_ns: int) -> str:
+    """Stable across rebuilds and computable by vendors; old episode_hashes resolve through aliases."""
+    return str(
+        uuid.uuid5(
+            RECORDING_NAMESPACE, f"task/{recording_id}/{task_name or ''}/{t_start_ns}"
+        )
+    )
+
+
 def _vec(n: int) -> pa.DataType:
     return pa.list_(pa.float32(), n)
 
@@ -89,15 +123,6 @@ RECORDINGS = pa.schema(
     ]
 )
 
-ANNOTATION = pa.struct(
-    [
-        ("t_start_ns", pa.int64()),
-        ("t_end_ns", pa.int64()),
-        ("text", pa.string()),
-        ("annotator", pa.string()),
-    ]
-)
-
 TASKS = pa.schema(
     [
         ("task_instance_id", pa.string()),
@@ -107,7 +132,6 @@ TASKS = pa.schema(
         ("task_name", pa.string()),
         ("task_description", pa.string()),
         ("objects", pa.list_(pa.string())),
-        ("annotations", pa.list_(ANNOTATION)),
     ]
 )
 
@@ -117,5 +141,24 @@ ALIASES = pa.schema(
         ("recording_id", pa.string()),
         ("t_start_ns", pa.int64()),
         ("t_end_ns", pa.int64()),
+    ]
+)
+
+ANNOTATION_TYPES = ("language",)
+
+# Intervals are half-open [t_start_ns, t_end_ns) on the recording clock; a point event is one frame wide.
+ANNOTATIONS = pa.schema(
+    [
+        ("annotation_id", pa.string()),
+        ("recording_id", pa.string()),
+        ("t_start_ns", pa.int64()),
+        ("t_end_ns", pa.int64()),
+        ("annotation_type", pa.string()),
+        ("text", pa.string()),
+        ("annotation_vendor", pa.string()),
+        # Rubric items passed (0-5); null until graded.
+        ("quality_score", pa.int8()),
+        ("graded_by", pa.string()),
+        ("rubric_version", pa.string()),
     ]
 )

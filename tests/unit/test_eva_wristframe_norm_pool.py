@@ -8,7 +8,7 @@ from hydra import compose, initialize_config_module
 
 from egomimic.eval.action_metrics import cartesian_metrics, keypoint_metrics
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.zarr import norm_cache
+from egomimic.rldb.norm import norm_cache
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 
 EVA_WRIST_REVERT = "egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list"
