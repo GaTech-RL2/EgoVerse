@@ -332,6 +332,44 @@ def test_from_bucket_counts_frames_from_the_alias_start(tmp_path):
     assert not review(root, pq.read_table(out)).errors
 
 
+def test_from_bucket_skips_orphan_aliases_and_duplicated_steps(tmp_path):
+    from fixtures.lance_tables import alias, steps_table
+
+    from egomimic.rldb.lance.schema import steps_path
+    from egomimic.scripts.lance_annotations import cmd_from_bucket
+
+    root = tmp_path / "lance"
+    recs = write_catalog(
+        root,
+        aliases=lambda recs: [
+            *(alias(rid, 3, n, h) for rid, h, n in recs),
+            alias("crashed-append", 0, 5, "orphan"),
+        ],
+    )
+    (rid, h, n), _ = recs
+    # A rerun after a crashed append leaves the recording's steps rows in twice.
+    lance.write_dataset(
+        steps_table(rid, n, 0),
+        root / steps_path("rl2", "human_bimanual", "human_hand"),
+        mode="append",
+    )
+    bucket = tmp_path / "bucket"
+    bucket.mkdir()
+    spans = [{"text": "reach", "start_idx": 0, "end_idx": 2}]
+    for name in (h, "orphan"):
+        (bucket / f"{name}_annotations.json").write_text(json.dumps(spans))
+    out = tmp_path / "changes.parquet"
+    cmd_from_bucket(
+        argparse.Namespace(
+            lance=str(root), bucket=str(bucket), key="annotations", vendor="s", out=out
+        )
+    )
+    rows = pq.read_table(out).to_pylist()
+    assert [(r["recording_id"], r["t_start_ns"], r["t_end_ns"]) for r in rows] == [
+        (rid, 3 * PERIOD_NS, 5 * PERIOD_NS)
+    ]
+
+
 def test_commit_annotations_records_and_tags_the_change(annotated):
     root, recs = annotated
     rid = recs[0][0]
@@ -349,7 +387,7 @@ def test_commit_annotations_records_and_tags_the_change(annotated):
     assert out["tag"].startswith("annotations-")
     assert out["rows"] == {"added": 1, "deleted": 1}
     (row,) = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
-    assert (row["lab"], row["added"], row["replaced"], row["operator"]) == (
+    assert (row["source"], row["added"], row["replaced"], row["operator"]) == (
         "annotations",
         [recs[1][0]],
         [rid],

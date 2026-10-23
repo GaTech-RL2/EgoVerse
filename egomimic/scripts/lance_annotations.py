@@ -30,6 +30,8 @@ import zarr
 
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.annotations import diff, read_changes, review
+from egomimic.rldb.lance.dataset import open_table
+from egomimic.rldb.lance.schema import STEPS_KEY
 
 CHANGE_SCHEMA = pa.schema(
     [
@@ -73,31 +75,31 @@ def cmd_commit(args):
 
 
 def _aliases(root) -> dict[str, dict]:
-    rows = commit._open(commit.join(root, "aliases.lance")).to_table().to_pylist()
+    rows = open_table(commit.join(root, "aliases.lance")).to_table().to_pylist()
     return {a["episode_hash"]: a for a in rows}
 
 
 def _clocks(root, rids: set[str]) -> dict[str, tuple[np.ndarray, float]]:
-    """{recording_id: (sorted steps timestamp_ns, fps)}, one steps read per lab."""
-    recs = commit._open(commit.join(root, "recordings.lance")).to_table(
-        columns=["recording_id", "lab", "fps"]
+    """{recording_id: (sorted unique steps timestamp_ns, fps)}, one read per steps table.
+    Unique, since a rerun of a crashed append can leave a recording's steps rows twice."""
+    recs = open_table(commit.join(root, "recordings.lance")).to_table(
+        columns=["recording_id", "fps", *STEPS_KEY]
     )
     out = {}
-    for lab in set(recs.column("lab").to_pylist()):
-        mine = [
-            r for r in recs.to_pylist() if r["lab"] == lab and r["recording_id"] in rids
-        ]
-        if not mine:
-            continue
+    by_key: dict[tuple, list[dict]] = {}
+    for r in recs.to_pylist():
+        if r["recording_id"] in rids:
+            by_key.setdefault(tuple(r[c] for c in STEPS_KEY), []).append(r)
+    for key, mine in by_key.items():
         ids = ", ".join(commit._sql_str(r["recording_id"]) for r in mine)
-        t = commit._open(commit.steps_uri(root, lab)).to_table(
+        t = open_table(commit.steps_uri(root, *key)).to_table(
             columns=["recording_id", "timestamp_ns"], filter=f"recording_id IN ({ids})"
         )
         rid_col = np.asarray(t.column("recording_id").to_pylist())
         ts = t.column("timestamp_ns").to_numpy()
         for r in mine:
             out[r["recording_id"]] = (
-                np.sort(ts[rid_col == r["recording_id"]]),
+                np.unique(ts[rid_col == r["recording_id"]]),
                 r["fps"],
             )
     return out
@@ -152,6 +154,9 @@ def cmd_from_zarr(args):
         anns, zts = _zarr_annotations(path)
         if not anns:
             continue
+        if rid not in clocks:
+            dropped[h] = ["alias has no recordings row"] * len(anns)
+            continue
         rts, fps = clocks[rid]
         period = int(round(1e9 / fps))
 
@@ -190,6 +195,9 @@ def cmd_from_bucket(args):
     clocks = _clocks(args.lance, {a["recording_id"] for a in todo.values()})
     rows = []
     for h, a in sorted(todo.items()):
+        if a["recording_id"] not in clocks:
+            dropped[h] = ["alias has no recordings row"]
+            continue
         rts, _ = clocks[a["recording_id"]]
         clip = rts[(rts >= a["t_start_ns"]) & (rts < a["t_end_ns"])]
         spans = json.loads(commit.get_bytes(commit.join(args.bucket, hashes[h])))
