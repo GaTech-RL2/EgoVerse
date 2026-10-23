@@ -27,7 +27,7 @@ PERIOD_NS = 1e9 / 30
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--zarr-dir", type=Path, default=PILOT / "zarr")
-    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance")
+    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance_v2")
     ap.add_argument("--hashes", type=Path, required=True)
     ap.add_argument("--per-recording", type=int, default=20)
     args = ap.parse_args()

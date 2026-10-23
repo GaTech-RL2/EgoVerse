@@ -107,7 +107,7 @@ def main():
     ap.add_argument("--zarr-dir", type=Path, default=PILOT / "zarr")
     ap.add_argument(
         "--lance-root",
-        default=str(PILOT / "lance"),
+        default=str(PILOT / "lance_v2"),
         help="local path or s3:// URI",
     )
     ap.add_argument("--camera", default="front_1", help="front_1 (360p) or front_1_480")

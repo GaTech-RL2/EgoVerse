@@ -28,7 +28,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--hashes", nargs="+", required=True)
     ap.add_argument("--zarr-root", type=Path, default=PILOT / "zarr")
-    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance")
+    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance_v2")
     ap.add_argument("--n", type=int, default=500)
     args = ap.parse_args()
 
