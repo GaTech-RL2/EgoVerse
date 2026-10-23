@@ -18,6 +18,8 @@ import numpy as np
 import pyarrow as pa
 from lance.blob import blob_array, blob_field
 
+from egomimic.scripts.lance_pilot import PILOT
+
 SCHEMA = pa.schema(
     [
         ("recording_id", pa.string()),
@@ -67,9 +69,7 @@ def frames(source, indices):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--lance-root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/lance")
-    )
+    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance")
     ap.add_argument(
         "--out-root",
         type=Path,

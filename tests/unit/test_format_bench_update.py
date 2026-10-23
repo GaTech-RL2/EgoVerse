@@ -9,11 +9,12 @@ from pathlib import Path
 
 import lance
 import numpy as np
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 import zarr
 
-from egomimic.rldb.lance.schema import HUMAN_STEPS
+from egomimic.rldb.lance.schema import HUMAN_STEPS, steps_path
 from egomimic.scripts.format_bench import bench_update as bu
 
 ROWS = 1300
@@ -35,8 +36,12 @@ def lay(tmp_path):
         cols["g"] = np.arange(n)
         batches.append(bu.steps_batch(cols, f"src-{i}"))
     pilot = tmp_path / "pilot"
+    key = {"lab": "rl2", "embodiment": "human_bimanual", "end_effector": "human_hand"}
     lance.write_dataset(
-        batches, str(pilot / "lance/steps/aria.lance"), schema=HUMAN_STEPS
+        pa.Table.from_pylist([key]), str(pilot / "lance/recordings.lance")
+    )
+    lance.write_dataset(
+        batches, str(pilot / "lance" / steps_path(**key)), schema=HUMAN_STEPS
     )
     with open(pilot / "manifest.csv", "w") as f:
         w = csv.writer(f)

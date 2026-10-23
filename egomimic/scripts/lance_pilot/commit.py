@@ -18,6 +18,7 @@ from sqlalchemy import text
 from torchcodec.decoders import VideoDecoder
 
 from egomimic.rldb.lance import commit
+from egomimic.scripts.lance_pilot import PILOT
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_timestamp_ms,
@@ -68,11 +69,9 @@ def main():
     ap.add_argument(
         "--deliveries",
         type=Path,
-        default=Path("/coc/flash7/scratch/lance_pilot/deliveries"),
+        default=PILOT / "deliveries",
     )
-    ap.add_argument(
-        "--lance", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/lance")
-    )
+    ap.add_argument("--lance", type=Path, default=PILOT / "lance")
     ap.add_argument(
         "--replace",
         action="store_true",
@@ -108,9 +107,9 @@ def main():
         recording = dict(
             recording_id=rid,
             vendor_recording_id=m["vendor_recording_id"],
-            lab="aria",
-            site=text_or_none(s.lab),
+            lab=text_or_none(s.lab),
             embodiment=text_or_none(s.embodiment),
+            end_effector=m.get("end_effector"),
             rig_name=text_or_none(s.rig_name),
             operator=text_or_none(s.operator),
             scene=text_or_none(s.scene),
@@ -140,7 +139,13 @@ def main():
             t_end_ns=m["t_end_ns"],
         )
         videos = {cam: d / f"{cam}.mp4" for cam in ("front_1", "front_1_480")}
-        deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
+        delivery = commit.Delivery(recording, task, alias, steps, videos)
+        try:
+            commit.check_required(delivery)
+        except ValueError as e:
+            rejected[m["vendor_recording_id"]] = [str(e)]
+            continue
+        deliveries.append(delivery)
 
     have = commit.committed_ids(args.lance)
     added = commit.append(args.lance, deliveries)

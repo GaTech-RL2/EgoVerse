@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import text
 
+from egomimic.scripts.lance_pilot import PILOT
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_timestamp_ms,
@@ -46,7 +47,7 @@ def load_rows() -> pd.DataFrame:
 
 
 def select(df: pd.DataFrame, n: int, seed: int) -> pd.DataFrame:
-    """Round-robin over (site, task, embodiment) strata, preferring typical lengths."""
+    """Round-robin over (lab, task, embodiment) strata, preferring typical lengths."""
     lo, hi = df.num_frames.quantile([0.1, 0.9])
     pool = df[
         df.num_frames.between(lo, hi)
@@ -88,7 +89,7 @@ def s5cmd_lines(sel: pd.DataFrame, out: Path) -> list[str]:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--out", type=Path, default=Path("/coc/flash7/scratch/lance_pilot"))
+    ap.add_argument("--out", type=Path, default=PILOT)
     ap.add_argument("--n", type=int, default=50)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--numworkers", type=int, default=64)

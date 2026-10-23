@@ -39,6 +39,13 @@ class EMBODIMENT(Enum):
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
 
 
+class END_EFFECTOR(Enum):
+    """What acts at the end of each arm; the Lance `end_effector` column holds the value."""
+
+    HUMAN_HAND = "human_hand"
+    PARALLEL_JAW_GRIPPER = "parallel_jaw_gripper"
+
+
 def _intrinsics_from_batch(batch, i: int):
     """Return per-sample intrinsics from batch, or None if missing/NaN sentinel."""
     K = batch.get("intrinsics") if isinstance(batch, dict) else None

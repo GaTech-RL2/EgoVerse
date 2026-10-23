@@ -1,7 +1,7 @@
 """Lance pilot tables -> LeRobot v3.0 dataset, without re-encoding video.
 
-Runs in the LeRobot venv (no egomimic imports). Numerics come from the Lance steps table, so all
-three formats hold the same values. The Lance MP4s already use LeRobot's default encode
+Runs in the LeRobot venv with egomimic importable (for the Lance schema helpers). Numerics
+come from the Lance steps table, so all three formats hold the same values. The Lance MP4s already use LeRobot's default encode
 (libsvtav1, g=2, crf=30, preset 12, yuv420p), so each episode's MP4 is appended to the current
 video file with LeRobot's own `concatenate_video_files`, exactly as its writer does after encoding.
 Data and video files roll over at LeRobot's size limits; episode metadata, tasks, info and stats
@@ -30,6 +30,8 @@ from lerobot.datasets.video_utils import (
     concatenate_video_files,
     get_video_duration_in_s,
 )
+
+from egomimic.rldb.lance.schema import only_steps_path
 
 VIDEO_KEY = "observation.images.front_1"
 VECTORS = {
@@ -77,7 +79,7 @@ def features(h: int, w: int, packed: bool) -> dict:
     return f
 
 
-def column(tbl: pa.Table, dotted: str) -> np.ndarray:
+def column(tbl: pa.Table, dotted: str) -> pa.Array:
     path = dotted.split(".")
     col = tbl.column(path[0]).combine_chunks()
     for p in path[1:]:
@@ -262,7 +264,7 @@ def main():
         .to_pandas()
     )
     rec = rec.merge(tasks, on="recording_id")
-    steps_ds = lance.dataset(str(root / "steps/aria.lance"))
+    steps_ds = lance.dataset(str(root / only_steps_path(rec)))
     ids = (
         steps_ds.to_table(columns=["recording_id"])
         .column("recording_id")

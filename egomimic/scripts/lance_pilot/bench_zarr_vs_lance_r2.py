@@ -21,6 +21,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset, IterableDataset, get_worker_info
 
 from egomimic.rldb.lance.dataset import _decoder, _s3_client, _table, open_table
+from egomimic.rldb.lance.schema import only_steps_path
 
 H = 31
 ZARR_KEYS = [
@@ -82,11 +83,9 @@ class Recs:
         rec = open_table(f"{lance_root}/recordings.lance").to_table().to_pandas()
         ali = open_table(f"{lance_root}/aliases.lance").to_table().to_pandas()
         rec = rec.merge(ali, on="recording_id").set_index("episode_hash").loc[hashes]
-        steps = open_table(f"{lance_root}/steps/aria.lance")
-        self.steps_uri, self.steps_version = (
-            f"{lance_root}/steps/aria.lance",
-            steps.version,
-        )
+        self.steps_uri = f"{lance_root}/{only_steps_path(rec)}"
+        steps = open_table(self.steps_uri)
+        self.steps_version = steps.version
         ids = (
             steps.to_table(columns=["recording_id"])
             .column(0)

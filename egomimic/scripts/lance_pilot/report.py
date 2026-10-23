@@ -9,6 +9,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import zarr
 
+from egomimic.scripts.lance_pilot import PILOT
+
 
 def dir_bytes(p: Path) -> int:
     return sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
@@ -107,9 +109,7 @@ def compare(d: Path, zdir: Path, emb: str) -> dict:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot")
-    )
+    ap.add_argument("--root", type=Path, default=PILOT)
     args = ap.parse_args()
     m = pd.read_csv(args.root / "manifest.csv", dtype={"epoch_ms": str})
     rows, missing = [], []
@@ -120,7 +120,7 @@ def main():
             continue
         rows.append(
             compare(d, args.root / "zarr" / rec.episode_hash, rec.embodiment)
-            | {"site": rec.lab, "task": rec.task}
+            | {"lab": rec.lab, "task": rec.task}
         )
     df = pd.DataFrame(rows)
     df.to_csv(args.root / "migration_report.csv", index=False)

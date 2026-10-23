@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from egomimic.rldb.lance.dataset import open_table
+from egomimic.scripts.lance_pilot import PILOT
 
 
 def _timed(fn, n):
@@ -26,12 +27,8 @@ def _timed(fn, n):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--hashes", nargs="+", required=True)
-    ap.add_argument(
-        "--zarr-root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/zarr")
-    )
-    ap.add_argument(
-        "--lance-root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/lance")
-    )
+    ap.add_argument("--zarr-root", type=Path, default=PILOT / "zarr")
+    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance")
     ap.add_argument("--n", type=int, default=500)
     args = ap.parse_args()
 

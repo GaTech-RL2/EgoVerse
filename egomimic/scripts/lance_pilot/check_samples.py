@@ -9,6 +9,7 @@ are compared on the 480p stream against the JPEGs.
 import argparse
 from pathlib import Path
 
+import lance
 import numpy as np
 import torch
 import zarr
@@ -17,6 +18,7 @@ from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
+from egomimic.scripts.lance_pilot import PILOT
 
 HORIZON = 30
 PERIOD_NS = 1e9 / 30
@@ -24,12 +26,8 @@ PERIOD_NS = 1e9 / 30
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--zarr-dir", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/zarr")
-    )
-    ap.add_argument(
-        "--lance-root", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/lance")
-    )
+    ap.add_argument("--zarr-dir", type=Path, default=PILOT / "zarr")
+    ap.add_argument("--lance-root", type=Path, default=PILOT / "lance")
     ap.add_argument("--hashes", type=Path, required=True)
     ap.add_argument("--per-recording", type=int, default=20)
     args = ap.parse_args()
@@ -52,9 +50,6 @@ def main():
         transform_list=tl,
         cameras={"images.front_1": "front_1_480"},
     ).resolve(filters=f)
-    import lance
-
-    steps = lance.dataset(str(args.lance_root / "steps" / "aria.lance"))
     rng = np.random.default_rng(0)
     worst: dict[str, float] = {}
     img_err, n_checked, n_comparable, n_zarr = [], 0, 0, 0
@@ -65,6 +60,7 @@ def main():
                 : Z.total_frames
             ]
         )
+        steps = lance.dataset(L.steps_uri, version=L.steps_version)
         lts = (
             steps.take(
                 list(range(L.row_start, L.row_start + L.total_frames)),

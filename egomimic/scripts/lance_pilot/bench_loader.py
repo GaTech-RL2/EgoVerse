@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
+from egomimic.scripts.lance_pilot import PILOT
 from egomimic.utils.gpu_orphans import orphan_guarded
 
 
@@ -104,12 +105,10 @@ def build(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--format", choices=["zarr", "lance"], required=True)
-    ap.add_argument(
-        "--zarr-dir", type=Path, default=Path("/coc/flash7/scratch/lance_pilot/zarr")
-    )
+    ap.add_argument("--zarr-dir", type=Path, default=PILOT / "zarr")
     ap.add_argument(
         "--lance-root",
-        default="/coc/flash7/scratch/lance_pilot/lance",
+        default=str(PILOT / "lance"),
         help="local path or s3:// URI",
     )
     ap.add_argument("--camera", default="front_1", help="front_1 (360p) or front_1_480")

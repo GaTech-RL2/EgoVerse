@@ -7,7 +7,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/flash7/scratch/lance_pilot/zarr
+      folder_path: ${oc.env:EGOVERSE_LANCE_PILOT,/coc/flash7/scratch/lance_pilot}/zarr
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: keypoints

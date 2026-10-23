@@ -12,7 +12,9 @@ from pathlib import Path
 
 import lance
 
+from egomimic.rldb.lance.schema import only_steps_path
 from egomimic.scripts.format_bench.common import emit
+from egomimic.scripts.lance_pilot import PILOT
 
 
 def size(p: Path) -> int:
@@ -31,9 +33,7 @@ def lance_split(table: Path) -> tuple[int, int]:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--pilot", type=Path, default=Path("/coc/flash7/scratch/lance_pilot")
-    )
+    ap.add_argument("--pilot", type=Path, default=PILOT)
     ap.add_argument("--chunks", type=Path, required=True)
     ap.add_argument(
         "--lerobot",
@@ -70,9 +70,11 @@ def main():
     ]
 
     root = args.pilot / "lance"
-    rec = lance.dataset(str(root / "recordings.lance")).to_table().to_pylist()
+    rec = lance.dataset(str(root / "recordings.lance")).to_table()
+    steps_rel = only_steps_path(rec)
+    rec = rec.to_pylist()
     lance_frames = sum(r["num_frames"] for r in rec)
-    s_data, s_meta = lance_split(root / "steps/aria.lance")
+    s_data, s_meta = lance_split(root / steps_rel)
     meta = s_meta + sum(
         size(root / t) for t in ("recordings.lance", "aliases.lance", "tasks.lance")
     )

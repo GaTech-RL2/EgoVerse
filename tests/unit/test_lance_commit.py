@@ -10,7 +10,9 @@ from fixtures.lance_tables import steps_table  # noqa: E402
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
-from egomimic.rldb.lance.schema import recording_id  # noqa: E402
+from egomimic.rldb.lance.schema import recording_id, steps_path  # noqa: E402
+
+STEPS = steps_path("rl2", "human_bimanual", "human_hand")
 
 KEY_MAP = {
     "left.action_ee_pose": {
@@ -23,7 +25,7 @@ KEY_MAP = {
 }
 
 
-def _delivery(tmp, i, n, offset=None, video=b"mp4"):
+def _delivery(tmp, i, n, offset=None, video=b"mp4", **rec):
     rid = recording_id("aria", str(i))
     h = f"2025-01-01-00-00-{i:02d}-000000"
     src = tmp / "src" / f"{i}-{offset}"
@@ -33,14 +35,16 @@ def _delivery(tmp, i, n, offset=None, video=b"mp4"):
         recording=dict(
             recording_id=rid,
             vendor_recording_id=h,
-            lab="aria",
-            site="rl2",
+            lab="rl2",
             embodiment="human_bimanual",
+            end_effector="human_hand",
+            operator="op",
             fps=30.0,
             num_frames=n,
             intrinsics=[],
             extrinsics=[],
-        ),
+        )
+        | rec,
         task=dict(
             task_instance_id=f"t{i}",
             recording_id=rid,
@@ -71,8 +75,42 @@ def test_append_skips_committed(tmp_path):
     assert commit.append(root, [a]) == [a.recording_id]
     assert commit.append(root, [a, b]) == [b.recording_id]
     assert commit.append(root, [a, b]) == []
-    assert lance.dataset(root / "steps" / "aria.lance").count_rows() == 18
-    assert len(lance.dataset(root / "steps" / "aria.lance").get_fragments()) == 2
+    assert lance.dataset(root / STEPS).count_rows() == 18
+    assert len(lance.dataset(root / STEPS).get_fragments()) == 2
+
+
+def test_steps_table_per_lab_embodiment_end_effector(tmp_path):
+    root = tmp_path / "lance"
+    a = _delivery(tmp_path, 0, 10)
+    b = _delivery(tmp_path, 1, 8, lab="mecka")
+    commit.append(root, [a, b])
+    assert lance.dataset(root / STEPS).count_rows() == 10
+    other = steps_path("mecka", "human_bimanual", "human_hand")
+    assert lance.dataset(root / other).count_rows() == 8
+    assert {str(u.relative_to(root)) for u in commit.table_uris(root)} >= {
+        STEPS,
+        other,
+    }
+    leaves = _resolve(root)
+    assert {leaf.steps_uri for leaf in leaves.values()} == {
+        f"{root}/{STEPS}",
+        f"{root}/{other}",
+    }
+    with pytest.raises(ValueError, match="changed"):
+        commit.replace(root, _delivery(tmp_path, 1, 8, lab="rl2"))
+    for bad in (
+        {"end_effector": "claw"},
+        {"end_effector": None},
+        {"lab": None},
+        {"operator": None},
+    ):
+        with pytest.raises(ValueError):
+            commit.append(root, [_delivery(tmp_path, 2, 8, **bad)])
+    no_task = _delivery(tmp_path, 2, 8)
+    no_task.task["task_name"] = None
+    with pytest.raises(ValueError, match="task_name"):
+        commit.append(root, [no_task])
+    assert commit.committed_ids(root) == {a.recording_id, b.recording_id}
 
 
 def test_replace_is_one_commit_and_keeps_old_versions_readable(tmp_path):
@@ -81,11 +119,11 @@ def test_replace_is_one_commit_and_keeps_old_versions_readable(tmp_path):
     commit.append(root, ds)
     commit.tag(root, "t1")
     before = _resolve(root)
-    steps_v = lance.dataset(root / "steps" / "aria.lance").version
+    steps_v = lance.dataset(root / STEPS).version
 
     new = _delivery(tmp_path, 0, 12, offset=1000, video=b"mp4-v2")
     commit.replace(root, new)
-    assert lance.dataset(root / "steps" / "aria.lance").version == steps_v + 1
+    assert lance.dataset(root / STEPS).version == steps_v + 1
 
     after = _resolve(root)
     h0 = new.alias["episode_hash"]
@@ -127,21 +165,33 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
     with pytest.raises(ValueError):
         commit.edit(
             root,
-            "steps/aria.lance",
+            STEPS,
             pa.table({"recording_id": ["x"]}),
             on="recording_id",
         )
+    rid0 = ds[0].recording_id
+    with pytest.raises(ValueError, match="changed"):
+        commit.edit(
+            root,
+            "recordings.lance",
+            pa.table({"recording_id": [rid0], "lab": ["mecka"]}),
+            on="recording_id",
+        )
+    commit.edit(
+        root,
+        "recordings.lance",
+        pa.table({"recording_id": [rid0], "lab": ["rl2"], "scene": ["kitchen"]}),
+        on="recording_id",
+    )
     leaves = _resolve(root)
     h0, h1 = (d.alias["episode_hash"] for d in ds)
     assert leaves[h0].task_text == "fixed" and leaves[h1].task_text == "task 1"
 
     fp = {h: leaf.cache_fingerprint() for h, leaf in leaves.items()}
-    commit.add_columns(
-        root, "steps/aria.lance", {"both_valid": "left_valid AND right_valid"}
-    )
+    commit.add_columns(root, STEPS, {"both_valid": "left_valid AND right_valid"})
     commit.index(root)
     commit.compact(root)
-    steps = lance.dataset(root / "steps" / "aria.lance")
+    steps = lance.dataset(root / STEPS)
     assert len(steps.get_fragments()) == 1
     assert np.asarray(steps.to_table(columns=["both_valid"]).column(0)).sum() == 18
     assert {h: leaf.cache_fingerprint() for h, leaf in _resolve(root).items()} == fp
@@ -158,3 +208,41 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
     lance.dataset(root / "recordings.lance").tags.delete("t1")
     commit.cleanup(root, older_than=datetime.timedelta(0))
     assert len(list((root / "videos").rglob("*.mp4"))) == 2
+
+
+def test_tag_covers_video_chunk_tables(tmp_path):
+    root = tmp_path / "lance"
+    commit.append(root, [_delivery(tmp_path, 0, 10)])
+    chunks = root / "video_chunks" / "front_1_k2.lance"
+    lance.write_dataset(pa.table({"recording_id": ["x"]}), chunks)
+    assert commit.steps_uris(root) == [root / STEPS]
+    assert chunks in commit.table_uris(root)
+    tagged = commit.tag(root, "t1")
+    assert tagged["video_chunks/front_1_k2.lance"] == lance.dataset(chunks).version
+    assert "t1" in lance.dataset(chunks).tags.list()
+
+
+def test_append_after_interrupted_append_does_not_duplicate_steps(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "lance"
+    commit.append(root, [_delivery(tmp_path, 0, 10)])
+    a, b = _delivery(tmp_path, 1, 8), _delivery(tmp_path, 2, 9)
+    real_append = commit._append
+
+    def crash_on_recordings(uri, table):
+        if str(uri).endswith("recordings.lance"):
+            raise OSError("preempted")
+        real_append(uri, table)
+
+    monkeypatch.setattr(commit, "_append", crash_on_recordings)
+    with pytest.raises(OSError):
+        commit.append(root, [a, b])
+    monkeypatch.setattr(commit, "_append", real_append)
+    assert lance.dataset(root / STEPS).count_rows() == 27
+
+    assert commit.append(root, [a, b, a]) == [a.recording_id, b.recording_id]
+    assert lance.dataset(root / STEPS).count_rows() == 27
+    assert lance.dataset(root / "aliases.lance").count_rows() == 3
+    leaves = _resolve(root)
+    assert sorted(len(leaf) for leaf in leaves.values()) == [8 - 3, 9 - 3, 10 - 3]

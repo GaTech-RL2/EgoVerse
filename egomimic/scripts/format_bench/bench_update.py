@@ -46,6 +46,8 @@ import pyarrow.compute as pc
 import pyarrow.fs as pafs
 import pyarrow.parquet as pq
 
+from egomimic.scripts.lance_pilot import PILOT
+
 DT_NS = 33_333_333
 FPS = 30
 CHUNK = 100
@@ -183,7 +185,10 @@ class Layout:
 def pilot_layout(pilot: Path, rows: int) -> Layout:
     import lance
 
-    steps = lance.dataset(str(pilot / "lance/steps/aria.lance")).to_table()
+    from egomimic.rldb.lance.schema import only_steps_path
+
+    rec = lance.dataset(str(pilot / "lance/recordings.lance")).to_table()
+    steps = lance.dataset(str(pilot / "lance" / only_steps_path(rec))).to_table()
     with open(pilot / "manifest.csv") as f:
         ep_lens = [int(r["num_frames"]) for r in csv.DictReader(f)]
     return Layout(steps, ep_lens, rows)
@@ -1004,9 +1009,7 @@ def main():
         p = sub.add_parser(name)
         p.add_argument("--root", required=True)
         p.add_argument("--rows", type=int, required=True)
-        p.add_argument(
-            "--pilot", type=Path, default=Path("/coc/flash7/scratch/lance_pilot")
-        )
+        p.add_argument("--pilot", type=Path, default=PILOT)
         p.add_argument("--workers", type=int, default=16)
     m = sub.choices["make"]
     m.add_argument("--rows-per-frag", type=int, default=LANCE_ROWS_PER_FILE)

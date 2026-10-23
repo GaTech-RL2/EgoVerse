@@ -26,6 +26,9 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from lance.blob import blob_array
 
+from egomimic.rldb.lance.schema import only_steps_path
+from egomimic.scripts.lance_pilot import PILOT
+
 BIMANUAL = "human_bimanual"
 
 
@@ -63,7 +66,8 @@ def make_lance(src: Path, chunks_src: Path, out: Path, n: int, frames: int) -> N
     rec = lance.dataset(str(src / "recordings.lance")).to_table()
     ali = lance.dataset(str(src / "aliases.lance")).to_table()
     tasks = lance.dataset(str(src / "tasks.lance")).to_table()
-    steps = lance.dataset(str(src / "steps/aria.lance")).to_table()
+    steps_rel = only_steps_path(rec)
+    steps = lance.dataset(str(src / steps_rel)).to_table()
     chunks_ds = lance.dataset(str(chunks_src))
     chunks = chunks_ds.to_table(columns=["num_frames"])
 
@@ -135,7 +139,7 @@ def make_lance(src: Path, chunks_src: Path, out: Path, n: int, frames: int) -> N
 
     lance.write_dataset(
         pa.RecordBatchReader.from_batches(steps.schema, step_batches()),
-        str(out / "steps/aria.lance"),
+        str(out / steps_rel),
         max_rows_per_file=1 << 23,
     )
 
@@ -302,9 +306,7 @@ def make_lerobot(
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument(
-        "--pilot", type=Path, default=Path("/coc/flash7/scratch/lance_pilot")
-    )
+    ap.add_argument("--pilot", type=Path, default=PILOT)
     ap.add_argument(
         "--chunks", type=Path, required=True, help="480p k8 chunk table of the pilot"
     )

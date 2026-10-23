@@ -1,4 +1,4 @@
-"""Phase 7 of the Lance pilot: versioned commits on a copy of the pilot tables.
+"""Versioned commits on a copy of the Lance pilot tables.
 
 v1 commit 24 recordings, tag t1; v2 append 10 one commit each; v3 replace one with
 shifted poses; v4 edit a task's text; v5 add a column; v6 compact, tag t6, clean up.
@@ -6,10 +6,7 @@ Needs EGOVERSE_TEST_LANCE_ROOT (the pilot tables written by commit.py). CPU only
 """
 
 import datetime
-import json
 import os
-import random
-import time
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +19,7 @@ lance = pytest.importorskip("lance")
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
+from egomimic.rldb.lance.schema import STEPS_KEY, steps_path, steps_paths  # noqa: E402
 
 CAMERA = "front_1"
 SAMPLES_PER_LEAF = 3
@@ -46,7 +44,6 @@ def _deliveries(src: Path) -> list[commit.Delivery]:
         r["recording_id"]: r
         for r in lance.dataset(src / "aliases.lance").to_table().to_pylist()
     }
-    steps = lance.dataset(src / "steps" / "aria.lance")
     out = []
     for r in sorted(recs, key=lambda r: r["recording_id"]):
         if r["embodiment"] != "human_bimanual":
@@ -54,6 +51,7 @@ def _deliveries(src: Path) -> list[commit.Delivery]:
         rid = r["recording_id"]
         videos = {cam: src / p for cam, p in r["video_path"] if cam == CAMERA}
         rec = {k: v for k, v in r.items() if k not in ("video_path", "content_digest")}
+        steps = lance.dataset(src / steps_path(*(r[c] for c in STEPS_KEY)))
         st = steps.to_table(filter=f"recording_id = '{rid}'")
         out.append(commit.Delivery(rec, tasks[rid], aliases[rid], st, videos))
     return out
@@ -122,28 +120,13 @@ def _all_same(s1, s2, hashes) -> list[str]:
 
 def _row_count_ok(root, **kw) -> bool:
     r = _resolver(root, **kw)
-    _, _, steps = r._open("steps/aria.lance")
     _, _, recs = r._open("recordings.lance")
+    (name,) = steps_paths(recs.to_table(columns=list(STEPS_KEY)))
+    _, _, steps = r._open(name)
     return (
         steps.count_rows()
         == pc.sum(recs.to_table(columns=["num_frames"]).column(0)).as_py()
     )
-
-
-def _take_rate(leaves, n=600, seed=0) -> float:
-    rng = random.Random(seed)
-    items = list(leaves.values())
-    t0 = time.perf_counter()
-    for _ in range(n):
-        leaf = rng.choice(items)
-        s = rng.randrange(leaf.total_frames - 31)
-        leaf._read_numeric(
-            {
-                "obs_head_pose": np.arange(s, s + 31),
-                "left.obs_ee_pose": np.arange(s, s + 31),
-            }
-        )
-    return n / (time.perf_counter() - t0)
 
 
 def test_versioned_commits(pilot, tmp_path):
@@ -151,7 +134,6 @@ def test_versioned_commits(pilot, tmp_path):
     ds = _deliveries(pilot)
     assert len(ds) >= 25
     first, rest = ds[:24], ds[24:]
-    report = {}
 
     # v1
     commit.append(root, first)
@@ -164,9 +146,8 @@ def test_versioned_commits(pilot, tmp_path):
     # v2: one commit per recording, so many fragments
     for d in rest:
         commit.append(root, [d])
-    steps_uri = commit.steps_uri(root, "aria")
-    report["v2_fragments"] = len(lance.dataset(steps_uri).get_fragments())
-    assert report["v2_fragments"] == 1 + len(rest)
+    steps_uri = commit.steps_uri(root, *rest[0].steps_key)
+    assert len(lance.dataset(steps_uri).get_fragments()) == 1 + len(rest)
     r2 = _resolver(root)
     leaves2 = r2.resolve()
     pinned2 = dict(r2.versions)
@@ -190,8 +171,6 @@ def test_versioned_commits(pilot, tmp_path):
     }
     assert leaves3[vh].cache_fingerprint() != fp1[vh]
     assert _row_count_ok(root)
-    report["take_per_s_v2"] = _take_rate(leaves2)
-    report["take_per_s_v3"] = _take_rate(leaves3)
 
     # v4: edit one task's text
     edited = first[5]
@@ -219,7 +198,9 @@ def test_versioned_commits(pilot, tmp_path):
         for f in frag.data_files()
     }
     commit.add_columns(
-        root, "steps/aria.lance", {"both_valid": "left_valid AND right_valid"}
+        root,
+        str(Path(steps_uri).relative_to(root)),
+        {"both_valid": "left_valid AND right_valid"},
     )
     steps5 = lance.dataset(steps_uri)
     files_after = {f.path for frag in steps5.get_fragments() for f in frag.data_files()}
@@ -249,20 +230,13 @@ def test_versioned_commits(pilot, tmp_path):
     assert (
         _all_same(s2, _samples(leaves2), s2) == []
     )  # compaction leaves old files in place
-    report["take_per_s_v6"] = _take_rate(leaves6)
 
     commit.cleanup(root, older_than=datetime.timedelta(0))
-    report["versions_after_cleanup"] = {
-        str(Path(u).relative_to(root)): [
-            v["version"] for v in lance.dataset(u).versions()
-        ]
-        for u in commit.table_uris(root, "aria")
-    }
     t1 = _resolver(root, tag="t1").resolve()
     assert _all_same(s1, _samples(t1), s1) == []
     assert {h: leaf.cache_fingerprint() for h, leaf in t1.items()} == fp1
     assert _row_count_ok(root, tag="t1") and _row_count_ok(root, tag="t6")
-    with pytest.raises(Exception):
+    # Lance's ValueError for a missing manifest, or ArrowInvalid (a ValueError) for a
+    # data file cleanup removed under an already-open version.
+    with pytest.raises(ValueError, match="Not found"):
         _resolver(root, versions=pinned2).resolve()
-
-    print("\nPHASE7 " + json.dumps(report))

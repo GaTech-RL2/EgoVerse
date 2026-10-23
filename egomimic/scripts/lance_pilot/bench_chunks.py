@@ -20,6 +20,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from egomimic.rldb.lance.dataset import _runs, _table, open_table
+from egomimic.rldb.lance.schema import only_steps_path
 
 H = 31
 COLS = [
@@ -50,7 +51,7 @@ class Recs:
         rec = open_table(f"{root}/recordings.lance").to_table().to_pandas()
         ali = open_table(f"{root}/aliases.lance").to_table().to_pandas()
         rec = rec.merge(ali, on="recording_id").set_index("episode_hash").loc[hashes]
-        self.steps_uri = f"{root}/steps/aria.lance"
+        self.steps_uri = f"{root}/{only_steps_path(rec)}"
         self.chunks_uri = f"{root}/video_chunks/{camera}_k{k}.lance"
         self.steps_version, steps = _starts(self.steps_uri)
         self.chunks_version, chunks = _starts(self.chunks_uri)
