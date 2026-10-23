@@ -1,21 +1,22 @@
 """The committer: the only writer of the Lance tables.
 
 Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
-`<staging>/<lab>/<vendor id>/` (commit.stage). Each run validates the complete ones,
-commits them in batches (each batch tagged `<lab>-<UTC time>` on every table and recorded
+`<staging>/<source>/<vendor id>/` (commit.stage). Each run validates the complete ones,
+commits them in batches (each batch tagged `<source>-<UTC time>` on every table and recorded
 in `changes`), and deletes their staged files. A delivery that fails validation gets
 REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
 Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
 See egomimic/rldb/lance/commit.py for the table operations.
 
     python -m egomimic.scripts.lance_commit --staging s3://rldb/lance_staging \\
-        --lab eva --lance s3://rldb/lance --work-dir /coc/flash7/scratch/committer
+        --source eva --lance s3://rldb/lance --work-dir /coc/flash7/scratch/committer
 """
 
 import argparse
 import hashlib
 import json
 import shutil
+import struct
 import tempfile
 import time
 from pathlib import Path
@@ -207,16 +208,48 @@ def load_eva_deliveries(
 LOADERS = {"aria": load_deliveries, "eva": load_eva_deliveries}
 
 
-def _load(lab: str, dirs: list[Path]):
-    """LOADERS[lab] over `dirs`; a delivery the loader cannot even read is rejected alone."""
+# A delivery whose files cannot be read or parsed. Anything else (SQL, network) aborts the
+# run, so an outage never turns into REJECTED.json notes that stick until files change.
+UNREADABLE = (OSError, ValueError, KeyError, TypeError, IndexError, struct.error)
+
+
+def _unreadable(e: Exception) -> bool:
+    return isinstance(e, UNREADABLE) and not isinstance(
+        e, (ConnectionError, TimeoutError)
+    )
+
+
+# Rejections that can clear without the delivery changing; pending() retries them.
+RETRYABLE = {"no SQL row"}
+
+
+def _load(source: str, dirs: list[Path]):
+    """LOADERS[source] over `dirs`, rejections keyed by staged directory name; a delivery
+    the loader cannot even read is rejected alone."""
+    rejected = {}
+    for d in dirs:
+        try:
+            vid = str(json.loads((d / "meta.json").read_text())["vendor_recording_id"])
+        except UNREADABLE:
+            continue  # the loader rejects it below
+        if vid != d.name:
+            rejected[d.name] = [
+                f"meta.json vendor_recording_id {vid} != staged directory {d.name}"
+            ]
+    dirs = [d for d in dirs if d.name not in rejected]
     try:
-        return LOADERS[lab](dirs)
-    except Exception:
-        deliveries, rejected = [], {}
+        deliveries, bad = LOADERS[source](dirs)
+        return deliveries, {**rejected, **bad}
+    except Exception as e:
+        if not _unreadable(e):
+            raise
+        deliveries = []
         for d in dirs:
             try:
-                ok, bad = LOADERS[lab]([d])
+                ok, bad = LOADERS[source]([d])
             except Exception as e:
+                if not _unreadable(e):
+                    raise
                 ok, bad = [], {d.name: [f"unreadable: {type(e).__name__}: {e}"]}
             deliveries += ok
             rejected.update(bad)
@@ -232,12 +265,13 @@ def files_digest(files: dict[str, tuple[int, str]]) -> str:
     return h.hexdigest()
 
 
-def pending(staging: str, lab: str, replace: bool = False) -> list[tuple[str, str]]:
+def pending(staging: str, source: str, replace: bool = False) -> list[tuple[str, str]]:
     """(vendor id, files digest) of complete staged deliveries not rejected as they are;
-    with `replace`, ones rejected only for being committed already come back."""
+    with `replace`, ones rejected only for being committed already come back. Ones
+    rejected only for RETRYABLE reasons come back every run."""
     out = []
-    for vid in commit.list_dirs(commit.join(staging, lab)):
-        prefix = commit.join(staging, lab, vid)
+    for vid in commit.list_dirs(commit.join(staging, source)):
+        prefix = commit.join(staging, source, vid)
         files = commit.list_files(prefix)
         if "meta.json" not in files:
             continue
@@ -246,7 +280,12 @@ def pending(staging: str, lab: str, replace: bool = False) -> list[tuple[str, st
             with tempfile.TemporaryDirectory() as t:
                 commit.get_file(commit.join(prefix, REJECTED), Path(t) / REJECTED)
                 note = json.loads((Path(t) / REJECTED).read_text())
-            if note["digest"] == digest and not (replace and note["committed"]):
+            sticky = not set(note["errors"]) <= RETRYABLE
+            if (
+                sticky
+                and note["digest"] == digest
+                and not (replace and note["committed"])
+            ):
                 continue
         out.append((vid, digest))
     return out
@@ -254,28 +293,28 @@ def pending(staging: str, lab: str, replace: bool = False) -> list[tuple[str, st
 
 def commit_staged(
     staging: str,
-    lab: str,
+    source: str,
     lance_root: str,
     work_dir: Path,
     batch_size: int = 64,
     replace: bool = False,
     operator: str | None = None,
 ) -> dict:
-    """Commit every pending staged delivery of `lab`, `batch_size` at a time; returns
+    """Commit every pending staged delivery of `source`, `batch_size` at a time; returns
     {"batches": [commit_batch results], "rejected": {vendor id: errors}}."""
     report = {"batches": [], "rejected": {}}
-    todo = pending(staging, lab, replace)
+    todo = pending(staging, source, replace)
     have = commit.committed_ids(lance_root)
     for b in range(0, len(todo), batch_size):
         batch = dict(todo[b : b + batch_size])
         local = {}
         for vid in batch:
-            src = commit.join(staging, lab, vid)
-            local[vid] = work_dir / lab / vid
+            src = commit.join(staging, source, vid)
+            local[vid] = work_dir / source / vid
             for name in commit.list_files(src):
                 if name != REJECTED:
                     commit.get_file(commit.join(src, name), local[vid] / name)
-        deliveries, rejected = _load(lab, list(local.values()))
+        deliveries, rejected = _load(source, list(local.values()))
         skipped = []
         if not replace:
             skipped = [d for d in deliveries if d.recording_id in have]
@@ -285,7 +324,7 @@ def commit_staged(
                     "already committed; rerun with --replace to replace it"
                 ]
         result = commit.commit_batch(
-            lance_root, deliveries, lab, replace_committed=replace, operator=operator
+            lance_root, deliveries, source, replace_committed=replace, operator=operator
         )
         if result:
             report["batches"].append(result)
@@ -300,15 +339,15 @@ def commit_staged(
             }
             commit.put_bytes(
                 json.dumps(note, indent=1).encode(),
-                commit.join(staging, lab, vid, REJECTED),
+                commit.join(staging, source, vid, REJECTED),
             )
         report["rejected"].update(rejected)
         done = [d.recording["vendor_recording_id"] for d in deliveries]
         commit.remove(
             [
-                commit.join(staging, lab, vid, name)
+                commit.join(staging, source, vid, name)
                 for vid in done
-                for name in commit.list_files(commit.join(staging, lab, vid))
+                for name in commit.list_files(commit.join(staging, source, vid))
             ]
         )
         for path in local.values():
@@ -321,9 +360,9 @@ def main():
     ap.add_argument(
         "--staging",
         required=True,
-        help="staging root (s3:// or local); deliveries are under <staging>/<lab>/<vendor id>/",
+        help="staging root (s3:// or local); deliveries are under <staging>/<source>/<vendor id>/",
     )
-    ap.add_argument("--lab", choices=sorted(LOADERS), required=True)
+    ap.add_argument("--source", choices=sorted(LOADERS), required=True)
     ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
     ap.add_argument(
         "--work-dir",
@@ -341,7 +380,7 @@ def main():
     args = ap.parse_args()
     report = commit_staged(
         args.staging,
-        args.lab,
+        args.source,
         args.lance,
         args.work_dir,
         args.batch_size,

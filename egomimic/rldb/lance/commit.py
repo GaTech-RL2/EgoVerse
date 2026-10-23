@@ -447,12 +447,13 @@ def replace(root, d: Delivery) -> None:
 def commit_batch(
     root,
     deliveries: list[Delivery],
-    lab: str,
+    source: str,
     replace_committed: bool = False,
     operator: str | None = None,
 ) -> dict | None:
     """Append new recordings (and replace committed ones when asked), record the batch
-    in `changes` and tag every table `<lab>-<UTC time to the ms>`. None when nothing changed."""
+    in `changes` and tag every table `<source>-<UTC time to the ms>`. `source` names the
+    converter (the staging prefix). None when nothing changed."""
     added = append(root, deliveries)
     replaced = []
     if replace_committed:
@@ -463,10 +464,14 @@ def commit_batch(
     if not added and not replaced:
         return None
     now = datetime.datetime.now(datetime.timezone.utc)
-    name = f"{lab}-{now:%Y%m%dT%H%M%S.%f}"[:-3]
+    name = f"{source}-{now:%Y%m%dT%H%M%S.%f}"[:-3]
+    done = set(added) | set(replaced)
     row = dict(
         tag=name,
-        lab=lab,
+        source=source,
+        steps_tables=sorted(
+            {steps_path(*d.steps_key) for d in deliveries if d.recording_id in done}
+        ),
         committed_at=now,
         operator=operator or getpass.getuser(),
         added=added,

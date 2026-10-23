@@ -195,7 +195,10 @@ ANNOTATIONS = pa.schema(
 CHANGES = pa.schema(
     [
         ("tag", pa.string()),
-        ("lab", pa.string()),
+        # The converter that staged the batch (the tag prefix), e.g. "aria"; not a lab.
+        ("source", pa.string()),
+        # Steps tables the batch wrote, as steps_path gives them.
+        ("steps_tables", pa.list_(pa.string())),
         ("committed_at", pa.timestamp("ms", tz="UTC")),
         ("operator", pa.string()),
         ("added", pa.list_(pa.string())),

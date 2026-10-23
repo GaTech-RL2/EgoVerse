@@ -69,7 +69,6 @@ def test_staged_deliveries_commit_to_r2_and_stream(prefix, tmp_path):
     }
     leaves = LanceStreamingResolver(
         root,
-        lab="eva",
         key_map=key_map,
         cameras={"images.front_1": "front_1"},
         tag=batch["tag"],
