@@ -48,6 +48,15 @@ _V2_METADATA = (".zgroup", ".zarray", ".zattrs")
 _READER_MODULE = "egomimic.rldb.zarr.zarr_dataset_multi"
 
 
+def leaf_fingerprint(ds) -> str | None:
+    """A leaf's own ``cache_fingerprint()`` if it has one (non-zarr storage), else
+    ``episode_fingerprint`` of its zarr directory."""
+    own = getattr(ds, "cache_fingerprint", None)
+    if own is not None:
+        return own()
+    return episode_fingerprint(getattr(ds, "episode_path", None))
+
+
 def episode_fingerprint(episode_path) -> str | None:
     """Digest of the name, mtime and size of the metadata files of the episode
     group and of each array directly under it (episodes are flat), or None if

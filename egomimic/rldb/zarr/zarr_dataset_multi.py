@@ -20,7 +20,9 @@ Each episode is self-contained with its own metadata, enabling:
 
 from __future__ import annotations
 
+import concurrent.futures as cf
 import copy
+import functools
 import json
 import logging
 import math
@@ -83,6 +85,13 @@ if TYPE_CHECKING:
     )
 
 logger = logging.getLogger(__name__)
+
+
+@functools.cache
+def _fetch_pool() -> cf.ThreadPoolExecutor:
+    """Per-process pool for the concurrent parts of a batched leaf fetch."""
+    return cf.ThreadPoolExecutor(max_workers=8, thread_name_prefix="batch-fetch")
+
 
 SEED = 42
 
@@ -997,6 +1006,57 @@ class LocalEpisodeResolver(EpisodeResolver):
         return self.load(paths)
 
 
+def worker_context(leaves) -> str | None:
+    """DataLoader start method for ``leaves``: forkserver if any is not fork-safe
+    (Lance runs Rust threads; https://lance.org/integrations/pytorch/), else the
+    default fork."""
+    for leaf in leaves:
+        for sub in (
+            MultiDataset._iter_leaves(leaf)
+            if isinstance(leaf, MultiDataset)
+            else [leaf]
+        ):
+            if not getattr(sub, "fork_safe", True):
+                return "forkserver"
+    return None
+
+
+class _IndexMap:
+    """Global index -> (dataset name, local index), as offsets rather than one tuple per sample.
+
+    A per-sample list costs ~100 B a sample in every process: tens of GB at 10^7 samples,
+    copied page by page into forked workers and pickled whole into spawned ones.
+    """
+
+    def __init__(self, datasets: dict):
+        self.names = list(datasets)
+        self.offsets = np.cumsum(
+            [0] + [len(d) for d in datasets.values()], dtype=np.int64
+        )
+
+    def __len__(self) -> int:
+        return int(self.offsets[-1])
+
+    def __getitem__(self, idx: int) -> tuple[str, int]:
+        if idx < 0:
+            idx += len(self)
+        if not 0 <= idx < len(self):
+            raise IndexError(idx)
+        j = int(np.searchsorted(self.offsets, idx, side="right")) - 1
+        return self.names[j], int(idx - self.offsets[j])
+
+    def __iter__(self):
+        for j, name in enumerate(self.names):
+            for local in range(int(self.offsets[j + 1] - self.offsets[j])):
+                yield name, local
+
+    def ranges(self) -> dict[str, range]:
+        return {
+            n: range(int(self.offsets[j]), int(self.offsets[j + 1]))
+            for j, n in enumerate(self.names)
+        }
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and
@@ -1098,12 +1158,8 @@ class MultiDataset(torch.utils.data.Dataset):
         self.datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
         assert self.datasets, "No datasets left after applying mode split."
 
-        self._global_indices_by_dataset = {n: [] for n in self.datasets}
-        for dataset_name, dataset in self.datasets.items():
-            for local_idx in range(len(dataset)):
-                global_idx = len(self.index_map)
-                self.index_map.append((dataset_name, local_idx))
-                self._global_indices_by_dataset[dataset_name].append(global_idx)
+        self.index_map = _IndexMap(self.datasets)
+        self._global_indices_by_dataset = self.index_map.ranges()
 
     def __len__(self) -> int:
         return len(self.index_map)
@@ -1321,6 +1377,61 @@ class MultiDataset(torch.utils.data.Dataset):
             if self.norm_stats and data.get("embodiment") in self.norm_stats:
                 data = self.normalize(data, data["embodiment"])
             return data
+
+    def __getitems__(self, idxs: list) -> list:
+        """A DataLoader batch. Leaves whose class defines ``fetch_planned`` (Lance) do
+        their reads for the whole batch at once, which is what makes random access from
+        object storage affordable; every other sample, and any batched one that fails
+        or trips the bounds check, goes through ``__getitem__`` and its fallback."""
+        out = [None] * len(idxs)
+        groups: dict[type, list] = {}
+        for pos, idx in enumerate(idxs):
+            name, local = self.index_map[idx]
+            leaf = self.datasets[name]
+            if not isinstance(leaf, MultiDataset) and hasattr(leaf, "fetch_planned"):
+                groups.setdefault(type(leaf), []).append((pos, name, leaf, local))
+        for cls, members in groups.items():
+            planned = []
+            for pos, name, leaf, local in members:
+                try:
+                    planned.append((pos, name, leaf, local, leaf.plan_sample(local)))
+                except Exception:
+                    continue
+            if not planned:
+                continue
+            step = getattr(planned[0][2], "fetch_split", None) or len(planned)
+            parts = [planned[i : i + step] for i in range(0, len(planned), step)]
+
+            def fetch(part, cls=cls):
+                return cls.fetch_planned([(m[2], m[4]) for m in part])
+
+            if len(parts) > 1:
+                # Parts download concurrently; each is assembled as soon as it lands,
+                # so CPU work overlaps the remaining reads.
+                futures = {_fetch_pool().submit(fetch, part): part for part in parts}
+                done = ((futures[f], f.result) for f in cf.as_completed(futures))
+            else:
+                done = [(parts[0], functools.partial(fetch, parts[0]))]
+            for part, result in done:
+                try:
+                    fetched = result()
+                except Exception:
+                    logger.warning(
+                        "[MultiDataset] batched fetch failed; reading samples one by one",
+                        exc_info=True,
+                    )
+                    continue
+                for (pos, name, leaf, local, plan), got in zip(part, fetched):
+                    try:
+                        data = leaf.assemble_sample(plan, got)
+                    except Exception:
+                        continue
+                    if self._check_bounds(data, leaf, local, name) is not None:
+                        continue
+                    if self.norm_stats and data.get("embodiment") in self.norm_stats:
+                        data = self.normalize(data, data["embodiment"])
+                    out[pos] = data
+        return [self[idx] if d is None else d for d, idx in zip(out, idxs)]
 
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
@@ -1647,6 +1758,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 shuffle=True,
                 generator=torch.Generator().manual_seed(seed),
                 worker_init_fn=die_with_parent,
+                multiprocessing_context=(
+                    worker_context([dataset]) if num_workers > 0 else None
+                ),
             )
             collected = self._collect_norm_samples(
                 loader, norm_keys, embodiment, n_samples, batch_size, num_workers

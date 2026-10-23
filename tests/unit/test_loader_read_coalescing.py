@@ -316,7 +316,8 @@ def test_a_jpeg_failure_rereads_at_the_new_index(episode, monkeypatch):
     )
     np.testing.assert_array_equal(
         np.asarray(sample["left.obs_keypoints"]),
-        _ramp(63)[max(0, frame - 3) : frame + 1].astype(np.float32),
+        # steps before the episode start repeat frame 0
+        _ramp(63)[np.maximum(np.arange(frame - 3, frame + 1), 0)].astype(np.float32),
     )
 
 
