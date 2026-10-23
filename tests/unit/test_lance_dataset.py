@@ -4,9 +4,9 @@ import pytest
 
 lance = pytest.importorskip("lance")
 
-from fixtures.lance_tables import write_catalog  # noqa: E402
+from fixtures.lance_tables import alias, task, write_catalog  # noqa: E402
 
-from egomimic.rldb.filters import DatasetFilter  # noqa: E402
+from egomimic.rldb.filters import DatasetFilter, PinError  # noqa: E402
 from egomimic.rldb.lance.dataset import (  # noqa: E402
     LanceEpisodeResolver,
     LanceRecordingDataset,
@@ -15,6 +15,7 @@ from egomimic.rldb.lance.dataset import (  # noqa: E402
     _runs,
     eligible_intervals,
 )
+from egomimic.rldb.lance.schema import task_instance_id  # noqa: E402
 
 
 def test_eligible_intervals_requires_whole_chunk_valid():
@@ -71,9 +72,9 @@ KEY_MAP = {
 def test_resolver_reads_windows_from_the_right_rows(catalog):
     root, recs = catalog
     leaves = LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={}).resolve()
-    assert set(leaves) == {h for _, h, _ in recs}
-    for i, (_, h, n) in enumerate(recs):
-        leaf = leaves[h]
+    assert set(leaves) == {rid for rid, _, _ in recs}
+    for i, (rid, _, n) in enumerate(recs):
+        leaf = leaves[rid]
         # left_valid is false at frame 4, so anchors 2..4 are dropped.
         assert len(leaf) == n - 3
         assert [leaf.anchor(j) for j in range(3)] == [0, 1, 5]
@@ -98,7 +99,7 @@ def test_resolver_applies_filters(catalog):
             filter_lambdas=["lambda row: row['lab'] == 'rl2'"], episode_hashes=[pin]
         )
     )
-    assert list(leaves) == [pin]
+    assert list(leaves) == [recs[0][0]]
 
 
 def _same_sample(a, b):
@@ -199,3 +200,111 @@ def test_streaming_getitems_split_into_parts_matches(
     for a, b in zip(ds.__getitems__(idxs), want, strict=True):
         _same_sample(a, b)
     assert sorted(takes) == [1, 2, 2]
+
+
+def _all_valid(rid, n):
+    return {"left_valid": np.ones(n, bool)}
+
+
+def _two_tasks(recs):
+    """The 12-frame recording: reach [0, 4), a gap, fold [6, 12); the 8-frame one: one
+    task, and two old clips aliased to its halves."""
+    (a, _, _), (b, _, _) = _by_length(recs)
+    return [
+        task(a, 0, 4, "reach", "reach"),
+        task(a, 6, 12, "fold", "fold"),
+        task(b, 0, 8),
+    ]
+
+
+def _clips(recs):
+    (a, ha, _), (b, _, _) = _by_length(recs)
+    return [alias(a, 0, 12, ha), alias(b, 0, 4, "clip_b1"), alias(b, 4, 8, "clip_b2")]
+
+
+def _by_length(recs):
+    return sorted(recs, key=lambda r: -r[2])
+
+
+@pytest.fixture
+def segmented(tmp_path):
+    recs = write_catalog(tmp_path, tasks=_two_tasks, aliases=_clips, valid=_all_valid)
+    (a, _, _), (b, _, _) = _by_length(recs)
+    return tmp_path, a, b
+
+
+def _frames(leaf):
+    return [leaf.anchor(i) for i in range(len(leaf))]
+
+
+def _resolve(root, filters=None, **kw):
+    return LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={}, **kw).resolve(
+        filters=filters
+    )
+
+
+def test_one_leaf_per_recording_sampling_only_its_tasks(segmented):
+    root, a, b = segmented
+    leaves = _resolve(root)
+    assert set(leaves) == {a, b}
+    assert _frames(leaves[a]) == [0, 1, 2, 3, *range(6, 12)]
+    assert _frames(leaves[b]) == list(range(8))
+    assert leaves[a][1]["annotations"] == ["reach"]
+    assert leaves[a][4]["annotations"] == ["fold"]
+
+
+def test_taskless_frames_only_when_asked(segmented):
+    root, a, _ = segmented
+    leaf = _resolve(root, include_taskless_frames=True)[a]
+    assert _frames(leaf) == list(range(12))
+    assert leaf[4]["annotations"] == []
+    gaps_only = _resolve(
+        root,
+        DatasetFilter(filter_lambdas=["lambda row: row['task'] is None"]),
+        include_taskless_frames=True,
+    )
+    assert list(gaps_only) == [a] and _frames(gaps_only[a]) == [4, 5]
+
+
+def test_filter_lambdas_run_per_task(segmented):
+    root, a, _ = segmented
+    leaves = _resolve(
+        root, DatasetFilter(filter_lambdas=["lambda row: row['task'] == 'fold'"])
+    )
+    assert list(leaves) == [a] and _frames(leaves[a]) == list(range(6, 12))
+    tid = task_instance_id(a, "reach", 0)
+    leaves = _resolve(
+        root,
+        DatasetFilter(
+            filter_lambdas=[f"lambda row: row['task_instance_id'] != '{tid}'"]
+        ),
+    )
+    assert _frames(leaves[a]) == list(range(6, 12))
+
+
+def test_clip_hash_pins_and_excludes_its_time_range(segmented):
+    root, a, b = segmented
+    pinned = _resolve(root, DatasetFilter(episode_hashes=["clip_b2"]))
+    assert list(pinned) == [b] and _frames(pinned[b]) == [4, 5, 6, 7]
+    both = _resolve(root, DatasetFilter(episode_hashes=["clip_b2", a]))
+    assert _frames(both[a]) == [0, 1, 2, 3, *range(6, 12)]
+    excluded = _resolve(root, DatasetFilter(exclude_hashes=["clip_b1", "zarr-only"]))
+    assert _frames(excluded[b]) == [4, 5, 6, 7] and a in excluded
+    with pytest.raises(PinError, match="nope"):
+        _resolve(root, DatasetFilter(episode_hashes=["nope"]))
+
+
+def test_clip_pins_through_multidataset(segmented):
+    from egomimic.rldb.multi import MultiDataset, pinned_episode_subset
+
+    root, _, b = segmented
+    resolver = LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={})
+    ds = MultiDataset._from_resolver(
+        resolver, filters=DatasetFilter(episode_hashes=["clip_b1"]), mode="total"
+    )
+    assert list(ds.datasets) == [b]
+    whole = MultiDataset(datasets=resolver.resolve(), mode="total")
+    video = pinned_episode_subset(whole, ["clip_b2"])
+    assert _frames(video.datasets["clip_b2"]) == [4, 5, 6, 7]
+    with pytest.raises(PinError):
+        pinned_episode_subset(whole, ["nope"])

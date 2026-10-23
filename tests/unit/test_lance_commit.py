@@ -122,7 +122,7 @@ def test_replace_is_one_commit_and_keeps_old_versions_readable(tmp_path):
     assert lance.dataset(root / STEPS).version == steps_v + 1
 
     after = _resolve(root)
-    h0 = new.alias["episode_hash"]
+    h0 = new.alias["recording_id"]
     assert _head(after[h0]) == 1000 and len(after[h0]) == 12 - 3
     assert (
         after[h0].row_start == 20
@@ -166,7 +166,7 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
             on="recording_id",
         )
     leaves = _resolve(root)
-    h0, h1 = (d.alias["episode_hash"] for d in ds)
+    h0, h1 = (d.alias["recording_id"] for d in ds)
     assert leaves[h0].task_text == "fixed" and leaves[h1].task_text == "task 1"
 
     fp = {h: leaf.cache_fingerprint() for h, leaf in leaves.items()}
