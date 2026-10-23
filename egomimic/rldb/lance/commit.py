@@ -401,9 +401,6 @@ def _ensure_tables(root) -> None:
     ):
         if not _exists(uri):
             _append(uri, schema.empty_table())
-    changes = _open(changes_uri(root))
-    if "provenance" not in changes.schema.names:
-        changes.add_columns({"provenance": "CAST(NULL AS STRING)"})
 
 
 def apply_annotations(
@@ -553,7 +550,6 @@ def _record(
         if provenance is None
         else json.dumps(provenance, sort_keys=True),
     )
-    _ensure_tables(root)
     _append(changes_uri(root), pa.Table.from_pylist([row], schema=CHANGES))
     return {
         "tag": name,

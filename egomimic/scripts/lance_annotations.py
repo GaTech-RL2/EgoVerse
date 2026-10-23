@@ -3,7 +3,7 @@ Scale annotation bucket.
 
     review       validate a change file against the tables and print the per-recording diff
     stage        the same, then put it under <staging>/annotations/ for the committer
-                 (egomimic.scripts.lance_commit --lab annotations), which applies it as one
+                 (egomimic.scripts.lance_commit --source annotations), which applies it as one
                  commit on annotations.lance, recorded in changes.lance and tagged
                  annotations-<UTC time>
     from-zarr    change file from zarr episodes' annotations, mapped onto the recording clock

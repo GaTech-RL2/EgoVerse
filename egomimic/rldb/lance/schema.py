@@ -194,7 +194,7 @@ ANNOTATIONS = pa.schema(
 # One row per committer batch; `tag` names the version of every table the batch produced.
 # `source` is "annotations" for an annotation commit. `provenance` is JSON: {recording_id:
 # what the converter recorded about it} for a delivery batch, the approver and source file
-# for an annotation commit; null on rows written before the column existed.
+# for an annotation commit.
 CHANGES = pa.schema(
     [
         ("tag", pa.string()),

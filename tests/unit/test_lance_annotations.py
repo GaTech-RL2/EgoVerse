@@ -480,19 +480,3 @@ def test_stage_refuses_a_change_file_with_errors(annotated, tmp_path_factory):
     with pytest.raises(SystemExit, match="not staged"):
         cmd_stage(args)
     assert not (base / "staging").exists()
-
-
-def test_a_changes_table_from_before_provenance_gains_the_column(annotated):
-    root, recs = annotated
-    old = commit.CHANGES.remove(commit.CHANGES.get_field_index("provenance"))
-    lance.write_dataset(
-        pa.Table.from_pylist(
-            [dict(tag="t0", lab="eva", operator="x", added=[], replaced=[])],
-            schema=old,
-        ),
-        str(root / "changes.lance"),
-    )
-    rv = review(root, _changes([_add(recs[1][0], 0, PERIOD_NS, text="new")]))
-    commit.commit_annotations(root, rv.adds, rv.deletes, provenance={"approver": "me"})
-    rows = lance.dataset(str(root / "changes.lance")).to_table().to_pylist()
-    assert [r["provenance"] for r in rows] == [None, '{"approver": "me"}']
