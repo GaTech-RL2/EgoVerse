@@ -9,8 +9,10 @@ from fixtures.lance_tables import EVA_DELIVERY_FRAMES, eva_delivery  # noqa: E40
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
-from egomimic.rldb.lance.schema import recording_id  # noqa: E402
+from egomimic.rldb.lance.schema import recording_id, steps_path  # noqa: E402
 from egomimic.scripts.lance_commit import REJECTED, commit_staged  # noqa: E402
+
+EVA_STEPS = steps_path("rl2", "eva_bimanual", "gripper")
 
 N = EVA_DELIVERY_FRAMES
 
@@ -44,14 +46,13 @@ def test_staged_deliveries_commit_as_one_tagged_batch(env):
         recording_id("eva", v) for v in ("100", "200")
     )
     assert batch["tag"].startswith("eva-")
-    assert {"steps/eva.lance", "recordings.lance", "changes.lance"} <= set(
-        batch["versions"]
-    )
+    assert {EVA_STEPS, "recordings.lance", "changes.lance"} <= set(batch["versions"])
     (row,) = _changes(root)
     assert row["tag"] == batch["tag"] and sorted(row["added"]) == sorted(batch["added"])
+    assert row["source"] == "eva" and row["steps_tables"] == [EVA_STEPS]
     assert commit.list_files(staging / "eva") == {}
     leaves = LanceEpisodeResolver(
-        root, lab="eva", key_map={}, cameras={}, tag=batch["tag"]
+        root, key_map={}, cameras={}, tag=batch["tag"]
     ).resolve()
     assert len(leaves) == 2
     assert run() == {"batches": [], "rejected": {}}
@@ -93,5 +94,5 @@ def test_restaging_a_committed_recording_needs_replace(env, tmp_path):
     )
     report = run(replace=True)
     assert [b["replaced"] for b in report["batches"]] == [[recording_id("eva", "100")]]
-    rows = lance.dataset(root / "steps" / "eva.lance").to_table().to_pylist()
+    rows = lance.dataset(root / EVA_STEPS).to_table().to_pylist()
     assert len(rows) == N and rows[0]["left"]["obs_ee_pose"][0] == 50.5
