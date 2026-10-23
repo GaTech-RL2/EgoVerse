@@ -416,7 +416,7 @@ def test_a_changes_table_from_before_provenance_gains_the_column(annotated):
     old = commit.CHANGES.remove(commit.CHANGES.get_field_index("provenance"))
     lance.write_dataset(
         pa.Table.from_pylist(
-            [dict(tag="t0", lab="eva", operator="x", added=[], replaced=[])],
+            [dict(tag="t0", source="eva", operator="x", added=[], replaced=[])],
             schema=old,
         ),
         str(root / "changes.lance"),
