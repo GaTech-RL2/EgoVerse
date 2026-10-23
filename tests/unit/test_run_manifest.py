@@ -8,9 +8,11 @@ from fixtures.lance_tables import write_catalog  # noqa: E402
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
+from egomimic.rldb.lance.schema import steps_path  # noqa: E402
 from egomimic.rldb.multi import MultiDataset  # noqa: E402
 from egomimic.utils import run_manifest  # noqa: E402
 
+STEPS = steps_path("rl2", "human_bimanual", "hand")
 KEY_MAP = {
     "left.action_ee_pose": {
         "key_type": "action_keys",
@@ -35,7 +37,7 @@ def test_manifest_names_the_split_and_the_versions_read(tmp_path, caplog):
     split = files[run_manifest.SPLIT_FILE]["human_bimanual"]
     assert sorted(split["train"] + split["valid"]) == sorted(r for r, _, _ in recs)
     read = files[run_manifest.LANCE_FILE]["train/human_bimanual"]
-    assert read["versions"]["steps/aria.lance"] == 1
+    assert read["versions"][STEPS] == 1
     assert read["tags"]["recordings.lance"] == []
 
     commit.tag(root, "t1")
@@ -43,7 +45,7 @@ def test_manifest_names_the_split_and_the_versions_read(tmp_path, caplog):
     with caplog.at_level("WARNING"):
         tagged = _dataset(root, tag="t1")
     assert "untagged" not in caplog.text
-    assert tagged.source_manifest["tags"]["steps/aria.lance"] == ["t1"]
+    assert tagged.source_manifest["tags"][STEPS] == ["t1"]
 
 
 def test_write_keeps_the_first_launchs_record(tmp_path):
