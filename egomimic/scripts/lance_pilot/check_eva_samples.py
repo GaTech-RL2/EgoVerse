@@ -39,7 +39,7 @@ def main():
     ap.add_argument(
         "--lance-root",
         type=Path,
-        default=Path("/coc/flash7/scratch/lance_pilot/lance_eva"),
+        default=Path("/coc/flash7/scratch/lance_pilot/lance_v2"),
     )
     ap.add_argument("--hashes", type=Path, required=True)
     ap.add_argument("--embodiment", default="eva_bimanual")

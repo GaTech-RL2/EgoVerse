@@ -108,7 +108,7 @@ def main():
     )
     ap.add_argument(
         "--lance-root",
-        default="/coc/flash7/scratch/lance_pilot/lance",
+        default="/coc/flash7/scratch/lance_pilot/lance_v2",
         help="local path or s3:// URI",
     )
     ap.add_argument("--camera", default="front_1", help="front_1 (360p) or front_1_480")
