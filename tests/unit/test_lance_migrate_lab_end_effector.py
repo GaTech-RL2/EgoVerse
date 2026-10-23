@@ -16,6 +16,8 @@ from fixtures.lance_tables import (  # noqa: E402
 from egomimic.rldb.lance.schema import (  # noqa: E402
     ALIASES,
     ANNOTATIONS,
+    CHANGES,
+    RECORDINGS,
     TASKS,
     recording_id,
 )
@@ -178,35 +180,49 @@ def test_merges_roots_and_splits_steps_by_lab_embodiment_end_effector(tmp_path):
     )
 
     rec = lance.dataset(dst / "recordings.lance").to_table()
-    assert rec.column_names == m.NEW_RECORDINGS_COLUMNS
+    assert rec.schema == RECORDINGS
     assert rec["recording_id"].to_pylist() == rids
     assert rec["lab"].to_pylist() == ["rl2", "eth", "rl2", "rl2", "rl2", "rl2"]
     assert rec["end_effector"].to_pylist() == ["hand"] * 4 + ["gripper"] * 2
 
     tables = m.new_steps_uris(dst)
     assert sorted(tables) == [
-        "eth/human_bimanual/hand",
-        "rl2/eva_bimanual/gripper",
-        "rl2/eva_left_arm/gripper",
-        "rl2/human_bimanual/hand",
-        "rl2/human_right_arm/hand",
+        "steps/eth/human_bimanual/hand.lance",
+        "steps/rl2/eva_bimanual/gripper.lance",
+        "steps/rl2/eva_left_arm/gripper.lance",
+        "steps/rl2/human_bimanual/hand.lance",
+        "steps/rl2/human_right_arm/hand.lance",
     ]
-    bimanual = lance.dataset(tables["rl2/human_bimanual/hand"]).to_table()
+    bimanual = lance.dataset(tables["steps/rl2/human_bimanual/hand.lance"]).to_table()
     assert bimanual["recording_id"].to_pylist() == [rids[0]] * 7 + [rids[3]] * 5
     assert bimanual.schema == lance.dataset(aria / "steps" / "aria.lance").schema
     total = sum(lance.dataset(u).count_rows() for u in tables.values())
     assert total == sum(r[-1] for r in RECS)
 
     changes = lance.dataset(dst / "changes.lance").to_table().to_pylist()
-    assert [(c["tag"], c["lab"], c["added"]) for c in changes] == [
-        ("aria-1", "eth/human_bimanual/hand", [rids[1]]),
-        ("aria-1", "rl2/human_bimanual/hand", [rids[0], rids[3]]),
-        ("aria-1", "rl2/human_right_arm/hand", [rids[2]]),
-        ("annotations-aria", "annotations", [rids[0]]),
-        ("eva-1", "rl2/eva_bimanual/gripper", [rids[4]]),
-        ("eva-1", "rl2/eva_left_arm/gripper", [rids[5]]),
-        ("annotations-eva", "annotations", [rids[4]]),
+    assert [(c["tag"], c["source"], c["steps_tables"]) for c in changes] == [
+        (
+            "aria-1",
+            "aria",
+            [
+                "steps/eth/human_bimanual/hand.lance",
+                "steps/rl2/human_bimanual/hand.lance",
+                "steps/rl2/human_right_arm/hand.lance",
+            ],
+        ),
+        ("annotations-aria", "annotations", []),
+        (
+            "eva-1",
+            "eva",
+            [
+                "steps/rl2/eva_bimanual/gripper.lance",
+                "steps/rl2/eva_left_arm/gripper.lance",
+            ],
+        ),
+        ("annotations-eva", "annotations", []),
     ]
+    assert [c["added"] for c in changes] == [rids[:4], rids[:1], rids[4:], rids[4:5]]
+    assert lance.dataset(dst / "changes.lance").schema.names == CHANGES.names
     tasks = lance.dataset(dst / "tasks.lance").to_table()
     assert tasks.schema.names == TASKS.names
     assert tasks["recording_id"].to_pylist() == rids
@@ -228,7 +244,7 @@ def test_dry_run_writes_nothing_and_counts_task_annotations(tmp_path, capsys):
     assert not dst.exists()
     out = capsys.readouterr().out
     assert "12  steps/rl2/human_bimanual/hand.lance" in out
-    assert "7  changes.lance" in out
+    assert "4  changes.lance" in out
     assert "tasks.annotations: 1 rows" in out
 
 
@@ -258,7 +274,7 @@ def test_null_site_fails_unless_overridden(tmp_path):
     )
     rec = lance.dataset(tmp_path / "new" / "recordings.lance").to_table()
     assert rec["lab"].to_pylist()[1] == "x"
-    assert "x/human_bimanual/hand" in m.new_steps_uris(tmp_path / "new")
+    assert "steps/x/human_bimanual/hand.lance" in m.new_steps_uris(tmp_path / "new")
 
 
 def test_orphan_steps_rows_need_a_flag(tmp_path):
