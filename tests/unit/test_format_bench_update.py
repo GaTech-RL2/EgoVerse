@@ -64,6 +64,7 @@ def _digests(root: Path) -> dict[str, str]:
 
 def test_zarr_shards_match_zarr(tmp_path, lay):
     """Hand-built objects read back through zarr exactly as ZarrWriter would write them."""
+    pytest.importorskip("obstore")  # the optional "bench" extra
     root = tmp_path / "zarr"
     bu.make_zarr(str(root), lay, workers=4)
     for ep in range(lay.n_eps):
@@ -78,6 +79,7 @@ def test_zarr_shards_match_zarr(tmp_path, lay):
 
 @pytest.mark.parametrize("op", bu.OPS)
 def test_zarr(tmp_path, lay, op):
+    pytest.importorskip("obstore")  # the optional "bench" extra
     root = tmp_path / "zarr"
     bu.make_zarr(str(root), lay, workers=4)
     target = {"replace": "obs_head_pose/c", "annotations": "annotations/"}.get(op)
