@@ -6,6 +6,7 @@ from egomimic.eval.action_metrics import (  # noqa: F401  (re-exported for tests
     _paired_mse,
     _rot_geodesic_error,
     _split_mse,
+    fill_untracked_from_pred,
     layout_metrics,
 )
 from egomimic.eval.eval_video import EvalVideo
@@ -47,6 +48,7 @@ class PIEvalVideo(EvalVideo):
             ac_key = algo.ac_keys[embodiment_id]
             pred_key = f"{embodiment_name}_{ac_key}"
             loss_key = f"{embodiment_name}_loss"
+            _batch = fill_untracked_from_pred(_batch, ac_key, preds.get(pred_key))
 
             if loss_key in preds:
                 loss_val = preds[loss_key]
