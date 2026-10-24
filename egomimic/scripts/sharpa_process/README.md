@@ -218,6 +218,115 @@ excursion, with the verdict main's validator gives it.
 
 ---
 
+## 🧩 Ingesting the whole release
+
+SharpaDex v1.0 is about 2.3 TB of input (v2.1 without `tactile_raw`) and
+5.9 TB of output with `head_right`. That is more than a shared disk holds at
+once, so the release is planned once and then converted in chunks.
+
+### 1. Plan the manifest
+
+```bash
+uv run python -m egomimic.scripts.sharpa_process.existing_hashes_s3 --output s3_hashes.tsv
+uv run python -m egomimic.scripts.sharpa_process.sharpadex_manifest \
+  --release-root /data/SharpaDex-v1.0 --output manifest.jsonl \
+  --source-revision <hf-sha> \
+  --exclude-file egomimic/scripts/sharpa_process/sharpadex_v1_exclusions.yaml \
+  --s3-hashes s3_hashes.tsv --check-sql
+```
+
+`sharpadex_manifest` reads metadata only:
+
+- It takes each episode's recording start from Sharpa's per-episode recording
+  name (one-second resolution, site-local time, `--source-utc-offset`). If
+  there is none, it uses the season start plus the frame offset.
+- It keeps one copy of identical episodes that share a `source_uid`, holds
+  `source_uid`s that name different data, and holds episodes whose observed
+  hand joints pass the validator's error margin.
+- It applies the exclusion list (three corrupt frames in v1.0).
+- It names every kept episode uniquely: within the release, against
+  `--existing-hashes`, against the S3 listing and, with `--check-sql`, against
+  `app.episodes` (read-only). A clash moves the start by whole milliseconds
+  (`hash_offset_ms`).
+- Before planning any name, it refuses a release whose ids break the contract
+  above.
+
+The header's `collision_check_complete` is true only with `--check-sql` and an
+S3 listing that covers all of `processed_v3/`. Once conversion starts, the
+names are frozen: do not rebuild the manifest. Re-check it with
+`sharpadex_manifest --verify-frozen manifest.jsonl --s3-hashes s3_hashes.tsv
+--check-sql`, which exits 1 if another lab's episode uses a kept name.
+
+### 2. Convert in chunks
+
+```bash
+I="uv run python -m egomimic.scripts.sharpa_process.sharpadex_ingest --state-dir state/"
+# Once: chunks of at most 250 GB in + out. --sizes is the Hub listing at the
+# pinned revision (path,size); output per frame comes from the pilot.
+$I plan --manifest manifest.jsonl --sizes hf_files.csv --budget-gb 250 \
+  --out-bytes-per-frame 182500 --mp4-bytes-per-episode 2.6e6
+# Per chunk, as a Slurm job (sharpadex_chunk.sbatch runs fetch, convert, verify).
+$I fetch   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I convert --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I verify  --chunk chunk_0000 --work-root work/
+$I upload  --chunk chunk_0000 --work-root work/   # dry run: writes s5cmd batches
+$I clean   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I status
+```
+
+- **`fetch`** downloads only the chunk's parquet and video files at the pinned
+  revision, and checks every size against the listing. It refuses when the
+  disk would fall below `--floor-gb`.
+- **`convert`** runs one `sharpa_to_zarr` process per `--cpus-per-worker` CPUs,
+  each pinned to its own CPUs, with `--recording-ids --skip-done --overwrite`.
+  It refuses a node whose load exceeds its CPU count: oversubscribed nodes
+  convert tens of times slower. `--shard i/n` lets n jobs split one chunk.
+- **`fetch` and `convert`** refuse a manifest that is not collision-checked.
+  `--allow-provisional-hashes` is for trial runs only.
+- **`verify`** passes an episode only if:
+  - its sidecar, store and report name it (canonical and source id);
+  - `read_report` finds no problem, which requires `data_status: complete`
+    and every check passed;
+  - its `lab` is `sharpa_dex`;
+  - its MP4 exists;
+  - its name is unique across all verified chunks.
+
+  No option accepts a non-complete episode.
+- **`upload`** writes two `s5cmd` batches: the arrays first, then each root
+  `zarr.json` and MP4, so staging never sees half an episode.
+  - It refuses a `--prefix` whose folder is not the stored `lab`.
+  - It runs only with `--execute --licence-approved` and R2 credentials.
+- **`clean`** deletes only files `fetch` downloaded. It deletes outputs only
+  after a confirmed upload.
+- The ledger `state/ledger.jsonl` (append-only) records every stage.
+
+`sharpadex_chunk.sbatch` names `--qos=short` with an 8 h limit: the measured
+time of a 250 GB chunk on 16 CPUs plus a margin. Do not split work to fit the
+4 h default.
+
+The 115-episode pilot (8 workers × 4 CPUs) measured:
+
+- 0.036 worker-seconds per frame;
+- 182 KB of Zarr per frame, plus a 2.6 MB MP4 per episode.
+
+### 3. Register
+
+Every chunk uploads to `processed_v3/sharpa_dex/`. At the end, stage the folder
+once with `stage_processed_folder --folder sharpa_dex --no-ray`. Then run
+`merge_staging_to_episodes --staging-table app.staging_sharpa_dex
+--fail-on-conflict --license-from-attrs`, first as a dry run, then with
+`--apply`.
+
+- `--fail-on-conflict` stops before writing if a staged hash is already in
+  `app.episodes`.
+- `--license-from-attrs` copies the stored `license`.
+- The merge sets `lab` from the folder, which is why `upload` checks that the
+  folder equals the stored `lab`.
+
+Never stage while an upload is running.
+
+---
+
 ## 🦾 Kinematic models
 
 `kinematics/` ships as package data:
