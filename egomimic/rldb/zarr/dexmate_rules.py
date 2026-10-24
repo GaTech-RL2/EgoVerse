@@ -13,7 +13,6 @@ Torch-free, like the validator. The FK residual and TCP side checks need the
 URDFs and torch, so they stay in the converter's verify step.
 """
 
-import math
 from typing import Any
 
 import numpy as np
@@ -112,7 +111,7 @@ WARN_MARGIN_RAD = 0.035
 # A joint value more than SPIKE_JUMP_RAD away from both neighbours (which agree
 # with each other), or beyond SPIKE_MAX_ABS_RAD, marks a corrupt frame (warning).
 SPIKE_JUMP_RAD = 1.0
-SPIKE_MAX_ABS_RAD = 2 * math.pi
+SPIKE_MAX_ABS_RAD = 6.2832  # 2*pi rounded up, as the old SharpaDex schema had it
 _SPIKE_SUFFIXES = ("obs_joints", "cmd_joints", "obs_hand_joints", "cmd_hand_joints")
 
 

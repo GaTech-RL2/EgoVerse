@@ -446,7 +446,7 @@ See the reference converter (§6.0) for a complete example.
 
 Do **not** hand-write these into `zarr.attrs` yourself. Pass them to `ZarrWriter.create_and_write` (or the `ZarrWriter(...)` constructor) via the `intrinsics=` / `extrinsics=` arguments; the writer serializes them into `zarr.attrs` under the `"intrinsics"` / `"extrinsics"` keys (§6.3).
 
-- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle.)
+- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle; the only exception is an uncalibrated `dexmate_bimanual` episode, below.)
 - Each value is a **3×4** K matrix: the standard 3×3 pinhole matrix with an appended **zero column** (i.e. `[K | 0]`). A bare 3×3 is rejected on the projection path — pad it with `np.hstack([K_3x3, np.zeros((3, 1))])`.
 - **Multi-camera rigs:** add one entry per camera, e.g. `{"front_1": K_front, "left_wrist": K_lw, "right_wrist": K_rw}`. The training/viz projection uses the **front-camera** entry (the key containing `front`), so make sure that one is present and correct.
 - **`extrinsics`** is **`None` or a non-empty `dict`** of 4×4 world↔cam transforms — `create_and_write` raises on anything else. **Robots** key it **per-arm**, e.g. `{"left": T_left, "right": T_right}`; egocentric **human** contributors pass `None` (omit it).
@@ -838,7 +838,7 @@ Complete every item before considering an episode ready for upload.
 - [ ] Episode hash is unique across all your deliveries.
 
 **Zarr format**
-- [ ] `obs_head_pose` is present (required for all contributors).
+- [ ] `obs_head_pose` is present (required for all human contributors; `dexmate_bimanual` stores `obs_head_link_pose` instead, §11.1).
 - [ ] `left.obs_ee_pose` and `right.obs_ee_pose` are present if hand tracking is available.
 - [ ] All `obs_ee_pose` arrays have shape `(T, 7)` and unit-norm quaternions; no sentinel (`1e9`), NaN or inf frames.
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
@@ -846,13 +846,13 @@ Complete every item before considering an episode ready for upload.
 - [ ] `fps` is 30 or 60.
 - [ ] `task_name`, `operator`, `lab`, `scene` and `objects` are set for every episode (§6.3).
 - [ ] `vendor_recording_id` names the raw recording each episode was cut from (§6.6).
-- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory**.
-- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments.
+- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory** (an uncalibrated `dexmate_bimanual` episode stores `null` instead, §6.4).
+- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments that have a camera calibration.
 - [ ] `python -m egomimic.rldb.zarr.validate` passes on every episode (§11.1); `--allow-missing` only for `scene` / `objects` (or `dexmate_bimanual` intrinsics) you set to `MissingMetadata()`.
 - [ ] A sample episode has been visually verified (§11.3).
 
 **Coordinate frames**
-- [ ] All poses are in the SLAM world frame (not head frame, not camera frame).
+- [ ] All poses are in the SLAM world frame (not head frame, not camera frame); robot embodiments, including `dexmate_bimanual`, use the robot base frame (§6.2).
 - [ ] Poses are stored as xyz + wxyz: `[tx, ty, tz, qw, qx, qy, qz]`.
 - [ ] Translation units are **meters**.
 

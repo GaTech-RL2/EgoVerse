@@ -170,15 +170,23 @@ def test_one_frame_spike_is_a_warning(tmp_path, key, column, name):
     assert len(spikes) == 1 and f"first at frame {T // 2}, {name} =" in spikes[0]
 
 
-def test_value_beyond_two_pi_is_a_warning(tmp_path):
+@pytest.mark.parametrize(
+    "value, warning",
+    [(7.0, True), (dex.SPIKE_MAX_ABS_RAD + 1e-4, True), (6.28319, False)],
+)
+def test_value_beyond_two_pi_is_a_warning(tmp_path, value, warning):
+    """The old schema's max_abs (6.2832): 2*pi itself does not warn."""
+
     def edit(values):
-        values[:T, 0] = 7.0
+        values[:T, 0] = value
 
     errors, warnings = _problems(
         _edited(tmp_path, "right.obs_joints", edit), "right.obs_joints"
     )
     assert not errors
-    assert len(warnings) == 1 and f"{T} frame(s)" in warnings[0]
+    assert len(warnings) == int(warning), warnings
+    if warning:
+        assert f"{T} frame(s)" in warnings[0]
 
 
 def test_check_dexmate_takes_any_mapping_of_arrays():

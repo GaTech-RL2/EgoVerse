@@ -12,7 +12,10 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.dexmate.Dexmate.get_keymap
         keymap_mode: keypoints
-        wrist_cameras: true  # false for episodes recorded without wrist cameras
+        # Every SharpaDex v1.0 season has both wrist cameras. Turning this off
+        # also needs the wrist stems and encoders dropped from the model config:
+        # DDP fails on parameters that get no gradient.
+        wrist_cameras: true
       transform_list:
         _target_: egomimic.rldb.embodiment.dexmate.Dexmate.get_transform_list
         mode: keypoints_headframe_quat

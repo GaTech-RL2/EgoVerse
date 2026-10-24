@@ -97,13 +97,32 @@ def test_padded_episode_with_a_moving_head_loads_in_the_head_link_frame(
     head[:, 2] = 1.2
     head[:, 3] = np.cos(angle / 2)  # wxyz, a turn about z
     head[:, 6] = np.sin(angle / 2)
+    # The hands move too (a drift plus a turn about x), so a chunk that repeated
+    # the current hand configuration would fail the future-frame checks below.
+    t = np.arange(T)[:, None]
+    moving = {dexmate_rules.HEAD_LINK_POSE: head}
+    for i, side in enumerate(dexmate_rules.SIDES):
+        palm = np.zeros((T, 7))
+        palm[:, :3] = [0.4, 0.2 - 0.4 * i, 0.9] + 0.004 * t * [1.0, 0.5, -0.5]
+        palm[:, 3] = np.cos(0.01 * (i + 1) * t[:, 0])  # wxyz, a turn about x
+        palm[:, 4] = np.sin(0.01 * (i + 1) * t[:, 0])
+        offsets = np.random.default_rng(i).normal(0, 0.05, (21, 3))
+        kp = (palm[:, None, :3] + offsets + 0.002 * t[:, :, None]).reshape(T, 63)
+        moving.update(
+            {
+                f"{side}.obs_ee_pose": palm,
+                f"{side}.cmd_ee_pose": palm,
+                f"{side}.obs_hand_keypoints": kp,
+                f"{side}.cmd_hand_keypoints": kp,
+            }
+        )
     ep = write_dexmate_episode(
         tmp_path,
         T=T,
         H=32,
         W=32,
         wrist_cameras=wrist_cameras,
-        arrays={dexmate_rules.HEAD_LINK_POSE: head},
+        arrays=moving,
     )
     store = zarr.open_group(str(ep), mode="r")
     assert store[dexmate_rules.HEAD_LINK_POSE].shape[0] > T
@@ -142,11 +161,28 @@ def test_padded_episode_with_a_moving_head_loads_in_the_head_link_frame(
                 _in_frame(head[idx], palms[side][idx, None, :3])[0],
                 atol=1e-5,
             )
-            # The whole chunk is in the CURRENT head frame; past the episode
-            # end it repeats the last frame, never the zero padding.
+            # The whole chunk is in the CURRENT head frame; its last step is the
+            # future frame `last` (past the episode end it repeats the last
+            # frame, never the zero padding).
             np.testing.assert_allclose(actions[0], obs, atol=1e-5)
+            assert not np.allclose(actions[-1, kp], obs[kp], atol=1e-3)
             np.testing.assert_allclose(
                 actions[-1, kp],
                 _in_frame(head[idx], keypoints[side][last]).ravel(),
                 atol=1e-5,
             )
+            np.testing.assert_allclose(
+                actions[-1, start : start + 3],
+                _in_frame(head[idx], palms[side][last, None, :3])[0],
+                atol=1e-5,
+            )
+            if pose_width == 7:  # head_T_palm = inverse(base_T_head) @ base_T_palm
+                head_T_palm = np.linalg.inv(
+                    _xyzwxyz_to_matrix(head[idx][None])[0]
+                ) @ _xyzwxyz_to_matrix(palms[side][[idx, last]])
+                for step, want in (
+                    (obs, head_T_palm[0]),
+                    (actions[-1], head_T_palm[1]),
+                ):
+                    got = _xyzwxyz_to_matrix(step[None, start : start + 7])[0]
+                    np.testing.assert_allclose(got[:3, :3], want[:3, :3], atol=1e-5)
