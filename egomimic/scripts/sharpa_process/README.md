@@ -5,8 +5,9 @@ Converts the SharpaDex LeRobot release (`Sharpa-Robotics/SharpaDex-v1.0`) into
 hand on each arm. Each episode has per-side arm and hand joints, 30-D tactile,
 tactile images, MANO-21 hand keypoints and palm poses, plus a head-link pose.
 
-- **Licence:** CC-BY-NC-4.0 (`license: cc-by-nc-4.0` in the release README).
-  It is stored in every episode's `license` attribute. The leads approved
+- **Licence:** CC-BY-NC-4.0. The converter stores the constant `LICENSE`
+  (`cc-by-nc-4.0`) in every episode's `license` attribute. It refuses a release
+  whose README declares another licence or none. The leads approved
   ingestion on 2026-10-24.
 - **Embodiment:** `dexmate_bimanual` (`EMBODIMENT.DEXMATE_BIMANUAL = 8`). The
   array rules are in `egomimic/rldb/zarr/dexmate_rules.py`.
@@ -59,7 +60,6 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | `--include-head-right` | Also store `head_right` as `images.head_right`. |
 | `--skip-done` | Skip a finished episode: its store, MP4, report and sidecar all exist, the store and sidecar name it, and the report passes `read_report`. |
 | `--overwrite` | Replace existing outputs of the *same* episode. Its sidecar and report are removed first, so a crash part-way never looks finished. |
-| `--license NAME` | Override the licence read from the README. |
 | `--jpeg-quality 90`, `--chunk-timesteps 100` | Image and storage settings. |
 
 Exit status: 0 if everything converted and verified, 1 if an episode failed to

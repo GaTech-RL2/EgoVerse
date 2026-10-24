@@ -95,6 +95,9 @@ TOOL = "egomimic.scripts.sharpa_process.sharpa_to_zarr"
 OPERATOR = "sharpa"
 #: The episode ``lab``; it must equal the S3 folder the episodes go to.
 LAB = "sharpa_dex"
+#: SharpaDex v1.0's licence, approved for ingestion; the release README must
+#: declare the same.
+LICENSE = "cc-by-nc-4.0"
 ACTION_SEMANTICS = "absolute_joint_position_setpoint"
 #: Sharpa video stream -> EgoVerse camera; ``head_right`` needs a flag.
 CAMERAS = {
@@ -1124,10 +1127,12 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
     paths["conversion.json"].unlink(missing_ok=True)
     paths["validation.json"].unlink(missing_ok=True)
     check_vendor_layout(season)
-    license_name = args.license or dataset_license(season)
-    if license_name is None:
+    found = dataset_license(season)
+    if found is None:
+        raise ConversionError(f"{season.path}: no license in a README above the season")
+    if found.strip().lower() != LICENSE:
         raise ConversionError(
-            f"{season.path}: no license in a README above the season; pass --license"
+            f"{season.path}: README license {found!r} conflicts with {LICENSE}"
         )
     episode = load_episode(season, job.index)
     columns = episode.columns
@@ -1288,7 +1293,7 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
     metadata = _jsonable(
         {
             "source_episode_id": job.source_id,
-            "license": license_name,
+            "license": LICENSE,
             "action_semantics": ACTION_SEMANTICS,
             "source_dataset": Path(header.get("release_root") or "").name
             or season.path.parent.parent.name,
@@ -1448,9 +1453,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--jpeg-quality", type=int, default=90)
     parser.add_argument("--chunk-timesteps", type=int, default=100)
-    parser.add_argument(
-        "--license", help="Override the license read from the release README."
-    )
     parser.add_argument(
         "--overwrite",
         action="store_true",

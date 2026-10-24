@@ -611,13 +611,22 @@ def test_the_manifest_selects_and_the_licence_is_required(tmp_path, kinematics, 
     assert len(list(out.glob("*.zarr"))) == 1
     assert "skipped" in caplog.text and "corrupt frame" in caplog.text
 
+    # The licence is fixed; the release README must agree with it.
     write_readme(release, license=None)
     out = tmp_path / "no_license"
     assert _convert(release, manifest, out, "--episodes", "0") == 1
     assert "no license" in caplog.text
-    assert (
-        _convert(release, manifest, out, "--episodes", "0", "--license", LICENSE) == 0
-    )
+    with pytest.raises(SystemExit):
+        _convert(release, manifest, out, "--episodes", "0", "--license", LICENSE)
+    write_readme(release, license="cc-by-4.0")
+    caplog.clear()
+    assert _convert(release, manifest, out, "--episodes", "0") == 1
+    assert "'cc-by-4.0' conflicts with cc-by-nc-4.0" in caplog.text
+    write_readme(release, license="CC-BY-NC-4.0")
+    assert _convert(release, manifest, out, "--episodes", "0") == 0
+    [path] = list(out.glob("*.zarr"))
+    assert zarr.open_group(path, mode="r").attrs["license"] == "cc-by-nc-4.0"
+    assert sharpa_to_zarr.LICENSE == LICENSE == "cc-by-nc-4.0"
 
     bad = tmp_path / "bad.jsonl"
     bad.write_text(
