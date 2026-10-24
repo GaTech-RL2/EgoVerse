@@ -116,8 +116,9 @@ Vendors upload validated zarr episodes and previews to
 or manifest. On ingest:
 
 1. Run `python -m egomimic.rldb.zarr.validate` on the episodes. Episodes with
-   `scene` or `objects` stored as `null` (waived with `MissingMetadata()`) pass
-   with `--allow-missing` and are accepted. Episodes without a `schema_version`
+   `scene` or `objects` stored as `null` (waived with `MissingMetadata()`), and
+   `dexmate_bimanual` episodes with `null` intrinsics, pass with
+   `--allow-missing` and are accepted. Episodes without a `schema_version`
    (written before the required metadata) only get warnings for metadata.
 2. Map each vendor-proposed `task_name` to an existing task (§2.1), or add a new
    task name if none fits.
@@ -194,6 +195,17 @@ To onboard a new vendor, add a data config under
 - **Robots** subclass `Embodiment` directly and keep their own
   intrinsics/extrinsics and pipeline — see `Eva` in
   [`egomimic/rldb/embodiment/eva.py`](egomimic/rldb/embodiment/eva.py).
+- **Dexmate** (`dexmate_bimanual`, SharpaDex: a Dexmate robot with two Sharpa
+  Wave hands) has a keypoints mode only:
+  [`Dexmate`](egomimic/rldb/embodiment/dexmate.py) reads the palm poses and
+  MANO-layout hand keypoints and re-expresses them in `obs_head_link_pose` (all
+  tracks are in the robot base frame). Train with `train_zarr_dexmate_keypoints`
+  (`data/dexmate_keypoints.yaml`, `model/hpt_bc_keypoints_dexmate.yaml`, 140-wide
+  actions). It has no video evaluator, because the episodes have no camera
+  calibration. Joints, commands and tactile are stored but not loaded. The
+  arrays an episode must hold are in
+  [`dexmate_rules.py`](egomimic/rldb/zarr/dexmate_rules.py), which the
+  validator applies; there is no Pi mode for Dexmate.
 - For data annotated through Scale AI, `ScaleAnnotationDatasetFilter`
   ([`egomimic/rldb/filters.py`](egomimic/rldb/filters.py)) keeps only episodes
   with completed Scale annotations; it needs `SCALE_API_KEY`.
