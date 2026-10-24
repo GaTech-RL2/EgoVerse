@@ -72,6 +72,9 @@ def test_canonical_and_source_ids_round_trip():
         ("a/b", SEASON, 0),  # a "/" would split the S3 path
         ("a__b", SEASON, 0),  # "__" would make the parse ambiguous
         (TASK, "x__y", 0),
+        # A trailing "_" runs into the separator: "task___season" splits wrongly.
+        ("task_", SEASON, 0),
+        (TASK, "season_", 0),
         ("", SEASON, 0),
         (TASK, "has space", 0),
         (TASK, SEASON, -1),
@@ -149,3 +152,19 @@ def test_read_manifest_rejects_malformed_files(tmp_path):
     fails(f'{{"manifest": {{}}}}\n{record}\n{record}\n', "repeated")
     bad = json.dumps(asdict(_record(task="a__b")))
     fails(f'{{"manifest": {{}}}}\n{bad}\n', "id problem")
+
+
+def test_every_accepted_id_parses_back_exactly():
+    for task, season in ((TASK, SEASON), ("a.b-c", "s-1.x"), ("t1", "season_9")):
+        for index in (0, 7, 999_999, 1_000_000):
+            vid = vendor_recording_id(task, season, index)
+            assert parse_vendor_recording_id(vid) == (task, season, index)
+
+
+def test_manifest_records_with_a_trailing_underscore_are_refused(tmp_path):
+    bad = [_record(task="fold_towel_", index=0), _record(season="season_x_", index=1)]
+    problems = id_problems(bad)
+    assert len(problems) == 2 and all("'_'" in p for p in problems)
+    path = _manifest(tmp_path / "m.jsonl", bad)
+    with pytest.raises(ManifestError, match="2 id problem"):
+        read_manifest(path)

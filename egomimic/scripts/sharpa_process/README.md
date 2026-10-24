@@ -96,7 +96,7 @@ There are two IDs, and the converter keeps both:
   `vendor_recording_id`: one path component, as `CONTRIBUTING_DATA.md` §6.6
   requires.
 
-A task or season containing `/` or `__` is rejected, so every canonical ID
+A task or season containing `/` or `__`, or ending in `_`, is rejected, so every canonical ID
 parses back to exactly one source ID. `read_manifest` checks this over the
 whole manifest. `manifest_v1.jsonl` (28,993 records) passes.
 

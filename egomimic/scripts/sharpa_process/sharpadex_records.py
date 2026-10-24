@@ -15,8 +15,8 @@ Two IDs are derived from that triple:
 
 Converted stores and sidecars hold both, as ``vendor_recording_id`` and
 ``source_episode_id``; ``ids_correspond`` checks that they agree. A task or
-season containing ``/`` or ``__`` is rejected, so the canonical ID parses back
-to one triple and two source IDs never share one.
+season containing ``/`` or ``__``, or ending in ``_``, is rejected, so the
+canonical ID parses back to one triple and two source IDs never share one.
 
 The manifest itself is written by ``sharpadex_manifest``; this module only
 reads it, with the stdlib, so the ingest driver can use it without the
@@ -95,6 +95,9 @@ def part_error(name: str, value) -> str | None:
         )
     if SEPARATOR in value:
         return f"{name} {value!r} contains {SEPARATOR!r}, the canonical ID separator"
+    if value.endswith("_"):
+        # It would run into the separator after it: "task_" + "__" = "task___".
+        return f"{name} {value!r} ends in '_', next to the canonical ID separator"
     return None
 
 
@@ -131,7 +134,7 @@ def parse_vendor_recording_id(vid: str) -> tuple[str, str, int]:
         ValueError: If ``vid`` is not exactly what ``vendor_recording_id``
             returns for some triple.
     """
-    parts = vid.split(SEPARATOR) if isinstance(vid, str) else []
+    parts = vid.rsplit(SEPARATOR, 2) if isinstance(vid, str) else []
     if len(parts) != 3 or not _INDEX.fullmatch(parts[2]):
         raise ValueError(
             f"{vid!r} is not a SharpaDex vendor_recording_id "
