@@ -1,0 +1,9 @@
+# SharpaDex HPT keypoints (dexmate_bimanual). The episodes have no camera
+# calibration (intrinsics are null), so there is nothing to draw predicted
+# keypoints on: the run has no video evaluator.
+defaults:
+  - train_zarr_cartesian
+  - override model: hpt_bc_keypoints_dexmate
+  - override data: dexmate_keypoints
+  - override evaluator: null
+  - _self_

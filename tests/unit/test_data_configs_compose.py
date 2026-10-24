@@ -85,7 +85,7 @@ def test_data_config_keymap_and_transforms_instantiate(name):
                 ), f"{name}/{split}/{ds_name}: get_transform_list returned None (unknown mode?)"
 
 
-@pytest.mark.parametrize("name", ["eva", "aria", "mecka", "scale"])
+@pytest.mark.parametrize("name", ["eva", "aria", "mecka", "scale", "dexmate_keypoints"])
 def test_vendor_valid_split_follows_train(name):
     cfg = compose_data(name)
     emb = next(iter(cfg.data.train_datasets))
