@@ -1,0 +1,116 @@
+# Kinematic spec of dexmate_bimanual: the NTH POC1.0 Dexmate platform with a
+# Sharpa Wave hand (V3.0.4) on each arm. The SharpaDex converter derives palm
+# poses, MANO-21 hand keypoints and the head-link pose from it; training reads
+# only the stored arrays.
+#
+# The URDFs beside this file are the delivered files, byte for byte; urdf_sha256
+# covers each file's bytes and is checked when it is loaded. The hand URDFs come
+# from `sharpa-urdf-usd-xml` (LICENSE.txt, NOTICE.txt); the platform URDF was
+# supplied separately. Only the kinematic tree is read, so no meshes are needed.
+# All poses are in robot_base, the platform URDF's root.
+#
+# Joint names, orders and hand-joint limits are main's (rldb/zarr/dexmate_rules);
+# a unit test checks them against these URDFs.
+
+platform:
+  urdf: NTH_POC1_0_URDF_250905v4.urdf
+  urdf_sha256: c653765bc970c048559ef3a04bba2e4a2c3294e9fb8dfbf0b5d81fb86a93556e
+  # The link whose pose is stored as obs_head_link_pose.
+  head_link: head_base_link
+  # Platform leaf each hand URDF's flange root is composed with.
+  hand_mount_link: "{side}_hand_base_link"
+  # Columns 58:65 of Sharpa's 65-column joint vectors, and the column order of
+  # {obs,cmd}_aux_joints: the lower body, then the neck.
+  aux_joint_names:
+    - lower_body_joint_1
+    - lower_body_joint_2
+    - lower_body_joint_3
+    - lower_body_joint_4
+    - lower_body_joint_5
+    - neck_joint_1
+    - neck_joint_2
+
+hands:
+  left:
+    urdf: left_sharpa_wave_with_flange.urdf
+    urdf_sha256: 6ea8d2c563c6d4ba56f5f4b04aa7d339f5b703ac8e5ec02404ca5f632d7c28a2
+    # The palm frame stored as left.obs_ee_pose; it differs from the flange root.
+    ee_pose_link: left_hand_C_MC
+    # MANO-21 slot -> hand link; slot k is columns 3k:3k+3 of
+    # left.obs_hand_keypoints. Every slot is valid.
+    keypoint_links:
+      0: left_hand_C_MC
+      1: left_thumb_MC
+      2: left_thumb_PP
+      3: left_thumb_DP
+      4: left_thumb_fingertip
+      5: left_index_PP
+      6: left_index_MP
+      7: left_index_DP
+      8: left_index_fingertip
+      9: left_middle_PP
+      10: left_middle_MP
+      11: left_middle_DP
+      12: left_middle_fingertip
+      13: left_ring_PP
+      14: left_ring_MP
+      15: left_ring_DP
+      16: left_ring_fingertip
+      17: left_pinky_PP
+      18: left_pinky_MP
+      19: left_pinky_DP
+      20: left_pinky_fingertip
+    # Largest accepted distance between stored keypoints and FK of the stored
+    # joints, in the palm frame (the converter's fk_residual check).
+    fk_tolerance_m: 0.005
+    # One six-axis force/torque sensor per fingertip, thumb to little finger,
+    # in the column order of Sharpa's observation.tactile. Units are inferred
+    # from value ranges (forces -16..33, torques within +-0.7); Sharpa has not
+    # confirmed them.
+    tactile:
+      fingers: [thumb, index, middle, ring, little]
+      taxel_links:
+        - left_thumb_fingertip
+        - left_index_fingertip
+        - left_middle_fingertip
+        - left_ring_fingertip
+        - left_pinky_fingertip
+      channel_names: [fx, fy, fz, tx, ty, tz]
+      channel_units: [N, N, N, N*m, N*m, N*m]
+  right:
+    urdf: right_sharpa_wave_with_flange.urdf
+    urdf_sha256: 261c1a5284e04bc9690e0f5ac39d7a7cace0a16d335d663a1d3c7fcf4e4daf31
+    ee_pose_link: right_hand_C_MC
+    keypoint_links:
+      0: right_hand_C_MC
+      1: right_thumb_MC
+      2: right_thumb_PP
+      3: right_thumb_DP
+      4: right_thumb_fingertip
+      5: right_index_PP
+      6: right_index_MP
+      7: right_index_DP
+      8: right_index_fingertip
+      9: right_middle_PP
+      10: right_middle_MP
+      11: right_middle_DP
+      12: right_middle_fingertip
+      13: right_ring_PP
+      14: right_ring_MP
+      15: right_ring_DP
+      16: right_ring_fingertip
+      17: right_pinky_PP
+      18: right_pinky_MP
+      19: right_pinky_DP
+      20: right_pinky_fingertip
+    fk_tolerance_m: 0.005
+    tactile:
+      fingers: [thumb, index, middle, ring, little]
+      taxel_links:
+        - right_thumb_fingertip
+        - right_index_fingertip
+        - right_middle_fingertip
+        - right_ring_fingertip
+        - right_pinky_fingertip
+      channel_names: [fx, fy, fz, tx, ty, tz]
+      channel_units: [N, N, N, N*m, N*m, N*m]
