@@ -232,13 +232,21 @@ def select_recordings(ids, manifest) -> dict[tuple[str, str], list[int]]:
 
 def sidecar_ids(path: Path) -> tuple[str, str | None] | None:
     """Return ``(vendor_recording_id, source_episode_id)`` a ``conversion.json``
-    names, or ``None`` if it is absent or cut off."""
+    or ``validation.json`` names, or ``None`` if it is absent or cut off."""
     try:
         sidecar = json.loads(path.read_text())
         vid = sidecar["vendor_recording_id"]
     except (OSError, ValueError, TypeError, KeyError):
         return None
     return vid, sidecar.get("source_episode_id")
+
+
+def output_paths(output_dir: Path, name: str) -> dict[str, Path]:
+    """An episode's outputs; ``conversion.json``, written last, marks it done."""
+    return {
+        kind: Path(output_dir) / f"{name}.{kind}"
+        for kind in ("zarr", "mp4", "validation.json", "conversion.json")
+    }
 
 
 def _owner_problem(where: Path, job: Job, vid, sid) -> str | None:
@@ -264,8 +272,7 @@ def plan_jobs(seasons, indices, args, manifest) -> list[Job]:
     manifest (``{source id: record}``) supplies each name and start, and an
     episode it does not keep is skipped. A name shared by two requested
     episodes, or held by an existing output of another recording, fails those
-    jobs up front. With ``--skip-done``, an episode whose
-    ``<hash>.conversion.json`` names it is marked done.
+    jobs up front (``check_outputs``).
     """
     jobs = []
     for season in seasons:
@@ -298,26 +305,54 @@ def plan_jobs(seasons, indices, args, manifest) -> list[Job]:
             for job in group:
                 job.error = f"episode name {name} is shared by {ids}"
             continue
-        job = group[0]
-        if args.skip_done:
-            # conversion.json is written last: it marks a finished episode.
-            sidecar = args.output_dir / f"{name}.conversion.json"
-            owner = sidecar_ids(sidecar)
-            if owner is not None:
-                job.error = _owner_problem(sidecar, job, *owner)
-                job.done = job.error is None
-                continue
-        existing = args.output_dir / f"{name}.zarr"
-        if existing.exists():
-            try:
-                attrs = zarr.open_group(existing, mode="r").attrs
-                owner = attrs.get("vendor_recording_id"), attrs.get("source_episode_id")
-            except Exception:  # an unreadable store is never ours to replace
-                owner = None, None
-            job.error = _owner_problem(existing, job, *owner)
-            if job.error is None and not args.overwrite:
-                job.error = f"{existing} exists; pass --overwrite to replace it"
+        check_outputs(group[0], args)
     return jobs
+
+
+def check_outputs(job: Job, args) -> None:
+    """Set ``job.error`` or ``job.done`` from what ``--output-dir`` holds.
+
+    Every existing output must belong to the job, with or without
+    ``--skip-done``: a store, sidecar or report naming another recording, or
+    a store that cannot be read, is never replaced. With ``--skip-done`` the
+    job is done only if the store, MP4, report and sidecar all exist, the
+    store and sidecar name the job's canonical and source ids, and the report
+    passes ``read_report``. Anything else of the job's needs ``--overwrite``.
+    """
+    paths = output_paths(args.output_dir, job.episode_hash)
+    owners = {}
+    for kind in ("conversion.json", "validation.json"):
+        if (ids := sidecar_ids(paths[kind])) is not None:
+            owners[kind] = ids
+    if paths["zarr"].exists():
+        try:
+            attrs = zarr.open_group(paths["zarr"], mode="r").attrs
+            owners["zarr"] = (
+                attrs.get("vendor_recording_id"),
+                attrs.get("source_episode_id"),
+            )
+        except Exception:  # an unreadable store is never ours to replace
+            owners["zarr"] = None, None
+    for kind, ids in owners.items():
+        if problem := _owner_problem(paths[kind], job, *ids):
+            job.error = problem
+            return
+    if args.skip_done and {"zarr", "conversion.json"} <= set(owners):
+        _, problems = read_report(
+            paths["validation.json"], job.vendor_recording_id, job.source_id
+        )
+        if not paths["mp4"].is_file():
+            problems.append(f"no {paths['mp4'].name}")
+        if not problems:
+            job.done = True
+            return
+        logger.info("%s is not done: %s", job.source_id, "; ".join(problems))
+    existing = [p.name for p in paths.values() if p.exists()]
+    if existing and not args.overwrite:
+        job.error = (
+            f"{', '.join(existing)} exist for {job.source_id} but are not a "
+            "finished, passing conversion; pass --overwrite to replace them"
+        )
 
 
 def _plan_from_manifest(job: Job, manifest) -> None:
@@ -1083,6 +1118,11 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
     """Write one episode and its sidecars; return the conversion summary."""
     season, record = job.season, job.record
     started = time.monotonic()
+    paths = output_paths(args.output_dir, job.episode_hash)
+    # Replacing an output: drop its completion marker and report first, so a
+    # crash part-way never leaves the old ones claiming a finished episode.
+    paths["conversion.json"].unlink(missing_ok=True)
+    paths["validation.json"].unlink(missing_ok=True)
     check_vendor_layout(season)
     license_name = args.license or dataset_license(season)
     if license_name is None:
@@ -1341,9 +1381,14 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
     (args.output_dir / f"{job.episode_hash}.validation.json").write_text(
         json.dumps(_jsonable(verification), indent=2, allow_nan=False) + "\n"
     )
+    # Judged by the same strict reader that resume and the ingest use.
+    _, problems = read_report(
+        paths["validation.json"], job.vendor_recording_id, job.source_id
+    )
     summary["validation"] = {
-        "ok": verification["ok"],
+        "ok": verification["ok"] and not problems,
         "errors": verification["errors"],
+        "problems": problems,
         "warnings": len(verification["warnings"]),
     }
     # Written last: its presence marks a finished episode.
@@ -1487,6 +1532,7 @@ def main(argv=None) -> int:
         raise SystemExit(f"sharpa_to_zarr: {exc}") from exc
     logger.info("%d episode(s) from %d season(s)", len(jobs), len(seasons))
     converted, failed, skipped, done = [], [], [], []
+    refused = [job for job in jobs if job.error is not None]
     for job in jobs:
         if job.skipped and job.error is None:
             skipped.append(job)
@@ -1510,8 +1556,8 @@ def main(argv=None) -> int:
                     summary["data_status"],
                     summary["seconds"],
                 )
-                for error in summary["validation"]["errors"]:
-                    logger.warning("  validation: %s", error)
+                for problem in summary["validation"]["problems"]:
+                    logger.warning("  validation: %s", problem)
                 continue
             except (ConversionError, LeRobotError, OSError) as exc:
                 job.error = str(exc)
@@ -1521,11 +1567,12 @@ def main(argv=None) -> int:
             _discard_partials(args.output_dir, job.episode_hash)
         failed.append(job)
         logger.error("FAILED %s: %s", job.source_id, job.error)
-    invalid = [s for s in converted if not s["validation"]["ok"]]
+    invalid = [s for s in converted if s["validation"]["problems"]]
     print(
         f"Converted {len(converted)} episode(s), {len(failed)} failed"
         + (f", {len(done)} already done" if args.skip_done else "")
         + f", {len(skipped)} skipped by the manifest"
+        + f", {len(refused)} refused before converting (counted as failed)"
         + f", {len(invalid)} with validation errors"
         + f"; output in {args.output_dir}"
     )

@@ -57,8 +57,8 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | `--tasks GLOB`, `--seasons GLOB`, `--episodes 0,3,5-7` | Select task folders, seasons and episode indices (default: all). Episodes the manifest does not keep are skipped. |
 | `--recording-ids FILE` | Convert exactly these source ids. Blank and `#` lines are ignored. Every id must be a kept manifest episode. Only the listed seasons are opened. |
 | `--include-head-right` | Also store `head_right` as `images.head_right`. |
-| `--skip-done` | Skip an episode whose `<hash>.conversion.json` names it. |
-| `--overwrite` | Replace an existing output of the *same* episode. |
+| `--skip-done` | Skip a finished episode: its store, MP4, report and sidecar all exist, the store and sidecar name it, and the report passes `read_report`. |
+| `--overwrite` | Replace existing outputs of the *same* episode. Its sidecar and report are removed first, so a crash part-way never looks finished. |
 | `--license NAME` | Override the licence read from the README. |
 | `--jpeg-quality 90`, `--chunk-timesteps 100` | Image and storage settings. |
 
@@ -101,8 +101,9 @@ whole manifest. `manifest_v1.jsonl` (28,993 records) passes.
 
 The zarr attributes and the sidecar store both IDs. Resume and ownership checks
 compare the canonical ID, and they refuse an output whose `source_episode_id`
-does not correspond to it. The converter never replaces a store or sidecar that
-holds another episode, even with `--overwrite`.
+does not correspond to it. The converter never replaces a store, sidecar or report that
+names another episode, or a store it cannot read, with or without `--skip-done`
+and even with `--overwrite`.
 
 ### Required metadata
 

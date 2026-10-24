@@ -819,6 +819,90 @@ def test_outputs_owned_by_another_recording_are_refused(
     )
 
 
+def test_resume_requires_complete_passing_outputs(
+    three_seasons, tmp_path, capsys, caplog, monkeypatch
+):
+    caplog.set_level(logging.INFO)
+    release, manifest = three_seasons
+    _, rows = read_manifest(manifest)
+    sid = f"{OTHER_TASK}/{SEASON}/1"
+    name = rows[sid].episode_hash
+    ids = _ids_file(tmp_path / "ids.txt", [sid])
+    out = tmp_path / "out"
+    files = {
+        kind: out / f"{name}.{kind}"
+        for kind in ("zarr", "conversion.json", "validation.json", "mp4")
+    }
+
+    def run(*extra):
+        capsys.readouterr()
+        caplog.clear()
+        code = _convert(release, manifest, out, "--recording-ids", str(ids), *extra)
+        return code, capsys.readouterr().out
+
+    def done():
+        return f"already done {sid}" in caplog.text
+
+    assert run()[0] == 0
+    saved = {k: p.read_bytes() for k, p in files.items() if k != "zarr"}
+
+    def restore():
+        for kind, data in saved.items():
+            files[kind].write_bytes(data)
+
+    # Matching ids alone are not enough: each output must exist and pass.
+    for kind in ("validation.json", "mp4"):
+        files[kind].unlink()
+        code, printed = run("--skip-done")
+        assert code == 1 and not done() and "pass --overwrite" in caplog.text, kind
+        restore()
+    report = json.loads(saved["validation.json"])
+    report["checks"]["tcp_check"]["passed"] = False
+    files["validation.json"].write_text(json.dumps(report))
+    code, _ = run("--skip-done")
+    assert code == 1 and not done()
+    restore()
+    shutil.move(files["zarr"], tmp_path / "moved.zarr")
+    code, _ = run("--skip-done")
+    assert code == 1 and not done()
+    shutil.move(tmp_path / "moved.zarr", files["zarr"])
+    code, printed = run("--skip-done")
+    assert code == 0 and done() and "1 already done" in printed
+
+    # A store holding another recording is refused even beside a matching sidecar.
+    other = vendor_recording_id("another_task", SEASON, 1)
+    group = zarr.open_group(files["zarr"], mode="a")
+    group.attrs["vendor_recording_id"] = other
+    code, printed = run("--skip-done", "--overwrite")
+    assert code == 1 and f"already holds {other}" in caplog.text
+    assert "1 failed" in printed
+    group.attrs["vendor_recording_id"] = rows[sid].vendor_recording_id
+
+    # Without --skip-done a sidecar naming another recording is refused too.
+    files["conversion.json"].write_text(
+        saved["conversion.json"].decode().replace(rows[sid].vendor_recording_id, other)
+    )
+    code, _ = run("--overwrite")
+    assert code == 1 and f"already holds {other}" in caplog.text
+    restore()
+
+    # Replacing an output drops its completion marker first, so a crash
+    # mid-replacement never leaves it "done".
+    def crash(*args, **kwargs):
+        raise RuntimeError("killed mid-conversion")
+
+    monkeypatch.setattr(sharpa_to_zarr, "encode_camera", crash)
+    code, _ = run("--overwrite")
+    assert code == 1 and "killed mid-conversion" in caplog.text
+    assert not files["conversion.json"].exists()
+    assert not files["validation.json"].exists()
+    monkeypatch.undo()
+    code, _ = run("--skip-done")
+    assert code == 1 and not done() and "pass --overwrite" in caplog.text
+    code, printed = run("--skip-done", "--overwrite")
+    assert code == 0 and "Converted 1 episode(s), 0 failed" in printed
+
+
 def test_the_spec_tactile_layout_matches_the_converter():
     for side in dexmate_rules.SIDES:
         tactile = load_spec()["hands"][side]["tactile"]
