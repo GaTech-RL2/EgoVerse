@@ -1,0 +1,15 @@
+# SharpaDex-v1.0 (HF revision 6b48181a41d8836692fb1204cc60ade64e107d20) episodes
+# that are not ingested. Read by sharpadex_manifest.py --exclude-file.
+exclude:
+  - task: assemble_gears_on_base
+    season: season_POC22027_2026_04_30_15_04_50_train
+    episode_index: 104
+    reason: right_arm_joint_7 command reads 96.5 rad on frame 355 (corrupt frame)
+  - task: cover_ball_with_cup
+    season: season_POC22018_2026_05_06_20_32_31_train
+    episode_index: 26
+    reason: left_arm_joint_7 command reads -3.43 rad on frame 390 (corrupt frame)
+  - task: place_fruits_in_basket
+    season: season_POC22007_2026_03_15_15_38_42_train
+    episode_index: 7
+    reason: left_ring_MCP_FE observed at -0.823 rad, 0.65 rad below its limit
