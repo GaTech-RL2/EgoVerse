@@ -319,8 +319,10 @@ def check_outputs(job: Job, args) -> None:
     ``--skip-done``: a store, sidecar or report naming another recording, or
     a store that cannot be read, is never replaced. With ``--skip-done`` the
     job is done only if the store, MP4, report and sidecar all exist, the
-    store and sidecar name the job's canonical and source ids, and the report
-    passes ``read_report``. Anything else of the job's needs ``--overwrite``.
+    store and sidecar name the job's canonical and source ids, the report
+    passes ``read_report`` and the store still passes the episode validator
+    (every array it lists, at full length). Anything else of the job's needs
+    ``--overwrite``.
     """
     paths = output_paths(args.output_dir, job.episode_hash)
     owners = {}
@@ -344,8 +346,12 @@ def check_outputs(job: Job, args) -> None:
         _, problems = read_report(
             paths["validation.json"], job.vendor_recording_id, job.source_id
         )
-        if not paths["mp4"].is_file():
+        if not paths["mp4"].is_file() or paths["mp4"].stat().st_size == 0:
             problems.append(f"no {paths['mp4'].name}")
+        if not problems:
+            # The report describes the store as written; re-check the store as
+            # it is now, so a store that lost arrays since is not "done".
+            problems += validate_episode(paths["zarr"], allow_missing=True).errors
         if not problems:
             job.done = True
             return

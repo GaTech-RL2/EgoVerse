@@ -875,6 +875,16 @@ def test_resume_requires_complete_passing_outputs(
     code, _ = run("--skip-done")
     assert code == 1 and not done()
     shutil.move(tmp_path / "moved.zarr", files["zarr"])
+    # A store that lost an array since its report passed is not done either.
+    lost = files["zarr"] / "left.obs_tactile"
+    shutil.move(lost, tmp_path / "lost")
+    code, _ = run("--skip-done")
+    assert code == 1 and not done() and "left.obs_tactile" in caplog.text
+    shutil.move(tmp_path / "lost", lost)
+    files["mp4"].write_bytes(b"")
+    code, _ = run("--skip-done")
+    assert code == 1 and not done()
+    restore()
     code, printed = run("--skip-done")
     assert code == 0 and done() and "1 already done" in printed
 
