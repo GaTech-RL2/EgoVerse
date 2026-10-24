@@ -259,3 +259,21 @@ def test_tcp_side_check_catches_swapped_arms(kinematics):
     swapped = tcp_side_check(np.concatenate([tcp[:, 6:], tcp[:, :6]], 1), poses)
     assert not swapped["passed"]
     assert any("look swapped" in p for p in swapped["problems"])
+
+
+@pytest.mark.parametrize("column", [0, 3, 8])  # left x, left rotvec, right y
+def test_tcp_side_check_fails_non_finite_poses(kinematics, column):
+    observed = _in_limit_vector(kinematics, 8, 6)
+    tcp, poses = _tcp_pose(kinematics, observed)
+    tcp[2:4, column] = np.nan
+    result = tcp_side_check(tcp, poses)
+    assert not result["passed"]
+    assert any("non-finite" in p for p in result["problems"])
+    # Every metric that is reported is finite, so the report stays strict JSON.
+    for metrics in result["sides"].values():
+        assert all(np.isfinite(v) for v in metrics.values())
+    broken = dict(poses)
+    link = TCP_LINK.format(side="left")
+    broken[link] = poses[link].copy()
+    broken[link][1, 0, 3] = np.inf
+    assert not tcp_side_check(_tcp_pose(kinematics, observed)[0], broken)["passed"]

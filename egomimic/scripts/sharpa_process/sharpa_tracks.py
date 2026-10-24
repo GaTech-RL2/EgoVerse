@@ -373,12 +373,24 @@ def tcp_side_check(tcp_pose, link_poses: dict[str, np.ndarray]) -> dict:
         ``{"passed": bool, "sides": {...}, "problems": [...]}``. Each side
         records the median rotation error against its own arm and against
         the other arm; a swapped pairing that fits better fails the check.
+        Non-finite inputs or metrics fail it before any threshold is
+        compared (NaN compares false), and no non-finite metric is returned.
     """
     from scipy.spatial.transform import Rotation
 
     tcp_pose = np.asarray(tcp_pose, dtype=np.float64)
     if tcp_pose.ndim != 2 or tcp_pose.shape[1] != 12:
         raise ValueError(f"tcp_pose must have shape (T, 12), got {tcp_pose.shape}")
+    problems = []
+    if not np.isfinite(tcp_pose).all():
+        rows = len(np.unique(np.nonzero(~np.isfinite(tcp_pose))[0]))
+        problems.append(f"tcp_pose has non-finite values on {rows} frame(s)")
+    for side in SIDES:
+        link = TCP_LINK.format(side=side)
+        if not np.isfinite(np.asarray(link_poses[link], dtype=np.float64)).all():
+            problems.append(f"forward kinematics of {link} is non-finite")
+    if problems:
+        return {"passed": False, "sides": {}, "problems": problems}
     vendor = {
         side: (
             tcp_pose[:, 6 * i : 6 * i + 3],
@@ -395,7 +407,7 @@ def tcp_side_check(tcp_pose, link_poses: dict[str, np.ndarray]) -> dict:
             link[:, :3, 3] + rotation.apply(model["tool_m"]) + model["base_shift_m"]
         )
         predicted[side] = (position, rotation * tool)
-    sides, problems = {}, []
+    sides = {}
     for side, other in (("left", "right"), ("right", "left")):
         position, rotation = vendor[side]
 
@@ -410,6 +422,10 @@ def tcp_side_check(tcp_pose, link_poses: dict[str, np.ndarray]) -> dict:
             "swapped_rotation_error_deg_median": swapped,
             "position_error_m_p95": float(np.percentile(offset, 95)),
         }
+        if not all(np.isfinite(v) for v in sides[side].values()):
+            problems.append(f"{side} TCP metrics are non-finite")
+            sides[side] = {k: None for k in sides[side]}
+            continue
         if own > TCP_ROTATION_TOLERANCE_DEG:
             problems.append(
                 f"{side} TCP rotation differs from forward kinematics by {own:.2f} deg "
