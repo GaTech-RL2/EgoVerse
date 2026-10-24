@@ -166,6 +166,39 @@ def test_episodes_pass_main_s_validator_with_only_the_expected_waivers(converted
         assert max(report["checks"]["fk_residual"]["max_m"].values()) < 1e-9
 
 
+def test_an_episode_stages_like_any_vendor_episode(converted, monkeypatch):
+    # Main's stager reads zarr.json from S3; serve it from disk instead.
+    import io
+    import sys
+    from types import SimpleNamespace
+
+    from egomimic.scripts.backfill_scripts import stage_processed_folder
+
+    _, _, out = converted
+    path, _ = _store(out, 0)
+    prefix = f"processed_v3/{LAB}/{path.name}/"
+
+    class FakeS3:
+        def get_object(self, Bucket, Key):
+            assert (Bucket, Key) == ("rldb", prefix + "zarr.json")
+            return {"Body": io.BytesIO((path / "zarr.json").read_bytes())}
+
+    fake = SimpleNamespace(client=lambda *args, **kwargs: FakeS3())
+    monkeypatch.setitem(sys.modules, "boto3", fake)
+    cfg = {"endpoint": None, "key": None, "secret": None}
+    [row] = stage_processed_folder.read_batch([prefix], LAB, cfg)
+    assert row["episode_hash"] == path.stem
+    assert row["embodiment"] == "dexmate_bimanual" and row["task"] == TASK
+    assert row["num_frames"] == LENGTHS[0] and row["fps"] == 30
+    assert row["has_annotations"] and row["created_at"].startswith(
+        "2026-01-01T19:04:05"
+    )
+    # raw_attrs becomes JSONB: plain JSON, no NaN.
+    attrs = json.loads(row["raw_attrs"])
+    assert attrs["license"] == LICENSE and attrs["lab"] == LAB
+    assert "NaN" not in row["raw_attrs"] and "Infinity" not in row["raw_attrs"]
+
+
 def test_both_hands_annotations_and_skills(converted):
     _, _, out = converted
 
