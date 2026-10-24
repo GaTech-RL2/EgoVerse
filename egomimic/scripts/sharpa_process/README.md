@@ -59,7 +59,6 @@ uv run python -m egomimic.scripts.sharpa_process.sharpa_to_zarr \
 | `--include-head-right` | Also store `head_right` as `images.head_right`. |
 | `--skip-done` | Skip an episode whose `<hash>.conversion.json` names it. |
 | `--overwrite` | Replace an existing output of the *same* episode. |
-| `--max-frames N` | Smoke runs only. A truncated episode is never `complete`. |
 | `--license NAME` | Override the licence read from the README. |
 | `--jpeg-quality 90`, `--chunk-timesteps 100` | Image and storage settings. |
 
@@ -174,7 +173,9 @@ checks into one list of errors and warnings:
    columns look swapped.
 
 The report also checks that `vendor_recording_id` and `source_episode_id`
-correspond. `ok` is `not errors`. `sharpa_to_zarr.read_report` is the one
+correspond, and that the conversion is complete: `data_status` is `complete`
+and the source, retained and stored frame counts are equal. Episodes are
+always converted whole. `ok` is `not errors`. `sharpa_to_zarr.read_report` is the one
 reader. It counts a missing, unreadable or malformed report as a failure and
 recomputes `ok` from the errors.
 
@@ -191,13 +192,12 @@ stored data has a defect:
 
 - no `head_left` video;
 - an observed hand joint more than 0.26 rad past its URDF limit;
-- truncation;
 - a failed TCP check.
 
 Gaps in what the delivery provides go to `data_limitations` instead: no
 calibration, no head camera pose, a synthesized clock, or joint excursions
-inside the validator's margin. Only `complete` episodes with a clean report are
-ingested.
+inside the validator's margin. A `structural_sample` fails its report, so only
+`complete` episodes are ingested.
 
 Smaller hand-joint excursions (past 0.035 rad) are validator warnings. Sharpa's
 firmware stops sit inside the URDF limits, and teleoperation commands overshoot

@@ -310,9 +310,9 @@ def test_decoders_get_a_share_of_the_cpus(tmp_path, kinematics, monkeypatch):
     seen = []
     decode = lerobot_reader.decode_frames
 
-    def spy(path, *, count, expected, threads=None):
+    def spy(path, *, expected, threads=None):
         seen.append((Path(path).parent.name, threads))
-        return decode(path, count=count, expected=expected, threads=threads)
+        return decode(path, expected=expected, threads=threads)
 
     previews = []
     init = sharpa_to_zarr._Preview.__init__
@@ -349,8 +349,10 @@ def test_a_swapped_tcp_layout_makes_a_structural_sample(tmp_path, kinematics):
     assert report["data_status"] == "structural_sample"
     assert not report["tcp_check"]["passed"]
     assert any("TCP check failed" in r for r in report["data_status_reasons"])
-    _, problems = read_report(path.with_suffix(".validation.json"))
-    assert problems and "tcp_check" in problems[0]
+    verification, problems = read_report(path.with_suffix(".validation.json"))
+    assert problems
+    assert any(e.startswith("tcp_check: ") for e in verification["errors"])
+    assert any(e.startswith("conversion: data_status") for e in verification["errors"])
 
 
 def test_gross_excursions_fail_validation_and_make_a_structural_sample(
@@ -406,6 +408,50 @@ def test_fk_residual_and_id_errors_reach_the_report(converted, tmp_path, kinemat
     assert any(e.startswith("ids: ") for e in report["errors"])
     missing = verification_report(copy, kinematics, None)
     assert "tcp_check: missing" in missing["errors"]
+
+
+def test_incomplete_conversions_fail_the_report(converted, tmp_path, kinematics):
+    _, _, out = converted
+    path, group = _store(out, 0)
+    good = verification_report(
+        path, kinematics, group.attrs["conversion_report"]["tcp_check"]
+    )
+    assert good["ok"], good["errors"]
+    assert good["checks"]["conversion"] == {
+        "data_status": "complete",
+        "data_status_reasons": [],
+        "source_frames": LENGTHS[0],
+        "retained_frames": LENGTHS[0],
+        "stored_frames": LENGTHS[0],
+    }
+    for change, message in (
+        (
+            {"source": {"source_frames": LENGTHS[0], "retained_frames": 4}},
+            "frame counts differ",
+        ),
+        (
+            {"data_status": "structural_sample", "data_status_reasons": ["x"]},
+            "data_status",
+        ),
+        ({"source": {}}, "frame counts differ"),
+    ):
+        copy = tmp_path / f"{len(list(tmp_path.iterdir()))}" / path.name
+        shutil.copytree(path, copy)
+        store = zarr.open_group(copy, mode="a")
+        store.attrs["conversion_report"] = {
+            **store.attrs["conversion_report"],
+            **change,
+        }
+        tcp = store.attrs["conversion_report"]["tcp_check"]
+        report = verification_report(copy, kinematics, tcp)
+        assert not report["ok"]
+        assert any(e.startswith("conversion: " + message) for e in report["errors"])
+
+
+def test_episodes_are_always_converted_whole(converted, tmp_path):
+    release, manifest, _ = converted
+    with pytest.raises(SystemExit):
+        _convert(release, manifest, tmp_path / "out", "--max-frames", "4")
 
 
 def test_missing_or_malformed_reports_fail(converted, tmp_path):

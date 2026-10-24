@@ -667,6 +667,31 @@ def _fk_check(store, total_frames: int, kinematics) -> tuple[dict, list[str]]:
     return {"max_m": results, "frames": len(frames)}, problems
 
 
+def _conversion_check(attrs, total_frames) -> tuple[dict, list[str]]:
+    """The conversion's own verdict: ``complete``, and every source frame stored."""
+    report = attrs.get("conversion_report") or {}
+    source = report.get("source") or {}
+    result = {
+        "data_status": report.get("data_status"),
+        "data_status_reasons": list(report.get("data_status_reasons") or []),
+        "source_frames": source.get("source_frames"),
+        "retained_frames": source.get("retained_frames"),
+        "stored_frames": total_frames,
+    }
+    problems = []
+    if result["data_status"] != "complete":
+        problems.append(
+            f"data_status is {result['data_status']!r}: "
+            + ("; ".join(result["data_status_reasons"]) or "no reason recorded")
+        )
+    counts = [result[k] for k in ("source_frames", "retained_frames", "stored_frames")]
+    if not all(type(n) is int and n > 0 for n in counts) or len(set(counts)) != 1:
+        problems.append(
+            "frame counts differ: source {}, retained {}, stored {}".format(*counts)
+        )
+    return result, problems
+
+
 def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
     """Return one report for a written episode.
 
@@ -674,8 +699,10 @@ def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
     already runs ``dexmate_rules.check_dexmate``, with the checks that need
     the URDFs: FK residuals of the stored observed and commanded keypoints,
     and the arm TCP side check computed during conversion. It also checks
-    that the stored ids correspond and that only scene, objects and
-    intrinsics are waived. ``ok`` is ``not errors``.
+    that the stored ids correspond, that only scene, objects and intrinsics
+    are waived, and that the conversion itself is complete: status
+    ``complete`` and source, retained and stored frame counts equal. ``ok``
+    is ``not errors``.
     """
     validation = validate_episode(path, allow_missing=True)
     errors = [f"validator: {e}" for e in validation.errors]
@@ -685,6 +712,7 @@ def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
         errors.append(f"waiver: {field} is not expected to be missing")
     vid = sid = None
     fk: dict = {}
+    conversion: dict = {}
     try:
         store = zarr.open_group(str(path), mode="r", zarr_format=3)
         vid = store.attrs.get("vendor_recording_id")
@@ -694,11 +722,13 @@ def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
                 f"ids: vendor_recording_id {vid!r} and source_episode_id {sid!r} "
                 "do not name the same episode"
             )
-        total_frames = int(store.attrs["total_frames"])
-        fk, problems = _fk_check(store, total_frames, kinematics)
+        total_frames = store.attrs.get("total_frames")
+        conversion, problems = _conversion_check(store.attrs, total_frames)
+        errors += [f"conversion: {p}" for p in problems]
+        fk, problems = _fk_check(store, int(total_frames), kinematics)
         errors += [f"fk_residual: {p}" for p in problems]
     except Exception as exc:  # the validator has reported what is unreadable
-        errors.append(f"fk_residual: could not run: {type(exc).__name__}: {exc}")
+        errors.append(f"checks: could not run: {type(exc).__name__}: {exc}")
     if not isinstance(tcp, dict) or not isinstance(tcp.get("passed"), bool):
         errors.append("tcp_check: missing")
     elif not tcp["passed"]:
@@ -721,6 +751,7 @@ def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
             },
             "fk_residual": fk,
             "tcp_check": tcp,
+            "conversion": conversion,
         },
     }
 
@@ -830,15 +861,13 @@ def status_reasons(
     synthesized: bool,
     excursions: bool,
     gross: bool,
-    truncated: tuple[int, int] | None,
     tcp_problem: str | None,
 ) -> tuple[list[str], list[str]]:
     """Return ``(reasons, limitations)`` for an episode's data status.
 
     Any reason makes the episode a ``structural_sample``; only ``complete``
     episodes are ingested. Reasons are defects in the stored data (a missing
-    ego video, a gross observed joint excursion, truncation, a failed TCP
-    check). Limitations list what the delivery does not provide (camera
+    ego video, a gross observed joint excursion, a failed TCP check). Limitations list what the delivery does not provide (camera
     calibration, a head camera pose, a measured clock, joint excursions
     inside the validator's error margin).
     """
@@ -862,8 +891,6 @@ def status_reasons(
         limitations.append(
             "joint values outside the URDF limits, inside the validator's error margin"
         )
-    if truncated:
-        reasons.append(f"truncated to {truncated[0]} of {truncated[1]} frames")
     if tcp_problem:
         reasons.append(tcp_problem)
     return reasons, limitations
@@ -889,7 +916,7 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
         raise ConversionError(
             f"{season.path}: no license in a README above the season; pass --license"
         )
-    episode = load_episode(season, job.index, args.max_frames)
+    episode = load_episode(season, job.index)
     columns = episode.columns
     for name in (
         "observation.state",
@@ -1009,7 +1036,6 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
         synthesized=record.clock == CLOCK_SYNTHESIZED,
         excursions=bool(excursion_count),
         gross=bool(checked),
-        truncated=(episode.length, episode.info.length) if episode.truncated else None,
         tcp_problem=tcp_problem,
     )
     status = "structural_sample" if reasons else "complete"
@@ -1025,7 +1051,6 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
             "lerobot_version": season.version,
             "source_frames": episode.info.length,
             "retained_frames": episode.length,
-            "truncated": episode.truncated,
         },
         "timestamps": {"source": record.clock, "notes": notes},
         "cameras": camera_report,
@@ -1203,11 +1228,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also store head_right as images.head_right.",
     )
-    parser.add_argument(
-        "--max-frames",
-        type=int,
-        help="Keep only the first N frames (smoke runs; makes a structural sample).",
-    )
     parser.add_argument("--jpeg-quality", type=int, default=90)
     parser.add_argument("--chunk-timesteps", type=int, default=100)
     parser.add_argument(
@@ -1238,8 +1258,6 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if not 1 <= args.jpeg_quality <= 100:
         raise SystemExit("--jpeg-quality must be in 1..100")
-    if args.max_frames is not None and args.max_frames < 1:
-        raise SystemExit("--max-frames must be positive")
     if args.chunk_timesteps < 1:
         raise SystemExit("--chunk-timesteps must be positive")
     if args.recording_ids is not None:

@@ -118,18 +118,14 @@ class Episode:
         season: The season holding the episode.
         info: The episode's metadata row.
         columns: Parquet columns. List columns are ``(T, width)`` arrays and
-            scalar columns are ``(T,)`` arrays, truncated to ``length`` rows.
-        length: Retained frames (``info.length`` unless truncated).
+            scalar columns are ``(T,)`` arrays.
+        length: Frames, ``info.length``; an episode is always read whole.
     """
 
     season: Season
     info: EpisodeInfo
     columns: dict[str, np.ndarray]
     length: int
-
-    @property
-    def truncated(self) -> bool:
-        return self.length < self.info.length
 
     def video_path(self, camera: str) -> Path:
         """Return the episode's video file for a declared camera."""
@@ -152,27 +148,21 @@ class Episode:
         ``threads`` caps the decoder's threads; ``None`` lets FFmpeg choose,
         which sizes to every CPU on the host rather than to a job's share.
 
-        A full episode must decode to exactly its parquet row count. Truncated
-        reads compare the container's declared frame count instead, when it
-        states one.
+        The video must decode to exactly the episode's parquet row count.
         """
         return decode_frames(
-            self.video_path(camera),
-            count=self.length,
-            expected=self.info.length,
-            threads=threads,
+            self.video_path(camera), expected=self.length, threads=threads
         )
 
 
 def decode_frames(
-    path: Path, *, count: int, expected: int, threads: int | None = None
+    path: Path, *, expected: int, threads: int | None = None
 ) -> Iterator[np.ndarray]:
-    """Decode ``count`` RGB frames, checking them against ``expected`` rows.
+    """Decode every RGB frame, checking the count against ``expected`` rows.
 
     Args:
         path: The MP4 file (H.264, AV1, or any codec PyAV decodes).
-        count: Frames to yield; at most ``expected``.
-        expected: The episode's full parquet row count.
+        expected: The episode's parquet row count.
         threads: Decoder thread count; ``None`` lets FFmpeg choose.
 
     Raises:
@@ -184,24 +174,16 @@ def decode_frames(
         stream.thread_type = "AUTO"
         if threads:
             stream.thread_count = threads
-        if count < expected and stream.frames not in (0, expected):
-            raise LeRobotError(
-                f"{path}: container declares {stream.frames} frames, parquet has "
-                f"{expected} rows"
-            )
         produced = 0
         for frame in container.decode(stream):
-            if produced == count:
-                # A truncated read stops here; a full read must end exactly.
-                if count == expected:
-                    raise LeRobotError(
-                        f"{path}: more than {expected} frames decode for an episode "
-                        f"with {expected} parquet rows"
-                    )
-                return
+            if produced == expected:
+                raise LeRobotError(
+                    f"{path}: more than {expected} frames decode for an episode "
+                    f"with {expected} parquet rows"
+                )
             yield frame.to_ndarray(format="rgb24")
             produced += 1
-    if produced < count:
+    if produced < expected:
         raise LeRobotError(
             f"{path}: decoded {produced} frames, parquet has {expected} rows"
         )
@@ -341,15 +323,13 @@ _BOOKKEEPING = ("frame_index", "episode_index", "index")
 def load_episode(
     season: Season,
     index: int,
-    max_frames: int | None = None,
     columns: Sequence[str] | None = None,
 ) -> Episode:
-    """Load one episode's parquet rows, optionally keeping the first frames.
+    """Load one episode's parquet rows, all of them.
 
     Args:
         season: The season to read.
         index: The ``episode_index``.
-        max_frames: Keep at most this many leading frames.
         columns: Read only these columns (when present) and the bookkeeping
             columns; ``None`` reads every column.
 
@@ -360,8 +340,6 @@ def load_episode(
     info = season.episodes.get(index)
     if info is None:
         raise LeRobotError(f"{season.name}: episode {index} is not declared")
-    if max_frames is not None and max_frames < 1:
-        raise ValueError("max_frames must be positive")
     relative = season.info["data_path"].format(
         episode_chunk=index // _chunks_size(season), episode_index=index
     )
@@ -394,9 +372,7 @@ def load_episode(
             f"{path}: episode {index} index starts at {int(arrays['index'][0])}, "
             f"but {info.frame_offset} frames precede it in the episode metadata"
         )
-    length = info.length if max_frames is None else min(info.length, max_frames)
-    arrays = {name: values[:length] for name, values in arrays.items()}
-    return Episode(season=season, info=info, columns=arrays, length=length)
+    return Episode(season=season, info=info, columns=arrays, length=info.length)
 
 
 __all__ = [
