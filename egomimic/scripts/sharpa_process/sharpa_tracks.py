@@ -299,8 +299,10 @@ def fk_residuals(
     """Distances between stored keypoints and FK of the stored hand joints.
 
     Both are compared in the palm frame the stored ``ee_poses`` define, so the
-    check needs only the hand URDF: a joint-order, unit or handedness slip, or
-    keypoints that do not belong to the joints, shows up as one number.
+    check needs only the hand URDF. It shows whether stored keypoints, palm
+    poses and joints still belong together. The converter derives the
+    keypoints from the same joints under the same column interpretation, so a
+    wrong vendor joint order would pass; this is not a check of the source.
 
     Args:
         side: ``left`` or ``right``.

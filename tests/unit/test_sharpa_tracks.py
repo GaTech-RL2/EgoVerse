@@ -217,7 +217,7 @@ def test_fk_residuals_are_zero_for_derived_keypoints_only(kinematics):
         ]
         residuals = fk_residuals(side, *args, kinematics)
         assert residuals.shape == (6, 21) and residuals.max() < 1e-9
-        # Joints in the wrong order no longer explain the keypoints.
+        # Stored joints that no longer match the stored keypoints are caught.
         shuffled = args[0][:, ::-1]
         assert fk_residuals(side, shuffled, *args[1:], kinematics).max() > 0.005
     other = fk_residuals(
@@ -277,3 +277,22 @@ def test_tcp_side_check_fails_non_finite_poses(kinematics, column):
     broken[link] = poses[link].copy()
     broken[link][1, 0, 3] = np.inf
     assert not tcp_side_check(_tcp_pose(kinematics, observed)[0], broken)["passed"]
+
+
+def test_fk_residuals_do_not_verify_the_vendor_joint_order(kinematics):
+    # Documents the limit of the check: a permuted source hand block is
+    # derived and checked under the same interpretation, so it passes.
+    observed = _in_limit_vector(kinematics, 6, 7)
+    permuted = observed.copy()
+    permuted[:, 7:29] = observed[:, 7:29][:, ::-1]
+    lower, upper = kinematics.limits[7:29].T
+    permuted[:, 7:29] = np.clip(permuted[:, 7:29], lower, upper)
+    tracks, _ = derive_tracks(permuted, permuted, kinematics=kinematics)
+    residuals = fk_residuals(
+        "left",
+        tracks["left.obs_hand_joints"],
+        tracks["left.obs_hand_keypoints"],
+        tracks["left.obs_ee_pose"],
+        kinematics,
+    )
+    assert residuals.max() < 1e-9

@@ -681,7 +681,11 @@ def tactile_units() -> dict[str, str]:
 
 
 def _fk_check(store, total_frames: int, kinematics) -> tuple[dict, list[str]]:
-    """FK residuals of the stored keypoints, on up to 64 evenly spaced frames."""
+    """FK residuals of the stored keypoints, on up to 64 evenly spaced frames.
+
+    A consistency check of the stored joints, keypoints and palm poses, not of
+    Sharpa's joint order (see ``sharpa_tracks.fk_residuals``).
+    """
     results, problems = {}, []
     frames = sample_frames(total_frames)
     for prefix in ("obs", "cmd"):

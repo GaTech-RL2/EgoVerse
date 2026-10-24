@@ -165,8 +165,13 @@ checks into one list of errors and warnings:
    and `intrinsics` may be waived.
 2. **FK residual.** On up to 64 frames, the stored observed and commanded
    keypoints must match FK of the stored hand joints within 5 mm, in the palm
-   frame. The keypoints are FK outputs, so this check confirms joint order,
-   units and frames. It cannot confirm that the URDF matches the robot.
+   frame. This is a consistency check between stored arrays: it catches
+   keypoints, palm poses and joints that no longer belong together (a
+   corrupted or shifted array). The keypoints are derived from the same joints
+   with the same joint order, so it does **not** verify Sharpa's joint order,
+   units or zeros, nor that the URDF matches the robot. The TCP side check is
+   the one comparison with an independent vendor signal, and it covers the
+   arms only.
 3. **TCP side check.** Sharpa's `observation.state.tcp_pose` must match FK of
    each arm's `Link_7` under the fitted tool transform in
    `sharpa_tracks.TCP_MODEL`: within 2° median rotation and 5 cm p95
