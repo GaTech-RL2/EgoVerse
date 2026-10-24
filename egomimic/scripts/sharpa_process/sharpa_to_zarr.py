@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import re
 import shutil
@@ -64,6 +65,8 @@ from egomimic.scripts.sharpa_process.lerobot_reader import (
 from egomimic.scripts.sharpa_process.sharpa_tracks import (
     EMBODIMENT,
     TCP_LINK,
+    TCP_POSITION_TOLERANCE_M,
+    TCP_ROTATION_TOLERANCE_DEG,
     SharpaKinematics,
     derive_tracks,
     fk_residuals,
@@ -75,6 +78,8 @@ from egomimic.scripts.sharpa_process.sharpadex_records import (
     CLOCK_SYNTHESIZED,
     ManifestError,
     ids_correspond,
+    parse_source_episode_id,
+    parse_vendor_recording_id,
     read_manifest,
     source_episode_id,
     vendor_recording_id,
@@ -656,8 +661,10 @@ def _fk_check(store, total_frames: int, kinematics) -> tuple[dict, list[str]]:
             residuals = fk_residuals(side, *tracks, kinematics)
             worst = float(residuals.max()) if residuals.size else 0.0
             tolerance = float(load_spec()["hands"][side]["fk_tolerance_m"])
-            results[f"{side}.{prefix}"] = worst
-            if not np.isfinite(residuals).all() or worst > tolerance:
+            finite = bool(np.isfinite(residuals).all())
+            # The report is strict JSON: a non-finite residual is stored as null.
+            results[f"{side}.{prefix}"] = worst if finite else None
+            if not finite or worst > tolerance:
                 slot = int(np.unravel_index(residuals.argmax(), residuals.shape)[1])
                 problems.append(
                     f"{side}.{prefix}_hand_keypoints disagree with forward "
@@ -756,39 +763,205 @@ def verification_report(path: Path, kinematics, tcp: dict | None) -> dict:
     }
 
 
-def read_report(path: Path, vendor_recording_id: str | None = None):
-    """Read a ``validation.json`` strictly; return ``(report, problems)``.
+#: Top-level fields of a report.
+REPORT_FIELDS = (
+    "format",
+    "episode",
+    "vendor_recording_id",
+    "source_episode_id",
+    "allow_missing",
+    "waived",
+    "ok",
+    "errors",
+    "warnings",
+    "checks",
+)
+#: Each check and the prefix of the aggregate errors it contributes.
+REPORT_CHECKS = {
+    "validator": "validator: ",
+    "fk_residual": "fk_residual: ",
+    "tcp_check": "tcp_check: ",
+    "conversion": "conversion: ",
+}
+_FK_TRACKS = tuple(
+    f"{side}.{p}" for p in ("obs", "cmd") for side in dexmate_rules.SIDES
+)
+_TCP_METRICS = (
+    "rotation_error_deg_median",
+    "swapped_rotation_error_deg_median",
+    "position_error_m_p95",
+)
 
-    A missing, unreadable or malformed report is a problem, as is any error
-    it lists or, given ``vendor_recording_id``, a report for another episode.
-    ``ok`` is recomputed from ``errors`` rather than trusted. An empty
-    ``problems`` means the episode passed.
+
+def _number(value) -> bool:
+    """A finite int or float, not a bool."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def _count(value) -> bool:
+    return type(value) is int and value >= 0
+
+
+def _validator_problems(check) -> list[str]:
+    if not (
+        isinstance(check, dict)
+        and isinstance(check.get("ok"), bool)
+        and _count(check.get("errors"))
+        and _count(check.get("warnings"))
+    ):
+        return ["validator: malformed check"]
+    if check["ok"] is not (check["errors"] == 0):
+        return ["validator: ok disagrees with its error count"]
+    if check["errors"]:
+        return [f"validator: {check['errors']} error(s)"]
+    return []
+
+
+def _fk_problems(check) -> list[str]:
+    tracks = check.get("max_m") if isinstance(check, dict) else None
+    if not isinstance(tracks, dict) or not _count(check.get("frames")):
+        return ["fk_residual: malformed check"]
+    if check["frames"] == 0:
+        return ["fk_residual: no frames checked"]
+    problems = []
+    for track in _FK_TRACKS:
+        side = track.split(".")[0]
+        value = tracks.get(track)
+        tolerance = float(load_spec()["hands"][side]["fk_tolerance_m"])
+        if not _number(value):
+            problems.append(f"fk_residual: {track} has no finite residual ({value!r})")
+        elif value > tolerance:
+            problems.append(f"fk_residual: {track} {value:.4f} m > {tolerance:g} m")
+    return problems
+
+
+def _tcp_problems(check) -> list[str]:
+    if not isinstance(check, dict) or not isinstance(check.get("passed"), bool):
+        return ["tcp_check: malformed check"]
+    if not check["passed"]:
+        return [
+            "tcp_check: failed: " + "; ".join(map(str, check.get("problems") or []))
+        ]
+    sides = check.get("sides")
+    problems = []
+    for side in dexmate_rules.SIDES:
+        metrics = sides.get(side) if isinstance(sides, dict) else None
+        if not isinstance(metrics, dict) or not all(
+            _number(metrics.get(m)) for m in _TCP_METRICS
+        ):
+            problems.append(f"tcp_check: {side} has no finite metrics")
+            continue
+        own, swapped, offset = (metrics[m] for m in _TCP_METRICS)
+        if (
+            own > TCP_ROTATION_TOLERANCE_DEG
+            or swapped <= own
+            or offset > TCP_POSITION_TOLERANCE_M
+        ):
+            problems.append(f"tcp_check: passed, but the {side} metrics fail it")
+    return problems
+
+
+def _conversion_problems(check) -> list[str]:
+    if not isinstance(check, dict):
+        return ["conversion: malformed check"]
+    problems = []
+    if check.get("data_status") != "complete":
+        problems.append(f"conversion: data_status is {check.get('data_status')!r}")
+    counts = [
+        check.get(k) for k in ("source_frames", "retained_frames", "stored_frames")
+    ]
+    if not all(type(n) is int and n > 0 for n in counts) or len(set(counts)) != 1:
+        problems.append(
+            "conversion: frame counts differ: source {}, retained {}, stored {}".format(
+                *counts
+            )
+        )
+    return problems
+
+
+_CHECK_PROBLEMS = {
+    "validator": _validator_problems,
+    "fk_residual": _fk_problems,
+    "tcp_check": _tcp_problems,
+    "conversion": _conversion_problems,
+}
+
+
+def _no_constant(name: str):
+    raise ValueError(f"non-finite number {name}")
+
+
+def read_report(
+    path: Path,
+    vendor_recording_id: str | None = None,
+    source_episode_id: str | None = None,
+):
+    """Read a ``<hash>.validation.json`` strictly; return ``(report, problems)``.
+
+    An empty ``problems`` means the episode passed. ``report`` is ``None`` when
+    the file is missing, unreadable (including a NaN or Infinity), not a
+    report, or lacks a field. Otherwise every check is judged from its own
+    results, never from the aggregate: the validator found no error, every FK
+    residual is finite and within tolerance, the TCP check passed and its
+    metrics agree, and the conversion is complete with equal frame counts. A
+    top-level ``ok`` that disagrees with ``errors``, or ``ok`` alongside a
+    failed check, is a problem, as are ids that do not correspond, a report
+    for another episode (by file name, or the given ids) and a waiver beyond
+    scene, objects and intrinsics.
     """
     path = Path(path)
     try:
-        report = json.loads(path.read_text())
+        report = json.loads(path.read_text(), parse_constant=_no_constant)
     except FileNotFoundError:
         return None, [f"no {path.name}"]
     except (OSError, ValueError) as exc:
         return None, [f"unreadable {path.name}: {exc}"]
     if not isinstance(report, dict) or report.get("format") != REPORT_FORMAT:
         return None, [f"{path.name} is not a {REPORT_FORMAT} report"]
-    lists = [report.get(key) for key in ("errors", "warnings")]
+    if missing := [k for k in REPORT_FIELDS if k not in report]:
+        return None, [f"{path.name}: missing {missing}"]
+    checks = report["checks"]
+    if not isinstance(checks, dict) or (
+        missing := [k for k in REPORT_CHECKS if k not in checks]
+    ):
+        return None, [f"{path.name}: checks missing {missing or 'all'}"]
+    lists = [report[key] for key in ("errors", "warnings")]
     if not all(
         isinstance(x, list) and all(isinstance(s, str) for s in x) for x in lists
     ):
         return None, [f"{path.name}: errors and warnings must be lists of strings"]
     errors = lists[0]
-    if report.get("ok") is not (not errors):
-        return None, [f"{path.name}: ok={report.get('ok')!r} disagrees with errors"]
+    if report["ok"] is not (not errors):
+        return None, [f"{path.name}: ok={report['ok']!r} disagrees with errors"]
+
     problems = []
-    if vendor_recording_id is not None and (
-        report.get("vendor_recording_id") != vendor_recording_id
-    ):
-        problems.append(
-            f"{path.name} is for {report.get('vendor_recording_id')!r}, "
-            f"not {vendor_recording_id!r}"
-        )
+    vid, sid = report["vendor_recording_id"], report["source_episode_id"]
+    try:
+        if parse_vendor_recording_id(vid) != parse_source_episode_id(sid):
+            raise ValueError
+    except ValueError:
+        problems.append(f"ids {vid!r} and {sid!r} do not correspond")
+    for given, stored in ((vendor_recording_id, vid), (source_episode_id, sid)):
+        if given is not None and stored != given:
+            problems.append(f"{path.name} is for {stored!r}, not {given!r}")
+    name = path.name.removesuffix(".validation.json") + ".zarr"
+    if report["episode"] != name:
+        problems.append(f"{path.name} describes {report['episode']!r}, not {name}")
+    waived = report["waived"]
+    if not isinstance(waived, list) or not set(waived) <= set(WAIVED_FIELDS):
+        problems.append(f"waived {waived!r}; only {list(WAIVED_FIELDS)} may be")
+    failed = []
+    for check, judge in _CHECK_PROBLEMS.items():
+        found = judge(checks[check])
+        problems += found
+        if found:
+            failed.append(check)
+    if report["ok"] and failed:
+        problems.append(f"ok=True although {failed} failed")
     if errors:
         problems.append(f"{len(errors)} validation error(s): {errors[0][:200]}")
     return report, problems
@@ -1166,7 +1339,7 @@ def convert_episode(job: Job, args, kinematics: SharpaKinematics) -> dict:
         )
     verification = verification_report(final, kinematics, tcp)
     (args.output_dir / f"{job.episode_hash}.validation.json").write_text(
-        json.dumps(_jsonable(verification), indent=2) + "\n"
+        json.dumps(_jsonable(verification), indent=2, allow_nan=False) + "\n"
     )
     summary["validation"] = {
         "ok": verification["ok"],

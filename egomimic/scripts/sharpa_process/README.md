@@ -175,9 +175,13 @@ checks into one list of errors and warnings:
 The report also checks that `vendor_recording_id` and `source_episode_id`
 correspond, and that the conversion is complete: `data_status` is `complete`
 and the source, retained and stored frame counts are equal. Episodes are
-always converted whole. `ok` is `not errors`. `sharpa_to_zarr.read_report` is the one
-reader. It counts a missing, unreadable or malformed report as a failure and
-recomputes `ok` from the errors.
+always converted whole. `ok` is `not errors`.
+
+`sharpa_to_zarr.read_report` is the one reader. A missing, unreadable or
+malformed report fails, including one with a NaN or a missing field or check.
+It judges each check from its own results rather than the top-level `ok`, so
+`ok: true` beside a failed check fails. It also rejects ids that do not
+correspond and a report for another episode.
 
 You can also run main's validator by hand:
 

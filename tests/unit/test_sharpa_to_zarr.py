@@ -369,7 +369,7 @@ def test_gross_excursions_fail_validation_and_make_a_structural_sample(
     assert record["joint"] == "left_middle_DIP" and record["validator_check"] == "error"
     assert report["data_status"] == "structural_sample"
     _, problems = read_report(path.with_suffix(".validation.json"))
-    assert "left.obs_hand_joints" in problems[0]
+    assert any("left.obs_hand_joints" in p for p in problems)
 
 
 def test_small_excursions_are_warnings_and_stay_complete(tmp_path, kinematics):
@@ -454,31 +454,105 @@ def test_episodes_are_always_converted_whole(converted, tmp_path):
         _convert(release, manifest, tmp_path / "out", "--max-frames", "4")
 
 
-def test_missing_or_malformed_reports_fail(converted, tmp_path):
+def _report_case(good, change):
+    """``good`` with ``change`` applied: {"a/b/c": value}; None deletes."""
+    report = json.loads(json.dumps(good))
+    for path, value in change.items():
+        *parents, key = path.split("/")
+        node = report
+        for parent in parents:
+            node = node[parent]
+        if value is None:
+            node.pop(key)
+        else:
+            node[key] = value
+    return report
+
+
+@pytest.fixture(scope="module")
+def good_report(converted):
     _, _, out = converted
     path, group = _store(out, 0)
-    good = _json(path.with_suffix(".validation.json"))
-    vid = group.attrs["vendor_recording_id"]
-    report = tmp_path / "r.validation.json"
+    report = _json(path.with_suffix(".validation.json"))
+    assert report["ok"] and report["errors"] == []
+    return path, group, report
 
-    def problems(value, **kwargs):
+
+def test_a_good_report_reads_clean(good_report, tmp_path):
+    path, group, good = good_report
+    copy = tmp_path / f"{path.stem}.validation.json"
+    copy.write_text(json.dumps(good))
+    vid, sid = group.attrs["vendor_recording_id"], group.attrs["source_episode_id"]
+    assert read_report(copy, vid, sid) == (good, [])
+    assert "is for" in read_report(copy, "other")[1][0]
+    assert "is for" in read_report(copy, vid, f"{TASK}/{SEASON}/1")[1][0]
+    # A report read under another episode's name is not that episode's.
+    other = tmp_path / "2026-01-01-00-00-00-000000.validation.json"
+    other.write_text(json.dumps(good))
+    assert "describes" in read_report(other)[1][0]
+
+
+@pytest.mark.parametrize(
+    "change, message",
+    [
+        # Missing fields: the aggregate alone is not enough.
+        ({"checks": None}, "missing"),
+        ({"source_episode_id": None}, "missing"),
+        ({"checks/conversion": None}, "missing"),
+        ({"checks/tcp_check": None}, "missing"),
+        # Ids that do not correspond.
+        ({"source_episode_id": f"{TASK}/{SEASON}/1"}, "do not correspond"),
+        # Failed checks under ok=True, errors=[].
+        ({"checks/validator/ok": False, "checks/validator/errors": 2}, "validator"),
+        ({"checks/tcp_check/passed": False}, "tcp_check"),
+        ({"checks/tcp_check/sides/left/rotation_error_deg_median": 5.0}, "tcp_check"),
+        (
+            {"checks/tcp_check/sides/right/swapped_rotation_error_deg_median": 0.0},
+            "tcp_check",
+        ),
+        ({"checks/tcp_check/sides/left": None}, "tcp_check"),
+        ({"checks/fk_residual/max_m/right.cmd": 0.02}, "fk_residual"),
+        ({"checks/fk_residual/max_m/right.cmd": None}, "fk_residual"),
+        ({"checks/fk_residual/max_m/left.obs": "0"}, "fk_residual"),
+        ({"checks/conversion/data_status": "structural_sample"}, "conversion"),
+        ({"checks/conversion/retained_frames": 3}, "conversion"),
+        ({"waived": ["scene", "task_name"]}, "waived"),
+    ],
+)
+def test_reports_with_failed_or_missing_checks_fail(
+    good_report, tmp_path, change, message
+):
+    path, _, good = good_report
+    copy = tmp_path / f"{path.stem}.validation.json"
+    copy.write_text(json.dumps(_report_case(good, change)))
+    _, problems = read_report(copy)
+    assert problems, change
+    assert any(message in p for p in problems), problems
+
+
+def test_missing_or_malformed_reports_fail(good_report, tmp_path):
+    path, _, good = good_report
+    report = tmp_path / f"{path.stem}.validation.json"
+
+    def problems(value):
         report.write_text(value if isinstance(value, str) else json.dumps(value))
-        return read_report(report, **kwargs)[1]
+        return read_report(report)[1]
 
-    assert problems(good, vendor_recording_id=vid) == []
     assert problems("{cut off") and "unreadable" in problems("{cut off")[0]
+    nan = json.dumps(good).replace(
+        '"fk_residual": {"max_m": {"left.obs": ',
+        '"fk_residual": {"max_m": {"left.obs": NaN, "x": ',
+        1,
+    )
+    assert "NaN" in nan and "unreadable" in problems(nan)[0]
     assert "not a" in problems({**good, "format": "other"})[0]
     assert "not a" in problems([good])[0]
     assert "lists of strings" in problems({**good, "errors": "none"})[0]
-    assert (
-        "lists of strings"
-        in problems({k: v for k, v in good.items() if k != "warnings"})[0]
-    )
+    assert "missing" in problems({k: v for k, v in good.items() if k != "warnings"})[0]
     assert "disagrees" in problems({**good, "ok": False})[0]
     assert "disagrees" in problems({**good, "ok": True, "errors": ["x"]})[0]
     assert "disagrees" in problems({**good, "ok": "yes"})[0]
-    assert "1 validation error" in problems({**good, "ok": False, "errors": ["x"]})[0]
-    assert "is for" in problems(good, vendor_recording_id="other")[0]
+    assert "1 validation error" in problems({**good, "ok": False, "errors": ["x"]})[-1]
     report.unlink()
     assert read_report(report) == (None, [f"no {report.name}"])
 
