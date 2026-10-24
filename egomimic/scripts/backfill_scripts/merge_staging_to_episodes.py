@@ -20,6 +20,12 @@ from the zarr path (the sibling ``<episode_hash>.mp4`` preview); operator/scene/
 license/segments are left NULL (the zarr metadata does not provide them). ON CONFLICT (episode_hash) DO NOTHING
 is applied as a final safety net.
 
+``--license-from-attrs`` fills ``license`` from the staged zarr attributes
+(``raw_attrs->>'license'``) instead. ``--fail-on-conflict`` exits with status 1,
+before writing anything, when any eligible-looking row's hash is already in
+app.episodes: a release whose names were planned against the table should have
+none, so a conflict means two recordings share a name.
+
 Usage:
     # preview (safe):
     python -m egomimic.scripts.backfill_scripts.merge_staging_to_episodes \
@@ -105,6 +111,16 @@ def main() -> int:
         help="Actually INSERT into app.episodes (default is a dry-run preview).",
     )
     ap.add_argument(
+        "--fail-on-conflict",
+        action="store_true",
+        help="Exit 1 without merging if any staged hash is already in app.episodes.",
+    )
+    ap.add_argument(
+        "--license-from-attrs",
+        action="store_true",
+        help="Fill license from the staged zarr attributes (raw_attrs->>'license').",
+    )
+    ap.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -142,6 +158,8 @@ def main() -> int:
         if not cols:
             raise SystemExit(f"Staging table {staging} not found.")
         missing = [c for c in required if c not in cols]
+        if args.license_from_attrs and "raw_attrs" not in cols:
+            missing.append("raw_attrs")
         if missing:
             raise SystemExit(f"{staging} is missing required columns: {missing}")
 
@@ -165,6 +183,14 @@ def main() -> int:
     print(f"  CONFLICT already exists: {conflicts}  (skipped, never overwritten)")
     print(f"  ELIGIBLE to merge      : {eligible}")
 
+    if args.fail_on_conflict and conflicts:
+        print(
+            f"\nFAILED: {conflicts} staged hash(es) already exist in app.episodes "
+            "(--fail-on-conflict); nothing written."
+        )
+        engine.dispose()
+        return 1
+
     if not args.apply:
         print(
             "\nDRY RUN — nothing written. Re-run with --apply to merge the eligible rows."
@@ -172,12 +198,15 @@ def main() -> int:
         engine.dispose()
         return 0
 
+    derived = list(_DERIVED_COLUMNS)
+    if args.license_from_attrs:
+        derived.append(("license", "s.raw_attrs->>'license'"))
     select_cols = ", ".join(
-        [f"s.{c}" for c in _MERGE_COLUMNS] + [expr for _, expr in _DERIVED_COLUMNS]
+        [f"s.{c}" for c in _MERGE_COLUMNS] + [expr for _, expr in derived]
     )
     insert_cols = ", ".join(
         _MERGE_COLUMNS
-        + [col for col, _ in _DERIVED_COLUMNS]
+        + [col for col, _ in derived]
         + ["is_deleted", "is_eval", "eval_score", "eval_success"]
     )
     limit_sql = f"LIMIT {int(args.limit)}" if args.limit else ""
