@@ -24,6 +24,7 @@ from egomimic.rldb.zarr.episode_rules import (
     embodiment_error,
     fps_error,
     matrices_to_jsonable,
+    null_intrinsics_allowed,
 )
 from egomimic.rldb.zarr.required_metadata import (
     REQUIRED_METADATA_FIELDS,
@@ -67,7 +68,7 @@ class ZarrWriter:
         episode_path: str | Path,
         *,
         embodiment: str,
-        intrinsics: dict,
+        intrinsics: "dict | MissingMetadata",
         task_name: "str | MissingMetadata",
         operator: "str | MissingMetadata",
         lab: "str | MissingMetadata",
@@ -99,7 +100,9 @@ class ZarrWriter:
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
             intrinsics: REQUIRED: {camera_key: 3x4 K matrix} dict
                 (single-camera = one entry, e.g. {"front_1": K}). Stored under the
-                "intrinsics" key in zarr.json metadata.
+                "intrinsics" key in zarr.json metadata. Only an embodiment whose
+                source has no camera calibration (dexmate_bimanual) may pass
+                MissingMetadata(); it is stored as null.
             extrinsics: Optional camera extrinsics. None (egocentric human data) or
                 a non-empty dict of 4x4 transforms; robots key per-arm
                 (e.g. {"left": world<-cam, "right": world<-cam}). Stored under the
@@ -267,7 +270,13 @@ class ZarrWriter:
             for e in (embodiment_error(self.embodiment), fps_error(self.fps))
             if e is not None
         ]
-        errors += camera_errors(self.intrinsics, self.extrinsics)
+        no_intrinsics = isinstance(self.intrinsics, MissingMetadata)
+        errors += camera_errors(
+            None if no_intrinsics else self.intrinsics,
+            self.extrinsics,
+            allow_null_intrinsics=no_intrinsics
+            and null_intrinsics_allowed(self.embodiment),
+        )
         if (err := vendor_recording_id_error(self.vendor_recording_id)) is not None:
             errors.append(err)
         if errors:
@@ -280,6 +289,8 @@ class ZarrWriter:
         for field, value in self.required_metadata.items():
             if isinstance(value, MissingMetadata):
                 logger.warning("Writing %s without %s", self.episode_path, field)
+        if no_intrinsics:
+            logger.warning("Writing %s without intrinsics", self.episode_path)
 
     def _write_numeric_array(
         self, store: zarr.Group, key: str, arr: np.ndarray, padded_frames: int
@@ -445,7 +456,11 @@ class ZarrWriter:
             "features": self._features,
         }
 
-        metadata["intrinsics"] = matrices_to_jsonable(self.intrinsics)
+        metadata["intrinsics"] = (
+            None
+            if isinstance(self.intrinsics, MissingMetadata)
+            else matrices_to_jsonable(self.intrinsics)
+        )
         if self.extrinsics is not None:
             metadata["extrinsics"] = matrices_to_jsonable(self.extrinsics)
 
@@ -471,7 +486,7 @@ class ZarrWriter:
         pre_encoded_image_data: dict[str, tuple[np.ndarray, list[int]]] | None = None,
         *,
         embodiment: str,
-        intrinsics: dict,
+        intrinsics: "dict | MissingMetadata",
         task_name: "str | MissingMetadata",
         operator: "str | MissingMetadata",
         lab: "str | MissingMetadata",

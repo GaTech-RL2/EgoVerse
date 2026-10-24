@@ -93,6 +93,14 @@ egomimic = [
     "resources/*",
     "rldb/mcap/proto/*.proto",
 ]
+# The SharpaDex converter's URDFs, spec and their licence. setuptools attaches
+# data only to a discovered package, so kinematics/ needs an __init__.py.
+"egomimic.scripts.sharpa_process.kinematics" = [
+    "*.urdf",
+    "*.yaml",
+    "LICENSE*",
+    "NOTICE*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

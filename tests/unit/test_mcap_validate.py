@@ -74,6 +74,8 @@ BREAKAGES = [
     ("human_bimanual", {"metadata_override": {"end_time_unix": "1760000002000²"}}, [("present", None, "is not an integer")]),
     ("human_bimanual", {"unknown_hand_joint": True}, [("present", None, "unknown joints ['thumb_base']")]),
     ("human_bimanual", {"declared_embodiment": "robot_dog"}, [("present", None, "'embodiment' = 'robot_dog'")]),
+    # A valid zarr embodiment with no MCAP profile is rejected, not routed to ROBOT.
+    ("eva_bimanual", {"declared_embodiment": "dexmate_bimanual"}, [("present", None, "'embodiment' = 'dexmate_bimanual'")]),
     ("human_bimanual", {"declared_embodiment": "human_right_arm"}, [("present", "/left-hand-keypoints", "does not fit embodiment")]),
     ("human_bimanual", {"stray_annotation_topic": True}, [("present", "/imu", "belong in annotation.mcap")]),
     ("eva_bimanual", {"empty_arm_pose": True}, [
@@ -224,6 +226,14 @@ def test_embodiments_match_enum():
     from egomimic.rldb.zarr import episode_rules
 
     assert set(episode_rules.EMBODIMENTS) == {e.name.lower() for e in EMBODIMENT}
+
+
+def test_mcap_embodiments_are_the_profiled_zarr_names():
+    from egomimic.rldb.zarr import episode_rules
+
+    assert set(spec.EMBODIMENTS) < set(episode_rules.EMBODIMENTS)
+    assert "dexmate_bimanual" not in spec.EMBODIMENTS
+    assert all(e.startswith(("human_", "eva_")) for e in spec.EMBODIMENTS)
 
 
 def test_mano_joints_match_human_finger_edges():

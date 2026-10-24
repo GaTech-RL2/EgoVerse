@@ -35,7 +35,7 @@ import re
 import uuid
 from dataclasses import dataclass
 
-from egomimic.rldb.zarr.episode_rules import EMBODIMENTS, QUAT_UNIT_TOL, arm_sides
+from egomimic.rldb.zarr.episode_rules import QUAT_UNIT_TOL, arm_sides
 from egomimic.rldb.zarr.required_metadata import (
     REQUIRED_METADATA_FIELDS,
     WAIVABLE_FIELDS,
@@ -307,6 +307,18 @@ ROBOT = Profile(
         MovingLink(f"{s}_arm_base", f"{s}_ee", f"/{s}-arm-state")
         for s in ("left", "right")
     ),
+)
+
+# The zarr embodiment names (egomimic.rldb.zarr.episode_rules.EMBODIMENTS) this spec
+# has a profile for, HUMAN or ROBOT. dexmate_bimanual has none: its hands fit neither
+# profile, so an episode declaring it is rejected.
+EMBODIMENTS = (
+    "human_right_arm",
+    "human_left_arm",
+    "human_bimanual",
+    "eva_right_arm",
+    "eva_left_arm",
+    "eva_bimanual",
 )
 
 METADATA_KEYS = (

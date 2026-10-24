@@ -6,9 +6,10 @@ Run on every episode before uploading (vendors) and on ingest (RL2):
     python -m egomimic.rldb.zarr.validate ep1.zarr ep2.zarr ...
 
 Exits nonzero if any episode has errors. scene or objects written as
-MissingMetadata() (stored as null) are errors unless --allow-missing is passed.
-Episodes without a schema_version predate the required metadata rules: their
-metadata problems are reported as warnings.
+MissingMetadata() (stored as null) are errors unless --allow-missing is passed;
+so are the intrinsics of a dexmate_bimanual episode, the only embodiment that may
+store them as null. Episodes without a schema_version predate the required
+metadata rules: their metadata problems are reported as warnings.
 """
 
 import argparse
@@ -21,6 +22,7 @@ import numpy as np
 import simplejpeg
 import zarr
 
+from egomimic.rldb.zarr import dexmate_rules
 from egomimic.rldb.zarr.episode_rules import (
     QUAT_UNIT_TOL,
     SCHEMA_VERSION,
@@ -29,6 +31,7 @@ from egomimic.rldb.zarr.episode_rules import (
     embodiment_error,
     episode_hash_start_ms,
     fps_error,
+    null_intrinsics_allowed,
     start_time_error,
 )
 from egomimic.rldb.zarr.required_metadata import (
@@ -106,6 +109,8 @@ def _validate_store(
         return
     features = meta.get("features") or {}
     _check_arrays(store, features, meta.get("embodiment"), T, report.errors)
+    if str(meta.get("embodiment") or "").lower() == dexmate_rules.EMBODIMENT:
+        dexmate_rules.check_dexmate(store, T, report.errors, report.warnings)
     _check_annotations(store, features, T, report.errors)
     _check_images(store, features, report.errors)
 
@@ -119,7 +124,26 @@ def _check_attrs(meta: dict, report: ValidationReport, allow_missing: bool) -> N
             report.successes.append(f"{name}={meta[name]!r}")
         else:
             report.errors.append(err)
-    report.errors += camera_errors(meta.get("intrinsics"), meta.get("extrinsics"))
+    # An absent key is never a waiver; only an explicit null is, and only for
+    # the embodiments that may store one.
+    if (
+        "intrinsics" in meta
+        and meta["intrinsics"] is None
+        and null_intrinsics_allowed(meta.get("embodiment"))
+    ):
+        msg = "intrinsics: marked as not available (MissingMetadata)"
+        if allow_missing:
+            report.warnings.append(msg)
+        else:
+            report.errors.append(
+                msg + ". We heavily recommend providing it; pass "
+                "--allow-missing to accept the episode anyway."
+            )
+        report.errors += camera_errors(
+            None, meta.get("extrinsics"), allow_null_intrinsics=True
+        )
+    else:
+        report.errors += camera_errors(meta.get("intrinsics"), meta.get("extrinsics"))
     errors, warnings, passed = check_stored_metadata(meta, allow_missing=allow_missing)
     if (err := vendor_recording_id_error(meta.get("vendor_recording_id"))) is None:
         passed.append("vendor_recording_id")
@@ -281,7 +305,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--allow-missing",
         action="store_true",
-        help="Accept scene/objects written as MissingMetadata (warn instead of fail)",
+        help="Accept scene/objects (and dexmate_bimanual intrinsics) written as "
+        "MissingMetadata (warn instead of fail)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Print passes")
     args = parser.parse_args(argv)
