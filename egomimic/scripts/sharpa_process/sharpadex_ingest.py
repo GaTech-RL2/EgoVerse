@@ -32,10 +32,14 @@ whose ids break the canonical-id contract is refused at every stage.
 ``verify`` passes an episode only if its sidecar, store and report name it
 (canonical and source id), ``sharpa_to_zarr.read_report`` finds no problem
 (which requires ``data_status: complete``), the store's ``lab`` is
-``sharpa_dex`` and its MP4 exists; ``upload`` writes only to ``DESTINATION``,
-``s3://rldb/processed_v3/sharpa_dex/``, the folder of that lab.
-``sharpadex_chunk.sbatch`` runs fetch, convert and verify for one chunk on
-Slurm.
+``sharpa_dex``, the store as it is now passes main's validator and its MP4
+exists; it records each episode's artifact inventory. ``upload`` sends exactly
+those verified files, only to ``DESTINATION``
+(``s3://rldb/processed_v3/sharpa_dex/``, the folder of that lab), and each
+store's root ``zarr.json`` only after the rest of its episode is confirmed
+remotely. ``verify``, ``upload`` and ``clean`` of one chunk never overlap
+(``<chunk>.io.lock``). ``sharpadex_chunk.sbatch`` runs fetch, convert and
+verify for one chunk on Slurm.
 """
 
 from __future__ import annotations
