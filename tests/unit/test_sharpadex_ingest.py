@@ -1192,7 +1192,7 @@ def test_upload_dry_run_stages_roots_and_mp4s_last_and_gates_execute(
     monkeypatch.setattr(ingest.subprocess, "run", spawn)
     monkeypatch.setattr(ingest.shutil, "which", spawn)
     # The merge script takes lab from the folder: it must be the stored lab.
-    with pytest.raises(SystemExit, match="the folder must equal the lab"):
+    with pytest.raises(SystemExit, match="uploads only to"):
         release.run("upload", "--prefix", "processed_v3/sharpa_dex_v2")
     assert release.run("upload") == 0
     out, base = release.out(), "s3://rldb/processed_v3/sharpa_dex"
@@ -1216,6 +1216,27 @@ def test_upload_dry_run_stages_roots_and_mp4s_last_and_gates_execute(
     with pytest.raises(SystemExit, match="R2_ENDPOINT_URL"):
         release.run("upload", "--execute", "--licence-approved")
     assert release.ledger("upload") == []
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ("--prefix", "processed_v3/other_lab/sharpa_dex"),
+        ("--prefix", "sharpa_dex"),
+        ("--bucket", "other-bucket"),
+        ("--bucket", "other-bucket", "--prefix", "processed_v3/sharpa_dex/"),
+    ],
+)
+def test_upload_goes_only_to_the_lab_folder_of_the_bucket(release, flags):
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    with pytest.raises(SystemExit, match="uploads only to s3://rldb/processed_v3/"):
+        release.run("upload", *flags)
+    assert not release.ledger("upload_dry_run")
+    assert release.run("upload", "--prefix", "/processed_v3/sharpa_dex/") == 0
+    entry = release.ledger("upload_dry_run")[-1]["details"]
+    assert entry["target"] == "s3://rldb/processed_v3/sharpa_dex/"
 
 
 def test_status_lists_stages_and_skips_a_truncated_ledger_line(release, capsys):

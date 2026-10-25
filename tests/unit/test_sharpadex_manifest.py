@@ -346,7 +346,9 @@ def test_the_header_records_which_collision_checks_ran(
     own_only = _listing(tmp_path, [], "own.tsv", prefix="processed_v3/sharpa_dex/")
     fake_sql({})
     header, _ = _plan(release, tmp_path, "--s3-hashes", str(own_only), "--check-sql")
-    assert "names elsewhere under processed_v3/ are not checked" in caplog.text
+    assert (
+        "names elsewhere under s3://rldb/processed_v3/ are not checked" in caplog.text
+    )
     # One lab's folder cannot rule out clashes in the others.
     assert header["s3_checked"] is False
     assert header["collision_check_complete"] is False
@@ -448,6 +450,26 @@ def test_verify_frozen_tells_own_episodes_from_foreign_clashes(
             manifest.main(["--verify-frozen", str(path), *extra])
     with pytest.raises(SystemExit):
         manifest.main(["--output", str(tmp_path / "x.jsonl")])
+
+
+def test_a_listing_of_another_bucket_does_not_complete_the_check(
+    release, tmp_path, fake_sql, capsys, caplog
+):
+    other = tmp_path / "other_bucket.tsv"
+    existing_hashes_s3.write_s3_hashes(
+        other, "other-bucket", "processed_v3/", "2026-10-21T00:00:00+00:00", []
+    )
+    fake_sql({})
+    header, _ = _plan(release, tmp_path, "--s3-hashes", str(other), "--check-sql")
+    assert header["s3_checked"] is False
+    assert header["collision_check_complete"] is False
+    assert "lists only s3://other-bucket/processed_v3/" in caplog.text
+    capsys.readouterr()
+    manifest.main(
+        ["--verify-frozen", str(tmp_path / "manifest.jsonl"), "--s3-hashes", str(other)]
+        + ["--check-sql"]
+    )
+    assert json.loads(capsys.readouterr().out)["collision_check_complete"] is False
 
 
 def test_ids_that_break_the_contract_stop_planning(release, tmp_path):

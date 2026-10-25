@@ -252,8 +252,8 @@ uv run python -m egomimic.scripts.sharpa_process.sharpadex_manifest \
   above.
 
 The header's `collision_check_complete` is true only with `--check-sql` and an
-S3 listing that covers all of `processed_v3/`. Once conversion starts, the
-names are frozen: do not rebuild the manifest. Re-check it with
+S3 listing that covers all of `s3://rldb/processed_v3/`. Once conversion
+starts, the names are frozen: do not rebuild the manifest. Re-check it with
 `sharpadex_manifest --verify-frozen manifest.jsonl --s3-hashes s3_hashes.tsv
 --check-sql`, which exits 1 if another lab's episode uses a kept name.
 
@@ -300,7 +300,9 @@ $I status  --state-dir state/
   No option accepts a non-complete episode.
 - **`upload`** writes two `s5cmd` batches: the arrays first, then each root
   `zarr.json` and MP4, so staging never sees half an episode.
-  - It refuses a `--prefix` whose folder is not the stored `lab`.
+  - It uploads only to `s3://rldb/processed_v3/sharpa_dex/` (`--bucket` and
+    `--prefix` must name exactly that), and only episodes whose stored `lab`
+    is `sharpa_dex`.
   - It runs only with `--execute --licence-approved` and R2 credentials.
     `s5cmd` gets the R2 keys, `PATH` and `HOME`, and nothing else of the
     environment.

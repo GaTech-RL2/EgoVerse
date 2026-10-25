@@ -61,6 +61,9 @@ import yaml
 
 from egomimic.rldb.zarr import dexmate_rules
 from egomimic.scripts.sharpa_process.existing_hashes_s3 import (
+    BUCKET,
+    S3_ROOT,
+    listing_covers_root,
     read_s3_hashes,
     read_s3_listing,
 )
@@ -86,8 +89,6 @@ FLAG_MARGIN = float(np.radians(5.0))
 SIDES = {"left": 7, "right": 36}
 HAND_DOF = dexmate_rules.HAND_DOF
 FINGERS = ("thumb", "index", "middle", "ring", "little")
-#: S3 root of the processed episodes; a lab's episodes sit under ``<root><lab>/``.
-S3_ROOT = "processed_v3/"
 #: Re-plans of names that clash with the episode table before giving up.
 SQL_ROUNDS = 10
 
@@ -490,20 +491,17 @@ def summarize(records: list[EpisodeRecord]) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def _listing_covers_root(listing: dict | None) -> bool:
-    """Whether an S3 listing covers every lab's folder under ``processed_v3/``."""
-    return listing is not None and S3_ROOT.startswith(listing.get("prefix") or "")
-
-
 def _warn_partial_listing(path: Path, listing: dict) -> None:
     """Warn when an S3 listing does not cover every lab's folder."""
     prefix = listing.get("prefix") or ""
-    if not _listing_covers_root(listing):
+    if not listing_covers_root(listing):
         logger.warning(
-            "%s lists only s3://%s/%s; names elsewhere under %s are not checked",
+            "%s lists only s3://%s/%s; names elsewhere under s3://%s/%s are not "
+            "checked",
             path,
             listing.get("bucket"),
             prefix,
+            BUCKET,
             S3_ROOT,
         )
 
@@ -563,7 +561,7 @@ def verify_frozen(
         "kept_hashes": len(kept),
         "own_lab": own_lab,
         "checks": {"sql": check_sql, "s3": s3_hashes is not None},
-        "collision_check_complete": check_sql and _listing_covers_root(listing),
+        "collision_check_complete": check_sql and listing_covers_root(listing),
         "s3_listing": listing,
         "own": {"sql": len(own_sql), "s3": len(own_s3)},
         "foreign_clashes": len(foreign),
@@ -723,7 +721,7 @@ def main(argv=None) -> int:
         raise SystemExit(f"sharpadex_manifest: {exc}") from exc
     summary = summarize(records)
     # A listing of one lab's folder cannot rule out clashes in the others.
-    s3_checked = _listing_covers_root(listing)
+    s3_checked = listing_covers_root(listing)
     header = {
         "release_root": str(args.release_root),
         "source_revision": args.source_revision,

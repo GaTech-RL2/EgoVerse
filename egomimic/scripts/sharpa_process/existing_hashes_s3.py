@@ -30,6 +30,20 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 HEADER_PREFIX = "# "
+#: The bucket of every lab's processed episodes.
+BUCKET = "rldb"
+#: Its folder of processed episodes; a lab's episodes sit under ``<root><lab>/``.
+S3_ROOT = "processed_v3/"
+
+
+def listing_covers_root(listing: dict | None) -> bool:
+    """Whether a listing's header covers every lab's folder (``rldb/processed_v3/``)."""
+    prefix = (listing or {}).get("prefix")
+    return (
+        (listing or {}).get("bucket") == BUCKET
+        and isinstance(prefix, str)
+        and S3_ROOT.startswith(prefix)
+    )
 
 
 def list_episodes(client, bucket: str, prefix: str) -> list[tuple[str, str]]:
@@ -123,10 +137,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m egomimic.scripts.sharpa_process.existing_hashes_s3",
         description=__doc__.splitlines()[0],
     )
-    parser.add_argument("--bucket", default="rldb")
+    parser.add_argument("--bucket", default=BUCKET)
     parser.add_argument(
         "--prefix",
-        default="processed_v3/",
+        default=S3_ROOT,
         help="Folder to list recursively; a trailing '/' is added if missing.",
     )
     parser.add_argument("--output", type=Path, required=True)

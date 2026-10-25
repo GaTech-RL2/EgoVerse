@@ -30,8 +30,8 @@ whose ids break the canonical-id contract is refused at every stage.
 ``verify`` passes an episode only if its sidecar, store and report name it
 (canonical and source id), ``sharpa_to_zarr.read_report`` finds no problem
 (which requires ``data_status: complete``), the store's ``lab`` is
-``sharpa_dex`` and its MP4 exists; ``upload`` refuses a folder other than the
-stored ``lab``.
+``sharpa_dex`` and its MP4 exists; ``upload`` writes only to ``DESTINATION``,
+``s3://rldb/processed_v3/sharpa_dex/``, the folder of that lab.
 ``sharpadex_chunk.sbatch`` runs fetch, convert and verify for one chunk on
 Slurm.
 """
@@ -64,12 +64,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from egomimic.scripts.sharpa_process import sharpadex_records
+from egomimic.scripts.sharpa_process.existing_hashes_s3 import BUCKET, S3_ROOT
 
 logger = logging.getLogger(__name__)
 
 TOOL = "egomimic.scripts.sharpa_process.sharpadex_ingest"
 #: The episodes' lab; it must also be the S3 folder they are uploaded to.
 LAB = "sharpa_dex"
+#: The one place episodes are uploaded to. ``stage_processed_folder --folder
+#: sharpa_dex`` lists it and the merge takes the lab from that folder.
+DESTINATION = f"s3://{BUCKET}/{S3_ROOT}{LAB}/"
 CONVERTER = "egomimic.scripts.sharpa_process.sharpa_to_zarr"
 #: The checkout this file is in; workers import the converter from it.
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -1614,6 +1618,12 @@ def upload_batches(
 
 
 def cmd_upload(args) -> int:
+    requested = f"s3://{args.bucket}/{args.prefix.strip('/')}/"
+    if requested != DESTINATION:
+        raise IngestError(
+            f"--bucket/--prefix name {requested}; SharpaDex uploads only to "
+            f"{DESTINATION}, the folder staging takes the lab {LAB!r} from"
+        )
     stage = open_stage(args)
     path = stage.state_dir / f"{stage.name}.report.json"
     try:
@@ -1629,22 +1639,22 @@ def cmd_upload(args) -> int:
     out_dir = output_dir(args.work_root, stage.name)
     names = sorted(report["hashes"])
     # The merge script sets lab from the folder; it must be the stored one.
-    folder = args.prefix.strip("/").rsplit("/", 1)[-1]
     labs = report.get("labs") or {}
-    wrong = sorted({str(labs.get(n)) for n in names if labs.get(n) != folder})
-    if folder != LAB or wrong:
+    wrong = sorted({str(labs.get(n)) for n in names if labs.get(n) != LAB})
+    if wrong:
         raise IngestError(
-            f"--prefix {args.prefix!r} uploads to folder {folder!r}, but the "
-            f"episodes' lab is {sorted(set(map(str, labs.values()))) or [None]} "
-            f"(expected {LAB!r} for every episode); the folder must equal the lab"
+            f"the episodes' lab is {sorted(set(map(str, labs.values()))) or [None]}, "
+            f"not {LAB!r} for every episode; the folder must equal the lab"
         )
-    phase1, phase2 = upload_batches(out_dir, names, args.bucket, args.prefix)
+    phase1, phase2 = upload_batches(
+        out_dir, names, BUCKET, DESTINATION.removeprefix(f"s3://{BUCKET}/")
+    )
     batches = []
     for n, lines in ((1, phase1), (2, phase2)):
         batch = stage.state_dir / f"{stage.name}.upload.phase{n}.txt"
         batch.write_text("".join(f"{line}\n" for line in lines))
         batches.append(batch)
-    target = f"s3://{args.bucket}/{args.prefix.strip('/')}/"
+    target = DESTINATION
     if not args.execute:
         stage.ledger.write(
             stage.name,
@@ -1702,12 +1712,7 @@ def cmd_upload(args) -> int:
             return 1
     # Confirm every root zarr.json exists remotely before marking the upload.
     check = stage.state_dir / f"{stage.name}.upload.confirm.txt"
-    check.write_text(
-        "".join(
-            f'ls "s3://{args.bucket}/{args.prefix.strip("/")}/{n}.zarr/zarr.json"\n'
-            for n in names
-        )
-    )
+    check.write_text("".join(f'ls "{DESTINATION}{n}.zarr/zarr.json"\n' for n in names))
     result = subprocess.run(
         [base[0], "--json", *base[1:], "run", str(check)],
         env=env,
@@ -2051,8 +2056,12 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[*per_chunk, work],
         help="Write (or with --execute run) the s5cmd upload of a verified chunk.",
     )
-    p.add_argument("--bucket", default="rldb")
-    p.add_argument("--prefix", default="processed_v3/sharpa_dex")
+    p.add_argument("--bucket", default=BUCKET, help=f"Must be {BUCKET}.")
+    p.add_argument(
+        "--prefix",
+        default=f"{S3_ROOT}{LAB}",
+        help=f"Must be {S3_ROOT}{LAB}: the lab's folder.",
+    )
     p.add_argument("--numworkers", type=int, default=64)
     p.add_argument("--execute", action="store_true", help="Upload (needs credentials).")
     p.add_argument(
