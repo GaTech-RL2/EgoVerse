@@ -12,6 +12,7 @@ import inspect
 import json
 import os
 import shlex
+import shutil
 import signal
 import socket
 import subprocess
@@ -49,6 +50,18 @@ Usage = namedtuple("Usage", "total used free")
 #: The CPUs this process may use, read before any test patches
 #: ``os.sched_getaffinity``; workers are pinned to real CPUs.
 REAL_CPUS = sorted(os.sched_getaffinity(0))
+#: The driver's store check (main's validator), before ``hermetic`` replaces it.
+REAL_STORE_PROBLEMS = getattr(ingest, "store_problems", None)
+
+
+def stub_store_problems(store) -> list[str]:
+    """The validator's verdict on a stub store: every stub array is whole."""
+    return [
+        f"{array}: missing or incomplete"
+        for array in ARRAYS
+        if not (Path(store) / array / "zarr.json").is_file()
+        or not (Path(store) / array / "c" / "0").is_file()
+    ]
 
 
 def write_episode(
@@ -538,6 +551,8 @@ def hermetic(monkeypatch):
 
     # Release.hub installs a fake; nothing reaches the network.
     monkeypatch.setattr(ingest, "download_file", no_hub)
+    # Stub stores are not real Zarr; one test runs the real validator.
+    monkeypatch.setattr(ingest, "store_problems", stub_store_problems, raising=False)
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
     for name in ("STUB_FAIL_IDS", "STUB_SLEEP", *SECRETS):
         monkeypatch.delenv(name, raising=False)
@@ -1169,6 +1184,46 @@ def test_verify_fails_a_defective_episode(release, change, problem):
     assert any(problem in p for p in report["problems"][rid]), report["problems"]
 
 
+def test_verify_fails_a_store_that_lost_its_arrays(release):
+    assert release.plan() == 0
+    release.convert_all()
+    rid = release.chunk()["ids"][0]
+    store = release.out() / f"{release.records[rid]['episode_hash']}.zarr"
+    # Root metadata, MP4, report and sidecar remain; no array does.
+    for array in ARRAYS:
+        shutil.rmtree(store / array)
+    assert release.run("verify") == 1
+    report = json.loads((release.state / "chunk_0000.report.json").read_text())
+    assert list(report["problems"]) == [rid]
+    assert any(p.startswith("store: images.front_1") for p in report["problems"][rid])
+
+
+def test_verify_runs_the_episode_validator_on_the_stores(release, monkeypatch):
+    from fixtures.synthetic_episodes import write_dexmate_episode
+
+    monkeypatch.setattr(ingest, "store_problems", REAL_STORE_PROBLEMS, raising=False)
+    assert release.plan() == 0
+    release.convert_all()
+    for rid in release.chunk()["ids"]:
+        name = release.records[rid]["episode_hash"]
+        shutil.rmtree(release.out() / f"{name}.zarr")
+        store = write_dexmate_episode(release.out(), T=8, H=16, W=16, name=name)
+        meta = json.loads((store / "zarr.json").read_text())
+        meta["attributes"].update(
+            vendor_recording_id=ingest.sharpadex_records.canonical_id(rid),
+            source_episode_id=rid,
+            lab="sharpa_dex",
+            license="cc-by-nc-4.0",
+        )
+        (store / "zarr.json").write_text(json.dumps(meta))
+    assert release.run("verify") == 0
+    shutil.rmtree(store / "left.obs_tactile")
+    assert release.run("verify") == 1
+    report = json.loads((release.state / "chunk_0000.report.json").read_text())
+    assert [rid] == list(report["problems"])
+    assert any("left.obs_tactile" in p for p in report["problems"][rid])
+
+
 def test_verify_has_no_way_to_accept_a_non_complete_episode():
     with pytest.raises(SystemExit):
         ingest.main(
@@ -1289,6 +1344,81 @@ def test_upload_goes_only_to_the_lab_folder_of_the_bucket(release, flags):
     assert release.run("upload", "--prefix", "/processed_v3/sharpa_dex/") == 0
     entry = release.ledger("upload_dry_run")[-1]["details"]
     assert entry["target"] == "s3://rldb/processed_v3/sharpa_dex/"
+
+
+def _grow(path):
+    with Path(path).open("ab") as f:
+        f.write(b"\0")
+
+
+def _flip(path):
+    data = bytearray(Path(path).read_bytes())
+    data[-2] ^= 1
+    Path(path).write_bytes(bytes(data))
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda store: _grow(store / "images.front_1" / "c" / "0"),
+        lambda store: shutil.rmtree(store / "left.obs_joints"),
+        lambda store: (store / "left.obs_joints" / "c" / "1").write_bytes(b"x"),
+        lambda store: _flip(store / "zarr.json"),
+        lambda store: _flip(store.with_suffix(".validation.json")),
+        lambda store: store.with_suffix(".validation.json").unlink(),
+        lambda store: _grow(store.with_suffix(".mp4")),
+    ],
+    ids=["array", "array_gone", "file_added", "root", "report", "no_report", "mp4"],
+)
+def test_upload_refuses_outputs_that_changed_since_verify(release, change):
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    name = release.records[release.chunk()["ids"][3]]["episode_hash"]
+    change(release.out() / f"{name}.zarr")
+    with pytest.raises(SystemExit, match="changed since verify"):
+        release.run("upload")
+    assert not release.ledger("upload_dry_run")
+
+
+def test_upload_uses_only_the_verified_work_root(release, tmp_path):
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    copy = tmp_path / "copy"
+    shutil.copytree(release.work, copy)
+    with pytest.raises(SystemExit, match="verified the outputs under"):
+        release.run("upload", "--work-root", str(copy))
+    link = tmp_path / "link"
+    link.symlink_to(release.work)
+    assert release.run("upload", "--work-root", str(link)) == 0
+
+
+def test_verify_upload_and_clean_take_the_chunk_lock(release):
+    assert release.plan() == 0
+    release.convert_all()
+    holder = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import fcntl, sys; f = open(sys.argv[1], 'a'); "
+            "fcntl.flock(f, fcntl.LOCK_EX); print('locked', flush=True); "
+            "sys.stdin.read()",
+            str(release.state / "chunk_0000.io.lock"),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert holder.stdout.readline().strip() == "locked"
+        for command in ("verify", "upload", "clean"):
+            with pytest.raises(SystemExit, match="io.lock is held"):
+                release.run(command)
+    finally:
+        holder.stdin.close()
+        holder.wait(timeout=60)
+    assert release.run("verify") == 0
 
 
 def test_status_lists_stages_and_skips_a_truncated_ledger_line(release, capsys):

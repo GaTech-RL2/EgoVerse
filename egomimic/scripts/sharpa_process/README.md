@@ -298,21 +298,31 @@ $I status  --state-dir state/
   - its sidecar, store and report name it (canonical and source id);
   - `read_report` finds no problem, which requires `data_status: complete`
     and every check passed;
-  - its `lab` is `sharpa_dex`;
-  - its MP4 exists;
+  - its `lab` is `sharpa_dex` and its `license` `cc-by-nc-4.0`;
+  - the store as it is now passes main's episode validator (every array it
+    lists, at full length), as the converter's `--skip-done` checks it;
+  - its MP4 exists and is not empty;
   - its name is unique across all verified chunks.
 
-  No option accepts a non-complete episode.
+  No option accepts a non-complete episode. The report records each episode's
+  inventory (every store file, the MP4 and the report, with sizes, plus the
+  sha256 of the root `zarr.json` and of the report), the plan's sha256 and the
+  resolved `--work-root`.
 - **`upload`** writes two `s5cmd` batches: the arrays first, then each root
   `zarr.json` and MP4, so staging never sees half an episode.
   - It uploads only to `s3://rldb/processed_v3/sharpa_dex/` (`--bucket` and
     `--prefix` must name exactly that), and only episodes whose stored `lab`
     is `sharpa_dex`.
+  - It recomputes every inventory and refuses the chunk if any episode
+    changed since `verify`, or if `--work-root` resolves elsewhere; rerun
+    `verify` after any change.
   - It runs only with `--execute --licence-approved` and R2 credentials.
     `s5cmd` gets the R2 keys, `PATH` and `HOME`, and nothing else of the
     environment.
 - **`clean`** deletes only files `fetch` downloaded. It deletes outputs only
   after a confirmed upload.
+- **`verify`, `upload` and `clean`** of one chunk take `state/<chunk>.io.lock`
+  (`flock`), so none runs while another changes the chunk's report or outputs.
 - The ledger `state/ledger.jsonl` (append-only) records every stage.
 
 `sharpadex_chunk.sbatch` names `--qos=short` with an 8 h limit: the measured

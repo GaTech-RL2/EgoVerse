@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import csv
+import fcntl
 import fnmatch
 import functools
 import hashlib
@@ -599,6 +600,7 @@ class Stage:
     header: dict
     records: dict[str, dict]
     ledger: Ledger
+    plan_sha256: str
 
     @property
     def name(self) -> str:
@@ -610,6 +612,7 @@ def open_stage(args, manifest: bool = True) -> Stage:
     path = plan_file(args)
     if not path.is_file():
         raise IngestError(f"no plan at {path}; run the plan subcommand first")
+    plan_sha256 = sha256_file(path)
     plan = json.loads(path.read_text())
     chunks = {c["chunk"]: c for c in plan["chunks"]}
     if args.chunk not in chunks:
@@ -619,7 +622,16 @@ def open_stage(args, manifest: bool = True) -> Stage:
         )
     chunk = chunks[args.chunk]
     if not manifest:
-        return Stage(args.state_dir, plan, chunk, None, {}, {}, Ledger(args.state_dir))
+        return Stage(
+            args.state_dir,
+            plan,
+            chunk,
+            None,
+            {},
+            {},
+            Ledger(args.state_dir),
+            plan_sha256,
+        )
     manifest_path = Path(args.manifest or plan["header"]["manifest"])
     digest = sha256_file(manifest_path)
     planned = plan["header"]["manifest_sha256"]
@@ -637,6 +649,7 @@ def open_stage(args, manifest: bool = True) -> Stage:
         header,
         records,
         Ledger(args.state_dir, digest),
+        plan_sha256,
     )
 
 
@@ -707,6 +720,56 @@ def file_id(rel: str) -> str:
     parts = rel.split("/")
     match = _EPISODE_FILE.fullmatch(parts[-1])
     return f"{parts[0]}/{parts[1]}/{int(match[1])}"
+
+
+def store_problems(store: Path) -> list[str]:
+    """Problems of a store as it is now: main's episode validator, as the
+    converter's ``--skip-done`` runs it (every array it lists, at full length)."""
+    from egomimic.rldb.zarr.validate import validate_episode
+
+    return validate_episode(store, allow_missing=True).errors
+
+
+def artifact_inventory(out_dir: Path, name: str) -> dict:
+    """An episode's artifacts as ``verify`` passed them and ``upload`` sends them.
+
+    ``files`` maps every file of the store, the MP4 and the report (paths
+    relative to ``out_dir``) to its size; ``sha256`` holds the digests of the
+    store's root ``zarr.json`` and of the report. Bulk data is bound by size.
+    """
+    out_dir = Path(out_dir)
+    files = {}
+    for top, dirs, names in os.walk(out_dir / f"{name}.zarr"):
+        dirs.sort()
+        for file in sorted(names):
+            path = Path(top) / file
+            files[path.relative_to(out_dir).as_posix()] = path.stat().st_size
+    for rel in (f"{name}.mp4", f"{name}.validation.json"):
+        if (out_dir / rel).is_file():
+            files[rel] = (out_dir / rel).stat().st_size
+    digests = {
+        rel: sha256_file(out_dir / rel)
+        for rel in (f"{name}.zarr/zarr.json", f"{name}.validation.json")
+        if rel in files
+    }
+    return {"files": files, "sha256": digests}
+
+
+@contextlib.contextmanager
+def chunk_io_lock(state_dir: Path, chunk: str):
+    """Hold ``<chunk>.io.lock`` (``fcntl.flock``): one of verify, upload and
+    clean at a time per chunk."""
+    path = Path(state_dir) / f"{chunk}.io.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            raise IngestError(
+                f"{path} is held: another verify, upload or clean of {chunk} is "
+                "running"
+            ) from exc
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -1409,11 +1472,13 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
 
     An episode passes only if its sidecar, store and report name its
     canonical and source ids, ``read_report`` finds no problem (so it is
-    ``complete``, with every check passed), its ``lab`` is ``LAB``, its MP4
-    exists and its name is unique. There is no way to accept a
-    non-complete episode.
+    ``complete``, with every check passed), its ``lab`` is ``LAB`` and its
+    licence the converter's, the store as it is now passes ``store_problems``,
+    its MP4 is not empty and its name is unique. There is no way to accept a
+    non-complete episode. The report records each episode's
+    ``artifact_inventory`` and the plan's sha256.
     """
-    from egomimic.scripts.sharpa_process.sharpa_to_zarr import read_report
+    from egomimic.scripts.sharpa_process.sharpa_to_zarr import LICENSE, read_report
 
     problems: dict[str, list[str]] = defaultdict(list)
     status, reasons, limitations = Counter(), Counter(), Counter()
@@ -1424,6 +1489,7 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
     array_bytes: Counter = Counter()
     hashes: dict[str, str] = {}
     labs: dict[str, str | None] = {}
+    inventories: dict[str, dict] = {}
     non_complete = []
     frames = mp4_bytes = 0
     seconds = 0.0
@@ -1495,14 +1561,22 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
             labs[name] = attrs.get("lab")
             if labs[name] != LAB:
                 problems[rid].append(f"{store.name} has lab {labs[name]!r}, not {LAB}")
+            if attrs.get("license") != LICENSE:
+                problems[rid].append(
+                    f"{store.name} has license {attrs.get('license')!r}, not {LICENSE}"
+                )
+            # The report describes the store as written; check it as it is.
+            if broken := store_problems(store):
+                problems[rid] += [f"store: {e}" for e in broken]
             for entry in os.scandir(store):
                 if entry.is_dir(follow_symlinks=False):
                     array_bytes[entry.name] += du(Path(entry.path))
         mp4 = out_dir / f"{name}.mp4"
-        if mp4.is_file():
+        if mp4.is_file() and mp4.stat().st_size:
             mp4_bytes += mp4.stat().st_size
         else:
-            problems[rid].append(f"no {mp4.name}")
+            problems[rid].append(f"no {mp4.name} (or it is empty)")
+        inventories[name] = artifact_inventory(out_dir, name)
         frames += int(side.get("total_frames") or 0)
         seconds += float(side.get("seconds") or 0.0)
 
@@ -1533,6 +1607,7 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
         "created_at": utc_now(),
         "git_sha": git_sha(),
         "manifest_sha256": stage.ledger.manifest_sha256,
+        "plan_sha256": stage.plan_sha256,
         "passed": not problems,
         "episodes": len(stage.chunk["ids"]),
         "checked": checked,
@@ -1568,13 +1643,21 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
         },
         "hashes": hashes,
         "labs": labs,
+        # What upload sends: it refuses an episode whose files differ now.
+        "inventories": inventories,
     }
 
 
 def cmd_verify(args) -> int:
     stage = open_stage(args)
-    out_dir = output_dir(args.work_root, stage.name)
-    report = verify_chunk(stage, out_dir)
+    with chunk_io_lock(stage.state_dir, stage.name):
+        return _verify_locked(stage, Path(args.work_root).resolve())
+
+
+def _verify_locked(stage: Stage, work_root: Path) -> int:
+    report = verify_chunk(stage, output_dir(work_root, stage.name))
+    # Upload must find these very outputs: the resolved work root is recorded.
+    report["work_root"] = str(work_root)
     path = stage.state_dir / f"{stage.name}.report.json"
     tmp = path.with_name(f".{path.name}.tmp")
     tmp.write_text(json.dumps(report, indent=1) + "\n")
@@ -1645,6 +1728,16 @@ def cmd_upload(args) -> int:
         )
     stage = open_stage(args)
     hash_gate(stage.header, None)
+    with chunk_io_lock(stage.state_dir, stage.name):
+        return _upload_locked(stage, args, Path(args.work_root).resolve())
+
+
+def verified(stage: Stage, work_root: Path) -> tuple[dict, dict[str, dict]]:
+    """Return the chunk's passing verify report and its episodes' inventories.
+
+    The report must be of this plan, manifest and (resolved) work root, and
+    every episode's files must still be what verify passed.
+    """
     path = stage.state_dir / f"{stage.name}.report.json"
     try:
         report = json.loads(path.read_text())
@@ -1652,11 +1745,32 @@ def cmd_upload(args) -> int:
         raise IngestError(f"no {path.name}; run verify first") from exc
     if not report.get("passed"):
         raise IngestError(f"{path.name} did not pass; fix the chunk and rerun verify")
-    if report.get("manifest_sha256") != stage.ledger.manifest_sha256 or sorted(
-        report.get("hashes", {}).values()
-    ) != sorted(stage.chunk["ids"]):
+    if (
+        report.get("manifest_sha256") != stage.ledger.manifest_sha256
+        or report.get("plan_sha256") != stage.plan_sha256
+        or sorted(report.get("hashes", {}).values()) != sorted(stage.chunk["ids"])
+    ):
         raise IngestError(f"{path.name} is from another manifest or plan; rerun verify")
-    out_dir = output_dir(args.work_root, stage.name)
+    if report.get("work_root") != str(work_root):
+        raise IngestError(
+            f"{path.name} verified the outputs under {report.get('work_root')}, "
+            f"not {work_root}; pass that --work-root or rerun verify"
+        )
+    out_dir = output_dir(work_root, stage.name)
+    recorded = report.get("inventories") or {}
+    inventories = {name: artifact_inventory(out_dir, name) for name in report["hashes"]}
+    changed = sorted(n for n, inv in inventories.items() if recorded.get(n) != inv)
+    if changed:
+        raise IngestError(
+            f"{len(changed)} episode(s) changed since verify, e.g. {changed[:3]}; "
+            "rerun verify"
+        )
+    return report, inventories
+
+
+def _upload_locked(stage: Stage, args, work_root: Path) -> int:
+    report, _ = verified(stage, work_root)
+    out_dir = output_dir(work_root, stage.name)
     names = sorted(report["hashes"])
     # The merge script sets lab from the folder; it must be the stored one.
     labs = report.get("labs") or {}
@@ -1787,6 +1901,11 @@ def _protected(path: Path, root: Path) -> str | None:
 
 def cmd_clean(args) -> int:
     stage = open_stage(args, manifest=False)
+    with chunk_io_lock(stage.state_dir, stage.name):
+        return _clean_locked(stage, args)
+
+
+def _clean_locked(stage: Stage, args) -> int:
     for path in lock_files(stage.state_dir, stage.name):
         clear_lock(path, args.break_lock)
     root = Path(args.dataset_root).resolve()
