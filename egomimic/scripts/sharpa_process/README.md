@@ -287,8 +287,10 @@ $I status  --state-dir state/
   convert tens of times slower. `--shard i/n` lets n jobs split one chunk.
   Workers run offline with an allowlisted environment: no R2, AWS or
   Hugging Face credentials reach them.
-- **`fetch` and `convert`** refuse a manifest that is not collision-checked.
-  `--allow-provisional-hashes` is for trial runs only.
+- **`fetch` and `convert`** refuse a manifest that is not collision-checked:
+  its header must show `collision_check_complete`, the SQL check and an S3
+  listing of all of `s3://rldb/processed_v3/`. `--allow-provisional-hashes` is
+  for trial runs only; `upload` has no such option and always refuses.
 - **`verify`** passes an episode only if:
   - its sidecar, store and report name it (canonical and source id);
   - `read_report` finds no problem, which requires `data_status: complete`

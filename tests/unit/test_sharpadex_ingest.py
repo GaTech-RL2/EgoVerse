@@ -424,6 +424,14 @@ class Release:
             "source_revision": ingest.REVISION,
             "sql_checked": checked,
             "s3_checked": checked,
+            "s3_listing": {
+                "bucket": "rldb",
+                "prefix": "processed_v3/",
+                "listed_at": "2026-10-21T00:00:00+00:00",
+                "count": 0,
+            }
+            if checked
+            else None,
             "collision_check_complete": checked,
             "summary": {},
         }
@@ -524,6 +532,12 @@ def hermetic(monkeypatch):
         raise AssertionError(f"squeue called for {job}")
 
     monkeypatch.setattr(ingest, "squeue_lists", no_squeue)
+
+    def no_hub(*args):
+        raise AssertionError("a test reached the real Hub downloader")
+
+    # Release.hub installs a fake; nothing reaches the network.
+    monkeypatch.setattr(ingest, "download_file", no_hub)
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
     for name in ("STUB_FAIL_IDS", "STUB_SLEEP", *SECRETS):
         monkeypatch.delenv(name, raising=False)
@@ -654,6 +668,44 @@ def test_fetch_and_convert_refuse_provisional_hashes(tmp_path, monkeypatch):
     for stage in ("fetch", "convert"):
         start = [e for e in release.ledger(stage) if e["state"] == "start"]
         assert [e["details"]["provisional_hashes"] for e in start] == [True]
+
+
+def test_upload_refuses_provisional_hashes_and_has_no_override(tmp_path):
+    release = Release(tmp_path, checked=False)
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    with pytest.raises(SystemExit, match="provisional.*upload has no override"):
+        release.run("upload")
+    with pytest.raises(SystemExit) as exc:
+        release.run("upload", "--allow-provisional-hashes")
+    assert exc.value.code == 2
+    assert not release.ledger("upload_dry_run")
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        {"sql_checked": False},
+        {"s3_listing": None},
+        {"s3_listing": {"bucket": "other-bucket", "prefix": "processed_v3/"}},
+        {"s3_listing": {"bucket": "rldb", "prefix": "processed_v3/sharpa_dex/"}},
+    ],
+)
+def test_a_claimed_collision_check_must_show_sql_and_a_full_listing(
+    release, header, monkeypatch
+):
+    lines = release.manifest.read_text().splitlines()
+    first = json.loads(lines[0])
+    first["manifest"].update(header)
+    release.manifest.write_text("\n".join([json.dumps(first), *lines[1:]]) + "\n")
+    release.hub(monkeypatch)
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    for command in ("fetch", "upload"):
+        with pytest.raises(SystemExit, match="provisional"):
+            release.run(command)
 
 
 def test_disk_guard_refuses_when_the_floor_would_be_crossed(

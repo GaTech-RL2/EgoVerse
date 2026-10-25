@@ -24,7 +24,8 @@ only files that ``fetch`` downloaded. One chunk::
 
 ``fetch`` and ``convert`` refuse a manifest whose episode hashes have not been
 checked against the SQL episode table and S3 (header
-``collision_check_complete``) unless ``--allow-provisional-hashes`` is given.
+``collision_check_complete``) unless ``--allow-provisional-hashes`` is given;
+``upload`` always refuses one.
 The manifest is read with ``sharpadex_records.read_manifest``, so a manifest
 whose ids break the canonical-id contract is refused at every stage.
 ``verify`` passes an episode only if its sidecar, store and report name it
@@ -64,7 +65,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from egomimic.scripts.sharpa_process import sharpadex_records
-from egomimic.scripts.sharpa_process.existing_hashes_s3 import BUCKET, S3_ROOT
+from egomimic.scripts.sharpa_process.existing_hashes_s3 import (
+    BUCKET,
+    S3_ROOT,
+    listing_covers_root,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -635,15 +640,29 @@ def open_stage(args, manifest: bool = True) -> Stage:
     )
 
 
-def hash_gate(header: dict, allow: bool) -> bool:
-    """Return True for a provisional-hash run; refuse one unless ``allow``."""
-    if header.get("collision_check_complete") is True:
+def hash_gate(header: dict, allow: bool | None) -> bool:
+    """Return True for a provisional-hash run; refuse one unless ``allow``.
+
+    The hashes are checked only if the header says so and records both the
+    SQL check and an S3 listing of every lab's folder. ``allow=None``
+    (upload) has no override.
+    """
+    if (
+        header.get("collision_check_complete") is True
+        and header.get("sql_checked") is True
+        and listing_covers_root(header.get("s3_listing"))
+    ):
         return False
     if not allow:
         raise IngestError(
-            "the manifest's episode hashes are provisional (its header lacks "
-            "collision_check_complete: true, i.e. the SQL and S3 checks are not "
-            "both done); pass --allow-provisional-hashes for a trial run"
+            "the manifest's episode hashes are provisional (its header does not "
+            "show collision_check_complete with both the SQL check and an S3 "
+            f"listing of s3://{BUCKET}/{S3_ROOT}); "
+            + (
+                "upload has no override"
+                if allow is None
+                else "pass --allow-provisional-hashes for a trial run"
+            )
         )
     logger.warning("using provisional episode hashes (--allow-provisional-hashes)")
     return True
@@ -1625,6 +1644,7 @@ def cmd_upload(args) -> int:
             f"{DESTINATION}, the folder staging takes the lab {LAB!r} from"
         )
     stage = open_stage(args)
+    hash_gate(stage.header, None)
     path = stage.state_dir / f"{stage.name}.report.json"
     try:
         report = json.loads(path.read_text())
