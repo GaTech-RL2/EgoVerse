@@ -20,8 +20,9 @@ from the zarr path (the sibling ``<episode_hash>.mp4`` preview); operator/scene/
 license/segments are left NULL (the zarr metadata does not provide them). ON CONFLICT (episode_hash) DO NOTHING
 is applied as a final safety net.
 
-``--license-from-attrs`` fills ``license`` from the staged zarr attributes
-(``raw_attrs->>'license'``) instead. ``--fail-on-conflict`` exits with status 1,
+``--license-from-attrs`` and ``--operator-from-attrs`` fill ``license`` and
+``operator`` from the staged zarr attributes (``raw_attrs->>'license'``,
+``raw_attrs->>'operator'``) instead. ``--fail-on-conflict`` exits with status 1,
 before writing anything, when any eligible-looking row's hash is already in
 app.episodes: a release whose names were planned against the table should have
 none, so a conflict means two recordings share a name. With ``--apply`` it then
@@ -129,6 +130,11 @@ def main() -> int:
         help="Fill license from the staged zarr attributes (raw_attrs->>'license').",
     )
     ap.add_argument(
+        "--operator-from-attrs",
+        action="store_true",
+        help="Fill operator from the staged zarr attributes (raw_attrs->>'operator').",
+    )
+    ap.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -166,7 +172,8 @@ def main() -> int:
         if not cols:
             raise SystemExit(f"Staging table {staging} not found.")
         missing = [c for c in required if c not in cols]
-        if args.license_from_attrs and "raw_attrs" not in cols:
+        from_attrs = args.license_from_attrs or args.operator_from_attrs
+        if from_attrs and "raw_attrs" not in cols:
             missing.append("raw_attrs")
         if missing:
             raise SystemExit(f"{staging} is missing required columns: {missing}")
@@ -209,6 +216,8 @@ def main() -> int:
     derived = list(_DERIVED_COLUMNS)
     if args.license_from_attrs:
         derived.append(("license", "s.raw_attrs->>'license'"))
+    if args.operator_from_attrs:
+        derived.append(("operator", "s.raw_attrs->>'operator'"))
     select_cols = ", ".join(
         [f"s.{c}" for c in _MERGE_COLUMNS] + [expr for _, expr in derived]
     )

@@ -107,28 +107,30 @@ def test_without_the_flag_conflicts_are_skipped_as_before(monkeypatch):
 
     assert status == 0
     [insert] = [sql for sql in engine.sql if "INSERT INTO" in sql]
-    assert "license" not in insert
+    assert "license" not in insert and "operator" not in insert
 
 
-def test_the_licence_comes_from_the_staged_attributes(monkeypatch):
+@pytest.mark.parametrize("column", ["license", "operator"])
+def test_a_column_comes_from_the_staged_attributes(monkeypatch, column):
     status, engine = _run(
         monkeypatch,
         [4, 0, 0, 4, 4],
         "--fail-on-conflict",
-        "--license-from-attrs",
+        f"--{column}-from-attrs",
         "--apply",
         rowcount=4,
     )
 
     assert status == 0
     [insert] = [sql for sql in engine.sql if "INSERT INTO" in sql]
-    assert "license" in insert and "s.raw_attrs->>'license'" in insert
+    assert column in insert and f"s.raw_attrs->>'{column}'" in insert
 
 
-def test_licence_copy_needs_staged_attributes(monkeypatch):
+@pytest.mark.parametrize("column", ["license", "operator"])
+def test_an_attribute_copy_needs_staged_attributes(monkeypatch, column):
     monkeypatch.setattr(sys.modules[__name__], "STAGING_COLUMNS", STAGING_COLUMNS[:-1])
     with pytest.raises(SystemExit, match="raw_attrs"):
-        _run(monkeypatch, [4, 0, 0, 4], "--license-from-attrs")
+        _run(monkeypatch, [4, 0, 0, 4], f"--{column}-from-attrs")
 
 
 def test_a_strict_merge_selects_and_inserts_in_one_transaction(monkeypatch):
