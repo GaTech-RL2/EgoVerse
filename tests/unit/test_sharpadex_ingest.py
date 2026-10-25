@@ -7,6 +7,7 @@ touches the network, S3 or the real converter.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import inspect
 import json
@@ -266,20 +267,34 @@ class FakeS5cmd:
 
     It copies a batch's ``cp`` lines into ``remote`` (``{s3 url: size}``),
     answers ``ls`` lines as ``s5cmd --json`` does (no ``size`` for an empty
-    object) and records each call's argv and environment. s5cmd runs a
-    batch's lines concurrently, so ``order`` may reverse them; after
-    ``die_after`` copies in all it stops, as a killed upload does; a copy
-    to a ``drop`` url is lost without an error, one to a ``fail`` url fails
-    the run.
+    object, a "no object found" error on stderr for a miss) and records each
+    call's argv and environment. s5cmd runs a batch's lines concurrently, so
+    ``order`` may reverse them; after ``die_after`` copies in all it stops,
+    as a killed upload does; a copy to a ``drop`` url is lost without an
+    error, one to a ``fail`` url fails the run. ``ls_error`` fails every
+    ``ls`` with that error, ``relative_keys`` prints keys without the
+    bucket, and ``hook(lines)`` runs after each batch.
     """
 
-    def __init__(self, order="forward", die_after=None, drop=(), fail=()):
+    def __init__(
+        self,
+        order="forward",
+        die_after=None,
+        drop=(),
+        fail=(),
+        ls_error=None,
+        relative_keys=False,
+        hook=None,
+    ):
         self.order = order
         self.die_after = die_after
         #: Remote urls whose copy silently does nothing.
         self.drop = set(drop)
         #: Remote urls whose copy fails (the run then exits 1).
         self.fail = set(fail)
+        self.ls_error = ls_error
+        self.relative_keys = relative_keys
+        self.hook = hook
         self.remote: dict[str, int] = {}
         self.data: dict[str, bytes] = {}
         self.copies: list[str] = []
@@ -291,7 +306,7 @@ class FakeS5cmd:
         lines = Path(argv[-1]).read_text().splitlines()
         if self.order == "reverse":
             lines.reverse()
-        found, failed = [], False
+        found, errors, failed = [], [], False
         for line in lines:
             verb, *paths = shlex.split(line)
             if verb == "cp" and paths[0].startswith("s3://"):
@@ -324,24 +339,37 @@ class FakeS5cmd:
                         else k == pattern
                     )
                 )
-                failed |= not hits
+                error = self.ls_error or (None if hits else "no object found")
+                if error:
+                    failed = True
+                    errors.append(
+                        json.dumps({"operation": "ls", "command": line, "error": error})
+                    )
+                    continue
                 for key in hits:
-                    entry = {"key": key, "type": "file"}
+                    shown = (
+                        key.removeprefix("s3://rldb/") if self.relative_keys else key
+                    )
+                    entry = {"key": shown, "type": "file"}
                     if self.remote[key]:
                         entry["size"] = self.remote[key]
                     found.append(json.dumps(entry))
             else:
                 raise AssertionError(f"unexpected s5cmd line {line!r}")
+        if self.hook is not None:
+            self.hook(lines)
         out = "".join(f"{x}\n" for x in found)
-        return subprocess.CompletedProcess(argv, int(failed), out, "")
+        err = "".join(f"{x}\n" for x in errors)
+        return subprocess.CompletedProcess(argv, int(failed), out, err)
 
     def put(self, url: str, payload: bytes) -> None:
         self.remote[url] = len(payload)
         self.data[url] = payload
 
-    def clone(self) -> FakeS5cmd:
-        """A fresh fake holding this one's remote objects."""
-        other = FakeS5cmd()
+    def clone(self, **kwargs) -> FakeS5cmd:
+        """A fresh fake (``kwargs`` as for a new one) holding this one's
+        remote objects."""
+        other = FakeS5cmd(**kwargs)
         other.remote, other.data = dict(self.remote), dict(self.data)
         return other
 
@@ -1419,13 +1447,20 @@ def test_an_interrupted_upload_never_publishes_an_incomplete_root(
     assert release.run("upload", "--execute", "--licence-approved") == 0
     total = len(whole.copies)
     assert all(_complete(release, whole, n) for n in names)
-    # Killed after every possible number of copies, in either order.
+    # A fresh upload killed after every possible number of copies, in either
+    # order; a rerun over what it left finishes the chunk.
     for k in range(total):
+        (release.state / "chunk_0000.receipts.jsonl").unlink()
         s5cmd = FakeS5cmd(order, die_after=k).install(monkeypatch)
-        release.run("upload", "--execute", "--licence-approved")
+        assert release.run("upload", "--execute", "--licence-approved") == 1
+        assert len(s5cmd.copies) == k
         for name in names:
             if f"{base}{name}.zarr/zarr.json" in s5cmd.remote:
                 assert _complete(release, s5cmd, name), (k, name)
+        again = s5cmd.clone(order=order).install(monkeypatch)
+        assert release.run("upload", "--execute", "--licence-approved") == 0, k
+        assert all(_complete(release, again, n) for n in names), k
+        assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(names)
 
 
 def test_a_root_waits_until_the_rest_of_its_episode_is_confirmed(
@@ -1472,6 +1507,115 @@ def test_a_failed_copy_costs_only_its_own_episode(release, monkeypatch):
     assert _complete(release, again, lost)
 
 
+def test_a_failed_copy_over_older_objects_publishes_nothing(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    out, base = release.out(), "s3://rldb/processed_v3/sharpa_dex/"
+    lost = names[1]
+    array = f"{base}{lost}.zarr/{next(iter(ARRAYS))}/c/0"
+    s5cmd = FakeS5cmd(fail=[array]).install(monkeypatch)
+    # An interrupted upload of an earlier conversion left every file but the
+    # root, at the same sizes.
+    for path in [*out.glob(f"{lost}.zarr/*/**/*"), out / f"{lost}.mp4"]:
+        if path.is_file():
+            rel = path.relative_to(out).as_posix()
+            s5cmd.put(base + rel, b"\xff" * path.stat().st_size)
+    assert release.run("upload", "--execute", "--licence-approved") == 1
+    assert f"{base}{lost}.zarr/zarr.json" not in s5cmd.remote
+    assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(
+        set(names) - {lost}
+    )
+    assert release.run("clean") == 0
+    assert (out / f"{lost}.zarr").is_dir()
+    # Once the copy succeeds, the rerun replaces the old objects and publishes.
+    again = s5cmd.clone().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert again.data[array] == (out / array[len(base) :]).read_bytes()
+    assert _complete(release, again, lost)
+
+
+@pytest.mark.parametrize(
+    "fake",
+    [{"ls_error": "AccessDenied: Access Denied"}, {"relative_keys": True}],
+    ids=["ls_error", "relative_keys"],
+)
+def test_upload_writes_nothing_on_a_listing_it_does_not_recognize(
+    release, monkeypatch, fake
+):
+    names = _uploading(release, monkeypatch)
+    s5cmd = FakeS5cmd(**fake).install(monkeypatch)
+    # Another recording's objects where upload would write.
+    base = f"s3://rldb/processed_v3/sharpa_dex/{names[2]}.zarr/"
+    s5cmd.put(base + "zarr.json", b'{"attributes": {"lab": "other"}}')
+    s5cmd.put(base + f"{next(iter(ARRAYS))}/c/0", b"other")
+    held = dict(s5cmd.data)
+    with pytest.raises(SystemExit, match="s5cmd ls"):
+        release.run("upload", "--execute", "--licence-approved")
+    assert s5cmd.copies == [] and s5cmd.data == held and not _receipts(release)
+
+
+@pytest.mark.parametrize(
+    "remote", ["published, then changed", "root differs", "bare root", "stale object"]
+)
+def test_upload_never_changes_a_published_episode(release, monkeypatch, remote):
+    names = _uploading(release, monkeypatch)
+    out, base = release.out(), "s3://rldb/processed_v3/sharpa_dex/"
+    name = names[2]
+    root = f"{base}{name}.zarr/zarr.json"
+    s5cmd = FakeS5cmd().install(monkeypatch)
+    if remote in ("published, then changed", "root differs"):
+        assert release.run("upload", "--execute", "--licence-approved") == 0
+        s5cmd = s5cmd.clone().install(monkeypatch)
+    if remote == "published, then changed":
+        _grow(out / f"{name}.mp4")
+        assert release.run("verify") == 0
+    elif remote == "root differs":
+        # Same size, other content; the receipts were lost.
+        s5cmd.put(root, s5cmd.data[root].replace(b"sharpa_dex", b"foreignlab"))
+        (release.state / "chunk_0000.receipts.jsonl").unlink()
+    elif remote == "bare root":
+        s5cmd.put(root, (out / f"{name}.zarr" / "zarr.json").read_bytes())
+    else:
+        # Left by an interrupted upload of an earlier conversion.
+        s5cmd.put(f"{base}{name}.zarr/old_array/c/0", b"\0" * 7)
+    held, receipts = dict(s5cmd.data), _receipts(release)
+    with pytest.raises(SystemExit, match="nothing was uploaded"):
+        release.run("upload", "--execute", "--licence-approved")
+    assert s5cmd.copies == [] and s5cmd.data == held
+    assert _receipts(release) == receipts
+
+
+def test_an_episode_published_as_verified_gets_only_its_receipt(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    first = FakeS5cmd().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    # The receipts were lost (say, the upload was killed before writing them).
+    (release.state / "chunk_0000.receipts.jsonl").unlink()
+    again = first.clone().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert again.copies == []
+    assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(names)
+    assert release.ledger("upload")[-1]["details"]["already_published"] == 5
+
+
+def test_a_root_changed_after_verify_is_not_published(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    base, changed = "s3://rldb/processed_v3/sharpa_dex/", names[1]
+    root = release.out() / f"{changed}.zarr" / "zarr.json"
+
+    def rewrite(lines):
+        # Once the arrays and MP4s are up: same size, another lab.
+        if any(f"{changed}.mp4" in line and line.startswith("cp") for line in lines):
+            root.write_bytes(root.read_bytes().replace(b"sharpa_dex", b"foreignlab"))
+
+    s5cmd = FakeS5cmd(hook=rewrite).install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 1
+    assert f"{base}{changed}.zarr/zarr.json" not in s5cmd.remote
+    assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(
+        set(names) - {changed}
+    )
+    assert release.ledger("upload")[-1]["details"]["changed"] == [changed]
+
+
 @pytest.mark.parametrize("stored", ["another recording", "unreadable"])
 def test_upload_never_overwrites_a_root_of_another_recording(
     release, monkeypatch, stored
@@ -1487,19 +1631,9 @@ def test_upload_never_overwrites_a_root_of_another_recording(
         }
         payload = json.dumps({"attributes": attrs}).encode()
     s5cmd.put(f"s3://rldb/processed_v3/sharpa_dex/{names[2]}.zarr/zarr.json", payload)
-    with pytest.raises(SystemExit, match="does not name the same recording"):
+    with pytest.raises(SystemExit, match="nothing was uploaded"):
         release.run("upload", "--execute", "--licence-approved")
     assert s5cmd.copies == [] and not _receipts(release)
-
-
-def test_upload_resumes_over_a_root_of_the_same_recording(release, monkeypatch):
-    names = _uploading(release, monkeypatch)
-    s5cmd = FakeS5cmd().install(monkeypatch)
-    root = (release.out() / f"{names[2]}.zarr" / "zarr.json").read_bytes()
-    s5cmd.put(f"s3://rldb/processed_v3/sharpa_dex/{names[2]}.zarr/zarr.json", root)
-    assert release.run("upload", "--execute", "--licence-approved") == 0
-    assert all(_complete(release, s5cmd, n) for n in names)
-    assert release.ledger("upload")[-2]["details"]["resumed_over"] == 1
 
 
 def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
@@ -1517,44 +1651,42 @@ def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
         f"s3://rldb/processed_v3/sharpa_dex/{n}.zarr" for n in names
     }
     assert release.ledger("upload")[-1]["details"]["already_uploaded"] == 5
-    # An episode converted anew (and verified) goes up again, alone.
-    changed = names[2]
-    _grow(release.out() / f"{changed}.mp4")
-    assert release.run("verify") == 0
-    third = FakeS5cmd().install(monkeypatch)
-    assert release.run("upload", "--execute", "--licence-approved") == 0
-    assert third.copies and all(f"/{changed}." in url for url in third.copies)
     assert release.run("clean") == 0
     assert not release.out().exists()
     assert release.ledger("clean")[-1]["details"]["outputs"] == "deleted (uploaded)"
 
 
-def test_clean_deletes_only_outputs_with_a_matching_receipt(release, monkeypatch):
+def test_clean_deletes_outputs_only_once_every_receipt_matches(release, monkeypatch):
     names = _uploading(release, monkeypatch)
     base = "s3://rldb/processed_v3/sharpa_dex/"
     lost = names[1]
-    FakeS5cmd(drop=[f"{base}{lost}.mp4"]).install(monkeypatch)
+    first = FakeS5cmd(drop=[f"{base}{lost}.mp4"]).install(monkeypatch)
     assert release.run("upload", "--execute", "--licence-approved") == 1
-    entries = _receipts(release)
-    assert sorted(e["episode_hash"] for e in entries) == sorted(set(names) - {lost})
-    # Receipts of another destination or manifest, and an episode whose
-    # outputs changed since its upload, authorize nothing.
-    entries[0]["destination"] = entries[0]["destination"].replace(
-        "sharpa_dex/", "other_lab/sharpa_dex/"
-    )
-    entries[1]["manifest_sha256"] = "0" * 64
-    (release.state / "chunk_0000.receipts.jsonl").write_text(
-        "".join(json.dumps(e) + "\n" for e in entries)
-    )
-    _grow(release.out() / f"{entries[2]['episode_hash']}.mp4")
+    # One episode short, clean keeps every output, so upload can retry it.
     assert release.run("clean") == 0
-    deleted = {entries[3]["episode_hash"]}
-    for name in names:
-        for kind in ("zarr", "mp4", "validation.json", "conversion.json"):
-            assert (release.out() / f"{name}.{kind}").exists() == (name not in deleted)
-    details = release.ledger("clean")[-1]["details"]
-    assert details["outputs"] == "partly deleted (uploaded)"
-    assert details["uploaded_deleted"] == 1
+    assert all((release.out() / f"{n}.zarr").is_dir() for n in names)
+    assert release.ledger("clean")[-1]["details"]["outputs"] == "kept"
+    first.clone().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    path = release.state / "chunk_0000.receipts.jsonl"
+    good = [json.loads(x) for x in path.read_text().splitlines()]
+    # A receipt of another destination or manifest, or of outputs that
+    # changed since the upload, authorizes nothing.
+    for change in ("destination", "manifest", "outputs"):
+        entries = [dict(e) for e in good]
+        if change == "destination":
+            entries[0]["destination"] = entries[0]["destination"].replace(
+                "sharpa_dex/", "other_lab/sharpa_dex/"
+            )
+        elif change == "manifest":
+            entries[0]["manifest_sha256"] = "0" * 64
+        path.write_text("".join(json.dumps(e) + "\n" for e in entries))
+        if change == "outputs":
+            _grow(release.out() / f"{entries[0]['episode_hash']}.mp4")
+        assert release.run("clean") == 0
+        assert all((release.out() / f"{n}.zarr").is_dir() for n in names), change
+        details = release.ledger("clean")[-1]["details"]
+        assert details["outputs"] == "kept" and details["uploaded_deleted"] == 0
 
 
 def test_receipts_of_another_plan_delete_nothing(release, monkeypatch):
@@ -1616,17 +1748,17 @@ def test_upload_uses_only_the_verified_work_root(release, tmp_path):
     assert release.run("upload", "--work-root", str(link)) == 0
 
 
-def test_verify_upload_and_clean_take_the_chunk_lock(release):
-    assert release.plan() == 0
-    release.convert_all()
+@contextlib.contextmanager
+def _holding(path: Path, mode: str):
+    """Hold ``fcntl.flock(path, fcntl.<mode>)`` in another process."""
     holder = subprocess.Popen(
         [
             sys.executable,
             "-c",
             "import fcntl, sys; f = open(sys.argv[1], 'a'); "
-            "fcntl.flock(f, fcntl.LOCK_EX); print('locked', flush=True); "
+            f"fcntl.flock(f, fcntl.{mode}); print('locked', flush=True); "
             "sys.stdin.read()",
-            str(release.state / "chunk_0000.io.lock"),
+            str(path),
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -1634,12 +1766,38 @@ def test_verify_upload_and_clean_take_the_chunk_lock(release):
     )
     try:
         assert holder.stdout.readline().strip() == "locked"
-        for command in ("verify", "upload", "clean"):
-            with pytest.raises(SystemExit, match="io.lock is held"):
-                release.run(command)
+        yield
     finally:
         holder.stdin.close()
         holder.wait(timeout=60)
+
+
+def test_verify_upload_and_clean_take_the_chunk_lock(release):
+    assert release.plan() == 0
+    release.convert_all()
+    with _holding(release.state / "chunk_0000.io.lock", "LOCK_EX"):
+        for command in ("verify", "upload", "clean"):
+            with pytest.raises(SystemExit, match="io.lock is held"):
+                release.run(command)
+    assert release.run("verify") == 0
+
+
+def test_convert_shares_the_chunk_lock(release, monkeypatch):
+    assert release.plan() == 0
+    release.hub(monkeypatch)
+    assert release.run("fetch") == 0
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: set(REAL_CPUS[:2]))
+    lock = release.state / "chunk_0000.io.lock"
+    with _holding(lock, "LOCK_EX"):
+        with pytest.raises(SystemExit, match="io.lock is held"):
+            release.run("convert", "--cpus-per-worker", "1")
+    # Shared holders (convert shards) coexist; while one converts, verify,
+    # upload and clean do not run.
+    with _holding(lock, "LOCK_SH"):
+        assert release.run("convert", "--cpus-per-worker", "1") == 0
+        for command in ("verify", "upload", "clean"):
+            with pytest.raises(SystemExit, match="io.lock is held"):
+                release.run(command)
     assert release.run("verify") == 0
 
 

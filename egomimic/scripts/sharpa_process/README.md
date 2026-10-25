@@ -311,17 +311,32 @@ $I status  --state-dir state/
 - **`upload`** copies each verified file once, in two `s5cmd` batches. The
   first holds every array file and the MP4s. `upload` then lists what arrived;
   only for episodes whose files are all there at their verified sizes does it
-  send the store's root `zarr.json`, and it confirms that too. An interrupted
-  upload therefore never leaves a root `zarr.json` without the rest of its
-  episode (see *Register* for why that matters).
-  - Before copying, it looks for each episode's root `zarr.json` at the
-    destination. One that exists must name the same canonical and source ids
-    (an earlier, interrupted upload); any other, or one it cannot read, stops
-    the upload before any copy.
+  send the store's root `zarr.json` (from a copy whose sha256 it checks), and
+  it reads each root back and checks its sha256 again. An interrupted upload
+  therefore never leaves a root `zarr.json` without the rest of its episode
+  (see *Register* for why that matters).
+  - **A published episode is never changed.** Before writing anything,
+    `upload` lists each episode's destination:
+    - nothing there: it uploads the episode;
+    - files but no root (an interrupted upload): it uploads the episode again,
+      and publishes the root only if every copy of that run succeeded, since a
+      failed copy can hide behind an older object of the same size;
+    - a root, every verified file at its size and the root's sha256 the
+      verified one: it only writes the missing receipt;
+    - anything else (another root, missing files, or an object the inventory
+      does not list): it stops before any copy.
+
+    To replace a published episode (say, after a converter fix), first delete
+    it, and its `app.episodes` row, by hand.
+  - It acts only on a listing it recognizes: every `ls` must print objects
+    under `s3://rldb/processed_v3/sharpa_dex/` or s5cmd's "no object found".
+    Any other error or output stops it. Both formats are tested against fakes
+    only; the canary is the first real check, and a mismatch stops it before
+    it publishes any root.
   - Each episode confirmed remotely gets a receipt in
     `state/<chunk>.receipts.jsonl`. It binds the plan's and the manifest's
     sha256, the episode's inventory digest and its exact destination. A rerun
-    skips episodes with a matching receipt and uploads the rest again.
+    skips episodes with a matching receipt.
   - It uploads only to `s3://rldb/processed_v3/sharpa_dex/` (`--bucket` and
     `--prefix` must name exactly that), and only episodes whose stored `lab`
     is `sharpa_dex`.
@@ -331,11 +346,13 @@ $I status  --state-dir state/
   - It runs only with `--execute --licence-approved` and R2 credentials.
     `s5cmd` gets the R2 keys, `PATH` and `HOME`, and nothing else of the
     environment.
-- **`clean`** deletes only files `fetch` downloaded. It deletes an episode's
-  outputs only if a receipt matches them as they are now (same plan, manifest,
-  artifacts and destination); `--discard-outputs` deletes the rest too.
-- **`verify`, `upload` and `clean`** of one chunk take `state/<chunk>.io.lock`
-  (`flock`), so none runs while another changes the chunk's report or outputs.
+- **`clean`** deletes only files `fetch` downloaded. It deletes the chunk's
+  outputs only once every episode has a receipt that matches them as they are
+  now (same plan, manifest, artifacts and destination); until then it keeps
+  them all, so `upload` can retry. `--discard-outputs` deletes them anyway.
+- **`convert`** holds `state/<chunk>.io.lock` (`flock`) shared, and
+  **`verify`, `upload` and `clean`** each hold it alone, so none of them runs
+  while another changes the chunk's outputs or report.
 - The ledger `state/ledger.jsonl` (append-only) records every stage.
 
 `sharpadex_chunk.sbatch` names `--qos=short` with an 8 h limit: the measured

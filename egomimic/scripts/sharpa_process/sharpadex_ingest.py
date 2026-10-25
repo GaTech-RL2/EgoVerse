@@ -755,18 +755,19 @@ def artifact_inventory(out_dir: Path, name: str) -> dict:
 
 
 @contextlib.contextmanager
-def chunk_io_lock(state_dir: Path, chunk: str):
-    """Hold ``<chunk>.io.lock`` (``fcntl.flock``): one of verify, upload and
-    clean at a time per chunk."""
+def chunk_io_lock(state_dir: Path, chunk: str, shared: bool = False):
+    """Hold ``<chunk>.io.lock`` (``fcntl.flock``). ``convert`` holds it
+    ``shared`` (its shards run together); verify, upload and clean each hold it
+    alone, so none runs while the chunk's outputs or report change."""
     path = Path(state_dir) / f"{chunk}.io.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a") as f:
         try:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(f, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
         except OSError as exc:
             raise IngestError(
-                f"{path} is held: another verify, upload or clean of {chunk} is "
-                "running"
+                f"{path} is held: a convert, verify, upload or clean of {chunk} "
+                "is running"
             ) from exc
         yield
 
@@ -1302,13 +1303,16 @@ def cmd_convert(args) -> int:
         logger.warning("%s (--ignore-load)", message)
     root = Path(args.dataset_root).resolve()
     out_dir = output_dir(args.work_root, stage.name)
-    out_dir.mkdir(parents=True, exist_ok=True)
     shard, tag = args.shard, shard_tag(args.shard)
-    lock = acquire_lock(stage.state_dir, stage.name, shard, args.break_lock)
-    try:
-        return _convert_locked(stage, args, sets, load, provisional, root, out_dir, tag)
-    finally:
-        release_lock(lock)
+    with chunk_io_lock(stage.state_dir, stage.name, shared=True):
+        out_dir.mkdir(parents=True, exist_ok=True)
+        lock = acquire_lock(stage.state_dir, stage.name, shard, args.break_lock)
+        try:
+            return _convert_locked(
+                stage, args, sets, load, provisional, root, out_dir, tag
+            )
+        finally:
+            release_lock(lock)
 
 
 def _convert_locked(stage, args, sets, load, provisional, root, out_dir, tag) -> int:
@@ -1738,15 +1742,6 @@ def _verify_locked(stage: Stage, work_root: Path) -> int:
 # ---------------------------------------------------------------------------
 
 
-def stored_ids(path: Path) -> tuple | None:
-    """``(vendor_recording_id, source_episode_id)`` a root ``zarr.json`` names."""
-    try:
-        attrs = json.loads(Path(path).read_text())["attributes"]
-        return attrs["vendor_recording_id"], attrs["source_episode_id"]
-    except (OSError, ValueError, KeyError, TypeError):
-        return None
-
-
 def uploaded_files(inventory: dict, name: str, roots: bool) -> dict[str, int]:
     """The files of a verified inventory that ``upload`` sends, by path.
 
@@ -1767,8 +1762,9 @@ def upload_batches(
     """Return the two ``s5cmd run`` batches that upload ``names``.
 
     One ``cp`` per verified file: the first batch holds the arrays and the
-    MP4s, the second the stores' root files, which ``upload`` sends only for
-    episodes whose first-batch files it has found remotely.
+    MP4s, the second the stores' root files, which ``upload --execute`` sends
+    (from checked copies) only for episodes whose first-batch files it has
+    found remotely.
     """
     data, roots = [], []
     for name in names:
@@ -1779,20 +1775,45 @@ def upload_batches(
     return data, roots
 
 
-def remote_files(listing: str) -> dict[str, int]:
-    """``{path below DESTINATION: size}`` from ``s5cmd --json ls`` output.
+def _no_object(line: str) -> bool:
+    """Whether an ``s5cmd --json`` error line says an ``ls`` matched nothing."""
+    try:
+        return json.loads(line)["error"] == "no object found"
+    except (ValueError, TypeError, KeyError):
+        return False
 
-    s5cmd omits ``size`` for an empty object.
+
+def remote_files(proc: subprocess.CompletedProcess, issued: int) -> dict[str, int]:
+    """``{path below DESTINATION: size}`` from an ``s5cmd --json`` run of
+    ``issued`` ``ls`` lines.
+
+    s5cmd omits ``size`` for an empty object and answers an ``ls`` that
+    matches nothing with a "no object found" error. Upload acts only on a
+    complete listing: any other error, or a line naming no object under
+    ``DESTINATION``, raises.
     """
     found = {}
-    for line in listing.splitlines():
+    for line in proc.stdout.splitlines():
         try:
             entry = json.loads(line)
-        except ValueError:
-            continue
-        key = str(entry.get("key") or "") if isinstance(entry, dict) else ""
-        if key.startswith(DESTINATION):
-            found[key[len(DESTINATION) :]] = int(entry.get("size") or 0)
+            key, size = entry["key"], int(entry.get("size") or 0)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            key = None
+        if not (isinstance(key, str) and key.startswith(DESTINATION)):
+            raise IngestError(
+                f"s5cmd ls printed {line[:200]!r}, not an object under "
+                f"{DESTINATION}; upload publishes nothing on a listing it does "
+                "not recognize"
+            )
+        found[key[len(DESTINATION) :]] = size
+    errors = [line for line in proc.stderr.splitlines() if line.strip()]
+    unknown = [line for line in errors if not _no_object(line)]
+    if unknown or len(errors) > issued or (proc.returncode and not errors):
+        raise IngestError(
+            f"s5cmd ls exited {proc.returncode}: "
+            f"{(unknown or errors or [''])[0][:200]!r}; upload publishes nothing "
+            "on a listing it does not recognize"
+        )
     return found
 
 
@@ -1921,87 +1942,139 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
 
     check = stage.state_dir / f"{stage.name}.upload.confirm.txt"
 
-    def confirmed(episodes: list[str], roots: bool) -> list[str]:
-        """The episodes whose files are all remote, at their verified sizes."""
-        if not episodes:
-            return []
+    def listing(episodes: list[str]) -> dict[str, int]:
+        """Every remote object of ``episodes``, by path below DESTINATION."""
         lines = []
         for name in episodes:
             lines += [
                 f'ls "{DESTINATION}{name}.zarr/*"',
                 f'ls "{DESTINATION}{name}.mp4"',
             ]
-        remote = remote_files(run(check, lines, listing=True).stdout)
-        return [
-            name
-            for name in episodes
-            if all(
-                remote.get(rel) == size
-                for rel, size in uploaded_files(inventories[name], name, roots).items()
-            )
-        ]
+        if not lines:
+            return {}
+        return remote_files(run(check, lines, listing=True), len(lines))
 
-    # A root already at the destination must name the same recording (an
-    # earlier upload of it); upload never overwrites anything else.
-    by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
-    lines = [f'ls "{DESTINATION}{name}.zarr/zarr.json"' for name in todo]
-    found = remote_files(run(check, lines, listing=True).stdout) if todo else {}
-    present = [name for name in todo if f"{name}.zarr/zarr.json" in found]
-    if present:
-        local = stage.state_dir / f"{stage.name}.remote_roots"
-        local.mkdir(exist_ok=True)
-        for name in present:
-            (local / f"{name}.json").unlink(missing_ok=True)
+    def complete(remote: dict[str, int], name: str, roots: bool) -> bool:
+        """Whether ``remote`` holds the episode's files at their verified sizes."""
+        files = uploaded_files(inventories[name], name, roots)
+        return all(remote.get(rel) == size for rel, size in files.items())
+
+    fetched = stage.state_dir / f"{stage.name}.remote_roots"
+
+    def as_verified(episodes: list[str]) -> set[str]:
+        """The episodes whose remote root ``zarr.json`` has the verified sha256."""
+        fetched.mkdir(exist_ok=True)
+        for name in episodes:
+            (fetched / f"{name}.json").unlink(missing_ok=True)
         lines = [
-            f'cp "{DESTINATION}{n}.zarr/zarr.json" "{local / n}.json"' for n in present
+            f'cp "{DESTINATION}{n}.zarr/zarr.json" "{fetched / n}.json"'
+            for n in episodes
         ]
-        run(stage.state_dir / f"{stage.name}.upload.roots.txt", lines)
-        foreign = [
-            name
-            for name in present
-            if stored_ids(local / f"{name}.json")
-            != (sharpadex_records.canonical_id(by_name[name]), by_name[name])
-        ]
-        if foreign:
-            stage.ledger.write(
-                stage.name, "upload", "fail", reason="foreign roots", foreign=foreign
-            )
-            raise IngestError(
-                f"{len(foreign)} episode(s) already have a root zarr.json at "
-                f"{DESTINATION} that does not name the same recording (or cannot "
-                f"be read), e.g. {foreign[:3]}; nothing was uploaded. Inspect "
-                "them (sharpadex_manifest --verify-frozen) before uploading"
-            )
+        if lines:
+            run(stage.state_dir / f"{stage.name}.upload.roots.txt", lines)
+        return {
+            n
+            for n in episodes
+            if (fetched / f"{n}.json").is_file()
+            and sha256_file(fetched / f"{n}.json")
+            == inventories[n]["sha256"][f"{n}.zarr/zarr.json"]
+        }
 
+    # What is at an episode's destination decides what upload may do: send
+    # it (nothing there, or an interrupted upload's files without a root) or
+    # only record it (published exactly as verified). A published episode is
+    # never changed, and any other object stops the upload before it writes.
+    by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
+    tops: dict[str, dict[str, int]] = {}
+    for rel, size in listing(todo).items():
+        tops.setdefault(rel.split("/")[0], {})[rel] = size
+    remote = {
+        n: {**tops.get(f"{n}.zarr", {}), **tops.get(f"{n}.mp4", {})} for n in todo
+    }
+    held, resumed, problems = [], [], {}
+    for name in todo:
+        extra = sorted(
+            set(remote[name]) - set(uploaded_files(inventories[name], name, True))
+        )
+        if extra:
+            problems[name] = f"unexpected objects, e.g. {extra[:2]}"
+        elif f"{name}.zarr/zarr.json" in remote[name]:
+            held.append(name)
+        elif remote[name]:
+            resumed.append(name)
+    published = as_verified([n for n in held if complete(remote[n], n, roots=True)])
+    problems.update(
+        {n: "published with other files" for n in held if n not in published}
+    )
+    if problems:
+        shown = dict(sorted(problems.items())[:20])
+        stage.ledger.write(
+            stage.name, "upload", "fail", reason="destination in use", problems=shown
+        )
+        raise IngestError(
+            f"{len(problems)} episode(s) have objects at {DESTINATION} that upload "
+            f"must not change, e.g. {dict(list(shown.items())[:3])}; nothing was "
+            "uploaded. Upload never replaces a published episode: inspect it and, "
+            "if it must go, delete it (and its app.episodes row) by hand"
+        )
+
+    send = [n for n in todo if n not in published]
     stage.ledger.write(
         stage.name,
         "upload",
         "start",
         target=target,
         episodes=len(names),
-        todo=len(todo),
-        resumed_over=len(present),
+        todo=len(send),
+        resumed=len(resumed),
+        already_published=len(published),
     )
     started = time.monotonic()
     # Arrays and MP4s first; a root goes up only once the rest of its episode
     # is confirmed, so staging never reads an incomplete episode's metadata.
-    # A failed line fails s5cmd's whole run, so every episode is judged by
-    # what arrived: the others still get their roots and receipts.
+    # A failed line fails s5cmd's whole run, so each episode is judged by what
+    # arrived; but an interrupted upload's object of the same size can hide a
+    # failed copy, so a resumed episode needs a run whose copies all succeed.
     exits = {}
+    data, _ = upload_batches(out_dir, send, inventories)
     if data:
-        exits["phase1"] = run(batches[0]).returncode
-    ready = confirmed(todo, roots=False)
-    _, root_lines = upload_batches(out_dir, ready, inventories)
+        exits["phase1"] = run(batches[0], data).returncode
+    arrived = listing(send)
+    ready = [
+        n
+        for n in send
+        if complete(arrived, n, roots=False)
+        and not (exits.get("phase1") and n in resumed)
+    ]
+    # Roots go up from copies taken while the episode is still what verify
+    # passed, the root's sha256 checked on the copy.
+    staged = stage.state_dir / f"{stage.name}.sent_roots"
+    root_lines, changed = [], []
+    for name in ready:
+        rest, lines = uploaded_files(inventories[name], name, roots=False), []
+        for rel in uploaded_files(inventories[name], name, roots=True):
+            if rel not in rest:
+                (staged / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(out_dir / rel, staged / rel)
+                lines.append(f'cp "{staged / rel}" "{DESTINATION}{rel}"')
+        digest = inventories[name]["sha256"][f"{name}.zarr/zarr.json"]
+        if (
+            artifact_inventory(out_dir, name) != inventories[name]
+            or sha256_file(staged / f"{name}.zarr" / "zarr.json") != digest
+        ):
+            changed.append(name)
+        else:
+            root_lines += lines
     if root_lines:
         exits["phase2"] = run(batches[1], root_lines).returncode
-    done = set(confirmed(ready, roots=True))
+    done = as_verified([n for n in ready if n not in changed])
     with (stage.state_dir / f"{stage.name}.receipts.jsonl").open("a") as f:
-        for name in sorted(done):
+        for name in sorted(done | published):
             entry = receipt(stage, by_name[name], inventories[name])
             f.write(json.dumps({**entry, "ts": utc_now()}, sort_keys=True) + "\n")
         f.flush()
         os.fsync(f.fileno())
-    missing = [n for n in todo if n not in done]
+    missing = [n for n in send if n not in done]
     stage.ledger.write(
         stage.name,
         "upload",
@@ -2009,20 +2082,22 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         target=target,
         episodes=len(names),
         already_uploaded=len(receipts),
+        already_published=len(published),
         uploaded=len(done),
         confirmed=not missing,
         missing=missing[:20],
+        changed=changed[:20],
         s5cmd_exit=exits,
         seconds=round(time.monotonic() - started, 1),
     )
     print(
-        f"{stage.name}: uploaded {len(done)} of {len(todo)} episode(s) to {target}; "
-        f"{len(missing)} not confirmed remotely (s5cmd exit codes {exits}; their "
-        "roots are not published unless the rest of the episode is); rerun "
-        "upload to retry them"
+        f"{stage.name}: uploaded {len(done)} of {len(send)} episode(s) to {target}; "
+        f"{len(missing)} not confirmed remotely (s5cmd exit codes {exits}; "
+        f"{len(changed)} changed since verify). Their roots are not published; "
+        "rerun upload (after verify, for changed ones) to retry them"
         if missing
         else f"{stage.name}: uploaded and confirmed {len(done)} episode(s) to "
-        f"{target}; {len(receipts)} were already uploaded"
+        f"{target}; {len(receipts) + len(published)} were already uploaded"
     )
     return 1 if missing else 0
 
@@ -2097,8 +2172,12 @@ def _clean_locked(stage: Stage, args) -> int:
         shutil.rmtree(out_dir)
         outputs = "discarded"
     elif out_dir.exists():
-        # Only an episode whose current outputs a receipt shows uploaded.
+        # Only outputs a receipt shows uploaded as they are now, and only once
+        # every episode has one: upload re-verifies the whole chunk, so a
+        # partly cleaned chunk could not retry the rest.
         uploaded = matching_receipts(stage, out_dir)
+        if len(uploaded) < len(stage.chunk["ids"]):
+            uploaded = {}
         for name in uploaded:
             for kind in ("zarr", "mp4", "validation.json", "conversion.json"):
                 path = out_dir / f"{name}.{kind}"
@@ -2114,8 +2193,8 @@ def _clean_locked(stage: Stage, args) -> int:
         else:
             outputs = "partly deleted (uploaded)" if uploaded else "kept"
             logger.warning(
-                "keeping the outputs in %s without a matching upload receipt "
-                "(pass --discard-outputs to delete them anyway)",
+                "keeping the outputs in %s: not every episode has a matching "
+                "upload receipt (pass --discard-outputs to delete them anyway)",
                 out_dir,
             )
     stage.ledger.write(
