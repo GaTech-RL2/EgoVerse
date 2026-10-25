@@ -8,6 +8,8 @@ touches the network, S3 or the real converter.
 from __future__ import annotations
 
 import contextlib
+import errno
+import fcntl
 import hashlib
 import inspect
 import json
@@ -1755,7 +1757,7 @@ def _holding(path: Path, mode: str):
         [
             sys.executable,
             "-c",
-            "import fcntl, sys; f = open(sys.argv[1], 'a'); "
+            "import fcntl, sys; f = open(sys.argv[1], 'a+'); "
             f"fcntl.flock(f, fcntl.{mode}); print('locked', flush=True); "
             "sys.stdin.read()",
             str(path),
@@ -1780,6 +1782,20 @@ def test_verify_upload_and_clean_take_the_chunk_lock(release):
             with pytest.raises(SystemExit, match="io.lock is held"):
                 release.run(command)
     assert release.run("verify") == 0
+
+
+def test_a_shared_chunk_lock_works_on_nfs4(tmp_path, monkeypatch):
+    real = fcntl.flock
+
+    def nfs4_flock(f, operation):
+        # NFSv4 refuses a shared lock on a file not open for reading.
+        if operation & fcntl.LOCK_SH and not f.readable():
+            raise OSError(errno.EBADF, os.strerror(errno.EBADF))
+        return real(f, operation)
+
+    monkeypatch.setattr(ingest.fcntl, "flock", nfs4_flock)
+    with ingest.chunk_io_lock(tmp_path, "chunk_0000", shared=True):
+        pass
 
 
 def test_convert_shares_the_chunk_lock(release, monkeypatch):

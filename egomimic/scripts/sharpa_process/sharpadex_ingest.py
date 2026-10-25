@@ -758,13 +758,15 @@ def artifact_inventory(out_dir: Path, name: str) -> dict:
 def chunk_io_lock(state_dir: Path, chunk: str, shared: bool = False):
     """Hold ``<chunk>.io.lock`` (``fcntl.flock``). ``convert`` holds it
     ``shared`` (its shards run together); verify, upload and clean each hold it
-    alone, so none runs while the chunk's outputs or report change."""
+    alone, so none runs while the chunk's outputs or report change. On NFSv4
+    ``flock`` becomes a byte-range lock, and a shared one needs the file open
+    for reading."""
     path = Path(state_dir) / f"{chunk}.io.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a") as f:
+    with path.open("a+") as f:
         try:
             fcntl.flock(f, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
-        except OSError as exc:
+        except BlockingIOError as exc:
             raise IngestError(
                 f"{path} is held: a convert, verify, upload or clean of {chunk} "
                 "is running"
