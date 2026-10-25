@@ -314,6 +314,10 @@ $I status  --state-dir state/
   send the store's root `zarr.json`, and it confirms that too. An interrupted
   upload therefore never leaves a root `zarr.json` without the rest of its
   episode (see *Register* for why that matters).
+  - Each episode confirmed remotely gets a receipt in
+    `state/<chunk>.receipts.jsonl`. It binds the plan's and the manifest's
+    sha256, the episode's inventory digest and its exact destination. A rerun
+    skips episodes with a matching receipt and uploads the rest again.
   - It uploads only to `s3://rldb/processed_v3/sharpa_dex/` (`--bucket` and
     `--prefix` must name exactly that), and only episodes whose stored `lab`
     is `sharpa_dex`.
@@ -323,8 +327,9 @@ $I status  --state-dir state/
   - It runs only with `--execute --licence-approved` and R2 credentials.
     `s5cmd` gets the R2 keys, `PATH` and `HOME`, and nothing else of the
     environment.
-- **`clean`** deletes only files `fetch` downloaded. It deletes outputs only
-  after a confirmed upload.
+- **`clean`** deletes only files `fetch` downloaded. It deletes an episode's
+  outputs only if a receipt matches them as they are now (same plan, manifest,
+  artifacts and destination); `--discard-outputs` deletes the rest too.
 - **`verify`, `upload` and `clean`** of one chunk take `state/<chunk>.io.lock`
   (`flock`), so none runs while another changes the chunk's report or outputs.
 - The ledger `state/ledger.jsonl` (append-only) records every stage.

@@ -10,8 +10,9 @@ sizes from a ``path,size`` listing of the Hub repository) plus estimated
 outputs fit ``--budget-gb``. Every other subcommand works on one chunk,
 appends to ``<state-dir>/ledger.jsonl`` and can simply be rerun after a
 timeout or preemption: ``fetch`` downloads only missing files, ``convert``
-skips episodes whose ``<hash>.conversion.json`` exists, and ``clean`` deletes
-only files that ``fetch`` downloaded. One chunk::
+skips episodes whose ``<hash>.conversion.json`` exists, ``upload`` skips
+episodes with a matching receipt, and ``clean`` deletes only files that
+``fetch`` downloaded and outputs that a receipt shows uploaded. One chunk::
 
     python -m egomimic.scripts.sharpa_process.sharpadex_ingest plan \\
         --state-dir state/ --manifest manifest.jsonl --sizes hf_files.csv \\
@@ -308,7 +309,12 @@ class Ledger:
 
 def read_ledger(state_dir: Path) -> list[dict]:
     """Return the ledger's entries, skipping unreadable (e.g. truncated) lines."""
-    path = Path(state_dir) / "ledger.jsonl"
+    return read_jsonl(Path(state_dir) / "ledger.jsonl")
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    """Return a JSON-lines file's entries, skipping unreadable lines."""
+    path = Path(path)
     if not path.is_file():
         return []
     entries = []
@@ -595,7 +601,7 @@ class Stage:
     state_dir: Path
     plan: dict
     chunk: dict
-    manifest: Path | None
+    manifest: Path
     header: dict
     records: dict[str, dict]
     ledger: Ledger
@@ -606,13 +612,14 @@ class Stage:
         return self.chunk["chunk"]
 
 
-def open_stage(args, manifest: bool = True) -> Stage:
+def open_stage(args) -> Stage:
     """Load the plan and the chunk; check the manifest against the plan."""
     path = plan_file(args)
     if not path.is_file():
         raise IngestError(f"no plan at {path}; run the plan subcommand first")
-    plan_sha256 = sha256_file(path)
-    plan = json.loads(path.read_text())
+    raw = path.read_bytes()
+    plan_sha256 = hashlib.sha256(raw).hexdigest()
+    plan = json.loads(raw)
     chunks = {c["chunk"]: c for c in plan["chunks"]}
     if args.chunk not in chunks:
         names = list(chunks)
@@ -620,17 +627,6 @@ def open_stage(args, manifest: bool = True) -> Stage:
             f"{args.chunk!r} is not in {path} ({names[0]} .. {names[-1]})"
         )
     chunk = chunks[args.chunk]
-    if not manifest:
-        return Stage(
-            args.state_dir,
-            plan,
-            chunk,
-            None,
-            {},
-            {},
-            Ledger(args.state_dir),
-            plan_sha256,
-        )
     manifest_path = Path(args.manifest or plan["header"]["manifest"])
     digest = sha256_file(manifest_path)
     planned = plan["header"]["manifest_sha256"]
@@ -769,6 +765,45 @@ def chunk_io_lock(state_dir: Path, chunk: str):
                 "running"
             ) from exc
         yield
+
+
+def receipt(stage: Stage, rid: str, inventory: dict) -> dict:
+    """What an upload receipt of ``rid`` binds: plan, manifest, artifacts and
+    exact destination."""
+    name = stage.records[rid]["episode_hash"]
+    digest = hashlib.sha256(json.dumps(inventory, sort_keys=True).encode())
+    return {
+        "episode_hash": name,
+        "recording_id": rid,
+        "plan_sha256": stage.plan_sha256,
+        "manifest_sha256": stage.ledger.manifest_sha256,
+        "inventory_sha256": digest.hexdigest(),
+        "destination": f"{DESTINATION}{name}.zarr",
+    }
+
+
+def matching_receipts(
+    stage: Stage, out_dir: Path, inventories: dict | None = None
+) -> dict[str, dict]:
+    """Return ``{episode_hash: receipt}`` for the chunk's uploaded episodes.
+
+    A receipt in ``<state-dir>/<chunk>.receipts.jsonl`` counts only if it
+    names this plan and manifest, the episode's exact destination and the
+    inventory its outputs have now (``inventories``, else computed).
+    """
+    inventories = dict(inventories or {})
+    found = {}
+    for entry in read_jsonl(stage.state_dir / f"{stage.name}.receipts.jsonl"):
+        rid = entry.get("recording_id")
+        name = entry.get("episode_hash")
+        if rid not in stage.chunk["ids"] or name in found:
+            continue
+        if name not in inventories:
+            inventories[name] = artifact_inventory(out_dir, name)
+        want = receipt(stage, rid, inventories[name])
+        if all(entry.get(key) == value for key, value in want.items()):
+            found[name] = entry
+    return found
 
 
 # ---------------------------------------------------------------------------
@@ -1805,7 +1840,8 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
             f"the episodes' lab is {sorted(set(map(str, labs.values()))) or [None]}, "
             f"not {LAB!r} for every episode; the folder must equal the lab"
         )
-    todo = names
+    receipts = matching_receipts(stage, out_dir, inventories)
+    todo = [n for n in names if n not in receipts]
     data, roots = upload_batches(out_dir, todo, inventories)
     batches = []
     for n, lines in ((1, data), (2, roots)):
@@ -1824,7 +1860,8 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
             batches=[str(b) for b in batches],
         )
         print(
-            f"{stage.name}: dry run; {len(todo)} episode(s) to {target}: "
+            f"{stage.name}: dry run; {len(receipts)} episode(s) already uploaded; "
+            f"{len(todo)} episode(s) to {target}: "
             f"{len(data)} array and MP4 copies in {batches[0]}, then, once those "
             f"are confirmed remotely, {len(roots)} root files in {batches[1]}. "
             "Upload with --execute --licence-approved once the leads approve "
@@ -1909,6 +1946,13 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         print(f"{stage.name}: s5cmd phase 2 failed; rerun upload to retry")
         return 1
     done = set(confirmed(ready, roots=True))
+    by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
+    with (stage.state_dir / f"{stage.name}.receipts.jsonl").open("a") as f:
+        for name in sorted(done):
+            entry = receipt(stage, by_name[name], inventories[name])
+            f.write(json.dumps({**entry, "ts": utc_now()}, sort_keys=True) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
     missing = [n for n in todo if n not in done]
     stage.ledger.write(
         stage.name,
@@ -1916,6 +1960,8 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         "fail" if missing else "ok",
         target=target,
         episodes=len(names),
+        already_uploaded=len(receipts),
+        uploaded=len(done),
         confirmed=not missing,
         missing=missing[:20],
         seconds=round(time.monotonic() - started, 1),
@@ -1925,7 +1971,8 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         f"{len(missing)} not confirmed remotely (their roots are not published "
         "unless the rest of the episode is); rerun upload to retry"
         if missing
-        else f"{stage.name}: uploaded and confirmed {len(done)} episode(s) to {target}"
+        else f"{stage.name}: uploaded and confirmed {len(done)} episode(s) to "
+        f"{target}; {len(receipts)} were already uploaded"
     )
     return 1 if missing else 0
 
@@ -1950,7 +1997,7 @@ def _protected(path: Path, root: Path) -> str | None:
 
 
 def cmd_clean(args) -> int:
-    stage = open_stage(args, manifest=False)
+    stage = open_stage(args)
     with chunk_io_lock(stage.state_dir, stage.name):
         return _clean_locked(stage, args)
 
@@ -1987,27 +2034,39 @@ def _clean_locked(stage: Stage, args) -> int:
                 break
             parent = parent.parent
 
-    out_dir = output_dir(args.work_root, stage.name)
+    out_dir = output_dir(Path(args.work_root).resolve(), stage.name)
     for partial in sorted(out_dir.glob(".*.partial")):
         freed += du(partial)
         if partial.is_dir():
             shutil.rmtree(partial)
         else:
             partial.unlink()
-    uploaded = upload_confirmed(read_ledger(stage.state_dir), stage.name)
-    outputs = "absent"
-    if out_dir.exists():
-        if uploaded or args.discard_outputs:
-            freed += du(out_dir)
-            shutil.rmtree(out_dir)
-            outputs = "deleted (uploaded)" if uploaded else "discarded"
+    outputs, uploaded = "absent", {}
+    if out_dir.exists() and args.discard_outputs:
+        freed += du(out_dir)
+        shutil.rmtree(out_dir)
+        outputs = "discarded"
+    elif out_dir.exists():
+        # Only an episode whose current outputs a receipt shows uploaded.
+        uploaded = matching_receipts(stage, out_dir)
+        for name in uploaded:
+            for kind in ("zarr", "mp4", "validation.json", "conversion.json"):
+                path = out_dir / f"{name}.{kind}"
+                freed += du(path)
+                if path.is_dir():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            out_dir.rmdir()
+        if not out_dir.exists():
+            outputs = "deleted (uploaded)"
         else:
-            outputs = "kept"
+            outputs = "partly deleted (uploaded)" if uploaded else "kept"
             logger.warning(
-                "keeping %s: the ledger shows no confirmed upload of %s (pass "
-                "--discard-outputs to delete it anyway)",
+                "keeping the outputs in %s without a matching upload receipt "
+                "(pass --discard-outputs to delete them anyway)",
                 out_dir,
-                stage.name,
             )
     stage.ledger.write(
         stage.name,
@@ -2017,6 +2076,7 @@ def _clean_locked(stage: Stage, args) -> int:
         freed=freed,
         protected=dict(kept),
         outputs=outputs,
+        uploaded_deleted=len(uploaded),
     )
     print(
         f"{stage.name}: deleted {deleted} fetched file(s); freed {gb(freed)} GB; "
@@ -2261,13 +2321,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser(
         "clean",
-        parents=[common, chunk, data, work],
+        parents=[*per_chunk, data, work],
         help="Delete a chunk's fetched inputs (and uploaded outputs).",
     )
     p.add_argument(
         "--discard-outputs",
         action="store_true",
-        help="Also delete outputs that were not uploaded.",
+        help="Also delete outputs without a matching upload receipt.",
     )
     p.add_argument("--break-lock", action="store_true")
 

@@ -851,17 +851,15 @@ def test_clean_deletes_only_fetched_episode_files(release, monkeypatch, tmp_path
     assert not out.exists() and present.is_file()
 
 
-def test_clean_deletes_outputs_after_a_confirmed_upload(release):
+def test_a_confirmed_upload_in_the_ledger_deletes_no_outputs(release):
+    """The ledger may confirm an upload of another plan, manifest or
+    destination; only matching receipts let clean delete outputs."""
     assert release.plan() == 0
     release.convert_all()
-    ledger = ingest.Ledger(release.state)
-    ledger.write("chunk_0000", "upload", "ok", confirmed=False)
+    ingest.Ledger(release.state).write("chunk_0000", "upload", "ok", confirmed=True)
     assert release.run("clean") == 0
-    assert release.out().exists()
-    ledger.write("chunk_0000", "upload", "ok", confirmed=True)
-    assert release.run("clean") == 0
-    assert not release.out().exists()
-    assert release.ledger("clean")[-1]["details"]["outputs"] == "deleted (uploaded)"
+    assert len(list(release.out().glob("*.zarr"))) == 5
+    assert release.ledger("clean")[-1]["details"]["outputs"] == "kept"
 
 
 # ---------------------------------------------------------------------------
@@ -1405,6 +1403,80 @@ def test_a_root_waits_until_the_rest_of_its_episode_is_confirmed(
     end = release.ledger("upload")[-1]
     assert end["state"] == "fail" and end["details"]["missing"] == [lost]
     assert not end["details"]["confirmed"]
+
+
+def _receipts(release) -> list[dict]:
+    path = release.state / "chunk_0000.receipts.jsonl"
+    return (
+        [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
+    )
+
+
+def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
+    release, monkeypatch
+):
+    names = _uploading(release, monkeypatch)
+    first = FakeS5cmd().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    # A rerun copies nothing again.
+    again = FakeS5cmd().install(monkeypatch)
+    again.remote = dict(first.remote)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert again.copies == []
+    assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(names)
+    assert {r["destination"] for r in _receipts(release)} == {
+        f"s3://rldb/processed_v3/sharpa_dex/{n}.zarr" for n in names
+    }
+    assert release.ledger("upload")[-1]["details"]["already_uploaded"] == 5
+    # An episode converted anew (and verified) goes up again, alone.
+    changed = names[2]
+    _grow(release.out() / f"{changed}.mp4")
+    assert release.run("verify") == 0
+    third = FakeS5cmd().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert third.copies and all(f"/{changed}." in url for url in third.copies)
+    assert release.run("clean") == 0
+    assert not release.out().exists()
+    assert release.ledger("clean")[-1]["details"]["outputs"] == "deleted (uploaded)"
+
+
+def test_clean_deletes_only_outputs_with_a_matching_receipt(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    base = "s3://rldb/processed_v3/sharpa_dex/"
+    lost = names[1]
+    FakeS5cmd(drop=[f"{base}{lost}.mp4"]).install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 1
+    entries = _receipts(release)
+    assert sorted(e["episode_hash"] for e in entries) == sorted(set(names) - {lost})
+    # Receipts of another destination or manifest, and an episode whose
+    # outputs changed since its upload, authorize nothing.
+    entries[0]["destination"] = entries[0]["destination"].replace(
+        "sharpa_dex/", "other_lab/sharpa_dex/"
+    )
+    entries[1]["manifest_sha256"] = "0" * 64
+    (release.state / "chunk_0000.receipts.jsonl").write_text(
+        "".join(json.dumps(e) + "\n" for e in entries)
+    )
+    _grow(release.out() / f"{entries[2]['episode_hash']}.mp4")
+    assert release.run("clean") == 0
+    deleted = {entries[3]["episode_hash"]}
+    for name in names:
+        for kind in ("zarr", "mp4", "validation.json", "conversion.json"):
+            assert (release.out() / f"{name}.{kind}").exists() == (name not in deleted)
+    details = release.ledger("clean")[-1]["details"]
+    assert details["outputs"] == "partly deleted (uploaded)"
+    assert details["uploaded_deleted"] == 1
+
+
+def test_receipts_of_another_plan_delete_nothing(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    FakeS5cmd().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    # Re-planned: chunk_0000 is now another set of episodes.
+    assert release.plan("--force", "--max-episodes", "4") == 0
+    assert release.run("clean") == 0
+    assert all((release.out() / f"{n}.zarr").is_dir() for n in names)
+    assert release.ledger("clean")[-1]["details"]["outputs"] == "kept"
 
 
 def _grow(path):
