@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import sys
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,25 +47,51 @@ def listing_covers_root(listing: dict | None) -> bool:
     )
 
 
-def list_episodes(client, bucket: str, prefix: str) -> list[tuple[str, str]]:
+def _list_folder(client, bucket: str, folder: str):
+    """Return ``(stores, sub-folders)`` directly under ``folder``."""
+    stores, subs = [], []
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket, Prefix=folder, Delimiter="/"):
+        for common in page.get("CommonPrefixes", []):
+            sub = common["Prefix"]
+            if sub.rstrip("/").endswith(".zarr"):
+                stores.append((sub.rstrip("/").split("/")[-1][:-5], folder))
+            else:
+                subs.append(sub)
+    return stores, subs
+
+
+def list_episodes(
+    client, bucket: str, prefix: str, workers: int = 10
+) -> list[tuple[str, str]]:
     """Return ``(episode_hash, folder)`` for every ``.zarr/`` store under ``prefix``.
 
-    Folders are listed with ``Delimiter="/"``; a common prefix ending in
-    ``.zarr/`` is an episode and is not listed further (a store holds many
-    objects). The detection matches
+    Folders are listed with ``Delimiter="/"``, ``workers`` at a time (botocore
+    keeps 10 connections); a common prefix ending in ``.zarr/`` is an episode
+    and is not listed further (a store holds many objects). A failed listing
+    raises, so the result is complete or absent. The detection matches
     ``egomimic.scripts.backfill_scripts.stage_processed_folder.find_zarr_prefixes``.
     """
-    paginator = client.get_paginator("list_objects_v2")
-    found, stack = [], [prefix]
-    while stack:
-        folder = stack.pop()
-        for page in paginator.paginate(Bucket=bucket, Prefix=folder, Delimiter="/"):
-            for common in page.get("CommonPrefixes", []):
-                sub = common["Prefix"]
-                if sub.rstrip("/").endswith(".zarr"):
-                    found.append((sub.rstrip("/").split("/")[-1][:-5], folder))
-                else:
-                    stack.append(sub)
+    found, folders = [], 0
+    pool = ThreadPoolExecutor(workers)
+    try:
+        pending = {pool.submit(_list_folder, client, bucket, prefix)}
+        while pending:
+            done, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                stores, subs = future.result()
+                found += stores
+                folders += 1
+                pending |= {pool.submit(_list_folder, client, bucket, s) for s in subs}
+                if folders % 1000 == 0:
+                    logger.info(
+                        "%d folder(s) listed, %d store(s) found, %d to list",
+                        folders,
+                        len(found),
+                        len(pending),
+                    )
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)
     return sorted(found, key=lambda pair: (pair[1], pair[0]))
 
 

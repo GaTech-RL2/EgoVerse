@@ -84,6 +84,24 @@ def test_listing_records_zarr_stores_without_descending():
     )
 
 
+def test_a_failed_folder_listing_fails_the_whole_listing():
+    class Broken(StubClient):
+        def get_paginator(self, name):
+            paginator = super().get_paginator(name)
+            plain = paginator.paginate
+
+            def paginate(**kwargs):
+                if kwargs["Prefix"] == "processed_v3/other_lab/kitchen/":
+                    raise RuntimeError("SlowDown")
+                return plain(**kwargs)
+
+            paginator.paginate = paginate
+            return paginator
+
+    with pytest.raises(RuntimeError, match="SlowDown"):
+        lister.list_episodes(Broken(), "rldb", "processed_v3/")
+
+
 def test_the_cli_writes_a_listing_that_reads_back(tmp_path, monkeypatch):
     from egomimic.utils.aws import aws_data_utils
 
