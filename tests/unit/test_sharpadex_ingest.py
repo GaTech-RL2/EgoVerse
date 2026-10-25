@@ -214,7 +214,7 @@ names = ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
          "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "PYTHONUNBUFFERED", "PYTHONPATH")
 log = {"ids": ids, "converted": converted, "argv": sys.argv[1:],
        "cpus": sorted(os.sched_getaffinity(0)),
-       "env": {k: os.environ.get(k) for k in names}}
+       "env": {k: os.environ.get(k) for k in names}, "environ": dict(os.environ)}
 Path(os.environ["STUB_LOG_DIR"], f"{os.getpid()}.json").write_text(json.dumps(log))
 sys.exit(1 if fail & set(ids) else 0)
 """
@@ -246,6 +246,96 @@ class FakeHub:
         path = Path(local_dir) / filename
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"\0" * self.sizes[filename])
+
+
+class FakeS5cmd:
+    """Stands in for ``s5cmd run`` (the driver's ``subprocess.run``).
+
+    It copies a batch's ``cp`` lines into ``remote`` (``{s3 url: size}``),
+    answers ``ls`` lines as ``s5cmd --json`` does (no ``size`` for an empty
+    object) and records each call's argv and environment. s5cmd runs a
+    batch's lines concurrently, so ``order`` may reverse them; after
+    ``die_after`` copies in all it stops, as a killed upload does.
+    """
+
+    def __init__(self, order: str = "forward", die_after: int | None = None):
+        self.order = order
+        self.die_after = die_after
+        self.remote: dict[str, int] = {}
+        self.copies: list[str] = []
+        self.calls: list[dict] = []
+
+    def __call__(self, argv, env=None, capture_output=False, text=False, **kwargs):
+        assert Path(argv[0]).name == "s5cmd" and argv[-2] == "run", argv
+        self.calls.append({"argv": list(argv), "env": dict(env or {})})
+        lines = Path(argv[-1]).read_text().splitlines()
+        if self.order == "reverse":
+            lines.reverse()
+        found, failed = [], False
+        for line in lines:
+            verb, *paths = shlex.split(line)
+            if verb == "cp":
+                for local, remote in self._expand(*paths):
+                    if (
+                        self.die_after is not None
+                        and len(self.copies) >= self.die_after
+                    ):
+                        return subprocess.CompletedProcess(argv, 1, "", "killed")
+                    self.remote[remote] = local.stat().st_size
+                    self.copies.append(remote)
+            elif verb == "ls":
+                [pattern] = paths
+                hits = sorted(
+                    k
+                    for k in self.remote
+                    if (
+                        k.startswith(pattern[:-1])
+                        if pattern.endswith("*")
+                        else k == pattern
+                    )
+                )
+                failed |= not hits
+                for key in hits:
+                    entry = {"key": key, "type": "file"}
+                    if self.remote[key]:
+                        entry["size"] = self.remote[key]
+                    found.append(json.dumps(entry))
+            else:
+                raise AssertionError(f"unexpected s5cmd line {line!r}")
+        out = "".join(f"{x}\n" for x in found)
+        return subprocess.CompletedProcess(argv, int(failed), out, "")
+
+    @staticmethod
+    def _expand(source: str, target: str):
+        if not source.endswith("/*"):
+            return [(Path(source), target)]
+        base = Path(source[:-2])
+        return [
+            (path, target + path.relative_to(base).as_posix())
+            for path in sorted(base.rglob("*"))
+            if path.is_file()
+        ]
+
+    def install(self, monkeypatch) -> FakeS5cmd:
+        monkeypatch.setattr(ingest.subprocess, "run", self)
+        monkeypatch.setattr(ingest.shutil, "which", lambda name: f"/fake/bin/{name}")
+        return self
+
+
+#: Fake credentials the upload tests put in the environment.
+SECRETS = {
+    "R2_ENDPOINT_URL": "https://r2.example.invalid",
+    "R2_ACCESS_KEY_ID": "r2-key-id-1234",
+    "R2_SECRET_ACCESS_KEY": "r2-secret-5678",
+    "AWS_ACCESS_KEY_ID": "aws-key-id-9999",
+    "AWS_SECRET_ACCESS_KEY": "aws-secret-0000",
+    "AWS_SESSION_TOKEN": "aws-session-token-1111",
+    "AWS_PROFILE": "lab-admin",
+    "HF_TOKEN": "hf_token_2222",
+    "SECRETS_ARN": "arn:aws:secretsmanager:example",
+}
+#: The values no child but s5cmd, and nothing written, may contain.
+SECRET_VALUES = [v for k, v in SECRETS.items() if k != "R2_ENDPOINT_URL"]
 
 
 class Release:
@@ -435,9 +525,12 @@ def hermetic(monkeypatch):
 
     monkeypatch.setattr(ingest, "squeue_lists", no_squeue)
     monkeypatch.delenv("SLURM_JOB_ID", raising=False)
-    for name in ("STUB_FAIL_IDS", "STUB_SLEEP", "R2_ENDPOINT_URL", "R2_ACCESS_KEY_ID"):
+    for name in ("STUB_FAIL_IDS", "STUB_SLEEP", *SECRETS):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.delenv("R2_SECRET_ACCESS_KEY", raising=False)
+    # The stub converter reads its controls from the environment.
+    stub = ("STUB_LOG_DIR", "STUB_FAIL_IDS", "STUB_SLEEP")
+    allowed = (*getattr(ingest, "CHILD_ENV", ()), *stub)
+    monkeypatch.setattr(ingest, "CHILD_ENV", allowed, raising=False)
 
 
 @pytest.fixture
@@ -863,8 +956,13 @@ def test_sigterm_stops_workers_and_a_rerun_resumes(release, monkeypatch, tmp_pat
         "--monitor-seconds",
         "0.05",
     ]
+    # The driver passes the stub's controls on, as the hermetic fixture does.
+    boot = (
+        "import sys; from egomimic.scripts.sharpa_process import sharpadex_ingest "
+        "as i; i.CHILD_ENV += ('STUB_LOG_DIR', 'STUB_SLEEP'); sys.exit(i.main())"
+    )
     driver = subprocess.Popen(
-        [sys.executable, "-m", ingest.TOOL, *argv], env=env, cwd=tmp_path
+        [sys.executable, "-c", boot, *argv], env=env, cwd=tmp_path
     )
     try:
         deadline = time.monotonic() + 120
@@ -1171,3 +1269,63 @@ def test_the_runbook_commands_parse():
         except SystemExit as exc:
             pytest.fail(f"README: {shlex.join(argv)} does not parse (exit {exc.code})")
     assert {argv[0] for argv in commands} >= {"plan", *ingest.STAGES, "status"}
+
+
+# ---------------------------------------------------------------------------
+# child environments
+# ---------------------------------------------------------------------------
+
+
+def test_converters_get_no_credentials(release, monkeypatch):
+    for name, value in SECRETS.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: set(REAL_CPUS[:1]))
+    assert release.plan() == 0
+    release.hub(monkeypatch)
+    assert release.run("fetch") == 0
+    assert release.run("convert", "--cpus-per-worker", "1") == 0
+    [run] = release.stub_runs()
+    environ = run["environ"]
+    assert not set(SECRETS) & set(environ), sorted(environ)
+    assert not [v for v in environ.values() if any(s in v for s in SECRET_VALUES)]
+    assert environ["PATH"] == os.environ["PATH"]
+    assert environ["HF_HUB_OFFLINE"] == "1"
+
+
+def test_s5cmd_gets_only_the_r2_keys_and_no_secret_is_written(
+    release, monkeypatch, capsys
+):
+    for name, value in SECRETS.items():
+        monkeypatch.setenv(name, value)
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    s5cmd = FakeS5cmd().install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert s5cmd.calls
+    for call in s5cmd.calls:
+        assert call["env"] == {
+            "PATH": os.environ["PATH"],
+            "HOME": os.environ["HOME"],
+            "AWS_ACCESS_KEY_ID": SECRETS["R2_ACCESS_KEY_ID"],
+            "AWS_SECRET_ACCESS_KEY": SECRETS["R2_SECRET_ACCESS_KEY"],
+            "AWS_DEFAULT_REGION": "auto",
+            "AWS_REGION": "auto",
+        }
+        assert not [a for a in call["argv"] if any(s in a for s in SECRET_VALUES)]
+    captured = capsys.readouterr()
+    written = [captured.out, captured.err]
+    written += [p.read_text() for p in release.state.rglob("*") if p.is_file()]
+    assert not [s for s in SECRET_VALUES if any(s in text for text in written)]
+
+
+def test_a_converter_starts_under_the_allowlisted_environment():
+    result = subprocess.run(
+        [sys.executable, "-m", ingest.CONVERTER, "--help"],
+        env=ingest.worker_env(1),
+        cwd=ingest.REPO_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]

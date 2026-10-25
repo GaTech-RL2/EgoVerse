@@ -285,6 +285,8 @@ $I status  --state-dir state/
   each pinned to its own CPUs, with `--recording-ids --skip-done --overwrite`.
   It refuses a node whose load exceeds its CPU count: oversubscribed nodes
   convert tens of times slower. `--shard i/n` lets n jobs split one chunk.
+  Workers run offline with an allowlisted environment: no R2, AWS or
+  Hugging Face credentials reach them.
 - **`fetch` and `convert`** refuse a manifest that is not collision-checked.
   `--allow-provisional-hashes` is for trial runs only.
 - **`verify`** passes an episode only if:
@@ -300,6 +302,8 @@ $I status  --state-dir state/
   `zarr.json` and MP4, so staging never sees half an episode.
   - It refuses a `--prefix` whose folder is not the stored `lab`.
   - It runs only with `--execute --licence-approved` and R2 credentials.
+    `s5cmd` gets the R2 keys, `PATH` and `HOME`, and nothing else of the
+    environment.
 - **`clean`** deletes only files `fetch` downloaded. It deletes outputs only
   after a confirmed upload.
 - The ledger `state/ledger.jsonl` (append-only) records every stage.

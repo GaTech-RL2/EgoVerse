@@ -93,6 +93,22 @@ ARRAY_GROUPS = {
     "rgb_head_right": ("images.head_right",),
     "tactile_images": ("left.obs_tactile_image", "right.obs_tactile_image"),
 }
+#: Environment variables a child process keeps; everything else, R2, AWS and
+#: Hugging Face credentials among it, is dropped.
+CHILD_ENV = (
+    "PATH",
+    "HOME",
+    "USER",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TZ",
+    "TMPDIR",
+    "LD_LIBRARY_PATH",
+    "PYTHONPATH",
+    "VIRTUAL_ENV",
+    "SLURM_CONF",
+)
 _EPISODE_FILE = re.compile(r"episode_(\d+)\.(parquet|mp4)")
 _SHARD_LOCK = re.compile(r"\.shard-(\d+)-of-(\d+)\.lock$")
 _REMOTE_ROOT = re.compile(r"([^/\s\"]+)\.zarr/zarr\.json")
@@ -123,6 +139,13 @@ def gb(nbytes: float) -> str:
     return f"{nbytes / 1e9:.1f}"
 
 
+def child_env(**extra: str) -> dict[str, str]:
+    """The ``CHILD_ENV`` variables of this process, plus ``extra``."""
+    env = {k: os.environ[k] for k in CHILD_ENV if k in os.environ}
+    env.update(extra)
+    return env
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with Path(path).open("rb") as f:
@@ -137,7 +160,7 @@ def git_sha() -> str | None:
 
     ``GIT_OPTIONAL_LOCKS=0`` keeps ``git status`` from rewriting the index.
     """
-    env = {**os.environ, "GIT_OPTIONAL_LOCKS": "0"}
+    env = child_env(GIT_OPTIONAL_LOCKS="0")
     try:
         head = subprocess.run(
             ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
@@ -934,6 +957,7 @@ def squeue_lists(job_id: str) -> bool | None:
             capture_output=True,
             text=True,
             timeout=60,
+            env=child_env(),
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -1068,8 +1092,11 @@ def release_lock(path: Path) -> None:
 
 
 def worker_env(per_worker: int) -> dict[str, str]:
-    """Environment of one converter: its thread pools sized to its CPUs."""
-    env = dict(os.environ)
+    """Environment of one converter: its thread pools sized to its CPUs.
+
+    It is offline and gets no credentials (``child_env``).
+    """
+    env = child_env()
     for name in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
         env[name] = str(per_worker)
     env.update(CUDA_VISIBLE_DEVICES="", HF_HUB_OFFLINE="1", PYTHONUNBUFFERED="1")
@@ -1646,13 +1673,14 @@ def cmd_upload(args) -> int:
     s5cmd = shutil.which("s5cmd")
     if s5cmd is None:
         raise IngestError("--execute needs s5cmd on PATH")
-    env = {
-        **os.environ,
-        "AWS_ACCESS_KEY_ID": os.environ["R2_ACCESS_KEY_ID"],
-        "AWS_SECRET_ACCESS_KEY": os.environ["R2_SECRET_ACCESS_KEY"],
-        "AWS_DEFAULT_REGION": "auto",
-        "AWS_REGION": "auto",
-    }
+    # s5cmd gets the R2 keys and nothing else of this environment.
+    env = {k: os.environ[k] for k in ("PATH", "HOME") if k in os.environ}
+    env.update(
+        AWS_ACCESS_KEY_ID=os.environ["R2_ACCESS_KEY_ID"],
+        AWS_SECRET_ACCESS_KEY=os.environ["R2_SECRET_ACCESS_KEY"],
+        AWS_DEFAULT_REGION="auto",
+        AWS_REGION="auto",
+    )
     base = [
         s5cmd,
         "--endpoint-url",
