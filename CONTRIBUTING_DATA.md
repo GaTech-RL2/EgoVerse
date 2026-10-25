@@ -405,7 +405,7 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `fps` must be the actual capture rate of `images.front_1`, and must be 30 or 60. Do not set it to a target rate if the actual rate differs.
 - `features` must have one entry per array key present in the store.
 - `vendor_recording_id` is **required**: it is how we find the raw recording again (§6.6), and with `lab` it gives the recording's ID downstream. Pass it as `ZarrWriter.create_and_write(..., vendor_recording_id=...)`; the reference converter does this from `RawEpisode.vendor_recording_id`. It must be a single path component (no `/`), with no placeholder or surrounding whitespace.
-- `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
+- `intrinsics` is **mandatory** and is a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict. The one exception is `dexmate_bimanual` (§9), whose source has no camera calibration: it may pass `intrinsics=MissingMetadata()`, stored as an explicit `null` (§6.4).
 - `extrinsics` is **either `None` or a non-empty `dict`** of 4×4 world↔cam transforms (robots key per-arm, e.g. `{"left": T, "right": T}`); egocentric human contributors omit it (`None`). `ZarrWriter.create_and_write` raises if it is anything other than `None` or a non-empty dict.
 
 #### Required metadata fields (`task_name`, `operator`, `lab`, `scene`, `objects`)
@@ -446,10 +446,11 @@ See the reference converter (§6.0) for a complete example.
 
 Do **not** hand-write these into `zarr.attrs` yourself. Pass them to `ZarrWriter.create_and_write` (or the `ZarrWriter(...)` constructor) via the `intrinsics=` / `extrinsics=` arguments; the writer serializes them into `zarr.attrs` under the `"intrinsics"` / `"extrinsics"` keys (§6.3).
 
-- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle.)
+- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle; the only exception is an uncalibrated `dexmate_bimanual` episode, below.)
 - Each value is a **3×4** K matrix: the standard 3×3 pinhole matrix with an appended **zero column** (i.e. `[K | 0]`). A bare 3×3 is rejected on the projection path — pad it with `np.hstack([K_3x3, np.zeros((3, 1))])`.
 - **Multi-camera rigs:** add one entry per camera, e.g. `{"front_1": K_front, "left_wrist": K_lw, "right_wrist": K_rw}`. The training/viz projection uses the **front-camera** entry (the key containing `front`), so make sure that one is present and correct.
 - **`extrinsics`** is **`None` or a non-empty `dict`** of 4×4 world↔cam transforms — `create_and_write` raises on anything else. **Robots** key it **per-arm**, e.g. `{"left": T_left, "right": T_right}`; egocentric **human** contributors pass `None` (omit it).
+- **No calibration (`dexmate_bimanual` only).** A Dexmate episode whose source has no camera calibration passes `intrinsics=MissingMetadata()`; the writer stores `"intrinsics": null`. The validator (§11.1) fails it unless run with `--allow-missing`, and then warns. For every other embodiment `MissingMetadata()` or `None` still raises, and a stored `null` fails validation even with `--allow-missing`. An episode with no `intrinsics` key at all always fails. Training keeps working without them (the batch gets a NaN `intrinsics` placeholder), but nothing can be projected onto the image.
 
 ```python
 import numpy as np
@@ -640,7 +641,7 @@ write_annotations(
 
 ## 9. Embodiment Identifiers
 
-The `embodiment` field in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the `lab` field (`zarr.attrs`, §6.3), never in `embodiment`. Only the robot **Eva** is a distinct non-human embodiment.
+The `embodiment` field in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the `lab` field (`zarr.attrs`, §6.3), never in `embodiment`. Each robot is its own embodiment: **Eva** and **Dexmate**.
 
 | `embodiment` string | Integer id | Description |
 |---|---|---|
@@ -650,6 +651,9 @@ The `embodiment` field in `zarr.attrs` must be exactly one of the strings below.
 | `eva_right_arm` | 4 | Eva camera + right-arm robot |
 | `eva_left_arm` | 5 | Eva camera + left-arm robot |
 | `eva_bimanual` | 6 | Eva camera + bimanual robot |
+| `dexmate_bimanual` | 8 | Dexmate robot with two Sharpa Wave dexterous hands (SharpaDex) |
+
+Ids are never renumbered (normalization stats are keyed by them); 7 is not used.
 
 If you are contributing egocentric human data, you use `human_bimanual` (or the single-arm variants) regardless of your hardware — set the `lab` field (e.g. `lab="microagi"`) to identify your source.
 
@@ -730,14 +734,15 @@ Pass the `.zarr` directories themselves, not the folder that contains them. It p
 - metadata (§6.3): `embodiment`, `total_frames`, `fps` (30 or 60), `features`, and the required metadata fields `task_name`/`operator`/`lab`/`scene`/`objects` and `vendor_recording_id`, with the same rules as `create_and_write`
 - `embodiment` is a valid identifier (§9)
 - the `<episode_hash>.zarr` name decodes to a recording start between 2015 and now (§4); a start time in seconds or nanoseconds instead of milliseconds fails
-- `intrinsics` is a non-empty `{camera_key: 3x4}` dict with a front camera; `extrinsics` is `None` or a dict of 4x4 matrices
+- `intrinsics` is a non-empty `{camera_key: 3x4}` dict with a front camera (a `dexmate_bimanual` episode may store `null`, §6.4); `extrinsics` is `None` or a dict of 4x4 matrices
 - every array has a `features` entry (and vice versa) and at least `total_frames` rows
 - required keys: `images.front_1`, `obs_head_pose` (human embodiments), plus `left`/`right.obs_ee_pose` for the arms in the embodiment
 - pose arrays are `(T, 7)` with unit quaternions; grippers `(T, 1)`; keypoints last dim 63; no NaN or inf in any of them
 - annotations are well-formed `annotation_v1` records within `[0, T]`
 - frame 0 of every JPEG key decodes to an RGB image
+- `dexmate_bimanual` only: the arm, hand and auxiliary joints, hand keypoints, tactile and `obs_head_link_pose` arrays in [`egomimic/rldb/zarr/dexmate_rules.py`](egomimic/rldb/zarr/dexmate_rules.py) are present (`cmd_hand_keypoints` is optional), have the right width and are finite; observed hand joints more than 0.26 rad past the URDF limits fail. Excursions past 0.035 rad (observed or commanded) and one-frame joint spikes are warnings.
 
-`scene` or `objects` written as `MissingMetadata()` (stored as `null`) fails the check by default; a `null` `task_name`, `operator` or `lab` always fails. `--allow-missing` downgrades it to a warning; only use it once you have confirmed the source data really has no value for that field. Episodes that pass with `--allow-missing` are accepted. From Python, `validate_episode(path)` returns a `ValidationReport` with `.errors`, `.warnings` and `.ok`.
+`scene` or `objects` written as `MissingMetadata()` (stored as `null`) fails the check by default, as do the `null` intrinsics of a `dexmate_bimanual` episode; a `null` `task_name`, `operator` or `lab` always fails. `--allow-missing` downgrades it to a warning; only use it once you have confirmed the source data really has no value for that field. Episodes that pass with `--allow-missing` are accepted. From Python, `validate_episode(path)` returns a `ValidationReport` with `.errors`, `.warnings` and `.ok`.
 
 ### 11.2 End-to-End Load Test
 
@@ -833,7 +838,7 @@ Complete every item before considering an episode ready for upload.
 - [ ] Episode hash is unique across all your deliveries.
 
 **Zarr format**
-- [ ] `obs_head_pose` is present (required for all contributors).
+- [ ] `obs_head_pose` is present (required for all human contributors; `dexmate_bimanual` stores `obs_head_link_pose` instead, §11.1).
 - [ ] `left.obs_ee_pose` and `right.obs_ee_pose` are present if hand tracking is available.
 - [ ] All `obs_ee_pose` arrays have shape `(T, 7)` and unit-norm quaternions; no sentinel (`1e9`), NaN or inf frames.
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
@@ -841,13 +846,13 @@ Complete every item before considering an episode ready for upload.
 - [ ] `fps` is 30 or 60.
 - [ ] `task_name`, `operator`, `lab`, `scene` and `objects` are set for every episode (§6.3).
 - [ ] `vendor_recording_id` names the raw recording each episode was cut from (§6.6).
-- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory**.
-- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments.
-- [ ] `python -m egomimic.rldb.zarr.validate` passes on every episode (§11.1); `--allow-missing` only for `scene` / `objects` you set to `MissingMetadata()`.
+- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory** (an uncalibrated `dexmate_bimanual` episode stores `null` instead, §6.4).
+- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments that have a camera calibration.
+- [ ] `python -m egomimic.rldb.zarr.validate` passes on every episode (§11.1); `--allow-missing` only for `scene` / `objects` (or `dexmate_bimanual` intrinsics) you set to `MissingMetadata()`.
 - [ ] A sample episode has been visually verified (§11.3).
 
 **Coordinate frames**
-- [ ] All poses are in the SLAM world frame (not head frame, not camera frame).
+- [ ] All poses are in the SLAM world frame (not head frame, not camera frame); robot embodiments, including `dexmate_bimanual`, use the robot base frame (§6.2).
 - [ ] Poses are stored as xyz + wxyz: `[tx, ty, tz, qw, qx, qy, qz]`.
 - [ ] Translation units are **meters**.
 

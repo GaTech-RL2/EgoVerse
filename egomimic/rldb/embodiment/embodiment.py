@@ -17,15 +17,18 @@ from egomimic.utils.viz_utils import (
 
 
 class EMBODIMENT(Enum):
-    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
-    # the only non-human embodiment. There is NO vendor/source notion at the
+    # All human demonstration data is one embodiment (HUMAN_*); each robot is its
+    # own embodiment (EVA_*, DEXMATE_*). There is NO vendor/source notion at the
     # embodiment level — the data source is recorded only in the SQL `lab` field.
+    # Norm-stat caches persist these ids, so never renumber a member.
     HUMAN_RIGHT_ARM = 1
     HUMAN_LEFT_ARM = 2
     HUMAN_BIMANUAL = 3
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # 7 is left free: unmerged branches use it for YAM_BIMANUAL.
+    DEXMATE_BIMANUAL = 8  # Dexmate robot with two Sharpa Wave hands
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

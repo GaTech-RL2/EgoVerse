@@ -50,6 +50,7 @@ EXPECTED = {
     "hpt_bc_flow_mecka": (None, {"human_bimanual": (20, 18)}),
     "hpt_bc_flow_scale": (None, {"human_bimanual": (20, 18)}),
     "hpt_bc_keypoints_base": (None, {"human_bimanual": (138, 138)}),
+    "hpt_bc_keypoints_dexmate": (None, {"dexmate_bimanual": (140, 140)}),
     "hpt_cotrain_enc_dec_base": (None, COTRAIN),
     "hpt_cotrain_flow_seperate_head": (None, COTRAIN),
     "hpt_cotrain_flow_shared_head": SHARED,

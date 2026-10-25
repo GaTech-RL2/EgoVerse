@@ -14,6 +14,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.zarr import dexmate_rules as dex
+from egomimic.rldb.zarr.required_metadata import MissingMetadata
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.utils.pose_utils import _matrix_to_xyzwxyz, _xyzwxyz_to_matrix
 
@@ -119,4 +121,82 @@ def write_episode(
         ],
         intrinsics={"front_1": K},
         extrinsics=extrinsics,
+    )
+
+
+def write_dexmate_episode(
+    root: Path,
+    *,
+    T: int = 48,
+    H: int = 64,
+    W: int = 64,
+    seed: int = 0,
+    wrist_cameras: bool = True,
+    intrinsics: dict | MissingMetadata = MissingMetadata(),
+    arrays: dict[str, np.ndarray | None] | None = None,
+    name: str | None = None,
+) -> Path:
+    """A dexmate_bimanual episode holding every array dexmate_rules requires,
+    plus cmd_hand_keypoints and cmd_ee_pose; held constant in time like the
+    vendor episodes above (see _pose). Hand joints sit inside the URDF limits.
+    SharpaDex has no camera calibration, so intrinsics default to
+    MissingMetadata(). ``arrays`` replaces arrays, or drops them with None.
+    Separate from write_episode so the vendor episodes stay byte-identical."""
+    rng = np.random.default_rng(seed)
+    cameras = (
+        ("front_1", "right_wrist", "left_wrist") if wrist_cameras else ("front_1",)
+    )
+    images = {
+        f"images.{c}": rng.integers(0, 255, (T, H, W, 3), dtype=np.uint8)
+        for c in cameras
+    }
+
+    def held(row: np.ndarray) -> np.ndarray:
+        return np.repeat(np.asarray(row, dtype=np.float64)[None], T, axis=0)
+
+    numeric = {
+        dex.HEAD_LINK_POSE: _pose(T, rng),
+        "obs_aux_joints": held(rng.uniform(-0.3, 0.3, dex.AUX_DOF)),
+        "cmd_aux_joints": held(rng.uniform(-0.3, 0.3, dex.AUX_DOF)),
+    }
+    for side in dex.SIDES:
+        lower, upper = np.asarray(dex.HAND_JOINT_LIMITS[side]).T
+        hand = held(lower + rng.uniform(0.2, 0.8, dex.HAND_DOF) * (upper - lower))
+        palm = _pose(T, rng)
+        keypoints = palm[:, None, :3] + rng.normal(0, 0.05, (1, 21, 3))
+        numeric.update(
+            {
+                f"{side}.obs_ee_pose": palm,
+                f"{side}.cmd_ee_pose": palm,
+                f"{side}.obs_joints": held(rng.uniform(-1, 1, dex.ARM_DOF)),
+                f"{side}.cmd_joints": held(rng.uniform(-1, 1, dex.ARM_DOF)),
+                f"{side}.obs_hand_joints": hand,
+                f"{side}.cmd_hand_joints": hand,
+                f"{side}.obs_hand_keypoints": keypoints.reshape(T, dex.KEYPOINT_DIM),
+                f"{side}.cmd_hand_keypoints": keypoints.reshape(T, dex.KEYPOINT_DIM),
+                f"{side}.obs_tactile": held(rng.normal(0, 1, dex.TACTILE_DIM)),
+            }
+        )
+    for key, value in (arrays or {}).items():
+        if value is None:
+            numeric.pop(key)
+        else:
+            numeric[key] = value
+    return ZarrWriter.create_and_write(
+        root / f"{name or f'dexmate_{seed:02d}'}.zarr",
+        numeric_data=numeric,
+        image_data=images,
+        embodiment=dex.EMBODIMENT,
+        fps=30,
+        task_name="synthetic",
+        operator="sharpa",
+        lab="synthetic",
+        scene="test_scene",
+        objects=["red_cube", "bin"],
+        vendor_recording_id=f"task__season__{seed:06d}",
+        annotations=[
+            ("pick up the red cube", 0, T // 2),
+            ("place it in the bin", T // 2, T - 1),
+        ],
+        intrinsics=intrinsics,
     )

@@ -33,7 +33,21 @@ EMBODIMENTS = (
     "eva_right_arm",
     "eva_left_arm",
     "eva_bimanual",
+    "dexmate_bimanual",
 )
+
+# Embodiments whose source has no camera calibration: their episodes may store
+# intrinsics as null, written with intrinsics=MissingMetadata() (§6.4). Every
+# other embodiment must store an intrinsics dict.
+NULL_INTRINSICS_EMBODIMENTS = ("dexmate_bimanual",)
+
+
+def null_intrinsics_allowed(embodiment: Any) -> bool:
+    """Whether ``embodiment`` may store intrinsics as null (§6.4)."""
+    return (
+        isinstance(embodiment, str)
+        and embodiment.lower() in NULL_INTRINSICS_EMBODIMENTS
+    )
 
 
 def embodiment_error(embodiment: Any) -> str | None:
@@ -93,10 +107,19 @@ def _matrix_shape(value: Any) -> tuple[int, ...] | None:
         return None
 
 
-def camera_errors(intrinsics: Any, extrinsics: Any) -> list[str]:
-    """Problems with the intrinsics / extrinsics dicts (§6.4)."""
+def camera_errors(
+    intrinsics: Any, extrinsics: Any, *, allow_null_intrinsics: bool = False
+) -> list[str]:
+    """Problems with the intrinsics / extrinsics dicts (§6.4).
+
+    ``allow_null_intrinsics`` accepts ``intrinsics=None``: pass it only after
+    checking ``null_intrinsics_allowed(embodiment)``. extrinsics are checked
+    either way.
+    """
     errors = []
-    if not isinstance(intrinsics, dict) or not intrinsics:
+    if intrinsics is None and allow_null_intrinsics:
+        pass
+    elif not isinstance(intrinsics, dict) or not intrinsics:
         errors.append(
             "intrinsics must be a non-empty {camera_key: 3x4 K matrix} dict, "
             'e.g. {"front_1": K}. See CONTRIBUTING_DATA.md §6.4.'

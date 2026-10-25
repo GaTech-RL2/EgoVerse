@@ -9,6 +9,7 @@ LOCAL_RESOLVER = "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver"
 HPT_CAMERAS = {
     "eva_bimanual": ("front_img_1", "right_wrist_img", "left_wrist_img"),
     "human_bimanual": ("front_img_1",),
+    "dexmate_bimanual": ("front_img_1", "right_wrist_img", "left_wrist_img"),
 }
 
 
@@ -43,6 +44,13 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ),
     ("scale", "hpt"): Recipe(
         "train_zarr_cartesian", "scale", "hpt_bc_flow_scale", "human_bimanual"
+    ),
+    # Keypoints in the head link frame; no Pi recipe for Dexmate.
+    ("dexmate", "hpt"): Recipe(
+        "train_zarr_dexmate_keypoints",
+        "dexmate_keypoints",
+        "hpt_bc_keypoints_dexmate",
+        "dexmate_bimanual",
     ),
     # Pi trains on the same per-vendor data configs as HPT: datasets emit one
     # camera naming and the Pi wrapper renames onto openpi's slots. The plain

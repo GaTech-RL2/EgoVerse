@@ -1,0 +1,39 @@
+# SharpaDex: a Dexmate robot with two Sharpa Wave hands (dexmate_bimanual).
+# Palm poses and MANO-layout hand keypoints are re-expressed in the head link
+# frame (obs_head_link_pose); actions_keypoints is 140 wide (quaternion palms).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  dexmate_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.dexmate.Dexmate.get_keymap
+        keymap_mode: keypoints
+        # Every SharpaDex v1.0 season has both wrist cameras. Turning this off
+        # also needs the wrist stems and encoders dropped from the model config:
+        # DDP fails on parameters that get no gradient.
+        wrist_cameras: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.dexmate.Dexmate.get_transform_list
+        mode: keypoints_headframe_quat
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'dexmate_bimanual' and row['lab'] == 'sharpa_dex'"
+    mode: total
+
+valid_datasets:
+  dexmate_bimanual: ${data.train_datasets.dexmate_bimanual}
+
+train_dataloader_params:
+  dexmate_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  dexmate_bimanual:
+    batch_size: 32
+    num_workers: 6

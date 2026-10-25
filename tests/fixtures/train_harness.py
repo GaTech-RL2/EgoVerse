@@ -12,7 +12,7 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import open_dict
 
 import egomimic.trainHydra as train_hydra
-from fixtures.synthetic_episodes import write_episode
+from fixtures.synthetic_episodes import write_dexmate_episode, write_episode
 
 # Width of the concatenated proprio the Pi wrapper hands openpi: the
 # 6D-encoded ee_pose, grip-padded to the robot 20-D layout on both.
@@ -81,7 +81,10 @@ def write_fixtures(
     data.mkdir()
     out.mkdir()
     for i in range(n):
-        write_episode(data, vendor, seed=i)
+        if vendor == "dexmate":
+            write_dexmate_episode(data, seed=i)
+        else:
+            write_episode(data, vendor, seed=i)
     return data, out, tuple(f"{vendor}_{i:02d}" for i in range(n))
 
 
