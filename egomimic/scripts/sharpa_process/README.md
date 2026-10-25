@@ -33,7 +33,9 @@ You need two inputs:
 - **A manifest**, one JSON line per release episode, after a header line
   (`sharpadex_records.read_manifest`). It decides which episodes are kept and
   gives each kept episode its UTC start and episode hash. The converter never
-  re-plans names.
+  re-plans names. The planner that writes it (`sharpadex_manifest`) and the
+  chunked ingest driver are on the branch `jmni/sharpa-ingest-tooling`, not
+  main; the v1.0 ingest's frozen manifest is kept with that run's record.
 
 ---
 
