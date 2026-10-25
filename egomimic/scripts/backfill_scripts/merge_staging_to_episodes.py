@@ -24,7 +24,10 @@ is applied as a final safety net.
 (``raw_attrs->>'license'``) instead. ``--fail-on-conflict`` exits with status 1,
 before writing anything, when any eligible-looking row's hash is already in
 app.episodes: a release whose names were planned against the table should have
-none, so a conflict means two recordings share a name.
+none, so a conflict means two recordings share a name. With ``--apply`` it then
+counts and inserts every sufficient row in one transaction, without NOT EXISTS
+or ON CONFLICT: a conflicting row (also one inserted since the preview) or an
+unexpected row count rolls the whole merge back.
 
 Usage:
     # preview (safe):
@@ -41,6 +44,7 @@ import argparse
 import re
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from egomimic.utils.aws.aws_sql import create_default_engine
 
@@ -84,6 +88,10 @@ _DERIVED_COLUMNS = [
         "ELSE NULL END",
     ),
 ]
+
+
+class _RollBack(Exception):
+    """Aborts a ``--fail-on-conflict`` merge's transaction."""
 
 
 def _ident_ok(name):
@@ -210,6 +218,10 @@ def main() -> int:
         + ["is_deleted", "is_eval", "eval_score", "eval_success"]
     )
     limit_sql = f"LIMIT {int(args.limit)}" if args.limit else ""
+    if args.fail_on_conflict:
+        return _insert_strict(
+            engine, staging, suff, insert_cols, select_cols, limit_sql
+        )
     insert_sql = text(f"""
         INSERT INTO app.episodes ({insert_cols})
         SELECT {select_cols}, FALSE, FALSE, -1, TRUE
@@ -220,6 +232,43 @@ def main() -> int:
     """)
     with engine.begin() as conn:
         result = conn.execute(insert_sql)
+    print(f"\nAPPLIED: inserted {result.rowcount} rows into app.episodes.")
+    engine.dispose()
+    return 0
+
+
+def _insert_strict(engine, staging, suff, insert_cols, select_cols, limit_sql) -> int:
+    """Insert every sufficient row in one transaction, or nothing.
+
+    Nothing suppresses a conflict, so a hash inserted into app.episodes since
+    the preview fails the insert; that, or a row count other than the one
+    counted in the same transaction, rolls the transaction back.
+    """
+    try:
+        with engine.begin() as conn:
+            expected = conn.execute(
+                text(
+                    f"SELECT COUNT(*) FROM (SELECT 1 FROM {staging} s "
+                    f"WHERE ({suff}) {limit_sql}) q"
+                )
+            ).scalar()
+            result = conn.execute(
+                text(f"""
+                INSERT INTO app.episodes ({insert_cols})
+                SELECT {select_cols}, FALSE, FALSE, -1, TRUE
+                FROM {staging} s
+                WHERE ({suff})
+                {limit_sql}
+            """)
+            )
+            if result.rowcount != expected:
+                raise _RollBack(
+                    f"inserted {result.rowcount} row(s), expected {expected}"
+                )
+    except (IntegrityError, _RollBack) as exc:
+        print(f"\nFAILED (--fail-on-conflict): {exc}; rolled back, nothing written.")
+        engine.dispose()
+        return 1
     print(f"\nAPPLIED: inserted {result.rowcount} rows into app.episodes.")
     engine.dispose()
     return 0
