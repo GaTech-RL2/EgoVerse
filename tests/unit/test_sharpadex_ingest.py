@@ -1148,3 +1148,26 @@ def test_manifest_reader_agrees_with_sharpadex_manifest(release):
     for rid, record in mine.items():
         for key, value in record.items():
             assert getattr(records[rid], key) == value
+
+
+def runbook_commands() -> list[list[str]]:
+    """The README runbook's ``$I <stage> ...`` lines, as ``sharpadex_ingest`` argv."""
+    text = Path(ingest.__file__).with_name("README.md").read_text()
+    prefix, commands = None, []
+    for line in text.replace("\\\n", " ").splitlines():
+        if line.startswith("I="):
+            words = shlex.split(shlex.split(line)[0][2:])
+            prefix = words[words.index(ingest.TOOL) + 1 :]
+        elif line.startswith("$I "):
+            commands.append([*prefix, *shlex.split(line[3:], comments=True)])
+    return commands
+
+
+def test_the_runbook_commands_parse():
+    commands = runbook_commands()
+    for argv in commands:
+        try:
+            ingest.build_parser().parse_args(argv)
+        except SystemExit as exc:
+            pytest.fail(f"README: {shlex.join(argv)} does not parse (exit {exc.code})")
+    assert {argv[0] for argv in commands} >= {"plan", *ingest.STAGES, "status"}

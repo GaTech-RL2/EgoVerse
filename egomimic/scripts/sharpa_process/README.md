@@ -260,18 +260,22 @@ names are frozen: do not rebuild the manifest. Re-check it with
 ### 2. Convert in chunks
 
 ```bash
-I="uv run python -m egomimic.scripts.sharpa_process.sharpadex_ingest --state-dir state/"
+I="uv run python -m egomimic.scripts.sharpa_process.sharpadex_ingest"
+# Options go after the subcommand.
 # Once: chunks of at most 250 GB in + out. --sizes is the Hub listing at the
 # pinned revision (path,size); output per frame comes from the pilot.
-$I plan --manifest manifest.jsonl --sizes hf_files.csv --budget-gb 250 \
-  --out-bytes-per-frame 182500 --mp4-bytes-per-episode 2.6e6
+$I plan --state-dir state/ --manifest manifest.jsonl --sizes hf_files.csv \
+  --budget-gb 250 --out-bytes-per-frame 182500 --mp4-bytes-per-episode 2.6e6
 # Per chunk, as a Slurm job (sharpadex_chunk.sbatch runs fetch, convert, verify).
-$I fetch   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
-$I convert --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
-$I verify  --chunk chunk_0000 --work-root work/
-$I upload  --chunk chunk_0000 --work-root work/   # dry run: writes s5cmd batches
-$I clean   --chunk chunk_0000 --dataset-root /data/SharpaDex-v1.0 --work-root work/
-$I status
+$I fetch   --state-dir state/ --chunk chunk_0000 \
+  --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I convert --state-dir state/ --chunk chunk_0000 \
+  --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I verify  --state-dir state/ --chunk chunk_0000 --work-root work/
+$I upload  --state-dir state/ --chunk chunk_0000 --work-root work/  # dry run
+$I clean   --state-dir state/ --chunk chunk_0000 \
+  --dataset-root /data/SharpaDex-v1.0 --work-root work/
+$I status  --state-dir state/
 ```
 
 - **`fetch`** downloads only the chunk's parquet and video files at the pinned
