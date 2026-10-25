@@ -1734,6 +1734,15 @@ def _verify_locked(stage: Stage, work_root: Path) -> int:
 # ---------------------------------------------------------------------------
 
 
+def stored_ids(path: Path) -> tuple | None:
+    """``(vendor_recording_id, source_episode_id)`` a root ``zarr.json`` names."""
+    try:
+        attrs = json.loads(Path(path).read_text())["attributes"]
+        return attrs["vendor_recording_id"], attrs["source_episode_id"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
 def uploaded_files(inventory: dict, name: str, roots: bool) -> dict[str, int]:
     """The files of a verified inventory that ``upload`` sends, by path.
 
@@ -1928,6 +1937,38 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
             )
         ]
 
+    # A root already at the destination must name the same recording (an
+    # earlier upload of it); upload never overwrites anything else.
+    by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
+    lines = [f'ls "{DESTINATION}{name}.zarr/zarr.json"' for name in todo]
+    found = remote_files(run(check, lines, listing=True).stdout) if todo else {}
+    present = [name for name in todo if f"{name}.zarr/zarr.json" in found]
+    if present:
+        local = stage.state_dir / f"{stage.name}.remote_roots"
+        local.mkdir(exist_ok=True)
+        for name in present:
+            (local / f"{name}.json").unlink(missing_ok=True)
+        lines = [
+            f'cp "{DESTINATION}{n}.zarr/zarr.json" "{local / n}.json"' for n in present
+        ]
+        run(stage.state_dir / f"{stage.name}.upload.roots.txt", lines)
+        foreign = [
+            name
+            for name in present
+            if stored_ids(local / f"{name}.json")
+            != (sharpadex_records.canonical_id(by_name[name]), by_name[name])
+        ]
+        if foreign:
+            stage.ledger.write(
+                stage.name, "upload", "fail", reason="foreign roots", foreign=foreign
+            )
+            raise IngestError(
+                f"{len(foreign)} episode(s) already have a root zarr.json at "
+                f"{DESTINATION} that does not name the same recording (or cannot "
+                f"be read), e.g. {foreign[:3]}; nothing was uploaded. Inspect "
+                "them (sharpadex_manifest --verify-frozen) before uploading"
+            )
+
     stage.ledger.write(
         stage.name,
         "upload",
@@ -1935,6 +1976,7 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         target=target,
         episodes=len(names),
         todo=len(todo),
+        resumed_over=len(present),
     )
     started = time.monotonic()
     # Arrays and MP4s first; a root goes up only once the rest of its episode
@@ -1949,7 +1991,6 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
     if root_lines:
         exits["phase2"] = run(batches[1], root_lines).returncode
     done = set(confirmed(ready, roots=True))
-    by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
     with (stage.state_dir / f"{stage.name}.receipts.jsonl").open("a") as f:
         for name in sorted(done):
             entry = receipt(stage, by_name[name], inventories[name])

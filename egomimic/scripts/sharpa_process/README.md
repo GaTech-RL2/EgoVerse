@@ -314,6 +314,10 @@ $I status  --state-dir state/
   send the store's root `zarr.json`, and it confirms that too. An interrupted
   upload therefore never leaves a root `zarr.json` without the rest of its
   episode (see *Register* for why that matters).
+  - Before copying, it looks for each episode's root `zarr.json` at the
+    destination. One that exists must name the same canonical and source ids
+    (an earlier, interrupted upload); any other, or one it cannot read, stops
+    the upload before any copy.
   - Each episode confirmed remotely gets a receipt in
     `state/<chunk>.receipts.jsonl`. It binds the plan's and the manifest's
     sha256, the episode's inventory digest and its exact destination. A rerun

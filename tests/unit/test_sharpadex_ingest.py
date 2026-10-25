@@ -281,6 +281,7 @@ class FakeS5cmd:
         #: Remote urls whose copy fails (the run then exits 1).
         self.fail = set(fail)
         self.remote: dict[str, int] = {}
+        self.data: dict[str, bytes] = {}
         self.copies: list[str] = []
         self.calls: list[dict] = []
 
@@ -293,7 +294,12 @@ class FakeS5cmd:
         found, failed = [], False
         for line in lines:
             verb, *paths = shlex.split(line)
-            if verb == "cp":
+            if verb == "cp" and paths[0].startswith("s3://"):
+                if paths[0] in self.data:
+                    Path(paths[1]).write_bytes(self.data[paths[0]])
+                else:
+                    failed = True
+            elif verb == "cp":
                 for local, remote in self._expand(*paths):
                     if (
                         self.die_after is not None
@@ -305,7 +311,7 @@ class FakeS5cmd:
                     if remote in self.fail:
                         failed = True
                         continue
-                    self.remote[remote] = local.stat().st_size
+                    self.put(remote, local.read_bytes())
                     self.copies.append(remote)
             elif verb == "ls":
                 [pattern] = paths
@@ -328,6 +334,16 @@ class FakeS5cmd:
                 raise AssertionError(f"unexpected s5cmd line {line!r}")
         out = "".join(f"{x}\n" for x in found)
         return subprocess.CompletedProcess(argv, int(failed), out, "")
+
+    def put(self, url: str, payload: bytes) -> None:
+        self.remote[url] = len(payload)
+        self.data[url] = payload
+
+    def clone(self) -> FakeS5cmd:
+        """A fresh fake holding this one's remote objects."""
+        other = FakeS5cmd()
+        other.remote, other.data = dict(self.remote), dict(self.data)
+        return other
 
     @staticmethod
     def _expand(source: str, target: str):
@@ -1431,11 +1447,40 @@ def test_a_failed_copy_costs_only_its_own_episode(release, monkeypatch):
     end = release.ledger("upload")[-1]["details"]
     assert end["missing"] == [lost] and end["s5cmd_exit"] == {"phase1": 1, "phase2": 0}
     # The rerun sends only the failed episode.
-    again = FakeS5cmd().install(monkeypatch)
-    again.remote = dict(first.remote)
+    again = first.clone().install(monkeypatch)
     assert release.run("upload", "--execute", "--licence-approved") == 0
     assert again.copies and all(f"/{lost}." in url for url in again.copies)
     assert _complete(release, again, lost)
+
+
+@pytest.mark.parametrize("stored", ["another recording", "unreadable"])
+def test_upload_never_overwrites_a_root_of_another_recording(
+    release, monkeypatch, stored
+):
+    names = _uploading(release, monkeypatch)
+    ids = release.chunk()["ids"]
+    s5cmd = FakeS5cmd().install(monkeypatch)
+    payload = b"{not json"
+    if stored == "another recording":
+        attrs = {
+            "vendor_recording_id": ingest.sharpadex_records.canonical_id(ids[0]),
+            "source_episode_id": ids[0],
+        }
+        payload = json.dumps({"attributes": attrs}).encode()
+    s5cmd.put(f"s3://rldb/processed_v3/sharpa_dex/{names[2]}.zarr/zarr.json", payload)
+    with pytest.raises(SystemExit, match="does not name the same recording"):
+        release.run("upload", "--execute", "--licence-approved")
+    assert s5cmd.copies == [] and not _receipts(release)
+
+
+def test_upload_resumes_over_a_root_of_the_same_recording(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    s5cmd = FakeS5cmd().install(monkeypatch)
+    root = (release.out() / f"{names[2]}.zarr" / "zarr.json").read_bytes()
+    s5cmd.put(f"s3://rldb/processed_v3/sharpa_dex/{names[2]}.zarr/zarr.json", root)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert all(_complete(release, s5cmd, n) for n in names)
+    assert release.ledger("upload")[-2]["details"]["resumed_over"] == 1
 
 
 def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
@@ -1445,8 +1490,7 @@ def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
     first = FakeS5cmd().install(monkeypatch)
     assert release.run("upload", "--execute", "--licence-approved") == 0
     # A rerun copies nothing again.
-    again = FakeS5cmd().install(monkeypatch)
-    again.remote = dict(first.remote)
+    again = first.clone().install(monkeypatch)
     assert release.run("upload", "--execute", "--licence-approved") == 0
     assert again.copies == []
     assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(names)
