@@ -308,8 +308,12 @@ $I status  --state-dir state/
   inventory (every store file, the MP4 and the report, with sizes, plus the
   sha256 of the root `zarr.json` and of the report), the plan's sha256 and the
   resolved `--work-root`.
-- **`upload`** writes two `s5cmd` batches: the arrays first, then each root
-  `zarr.json` and MP4, so staging never sees half an episode.
+- **`upload`** copies each verified file once, in two `s5cmd` batches. The
+  first holds every array file and the MP4s. `upload` then lists what arrived;
+  only for episodes whose files are all there at their verified sizes does it
+  send the store's root `zarr.json`, and it confirms that too. An interrupted
+  upload therefore never leaves a root `zarr.json` without the rest of its
+  episode (see *Register* for why that matters).
   - It uploads only to `s3://rldb/processed_v3/sharpa_dex/` (`--bucket` and
     `--prefix` must name exactly that), and only episodes whose stored `lab`
     is `sharpa_dex`.
@@ -336,19 +340,30 @@ The 115-episode pilot (8 workers × 4 CPUs) measured:
 
 ### 3. Register
 
-Every chunk uploads to `processed_v3/sharpa_dex/`. At the end, stage the folder
-once with `stage_processed_folder --folder sharpa_dex --no-ray`. Then run
+Every chunk uploads to `s3://rldb/processed_v3/sharpa_dex/`. When `status`
+shows every chunk's upload `ok`, stage the folder once with
+`stage_processed_folder --folder sharpa_dex --no-ray`. Then run
 `merge_staging_to_episodes --staging-table app.staging_sharpa_dex
 --fail-on-conflict --license-from-attrs`, first as a dry run, then with
 `--apply`.
 
 - `--fail-on-conflict` stops before writing if a staged hash is already in
-  `app.episodes`.
+  `app.episodes`. With `--apply` it counts and inserts in one transaction and
+  rolls back on any conflict.
 - `--license-from-attrs` copies the stored `license`.
-- The merge sets `lab` from the folder, which is why `upload` checks that the
-  folder equals the stored `lab`.
+- The merge sets `lab` from the folder, which is why `upload` writes only to
+  the `sharpa_dex` folder and only episodes whose stored `lab` is `sharpa_dex`.
 
-Never stage while an upload is running.
+Staging sees an episode as soon as any object of its `<hash>.zarr/` exists,
+but reads everything it records from the root `zarr.json`, which `upload`
+publishes last. A store without one is staged with no `embodiment`, `task` or
+`num_frames`, and the merge skips it as INSUFFICIENT. So only complete
+episodes can be merged, provided that:
+
+- the merge keeps its default `--required-columns`;
+- its dry run reports `INSUFFICIENT (skipped) : 0` (anything else is an
+  unfinished upload: finish it and stage again);
+- nobody stages while an upload is running.
 
 ---
 

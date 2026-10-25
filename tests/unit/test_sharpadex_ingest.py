@@ -268,12 +268,15 @@ class FakeS5cmd:
     answers ``ls`` lines as ``s5cmd --json`` does (no ``size`` for an empty
     object) and records each call's argv and environment. s5cmd runs a
     batch's lines concurrently, so ``order`` may reverse them; after
-    ``die_after`` copies in all it stops, as a killed upload does.
+    ``die_after`` copies in all it stops, as a killed upload does; a copy
+    to a ``drop`` url is lost without an error.
     """
 
-    def __init__(self, order: str = "forward", die_after: int | None = None):
+    def __init__(self, order: str = "forward", die_after: int | None = None, drop=()):
         self.order = order
         self.die_after = die_after
+        #: Remote urls whose copy silently does nothing.
+        self.drop = set(drop)
         self.remote: dict[str, int] = {}
         self.copies: list[str] = []
         self.calls: list[dict] = []
@@ -294,6 +297,8 @@ class FakeS5cmd:
                         and len(self.copies) >= self.die_after
                     ):
                         return subprocess.CompletedProcess(argv, 1, "", "killed")
+                    if remote in self.drop:
+                        continue
                     self.remote[remote] = local.stat().st_size
                     self.copies.append(remote)
             elif verb == "ls":
@@ -1280,9 +1285,7 @@ def test_verify_fails_a_hash_used_by_another_chunk(release):
 # ---------------------------------------------------------------------------
 
 
-def test_upload_dry_run_stages_roots_and_mp4s_last_and_gates_execute(
-    release, monkeypatch
-):
+def test_upload_dry_run_stages_roots_last_and_gates_execute(release, monkeypatch):
     assert release.plan() == 0
     with pytest.raises(SystemExit, match="run verify first"):
         release.run("upload")
@@ -1306,14 +1309,14 @@ def test_upload_dry_run_stages_roots_and_mp4s_last_and_gates_execute(
     names = [release.records[r]["episode_hash"] for r in release.chunk()["ids"]]
     phase1 = (release.state / "chunk_0000.upload.phase1.txt").read_text().splitlines()
     phase2 = (release.state / "chunk_0000.upload.phase2.txt").read_text().splitlines()
+    # One copy per verified file: arrays and MP4s first, the roots last.
+    files = [f"{a}/{f}" for a in ARRAYS for f in ("zarr.json", "c/0")]
     assert sorted(phase1) == sorted(
-        f'cp "{out}/{n}.zarr/{a}/*" "{base}/{n}.zarr/{a}/"'
-        for n in names
-        for a in ARRAYS
+        [f'cp "{out}/{n}.zarr/{f}" "{base}/{n}.zarr/{f}"' for n in names for f in files]
+        + [f'cp "{out}/{n}.mp4" "{base}/{n}.mp4"' for n in names]
     )
     assert sorted(phase2) == sorted(
-        [f'cp "{out}/{n}.zarr/zarr.json" "{base}/{n}.zarr/zarr.json"' for n in names]
-        + [f'cp "{out}/{n}.mp4" "{base}/{n}.mp4"' for n in names]
+        f'cp "{out}/{n}.zarr/zarr.json" "{base}/{n}.zarr/zarr.json"' for n in names
     )
     assert release.ledger("upload") == []
     assert release.ledger("upload_dry_run")[-1]["state"] == "ok"
@@ -1344,6 +1347,64 @@ def test_upload_goes_only_to_the_lab_folder_of_the_bucket(release, flags):
     assert release.run("upload", "--prefix", "/processed_v3/sharpa_dex/") == 0
     entry = release.ledger("upload_dry_run")[-1]["details"]
     assert entry["target"] == "s3://rldb/processed_v3/sharpa_dex/"
+
+
+def _uploading(release, monkeypatch) -> list[str]:
+    """Verify a converted chunk, set fake R2 keys; return its episode hashes."""
+    for name in ("R2_ENDPOINT_URL", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(name, SECRETS[name])
+    assert release.plan() == 0
+    release.convert_all()
+    assert release.run("verify") == 0
+    return [release.records[r]["episode_hash"] for r in release.chunk()["ids"]]
+
+
+def _complete(release, s5cmd, name) -> bool:
+    """Whether every file upload sends of ``name`` is remote, at its size."""
+    out, base = release.out(), "s3://rldb/processed_v3/sharpa_dex/"
+    sent = [p for p in out.glob(f"{name}.zarr/**/*") if p.is_file()]
+    sent.append(out / f"{name}.mp4")
+    return all(
+        s5cmd.remote.get(base + p.relative_to(out).as_posix()) == p.stat().st_size
+        for p in sent
+    )
+
+
+@pytest.mark.parametrize("order", ["forward", "reverse"])
+def test_an_interrupted_upload_never_publishes_an_incomplete_root(
+    release, monkeypatch, order
+):
+    names = _uploading(release, monkeypatch)
+    base = "s3://rldb/processed_v3/sharpa_dex/"
+    whole = FakeS5cmd(order).install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    total = len(whole.copies)
+    assert all(_complete(release, whole, n) for n in names)
+    # Killed after every possible number of copies, in either order.
+    for k in range(total):
+        s5cmd = FakeS5cmd(order, die_after=k).install(monkeypatch)
+        release.run("upload", "--execute", "--licence-approved")
+        for name in names:
+            if f"{base}{name}.zarr/zarr.json" in s5cmd.remote:
+                assert _complete(release, s5cmd, name), (k, name)
+
+
+def test_a_root_waits_until_the_rest_of_its_episode_is_confirmed(
+    release, monkeypatch, capsys
+):
+    names = _uploading(release, monkeypatch)
+    base = "s3://rldb/processed_v3/sharpa_dex/"
+    lost = names[1]
+    s5cmd = FakeS5cmd(drop=[f"{base}{lost}.mp4"]).install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 1
+    assert f"{base}{lost}.zarr/zarr.json" not in s5cmd.remote
+    for name in names:
+        if name != lost:
+            assert f"{base}{name}.zarr/zarr.json" in s5cmd.remote
+            assert _complete(release, s5cmd, name)
+    end = release.ledger("upload")[-1]
+    assert end["state"] == "fail" and end["details"]["missing"] == [lost]
+    assert not end["details"]["confirmed"]
 
 
 def _grow(path):

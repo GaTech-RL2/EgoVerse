@@ -121,7 +121,6 @@ CHILD_ENV = (
 )
 _EPISODE_FILE = re.compile(r"episode_(\d+)\.(parquet|mp4)")
 _SHARD_LOCK = re.compile(r"\.shard-(\d+)-of-(\d+)\.lock$")
-_REMOTE_ROOT = re.compile(r"([^/\s\"]+)\.zarr/zarr\.json")
 
 
 class IngestError(RuntimeError):
@@ -1696,27 +1695,53 @@ def _verify_locked(stage: Stage, work_root: Path) -> int:
 # ---------------------------------------------------------------------------
 
 
-def upload_batches(
-    out_dir: Path, hashes: list[str], bucket: str, prefix: str
-) -> tuple[list[str], list[str]]:
-    """Return the two ``s5cmd run`` batches that upload ``hashes``.
+def uploaded_files(inventory: dict, name: str, roots: bool) -> dict[str, int]:
+    """The files of a verified inventory that ``upload`` sends, by path.
 
-    Phase 1 copies each store's array folders; phase 2 copies each store's
-    root files (``zarr.json``) and its mp4, so an episode only becomes
-    visible to staging once its arrays are all up.
+    Everything but the report; without ``roots``, not the store's root files
+    either (its ``zarr.json``, which staging reads the episode from).
     """
-    base = f"s3://{bucket}/{prefix.strip('/')}"
-    phase1, phase2 = [], []
-    for name in hashes:
-        store = Path(out_dir) / f"{name}.zarr"
-        for entry in sorted(store.iterdir()):
-            remote = f"{base}/{name}.zarr/{entry.name}"
-            if entry.is_dir():
-                phase1.append(f'cp "{entry}/*" "{remote}/"')
-            else:
-                phase2.append(f'cp "{entry}" "{remote}"')
-        phase2.append(f'cp "{Path(out_dir) / name}.mp4" "{base}/{name}.mp4"')
-    return phase1, phase2
+    return {
+        rel: size
+        for rel, size in inventory["files"].items()
+        if rel != f"{name}.validation.json"
+        and (roots or rel.count("/") != 1 or not rel.startswith(f"{name}.zarr/"))
+    }
+
+
+def upload_batches(
+    out_dir: Path, names: list[str], inventories: dict[str, dict]
+) -> tuple[list[str], list[str]]:
+    """Return the two ``s5cmd run`` batches that upload ``names``.
+
+    One ``cp`` per verified file: the first batch holds the arrays and the
+    MP4s, the second the stores' root files, which ``upload`` sends only for
+    episodes whose first-batch files it has found remotely.
+    """
+    data, roots = [], []
+    for name in names:
+        rest = uploaded_files(inventories[name], name, roots=False)
+        for rel in uploaded_files(inventories[name], name, roots=True):
+            line = f'cp "{Path(out_dir) / rel}" "{DESTINATION}{rel}"'
+            (data if rel in rest else roots).append(line)
+    return data, roots
+
+
+def remote_files(listing: str) -> dict[str, int]:
+    """``{path below DESTINATION: size}`` from ``s5cmd --json ls`` output.
+
+    s5cmd omits ``size`` for an empty object.
+    """
+    found = {}
+    for line in listing.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        key = str(entry.get("key") or "") if isinstance(entry, dict) else ""
+        if key.startswith(DESTINATION):
+            found[key[len(DESTINATION) :]] = int(entry.get("size") or 0)
+    return found
 
 
 def cmd_upload(args) -> int:
@@ -1769,7 +1794,7 @@ def verified(stage: Stage, work_root: Path) -> tuple[dict, dict[str, dict]]:
 
 
 def _upload_locked(stage: Stage, args, work_root: Path) -> int:
-    report, _ = verified(stage, work_root)
+    report, inventories = verified(stage, work_root)
     out_dir = output_dir(work_root, stage.name)
     names = sorted(report["hashes"])
     # The merge script sets lab from the folder; it must be the stored one.
@@ -1780,11 +1805,10 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
             f"the episodes' lab is {sorted(set(map(str, labs.values()))) or [None]}, "
             f"not {LAB!r} for every episode; the folder must equal the lab"
         )
-    phase1, phase2 = upload_batches(
-        out_dir, names, BUCKET, DESTINATION.removeprefix(f"s3://{BUCKET}/")
-    )
+    todo = names
+    data, roots = upload_batches(out_dir, todo, inventories)
     batches = []
-    for n, lines in ((1, phase1), (2, phase2)):
+    for n, lines in ((1, data), (2, roots)):
         batch = stage.state_dir / f"{stage.name}.upload.phase{n}.txt"
         batch.write_text("".join(f"{line}\n" for line in lines))
         batches.append(batch)
@@ -1796,13 +1820,15 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
             "ok",
             target=target,
             episodes=len(names),
+            todo=len(todo),
             batches=[str(b) for b in batches],
         )
         print(
-            f"{stage.name}: dry run; {len(names)} episode(s) to {target}: "
-            f"{len(phase1)} array copies in {batches[0]}, then {len(phase2)} root "
-            f"files and mp4s in {batches[1]}. Upload with --execute "
-            "--licence-approved once the leads approve the licence."
+            f"{stage.name}: dry run; {len(todo)} episode(s) to {target}: "
+            f"{len(data)} array and MP4 copies in {batches[0]}, then, once those "
+            f"are confirmed remotely, {len(roots)} root files in {batches[1]}. "
+            "Upload with --execute --licence-approved once the leads approve "
+            "the licence."
         )
         return 0
     if not args.licence_approved:
@@ -1825,44 +1851,65 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         AWS_DEFAULT_REGION="auto",
         AWS_REGION="auto",
     )
-    base = [
-        s5cmd,
-        "--endpoint-url",
-        os.environ["R2_ENDPOINT_URL"],
-        "--numworkers",
-        str(args.numworkers),
-    ]
+    endpoint = ["--endpoint-url", os.environ["R2_ENDPOINT_URL"]]
+    workers = ["--numworkers", str(args.numworkers)]
+
+    def run(batch: Path, lines: list[str] | None = None, listing: bool = False):
+        if lines is not None:
+            batch.write_text("".join(f"{line}\n" for line in lines))
+        flags = ["--json"] if listing else []
+        return subprocess.run(
+            [s5cmd, *flags, *endpoint, *workers, "run", str(batch)],
+            env=env,
+            capture_output=listing,
+            text=True,
+        )
+
+    check = stage.state_dir / f"{stage.name}.upload.confirm.txt"
+
+    def confirmed(episodes: list[str], roots: bool) -> list[str]:
+        """The episodes whose files are all remote, at their verified sizes."""
+        if not episodes:
+            return []
+        lines = []
+        for name in episodes:
+            lines += [
+                f'ls "{DESTINATION}{name}.zarr/*"',
+                f'ls "{DESTINATION}{name}.mp4"',
+            ]
+        remote = remote_files(run(check, lines, listing=True).stdout)
+        return [
+            name
+            for name in episodes
+            if all(
+                remote.get(rel) == size
+                for rel, size in uploaded_files(inventories[name], name, roots).items()
+            )
+        ]
+
     stage.ledger.write(
-        stage.name, "upload", "start", target=target, episodes=len(names)
+        stage.name,
+        "upload",
+        "start",
+        target=target,
+        episodes=len(names),
+        todo=len(todo),
     )
     started = time.monotonic()
-    for n, batch in enumerate(batches, 1):
-        result = subprocess.run([*base, "run", str(batch)], env=env)
-        if result.returncode != 0:
-            stage.ledger.write(
-                stage.name, "upload", "fail", phase=n, exit=result.returncode
-            )
-            print(f"{stage.name}: s5cmd phase {n} failed; rerun upload to retry")
-            return 1
-    # Confirm every root zarr.json exists remotely before marking the upload.
-    check = stage.state_dir / f"{stage.name}.upload.confirm.txt"
-    check.write_text("".join(f'ls "{DESTINATION}{n}.zarr/zarr.json"\n' for n in names))
-    result = subprocess.run(
-        [base[0], "--json", *base[1:], "run", str(check)],
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-    found = set()
-    for line in result.stdout.splitlines():
-        try:
-            key = json.loads(line).get("key", "")
-        except (ValueError, AttributeError):
-            key = line
-        match = _REMOTE_ROOT.search(str(key))
-        if match:
-            found.add(match[1])
-    missing = [n for n in names if n not in found]
+    # Arrays and MP4s first; a root goes up only once the rest of its episode
+    # is confirmed, so staging never reads an incomplete episode's metadata.
+    if data and (code := run(batches[0]).returncode) != 0:
+        stage.ledger.write(stage.name, "upload", "fail", phase=1, exit=code)
+        print(f"{stage.name}: s5cmd phase 1 failed; rerun upload to retry")
+        return 1
+    ready = confirmed(todo, roots=False)
+    _, root_lines = upload_batches(out_dir, ready, inventories)
+    if root_lines and (code := run(batches[1], root_lines).returncode) != 0:
+        stage.ledger.write(stage.name, "upload", "fail", phase=2, exit=code)
+        print(f"{stage.name}: s5cmd phase 2 failed; rerun upload to retry")
+        return 1
+    done = set(confirmed(ready, roots=True))
+    missing = [n for n in todo if n not in done]
     stage.ledger.write(
         stage.name,
         "upload",
@@ -1874,8 +1921,11 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         seconds=round(time.monotonic() - started, 1),
     )
     print(
-        f"{stage.name}: uploaded {len(names)} episode(s) to {target}; "
-        f"{len(missing)} root zarr.json not found remotely"
+        f"{stage.name}: uploaded {len(done)} of {len(todo)} episode(s) to {target}; "
+        f"{len(missing)} not confirmed remotely (their roots are not published "
+        "unless the rest of the episode is); rerun upload to retry"
+        if missing
+        else f"{stage.name}: uploaded and confirmed {len(done)} episode(s) to {target}"
     )
     return 1 if missing else 0
 
