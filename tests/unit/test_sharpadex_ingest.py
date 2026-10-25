@@ -1223,6 +1223,25 @@ def test_verify_fails_a_store_that_lost_its_arrays(release):
     assert any(p.startswith("store: images.front_1") for p in report["problems"][rid])
 
 
+def test_verify_records_only_outputs_it_checked(release, monkeypatch):
+    assert release.plan() == 0
+    release.convert_all()
+    rid = release.chunk()["ids"][1]
+    name = release.records[rid]["episode_hash"]
+
+    def checked_then_replaced(store):
+        if Path(store).name == f"{name}.zarr":
+            _grow(Path(store) / "images.front_1" / "c" / "0")
+        return []
+
+    monkeypatch.setattr(ingest, "store_problems", checked_then_replaced, raising=False)
+    assert release.run("verify") == 1
+    report = json.loads((release.state / "chunk_0000.report.json").read_text())
+    assert report["problems"] == {
+        rid: ["its outputs changed while verify checked them"]
+    }
+
+
 def test_verify_runs_the_episode_validator_on_the_stores(release, monkeypatch):
     from fixtures.synthetic_episodes import write_dexmate_episode
 

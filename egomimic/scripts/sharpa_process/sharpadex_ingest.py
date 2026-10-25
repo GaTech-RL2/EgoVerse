@@ -1550,6 +1550,8 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
         if name in hashes:
             problems[rid].append(f"episode hash {name} also used by {hashes[name]}")
         hashes[name] = rid
+        # Taken again after the checks: what is recorded is what was checked.
+        before = artifact_inventory(out_dir, name)
         report = (side.get("attributes") or {}).get("conversion_report") or {}
 
         verification, found = read_report(out_dir / f"{name}.validation.json", *ids)
@@ -1615,6 +1617,8 @@ def verify_chunk(stage: Stage, out_dir: Path) -> dict:
         else:
             problems[rid].append(f"no {mp4.name} (or it is empty)")
         inventories[name] = artifact_inventory(out_dir, name)
+        if inventories[name] != before:
+            problems[rid].append("its outputs changed while verify checked them")
         frames += int(side.get("total_frames") or 0)
         seconds += float(side.get("seconds") or 0.0)
 
