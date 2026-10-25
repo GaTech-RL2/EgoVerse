@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,13 +26,14 @@ SEASON_START_NS *= 10**9
 
 @pytest.fixture(autouse=True)
 def no_real_sql(monkeypatch):
-    """Planning never reaches the real episode table; fake_sql replaces this."""
-    from egomimic.utils.aws import aws_sql
+    """Nothing reaches the real episode table or S3; fake_sql/fake_s3 replace them."""
+    from egomimic.utils.aws import aws_data_utils, aws_sql
 
     def refuse():
-        raise AssertionError("a test reached the real SQL engine")
+        raise AssertionError("a test reached the real SQL engine or S3 client")
 
     monkeypatch.setattr(aws_sql, "create_default_engine", refuse)
+    monkeypatch.setattr(aws_data_utils, "get_boto3_s3_client", refuse)
 
 
 def _state(excess: float = 0.0, seed: int = 0) -> dict:
@@ -272,7 +274,8 @@ TOWEL = f"fold_towel/{OTHER_RIG}/0"
 
 
 class FakeEngine:
-    """Stands in for ``app.episodes``, holding ``{episode_hash: lab}``."""
+    """Stands in for ``app.episodes``: ``{episode_hash: lab}`` or, with the
+    stored path, ``{episode_hash: (lab, zarr_processed_path)}``."""
 
     def __init__(self, rows: dict[str, str]):
         self.rows = rows
@@ -288,9 +291,16 @@ class FakeEngine:
         return False
 
     def execute(self, query, params):
-        assert str(query).startswith("SELECT episode_hash, lab FROM app.episodes")
+        query = str(query)
+        assert query.startswith("SELECT episode_hash, lab")
+        assert query.endswith("FROM app.episodes WHERE episode_hash = ANY(:hashes)")
+        width = 3 if "zarr_processed_path" in query else 2
         self.queries.append(sorted(params["hashes"]))
-        found = [(h, lab) for h, lab in self.rows.items() if h in params["hashes"]]
+        found = [
+            (h, *(row if isinstance(row, tuple) else (row, None)))[:width]
+            for h, row in self.rows.items()
+            if h in params["hashes"]
+        ]
         return type("Result", (), {"all": lambda self: found})()
 
     def dispose(self):
@@ -313,6 +323,50 @@ def fake_sql(monkeypatch):
         return engine
 
     return install
+
+
+class FakeS3:
+    """Serves stores' root ``zarr.json`` from ``{key: attributes}`` (a str is
+    served as is, e.g. unparsable); a missing key fails like NoSuchKey."""
+
+    def __init__(self, stores: dict):
+        self.stores = stores
+        self.gets: list[tuple[str, str]] = []
+
+    def get_object(self, Bucket, Key):
+        self.gets.append((Bucket, Key))
+        if Bucket != "rldb" or Key not in self.stores:
+            raise KeyError(f"NoSuchKey: {Bucket}/{Key}")
+        body = self.stores[Key]
+        if not isinstance(body, str):
+            body = json.dumps({"zarr_format": 3, "attributes": body})
+        return {"Body": io.BytesIO(body.encode())}
+
+
+@pytest.fixture
+def fake_s3(monkeypatch):
+    """Install a fake S3 client for the stores' stored ids."""
+    from egomimic.utils.aws import aws_data_utils
+
+    def install(stores: dict) -> FakeS3:
+        client = FakeS3(stores)
+        monkeypatch.setattr(aws_data_utils, "get_boto3_s3_client", lambda: client)
+        return client
+
+    return install
+
+
+def _ids(record) -> dict:
+    """A store's attributes naming ``record``'s recording."""
+    return {
+        "vendor_recording_id": record.vendor_recording_id,
+        "source_episode_id": record.recording_id,
+        "lab": "sharpa_dex",
+    }
+
+
+def _store(name: str, folder: str = "processed_v3/sharpa_dex/") -> str:
+    return f"{folder}{name}.zarr/zarr.json"
 
 
 def _listing(tmp_path, pairs, name="s3_hashes.tsv", prefix="processed_v3/") -> Path:
@@ -386,7 +440,7 @@ def test_a_sql_clash_re_plans_without_inflating_the_file_count(
 
 
 def test_verify_frozen_tells_own_episodes_from_foreign_clashes(
-    release, tmp_path, fake_sql, capsys
+    release, tmp_path, fake_sql, fake_s3, capsys
 ):
     _, records = _plan(release, tmp_path)
     path = tmp_path / "manifest.jsonl"
@@ -403,12 +457,20 @@ def test_verify_frozen_tells_own_episodes_from_foreign_clashes(
         code = manifest.main(["--verify-frozen", str(path), *extra])
         return code, json.loads(capsys.readouterr().out)
 
-    # Earlier ingests of this release, in SQL and in a nested own folder.
-    engine = fake_sql({a: "sharpa_dex", b: "sharpa_dex"})
+    # Earlier ingests of this release, in SQL and in a nested own folder,
+    # whose stored ids name the same recordings.
+    dest = "s3://rldb/processed_v3/sharpa_dex/"
+    rows = {n: ("sharpa_dex", f"{dest}{n}.zarr") for n in (a, b)}
+    engine = fake_sql(rows)
+    ra, rb = records[f"{DUSTPAN}/0"], records[f"{DUSTPAN}/1"]
+    nested = "processed_v3/sharpa_dex/batch_1/"
+    s3_client = fake_s3(
+        {_store(a): _ids(ra), _store(b): _ids(rb), _store(a, nested): _ids(ra)}
+    )
     s3 = _listing(
         tmp_path,
         [
-            (a, "processed_v3/sharpa_dex/batch_1/"),
+            (a, nested),
             ("2020-01-01-00-00-00-000000", "processed_v3/other_lab/"),
         ],
     )
@@ -418,9 +480,12 @@ def test_verify_frozen_tells_own_episodes_from_foreign_clashes(
     assert result["checks"] == {"sql": True, "s3": True}
     assert result["collision_check_complete"] is True
     assert engine.queries == [kept]
+    assert sorted(k for _, k in s3_client.gets) == sorted(
+        [_store(a), _store(b), _store(a, nested)]
+    )
 
     # Another lab's row, and an own name also stored in another lab's folder.
-    fake_sql({a: "sharpa_dex", b: "sharpa_dex", c: "other_lab"})
+    fake_sql({**rows, c: "other_lab"})
     s3 = _listing(
         tmp_path,
         [(a, "processed_v3/sharpa_dex/"), (b, "processed_v3/other_lab/")],
@@ -428,10 +493,12 @@ def test_verify_frozen_tells_own_episodes_from_foreign_clashes(
     )
     code, result = verify("--s3-hashes", str(s3), "--check-sql")
     assert code == 1 and not result["ok"]
-    assert result["own"] == {"sql": 2, "s3": 1} and result["foreign_clashes"] == 2
+    # b's own-lab row does not make it ours: it is also in another lab's folder.
+    assert result["own"] == {"sql": 1, "s3": 1} and result["foreign_clashes"] == 2
     examples = {e["episode_hash"]: e for e in result["foreign_examples"]}
     assert set(examples) == {b, c}
     assert examples[b]["sql_lab"] == "sharpa_dex"
+    assert examples[b]["reason"] == "stored outside s3://rldb/processed_v3/sharpa_dex/"
     assert examples[b]["s3_folders"] == ["processed_v3/other_lab/"]
     assert examples[c]["sql_lab"] == "other_lab"
     assert examples[c]["recording_id"] == TOWEL
@@ -470,6 +537,50 @@ def test_a_listing_of_another_bucket_does_not_complete_the_check(
         + ["--check-sql"]
     )
     assert json.loads(capsys.readouterr().out)["collision_check_complete"] is False
+
+
+def test_an_own_lab_name_is_ours_only_if_its_stored_ids_match(
+    release, tmp_path, fake_sql, fake_s3, capsys
+):
+    _, records = _plan(release, tmp_path)
+    path = tmp_path / "manifest.jsonl"
+    kept = sorted(
+        (r for r in records.values() if r.decision == "keep"),
+        key=lambda r: r.episode_hash,
+    )
+    (ra, _, rc, _), (a, b, c, d) = kept, [r.episode_hash for r in kept]
+    dest = "s3://rldb/processed_v3/sharpa_dex/"
+
+    def verify(*extra):
+        capsys.readouterr()
+        code = manifest.main(["--verify-frozen", str(path), *extra])
+        return code, json.loads(capsys.readouterr().out)
+
+    fake_sql(
+        {
+            a: ("sharpa_dex", f"{dest}{a}.zarr"),  # stored ids match: ours
+            b: ("sharpa_dex", f"{dest}{b}.zarr"),  # another recording's ids
+            c: "sharpa_dex",  # no stored store: unknown
+            d: ("sharpa_dex", f"s3://rldb/processed_v3/other_lab/{d}.zarr"),
+        }
+    )
+    fake_s3({_store(a): _ids(ra), _store(b): _ids(rc)})
+    code, result = verify("--check-sql")
+    assert code == 1 and not result["ok"]
+    assert result["own"] == {"sql": 1, "s3": 0} and result["foreign_clashes"] == 3
+    examples = {e["episode_hash"]: e for e in result["foreign_examples"]}
+    assert set(examples) == {b, c, d}
+    assert all("no stored record proves" in e["reason"] for e in examples.values())
+    assert examples[b]["stored_ids"] == {
+        _store(b).removesuffix("zarr.json"): [rc.vendor_recording_id, rc.recording_id]
+    }
+
+    # S3 alone: an own-folder store is ours only if it reads and matches.
+    fake_s3({_store(a): _ids(ra), _store(b): "not json", _store(c): {"lab": "x"}})
+    s3 = _listing(tmp_path, [(n, "processed_v3/sharpa_dex/") for n in (a, b, c, d)])
+    code, result = verify("--s3-hashes", str(s3))
+    assert code == 1 and result["own"] == {"sql": 0, "s3": 1}
+    assert {e["episode_hash"] for e in result["foreign_examples"]} == {b, c, d}
 
 
 def test_ids_that_break_the_contract_stop_planning(release, tmp_path):

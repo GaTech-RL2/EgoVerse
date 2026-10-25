@@ -38,7 +38,8 @@ The converter reads the manifest with ``--manifest``. A typical run::
 Once episodes are converted under a manifest's names, the manifest is frozen:
 ``--verify-frozen manifest.jsonl --s3-hashes s3_hashes.tsv --check-sql``
 re-checks its kept names without re-planning and exits 1 if another lab's
-episode uses one.
+episode uses one, or a ``sharpa_dex`` episode that its stored ids do not prove
+to be the same recording.
 """
 
 from __future__ import annotations
@@ -66,6 +67,7 @@ from egomimic.scripts.sharpa_process.existing_hashes_s3 import (
     listing_covers_root,
     read_s3_hashes,
     read_s3_listing,
+    read_store_ids,
 )
 from egomimic.scripts.sharpa_process.lerobot_reader import parse_season_name
 from egomimic.scripts.sharpa_process.sharpa_to_zarr import episode_hash
@@ -428,10 +430,10 @@ def assign_hashes(records: list[EpisodeRecord], existing: set[str] = frozenset()
         taken.add(name)
 
 
-def sql_episode_labs(candidates: list[str]) -> dict[str, str | None]:
-    """Return ``{episode_hash: lab}`` for the candidates in ``app.episodes``.
+def sql_episodes(candidates: list[str]) -> dict[str, tuple]:
+    """Return ``{episode_hash: (lab, zarr_processed_path)}`` from ``app.episodes``.
 
-    The query is read-only.
+    Only the candidates are looked up; the query is read-only.
     """
     from sqlalchemy import text
 
@@ -444,19 +446,26 @@ def sql_episode_labs(candidates: list[str]) -> dict[str, str | None]:
         with engine.connect() as conn:
             rows = conn.execute(
                 text(
-                    "SELECT episode_hash, lab FROM app.episodes "
+                    "SELECT episode_hash, lab, zarr_processed_path FROM app.episodes "
                     "WHERE episode_hash = ANY(:hashes)"
                 ),
                 {"hashes": list(candidates)},
             ).all()
     finally:
         engine.dispose()
-    return {row[0]: row[1] for row in rows}
+    return {row[0]: (row[1], row[2]) for row in rows}
 
 
 def sql_existing_hashes(candidates: list[str]) -> set[str]:
     """Return the candidates already present in ``app.episodes`` (read-only)."""
-    return set(sql_episode_labs(candidates))
+    return set(sql_episodes(candidates))
+
+
+def s3_store_ids(stores: list[str]) -> dict[str, tuple | None]:
+    """Read each ``rldb`` store's stored ids (read-only S3 GETs)."""
+    from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
+
+    return read_store_ids(get_boto3_s3_client(), BUCKET, stores)
 
 
 # ---------------------------------------------------------------------------
@@ -512,21 +521,23 @@ def verify_frozen(
     own_lab: str,
     s3_hashes: Path | None = None,
     check_sql: bool = False,
+    read_ids=s3_store_ids,
 ) -> dict:
     """Check a frozen manifest's kept names against S3 and SQL; never re-plan.
 
-    Every hit is classified on its own: a SQL row is ``own`` if its lab is
-    ``own_lab``, an S3 store if it sits under ``processed_v3/<own_lab>/``
-    (both are earlier ingests of this release). Any other hit is a foreign
-    clash, so a name that is ours in SQL but also stored in another lab's
-    folder is a clash.
+    A SQL row of another lab, or a store outside ``s3://rldb/processed_v3/
+    <own_lab>/``, is a foreign clash. A hit in our own lab is an earlier
+    ingest of the same recording only with positive evidence: the remote
+    store's root ``zarr.json`` (the stored store itself, or the one the SQL
+    row's ``zarr_processed_path`` names) holds the record's canonical and
+    source ids. A missing, unreadable or different record is a clash too.
 
     Returns:
         A JSON-ready summary; ``ok`` is false if any kept name clashes.
     """
     _, records = read_manifest(manifest)
     kept = {
-        r.episode_hash: r.recording_id
+        r.episode_hash: r
         for r in records.values()
         if r.decision == "keep" and r.episode_hash
     }
@@ -534,28 +545,50 @@ def verify_frozen(
     if s3_hashes is not None:
         listing, stored = read_s3_listing(s3_hashes)
         _warn_partial_listing(s3_hashes, listing)
-    labs = sql_episode_labs(sorted(kept)) if check_sql else {}
-    labs = {name: lab for name, lab in labs.items() if name in kept}
+    rows = sql_episodes(sorted(kept)) if check_sql else {}
+    rows = {name: row for name, row in rows.items() if name in kept}
     folders: dict[str, list[str]] = defaultdict(list)
     for name, folder in stored:
         if name in kept:
             folders[name].append(folder)
 
     own_folder = f"{S3_ROOT}{own_lab}/"
-    own_sql = {name for name, lab in labs.items() if lab == own_lab}
-    own_s3 = {
-        name
-        for name, found in folders.items()
-        if any(f.startswith(own_folder) for f in found)
-    }
-    foreign = sorted(
-        {name for name, lab in labs.items() if lab != own_lab}
-        | {
-            name
-            for name, found in folders.items()
-            if not all(f.startswith(own_folder) for f in found)
-        }
-    )
+    ours = listing is not None and listing.get("bucket") == BUCKET
+    # The remote stores whose ids must prove each own-lab hit.
+    evidence: dict[str, list[str | None]] = defaultdict(list)
+    for name, (lab, path) in rows.items():
+        if lab == own_lab:
+            path = (path or "").rstrip("/")
+            good = path.startswith(f"s3://{BUCKET}/{own_folder}")
+            good = good and path.endswith(f"/{name}.zarr")
+            key = path.removeprefix(f"s3://{BUCKET}/") + "/"
+            evidence[name].append(key if good else None)
+    for name, found in folders.items():
+        for folder in found:
+            if ours and folder.startswith(own_folder):
+                evidence[name].append(f"{folder}{name}.zarr/")
+    stores = sorted({k for keys in evidence.values() for k in keys if k})
+    ids = read_ids(stores) if stores else {}
+
+    def proven(name: str) -> bool:
+        want = (kept[name].vendor_recording_id, kept[name].recording_id)
+        return all(key and ids.get(key) == want for key in evidence[name])
+
+    reasons: dict[str, str] = {}
+    for name, found in folders.items():
+        if not ours or not all(f.startswith(own_folder) for f in found):
+            reasons[name] = "stored outside " + (
+                f"s3://{BUCKET}/{own_folder}" if ours else f"bucket {BUCKET}"
+            )
+    for name, (lab, _) in rows.items():
+        if lab != own_lab:
+            reasons.setdefault(name, f"app.episodes lab {lab!r}")
+    for name in evidence:
+        if name not in reasons and not proven(name):
+            reasons[name] = "no stored record proves it is this recording"
+    own_sql = {n for n, (lab, _) in rows.items() if lab == own_lab and n not in reasons}
+    own_s3 = {n for n in folders if n not in reasons}
+    clashes = sorted(reasons)
     return {
         "manifest": str(manifest),
         "kept_hashes": len(kept),
@@ -564,18 +597,20 @@ def verify_frozen(
         "collision_check_complete": check_sql and listing_covers_root(listing),
         "s3_listing": listing,
         "own": {"sql": len(own_sql), "s3": len(own_s3)},
-        "foreign_clashes": len(foreign),
+        "foreign_clashes": len(clashes),
         "foreign_examples": [
             {
                 "episode_hash": name,
-                "recording_id": kept[name],
-                "sql_lab": labs.get(name),
-                "in_sql": name in labs,
+                "recording_id": kept[name].recording_id,
+                "reason": reasons[name],
+                "sql_lab": rows.get(name, (None, None))[0],
+                "in_sql": name in rows,
                 "s3_folders": sorted(folders.get(name, [])),
+                "stored_ids": {k: ids.get(k) for k in evidence.get(name, []) if k},
             }
-            for name in foreign[:20]
+            for name in clashes[:20]
         ],
-        "ok": not foreign,
+        "ok": not clashes,
     }
 
 

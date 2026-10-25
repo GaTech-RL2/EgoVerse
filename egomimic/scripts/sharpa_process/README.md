@@ -255,7 +255,10 @@ The header's `collision_check_complete` is true only with `--check-sql` and an
 S3 listing that covers all of `s3://rldb/processed_v3/`. Once conversion
 starts, the names are frozen: do not rebuild the manifest. Re-check it with
 `sharpadex_manifest --verify-frozen manifest.jsonl --s3-hashes s3_hashes.tsv
---check-sql`, which exits 1 if another lab's episode uses a kept name.
+--check-sql`, which exits 1 if another lab's episode uses a kept name. A
+`sharpa_dex` episode under a kept name counts as an earlier ingest only if its
+stored root `zarr.json` (read from S3) names the same canonical and source ids;
+a missing, unreadable or different one is a clash.
 
 ### 2. Convert in chunks
 

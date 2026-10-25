@@ -132,6 +132,28 @@ def read_s3_hashes(path: Path) -> tuple[dict, dict[str, str]]:
     return header, folders
 
 
+def read_store_ids(client, bucket: str, stores) -> dict[str, tuple | None]:
+    """Return each store's ``(vendor_recording_id, source_episode_id)``.
+
+    ``stores`` are ``<...>.zarr/`` keys; the ids come from the store's root
+    ``zarr.json`` attributes (one read-only GET each). A store whose root
+    cannot be read or parsed maps to None.
+    """
+    found = {}
+    for store in stores:
+        try:
+            body = client.get_object(Bucket=bucket, Key=f"{store}zarr.json")["Body"]
+            attrs = json.loads(body.read()).get("attributes") or {}
+            found[store] = (
+                attrs.get("vendor_recording_id"),
+                attrs.get("source_episode_id"),
+            )
+        except Exception as exc:  # any failure leaves the store unproven
+            logger.warning("cannot read s3://%s/%szarr.json: %s", bucket, store, exc)
+            found[store] = None
+    return found
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m egomimic.scripts.sharpa_process.existing_hashes_s3",
