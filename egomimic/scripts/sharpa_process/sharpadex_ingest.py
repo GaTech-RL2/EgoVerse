@@ -1939,16 +1939,15 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
     started = time.monotonic()
     # Arrays and MP4s first; a root goes up only once the rest of its episode
     # is confirmed, so staging never reads an incomplete episode's metadata.
-    if data and (code := run(batches[0]).returncode) != 0:
-        stage.ledger.write(stage.name, "upload", "fail", phase=1, exit=code)
-        print(f"{stage.name}: s5cmd phase 1 failed; rerun upload to retry")
-        return 1
+    # A failed line fails s5cmd's whole run, so every episode is judged by
+    # what arrived: the others still get their roots and receipts.
+    exits = {}
+    if data:
+        exits["phase1"] = run(batches[0]).returncode
     ready = confirmed(todo, roots=False)
     _, root_lines = upload_batches(out_dir, ready, inventories)
-    if root_lines and (code := run(batches[1], root_lines).returncode) != 0:
-        stage.ledger.write(stage.name, "upload", "fail", phase=2, exit=code)
-        print(f"{stage.name}: s5cmd phase 2 failed; rerun upload to retry")
-        return 1
+    if root_lines:
+        exits["phase2"] = run(batches[1], root_lines).returncode
     done = set(confirmed(ready, roots=True))
     by_name = {stage.records[rid]["episode_hash"]: rid for rid in stage.chunk["ids"]}
     with (stage.state_dir / f"{stage.name}.receipts.jsonl").open("a") as f:
@@ -1968,12 +1967,14 @@ def _upload_locked(stage: Stage, args, work_root: Path) -> int:
         uploaded=len(done),
         confirmed=not missing,
         missing=missing[:20],
+        s5cmd_exit=exits,
         seconds=round(time.monotonic() - started, 1),
     )
     print(
         f"{stage.name}: uploaded {len(done)} of {len(todo)} episode(s) to {target}; "
-        f"{len(missing)} not confirmed remotely (their roots are not published "
-        "unless the rest of the episode is); rerun upload to retry"
+        f"{len(missing)} not confirmed remotely (s5cmd exit codes {exits}; their "
+        "roots are not published unless the rest of the episode is); rerun "
+        "upload to retry them"
         if missing
         else f"{stage.name}: uploaded and confirmed {len(done)} episode(s) to "
         f"{target}; {len(receipts)} were already uploaded"

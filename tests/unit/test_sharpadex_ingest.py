@@ -269,14 +269,17 @@ class FakeS5cmd:
     object) and records each call's argv and environment. s5cmd runs a
     batch's lines concurrently, so ``order`` may reverse them; after
     ``die_after`` copies in all it stops, as a killed upload does; a copy
-    to a ``drop`` url is lost without an error.
+    to a ``drop`` url is lost without an error, one to a ``fail`` url fails
+    the run.
     """
 
-    def __init__(self, order: str = "forward", die_after: int | None = None, drop=()):
+    def __init__(self, order="forward", die_after=None, drop=(), fail=()):
         self.order = order
         self.die_after = die_after
         #: Remote urls whose copy silently does nothing.
         self.drop = set(drop)
+        #: Remote urls whose copy fails (the run then exits 1).
+        self.fail = set(fail)
         self.remote: dict[str, int] = {}
         self.copies: list[str] = []
         self.calls: list[dict] = []
@@ -298,6 +301,9 @@ class FakeS5cmd:
                     ):
                         return subprocess.CompletedProcess(argv, 1, "", "killed")
                     if remote in self.drop:
+                        continue
+                    if remote in self.fail:
+                        failed = True
                         continue
                     self.remote[remote] = local.stat().st_size
                     self.copies.append(remote)
@@ -1410,6 +1416,26 @@ def _receipts(release) -> list[dict]:
     return (
         [json.loads(x) for x in path.read_text().splitlines()] if path.exists() else []
     )
+
+
+def test_a_failed_copy_costs_only_its_own_episode(release, monkeypatch):
+    names = _uploading(release, monkeypatch)
+    base = "s3://rldb/processed_v3/sharpa_dex/"
+    lost = names[1]
+    first = FakeS5cmd(fail=[f"{base}{lost}.mp4"]).install(monkeypatch)
+    assert release.run("upload", "--execute", "--licence-approved") == 1
+    assert f"{base}{lost}.zarr/zarr.json" not in first.remote
+    assert sorted(r["episode_hash"] for r in _receipts(release)) == sorted(
+        set(names) - {lost}
+    )
+    end = release.ledger("upload")[-1]["details"]
+    assert end["missing"] == [lost] and end["s5cmd_exit"] == {"phase1": 1, "phase2": 0}
+    # The rerun sends only the failed episode.
+    again = FakeS5cmd().install(monkeypatch)
+    again.remote = dict(first.remote)
+    assert release.run("upload", "--execute", "--licence-approved") == 0
+    assert again.copies and all(f"/{lost}." in url for url in again.copies)
+    assert _complete(release, again, lost)
 
 
 def test_upload_reruns_skip_receipted_episodes_and_clean_deletes_them(
