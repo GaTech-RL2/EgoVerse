@@ -1,7 +1,7 @@
 """Convert vendor MCAP episodes (spec 0.1, egomimic/rldb/mcap) into the Lance tables.
 
     python -m egomimic.scripts.mcap_process.mcap_to_lance --stage-to <staging> \
-        --lance <root> episode_<id>/ ...
+        --lance <root> --vendor <slug> episode_<id>/ ...
 
 Per episode: validate (any problem rejects it), check its labels against the tasks it
 will have, build one steps row per frame of the steps-clock camera, write a video per
@@ -9,7 +9,9 @@ camera, and stage the recording, its tasks and its labels for the committer
 (egomimic.scripts.lance_commit, the only writer of the tables) with
 commit.stage_delivery. Everything comes from the MCAP itself: the episode info replaces
 the SQL lookup of the Aria pilot. `--lance` is only read, to skip recordings already
-committed; their labels are staged as an annotation change instead.
+committed; their labels are staged as an annotation change instead. Deliveries are
+staged under <staging>/mcap/<vendor recording id>/ (`lance_commit --source mcap`). The
+vendor is not in the MCAP: it is who delivered it (the ingest bucket, or --vendor).
 
 The per-frame math follows aria_to_lance: nearest sample within MATCH_TOL_NS of each
 frame (a true nearest search; projectaria's helper can land one sample off), filler rows
@@ -36,6 +38,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from scipy.spatial.transform import Rotation
 
+from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import (
     ANNOTATIONS,
@@ -47,6 +50,8 @@ from egomimic.rldb.lance.timeline import build_timeline, pose_outliers
 from egomimic.rldb.mcap import schemas, spec
 from egomimic.rldb.mcap.validate import frames_in_message, validate_episode
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
+
+SOURCE = "mcap"  # staging prefix and lance_commit --source of these deliveries
 
 MATCH_TOL_NS = 50_000_000  # as aria_to_lance: further than this from a frame = missing
 IDENTITY_POSE = np.array([0, 0, 0, 1, 0, 0, 0], dtype=np.float32)  # xyz + wxyz
@@ -487,7 +492,7 @@ def _video_name(topic: str) -> str:
 # ---------------------------------------------------------------- labels
 
 
-def _label_rows(series, meta, rid: str, period: float) -> list[dict]:
+def _label_rows(series, default_source: str, rid: str, period: float) -> list[dict]:
     """/subtask-annotation as Lance annotation rows; a point becomes one frame wide."""
     rows = []
     if "/subtask-annotation" not in series:
@@ -501,7 +506,7 @@ def _label_rows(series, meta, rid: str, period: float) -> list[dict]:
             t_end_ns=int(m.end_time_unix_ns) or int(t0 + period),
             annotation_type=m.annotation_type or "language",
             text=m.data,
-            annotation_vendor=m.annotation_vendor or meta["vendor"],
+            annotation_vendor=m.annotation_source or default_source,
             quality_score=None,
             graded_by=None,
             rubric_version=None,
@@ -575,7 +580,7 @@ class Result:
 class Converted:
     delivery: commit.Delivery
     labels: list[dict]
-    vendor: str
+    label_source: str  # annotation_vendor of labels that name none: the episode's lab
     stats: dict
 
 
@@ -606,7 +611,7 @@ def convert(
     fps = round(1e9 / period, 3)
     ts, src, filler, after_gap = build_timeline(cam_t, fps=fps)
     n = len(ts)
-    rid = spec.recording_id(meta["lab"], meta["vendor-recording-id"])
+    rid = spec.recording_id(meta["lab"], meta["vendor_recording_id"])
 
     # Tasks and labels first: a label Lance would refuse rejects the episode up front.
     if "/task" in series:
@@ -615,17 +620,17 @@ def convert(
             for t0, m in zip(series["/task"].t, series["/task"].msgs)
         ]
     else:  # the episode info over the whole recording, half-open
-        objects = [o for o in meta.get("objects", "").split(",") if o]
+        objects = [o for o in (meta.get("objects") or "").split(",") if o]
         tasks = [
             (
                 int(ts[0]),
                 int(ts[-1] + period),
-                meta["task"],
-                meta["instruction"],
+                meta["task_name"],
+                meta.get("task_description"),
                 objects,
             )
         ]
-    labels = _label_rows(series, meta, rid, period)
+    labels = _label_rows(series, meta["lab"], rid, period)
     errors = _label_errors(labels, [(t0, t1) for t0, t1, *_ in tasks])
     if errors:
         raise Rejected(errors)
@@ -669,7 +674,7 @@ def convert(
         "timestamp_ns": pa.array(ts),
         "head_pose": col(head, head_valid, IDENTITY_POSE),
     }
-    joints = meta["hand-joints"].split(",")
+    joints = meta["hand_joints"].split(",")
     valid = {}
     for side in ("left", "right"):
         topic = f"/{side}-hand-keypoints"
@@ -721,7 +726,7 @@ def convert(
     intrinsics, extrinsics, videos = {}, {}, {}
     big_h, big_w = FRONT["front_1_480"]
     pre_w = big_h if _upright(extra) % 180 else big_w
-    aria = meta["lab"] == "aria"
+    aria = (calib.distortion_model or "").lower() == "fisheye624"  # Project Aria's lens
     focal = ARIA_FOCAL_480 if aria else float(calib.K[0]) * pre_w / float(calib.width)
     undistort = _undistorter(calib, extra, (big_h, big_w), focal)
     small_h, small_w = FRONT["front_1"]
@@ -773,16 +778,16 @@ def convert(
         videos[name] = out / f"{name}.mp4"
 
     # Catalog rows.
-    start_ms = int(meta["start-time-unix"])
+    start_ms = int(meta["start_time_unix"])
     recording = dict(
         recording_id=rid,
-        vendor_recording_id=meta["vendor-recording-id"],
+        vendor_recording_id=meta["vendor_recording_id"],
         lab=meta["lab"],
-        site=meta["site"],
         embodiment=embodiment,
-        rig_name=meta["rig-name"],
-        operator=meta["operator-id"],
-        scene=meta["scene"],
+        end_effector=END_EFFECTOR.HAND.value,
+        rig_name=meta["rig_name"],
+        operator=meta["operator"],
+        scene=meta.get("scene"),  # None when waived (missing_metadata)
         captured_at=datetime.datetime.fromtimestamp(
             start_ms / 1000, tz=datetime.timezone.utc
         ),
@@ -819,7 +824,7 @@ def convert(
         },
     )
     delivery = commit.Delivery(recording, task_rows, alias, steps, videos)
-    return Converted(delivery, labels, meta["vendor"], stats)
+    return Converted(delivery, labels, meta["lab"], stats)
 
 
 def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str]:
@@ -830,7 +835,7 @@ def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str
         files.append(episode / spec.ANNOTATION_FILE)
     series, cameras, meta = _read(files)
     period = float(np.median(np.diff(cameras[spec.HUMAN.step_clock].t)))
-    rows = _label_rows(series, meta, rid, period)
+    rows = _label_rows(series, meta["lab"], rid, period)
     spans = [
         (t["t_start_ns"], t["t_end_ns"])
         for t in commit._open(commit.join(root, "tasks.lance"))
@@ -840,7 +845,7 @@ def _labels_of_committed(episode: Path, root: Path, rid: str) -> tuple[list, str
     errors = _label_errors(rows, spans)
     if errors:
         raise Rejected(errors)
-    return rows, meta["vendor"]
+    return rows, meta["lab"]
 
 
 def convert_and_stage(
@@ -848,19 +853,22 @@ def convert_and_stage(
     staging,
     lance_root,
     *,
+    vendor: str,
     replace: bool = False,
+    allow_missing: bool = False,
     work_dir: Path | None = None,
     provenance: dict | None = None,
     **convert_kw,
 ) -> Result:
     """Validate, convert and stage one episode; safe to re-run. A recording already in
     `lance_root` is skipped unless `replace` (the committer then needs --replace too), but
-    its labels are staged as an annotation change (labels delivered later)."""
+    its labels are staged as an annotation change (labels delivered later). `allow_missing`
+    accepts metadata waived with missing_metadata (validate_episode's --allow-missing)."""
     from egomimic.scripts.lance_annotations import stage as stage_change
 
     res = Result(episode=str(episode))
     try:
-        v = validate_episode(Path(episode))
+        v = validate_episode(Path(episode), allow_missing=allow_missing)
     except Exception as e:
         res.status, res.error = "failed", f"{type(e).__name__}: {e}"
         return res
@@ -872,13 +880,13 @@ def convert_and_stage(
     if v.recording_id in commit.committed_ids(lance_root) and not replace:
         res.status = "skipped"
         try:
-            rows, vendor = _labels_of_committed(
+            rows, source = _labels_of_committed(
                 Path(episode), lance_root, v.recording_id
             )
         except Rejected as e:
             res.problems = e.problems
             return res
-        vendors = {vendor, *(r["annotation_vendor"] for r in rows)}
+        vendors = {source, *(r["annotation_vendor"] for r in rows)}
         changes = _label_changes(lance_root, v.recording_id, rows, vendors)
         if changes:
             with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
@@ -910,13 +918,13 @@ def convert_and_stage(
         )
         meta = {
             "label_vendors": sorted(
-                {c.vendor, *(r["annotation_vendor"] for r in c.labels)}
+                {c.label_source, *(r["annotation_vendor"] for r in c.labels)}
             ),
             "provenance": provenance,
         }
         commit.stage_delivery(
             d,
-            commit.join(staging, res.lab, d.recording["vendor_recording_id"]),
+            commit.join(staging, SOURCE, d.recording["vendor_recording_id"]),
             labels=labels,
             meta=meta,
         )
@@ -940,7 +948,15 @@ def main(argv: list[str] | None = None) -> int:
         "--lance", required=True, help="Lance root, read to skip committed recordings"
     )
     ap.add_argument(
+        "--vendor", required=True, help="who delivered these episodes (vendor slug)"
+    )
+    ap.add_argument(
         "--replace", action="store_true", help="restage committed recordings"
+    )
+    ap.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="accept metadata waived with missing_metadata",
     )
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
@@ -955,7 +971,9 @@ def main(argv: list[str] | None = None) -> int:
             ep,
             args.stage_to,
             args.lance,
+            vendor=args.vendor,
             replace=args.replace,
+            allow_missing=args.allow_missing,
             work_dir=args.work_dir,
             mano=args.mano,
             mano_iters=args.mano_iters,

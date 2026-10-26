@@ -22,8 +22,12 @@ import pytest
 lance = pytest.importorskip("lance")
 pq = pytest.importorskip("pyarrow.parquet")
 
+from egomimic.rldb.lance.schema import steps_paths  # noqa: E402
 from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
-from egomimic.scripts.mcap_process.mcap_to_lance import convert_and_stage  # noqa: E402
+from egomimic.scripts.mcap_process.mcap_to_lance import (  # noqa: E402
+    SOURCE,
+    convert_and_stage,
+)
 
 
 def _codec() -> str:
@@ -46,11 +50,19 @@ def test_real_episodes_convert_and_match_aria_to_lance(tmp_path):
     codec = _codec()
     for ep in eps:
         r = convert_and_stage(
-            ep, tmp_path / "staging", tmp_path / "lance", codec=codec, mano=False
+            ep,
+            tmp_path / "staging",
+            tmp_path / "lance",
+            vendor="test",
+            codec=codec,
+            mano=False,
         )
         assert r.status == "staged", r
         commit_staged(
-            str(tmp_path / "staging"), r.lab, str(tmp_path / "lance"), tmp_path / "work"
+            str(tmp_path / "staging"),
+            SOURCE,
+            str(tmp_path / "lance"),
+            tmp_path / "work",
         )
         assert r.valid_frac["head"] > 0.9, r
         if not ryan_root:
@@ -58,8 +70,12 @@ def test_real_episodes_convert_and_match_aria_to_lance(tmp_path):
         ryan = Path(ryan_root) / ep.name.removeprefix("episode_")
         if not (ryan / "steps.parquet").exists():
             continue
+        rec = lance.dataset(tmp_path / "lance" / "recordings.lance").to_table(
+            filter=f"recording_id = '{r.recording_id}'"
+        )
+        (path,) = steps_paths(rec)
         ours = (
-            lance.dataset(tmp_path / "lance" / "steps" / f"{r.lab}.lance")
+            lance.dataset(tmp_path / "lance" / path)
             .to_table(filter=f"recording_id = '{r.recording_id}'")
             .to_pydict()
         )

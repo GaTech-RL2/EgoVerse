@@ -272,10 +272,11 @@ then decodes all of it and rejects an episode where any message is not exactly o
 
 ## 10. Where each Lance field comes from
 
-`python -m egomimic.scripts.mcap_process.mcap_to_lance --stage-to <staging> --lance <root> episode_<id>/...`
-validates each episode, converts it and stages it for the committer
-(`egomimic.scripts.lance_commit`, the only writer of the tables; `convert_and_stage` is the
-same per episode, for a pipeline to call). Lance times stay absolute Unix ns, as delivered.
+`python -m egomimic.scripts.mcap_process.mcap_to_lance --stage-to <staging> --lance <root> --vendor <slug> episode_<id>/...`
+validates each episode, converts it and stages it under `<staging>/mcap/` for the committer
+(`egomimic.scripts.lance_commit --source mcap`, the only writer of the tables;
+`convert_and_stage` is the same per episode, for a pipeline to call). Lance times stay
+absolute Unix ns, as delivered.
 
 | Lance | MCAP |
 |---|---|

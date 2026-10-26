@@ -49,6 +49,7 @@ def land(tmp_path, ep, replace=False, convert=None):
         ep,
         tmp_path / "staging",
         tmp_path / "lance",
+        vendor="acme",
         codec="libx264",
         mano=False,
         replace=replace,
@@ -66,16 +67,26 @@ def table(tmp_path, name):
     return lance.dataset(tmp_path / "lance" / name).to_table().to_pylist()
 
 
+def steps_rows(tmp_path, embodiment="*"):
+    """Rows of the one steps table (steps/<lab>/<embodiment>/<end_effector>.lance)."""
+    (path,) = (tmp_path / "lance" / "steps").glob(f"*/{embodiment}/*.lance")
+    return table(tmp_path, path.relative_to(tmp_path / "lance"))
+
+
 def test_episode_lands_in_every_table(tmp_path):
     r = run(tmp_path)
     assert r.status == "staged" and r.problems == []
-    assert r.recording_id == spec.recording_id("aria", "acme-rec-0")
+    assert r.recording_id == spec.recording_id("rl2", "acme-rec-0")
     assert (r.num_frames, r.tasks, r.annotations_staged) == (60, 2, 2)
     assert r.valid_frac == {"head": 1.0, "left": 1.0, "right": 1.0}
 
     (rec,) = table(tmp_path, "recordings.lance")
-    assert (rec["lab"], rec["site"], rec["license"]) == ("aria", "rl2", "CC-BY-4.0")
-    assert rec["operator"] == "ab" * 32 and rec["num_frames"] == 60
+    assert (rec["lab"], rec["end_effector"], rec["license"]) == (
+        "rl2",
+        "hand",
+        "CC-BY-4.0",
+    )
+    assert rec["operator"] == "op_7" and rec["num_frames"] == 60
     assert int(rec["captured_at"].timestamp() * 1000) == T0 // 10**6
     assert {k for k, _ in rec["video_path"]} == {"front_1", "front_1_480"}
 
@@ -84,18 +95,17 @@ def test_episode_lands_in_every_table(tmp_path):
     assert tasks[0]["t_start_ns"] == T0 and tasks[1]["objects"] == ["shirt", "basket"]
     labels = table(tmp_path, "annotations.lance")
     assert {a["text"] for a in labels} == {"pick up the shirt", "drop it in the basket"}
-    assert {a["annotation_vendor"] for a in labels} == {"acme"}
+    # annotation_source when given, else the episode's lab.
+    assert {a["annotation_vendor"] for a in labels} == {"acme", "rl2"}
     point = next(a for a in labels if a["text"] == "drop it in the basket")
     assert 0 < point["t_end_ns"] - point["t_start_ns"] <= 34_000_000  # one frame wide
     (alias,) = table(tmp_path, "aliases.lance")
     assert alias["recording_id"] == r.recording_id
     # Half-open: the alias covers the last frame.
-    assert alias["t_end_ns"] > max(
-        s["timestamp_ns"] for s in table(tmp_path, "steps/aria.lance")
-    )
-    assert commit.list_files(tmp_path / "staging" / "aria") == {}
+    assert alias["t_end_ns"] > max(s["timestamp_ns"] for s in steps_rows(tmp_path))
+    assert commit.list_files(tmp_path / "staging" / "mcap") == {}
 
-    steps = table(tmp_path, "steps/aria.lance")
+    steps = steps_rows(tmp_path)
     ts = np.array([s["timestamp_ns"] for s in steps])
     assert ts[0] == T0 and (np.diff(ts) > 0).all()  # absolute Unix ns
     # Head pose = world->head (x drifts 1 mm/frame, z 1.5) @ head->camera (z + 0.1).
@@ -122,7 +132,7 @@ def test_rerun_skips_and_replace_keeps_one_copy(tmp_path):
     assert len(table(tmp_path, "recordings.lance")) == 1
     assert len(table(tmp_path, "tasks.lance")) == 2
     assert len(table(tmp_path, "annotations.lance")) == 2
-    assert len(table(tmp_path, "steps/aria.lance")) == 60
+    assert len(steps_rows(tmp_path)) == 60
 
 
 def test_replace_drops_the_vendors_removed_labels(tmp_path):
@@ -130,7 +140,11 @@ def test_replace_drops_the_vendors_removed_labels(tmp_path):
     write_mcap_episode(tmp_path / "eps", labels_in=None)  # re-export without labels
     r = land(tmp_path, tmp_path / "eps" / "episode_0", replace=True)
     assert r.status == "staged"
-    assert table(tmp_path, "annotations.lance") == []
+    # A delivery is authoritative for its lab's labels and the sources it names: the
+    # lab's label goes, the one acme wrote stays (this delivery names no acme labels).
+    assert [a["annotation_vendor"] for a in table(tmp_path, "annotations.lance")] == [
+        "acme"
+    ]
     # Without /task the episode info is one task over the whole recording.
     (task,) = table(tmp_path, "tasks.lance")
     assert task["task_name"] == "fold_clothes" and task["t_start_ns"] == T0
@@ -139,7 +153,7 @@ def test_replace_drops_the_vendors_removed_labels(tmp_path):
 def test_dropped_frame_becomes_an_invalid_filler_row(tmp_path):
     r = run(tmp_path, drop_video_frame=11)
     assert (r.num_frames, r.filler_frames) == (60, 1)
-    steps = table(tmp_path, "steps/aria.lance")
+    steps = steps_rows(tmp_path)
     filler = steps[11]
     assert not (
         filler["head_pose_valid"] or filler["left_valid"] or filler["right_valid"]
@@ -156,7 +170,7 @@ def test_single_arm_and_wrist_only_hands(tmp_path):
     assert r.valid_frac["left"] == 1.0
     steps = [
         s
-        for s in table(tmp_path, "steps/aria.lance")
+        for s in steps_rows(tmp_path, "human_bimanual")
         if s["recording_id"] == r.recording_id
     ]
     assert steps[0]["left"]["ee_pose"] == steps[0]["left"]["wrist_pose"]
@@ -164,7 +178,7 @@ def test_single_arm_and_wrist_only_hands(tmp_path):
 
 def test_upright_rotation_turns_the_head_pose(tmp_path):
     run(tmp_path, upright_rotation_cw_deg=90)
-    (s,) = [x for x in table(tmp_path, "steps/aria.lance")][5:6]
+    (s,) = [x for x in steps_rows(tmp_path)][5:6]
     # Rz(-90 deg) as wxyz, as aria_utils.ROTATION_MATRIX for Aria's sideways sensor.
     np.testing.assert_allclose(
         np.abs(s["head_pose"][3:]), [np.sqrt(0.5), 0, 0, np.sqrt(0.5)], atol=1e-5
@@ -186,7 +200,7 @@ def test_robot_episodes_wait_for_a_steps_schema(tmp_path):
 def test_hands_need_a_usable_head_pose(tmp_path):
     # Hands given in the head frame are placed with the head pose: lost head -> invalid.
     r = run(tmp_path, hand_frame="head", head_lost_from_s=1.0)
-    steps = table(tmp_path, "steps/aria.lance")
+    steps = steps_rows(tmp_path)
     late = [s for s in steps if s["timestamp_ns"] >= T0 + 1_100_000_000]
     assert late and not any(s["head_pose_valid"] or s["left_valid"] for s in late)
     assert r.valid_frac["left"] == pytest.approx(r.valid_frac["head"], abs=0.02)
@@ -197,7 +211,7 @@ def test_hands_need_a_usable_head_pose(tmp_path):
 
 def test_gaze_beyond_the_match_window_is_invalid(tmp_path):
     run(tmp_path, gaze_until_s=1.5)
-    steps = table(tmp_path, "steps/aria.lance")
+    steps = steps_rows(tmp_path)
     late = [s for s in steps if s["timestamp_ns"] > T0 + 1_600_000_000]
     early = [s for s in steps if s["timestamp_ns"] < T0 + 1_400_000_000]
     assert late and all(s["eye_gaze"] == [0, 0, 0] for s in late)
@@ -222,6 +236,8 @@ def test_cli_keeps_going_past_a_failed_episode(tmp_path, capsys):
         str(tmp_path / "staging"),
         "--lance",
         str(tmp_path / "lance"),
+        "--vendor",
+        "acme",
         "--codec",
         "libx264",
         "--no-mano",
@@ -257,7 +273,7 @@ def test_non_aria_sources_keep_their_field_of_view(tmp_path):
     (rec,) = table(tmp_path, "recordings.lance")
     # f = 50 px at 64 px wide -> 500 px at 640 wide; Aria would use 266.5.
     assert dict(rec["intrinsics"])["front_1_480"][0] == pytest.approx(500)
-    assert len(table(tmp_path, "steps/mecka.lance")) == 60
+    assert len(steps_rows(tmp_path)) == 60
 
 
 def test_labels_lance_would_refuse_reject_before_any_commit(tmp_path, monkeypatch):
@@ -271,7 +287,7 @@ def test_labels_lance_would_refuse_reject_before_any_commit(tmp_path, monkeypatc
     ep = write_mcap_episode(tmp_path / "eps", tamper=late_point)
     # Even if a validator let it through, the converter checks before committing.
     monkeypatch.setattr(
-        m, "validate_episode", lambda e: Result("human_bimanual", "x", [])
+        m, "validate_episode", lambda e, **kw: Result("human_bimanual", "x", [])
     )
     r = land(tmp_path, ep, convert=m.convert_and_stage)
     assert r.status == "rejected" and "not inside any task" in r.problems[0]
@@ -288,6 +304,6 @@ def test_labels_delivered_after_the_commit_are_picked_up(tmp_path):
     (row,) = [
         c
         for c in table(tmp_path, "changes.lance")
-        if c["lab"] == "annotations" and c["added"]
+        if c["source"] == "annotations" and c["added"]
     ]
     assert row["operator"] == "acme delivery"

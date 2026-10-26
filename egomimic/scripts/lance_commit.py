@@ -47,6 +47,7 @@ from egomimic.utils.aws.aws_sql import (
 
 REJECTED = "REJECTED.json"
 ANNOTATIONS = "annotations"
+MCAP = "mcap"  # vendor MCAP deliveries (mcap_to_lance.SOURCE), self-describing
 
 
 def sql_rows(hashes: list[str]) -> pd.DataFrame:
@@ -438,7 +439,9 @@ def main():
         required=True,
         help="staging root (s3:// or local); deliveries are under <staging>/<source>/<vendor id>/",
     )
-    ap.add_argument("--source", choices=sorted([*LOADERS, ANNOTATIONS]), required=True)
+    ap.add_argument(
+        "--source", choices=sorted([*LOADERS, MCAP, ANNOTATIONS]), required=True
+    )
     ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
     ap.add_argument(
         "--work-dir",
