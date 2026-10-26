@@ -4,7 +4,7 @@
 
 The pass converts and hands off deliveries (egomimic/ingest/watch.py); the committer
 (egomimic/scripts/lance_commit.py, the only Lance writer) then commits whatever is staged,
-one lab at a time and annotation changes last. A STOP file in --work ends the loop after
+one source at a time and annotation changes last. A STOP file in --work ends the loop after
 the current round; --once runs a single round.
 """
 
@@ -19,15 +19,15 @@ from egomimic.ingest.watch import Busy, add_pass_args, pass_from_args
 
 
 def commit_round(lance_staging: str, lance_root: str, work) -> dict:
-    """lance_commit over every lab with staged work, annotations last."""
+    """lance_commit over every source with staged work, annotations last."""
     from egomimic.rldb.lance import commit
     from egomimic.scripts.lance_commit import ANNOTATIONS, commit_staged
 
-    labs = sorted(commit.list_dirs(lance_staging), key=lambda lab: lab == ANNOTATIONS)
+    sources = sorted(commit.list_dirs(lance_staging), key=lambda s: s == ANNOTATIONS)
     out = {}
-    for lab in labs:
-        report = commit_staged(lance_staging, lab, lance_root, work / "commit")
-        out[lab] = {
+    for source in sources:
+        report = commit_staged(lance_staging, source, lance_root, work / "commit")
+        out[source] = {
             "tags": [b["tag"] for b in report["batches"]],
             "rejected": sorted(report["rejected"]),
         }

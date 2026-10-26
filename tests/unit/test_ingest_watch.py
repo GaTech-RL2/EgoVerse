@@ -91,7 +91,7 @@ def test_a_delivery_is_staged_then_handed_to_the_committer_on_approval(env):
     )
     raw = env.raw / "acme" / "episode_0001" / st["stage"]
     assert (raw / "episode.mcap").is_file()
-    meta = json.loads((env.staging / "aria" / "acme-rec-0" / "meta.json").read_text())
+    meta = json.loads((env.staging / "mcap" / "acme-rec-0" / "meta.json").read_text())
     assert meta["provenance"]["stage"] == st["stage"]
     assert meta["provenance"]["raw"] == str(raw)
 
@@ -101,7 +101,7 @@ def test_a_delivery_is_staged_then_handed_to_the_committer_on_approval(env):
     (rec,) = env.rows("recordings.lance")
     assert rec["recording_id"] == st["recording_id"]
     assert len(env.rows("annotations.lance")) == 2
-    (change,) = [c for c in env.rows("changes.lance") if c["lab"] == "aria"]
+    (change,) = [c for c in env.rows("changes.lance") if c["source"] == "mcap"]
     prov = json.loads(change["provenance"])[st["recording_id"]]
     assert prov["stage"] == st["stage"] and prov["settings"]["codec"] == "libx264"
     assert prov["converter"]["revision"] not in ("", "unknown")
@@ -193,10 +193,9 @@ def test_restaging_a_committed_recording_waits_for_replace(env):
     env.run()
     st = env.status(A)
     assert st["state"] == "ready" and st["diff"]["action"] == "replace"
-    assert st["diff"]["labels"]["removed"] == [
-        "drop it in the basket",
-        "pick up the shirt",
-    ]
+    # A delivery speaks for its lab's labels and the sources it names: the label acme
+    # wrote ("pick up the shirt") is not withdrawn by a delivery that names no acme labels.
+    assert st["diff"]["labels"]["removed"] == ["drop it in the basket"]
     env.approve(A)
     env.run()
     env.commit()
@@ -206,8 +205,8 @@ def test_restaging_a_committed_recording_waits_for_replace(env):
 
     from egomimic.scripts.lance_commit import commit_staged
 
-    commit_staged(str(env.staging), "aria", str(env.root), env.work, replace=True)
-    assert env.rows("annotations.lance") == []
+    commit_staged(str(env.staging), "mcap", str(env.root), env.work, replace=True)
+    assert [a["text"] for a in env.rows("annotations.lance")] == ["pick up the shirt"]
 
 
 def test_one_failing_delivery_does_not_stop_the_pass(env, monkeypatch):

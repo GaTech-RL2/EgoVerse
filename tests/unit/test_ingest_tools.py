@@ -152,6 +152,6 @@ def test_the_loop_runs_a_pass_then_the_committer(tmp_path, capsys):
     run.main(args)  # hands off, then commits
     rounds = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     assert rounds[-1]["pass"]["approved"] == ["acme/episode_0001"]
-    assert rounds[-1]["commit"]["aria"]["tags"][0].startswith("aria-")
+    assert rounds[-1]["commit"]["mcap"]["tags"][0].startswith("mcap-")
     run.main(args)
     assert store.get_status(a)["state"] == "committed"

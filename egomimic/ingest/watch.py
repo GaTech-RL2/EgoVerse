@@ -10,7 +10,7 @@ Each pass:
    `canary` of its deliveries at a time (the rest wait as `queued`).
 3. Act on staff decisions given for a delivery's current stage: decline drops the stage;
    approve hands it off. The raw files go to <raw_root>/<vendor>/<delivery>/<stage>/ and
-   the staged delivery to <lance_staging>/<lab>/<vendor recording id>/ (meta.json last,
+   the staged delivery to <lance_staging>/<source>/<vendor recording id>/ (meta.json last,
    carrying the provenance), both copied server-side; then the delivery and its stage
    are deleted from the ingest buckets.
 4. Follow handed-off deliveries: `committed` once the committer took them, or
@@ -194,7 +194,7 @@ def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> 
     raw = commit.join(raw_root, ref.vendor, ref.delivery_id, digest)
     for name in current.files:
         store.copy_out(ref.file_key(name), commit.join(raw, name))
-    dst = commit.join(lance_staging, pin["lab"], pin["vendor_recording_id"])
+    dst = commit.join(lance_staging, pin["source"], pin["vendor_recording_id"])
     for name in pin["files"]:
         if name != META:
             store.copy_out(ref.staged_prefix(digest) + name, commit.join(dst, name))

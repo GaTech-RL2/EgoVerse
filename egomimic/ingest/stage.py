@@ -130,7 +130,6 @@ def diff(root, converted) -> dict:
 
     d = converted.delivery
     rid = d.recording_id
-    lab = d.recording["lab"]
     old = next(iter(_rows(root, "recordings.lance", rid)), None)
     old_tasks = (
         {t["task_instance_id"]: t for t in _rows(root, "tasks.lance", rid)}
@@ -144,7 +143,7 @@ def diff(root, converted) -> dict:
         return any(a.get(k) != b.get(k) for k in keys)
 
     old_valid = None
-    steps_uri = commit.steps_uri(root, lab)
+    steps_uri = commit.steps_uri(root, *d.steps_key)
     if old and commit._exists(steps_uri):
         cols = ["head_pose_valid", "left_valid", "right_valid"]
         t = commit._open(steps_uri).to_table(
@@ -166,7 +165,10 @@ def diff(root, converted) -> dict:
     )
     have = {r["annotation_id"] for r in committed}
     new_ids = {r["annotation_id"] for r in converted.labels}
-    vendors = {converted.vendor, *(r["annotation_vendor"] for r in converted.labels)}
+    vendors = {
+        converted.label_source,
+        *(r["annotation_vendor"] for r in converted.labels),
+    }
     return {
         "recording_id": rid,
         "action": "replace" if old else "new",
@@ -236,7 +238,7 @@ def prepare(
     from egomimic.rldb.lance import commit
     from egomimic.rldb.lance.schema import ANNOTATIONS
     from egomimic.rldb.mcap.validate import validate_episode
-    from egomimic.scripts.mcap_process.mcap_to_lance import Rejected, convert
+    from egomimic.scripts.mcap_process.mcap_to_lance import SOURCE, Rejected, convert
 
     delivery, staged = Path(delivery), Path(staged)
     try:
@@ -276,7 +278,7 @@ def prepare(
             labels=labels,
             meta={
                 "label_vendors": sorted(
-                    {c.vendor, *(r["annotation_vendor"] for r in c.labels)}
+                    {c.label_source, *(r["annotation_vendor"] for r in c.labels)}
                 ),
                 "provenance": {
                     "converter": converter,
@@ -305,6 +307,7 @@ def prepare(
             "recording_id": d.recording_id,
             "vendor_recording_id": d.recording["vendor_recording_id"],
             "lab": d.recording["lab"],
+            "source": SOURCE,  # the committer's staging prefix
             "fingerprint": fingerprint,
             "converter": converter,
             "settings": pinned,

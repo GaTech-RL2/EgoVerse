@@ -27,6 +27,7 @@ from egomimic.ingest.stage import (  # noqa: E402
     stage_digest,
     verify,
 )
+from egomimic.rldb.lance.schema import steps_path  # noqa: E402
 from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
 
 OPTS = dict(codec="libx264", mano=False)
@@ -46,14 +47,14 @@ def stage(tmp_path, name="s", fingerprint="f" * 64, **kw):
 def land(tmp_path, staged, replace=False):
     """Hand a stage to the committer as the watcher does, and commit it."""
     pin = read_pin(staged)
-    dst = tmp_path / "lance_staging" / pin["lab"] / pin["vendor_recording_id"]
+    dst = tmp_path / "lance_staging" / pin["source"] / pin["vendor_recording_id"]
     dst.mkdir(parents=True, exist_ok=True)
     for p in sorted(staged.iterdir(), key=lambda p: p.name == "meta.json"):
         if p.name not in REVIEW_ONLY:
             shutil.copyfile(p, dst / p.name)
     return commit_staged(
         str(tmp_path / "lance_staging"),
-        pin["lab"],
+        pin["source"],
         str(tmp_path / "lance"),
         tmp_path / "work",
         replace=replace,
@@ -74,7 +75,7 @@ def test_a_stage_is_a_delivery_the_committer_takes_as_it_is(tmp_path):
     assert rec["recording_id"] == p.recording_id and rec["num_frames"] == 60
     assert len(rows(tmp_path, "tasks.lance")) == 2
     assert len(rows(tmp_path, "annotations.lance")) == 2
-    assert len(rows(tmp_path, "steps/aria.lance")) == 60
+    assert len(rows(tmp_path, steps_path(rec["lab"], rec["embodiment"], "hand"))) == 60
 
 
 def test_rejected_and_failed_deliveries_stage_nothing(tmp_path):
@@ -106,7 +107,7 @@ def test_the_pin_records_inputs_converter_and_every_file(tmp_path):
     assert f == {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
     assert pin["report"]["num_frames"] == 60 and pin["report"]["labels"] == 2
     meta = json.loads((p.staged / "meta.json").read_text())
-    assert meta["format"] == "delivery" and meta["label_vendors"] == ["acme"]
+    assert meta["format"] == "delivery" and meta["label_vendors"] == ["acme", "rl2"]
     assert meta["provenance"]["fingerprint"] == "f" * 64
     assert (
         stage_digest(p.staged)
