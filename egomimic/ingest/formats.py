@@ -10,6 +10,7 @@ job calls prepare_delivery and never needs to know which format it is handling; 
 delivery no format recognizes is `unsupported`, not guessed at.
 
     mcap   episode.mcap (+ optional annotation.mcap): vendor MCAP spec 0.1
+    eva    <id>.hdf5 + <id>_metadata.json: one EVA demo (egomimic/ingest/eva.py)
 """
 
 from __future__ import annotations
@@ -57,6 +58,9 @@ class Format:
     prepare: Callable[
         ..., Prepared
     ]  # (delivery, staged, lance_root, *, fingerprint, vendor, ...)
+    # The conversion settings its prepare takes (convert_job.convert_settings names);
+    # only these are passed and pinned.
+    settings: frozenset[str] = frozenset()
 
     def recording_key(self, names: Iterable[str]) -> str | None:
         """The one `{id}` all of the required patterns match under, else None (for
@@ -111,12 +115,28 @@ def _mcap() -> Format:
         optional=frozenset({spec.ANNOTATION_FILE}),
         max_file_bytes=200 * 1024**3,  # a long multi-camera recording
         prepare=stage.prepare,
+        settings=frozenset({"codec", "ffmpeg", "mano", "mano_iters", "mano_model_dir"}),
+    )
+
+
+def _eva() -> Format:
+    from egomimic.ingest import eva
+
+    return Format(
+        name="eva",
+        description="one EVA demo: <id>.hdf5 and <id>_metadata.json, <id> its start "
+        "in epoch ms (egomimic/ingest/eva.py)",
+        required=frozenset(eva.FILES),
+        optional=frozenset(),
+        max_file_bytes=200 * 1024**3,  # raw HDF5 images are uncompressed
+        prepare=eva.prepare,
+        settings=frozenset({"ffmpeg"}),
     )
 
 
 def formats() -> list[Format]:
     """Every known format. Add new ones here."""
-    return [_mcap()]
+    return [_mcap(), _eva()]
 
 
 def by_name(name: str) -> Format:
@@ -182,5 +202,10 @@ def prepare_delivery(
     if problems:
         return Prepared("rejected", problems=problems)
     return fmt.prepare(
-        delivery, staged, lance_root, fingerprint=fingerprint, vendor=vendor, **settings
+        delivery,
+        staged,
+        lance_root,
+        fingerprint=fingerprint,
+        vendor=vendor,
+        **{k: v for k, v in settings.items() if k in fmt.settings},
     )

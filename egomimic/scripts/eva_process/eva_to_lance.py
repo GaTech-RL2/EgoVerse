@@ -133,7 +133,7 @@ def convert(args) -> dict:
     md = json.loads(
         (args.raw_dir / f"{args.vendor_recording_id}_metadata.json").read_text()
     )
-    embodiment = md["robot_name"]
+    embodiment = md.get("robot_name") or md["embodiment"]  # rig files / ingest uploads
     arm = ARM_OF[embodiment]
     out = args.out_dir / args.vendor_recording_id
     out.mkdir(parents=True, exist_ok=True)

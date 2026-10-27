@@ -142,20 +142,26 @@ def diff(root, converted) -> dict:
         keys = ("t_start_ns", "t_end_ns", "task_name", "task_description", "objects")
         return any(a.get(k) != b.get(k) for k in keys)
 
+    # Validity per tracked part, from whichever *_valid columns the embodiment has
+    # (head_pose_valid / left_valid / right_valid for humans, the arms for robots).
+    cols = [c for c in d.steps.column_names if c.endswith("_valid")]
+
+    def fractions(t: pa.Table) -> dict[str, float]:
+        return {
+            k.removesuffix("_pose_valid").removesuffix("_valid"): float(
+                pc.mean(t.column(k).cast(pa.float64())).as_py()
+            )
+            for k in cols
+        }
+
     old_valid = None
     steps_uri = commit.steps_uri(root, *d.steps_key)
     if old and commit._exists(steps_uri):
-        cols = ["head_pose_valid", "left_valid", "right_valid"]
         t = commit._open(steps_uri).to_table(
             columns=cols, filter=f"recording_id = {commit._sql_str(rid)}"
         )
         if t.num_rows:
-            old_valid = {
-                k.removesuffix("_pose_valid").removesuffix("_valid"): float(
-                    pc.mean(t.column(k).cast(pa.float64())).as_py()
-                )
-                for k in cols
-            }
+            old_valid = fractions(t)
 
     committed = _rows(
         root,
@@ -201,7 +207,7 @@ def diff(root, converted) -> dict:
                 and r["annotation_id"] not in new_ids
             ),
         },
-        "valid_frac": {"new": converted.stats["valid_frac"], "old": old_valid},
+        "valid_frac": {"new": fractions(d.steps), "old": old_valid},
     }
 
 
