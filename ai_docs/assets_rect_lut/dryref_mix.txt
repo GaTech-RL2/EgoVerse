@@ -1,0 +1,13 @@
+shared-27 slots: 27  extra-9: 9
+v1_base: shared-27 val MAE(full-hor) 0.0868 | first-32 0.0868 | frames 367
+v2_drop07: shared-27 val MAE(full-hor) 0.0821 | first-32 0.0821 | frames 367
+v3_pts2048: shared-27 val MAE(full-hor) 0.0843 | first-32 0.0843 | frames 367
+v4_h128: shared-27 val MAE(full-hor) 0.0914 | first-32 0.0815 | frames 264
+old leaderboard on the SAME 27 eps: dp3c_dual 0.0793(best)/0.0827(final) [wandb Valid avg]
+note: this eval uses raw-MAE via serving path; old wandb numbers via training val loop -- same episodes, minor pipeline diff
+DRYREF_MIX_DONE
+shared-27 slots: 27  extra-9: 9
+old_dp3c_dual_final: shared-27 val MAE(full-hor) 0.0847 | first-32 0.0847 | frames 367
+old leaderboard on the SAME 27 eps: dp3c_dual 0.0793(best)/0.0827(final) [wandb Valid avg]
+note: this eval uses raw-MAE via serving path; old wandb numbers via training val loop -- same episodes, minor pipeline diff
+DRYREF_MIX_DONE

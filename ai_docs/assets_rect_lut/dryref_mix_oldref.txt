@@ -1,0 +1,5 @@
+shared-27 slots: 27  extra-9: 9
+old_dp3c_dual_final: shared-27 val MAE(full-hor) 0.0847 | first-32 0.0847 | frames 367
+old leaderboard on the SAME 27 eps: dp3c_dual 0.0793(best)/0.0827(final) [wandb Valid avg]
+note: this eval uses raw-MAE via serving path; old wandb numbers via training val loop -- same episodes, minor pipeline diff
+DRYREF_MIX_DONE

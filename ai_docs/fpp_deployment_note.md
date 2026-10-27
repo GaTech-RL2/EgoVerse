@@ -1,3 +1,8 @@
+
+> **CHECKPOINT RULE (user decision 2026-08-05): always deploy the LATEST checkpoint of a
+> run (`epoch=1999`/`last.ckpt`), not the best-val one — a bit of overfitting is fine for
+> IL policies. Earlier per-epoch entries below are kept as reference/fallback only.
+
 # FPP Round — Real-Robot Rollout Guide (HD era, updated 2026-07-21 evening)
 
 > Serving basics: `deployment_plan.md` §1–§6 · debugging: `deployment_debug_guide.md`
@@ -22,8 +27,8 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
 
 | priority | tag | checkpoint (under `/coc/flash7/czhang883/Documents/EgoVerse/`) | clean | reliance |
 |---|---|---|---|---|
-| **A** | hd_wam3@1399 | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=1399.ckpt` | 0.025 | **×1.03** |
-| **B** | hd_resnet@1499 | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1499.ckpt` | 0.024 | **×1.00** |
+| **A** | hd_wam3@1999 (latest; 1399 = hw-tested reference) | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=1999.ckpt` | 0.025 | **×1.03** |
+| **B** | hd_resnet@1999 (latest) | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1999.ckpt` | 0.024 | **×1.00** |
 | C (baseline) | wam3@1599 (0.6-era) | `logs/aria_fullpp_wam3/fpp_wam3_2k/checkpoints/epoch_epoch=1599.ckpt` | 0.013 | ×1.28 |
 
 - **A vs B** = world-model question, now with clean vision-driving in both.
@@ -38,7 +43,7 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
 - **hd_d3conv@1399 = optional priority D**: clean 0.0249 (matches A/B), reliance
   ×1.44 — best DINOv3-family policy to date. Hardware test answers whether ×1.4
   vs ×1.0 matters in practice (0.6-sibling failure was lateral-stray).
-  `logs/aria_fullpp/fpp_hd_d3conv_2k/checkpoints/epoch_epoch=1399.ckpt`
+  `logs/aria_fullpp/fpp_hd_d3conv_2k/checkpoints/epoch_epoch=1999.ckpt` (latest; 1399 also kept)
   (alternate: @1999 clean 0.0291 / ×1.19 — worse fit, lower reliance)
 - **hd_d3lora**: ×2.05 @1199 (worsening; was ×1.89@799) — closed, negative result
   (0.44M LoRA below the capacity needed to go vision-driven).
@@ -54,7 +59,7 @@ git pull && source emimic/bin/activate
 export NVS3D_DIR=/coc/flash7/czhang883/pretrained/nvs3d
 
 python egomimic/scripts/serve_policy.py --checkpoint logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=899.ckpt  --port 8000   # A
-python egomimic/scripts/serve_policy.py --checkpoint logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1499.ckpt   --port 8001   # B
+python egomimic/scripts/serve_policy.py --checkpoint logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1999.ckpt   --port 8001   # B
 python egomimic/scripts/serve_policy.py --checkpoint logs/aria_fullpp_wam3/fpp_wam3_2k/checkpoints/epoch_epoch=1599.ckpt   --port 8002   # C
 ```
 On-connect metadata must say embodiment rby1 / action_dim 49 / horizon 32.

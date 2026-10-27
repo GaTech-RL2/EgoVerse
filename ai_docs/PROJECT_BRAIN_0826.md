@@ -204,3 +204,29 @@ float clouds; raises if a model's `eef_T` extrinsic is required but missing.
 
 *Compiled 2026-08-26 from the full working session. Companion persistent-memory
 pointer lives in the agent memory dir; this file is the source of truth.*
+
+---
+## Addendum 2026-09-08 — retarget pipeline reproduced on Skynet
+
+VRS→HDF5 generation (EgoPoser+WARP/SEW) is now runnable here: worktree
+`Documents/SEW-aria-pipeline` @93cc496, envs aria2/egoposer/rby1 (miniconda3),
+handoff bundle `mobile_generalist/data/aria_egoposer_warp_handoff/` (weights,
+sample, docs; 00_README is the manual). Smoke vs reference: joints ≤2.4e-5 rad,
+images/ts bit-exact (tmp/sew_smoke.log). One button:
+`vrs_to_all.sh <vrs|dir> <out>` with ARIA_PY/EGOPOSER_PY/RBY1_PY/EGOPOSER_ROOT/SEW_REPO.
+Key facts: 1.60 z-lift = SMPL mean-shape head height (NOT collector height);
+per-collector heights → future `--subject_scale` input normalization (A/B before
+any corpus rewrite); provenance 146→145 (nvpp26 EgoPoser fail)→135 (clipped-release
+drops listed in tmp/build_fullpp.sbatch).
+
+## Addendum 2026-09-08 — dp3cmix round (150-demo mix: 99 old + 51 toy)
+Fleet: v1 base / v2 drop0.7 / v3 2048pts / v4 h128, all 2000ep on dp3c_mix186(_2048),
+val = 36 old eps (contains the full old 27-ep leaderboard val — seed-42 luck).
+Shared-27 serving-path MAE, FINAL ckpts (dryref_mix.txt): v4 first-32 0.0815 <
+v2 0.0821 < v3 0.0843 < old dp3c_dual(identical eval) 0.0847 < v1 0.0868.
+Findings: proprio dropout 0.7 > 0.9 (robust ~0.005-6 gain); h128 training helps
+short-horizon prediction too; 2048pts ≈ wash; new-data v1 slightly WORSE than old
+ckpt on shared eps (toy-domain dilution) — variant gains, not data volume, drove
+the round. Ckpts logs/RBY1_dp3cmix_v*/mix150_*/checkpoints/last.ckpt; examples
+assets_rect_lut/dp3cmix_example_{1024,2048}.npz; deploy contract = dp3c card §6
+(v3: FPS 2048/stream; v4: 128-chunk).

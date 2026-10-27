@@ -1,0 +1,11 @@
+shared-27 slots: 27
+v8_base (ep1999): first-32 0.0841 | full-64 0.0873 | frames 331
+v9_left (ep1999): first-32 0.0787 | full-64 0.0816 | frames 331
+v10_aux (ep1999): first-32 0.0848 | full-64 0.0879 | frames 331
+v11_drop04 (ep1999): first-32 0.0716 | full-64 0.0762 | frames 331
+
+REFERENCE (same 27 episodes, same serving path):
+  old dp3c_dual (hardware-tested)  0.0847
+  v4_h128 first-32  0.0815 | v2_drop07 0.0821 | v3_2048 0.0843 | v1_base 0.0868
+  v5_trim 0.0851 | v6_neut15 0.0851 | v7_neut45 0.0888
+DRYREF_8911_DONE
