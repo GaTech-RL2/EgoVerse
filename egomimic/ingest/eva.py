@@ -12,8 +12,9 @@ The rigs' existing files (as add_raw_data_to_table reads them) are taken as they
 `task` is task_name; `robot_name` is the arm layout (eva_bimanual, eva_left_arm,
 eva_right_arm), so it is the embodiment, while their `embodiment` names the robot
 (eva, eve) and stands in for rig_name when that is missing; `license` defaults to the
-vendor's, set at onboarding. device_serial has no stand-in: only the rig knows which unit
-recorded the demo, so the rigs must add it.
+vendor's, set at onboarding. `objects: ["None"]` (how the rigs say "no objects") is
+taken as a missing_metadata waiver of objects, flagged for review. device_serial is optional: the rigs do not write it yet and
+Lance does not store it; when given it is kept in the review report.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
-from egomimic.ingest.metadata import check_metadata
+from egomimic.ingest.metadata import check_metadata, waived_fields
 from egomimic.ingest.stage import Prepared, stage_converted
 
 SOURCE = "eva"  # recording-id namespace and the committer's staging prefix
@@ -43,11 +44,21 @@ def upload_metadata(md: dict, vid: str, default_license: str | None = None) -> d
         meta["task_name"] = meta.pop("task")
     robot = meta.get("embodiment")
     if robot not in ARM_OF:  # the rigs' files: embodiment names the robot
-        meta["embodiment"] = meta.pop("robot_name", None)
+        layout = meta.pop("robot_name", None)
+        if isinstance(layout, str):  # a few files say "eva bimanual"
+            spelled = layout.strip().lower().replace(" ", "_")
+            layout = spelled if spelled in ARM_OF else layout
+        meta["embodiment"] = layout
         if not meta.get("rig_name") and robot:
             meta["rig_name"] = robot
     if not meta.get("license") and default_license:
         meta["license"] = default_license
+    objects = meta.get("objects")
+    if isinstance(objects, list) and all(
+        str(o).strip().lower() in ("", "none") for o in objects
+    ):  # the rigs write ["None"] for "no objects": a waiver, for review to weigh
+        meta.pop("objects")
+        meta["missing_metadata"] = sorted(waived_fields(meta) | {"objects"})
     meta["vendor_recording_id"] = vid
     meta["start_time_unix"] = vid
     return meta
@@ -57,7 +68,6 @@ def upload_metadata(md: dict, vid: str, default_license: str | None = None) -> d
 HINTS = {
     "embodiment": "give robot_name, the arm layout (eva_bimanual, eva_left_arm or "
     "eva_right_arm)",
-    "device_serial": "the rig must write which unit recorded the demo",
     "license": "set it in the metadata, or give the vendor a default at onboarding "
     "(onboard --license)",
 }
@@ -134,7 +144,9 @@ def prepare(
             "rejected", rid, problems=[f"{vid}_metadata.json: not an object"]
         )
     meta = upload_metadata(md, vid, default_license)
-    problems, waived = check_metadata(meta, tuple(ARM_OF), hints=HINTS)
+    problems, waived = check_metadata(
+        meta, tuple(ARM_OF), hints=HINTS, optional=frozenset({"device_serial"})
+    )
     if not problems:
         problems = precheck(delivery / f"{vid}.hdf5", vid, meta)
     if problems:
@@ -183,7 +195,14 @@ def prepare(
             source=SOURCE,
             fingerprint=fingerprint,
             settings={"fps": fps},
-            report={"valid_frac": out["valid_frac"]},
+            report={
+                "valid_frac": out["valid_frac"],
+                **(
+                    {"device_serial": meta["device_serial"]}
+                    if meta.get("device_serial")
+                    else {}
+                ),
+            },
             waived=waived,
         )
     finally:

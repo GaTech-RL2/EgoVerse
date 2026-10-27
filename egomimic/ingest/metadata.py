@@ -38,10 +38,12 @@ def check_metadata(
     *,
     allow_missing: bool = True,
     hints: dict[str, str] | None = None,
+    optional: frozenset[str] = frozenset(),
 ) -> tuple[list[str], list[str]]:
     """(problems, waiver warnings) for an upload's metadata in the shared keys.
     `embodiments` are the ones this format can convert; `hints` says, per recording key,
-    where the format gets it, added to its problem. Waived fields are warnings with
+    where the format gets it, added to its problem; `optional` recording keys may be
+    left out (but must be real values when given). Waived fields are warnings with
     `allow_missing` (ingest: staff decide at review), problems without."""
     hints = hints or {}
     waived = waived_fields(meta)
@@ -59,6 +61,8 @@ def check_metadata(
         problems.append(err)
     for key in RECORDING_KEYS:
         value = meta.get(key)
+        if key in optional and value is None:
+            continue
         if not isinstance(value, str) or not value.strip() or is_placeholder(value):
             hint = f" ({hints[key]})" if key in hints else ""
             problems.append(f"{key} is required, got {value!r}{hint}")

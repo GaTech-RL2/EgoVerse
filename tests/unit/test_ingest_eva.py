@@ -10,6 +10,7 @@ import pytest
 h5py = pytest.importorskip("h5py")
 lance = pytest.importorskip("lance")
 
+from egomimic.ingest import eva  # noqa: E402
 from egomimic.ingest.formats import detect, prepare_delivery  # noqa: E402
 from egomimic.ingest.stage import read_pin  # noqa: E402
 from egomimic.rldb.lance.schema import recording_id  # noqa: E402
@@ -145,12 +146,10 @@ def test_an_eva_upload_stages_and_commits(tmp_path, encoder):
     assert task["task_name"] == "fold_clothes" and task["objects"] == ["shirt"]
 
 
-def test_a_rig_file_as_written_today_needs_only_its_device_serial(tmp_path):
+def test_a_rig_file_as_written_today_needs_only_a_license(tmp_path, encoder):
     p = prepare(tmp_path, upload(tmp_path, meta=RIG_FILE, cameras=ONE_ARM))
     assert p.status == "rejected"
     assert p.problems == [
-        "device_serial is required, got None (the rig must write which unit "
-        "recorded the demo)",
         "license is required, got None (set it in the metadata, or give the vendor a "
         "default at onboarding (onboard --license))",
     ]
@@ -159,10 +158,8 @@ def test_a_rig_file_as_written_today_needs_only_its_device_serial(tmp_path):
         upload(tmp_path, meta=RIG_FILE, cameras=ONE_ARM),
         default_license="CC-BY-4.0",
     )
-    assert p.problems == [
-        "device_serial is required, got None (the rig must write which unit "
-        "recorded the demo)"
-    ]
+    assert p.status == "staged", (p.problems, p.error)
+    assert "device_serial" not in p.report
 
 
 def test_a_rig_file_with_its_serial_stages_as_the_rig_meant(tmp_path, encoder):
@@ -173,6 +170,7 @@ def test_a_rig_file_with_its_serial_stages_as_the_rig_meant(tmp_path, encoder):
         default_license="CC-BY-4.0",
     )
     assert p.status == "staged", (p.problems, p.error)
+    assert p.report["device_serial"] == "SN0001"  # not stored in Lance; kept for review
     rec = p.staged / "recordings.parquet"
     (row,) = __import__("pyarrow.parquet").parquet.read_table(rec).to_pylist()
     assert (row["embodiment"], row["rig_name"], row["license"]) == (
@@ -184,6 +182,25 @@ def test_a_rig_file_with_its_serial_stages_as_the_rig_meant(tmp_path, encoder):
         .to_pylist()
     )
     assert task["task_name"] == "object in container"
+
+
+@pytest.mark.parametrize("objects", [["None"], ["NOne"], ["none"], []])
+def test_objects_none_is_a_waiver_for_review(tmp_path, encoder, objects):
+    meta = RIG_FILE | {"objects": objects}
+    p = prepare(
+        tmp_path,
+        upload(tmp_path, meta=meta, cameras=ONE_ARM),
+        default_license="CC-BY-4.0",
+    )
+    assert p.status == "staged", (p.problems, p.error)
+    assert p.report["waived"] == ["objects: marked as not available (MissingMetadata)"]
+
+
+def test_a_spelled_out_arm_layout_is_read():
+    meta = eva.upload_metadata(RIG_FILE | {"robot_name": "eva bimanual"}, VID)
+    assert meta["embodiment"] == "eva_bimanual"
+    meta = eva.upload_metadata(RIG_FILE | {"robot_name": "eva tripod"}, VID)
+    assert meta["embodiment"] == "eva tripod"  # unknown: refused with the layouts
 
 
 def test_a_rig_file_without_robot_name_cannot_say_its_arms(tmp_path):
@@ -206,11 +223,13 @@ def test_a_waiver_goes_to_review(tmp_path, encoder):
 
 
 def test_missing_metadata_is_rejected_with_reasons(tmp_path):
-    meta = {k: v for k, v in META.items() if k not in ("operator", "device_serial")}
+    meta = {k: v for k, v in META.items() if k not in ("operator", "rig_name")}
+    meta |= {"embodiment": "eva"}  # the robot, and no robot_name to say its arms
     p = prepare(tmp_path, upload(tmp_path, meta=meta))
     assert p.status == "rejected"
     assert any("operator" in m for m in p.problems)
-    assert any(m.startswith("device_serial is required, got None") for m in p.problems)
+    assert any(m.startswith("embodiment is required, got None") for m in p.problems)
+    assert not any("device_serial" in m for m in p.problems)  # optional for EVA
     assert not (tmp_path / "staged").exists()
 
 
@@ -247,7 +266,7 @@ def test_an_eva_upload_goes_through_the_watcher_review_and_committer(tmp_path, e
     ref = Ref("rl2-robots", "demo-1")
     # The license comes from onboarding: the rig's file names none.
     store.add_vendor("rl2-robots", "ingest-rl2-robots", license="CC-BY-4.0")
-    meta = RIG_FILE | {"device_serial": "SN0001"}
+    meta = RIG_FILE  # exactly as the rigs write it
     store.upload_delivery(
         ref, upload(tmp_path, meta=meta, cameras=ONE_ARM), {"by": "test"}
     )
