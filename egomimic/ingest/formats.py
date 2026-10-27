@@ -1,7 +1,9 @@
 """What a delivery is, decided from its files, and how to prepare it.
 
 Deliveries land under deliveries/<vendor>/<delivery_id>/ without declaring a format. A
-format recognizes its deliveries by file names, says which files it accepts, and supplies
+format recognizes its deliveries by file-name patterns (`{id}` is one path component that
+every file of a delivery must agree on, the recording's vendor id; `*` and `**` glob
+within a component and across them), says which files it accepts, and supplies
 its prepare (egomimic/ingest/stage.py shape), which turns a delivery into a staged
 delivery the committer (egomimic.scripts.lance_commit) can take as it is. The conversion
 job calls prepare_delivery and never needs to know which format it is handling; a
@@ -12,29 +14,76 @@ delivery no format recognizes is `unsupported`, not guessed at.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 
 from egomimic.ingest.stage import Prepared
+
+
+@cache
+def _pattern(p: str) -> re.Pattern:
+    out = ""
+    for tok in re.split(r"(\{id\}|\*\*|\*)", p):
+        if tok == "{id}":
+            out += r"(?P<id>[^/]+)"
+        elif tok == "**":
+            out += r".*"
+        elif tok == "*":
+            out += r"[^/]*"
+        else:
+            out += re.escape(tok)
+    return re.compile(out)
+
+
+def _ids(patterns: Iterable[str], name: str) -> set[str | None]:
+    """The `{id}` values (None for a pattern without one) under which `name` matches."""
+    out = set()
+    for p in patterns:
+        if m := _pattern(p).fullmatch(name):
+            out.add(m.groupdict().get("id"))
+    return out
 
 
 @dataclass(frozen=True)
 class Format:
     name: str
     description: str
-    required: frozenset[str]  # files every delivery of this format has
-    optional: frozenset[str]  # files it may also have; anything else is rejected
+    required: frozenset[str]  # file patterns every delivery of this format has
+    optional: frozenset[str]  # ones it may also have; anything else is rejected
     max_file_bytes: int  # per file: checked by the dashboard, the watcher and prepare
     prepare: Callable[
         ..., Prepared
     ]  # (delivery, staged, lance_root, *, fingerprint, vendor, ...)
 
+    def recording_key(self, names: Iterable[str]) -> str | None:
+        """The one `{id}` all of the required patterns match under, else None (for
+        formats without `{id}`: "" when every required pattern matches)."""
+        names = set(names)
+        common = None
+        for p in self.required:
+            ids = set().union(*(_ids([p], n) for n in names)) if names else set()
+            common = ids if common is None else common & ids
+        if not common:
+            return None
+        if len(common) > 1:  # several recordings in one delivery
+            return None
+        (key,) = common
+        return key or ""
+
     def matches(self, names: set[str]) -> bool:
-        return self.required <= names
+        return self.recording_key(names) is not None
 
     def unexpected(self, names: set[str]) -> list[str]:
-        return sorted(names - self.required - self.optional)
+        """Files no pattern accepts, or accepted only under another recording's id."""
+        key = self.recording_key(names)
+        return sorted(
+            n
+            for n in names
+            if not (_ids(self.allowed, n) & ({key, None} if key else {None, ""}))
+        )
 
     @property
     def allowed(self) -> frozenset[str]:

@@ -117,3 +117,29 @@ def test_oversize_works_on_listed_sizes_before_download():
     assert problem.startswith(
         "episode.mcap is 200.0 GiB, over the mcap limit of 200 GiB"
     )
+
+
+def _fmt(required, optional=()):
+    from egomimic.ingest.formats import Format
+
+    return Format(
+        "x", "", frozenset(required), frozenset(optional), 1 << 30, prepare=None
+    )
+
+
+def test_id_patterns_need_every_file_to_agree_on_the_recording():
+    f = _fmt({"{id}.hdf5", "{id}_metadata.json"}, {"mps_{id}_vrs/**"})
+    ok = {"123.hdf5", "123_metadata.json", "mps_123_vrs/hand/a.csv"}
+    assert f.recording_key(ok) == "123" and f.matches(ok) and f.unexpected(ok) == []
+    assert not f.matches({"123.hdf5", "124_metadata.json"})  # stems differ
+    two = {"1.hdf5", "1_metadata.json", "2.hdf5", "2_metadata.json"}
+    assert not f.matches(two)  # one recording per delivery
+    extra = ok | {"notes.txt", "mps_999_vrs/a.csv"}
+    assert f.unexpected(extra) == ["mps_999_vrs/a.csv", "notes.txt"]
+
+
+def test_literal_patterns_behave_as_names():
+    f = _fmt({"episode.mcap"}, {"annotation.mcap"})
+    assert f.recording_key({"episode.mcap"}) == ""
+    assert f.unexpected({"episode.mcap", "annotation.mcap", "x.mcap"}) == ["x.mcap"]
+    assert not f.matches({"annotation.mcap"})
