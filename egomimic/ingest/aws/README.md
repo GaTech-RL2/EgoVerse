@@ -10,7 +10,7 @@ vendor ──S3 tools / dashboard──▶ ingest-<vendor>/<delivery>/        (_
 box: watch pass ──submit──▶ Batch job: convert_job ──▶ ingest/pipeline/staged/<vendor>/<delivery>/<digest>/
 staff: python -m egomimic.ingest.review approve ...   (or the dashboard)
 box: watch pass ──server-side copy──▶ rldb/raw_v2/<vendor>/<delivery>/<digest>/
-                                  └──▶ rldb/lance_staging/<source>/<vendor recording id>/
+                                  └──▶ rldb/lance_staging/<source>/<recording id>/
 box: lance_commit ──▶ rldb/lance/  (+ changes row, tag <source>-<UTC>)
 ```
 

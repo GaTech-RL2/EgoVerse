@@ -47,7 +47,7 @@ def stage(tmp_path, name="s", fingerprint="f" * 64, **kw):
 def land(tmp_path, staged, replace=False):
     """Hand a stage to the committer as the watcher does, and commit it."""
     pin = read_pin(staged)
-    dst = tmp_path / "lance_staging" / pin["source"] / pin["vendor_recording_id"]
+    dst = tmp_path / "lance_staging" / pin["source"] / pin["recording_id"]
     dst.mkdir(parents=True, exist_ok=True)
     for p in sorted(staged.iterdir(), key=lambda p: p.name == "meta.json"):
         if p.name not in REVIEW_ONLY:

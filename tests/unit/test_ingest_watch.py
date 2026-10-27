@@ -91,7 +91,9 @@ def test_a_delivery_is_staged_then_handed_to_the_committer_on_approval(env):
     )
     raw = env.raw / "acme" / "episode_0001" / st["stage"]
     assert (raw / "episode.mcap").is_file()
-    meta = json.loads((env.staging / "mcap" / "acme-rec-0" / "meta.json").read_text())
+    meta = json.loads(
+        (env.staging / "mcap" / st["recording_id"] / "meta.json").read_text()
+    )
     assert meta["provenance"]["stage"] == st["stage"]
     assert meta["provenance"]["raw"] == str(raw)
 
