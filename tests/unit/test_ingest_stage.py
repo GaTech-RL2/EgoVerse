@@ -92,6 +92,25 @@ def test_the_recording_id_is_the_delivering_vendors(tmp_path):
     assert read_pin(p.staged)["recording_id"] == p.recording_id
 
 
+def test_waived_metadata_goes_to_review_flagged(tmp_path):
+    p = stage(
+        tmp_path,
+        drop_metadata_key="scene",
+        metadata_override={"missing_metadata": "scene"},
+    )
+    assert p.status == "staged"
+    assert p.report["waived"] == ["scene: marked as not available (MissingMetadata)"]
+    assert read_pin(p.staged)["report"]["waived"] == p.report["waived"]
+    assert "waived" not in stage(tmp_path, name="full").report
+
+
+def test_unwaivable_metadata_is_still_rejected(tmp_path):
+    p = stage(
+        tmp_path, drop_metadata_key="lab", metadata_override={"missing_metadata": "lab"}
+    )
+    assert p.status == "rejected" and "cannot be waived" in " ".join(p.problems)
+
+
 def test_rejected_and_failed_deliveries_stage_nothing(tmp_path):
     p = stage(tmp_path, "bad", imu_hz=100)
     assert p.status == "rejected" and p.problems == ["[imu] /imu: 100 Hz, need >= 200"]

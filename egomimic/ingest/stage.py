@@ -245,7 +245,9 @@ def prepare(
 
     delivery, staged = Path(delivery), Path(staged)
     try:
-        v = validate_episode(delivery)
+        # Metadata waived with missing_metadata goes to review (report["waived"]) instead
+        # of being refused: staff decide case by case when approving.
+        v = validate_episode(delivery, allow_missing=True)
     except Exception as e:
         return Prepared("failed", error=f"{type(e).__name__}: {e}")
     rid = (
@@ -313,6 +315,8 @@ def prepare(
             "videos": sorted(d.videos),
             "valid_frac": c.stats["valid_frac"],
         }
+        if v.warnings:
+            report["waived"] = v.warnings
         pin = {
             "format": "mcap",
             "recording_id": d.recording_id,
