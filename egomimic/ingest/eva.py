@@ -19,13 +19,17 @@ Lance does not store it; when given it is kept in the review report.
 
 from __future__ import annotations
 
-import json
 import shutil
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
-from egomimic.ingest.metadata import check_metadata, waived_fields
+from egomimic.ingest.metadata import (
+    check_metadata,
+    read_metadata_file,
+    rig_metadata,
+    start_time_problem,
+)
 from egomimic.ingest.stage import Prepared, stage_converted
 
 SOURCE = "eva"  # recording-id namespace and the committer's staging prefix
@@ -39,29 +43,7 @@ def upload_metadata(md: dict, vid: str, default_license: str | None = None) -> d
     """An EVA metadata file in the shared keys, plus what the recording gives."""
     from egomimic.scripts.eva_process.eva_to_lance import ARM_OF
 
-    meta = dict(md)
-    if "task_name" not in meta and "task" in meta:
-        meta["task_name"] = meta.pop("task")
-    robot = meta.get("embodiment")
-    if robot not in ARM_OF:  # the rigs' files: embodiment names the robot
-        layout = meta.pop("robot_name", None)
-        if isinstance(layout, str):  # a few files say "eva bimanual"
-            spelled = layout.strip().lower().replace(" ", "_")
-            layout = spelled if spelled in ARM_OF else layout
-        meta["embodiment"] = layout
-        if not meta.get("rig_name") and robot:
-            meta["rig_name"] = robot
-    if not meta.get("license") and default_license:
-        meta["license"] = default_license
-    objects = meta.get("objects")
-    if isinstance(objects, list) and all(
-        str(o).strip().lower() in ("", "none") for o in objects
-    ):  # the rigs write ["None"] for "no objects": a waiver, for review to weigh
-        meta.pop("objects")
-        meta["missing_metadata"] = sorted(waived_fields(meta) | {"objects"})
-    meta["vendor_recording_id"] = vid
-    meta["start_time_unix"] = vid
-    return meta
+    return rig_metadata(md, vid, {e: e for e in ARM_OF}, default_license)
 
 
 # Where an EVA upload's missing keys come from, said with the problem.
@@ -85,11 +67,11 @@ def precheck(raw: Path, vid: str, meta: dict) -> list[str]:
     """What would make the conversion fail, found before paying for it."""
     import h5py
 
-    from egomimic.rldb.zarr.episode_rules import fps_error, start_time_error
+    from egomimic.rldb.zarr.episode_rules import fps_error
 
     problems = []
-    if err := start_time_error(int(vid) if vid.isdigit() else vid):
-        problems.append(f"{vid}.hdf5: the file name is the demo's start; {err}")
+    if err := start_time_problem(vid, raw.name):
+        problems.append(err)
     if err := fps_error(meta.get("fps", DEFAULT_FPS)):
         problems.append(err)
     try:
@@ -135,14 +117,9 @@ def prepare(
     names = [p.relative_to(delivery).as_posix() for p in delivery.rglob("*")]
     vid = by_name("eva").recording_key(names)
     rid = recording_id(SOURCE, vid)
-    try:
-        md = json.loads((delivery / f"{vid}_metadata.json").read_text())
-    except (OSError, ValueError) as e:
-        return Prepared("rejected", rid, problems=[f"{vid}_metadata.json: {e}"])
-    if not isinstance(md, dict):
-        return Prepared(
-            "rejected", rid, problems=[f"{vid}_metadata.json: not an object"]
-        )
+    md, err = read_metadata_file(delivery / f"{vid}_metadata.json")
+    if err:
+        return Prepared("rejected", rid, problems=[err])
     meta = upload_metadata(md, vid, default_license)
     problems, waived = check_metadata(
         meta, tuple(ARM_OF), hints=HINTS, optional=frozenset({"device_serial"})

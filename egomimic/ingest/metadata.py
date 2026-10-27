@@ -71,3 +71,64 @@ def check_metadata(
             f"embodiment {meta['embodiment']!r} is not one of {sorted(embodiments)}"
         )
     return problems, warnings
+
+
+def read_metadata_file(path) -> tuple[dict | None, str | None]:
+    """(the upload's metadata, None) or (None, why it cannot be read)."""
+    import json
+    from pathlib import Path
+
+    path = Path(path)
+    try:
+        md = json.loads(path.read_text())
+    except (OSError, ValueError) as e:
+        return None, f"{path.name}: {e}"
+    if not isinstance(md, dict):
+        return None, f"{path.name}: not a JSON object"
+    return md, None
+
+
+def rig_metadata(
+    md: dict[str, Any],
+    vid: str,
+    layouts: dict[str, str],
+    default_license: str | None = None,
+) -> dict[str, Any]:
+    """A lab rig's metadata file (as add_raw_data_to_table reads them) in the shared
+    keys, plus what the recording gives. The rigs write `task` for task_name, the device
+    or robot as `embodiment` (aria, eva) and the arm layout as `robot_name` (sometimes
+    "robot name", or spelled with spaces); `layouts` maps those layouts to embodiments.
+    The device stands in for a missing rig_name, the vendor's default for a missing
+    license, and objects ["None"] (or []), how the rigs say "no objects", becomes a
+    missing_metadata waiver for review. Files already in the shared keys pass through."""
+    meta = dict(md)
+    if "task_name" not in meta and "task" in meta:
+        meta["task_name"] = meta.pop("task")
+    device = meta.get("embodiment")
+    if device not in layouts.values():
+        layout = meta.pop("robot_name", None) or meta.pop("robot name", None)
+        if isinstance(layout, str):
+            layout = layouts.get(layout.strip().lower().replace(" ", "_"), layout)
+        meta["embodiment"] = layout
+        if not meta.get("rig_name") and device:
+            meta["rig_name"] = device
+    if not meta.get("license") and default_license:
+        meta["license"] = default_license
+    objects = meta.get("objects")
+    if isinstance(objects, list) and all(
+        str(o).strip().lower() in ("", "none") for o in objects
+    ):
+        meta.pop("objects")
+        meta[MISSING_METADATA_KEY] = sorted(waived_fields(meta) | {"objects"})
+    meta["vendor_recording_id"] = vid
+    meta["start_time_unix"] = vid
+    return meta
+
+
+def start_time_problem(vid: str, file: str) -> str | None:
+    """Why `vid`, a recording's start in epoch ms named by `file`, is implausible."""
+    from egomimic.rldb.zarr.episode_rules import start_time_error
+
+    if err := start_time_error(int(vid) if vid.isdigit() else vid):
+        return f"{file}: the file name is the recording's start; {err}"
+    return None
