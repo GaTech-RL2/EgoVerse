@@ -241,6 +241,34 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        self._compile_policy_modules()
+
+    def _compile_policy_modules(self):
+        """Opt-in torch.compile of the HPT policy's sub-modules during fit, set by the environment
+        (EGOMIMIC_COMPILE=default | reduce-overhead | max-autotune-no-cudagraphs) rather than a hyperparameter, so
+        checkpoints stay loadable by older EgoVerse copies (the robot's server). nn.Module.compile() keeps state_dict
+        keys and is dropped when the module is pickled. 2026-10-16 on the 4096-point policy: ~1.8x per step with
+        reduce-overhead, loss within bf16 noise of eager. The glue between these modules stays eager."""
+        mode = os.environ.get("EGOMIMIC_COMPILE", "")
+        if not mode or getattr(self, "_policy_compiled", False):
+            return
+        kwargs = {} if mode == "default" else {"mode": mode}
+        pol = self.model.nets["policy"]
+        modules = [*pol.encoders.values(), pol.trunk["trunk"]]
+        for stem in pol.stems.values():
+            modules.append(stem)
+            if hasattr(stem, "cross_attention"):
+                modules.append(stem.cross_attention)
+        for module in modules:
+            module.compile(**kwargs)
+        # the flow head runs in a loop during validation sampling (50 steps); CUDA graphs would overwrite one call's
+        # output with the next (2026-10-16 smoke test), so the heads compile without them
+        heads = [head.model for head in pol.heads.values() if hasattr(head, "model")]
+        heads += [m for head in pol.heads.values() for m in getattr(head, "experts", [])]   # mixture-of-frames experts
+        for module in heads:
+            module.compile(**({} if mode == "reduce-overhead" else kwargs))
+        self._policy_compiled = True
+        print(f"[compile] {len(modules)} policy modules mode={mode}, {len(heads)} heads without CUDA graphs", flush=True)
 
     def on_train_epoch_start(self):
         log_all = {}

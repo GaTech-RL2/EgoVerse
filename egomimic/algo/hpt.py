@@ -38,6 +38,17 @@ from tslearn.metrics import SoftDTWLossPyTorch
 
 import math
 
+_SINUSOID_TABLES = {}
+
+
+def _sinusoid_table(position_end, d_hid, device):
+    """get_sinusoid_encoding_table(0, position_end, d_hid), built once per (shape, device) and kept on that device: the
+    per-call CPU build + blocking host-to-device copy was a host sync per stem per training step (2026-10-16). Same values."""
+    key = (position_end, d_hid, str(device))
+    if key not in _SINUSOID_TABLES:
+        _SINUSOID_TABLES[key] = get_sinusoid_encoding_table(0, position_end, d_hid).to(device)
+    return _SINUSOID_TABLES[key]
+
 
 DEXMIMICGEN_JOINT47_BLOCKS = {
     "left_arm": slice(0, 7),
@@ -419,7 +430,7 @@ class HPTModel(nn.Module):
             The positional embedding tensor with the same device as the input.
         """
         tokensize = int(feature.shape[1])
-        tokens = get_sinusoid_encoding_table(0, tokensize, self.embed_dim)
+        tokens = _sinusoid_table(tokensize, self.embed_dim, feature.device)
         return tokens.repeat((1, 1, 1)).to(feature.device)
 
     def preprocess_tokens(self, domain, features):
@@ -528,10 +539,9 @@ class HPTModel(nn.Module):
                 if self.training and p > 0.0 and null_key in self.proprio_null_tokens:
                     B = data[key].shape[0]
                     drop_mask = torch.rand(B, device=data[key].device) < p
-                    if drop_mask.any():
-                        data[key] = data[key].clone()  # avoid in-place autograd issues
-                        data[key][drop_mask] = self.proprio_null_tokens[null_key]
-                        # DEBUG: print("[DROPOUT] {}: {}/{} samples dropped".format(null_key, drop_mask.sum().item(), B))
+                    # branch-free (no drop_mask.any() host sync, 2026-10-16): dropped rows get the null token
+                    mask = drop_mask.view(B, *([1] * (data[key].dim() - 1)))
+                    data[key] = torch.where(mask, self.proprio_null_tokens[null_key].to(data[key].dtype), data[key])
         return data
 
     def stem_process(self, domain, data):
@@ -576,8 +586,8 @@ class HPTModel(nn.Module):
                 horizon = np.random.randint(1, data_horizon + 1)
                 data[modality] = data[modality][:, data_horizon - horizon :]
 
-            positional_embedding = get_sinusoid_encoding_table(
-                0, horizon * int(np.prod(data_shape[2:-1])), data_shape[-1]
+            positional_embedding = _sinusoid_table(
+                horizon * int(np.prod(data_shape[2:-1])), data_shape[-1], data[modality].device
             ).to(data[modality])
             positional_embedding = einops.repeat(
                 positional_embedding, "b h w -> (repeat b) h w", repeat=data_shape[0]
@@ -820,6 +830,7 @@ class HPTModel(nn.Module):
         """
         self.train_mode = True
         domain, data = batch["domain"], batch["data"]
+        self._stash_head_obs(domain, data)
 
         # scaler = amp.GradScaler()
         # with amp.autocast(device_type=self.device.type):
@@ -864,6 +875,7 @@ class HPTModel(nn.Module):
         torch.Tensor
             The predicted action output.
         """
+        self._stash_head_obs(domain, data)
         features, block_outputs = self.forward_features(domain, data)
         action = {}
 
@@ -871,7 +883,8 @@ class HPTModel(nn.Module):
             features = (features, domain)
 
         if domain in self.heads:
-            action[domain] = self.heads[domain](features)
+            head = self.heads[domain]
+            action[domain] = head(features, data) if getattr(head, "takes_data", False) else head(features)
 
         if self.shared_action:
             action["shared"] = self.heads["shared"](features)
@@ -885,6 +898,13 @@ class HPTModel(nn.Module):
                     action[key] = self.heads[f"{domain}_{key}"](features)
 
         return action
+
+    def _stash_head_obs(self, domain, data):
+        """heads that read observations (mixture of frames, 10-17: the proprio defines the frames) get them clean, before
+        the stems add noise / dropout to data in place"""
+        head = self.heads[domain] if domain in self.heads else None
+        if getattr(head, "takes_data", False):
+            data["head_obs"] = {k: data[k] for k in head.obs_keys}
 
     def save(self, checkpoint_path="./.checkpoints/hpt/full/"):
         """
@@ -1186,6 +1206,15 @@ class HPT(Algo):
 
         model.finalize_modules()
 
+        # mixture-of-frames heads (10-17) move between the schematic's normalized action / proprio and metres / radians
+        for domain in self.domains:
+            head = model.heads[domain] if domain in model.heads else None
+            if hasattr(head, "set_norm"):
+                emb = get_embodiment_id(domain)
+                stats = self.data_schematic.norm_stats[emb]
+                assert self.data_schematic.norm_mode == "quantile", self.data_schematic.norm_mode
+                head.set_norm(stats[self.ac_keys[emb]], stats[head.obs_keys[0][len("state_"):]])
+
         self.nets["policy"] = model
         self.nets = self.nets.float().to(self.device)
 
@@ -1386,6 +1415,12 @@ class HPT(Algo):
                 )
                 _pred49 = preds[f"{embodiment_name}_{ac_key}"].cpu()
                 _gt49 = _batch[ac_key].cpu()
+                if _pred49.shape[-1] == 67:  # 10-17 eef runs: 49 joints + left / right eef pose (pos + rot6d)
+                    for _side, _i in (("l", 49), ("r", 58)):
+                        metrics[f"Valid/{embodiment_name}_{ac_key}_{_side}_eef_pos_cm"] = (
+                            (_pred49[..., _i:_i + 3] - _gt49[..., _i:_i + 3]).norm(dim=-1).mean() * 100
+                        )
+                    _pred49, _gt49 = _pred49[..., :49], _gt49[..., :49]
                 metrics.update(
                     rby1_joint49_block_metrics(
                         _pred49, _gt49, f"Valid/{embodiment_name}_{ac_key}"

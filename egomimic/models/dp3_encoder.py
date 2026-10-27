@@ -50,6 +50,12 @@ class DP3PointNetEncoder(nn.Module):
         pose_jitter_deg / pose_jitter_m: train-mode random rigid jitter of the
             whole cloud (rotation about the cloud centroid, then translation).
         point_noise_std_m: train-mode per-point Gaussian noise, metres.
+        colour_brightness_jitter: train-mode scene-level brightness gain on the
+            colour dims (3:), gain ~ U(1-b, 1+b), clamped to [0,1]. Motivated by
+            the 2026-09-23/25 hardware sessions: direct sunlight shifted scene
+            colours vs the indoor training data and clearly degraded rollouts.
+        colour_channel_jitter: train-mode per-channel gain U(1-c, 1+c) shared
+            across points (white-balance / colour-temperature shift).
         point_dropout: train-mode fraction of points replaced by duplicates of
             surviving points (keeps N fixed). 0.0 disables.
     """
@@ -66,6 +72,8 @@ class DP3PointNetEncoder(nn.Module):
         pose_jitter_m: float = 0.0,
         point_noise_std_m: float = 0.0,
         point_dropout: float = 0.0,
+        colour_brightness_jitter: float = 0.0,
+        colour_channel_jitter: float = 0.0,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -75,6 +83,8 @@ class DP3PointNetEncoder(nn.Module):
         self.pose_jitter_m = pose_jitter_m
         self.point_noise_std_m = point_noise_std_m
         self.point_dropout = point_dropout
+        self.colour_brightness_jitter = colour_brightness_jitter
+        self.colour_channel_jitter = colour_channel_jitter
 
         c0, c1, c2 = block_channels
         norm = nn.LayerNorm if use_layernorm else None
@@ -104,7 +114,18 @@ class DP3PointNetEncoder(nn.Module):
         """pc: (B, N, in_dim); first 3 dims metric xyz (only these are augmented)."""
         if pc.shape[-1] > 3:
             xyz = self._augment(pc[..., :3])
-            return torch.cat([xyz, pc[..., 3:]], dim=-1)
+            col = pc[..., 3:]
+            b = getattr(self, "colour_brightness_jitter", 0.0)
+            c = getattr(self, "colour_channel_jitter", 0.0)
+            if (b > 0.0 or c > 0.0) and col.shape[-1] == 3:
+                B = col.shape[0]
+                gain = torch.ones(B, 1, 1, device=col.device, dtype=col.dtype)
+                if b > 0.0:
+                    gain = gain * (1.0 + (torch.rand(B, 1, 1, device=col.device, dtype=col.dtype) * 2 - 1) * b)
+                if c > 0.0:
+                    gain = gain * (1.0 + (torch.rand(B, 1, 3, device=col.device, dtype=col.dtype) * 2 - 1) * c)
+                col = (col * gain).clamp(0.0, 1.0)
+            return torch.cat([xyz, col], dim=-1)
         B, N, _ = pc.shape
         device, dtype = pc.device, pc.dtype
         rot_std = math.radians(getattr(self, "pose_jitter_deg", 0.0))

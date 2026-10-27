@@ -346,10 +346,44 @@ class RLDBDataset(LeRobotDataset):
                 repo_id=repo_id, root=root, local_files_only=local_files_only, **lerobot_kwargs
             )
 
+        # Datasets without image / video keys (point clouds): rows come out of Arrow as torch tensors and the
+        # delta_timestamps windows (the 64-step action chunk) are sliced from a preloaded column. LeRobot's default
+        # path builds every tensor from Python lists (three 24576-float clouds per row) and runs Dataset.select()
+        # per window: 82 ms of CPU per item (2026-10-16 profile), the GPU idled at 4-43%. Same keys, dtypes, values.
+        self._query_cols = None
+        if kwargs.get("fast_arrow", True) and len(self.meta.camera_keys) == 0:
+            self.hf_dataset.set_format("torch")
+            if self.delta_indices is not None:
+                self._query_cols = {
+                    k: self.hf_dataset.with_format("numpy", columns=[k])[:][k] for k in self.delta_indices
+                }
+
+        # Multi-frame point-cloud views (2026-10-17 mixture-of-frames study): virtual columns = the global cloud
+        # (obs.aria_pcdc, glass frame) re-expressed in a body frame of the row's own proprio, e.g.
+        # {"obs.aria_pcdc_base": "base", "obs.aria_pcdc_eefL": "eefL"}. T_F_glass from FK at init; nothing is stored, and
+        # the policy server builds the same views from the payload's joints (egomimic/utils/rby1_frames.py).
+        self.frame_views = dict(kwargs.get("frame_views") or {})
+        self._fv_T = {}
+        if self.frame_views:
+            from egomimic.utils.rby1_frames import FrameFK
+
+            Q = np.stack(self.hf_dataset.with_format("numpy", columns=["obs.robot0_joint_pos_no_wheel"])[:][
+                "obs.robot0_joint_pos_no_wheel"])
+            self._fv_T = FrameFK().batch(Q, sorted(set(self.frame_views.values())))
+
         # Build the cache in the main process (before DataLoader workers fork) so the big
         # uint8 image buffer is copy-on-write shared across workers instead of duplicated.
         if self.cache_in_memory:
             self._build_mem_cache()
+
+    def _query_hf_dataset(self, query_indices):
+        if getattr(self, "_query_cols", None) is None:
+            return super()._query_hf_dataset(query_indices)
+        return {
+            k: torch.from_numpy(self._query_cols[k][q])
+            for k, q in query_indices.items()
+            if k not in self.meta.video_keys
+        }
 
     def _build_mem_cache(self):
         self.cache_in_memory = False  # use the real path while populating
@@ -413,6 +447,11 @@ class RLDBDataset(LeRobotDataset):
         )
         if "metadata.embodiment" not in item:
             item["metadata.embodiment"] = self.embodiment
+        if self.frame_views:
+            from egomimic.utils.rby1_frames import apply_frame
+
+            for view_key, frame in self.frame_views.items():
+                item[view_key] = apply_frame(item["obs.aria_pcdc"], torch.from_numpy(self._fv_T[frame][frame_idx]))
 
         return item
 

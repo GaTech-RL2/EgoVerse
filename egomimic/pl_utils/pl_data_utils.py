@@ -8,6 +8,7 @@ import os
 import logging
 from egomimic.rldb.utils import RLDBDataset
 from termcolor import cprint
+from concurrent.futures import ThreadPoolExecutor
 import torch
 import numpy as np
 
@@ -81,6 +82,148 @@ class RLDBModule(LightningDataModule):
         )
 
 
+class GpuResidentBatches:
+    """Training batches built on the GPU (data.gpu_resident=true, 2026-10-16). Every column of the train rows is copied to
+    the GPU once; a batch equals default_collate([dataset[i] for i in idx]) (verified 10-16, 0 mismatches), built by
+    indexing, with the delta_timestamps windows (the 64-step action chunk) and their pad masks from episode-bound index
+    arithmetic as in LeRobot's _get_query_indices. No loader workers, so the training process keeps the job's CPUs.
+    Only for one point-cloud RLDBDataset without key maps, task strings, slow-down, annotations or sampling (leaf())."""
+
+    def __init__(self, dataset, batch_size, drop_last=False, host=False, balanced=False, row_weights=None, obs_delay=0):
+        ds = self.leaf(dataset)
+        self.n, self.bs, self.drop_last = len(dataset), int(batch_size), bool(drop_last)   # len = rows - 1 (LeRobot num_frames)
+        self.dev = torch.device("cuda", torch.cuda.current_device())
+        # host=True (data.gpu_resident=host, 10-17: 60 Hz releases outgrow the GPU): the columns stay in host memory and
+        # each batch is gathered there into pinned memory (one batch ahead, on a thread), then copied to the GPU
+        self.store = torch.device("cpu") if host else self.dev
+        hf = ds.hf_dataset
+        if host:
+            self.cols = {k: self._load(hf, k) for k in hf.column_names}
+        else:
+            self.cols = {
+                k: torch.from_numpy(np.ascontiguousarray(hf.with_format("numpy", columns=[k])[:][k])).to(self.dev)
+                for k in hf.column_names
+            }
+        ep = self.cols["episode_index"].cpu().numpy()
+        if ds.episodes is not None:
+            pos_of = {int(e): i for i, e in enumerate(ds.episodes)}
+            ep = np.array([pos_of[int(e)] for e in ep])
+        frm, to = np.asarray(ds.episode_data_index["from"]), np.asarray(ds.episode_data_index["to"])
+        self.start, self.end = torch.from_numpy(frm[ep]).to(self.store), torch.from_numpy(to[ep]).to(self.store)
+        # data.episode_balanced=true (10-20 add-on mixture): rows drawn with weight 1 / (episode length), with replacement,
+        # so every train episode is equally likely (equal episode counts per source -> 50/50 by source); default = randperm
+        self.w = (1.0 / (self.end - self.start).double())[: self.n].float() if balanced else None
+        if balanced:
+            cprint(f"gpu_resident: episode-balanced sampling over {self.n} rows (weights 1/episode length)", "green")
+        # data.row_weights=<file.npy> (10-20, phase-weighted sampling): a float weight per release row, indexed by the release's
+        # global `index` column (e.g. manipulation 1.0, navigation 0.5). Rows are drawn with probability ~ weight (x 1/episode
+        # length when episode_balanced) and an epoch draws sum(weights) rows, so a weight-1 row is still drawn about once per
+        # epoch and the epoch gets shorter by the down-weighted share. Default None = unchanged behaviour.
+        self.n_draw = self.n
+        if row_weights is not None:
+            W = np.load(row_weights).astype(np.float64)
+            gi = self.cols["index"].cpu().numpy().astype(np.int64)[: self.n]
+            assert gi.max() < len(W), f"row_weights {row_weights}: {len(W)} weights, release index up to {gi.max()}"
+            pw = torch.from_numpy(W[gi]).to(self.store)
+            assert bool((pw >= 0).all()) and float(pw.sum()) > 0, "row_weights must be >= 0 with a positive sum"
+            self.w = (pw if self.w is None else pw * self.w.to(pw.dtype)).float()
+            self.n_draw = max(1, int(round(float(pw.sum()))))
+            cprint(f"gpu_resident: row weights {row_weights}: {self.n_draw} draws per epoch over {self.n} rows "
+                   f"({100.0 * self.n_draw / self.n:.1f} %), weight min {float(pw.min()):.2f} max {float(pw.max()):.2f}", "green")
+        self.deltas = {k: torch.tensor(v, device=self.store) for k, v in (ds.delta_indices or {}).items()}
+        self.emb = int(ds.embodiment)
+        # multi-frame views (RLDBDataset.frame_views, 10-17): the per-row T_F_glass on the GPU, applied per batch
+        self.fv = {k: torch.from_numpy(ds._fv_T[f]).to(self.dev) for k, f in getattr(ds, "frame_views", {}).items()}
+        # data.obs_delay=N (10-23, latency augmentation): every obs.* column of a sample comes from d ~ U{0..N} rows before its
+        # start row (clamped to the episode start); the action chunk and the row weight stay on the start row. Default 0 = off.
+        self.obs_delay = int(obs_delay or 0)
+        assert not (self.obs_delay and self.fv), "data.obs_delay does not support frame views"
+        if self.obs_delay:
+            cprint(f"gpu_resident: obs delay 0..{self.obs_delay} rows on every obs.* column", "green")
+        cprint(f"gpu_resident: {self.n} rows on {self.store}, "
+               f"{sum(t.numel() * t.element_size() for t in self.cols.values()) / 1e9:.1f} GB", "green")
+
+    @staticmethod
+    def _load(hf, k, chunk=16384):
+        """one column as a host tensor, filled chunk by chunk (no full-size temporary copies)"""
+        col = hf.with_format("numpy", columns=[k])
+        first = np.ascontiguousarray(col[0:1][k])
+        out = torch.empty((len(hf),) + first.shape[1:], dtype=torch.from_numpy(first).dtype)
+        for s in range(0, len(hf), chunk):
+            out[s:s + chunk] = torch.from_numpy(np.ascontiguousarray(col[s:s + chunk][k]))
+        return out
+
+    @staticmethod
+    def leaf(dataset):
+        """the single RLDBDataset under (nested) MultiRLDBDatasets, or None if its items cannot be reproduced here"""
+        d = dataset
+        while not isinstance(d, RLDBDataset):
+            if getattr(d, "key_map", None) or len(getattr(d, "datasets", {})) != 1:
+                return None
+            d = next(iter(d.datasets.values()))
+        plain = (len(d.meta.camera_keys) == 0 and d.sampled_indices is None and not d.use_task_string
+                 and d.slow_down_factor == 1.0 and getattr(d, "annotation_df", None) is None and not d.cache_in_memory)
+        return d if plain else None
+
+    def __len__(self):
+        return self.n_draw // self.bs if self.drop_last else -(-self.n_draw // self.bs)
+
+    def __iter__(self):
+        if self.w is not None:
+            perm = torch.multinomial(self.w, self.n_draw, replacement=True)
+        else:
+            perm = torch.randperm(self.n, device=self.store)
+        if self.store.type != "cpu":
+            for s in range(0, len(self) * self.bs, self.bs):
+                yield self.batch(perm[s:s + self.bs])
+            return
+        idxs = [perm[s:s + self.bs] for s in range(0, len(self) * self.bs, self.bs)]
+        with ThreadPoolExecutor(1) as ex:
+            nxt = ex.submit(self.gather, idxs[0]) if idxs else None
+            for i, idx in enumerate(idxs):
+                out = nxt.result()
+                if i + 1 < len(idxs):
+                    nxt = ex.submit(self.gather, idxs[i + 1])
+                yield self.finish(out, idx)
+
+    def batch(self, idx):
+        return self.finish(self.gather(idx), idx)
+
+    def _take(self, col, idx):
+        """col[idx]; on the host straight into pinned memory, for a non-blocking copy to the GPU"""
+        if self.store.type != "cpu":
+            return col[idx]
+        buf = torch.empty((idx.numel(),) + col.shape[1:], dtype=col.dtype, pin_memory=True)
+        torch.index_select(col, 0, idx.reshape(-1), out=buf)
+        return buf.reshape(idx.shape + col.shape[1:])
+
+    def gather(self, idx):
+        oidx = idx
+        if self.obs_delay:
+            lag = torch.randint(0, self.obs_delay + 1, idx.shape, device=idx.device)
+            oidx = torch.maximum(idx - lag, self.start[idx])
+        out = {k: self._take(v, oidx if k.startswith("obs.") else idx) for k, v in self.cols.items() if k not in self.deltas}
+        for k, d in self.deltas.items():
+            q = (oidx if k.startswith("obs.") else idx)[:, None] + d[None, :]
+            s, e = self.start[idx][:, None], self.end[idx][:, None]
+            out[k] = self._take(self.cols[k], torch.minimum(torch.maximum(q, s), e - 1))
+            out[k + "_is_pad"] = (q < s) | (q >= e)
+        return out
+
+    def finish(self, out, idx):
+        if self.store.type == "cpu":
+            out = {k: v.to(self.dev, non_blocking=True) for k, v in out.items()}
+            idx = idx.to(self.dev)
+        out["annotations"] = [""] * len(idx)
+        out["metadata.embodiment"] = torch.full((len(idx),), self.emb, dtype=torch.int64, device=self.dev)
+        if self.fv:
+            from egomimic.utils.rby1_frames import apply_frame
+
+            for k, T in self.fv.items():
+                out[k] = apply_frame(out["obs.aria_pcdc"], T[idx])
+        return out
+
+
 class MultiDataModuleWrapper(LightningDataModule):
     """
     New functionality for dictionary based multi embodiment loading using CombinedLoader.
@@ -99,12 +242,22 @@ class MultiDataModuleWrapper(LightningDataModule):
         use_tokenizer = False,
         zero_obs = False,
         zero_obs_use_numpy = False,
+        gpu_resident = False,
+        episode_balanced = False,
+        row_weights = None,
+        obs_delay = 0,
     ):
         super().__init__()
         self.train_datasets = train_datasets
         self.valid_datasets = valid_datasets
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        # training batches built on the GPU (GpuResidentBatches) when every train dataset allows it; plain collate only
+        self.gpu_resident = bool(gpu_resident) and not use_tokenizer and not zero_obs
+        self.gpu_host = gpu_resident == "host"   # data.gpu_resident=host: the same batches from pinned host memory (10-17)
+        self.episode_balanced = bool(episode_balanced)   # data.episode_balanced=true: GpuResidentBatches only (10-20)
+        self.row_weights = row_weights   # data.row_weights=<file.npy>: phase-weighted sampling, GpuResidentBatches only (10-20)
+        self.obs_delay = int(obs_delay or 0)   # data.obs_delay=N: latency augmentation, GpuResidentBatches only (10-23)
         if use_tokenizer:
             base_collate = build_tokenized_collate(
                 max_length=collate_max_length,
@@ -121,6 +274,16 @@ class MultiDataModuleWrapper(LightningDataModule):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name, {})
+            if self.gpu_resident and torch.cuda.is_available() and GpuResidentBatches.leaf(dataset) is not None:
+                iterables[dataset.embodiment] = GpuResidentBatches(
+                    dataset, dataset_params.get("batch_size", 1), dataset_params.get("drop_last", False), host=self.gpu_host,
+                    balanced=self.episode_balanced, row_weights=self.row_weights, obs_delay=self.obs_delay,
+                )
+                continue
+            if self.episode_balanced or self.row_weights or self.obs_delay:
+                raise ValueError("data.episode_balanced / data.row_weights / data.obs_delay need the gpu_resident path (data.gpu_resident=true or host)")
+            if self.gpu_resident:
+                cprint(f"gpu_resident: {dataset_name} needs the DataLoader path (images, several datasets, key maps, ...)", "yellow")
             iterables[dataset.embodiment] = DataLoader(
                 dataset,
                 shuffle=True,
