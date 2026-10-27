@@ -295,6 +295,17 @@ def test_the_detail_page_shows_the_conversion(app, store):
     assert "2.0 KB" in page and "2026-10-21 14:03" in page  # the history entry
 
 
+def test_waived_metadata_is_flagged_for_review(app, store):
+    waived = ["scene: marked as not available (MissingMetadata)"]
+    ready(store, A1, report={"num_frames": 3661, "waived": waived})
+    c, _ = login(app, "simar")
+    page = c.get("/d/acme/episode_0001").get_data(as_text=True)
+    assert "Waived metadata" in page and waived[0] in page
+    assert page.index("Waived metadata") < page.index(">Approve<")
+    ready(store, A1)
+    assert "Waived metadata" not in c.get("/d/acme/episode_0001").get_data(as_text=True)
+
+
 def test_vendor_text_is_escaped(app, store):
     ready(store, A1, state="rejected", problems=["<script>alert(1)</script>"])
     c, _ = login(app, "acme-ops")

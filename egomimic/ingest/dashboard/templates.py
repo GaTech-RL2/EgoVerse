@@ -34,6 +34,8 @@ th { color: var(--muted); font-weight: 500; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
   padding: 12px 16px; }
 ul.problems { margin: 0; padding-left: 20px; }
+.panel.waived { border-color: var(--warn); }
+.panel.waived strong { color: var(--warn); }
 pre { white-space: pre-wrap; word-break: break-word; margin: 0; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 input, select, button { font: inherit; padding: 6px 8px; border: 1px solid var(--line);
@@ -250,6 +252,12 @@ Upload a correction</a></p>{% endif %}
 {% if decision.comment %}: {{ decision.comment }}{% endif %}
 {% if decision.who %}<span class="muted">by {{ decision.who }}</span>{% endif %}
 {% endif %}</div>
+
+{% if r.status.report and r.status.report.waived %}<h2>Waived metadata</h2>
+<div class="panel waived"><strong>Delivered without some required metadata.</strong>
+{% if staff %}Approve only if the data is worth having without it.{% endif %}
+<ul class="problems">{% for w in r.status.report.waived %}<li>{{ w }}</li>{% endfor %}
+</ul></div>{% endif %}
 
 {% if staff and r.decidable %}<h2>Review</h2>
 <form class="panel review" method="post"
