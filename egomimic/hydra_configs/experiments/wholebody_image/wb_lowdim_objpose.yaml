@@ -1,0 +1,90 @@
+# @package _global_
+# 10-20 LOW-DIM DEBUG policy (user: "start v8 w/ low dim policies first to debug policy ... input pose output actions"):
+# wb_dp3cbasket_tri with the three point-cloud keys replaced by obs.object_poses_body (30, the scene objects in the robot's base
+# frame; sim_policy/objpose.py) on the model rby1_lowdim_objpose. Proprio, actions (49-D, body-frame base), h=64, data module
+# and the norm mode are the cloud policy's. Releases: warp-data/datasets/sim_gr1_pouring_lowdim/releases/*_objpose_body.
+# THREE-STREAM variant (user 10-15, r1_rs_tri): wb_dp3cbasket + front_pcd_3 = obs.aria_pcdc_local_left (left-eef ball); nothing else differs.
+# dp3c_dual ORIGINAL recipe on the chuye_basket collection (60 demos, 2026-09-14):
+# dual coloured streams (1.5 m right-eef ball local, 0.30 m neutralization),
+# h=64 training horizon (deploy uses first 32). Split: first 50 capture-order
+# demos train / last 10 val, placement-controlled (valid_ratio=0.167 -> 10).
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_lowdim_objpose
+  - override /data: experiments/wholebody_image/rby1_wb_img_act64
+  - _self_
+
+name: RBY1_dp3c_basket
+description: "basket60_r1"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+  strategy: auto
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train
+          cache_in_memory: false
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          mode: valid
+          cache_in_memory: false
+  train_dataloader_params:
+    dataset1:
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    dataset1:
+      num_workers: 2
+      persistent_workers: true
+      pin_memory: true
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      object_poses_body:
+        key_type: proprio_keys
+        lerobot_key: obs.object_poses_body
+      eef_pose_glass:
+        key_type: proprio_keys
+        lerobot_key: obs.eef_pose_glass
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: object_poses_body   # unused: no camera transforms -> no prediction images

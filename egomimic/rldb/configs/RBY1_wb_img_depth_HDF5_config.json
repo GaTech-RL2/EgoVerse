@@ -1,0 +1,15 @@
+{
+    "action_keys": [
+        "actions/joint",
+        "actions/joint_arm",
+        "actions/joint_arm_hand",
+        "actions/joint_arm_head_torso_base"
+    ],
+    "obs_keys": [
+        "aria_image",
+        "hand_left_qpos",
+        "hand_right_qpos",
+        "robot0_joint_pos",
+        "aria_depth"
+    ]
+}
