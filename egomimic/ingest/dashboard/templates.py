@@ -330,7 +330,10 @@ delivery again, not only what changed.</p>
 <ul class="problems">{% for f in formats %}<li><strong>{{ f.name }}</strong>:
 {{ f.required | sort | join(", ") }}{% if f.optional %} (optional:
 {{ f.optional | sort | join(", ") }}){% endif %}. {{ f.description }}</li>{% endfor %}
-</ul><span class="muted">At most {{ limit_gib }} GiB per file.</span></div>
+</ul><span class="muted"><code>{id}</code> is the recording's id, the same in every
+file name of a delivery (for EVA and Aria, its start in epoch milliseconds, e.g.
+<code>1776138512000.vrs</code>); <code>**</code> is anything in that folder. Upload the
+recording's folder as it is. At most {{ limit_gib }} GiB per file.</span></div>
 <table id="picked" class="scroll"></table>
 <button id="go">Upload</button>
 <p class="muted">Large deliveries or scripts: the

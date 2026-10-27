@@ -140,8 +140,15 @@ def test_api_writes_need_the_csrf_token(app):
 def test_files_no_format_accepts_are_refused_before_uploading(app, monkeypatch):
     api = Api(app, "acme-ops")
     start = "/api/deliveries/episode_0001/uploads"
-    code, out = api("POST", start, {"name": "recording.vrs", "size": 1})
-    assert code == 422 and "episode.mcap" in out["error"]
+    code, out = api("POST", start, {"name": "recording.mov", "size": 1})
+    assert code == 422 and "episode.mcap" in out["error"] and "{id}.vrs" in out["error"]
+    for ok in (
+        "1776138512000.vrs",
+        "1776138512000_metadata.json",
+        "mps_1776138512000_vrs/slam/semidense_points.csv.gz",
+        "1766709615098.hdf5",
+    ):  # EVA and Aria files, before the rest of their delivery is known
+        assert api("POST", start, {"name": ok, "size": 1})[0] == 200, ok
     code, out = api("POST", start, {"name": "episode.mcap", "size": 300 * 1024**3})
     assert code == 422 and "GiB limit" in out["error"]
     for bad in ("../x/episode.mcap", "/etc/episode.mcap", "_complete.json"):
@@ -436,3 +443,37 @@ def test_the_password_only_goes_to_https_or_this_machine(url, monkeypatch, capsy
 )  # fmt: skip
 def test_https_and_loopback_urls_are_allowed(url):
     assert upload.url_problem(url) is None
+
+
+def test_the_cli_uploads_an_aria_folder_with_its_mps_subfolders(
+    app, store, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(uploads, "MIN_PART", 7)
+    vid = "1776138512000"
+    folder = tmp_path / "rec"
+    for rel, data in {
+        f"{vid}.vrs": b"vrs bytes",
+        f"{vid}_metadata.json": b"{}",
+        f"mps_{vid}_vrs/hand_tracking/hand_tracking_results.csv": b"h\n1\n",
+        f"mps_{vid}_vrs/slam/closed_loop_trajectory.csv": b"t\n1\n",
+        f"mps_{vid}_vrs/eye_gaze.zip": b"zip",
+    }.items():
+        (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+        (folder / rel).write_bytes(data)
+    out = upload.upload_delivery(cli(app), folder, "aria_rec", log=lambda *a, **k: 0)
+    assert f"mps_{vid}_vrs/slam/closed_loop_trajectory.csv" in out["files"]
+    bucket = store.root / "ingest-acme/aria_rec"
+    assert (bucket / f"mps_{vid}_vrs/hand_tracking/hand_tracking_results.csv").exists()
+    assert store.get_delivery(Ref("acme", "aria_rec")).complete
+
+
+def test_a_delivery_whose_files_disagree_on_the_id_is_refused(app, monkeypatch):
+    monkeypatch.setattr(uploads, "MIN_PART", 4)
+    api = Api(app, "acme-ops")
+    for name in ("1766709615098.hdf5", "1766709615099_metadata.json"):
+        assert send(api, "eva_demo", name, b"data")[0] == 200
+    code, out = api(
+        "POST", "/api/deliveries/eva_demo/complete",
+        {"files": ["1766709615098.hdf5", "1766709615099_metadata.json"]},
+    )  # fmt: skip
+    assert code == 422 and "not a delivery in any accepted format" in out["error"]

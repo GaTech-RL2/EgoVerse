@@ -91,6 +91,11 @@ class Format:
             if not (_ids(self.allowed, n) & ({key, None} if key else {None, ""}))
         )
 
+    def accepts(self, name: str) -> bool:
+        """Whether some file of some delivery of this format may be called `name`
+        (before the rest of the delivery is known, e.g. when its upload starts)."""
+        return bool(_ids(self.allowed, name))
+
     @property
     def allowed(self) -> frozenset[str]:
         return self.required | self.optional
@@ -156,6 +161,11 @@ def _aria() -> Format:
 def formats() -> list[Format]:
     """Every known format. Add new ones here."""
     return [_mcap(), _eva(), _aria()]
+
+
+def accepting(name: str) -> list[Format]:
+    """The formats a file called `name` could belong to."""
+    return [f for f in formats() if f.accepts(name)]
 
 
 def by_name(name: str) -> Format:
