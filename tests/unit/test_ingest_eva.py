@@ -251,6 +251,22 @@ def test_a_one_arm_robot_needs_only_its_wrist(tmp_path, encoder):
     assert p.status == "staged", (p.problems, p.error)
 
 
+@pytest.mark.parametrize(
+    "layout", [{"robot name": "eva_right_arm"}, {"robot_name": "eva right arm"}]
+)
+def test_a_layout_read_from_an_alias_reaches_the_converter(tmp_path, encoder, layout):
+    meta = {k: v for k, v in RIG_FILE.items() if k != "robot_name"} | layout
+    p = prepare(
+        tmp_path,
+        upload(tmp_path, meta=meta, cameras=ONE_ARM),
+        default_license="CC-BY-4.0",
+    )
+    assert p.status == "staged", (p.problems, p.error)
+    rec = p.staged / "recordings.parquet"
+    (row,) = __import__("pyarrow.parquet").parquet.read_table(rec).to_pylist()
+    assert row["embodiment"] == "eva_right_arm"
+
+
 def test_an_id_that_is_not_epoch_ms_is_rejected(tmp_path):
     p = prepare(tmp_path, upload(tmp_path, vid="17667096"))  # seconds, not ms
     assert p.status == "rejected" and "epoch milliseconds" in p.problems[0]

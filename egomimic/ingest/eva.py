@@ -134,7 +134,7 @@ def prepare(
     try:
         args = SimpleNamespace(
             raw_dir=delivery, out_dir=work, vendor_recording_id=vid, fps=fps,
-            ffmpeg=ffmpeg,
+            ffmpeg=ffmpeg, embodiment=meta["embodiment"],
         )  # fmt: skip
         try:
             out = convert(args)
