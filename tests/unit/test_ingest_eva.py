@@ -174,3 +174,35 @@ def test_a_one_arm_robot_needs_only_its_wrist(tmp_path, encoder):
 def test_an_id_that_is_not_epoch_ms_is_rejected(tmp_path):
     p = prepare(tmp_path, upload(tmp_path, vid="17667096"))  # seconds, not ms
     assert p.status == "rejected" and "epoch milliseconds" in p.problems[0]
+
+
+def test_an_eva_upload_goes_through_the_watcher_review_and_committer(tmp_path, encoder):
+    from egomimic.ingest.launch import LocalLauncher
+    from egomimic.ingest.run import commit_round
+    from egomimic.ingest.store import LocalStore, Ref
+    from egomimic.ingest.watch import run_pass
+
+    store = LocalStore(tmp_path / "buckets")
+    ref = Ref("rl2-robots", "demo-1")
+    store.upload_delivery(ref, upload(tmp_path), {"by": "test"})
+    launcher = LocalLauncher(
+        store, str(tmp_path / "lance"), tmp_path / "jobs", codec="libx264", mano=False
+    )
+
+    def run():
+        return run_pass(
+            store, launcher, tmp_path / "work", raw_root=str(tmp_path / "raw"),
+            lance_staging=str(tmp_path / "staging"), revision="r1",
+        )  # fmt: skip
+
+    assert run().staged == ["rl2-robots/demo-1"]
+    st = store.get_status(ref)
+    assert (st["state"], st["recording_id"]) == ("ready", recording_id("eva", VID))
+    store.add_decision(ref, "approve", "simar", stage=st["stage"])
+    run()  # hand-off to <staging>/eva/<recording id>/
+    commit_round(str(tmp_path / "staging"), str(tmp_path / "lance"), tmp_path / "work")
+    assert run().committed == ["rl2-robots/demo-1"]
+    (rec,) = (
+        lance.dataset(tmp_path / "lance" / "recordings.lance").to_table().to_pylist()
+    )
+    assert rec["recording_id"] == recording_id("eva", VID)
