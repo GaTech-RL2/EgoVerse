@@ -1421,6 +1421,9 @@ class HPT(Algo):
                             (_pred49[..., _i:_i + 3] - _gt49[..., _i:_i + 3]).norm(dim=-1).mean() * 100
                         )
                     _pred49, _gt49 = _pred49[..., :49], _gt49[..., :49]
+                if _pred49.shape[-1] == 50:  # 10-27 progress runs: 49 joints + task progress (0 -> 1, the policy's own phase estimate)
+                    metrics[f"Valid/{embodiment_name}_{ac_key}_progress_mae"] = (_pred49[..., 49] - _gt49[..., 49]).abs().mean()
+                    _pred49, _gt49 = _pred49[..., :49], _gt49[..., :49]
                 metrics.update(
                     rby1_joint49_block_metrics(
                         _pred49, _gt49, f"Valid/{embodiment_name}_{ac_key}"
@@ -1585,6 +1588,7 @@ class HPT(Algo):
                         f"{p}_manip_r_arm_mae_avg", f"{p}_manip_l_hand_mae_avg",
                         f"{p}_head_mae_avg", f"{p}_r_hand_mae_avg", f"{p}_manip_frac",
                         f"{p}_t1_mae", f"{p}_short8_mae",
+                        f"{p}_progress_mae",   # 10-27 progress runs (50-D head)
                     })
                 for aux_key in self.auxiliary_ac_keys.get(emb, []):
                     keep.add(f"Valid/{emb}_{aux_key}_paired_mse_avg")
