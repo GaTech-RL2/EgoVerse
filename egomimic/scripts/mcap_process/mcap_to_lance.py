@@ -588,13 +588,14 @@ def convert(
     episode: Path,
     out_dir: Path,
     *,
+    vendor: str,
     mano: bool = True,
     mano_iters: int = 2400,
     ffmpeg: str = "ffmpeg",
     codec: str = "libsvtav1",
 ) -> Converted:
-    """One validated episode -> its Lance rows and MP4s (under out_dir). Raises Rejected
-    when Lance would refuse its labels, before any video is written."""
+    """One validated episode of `vendor`'s -> its Lance rows and MP4s (under out_dir).
+    Raises Rejected when Lance would refuse its labels, before any video is written."""
     episode = Path(episode)
     files = [episode / spec.EPISODE_FILE]
     if (episode / spec.ANNOTATION_FILE).exists():
@@ -611,7 +612,7 @@ def convert(
     fps = round(1e9 / period, 3)
     ts, src, filler, after_gap = build_timeline(cam_t, fps=fps)
     n = len(ts)
-    rid = spec.recording_id(meta["lab"], meta["vendor_recording_id"])
+    rid = spec.recording_id(vendor, meta["vendor_recording_id"])
 
     # Tasks and labels first: a label Lance would refuse rejects the episode up front.
     if "/task" in series:
@@ -872,25 +873,25 @@ def convert_and_stage(
     except Exception as e:
         res.status, res.error = "failed", f"{type(e).__name__}: {e}"
         return res
-    res.recording_id = v.recording_id
+    if v.vendor_recording_id:
+        res.recording_id = spec.recording_id(vendor, v.vendor_recording_id)
     if v.problems:
         res.status = "rejected"
         res.problems = [str(p) for p in v.problems]
         return res
-    if v.recording_id in commit.committed_ids(lance_root) and not replace:
+    rid = res.recording_id
+    if rid in commit.committed_ids(lance_root) and not replace:
         res.status = "skipped"
         try:
-            rows, source = _labels_of_committed(
-                Path(episode), lance_root, v.recording_id
-            )
+            rows, source = _labels_of_committed(Path(episode), lance_root, rid)
         except Rejected as e:
             res.problems = e.problems
             return res
         vendors = {source, *(r["annotation_vendor"] for r in rows)}
-        changes = _label_changes(lance_root, v.recording_id, rows, vendors)
+        changes = _label_changes(lance_root, rid, rows, vendors)
         if changes:
             with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
-                f = Path(tmp) / f"{v.recording_id}-labels.parquet"
+                f = Path(tmp) / f"{rid}-labels.parquet"
                 keys = list(dict.fromkeys(k for r in changes for k in r))
                 pq.write_table(
                     pa.Table.from_pylist(
@@ -903,7 +904,7 @@ def convert_and_stage(
         return res
     with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
         try:
-            c = convert(Path(episode), Path(tmp), **convert_kw)
+            c = convert(Path(episode), Path(tmp), vendor=vendor, **convert_kw)
         except Rejected as e:  # validated, but Lance would refuse it
             res.status, res.problems = "rejected", e.problems
             return res

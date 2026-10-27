@@ -1096,7 +1096,9 @@ def check_labels(ep: _Episode, embodiment: str) -> list[Problem]:
 @dataclass
 class Result:
     embodiment: str  # declared, or guessed from the topics; "" if unreadable
-    recording_id: str  # the Lance recording_id it will get; "" without lab / source id
+    # The vendor's own ID for the recording; "" if missing. The Lance recording_id also
+    # needs the vendor (spec.recording_id), which the file does not carry.
+    vendor_recording_id: str
     problems: list[Problem]
     # Required metadata waived via missing_metadata, accepted with allow_missing.
     warnings: list[str] = field(default_factory=list)
@@ -1151,10 +1153,9 @@ def validate_episode(episode: Path, *, allow_missing: bool = False) -> Result:
                     f"could not check: {type(e).__name__}: {e} (see 'type is' problems)",
                 )
             )
-    lab = ep.info.get("lab", "")
-    source_id = ep.info.get("vendor_recording_id", "")
-    rid = spec.recording_id(lab, source_id) if lab and source_id else ""
-    return Result(embodiment, rid, problems, warnings)
+    return Result(
+        embodiment, ep.info.get("vendor_recording_id", ""), problems, warnings
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1179,7 +1180,7 @@ def main(argv: list[str] | None = None) -> int:
         r = validate_episode(episode, allow_missing=args.allow_missing)
         label = (
             f"{episode} (spec {spec.SPEC_VERSION}, embodiment {r.embodiment or '?'}, "
-            f"recording_id {r.recording_id or '?'})"
+            f"vendor_recording_id {r.vendor_recording_id or '?'})"
         )
         if r.problems:
             failed += 1

@@ -85,9 +85,12 @@ placeholders are rejected in every text key.
 | `hand_joints` | see §6 | *Human only.* Names of the hand joints, in the order `HandKeypoints.positions` lists them. |
 
 **IDs.** Our recording ID is
-`egomimic.rldb.lance.schema.recording_id(lab, vendor_recording_id)` (UUIDv5 of
-`<lab>/<vendor_recording_id>`); the validator prints it. Task and annotation IDs are
-computed downstream from their content, so vendors send none.
+`egomimic.rldb.lance.schema.recording_id("mcap/<vendor>", vendor_recording_id)` (UUIDv5 of
+`mcap/<vendor>/<vendor_recording_id>`), where `<vendor>` is who delivered the episode
+(known from your upload bucket, not written in the file). `vendor_recording_id` therefore
+only has to be unique among your own recordings. The validator prints your
+`vendor_recording_id`. Task and annotation IDs are computed downstream from their
+content, so vendors send none.
 
 **Tasks.** Without `/task` topics, `task_name` / `task_description` / `objects` describe one task
 spanning the whole recording: [first steps frame, last steps frame + one frame), as
@@ -280,7 +283,7 @@ absolute Unix ns, as delivered.
 
 | Lance | MCAP |
 |---|---|
-| `recordings.recording_id` | `recording_id(lab, vendor_recording_id)` |
+| `recordings.recording_id` | `recording_id("mcap/<vendor>", vendor_recording_id)`; the vendor is who delivered it |
 | `recordings.vendor_recording_id` | `vendor_recording_id` |
 | `recordings.lab`, `operator`, `embodiment`, `rig_name`, `scene`, `license` | episode info |
 | `recordings.captured_at` | `start_time_unix` |

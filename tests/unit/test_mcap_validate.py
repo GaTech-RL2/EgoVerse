@@ -44,7 +44,7 @@ def test_valid_episode_passes(tmp_path, embodiment, kw):
     r = validate_episode(write_mcap_episode(tmp_path, embodiment, **kw))
     assert r.problems == []
     assert r.embodiment == embodiment
-    assert r.recording_id == spec.recording_id("rl2", "acme-rec-0")
+    assert r.vendor_recording_id == "acme-rec-0"
 
 
 # (embodiment, breakage, [(group, topic, substring of the message), ...])
@@ -146,7 +146,7 @@ def test_cli_pass_fail_and_summary(tmp_path, capsys):
     assert f"PASS {good}" in out
     assert f"FAIL {bad}" in out and "[imu] /imu: 100 Hz" in out
     assert "1/2 passed" in out
-    assert spec.recording_id("rl2", "acme-rec-good") in out
+    assert "vendor_recording_id acme-rec-good" in out
 
 
 def test_waived_metadata_needs_allow_missing(tmp_path, capsys):
@@ -235,7 +235,7 @@ def test_mano_joints_match_human_finger_edges():
 
 def test_lance_ids_and_annotation_types_match_lance_schema():
     lance_schema = pytest.importorskip("egomimic.rldb.lance.schema")
-    assert spec.recording_id("aria", "x") == lance_schema.recording_id("aria", "x")
+    assert spec.recording_id("acme", "x") == lance_schema.recording_id("mcap/acme", "x")
     if hasattr(lance_schema, "ANNOTATION_TYPES"):
         assert spec.ANNOTATION_TYPES == lance_schema.ANNOTATION_TYPES
 

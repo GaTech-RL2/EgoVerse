@@ -76,7 +76,7 @@ def steps_rows(tmp_path, embodiment="*"):
 def test_episode_lands_in_every_table(tmp_path):
     r = run(tmp_path)
     assert r.status == "staged" and r.problems == []
-    assert r.recording_id == spec.recording_id("rl2", "acme-rec-0")
+    assert r.recording_id == spec.recording_id("acme", "acme-rec-0")
     assert (r.num_frames, r.tasks, r.annotations_staged) == (60, 2, 2)
     assert r.valid_frac == {"head": 1.0, "left": 1.0, "right": 1.0}
 
@@ -268,24 +268,25 @@ def test_every_camera_becomes_a_video_with_its_calibration(tmp_path):
     assert (meta.num_frames, meta.height, meta.width) == (60, 48, 64)
 
 
-def test_two_labs_with_the_same_vendor_id_both_land(tmp_path):
-    a = write_mcap_episode(tmp_path / "a")
-    b = write_mcap_episode(tmp_path / "b", metadata_override={"lab": "mecka"})
-    ra = convert_and_stage(
-        a, tmp_path / "staging", tmp_path / "lance", vendor="acme", codec="libx264",
-        mano=False,
-    )  # fmt: skip
-    rb = convert_and_stage(
-        b, tmp_path / "staging", tmp_path / "lance", vendor="acme", codec="libx264",
-        mano=False,
-    )  # fmt: skip
+def test_recording_ids_are_namespaced_by_the_vendor(tmp_path):
+    def stage(ep, vendor):
+        return convert_and_stage(
+            ep, tmp_path / "staging", tmp_path / "lance", vendor=vendor,
+            codec="libx264", mano=False,
+        )  # fmt: skip
+
+    ep = write_mcap_episode(tmp_path / "a")
+    ra, rb = stage(ep, "acme"), stage(ep, "globex")
+    # Two vendors may both pick acme-rec-0: each only keeps its own IDs unique.
     assert (ra.status, rb.status) == ("staged", "staged")
-    assert ra.recording_id != rb.recording_id  # same vendor_recording_id, two labs
+    assert ra.recording_id == spec.recording_id("acme", "acme-rec-0")
+    assert rb.recording_id == spec.recording_id("globex", "acme-rec-0")
     commit_all(tmp_path)
-    recs = table(tmp_path, "recordings.lance")
-    assert sorted(r["lab"] for r in recs) == ["mecka", "rl2"]
-    assert {r["vendor_recording_id"] for r in recs} == {"acme-rec-0"}
+    assert len(table(tmp_path, "recordings.lance")) == 2
     assert commit.list_files(tmp_path / "staging" / "mcap") == {}
+    # The lab is who it was collected for, not the issuer: same vendor, same recording.
+    other_lab = write_mcap_episode(tmp_path / "b", metadata_override={"lab": "mecka"})
+    assert stage(other_lab, "acme").status == "skipped"
 
 
 def test_non_aria_sources_keep_their_field_of_view(tmp_path):

@@ -25,9 +25,11 @@ checked exactly as in egomimic.rldb.zarr.required_metadata. `lab` is who the dat
 from (rl2, mecka, microagi). Hardware goes in rig_name / device_serial. Task text is
 task_name, task_description and the annotations; there is no separate instruction.
 
-IDs: Lance recording_id = recording_id(lab, vendor_recording_id) below, so
-vendor_recording_id must stay the same across every re-export or correction of the
-recording. A zarr episode trimmed from it names it in its vendor_recording_id attr. Task
+IDs: Lance recording_id = recording_id(vendor, vendor_recording_id) below: an ID is
+unique only among the IDs its issuer picks, and for MCAP the issuer is the vendor (who
+delivered it, known from the ingest bucket, not from the file; `lab` is who the data was
+collected for). vendor_recording_id must stay the same across every re-export or
+correction of the recording. A zarr episode trimmed from it names it in its vendor_recording_id attr. Task
 and annotation IDs are computed downstream from their content.
 """
 
@@ -94,9 +96,10 @@ SHUTTER = re.compile(r"global|rolling:[0-9]+(\.[0-9]+)?ms")
 RECORDING_NAMESPACE = uuid.UUID("6f1d4c3e-2b1a-5e7f-9c8d-0a1b2c3d4e5f")
 
 
-def recording_id(lab: str, vendor_recording_id: str) -> str:
-    """The Lance recordings.recording_id this episode will get."""
-    return str(uuid.uuid5(RECORDING_NAMESPACE, f"{lab}/{vendor_recording_id}"))
+def recording_id(vendor: str, vendor_recording_id: str) -> str:
+    """The Lance recordings.recording_id of `vendor`'s recording `vendor_recording_id`:
+    lance.schema.recording_id under the namespace mcap/<vendor>."""
+    return str(uuid.uuid5(RECORDING_NAMESPACE, f"mcap/{vendor}/{vendor_recording_id}"))
 
 
 # Frames every vendor uses by these names in /tf_static and in poses.
