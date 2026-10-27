@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 
 from egomimic.rldb.lance.schema import task_instance_id
+from egomimic.rldb.zarr.required_metadata import objects_list as required_objects_list
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 
 # (t_start_ns, t_end_ns, task_name, task_description, objects), half-open.
@@ -19,13 +20,9 @@ Task = tuple[int, int, str, str | None, list[str]]
 
 
 def objects_list(v) -> list[str]:
-    """`objects` as a list: comma-separated text (MCAP, zarr attrs) or a list; None when
-    waived."""
-    if v is None:
-        return []
-    if isinstance(v, str):
-        return [o for o in (x.strip() for x in v.split(",")) if o]
-    return [str(o) for o in v]
+    """`objects` as a list: comma-separated text (MCAP, zarr attrs) or a list; empty
+    when waived (None)."""
+    return [] if v is None else [o for o in required_objects_list(v) if o]
 
 
 def episode_task(meta: dict, t_start_ns: int, t_end_ns: int) -> Task:
