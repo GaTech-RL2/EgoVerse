@@ -11,6 +11,8 @@ delivery no format recognizes is `unsupported`, not guessed at.
 
     mcap   episode.mcap (+ optional annotation.mcap): vendor MCAP spec 0.1
     eva    <id>.hdf5 + <id>_metadata.json: one EVA demo (egomimic/ingest/eva.py)
+    aria   <id>.vrs + <id>_metadata.json + mps_<id>_vrs/: one Aria recording
+           (egomimic/ingest/aria.py)
 """
 
 from __future__ import annotations
@@ -134,9 +136,26 @@ def _eva() -> Format:
     )
 
 
+def _aria() -> Format:
+    from egomimic.ingest import aria
+
+    return Format(
+        name="aria",
+        description="one Aria recording: <id>.vrs, <id>_metadata.json and its MPS "
+        "outputs in mps_<id>_vrs/, <id> its start in epoch ms (egomimic/ingest/aria.py)",
+        required=frozenset(aria.FILES),
+        optional=frozenset(aria.OPTIONAL),
+        max_file_bytes=200 * 1024**3,
+        prepare=aria.prepare,
+        settings=frozenset(
+            {"ffmpeg", "mano", "mano_iters", "mano_model_dir", "default_license"}
+        ),
+    )
+
+
 def formats() -> list[Format]:
     """Every known format. Add new ones here."""
-    return [_mcap(), _eva()]
+    return [_mcap(), _eva(), _aria()]
 
 
 def by_name(name: str) -> Format:
