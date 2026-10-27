@@ -93,25 +93,31 @@ def rig_metadata(
     vid: str,
     layouts: dict[str, str],
     default_license: str | None = None,
+    device: str | None = None,
 ) -> dict[str, Any]:
     """A lab rig's metadata file (as add_raw_data_to_table reads them) in the shared
     keys, plus what the recording gives. The rigs write `task` for task_name, the device
     or robot as `embodiment` (aria, eva) and the arm layout as `robot_name` (sometimes
     "robot name", or spelled with spaces); `layouts` maps those layouts to embodiments.
-    The device stands in for a missing rig_name, the vendor's default for a missing
-    license, and objects ["None"] (or []), how the rigs say "no objects", becomes a
+    The device (or `device`, when the format implies one) stands in for a missing
+    rig_name, the vendor's default for a missing license, a numeric scene ("scene": 2)
+    is its text, and objects ["None"] (or []), how the rigs say "no objects", becomes a
     missing_metadata waiver for review. Files already in the shared keys pass through."""
     meta = dict(md)
     if "task_name" not in meta and "task" in meta:
         meta["task_name"] = meta.pop("task")
-    device = meta.get("embodiment")
-    if device not in layouts.values():
+    written = meta.get("embodiment")
+    if written not in layouts.values():
         layout = meta.pop("robot_name", None) or meta.pop("robot name", None)
         if isinstance(layout, str):
             layout = layouts.get(layout.strip().lower().replace(" ", "_"), layout)
         meta["embodiment"] = layout
-        if not meta.get("rig_name") and device:
-            meta["rig_name"] = device
+        device = written or device
+    if not meta.get("rig_name") and device:
+        meta["rig_name"] = device
+    scene = meta.get("scene")
+    if isinstance(scene, (int, float)) and not isinstance(scene, bool):
+        meta["scene"] = str(scene)
     if not meta.get("license") and default_license:
         meta["license"] = default_license
     objects = meta.get("objects")

@@ -10,7 +10,8 @@
 recording_id("aria", <id>), as for the backfill (aria_to_lance_ray), so a recording that
 comes in both ways is committed once. The rigs' metadata files are read as they are
 (metadata.rig_metadata): robot_name aria_bimanual / aria_left_arm / aria_right_arm is the
-human embodiment, the device (aria) stands in for a missing rig_name. device_serial is
+human embodiment, the device (aria, also when the file does not say) stands in for a
+missing rig_name. device_serial is
 optional in the file; when missing it is read from the VRS where the file records it.
 """
 
@@ -54,7 +55,7 @@ HINTS = {
 
 def upload_metadata(md: dict, vid: str, default_license: str | None = None) -> dict:
     """An Aria metadata file in the shared keys, plus what the recording gives."""
-    return rig_metadata(md, vid, LAYOUTS, default_license)
+    return rig_metadata(md, vid, LAYOUTS, default_license, device="aria")
 
 
 def vrs_serial(vrs: Path) -> str | None:

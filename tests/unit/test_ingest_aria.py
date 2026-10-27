@@ -75,6 +75,14 @@ def test_the_rigs_arm_layout_is_the_human_embodiment(layout, embodiment):
     assert (meta["task_name"], meta["license"]) == ("fold clothes", "CC-BY-4.0")
 
 
+def test_files_already_naming_the_embodiment_still_get_a_rig_and_text_scene():
+    md = {k: v for k, v in RIG_FILE.items() if k != "robot_name"}
+    meta = aria.upload_metadata(md | {"embodiment": "human_bimanual", "scene": 2}, VID)
+    assert (meta["embodiment"], meta["rig_name"], meta["scene"]) == (
+        "human_bimanual", "aria", "2",
+    )  # fmt: skip
+
+
 def test_the_misspelled_robot_name_key_is_read():
     md = {k: v for k, v in RIG_FILE.items() if k != "robot_name"}
     meta = aria.upload_metadata(md | {"robot name": "aria_left_arm"}, VID)
