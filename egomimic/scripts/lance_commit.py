@@ -1,7 +1,8 @@
 """The committer: the only writer of the Lance tables.
 
 Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
-`<staging>/<source>/<vendor id>/` (commit.stage). Each run validates the complete ones,
+`<staging>/<source>/<vendor id>/` (commit.stage; self-describing deliveries under their
+recording id instead, since vendor ids repeat across labs). Each run validates the complete ones,
 commits them in batches (each batch tagged `<source>-<UTC time>` on every table and recorded
 in `changes`), and deletes their staged files. A delivery that fails validation gets
 REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
@@ -212,8 +213,8 @@ def load_eva_deliveries(
 
 def load_described(dirs: list[Path]):
     """Deliveries staged with their catalog rows; also {recording_id: (labels, label
-    vendors)} for the ones carrying labels."""
-    deliveries, rejected, labels = [], {}, {}
+    vendors)} for the ones carrying labels, and {recording_id: staged folder name}."""
+    deliveries, rejected, labels, names = [], {}, {}, {}
     for d in sorted(dirs):
         m = json.loads((d / "meta.json").read_text())
         try:
@@ -225,9 +226,10 @@ def load_described(dirs: list[Path]):
             rejected[d.name] = errs
             continue
         deliveries.append(delivery)
+        names[delivery.recording_id] = d.name
         if rows is not None:
             labels[delivery.recording_id] = (rows, set(m.get("label_vendors", [])))
-    return deliveries, rejected, labels
+    return deliveries, rejected, labels, names
 
 
 def sync_labels(lance_root: str, labels: dict, operator, provenance) -> dict | None:
@@ -385,20 +387,26 @@ def commit_staged(
         }
         rest = [path for vid, path in local.items() if vid not in described]
         deliveries, rejected = _load(source, rest) if rest else ([], {})
-        more, bad, labels = load_described(list(described.values()))
+        more, bad, labels, names = load_described(list(described.values()))
         deliveries += more
         rejected.update(bad)
+
+        def folder(d) -> str:
+            # Described deliveries are staged under their recording_id (vendor ids can
+            # repeat across labs); the loaders' raw deliveries under the vendor id.
+            return names.get(d.recording_id, d.recording["vendor_recording_id"])
+
         skipped = []
         if not replace:
             skipped = [d for d in deliveries if d.recording_id in have]
             for d in skipped:
                 deliveries.remove(d)
-                rejected[d.recording["vendor_recording_id"]] = [
+                rejected[folder(d)] = [
                     "already committed; rerun with --replace to replace it"
                 ]
         provenance = {}
         for d in deliveries:
-            meta = local[d.recording["vendor_recording_id"]] / "meta.json"
+            meta = local[folder(d)] / "meta.json"
             p = json.loads(meta.read_text()).get("provenance")
             if p is not None:
                 provenance[d.recording_id] = p
@@ -421,12 +429,12 @@ def commit_staged(
                 )
                 if synced:
                     report["batches"].append(synced)
-        skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
+        skipped_ids = {folder(d) for d in skipped}
         for vid, errs in rejected.items():
             _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)
         report["rejected"].update(rejected)
         for d in deliveries:
-            _unstage(staging, source, d.recording["vendor_recording_id"])
+            _unstage(staging, source, folder(d))
         for path in local.values():
             shutil.rmtree(path, ignore_errors=True)
     return report

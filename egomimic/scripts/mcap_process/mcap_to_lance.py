@@ -10,7 +10,7 @@ camera, and stage the recording, its tasks and its labels for the committer
 commit.stage_delivery. Everything comes from the MCAP itself: the episode info replaces
 the SQL lookup of the Aria pilot. `--lance` is only read, to skip recordings already
 committed; their labels are staged as an annotation change instead. Deliveries are
-staged under <staging>/mcap/<vendor recording id>/ (`lance_commit --source mcap`). The
+staged under <staging>/mcap/<recording id>/ (`lance_commit --source mcap`). The
 vendor is not in the MCAP: it is who delivered it (the ingest bucket, or --vendor).
 
 The per-frame math follows aria_to_lance: nearest sample within MATCH_TOL_NS of each
@@ -924,7 +924,7 @@ def convert_and_stage(
         }
         commit.stage_delivery(
             d,
-            commit.join(staging, SOURCE, d.recording["vendor_recording_id"]),
+            commit.join(staging, SOURCE, d.recording_id),
             labels=labels,
             meta=meta,
         )

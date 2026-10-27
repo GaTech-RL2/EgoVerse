@@ -268,6 +268,26 @@ def test_every_camera_becomes_a_video_with_its_calibration(tmp_path):
     assert (meta.num_frames, meta.height, meta.width) == (60, 48, 64)
 
 
+def test_two_labs_with_the_same_vendor_id_both_land(tmp_path):
+    a = write_mcap_episode(tmp_path / "a")
+    b = write_mcap_episode(tmp_path / "b", metadata_override={"lab": "mecka"})
+    ra = convert_and_stage(
+        a, tmp_path / "staging", tmp_path / "lance", vendor="acme", codec="libx264",
+        mano=False,
+    )  # fmt: skip
+    rb = convert_and_stage(
+        b, tmp_path / "staging", tmp_path / "lance", vendor="acme", codec="libx264",
+        mano=False,
+    )  # fmt: skip
+    assert (ra.status, rb.status) == ("staged", "staged")
+    assert ra.recording_id != rb.recording_id  # same vendor_recording_id, two labs
+    commit_all(tmp_path)
+    recs = table(tmp_path, "recordings.lance")
+    assert sorted(r["lab"] for r in recs) == ["mecka", "rl2"]
+    assert {r["vendor_recording_id"] for r in recs} == {"acme-rec-0"}
+    assert commit.list_files(tmp_path / "staging" / "mcap") == {}
+
+
 def test_non_aria_sources_keep_their_field_of_view(tmp_path):
     run(tmp_path, metadata_override={"lab": "mecka"})
     (rec,) = table(tmp_path, "recordings.lance")
