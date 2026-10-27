@@ -44,12 +44,14 @@ def run_job(
             except DeliveryChanged:
                 outcome = {"status": "superseded"}
             else:
+                default_license = store.vendor_info(ref.vendor).get("license")
                 p = formats.prepare_delivery(
                     local,
                     staged,
                     lance_root,
                     fingerprint=fingerprint,
                     vendor=ref.vendor,
+                    default_license=default_license,
                     **settings,
                 )
                 outcome = {

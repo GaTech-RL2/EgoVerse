@@ -78,11 +78,28 @@ def upload(tmp_path, meta=META, cameras=CAMERAS, vid=VID):
     return d
 
 
-def prepare(tmp_path, d):
+def prepare(tmp_path, d, **kw):
     return prepare_delivery(
         d, tmp_path / "staged", tmp_path / "lance", fingerprint="f" * 64,
-        vendor="rl2-robots", codec="libx264", mano=False,
+        vendor="rl2-robots", codec="libx264", mano=False, **kw,
     )  # fmt: skip
+
+
+# A rig's metadata file as it is written today (raw_v2/eva/, read by
+# add_raw_data_to_table): embodiment names the robot, robot_name the arm layout; no
+# rig_name, device_serial or license.
+RIG_FILE = {
+    "embodiment": "eva",
+    "episode_hash": int(VID),
+    "operator": "op_7",
+    "lab": "rl2",
+    "task": "object in container",
+    "robot_name": "eva_right_arm",
+    "task_description": "put the object in the bowl, empty the bowl and repeat",
+    "scene": "1",
+    "objects": ["green bowl", "kcup"],
+}
+ONE_ARM = ("front_img_1", "right_wrist_img")
 
 
 def test_an_eva_upload_is_detected_by_its_files(tmp_path):
@@ -128,11 +145,55 @@ def test_an_eva_upload_stages_and_commits(tmp_path, encoder):
     assert task["task_name"] == "fold_clothes" and task["objects"] == ["shirt"]
 
 
-def test_the_rigs_legacy_keys_are_read(tmp_path, encoder):
-    legacy = {k: v for k, v in META.items() if k not in ("task_name", "embodiment")}
-    legacy |= {"task": "fold_clothes", "robot_name": "eva_bimanual"}
-    p = prepare(tmp_path, upload(tmp_path, meta=legacy))
+def test_a_rig_file_as_written_today_needs_only_its_device_serial(tmp_path):
+    p = prepare(tmp_path, upload(tmp_path, meta=RIG_FILE, cameras=ONE_ARM))
+    assert p.status == "rejected"
+    assert p.problems == [
+        "device_serial is required, got None (the rig must write which unit "
+        "recorded the demo)",
+        "license is required, got None (set it in the metadata, or give the vendor a "
+        "default at onboarding (onboard --license))",
+    ]
+    p = prepare(
+        tmp_path,
+        upload(tmp_path, meta=RIG_FILE, cameras=ONE_ARM),
+        default_license="CC-BY-4.0",
+    )
+    assert p.problems == [
+        "device_serial is required, got None (the rig must write which unit "
+        "recorded the demo)"
+    ]
+
+
+def test_a_rig_file_with_its_serial_stages_as_the_rig_meant(tmp_path, encoder):
+    meta = RIG_FILE | {"device_serial": "SN0001"}
+    p = prepare(
+        tmp_path,
+        upload(tmp_path, meta=meta, cameras=ONE_ARM),
+        default_license="CC-BY-4.0",
+    )
     assert p.status == "staged", (p.problems, p.error)
+    rec = p.staged / "recordings.parquet"
+    (row,) = __import__("pyarrow.parquet").parquet.read_table(rec).to_pylist()
+    assert (row["embodiment"], row["rig_name"], row["license"]) == (
+        "eva_right_arm", "eva", "CC-BY-4.0",
+    )  # fmt: skip
+    (task,) = (
+        __import__("pyarrow.parquet")
+        .parquet.read_table(p.staged / "tasks.parquet")
+        .to_pylist()
+    )
+    assert task["task_name"] == "object in container"
+
+
+def test_a_rig_file_without_robot_name_cannot_say_its_arms(tmp_path):
+    meta = {k: v for k, v in RIG_FILE.items() if k != "robot_name"}
+    p = prepare(tmp_path, upload(tmp_path, meta=meta), default_license="CC-BY-4.0")
+    assert p.status == "rejected"
+    assert (
+        "embodiment is required, got None (give robot_name, the arm layout "
+        "(eva_bimanual, eva_left_arm or eva_right_arm))" in p.problems
+    )
 
 
 def test_a_waiver_goes_to_review(tmp_path, encoder):
@@ -149,7 +210,7 @@ def test_missing_metadata_is_rejected_with_reasons(tmp_path):
     p = prepare(tmp_path, upload(tmp_path, meta=meta))
     assert p.status == "rejected"
     assert any("operator" in m for m in p.problems)
-    assert "device_serial is required, got None" in p.problems
+    assert any(m.startswith("device_serial is required, got None") for m in p.problems)
     assert not (tmp_path / "staged").exists()
 
 
@@ -184,7 +245,12 @@ def test_an_eva_upload_goes_through_the_watcher_review_and_committer(tmp_path, e
 
     store = LocalStore(tmp_path / "buckets")
     ref = Ref("rl2-robots", "demo-1")
-    store.upload_delivery(ref, upload(tmp_path), {"by": "test"})
+    # The license comes from onboarding: the rig's file names none.
+    store.add_vendor("rl2-robots", "ingest-rl2-robots", license="CC-BY-4.0")
+    meta = RIG_FILE | {"device_serial": "SN0001"}
+    store.upload_delivery(
+        ref, upload(tmp_path, meta=meta, cameras=ONE_ARM), {"by": "test"}
+    )
     launcher = LocalLauncher(
         store, str(tmp_path / "lance"), tmp_path / "jobs", codec="libx264", mano=False
     )
@@ -206,3 +272,4 @@ def test_an_eva_upload_goes_through_the_watcher_review_and_committer(tmp_path, e
         lance.dataset(tmp_path / "lance" / "recordings.lance").to_table().to_pylist()
     )
     assert rec["recording_id"] == recording_id("eva", VID)
+    assert (rec["license"], rec["embodiment"]) == ("CC-BY-4.0", "eva_right_arm")

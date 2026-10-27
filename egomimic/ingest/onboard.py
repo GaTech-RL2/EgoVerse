@@ -144,6 +144,10 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="origin of the dashboard's upload page (repeatable)",
     )
+    ap.add_argument(
+        "--license",
+        help="default license (e.g. CC-BY-4.0) for uploads whose metadata names none",
+    )
     ap.add_argument("--account", default=os.environ.get("CLOUDFLARE_ACCOUNT_ID"))
     ap.add_argument("--dry-run", action="store_true")
     add_store_args(ap)
@@ -172,7 +176,7 @@ def main(argv: list[str] | None = None) -> int:
             f"would register {args.vendor} -> {out['bucket']} in pipeline/vendors.json"
         )
         return 0
-    store_from_args(args).add_vendor(args.vendor, out["bucket"])
+    store_from_args(args).add_vendor(args.vendor, out["bucket"], license=args.license)
     print(json.dumps(out, indent=1))
     print("Give the vendor these credentials once; they are not stored.")
     return 0

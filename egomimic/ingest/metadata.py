@@ -33,11 +33,17 @@ def waived_fields(meta: dict[str, Any]) -> set[str]:
 
 
 def check_metadata(
-    meta: dict[str, Any], embodiments, *, allow_missing: bool = True
+    meta: dict[str, Any],
+    embodiments,
+    *,
+    allow_missing: bool = True,
+    hints: dict[str, str] | None = None,
 ) -> tuple[list[str], list[str]]:
     """(problems, waiver warnings) for an upload's metadata in the shared keys.
-    `embodiments` are the ones this format can convert. Waived fields are warnings with
+    `embodiments` are the ones this format can convert; `hints` says, per recording key,
+    where the format gets it, added to its problem. Waived fields are warnings with
     `allow_missing` (ingest: staff decide at review), problems without."""
+    hints = hints or {}
     waived = waived_fields(meta)
     problems = waiver_errors(meta, waived)
     required = {}
@@ -54,7 +60,8 @@ def check_metadata(
     for key in RECORDING_KEYS:
         value = meta.get(key)
         if not isinstance(value, str) or not value.strip() or is_placeholder(value):
-            problems.append(f"{key} is required, got {value!r}")
+            hint = f" ({hints[key]})" if key in hints else ""
+            problems.append(f"{key} is required, got {value!r}{hint}")
     if meta.get("embodiment") is not None and meta["embodiment"] not in embodiments:
         problems.append(
             f"embodiment {meta['embodiment']!r} is not one of {sorted(embodiments)}"

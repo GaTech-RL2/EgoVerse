@@ -4,10 +4,16 @@
     <id>_metadata.json   its metadata in the shared keys (egomimic/ingest/metadata.py)
 
 <id> is the demo's start in UTC epoch milliseconds (frame i is at <id> + i / fps). The
-metadata may give `fps` (30 or 60; default 30). The rig's existing files name two keys
-differently (`task`, `robot_name`); they are read as task_name and embodiment. Recording
-ids are recording_id("eva", <id>), as for the backfill (eva_to_lance --stage-to), so a
-demo that comes in both ways is committed once.
+metadata may give `fps` (30 or 60; default 30). Recording ids are recording_id("eva",
+<id>), as for the backfill (eva_to_lance --stage-to), so a demo that comes in both ways
+is committed once.
+
+The rigs' existing files (as add_raw_data_to_table reads them) are taken as they are:
+`task` is task_name; `robot_name` is the arm layout (eva_bimanual, eva_left_arm,
+eva_right_arm), so it is the embodiment, while their `embodiment` names the robot
+(eva, eve) and stands in for rig_name when that is missing; `license` defaults to the
+vendor's, set at onboarding. device_serial has no stand-in: only the rig knows which unit
+recorded the demo, so the rigs must add it.
 """
 
 from __future__ import annotations
@@ -24,20 +30,37 @@ from egomimic.ingest.stage import Prepared, stage_converted
 SOURCE = "eva"  # recording-id namespace and the committer's staging prefix
 FILES = ("{id}.hdf5", "{id}_metadata.json")
 DEFAULT_FPS = 30
-LEGACY_KEYS = {"task": "task_name", "robot_name": "embodiment"}
 # HDF5 image keys each embodiment needs: the front camera and the wrists of its arms.
 FRONT, WRISTS = "front_img_1", {"left": "left_wrist_img", "right": "right_wrist_img"}
 
 
-def upload_metadata(md: dict, vid: str) -> dict:
+def upload_metadata(md: dict, vid: str, default_license: str | None = None) -> dict:
     """An EVA metadata file in the shared keys, plus what the recording gives."""
+    from egomimic.scripts.eva_process.eva_to_lance import ARM_OF
+
     meta = dict(md)
-    for old, new in LEGACY_KEYS.items():
-        if old in meta and new not in meta:
-            meta[new] = meta.pop(old)
+    if "task_name" not in meta and "task" in meta:
+        meta["task_name"] = meta.pop("task")
+    robot = meta.get("embodiment")
+    if robot not in ARM_OF:  # the rigs' files: embodiment names the robot
+        meta["embodiment"] = meta.pop("robot_name", None)
+        if not meta.get("rig_name") and robot:
+            meta["rig_name"] = robot
+    if not meta.get("license") and default_license:
+        meta["license"] = default_license
     meta["vendor_recording_id"] = vid
     meta["start_time_unix"] = vid
     return meta
+
+
+# Where an EVA upload's missing keys come from, said with the problem.
+HINTS = {
+    "embodiment": "give robot_name, the arm layout (eva_bimanual, eva_left_arm or "
+    "eva_right_arm)",
+    "device_serial": "the rig must write which unit recorded the demo",
+    "license": "set it in the metadata, or give the vendor a default at onboarding "
+    "(onboard --license)",
+}
 
 
 def expected_cameras(embodiment: str) -> list[str]:
@@ -85,6 +108,7 @@ def prepare(
     fingerprint: str,
     vendor: str,
     ffmpeg: str = "ffmpeg",
+    default_license: str | None = None,
 ) -> Prepared:
     """Check and convert an EVA delivery into `staged` (stage.prepare's contract)."""
     import pyarrow.parquet as pq
@@ -109,8 +133,8 @@ def prepare(
         return Prepared(
             "rejected", rid, problems=[f"{vid}_metadata.json: not an object"]
         )
-    meta = upload_metadata(md, vid)
-    problems, waived = check_metadata(meta, tuple(ARM_OF))
+    meta = upload_metadata(md, vid, default_license)
+    problems, waived = check_metadata(meta, tuple(ARM_OF), hints=HINTS)
     if not problems:
         problems = precheck(delivery / f"{vid}.hdf5", vid, meta)
     if problems:

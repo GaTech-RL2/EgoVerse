@@ -58,8 +58,8 @@ class Format:
     prepare: Callable[
         ..., Prepared
     ]  # (delivery, staged, lance_root, *, fingerprint, vendor, ...)
-    # The conversion settings its prepare takes (convert_job.convert_settings names);
-    # only these are passed and pinned.
+    # What its prepare takes beyond the delivery: conversion settings
+    # (convert_job.convert_settings names) and per-vendor defaults (default_license).
     settings: frozenset[str] = frozenset()
 
     def recording_key(self, names: Iterable[str]) -> str | None:
@@ -130,7 +130,7 @@ def _eva() -> Format:
         optional=frozenset(),
         max_file_bytes=200 * 1024**3,  # raw HDF5 images are uncompressed
         prepare=eva.prepare,
-        settings=frozenset({"ffmpeg"}),
+        settings=frozenset({"ffmpeg", "default_license"}),
     )
 
 
