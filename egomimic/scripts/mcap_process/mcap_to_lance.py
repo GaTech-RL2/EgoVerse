@@ -24,7 +24,6 @@ robot steps schema yet.
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
 import subprocess
 import sys
@@ -40,16 +39,15 @@ from scipy.spatial.transform import Rotation
 
 from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance import commit
+from egomimic.rldb.lance.catalog import episode_task, rows_from_metadata
 from egomimic.rldb.lance.schema import (
     ANNOTATIONS,
     HUMAN_STEPS,
     annotation_id,
-    task_instance_id,
 )
 from egomimic.rldb.lance.timeline import build_timeline, pose_outliers
 from egomimic.rldb.mcap import schemas, spec
 from egomimic.rldb.mcap.validate import frames_in_message, validate_episode
-from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 
 SOURCE = "mcap"  # staging prefix and lance_commit --source of these deliveries
 
@@ -624,16 +622,7 @@ def convert(
             for t0, m in zip(series["/task"].t, series["/task"].msgs)
         ]
     else:  # the episode info over the whole recording, half-open
-        objects = [o for o in (meta.get("objects") or "").split(",") if o]
-        tasks = [
-            (
-                int(ts[0]),
-                int(ts[-1] + period),
-                meta["task_name"],
-                meta.get("task_description"),
-                objects,
-            )
-        ]
+        tasks = [episode_task(meta, ts[0], ts[-1] + period)]
     labels = _label_rows(series, meta["lab"], rid, period)
     errors = _label_errors(labels, [(t0, t1) for t0, t1, *_ in tasks])
     if errors:
@@ -783,42 +772,17 @@ def convert(
         videos[name] = out / f"{name}.mp4"
 
     # Catalog rows.
-    start_ms = int(meta["start_time_unix"])
-    recording = dict(
+    recording, task_rows, alias = rows_from_metadata(
+        meta,
         recording_id=rid,
-        vendor_recording_id=meta["vendor_recording_id"],
-        lab=meta["lab"],
-        embodiment=embodiment,
         end_effector=END_EFFECTOR.HAND.value,
-        rig_name=meta["rig_name"],
-        operator=meta["operator"],
-        scene=meta.get("scene"),  # None when waived (missing_metadata)
-        captured_at=datetime.datetime.fromtimestamp(
-            start_ms / 1000, tz=datetime.timezone.utc
-        ),
         fps=fps,
         num_frames=n,
-        intrinsics=sorted(intrinsics.items()),
-        extrinsics=sorted(extrinsics.items()),
-        license=meta["license"],
-    )
-    task_rows = [
-        dict(
-            task_instance_id=task_instance_id(rid, name, t0),
-            recording_id=rid,
-            t_start_ns=t0,
-            t_end_ns=t1,
-            task_name=name,
-            task_description=desc,
-            objects=objs,
-        )
-        for t0, t1, name, desc, objs in tasks
-    ]
-    alias = dict(
-        episode_hash=timestamp_ms_to_episode_hash(start_ms),
-        recording_id=rid,
-        t_start_ns=int(ts[0]),
-        t_end_ns=int(ts[-1] + period),  # half-open: the last frame is inside
+        t_start_ns=ts[0],
+        t_end_ns=ts[-1] + period,  # half-open: the last frame is inside
+        intrinsics=intrinsics,
+        extrinsics=extrinsics,
+        tasks=tasks,
     )
     stats = dict(
         filler_frames=int(filler.sum()),

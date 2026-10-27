@@ -142,20 +142,26 @@ def diff(root, converted) -> dict:
         keys = ("t_start_ns", "t_end_ns", "task_name", "task_description", "objects")
         return any(a.get(k) != b.get(k) for k in keys)
 
+    # Validity per tracked part, from whichever *_valid columns the embodiment has
+    # (head_pose_valid / left_valid / right_valid for humans, the arms for robots).
+    cols = [c for c in d.steps.column_names if c.endswith("_valid")]
+
+    def fractions(t: pa.Table) -> dict[str, float]:
+        return {
+            k.removesuffix("_pose_valid").removesuffix("_valid"): float(
+                pc.mean(t.column(k).cast(pa.float64())).as_py()
+            )
+            for k in cols
+        }
+
     old_valid = None
     steps_uri = commit.steps_uri(root, *d.steps_key)
     if old and commit._exists(steps_uri):
-        cols = ["head_pose_valid", "left_valid", "right_valid"]
         t = commit._open(steps_uri).to_table(
             columns=cols, filter=f"recording_id = {commit._sql_str(rid)}"
         )
         if t.num_rows:
-            old_valid = {
-                k.removesuffix("_pose_valid").removesuffix("_valid"): float(
-                    pc.mean(t.column(k).cast(pa.float64())).as_py()
-                )
-                for k in cols
-            }
+            old_valid = fractions(t)
 
     committed = _rows(
         root,
@@ -201,7 +207,7 @@ def diff(root, converted) -> dict:
                 and r["annotation_id"] not in new_ids
             ),
         },
-        "valid_frac": {"new": converted.stats["valid_frac"], "old": old_valid},
+        "valid_frac": {"new": fractions(d.steps), "old": old_valid},
     }
 
 
@@ -237,8 +243,6 @@ def prepare(
     staged there before, only once the new result is complete). Lance is only read, for
     the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint);
     `vendor` is who delivered it (its bucket), the namespace of its recording id."""
-    from egomimic.rldb.lance import commit
-    from egomimic.rldb.lance.schema import ANNOTATIONS
     from egomimic.rldb.mcap import spec
     from egomimic.rldb.mcap.validate import validate_episode
     from egomimic.scripts.mcap_process.mcap_to_lance import SOURCE, Rejected, convert
@@ -263,7 +267,6 @@ def prepare(
     if mano:  # which model fitted the hands, by content (the folder differs per host)
         pinned["mano_model"] = mano_model_digest(mano_model_dir)
     staged.parent.mkdir(parents=True, exist_ok=True)
-    tmp = staged.with_name(f".{staged.name}.{uuid.uuid4().hex}")
     work = staged.with_name(f".{staged.name}.work.{uuid.uuid4().hex}")
     try:
         try:
@@ -279,10 +282,54 @@ def prepare(
             return Prepared("rejected", rid, problems=e.problems)
         except Exception as e:  # unsupported embodiment / lens, broken video, ...
             return Prepared("failed", rid, error=f"{type(e).__name__}: {e}")
-        d = c.delivery
+        report = {
+            "filler_frames": c.stats["filler_frames"],
+            "labels": len(c.labels),
+            "valid_frac": c.stats["valid_frac"],
+        }
+        return stage_converted(
+            c,
+            staged,
+            lance_root,
+            format="mcap",
+            source=SOURCE,
+            fingerprint=fingerprint,
+            settings=pinned,
+            report=report,
+            waived=v.warnings,
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def stage_converted(
+    converted,
+    staged: Path,
+    lance_root,
+    *,
+    format: str,
+    source: str,
+    fingerprint: str,
+    settings: dict,
+    report: dict,
+    waived: list[str] = (),
+) -> Prepared:
+    """The shared back half of every format's prepare: stage `converted` (a .delivery,
+    its .labels and their default .label_source) into `staged` with its diff and pin,
+    replacing whatever was staged there only once the new result is complete. `source`
+    is the committer's staging prefix for it; `report` adds the format's own fields to
+    the common ones."""
+    from egomimic.rldb.lance import commit
+    from egomimic.rldb.lance.schema import ANNOTATIONS
+
+    d = converted.delivery
+    staged = Path(staged)
+    staged.parent.mkdir(parents=True, exist_ok=True)
+    tmp = staged.with_name(f".{staged.name}.{uuid.uuid4().hex}")
+    try:
         converter = converter_revision()
         labels = pa.Table.from_pylist(
-            [{k: r.get(k) for k in ANNOTATIONS.names} for r in c.labels],
+            [{k: r.get(k) for k in ANNOTATIONS.names} for r in converted.labels],
             schema=ANNOTATIONS,
         )
         commit.stage_delivery(
@@ -291,16 +338,19 @@ def prepare(
             labels=labels,
             meta={
                 "label_vendors": sorted(
-                    {c.label_source, *(r["annotation_vendor"] for r in c.labels)}
+                    {
+                        converted.label_source,
+                        *(r["annotation_vendor"] for r in converted.labels),
+                    }
                 ),
                 "provenance": {
                     "converter": converter,
-                    "settings": pinned,
+                    "settings": settings,
                     "fingerprint": fingerprint,
                 },
             },
         )
-        change = diff(lance_root, c)
+        change = diff(lance_root, converted)
         (tmp / DIFF).write_text(json.dumps(change, indent=1, sort_keys=True))
         files = {
             p.name: {"sha256": _sha256(p), "size": p.stat().st_size}
@@ -309,23 +359,21 @@ def prepare(
         }
         report = {
             "num_frames": d.recording["num_frames"],
-            "filler_frames": c.stats["filler_frames"],
             "tasks": len(d.tasks),
-            "labels": len(c.labels),
             "videos": sorted(d.videos),
-            "valid_frac": c.stats["valid_frac"],
+            **report,
         }
-        if v.warnings:
-            report["waived"] = v.warnings
+        if waived:
+            report["waived"] = list(waived)
         pin = {
-            "format": "mcap",
+            "format": format,
             "recording_id": d.recording_id,
             "vendor_recording_id": d.recording["vendor_recording_id"],
             "lab": d.recording["lab"],
-            "source": SOURCE,  # the committer's staging prefix
+            "source": source,  # the committer's staging prefix
             "fingerprint": fingerprint,
             "converter": converter,
-            "settings": pinned,
+            "settings": settings,
             "files": files,
             "report": report,
             "staged_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -336,5 +384,4 @@ def prepare(
         tmp.rename(staged)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-        shutil.rmtree(work, ignore_errors=True)
     return Prepared("staged", d.recording_id, staged=staged, report=report, diff=change)

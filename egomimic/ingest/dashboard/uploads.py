@@ -175,10 +175,13 @@ def api_start(delivery_id):
     size = body.get("size")
     if not isinstance(size, int) or size < 0:
         _fail(400, "size must be the file's size in bytes")
-    allowed, limit = accepted()
-    if name not in allowed:
+    fmts = formats.accepting(name)
+    if not fmts:
+        allowed, _ = accepted()
         _fail(422, f"{name}: no accepted format has this file; expected one of "
-                   f"{', '.join(sorted(allowed))}")  # fmt: skip
+                   f"{', '.join(sorted(allowed))} ({{id}}: the recording's id, the "
+                   "same in every file name)")  # fmt: skip
+    limit = max(f.max_file_bytes for f in fmts)
     if size > limit:
         _fail(422, f"{name}: {size} bytes is over the {limit / 1024**3:.0f} GiB limit")
     ps = part_size(size)

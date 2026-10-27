@@ -139,6 +139,7 @@ def convert(args) -> dict:
             mano_kp = convert_aria_keypoints_to_mano(
                 np.where(tracked[:, None], aria_kp, 1e9),
                 is_rhand=rhand,
+                model_dir=getattr(args, "mano_model_dir", None),
                 n_iters=args.mano_iters,
                 lr=0.05,
             )

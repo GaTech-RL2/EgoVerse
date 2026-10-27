@@ -217,12 +217,20 @@ class Store(ABC):
         """Vendors with a bucket, as the onboard script registered them."""
         return sorted((_load(self._get(VENDORS)) or {}).get("vendors", {}))
 
-    def add_vendor(self, vendor: str, bucket: str) -> None:
+    def add_vendor(self, vendor: str, bucket: str, license: str | None = None) -> None:
+        """Register `vendor`'s bucket; `license` is the default for uploads whose
+        metadata names none (formats that allow a default, e.g. EVA)."""
         if not VENDOR.fullmatch(vendor):
             raise ValueError(f"vendor {vendor!r} is not a lowercase slug")
         reg = _load(self._get(VENDORS)) or {"vendors": {}}
         reg["vendors"][vendor] = {"bucket": bucket, "added_at": now()}
+        if license:
+            reg["vendors"][vendor]["license"] = license
         self._put(VENDORS, _json(reg))
+
+    def vendor_info(self, vendor: str) -> dict:
+        """What onboarding recorded for `vendor` ({} if it was never registered)."""
+        return (_load(self._get(VENDORS)) or {}).get("vendors", {}).get(vendor, {})
 
     # ---- primitives each backend provides
 
