@@ -1,12 +1,16 @@
 """The committer: the only writer of the Lance tables.
 
 Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
-`<staging>/<source>/<vendor id>/` (commit.stage). Each run validates the complete ones,
+`<staging>/<source>/<vendor id>/` (commit.stage; self-describing deliveries under their
+recording id instead, since vendor ids repeat across labs). Each run validates the complete ones,
 commits them in batches (each batch tagged `<source>-<UTC time>` on every table and recorded
 in `changes`), and deletes their staged files. A delivery that fails validation gets
 REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
-Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
-A delivery's meta.json "provenance" is kept in its batch's `changes` row.
+Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json; a
+delivery staged with commit.stage_delivery (meta.json "format": "delivery", e.g. vendor
+MCAP) carries its own catalog rows, and its labels are synced right after its batch: the
+label vendors' committed labels of that recording not among them are deleted. A delivery's
+meta.json "provenance" is kept in its batch's `changes` row.
 
 `--source annotations` commits annotation change files that `lance_annotations stage` put under
 `<staging>/annotations/<id>/`, one commit and tag each, oldest first; each is reviewed again
@@ -34,6 +38,7 @@ from sqlalchemy import text
 from egomimic.rldb.lance import commit, mp4_ranges
 from egomimic.rldb.lance.annotations import read_changes, review
 from egomimic.rldb.lance.dataset import read_range
+from egomimic.rldb.lance.schema import ANNOTATIONS as ANNOTATIONS_SCHEMA
 from egomimic.rldb.lance.schema import task_instance_id
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -43,6 +48,7 @@ from egomimic.utils.aws.aws_sql import (
 
 REJECTED = "REJECTED.json"
 ANNOTATIONS = "annotations"
+MCAP = "mcap"  # vendor MCAP deliveries (mcap_to_lance.SOURCE), self-describing
 
 
 def sql_rows(hashes: list[str]) -> pd.DataFrame:
@@ -146,7 +152,7 @@ def load_deliveries(
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue
         videos = {cam: d / f"{cam}.mp4" for cam in ("front_1", "front_1_480")}
-        deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
+        deliveries.append(commit.Delivery(recording, [task], alias, steps, videos))
     return deliveries, rejected
 
 
@@ -201,8 +207,53 @@ def load_eva_deliveries(
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue
         videos = {cam: d / f"{cam}.mp4" for cam in m["videos"]}
-        deliveries.append(commit.Delivery(recording, task, alias, steps, videos))
+        deliveries.append(commit.Delivery(recording, [task], alias, steps, videos))
     return deliveries, rejected
+
+
+def load_described(dirs: list[Path]):
+    """Deliveries staged with their catalog rows; also {recording_id: (labels, label
+    vendors)} for the ones carrying labels, and {recording_id: staged folder name}."""
+    deliveries, rejected, labels, names = [], {}, {}, {}
+    for d in sorted(dirs):
+        m = json.loads((d / "meta.json").read_text())
+        try:
+            delivery, rows = commit.load_staged_delivery(d)
+            errs = check_delivery(d, m, delivery.steps)
+        except Exception as e:
+            delivery, errs = None, [f"unreadable: {type(e).__name__}: {e}"]
+        if errs:
+            rejected[d.name] = errs
+            continue
+        deliveries.append(delivery)
+        names[delivery.recording_id] = d.name
+        if rows is not None:
+            labels[delivery.recording_id] = (rows, set(m.get("label_vendors", [])))
+    return deliveries, rejected, labels, names
+
+
+def sync_labels(lance_root: str, labels: dict, operator, provenance) -> dict | None:
+    """Commit each recording's delivered labels in one annotation commit; the label
+    vendors' committed labels of that recording not among them are deleted."""
+    uri = commit.annotations_uri(lance_root)
+    adds, stale = [], []
+    for rid, (rows, vendors) in sorted(labels.items()):
+        new = set(rows.column("annotation_id").to_pylist())
+        if commit._exists(uri):
+            old = commit._open(uri).to_table(
+                columns=["annotation_id", "annotation_vendor"],
+                filter=f"recording_id = {commit._sql_str(rid)}",
+            )
+            stale += [
+                r["annotation_id"]
+                for r in old.to_pylist()
+                if r["annotation_vendor"] in vendors and r["annotation_id"] not in new
+            ]
+        adds.append(rows)
+    table = pa.concat_tables(adds) if adds else ANNOTATIONS_SCHEMA.empty_table()
+    return commit.commit_annotations(
+        lance_root, table, stale, operator=operator, provenance=provenance
+    )
 
 
 LOADERS = {"aria": load_deliveries, "eva": load_eva_deliveries}
@@ -328,18 +379,34 @@ def commit_staged(
             for name in commit.list_files(src):
                 if name != REJECTED:
                     commit.get_file(commit.join(src, name), local[vid] / name)
-        deliveries, rejected = _load(source, list(local.values()))
+        described = {
+            vid: path
+            for vid, path in local.items()
+            if json.loads((path / "meta.json").read_text()).get("format")
+            == commit.DESCRIBED
+        }
+        rest = [path for vid, path in local.items() if vid not in described]
+        deliveries, rejected = _load(source, rest) if rest else ([], {})
+        more, bad, labels, names = load_described(list(described.values()))
+        deliveries += more
+        rejected.update(bad)
+
+        def folder(d) -> str:
+            # Described deliveries are staged under their recording_id (vendor ids can
+            # repeat across labs); the loaders' raw deliveries under the vendor id.
+            return names.get(d.recording_id, d.recording["vendor_recording_id"])
+
         skipped = []
         if not replace:
             skipped = [d for d in deliveries if d.recording_id in have]
             for d in skipped:
                 deliveries.remove(d)
-                rejected[d.recording["vendor_recording_id"]] = [
+                rejected[folder(d)] = [
                     "already committed; rerun with --replace to replace it"
                 ]
         provenance = {}
         for d in deliveries:
-            meta = local[d.recording["vendor_recording_id"]] / "meta.json"
+            meta = local[folder(d)] / "meta.json"
             p = json.loads(meta.read_text()).get("provenance")
             if p is not None:
                 provenance[d.recording_id] = p
@@ -354,12 +421,20 @@ def commit_staged(
         if result:
             report["batches"].append(result)
             have |= set(result["added"])
-        skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
+            done = set(result["added"]) | set(result["replaced"])
+            mine = {rid: v for rid, v in labels.items() if rid in done}
+            if mine:
+                synced = sync_labels(
+                    lance_root, mine, operator, {"labels_of": result["tag"]}
+                )
+                if synced:
+                    report["batches"].append(synced)
+        skipped_ids = {folder(d) for d in skipped}
         for vid, errs in rejected.items():
             _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)
         report["rejected"].update(rejected)
         for d in deliveries:
-            _unstage(staging, source, d.recording["vendor_recording_id"])
+            _unstage(staging, source, folder(d))
         for path in local.values():
             shutil.rmtree(path, ignore_errors=True)
     return report
@@ -372,7 +447,9 @@ def main():
         required=True,
         help="staging root (s3:// or local); deliveries are under <staging>/<source>/<vendor id>/",
     )
-    ap.add_argument("--source", choices=sorted([*LOADERS, ANNOTATIONS]), required=True)
+    ap.add_argument(
+        "--source", choices=sorted([*LOADERS, MCAP, ANNOTATIONS]), required=True
+    )
     ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
     ap.add_argument(
         "--work-dir",
