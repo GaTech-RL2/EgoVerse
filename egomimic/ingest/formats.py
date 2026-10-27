@@ -28,7 +28,7 @@ class Format:
     max_file_bytes: int  # per file: checked by the dashboard, the watcher and prepare
     prepare: Callable[
         ..., Prepared
-    ]  # (delivery, staged, lance_root, *, fingerprint, ...)
+    ]  # (delivery, staged, lance_root, *, fingerprint, vendor, ...)
 
     def matches(self, names: set[str]) -> bool:
         return self.required <= names
@@ -99,7 +99,13 @@ def _sizes(delivery: Path) -> dict[str, int]:
 
 
 def prepare_delivery(
-    delivery: Path, staged: Path, lance_root: Path, *, fingerprint: str, **settings
+    delivery: Path,
+    staged: Path,
+    lance_root: Path,
+    *,
+    fingerprint: str,
+    vendor: str,
+    **settings,
 ) -> Prepared:
     """Recognize a downloaded delivery and prepare it with its format. Unrecognized
     deliveries are `unsupported`; recognized ones with extra or oversized files are
@@ -127,5 +133,5 @@ def prepare_delivery(
     if problems:
         return Prepared("rejected", problems=problems)
     return fmt.prepare(
-        delivery, staged, lance_root, fingerprint=fingerprint, **settings
+        delivery, staged, lance_root, fingerprint=fingerprint, vendor=vendor, **settings
     )

@@ -45,7 +45,12 @@ def run_job(
                 outcome = {"status": "superseded"}
             else:
                 p = formats.prepare_delivery(
-                    local, staged, lance_root, fingerprint=fingerprint, **settings
+                    local,
+                    staged,
+                    lance_root,
+                    fingerprint=fingerprint,
+                    vendor=ref.vendor,
+                    **settings,
                 )
                 outcome = {
                     "status": p.status,

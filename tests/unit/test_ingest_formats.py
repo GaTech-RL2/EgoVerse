@@ -64,7 +64,9 @@ def test_two_formats_claiming_a_delivery_is_an_error(monkeypatch):
 
 def test_an_unknown_delivery_is_unsupported_not_guessed(tmp_path):
     d = make(tmp_path, "recording.vrs", "mps/slam/closed_loop_trajectory.csv")
-    p = prepare_delivery(d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp")
+    p = prepare_delivery(
+        d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp", vendor="acme"
+    )
     assert p.status == "unsupported" and p.staged is None
     assert "mps/slam/closed_loop_trajectory.csv" in p.problems[0]
     assert "mcap: episode.mcap" in p.problems[0]
@@ -72,7 +74,9 @@ def test_an_unknown_delivery_is_unsupported_not_guessed(tmp_path):
 
 def test_unexpected_files_reject_before_any_conversion(tmp_path):
     d = make(tmp_path, "episode.mcap", "notes.txt")  # not even a valid MCAP: never read
-    p = prepare_delivery(d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp")
+    p = prepare_delivery(
+        d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp", vendor="acme"
+    )
     assert p.status == "rejected" and "unexpected: ['notes.txt']" in p.problems[0]
     assert not (tmp_path / "staged").exists()
 
@@ -86,7 +90,7 @@ def test_an_mcap_delivery_prepares_through_its_format(tmp_path):
 
     ep = write_mcap_episode(tmp_path / "eps")
     p = prepare_delivery(
-        ep, tmp_path / "staged", tmp_path / "lance", fingerprint="fp",
+        ep, tmp_path / "staged", tmp_path / "lance", fingerprint="fp", vendor="acme",
         codec="libx264", mano=False,
     )  # fmt: skip
     assert p.status == "staged" and read_pin(p.staged)["format"] == "mcap"
@@ -97,7 +101,9 @@ def test_oversized_files_reject_before_any_conversion(tmp_path, monkeypatch):
     monkeypatch.setattr(formats, "formats", lambda: [small])
     d = make(tmp_path, "episode.mcap")
     (d / "annotation.mcap").write_bytes(b"four")  # 4 bytes > 3
-    p = prepare_delivery(d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp")
+    p = prepare_delivery(
+        d, tmp_path / "staged", tmp_path / "lance", fingerprint="fp", vendor="acme"
+    )
     assert p.status == "rejected" and len(p.problems) == 1
     assert p.problems[0].startswith("annotation.mcap is 0.0 GiB, over the mcap limit")
     assert not (tmp_path / "staged").exists()

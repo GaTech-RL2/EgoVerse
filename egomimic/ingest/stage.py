@@ -226,6 +226,7 @@ def prepare(
     lance_root,
     *,
     fingerprint: str,
+    vendor: str,
     mano: bool = True,
     mano_iters: int = 2400,
     mano_model_dir: str | None = None,
@@ -234,9 +235,11 @@ def prepare(
 ) -> Prepared:
     """Validate and convert a downloaded delivery into `staged` (replacing whatever was
     staged there before, only once the new result is complete). Lance is only read, for
-    the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint)."""
+    the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint);
+    `vendor` is who delivered it (its bucket), the namespace of its recording id."""
     from egomimic.rldb.lance import commit
     from egomimic.rldb.lance.schema import ANNOTATIONS
+    from egomimic.rldb.mcap import spec
     from egomimic.rldb.mcap.validate import validate_episode
     from egomimic.scripts.mcap_process.mcap_to_lance import SOURCE, Rejected, convert
 
@@ -245,10 +248,13 @@ def prepare(
         v = validate_episode(delivery)
     except Exception as e:
         return Prepared("failed", error=f"{type(e).__name__}: {e}")
+    rid = (
+        spec.recording_id(vendor, v.vendor_recording_id)
+        if v.vendor_recording_id
+        else ""
+    )
     if v.problems:
-        return Prepared(
-            "rejected", v.recording_id, problems=[str(p) for p in v.problems]
-        )
+        return Prepared("rejected", rid, problems=[str(p) for p in v.problems])
 
     settings = {"mano": mano, "mano_iters": mano_iters, "codec": codec}
     pinned = dict(settings)
@@ -260,12 +266,17 @@ def prepare(
     try:
         try:
             c = convert(
-                delivery, work, ffmpeg=ffmpeg, mano_model_dir=mano_model_dir, **settings
+                delivery,
+                work,
+                vendor=vendor,
+                ffmpeg=ffmpeg,
+                mano_model_dir=mano_model_dir,
+                **settings,
             )
         except Rejected as e:  # validated, but Lance would refuse it (e.g. labels)
-            return Prepared("rejected", v.recording_id, problems=e.problems)
+            return Prepared("rejected", rid, problems=e.problems)
         except Exception as e:  # unsupported embodiment / lens, broken video, ...
-            return Prepared("failed", v.recording_id, error=f"{type(e).__name__}: {e}")
+            return Prepared("failed", rid, error=f"{type(e).__name__}: {e}")
         d = c.delivery
         converter = converter_revision()
         labels = pa.Table.from_pylist(

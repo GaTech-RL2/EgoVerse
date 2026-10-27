@@ -40,6 +40,7 @@ def stage(tmp_path, name="s", fingerprint="f" * 64, **kw):
         tmp_path / "staged" / name,
         tmp_path / "lance",
         fingerprint=fingerprint,
+        vendor="acme",
         **OPTS,
     )
 
@@ -76,6 +77,19 @@ def test_a_stage_is_a_delivery_the_committer_takes_as_it_is(tmp_path):
     assert len(rows(tmp_path, "tasks.lance")) == 2
     assert len(rows(tmp_path, "annotations.lance")) == 2
     assert len(rows(tmp_path, steps_path(rec["lab"], rec["embodiment"], "hand"))) == 60
+
+
+def test_the_recording_id_is_the_delivering_vendors(tmp_path):
+    from egomimic.rldb.mcap import spec
+
+    ep = write_mcap_episode(tmp_path / "eps", metadata_override={"lab": "mecka"})
+    p = prepare(
+        ep, tmp_path / "staged", tmp_path / "lance", fingerprint="f" * 64,
+        vendor="globex", **OPTS,
+    )  # fmt: skip
+    # From the bucket it came through, whatever lab the file names.
+    assert p.recording_id == spec.recording_id("globex", "acme-rec-0")
+    assert read_pin(p.staged)["recording_id"] == p.recording_id
 
 
 def test_rejected_and_failed_deliveries_stage_nothing(tmp_path):
