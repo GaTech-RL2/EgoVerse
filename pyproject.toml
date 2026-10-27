@@ -84,6 +84,10 @@ dependencies = [
 # not part of this package; install it by hand when running that converter.
 # The Ray data-processing image keeps its own requirements-ray.txt.
 
+[project.optional-dependencies]
+# The ingestion dashboard (egomimic/ingest/dashboard), deployed on its own.
+dashboard = ["flask>=3"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["egomimic*"]
