@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+import time
 
 import aria.sdk as aria
 import cv2
@@ -57,9 +58,11 @@ class AriaRecorder:
     class _StreamingClientObserver:
         def __init__(self):
             self.rgb_image = None
+            self.last_frame_time = None
 
         def on_image_received(self, image: np.array, record: ImageDataRecord):
             self.rgb_image = image
+            self.last_frame_time = time.monotonic()
 
     def __init__(
         self,
@@ -133,6 +136,10 @@ class AriaRecorder:
         )
         rgb_calib = sensors_calib.get_camera_calib("camera-rgb")
         self._rgb_calib = rgb_calib
+
+    @property
+    def last_frame_time(self):
+        return self._observer.last_frame_time if self._observer is not None else None
 
     def get_image(self, convert_to_rgb: bool = True) -> np.ndarray:
         image_bgr = self._observer.rgb_image

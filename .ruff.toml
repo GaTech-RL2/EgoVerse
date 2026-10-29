@@ -1,4 +1,5 @@
 line-length = 88
+target-version = "py311"
 
 exclude = [
   "external",
@@ -10,3 +11,11 @@ exclude = [
 [lint]
 select = ["E", "F", "I"]
 ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Keep the pinned yam-pipeline reference solver byte-for-byte identical.
+"egomimic/robot/yam/streaming_ik.py" = ["I001"]
+
+[format]
+# Source-pinned upstream implementations: preserve byte-for-byte provenance.
+exclude = ["egomimic/robot/yam/quest_mapper.py", "egomimic/robot/yam/streaming_ik.py"]
