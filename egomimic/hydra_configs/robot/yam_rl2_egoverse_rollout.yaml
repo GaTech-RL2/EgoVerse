@@ -1,0 +1,167 @@
+# RL2 YAM rollout station profile for EgoVerse checkpoints:
+#   YAM_EGOVERSE_CHECKPOINT=/abs/model.ckpt python -m egomimic.robot.yam_station.rollout \
+#     --config egomimic/hydra_configs/robot/yam_rl2_egoverse_rollout.yaml
+# --check-config opens no robot devices and does not prove checkpoint readiness.
+# --check-model loads the checkpoint on CPU, opening no device.
+robot:
+  kind: yam
+  arms: [left, right]
+  channels:
+    left: can_follower_l
+    right: can_follower_r
+  gripper_type: linear_4310
+  gripper_kp: 20.0
+  gripper_kd: 0.5
+  # Rollouts cap gripper force at 20 N (Aidan 2026-10-21); live per-arm control on the dashboard.
+  gripper_force_limit: 20.0
+  zero_gravity_mode: true
+  enable_auto_recovery: true
+  frequency: 60
+  home_duration: 1.5
+  home:
+    left: [-0.008, 0.007, 0.004, -0.07, 0.001, -0.015, 0.999]
+    right: [0.007, 0.006, 0.005, -0.073, -0.013, -0.022, 0.999]
+  kinematics:
+    joint_names: [joint1, joint2, joint3, joint4, joint5, joint6]
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: '230322272195'
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '218622270679'
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '230322270555'
+      height: 480
+      width: 640
+      fps: 30
+
+# Policy actions run at the 30 Hz dataset rate. Keep this command cadence separate from
+# the 60 Hz i2rt follower driver frequency above.
+frequency: 30
+# The guard is applied to each commanded joint target: 12 rad/s at 30 Hz is a
+# maximum 0.4-rad step. It does not change the i2rt follower's 60 Hz driver.
+max_joint_velocity: 12.0
+# A rejected Cartesian plan sends neither arm and asks the policy for a fresh one.
+max_velocity_replans: 8
+# Run until the operator stops; use a positive integer for a bounded session.
+max_steps: null
+camera_timeout: 30.0
+# The dashboard records an operator-started, synchronized three-camera MP4.
+# It observes existing RGB frames only and never participates in robot control.
+video_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_egoverse
+  fps: 12
+# Demo-format observations/actions plus rollout plans and outcome labels.
+# The low-disk guard ends capture without changing robot execution.
+episode_recording:
+  enabled: true
+  directory: /home/rohan/rollouts/yam_egoverse/episodes
+  min_free_gb: 20.0
+  max_queued_rows: 60
+# Browser-only checkpoint picker. It can browse only under this root, and a
+# chosen .ckpt is strictly loaded before the robot executes a fresh plan.
+model_browser:
+  enabled: true
+  root: /home/rohan/checkpoints/EgoVerse
+# Reset both physical followers to the configured home before the browser
+# starts accepting policy commands, and again for dashboard Restart / r.
+reset_on_start: true
+reset_home_on_restart: true
+preview:
+  enabled: true
+  mode: dashboard
+  host: 127.0.0.1
+  port: 8081
+  open_browser: true
+  width: 640
+  camera_hz: 12
+  jpeg_quality: 80
+  # Do not generate or send a policy action until c / Start is requested.
+  wait_for_start: true
+  action_overlay:
+    initial_enabled: false
+    camera: front_img_1
+    calibration_path: egomimic/hydra_configs/robot/yam_rl2_agentview_extrinsics.yaml
+    arm_channels:
+      left: can_follower_l
+      right: can_follower_r
+
+policy:
+  kind: egoverse
+  # A self-contained EgoVerse ModelWrapper checkpoint (config tree + norm stats
+  # inside). The dashboard model browser below swaps between .ckpt files.
+  checkpoint: ${oc.env:YAM_EGOVERSE_CHECKPOINT}
+  device: cuda:0
+  # The embodiment the checkpoint was trained under (main EgoVerse: eva_*/human_*).
+  embodiment: eva_bimanual
+  # Maps each Yam arm base into the model's proprio/action frame. Default: the
+  # Eva convention (camera-frame poses), i.e. base_T_camera of the overhead
+  # front_img_1 D405 from yam_rl2_agentview_extrinsics.yaml. Use the identity /
+  # station-world matrices instead if the training data was in arm-base frames.
+  base_T_model:
+    left:
+      - [0.008031593763524247, -0.8460137949113619, 0.5331005086485036, -0.24745807872964987]
+      - [-0.9999023536250363, -0.012891419243587143, -0.005393934092919931, -0.312508332334387]
+      - [0.011435764807410006, -0.5330051314289218, -0.8460347233735189, 0.9444139504200416]
+      - [0.0, 0.0, 0.0, 1.0]
+    right:
+      - [0.01687638082297442, -0.8502128271356683, 0.5261685436666587, -0.22926829110543537]
+      - [-0.9996630984747586, -0.003968782524055946, 0.02565030824613683, 0.2926165109213208]
+      - [-0.019719972570037284, -0.526424161051952, -0.8499933678227057, 0.9431512773981495]
+      - [0.0, 0.0, 0.0, 1.0]
+  # model_frame: actions are absolute poses in that frame; eef_frame: relative
+  # to the measured end-effector pose (wrist-frame action targets).
+  action_frame: model_frame
+  camera_keys:
+    front_img_1: observations.images.front_img_1
+    left_wrist_img: observations.images.left_wrist_img
+    right_wrist_img: observations.images.right_wrist_img
+  # null passes the 480x640 camera frames as recorded.
+  image_hw: null
+  prompt: ""
+  # Dashboard controls (start values): the executed prefix of each chunk, and
+  # sampling steps (null = the checkpoint's own count).
+  replan_every: 30
+  sampling_steps: null
+  # Clip routine stochastic gripper overshoot; beyond it, reject the whole plan
+  # and resample up to max_valid_samples times before any robot command.
+  gripper_clip_tolerance: 0.05
+  max_valid_samples: 8
+
+# Endpoint IK backend for Cartesian plans. MuJoCo is the pinned default; TRAC-IK
+# (pytracik, extra `yam-tracik`) is opt-in, also from the dashboard's Endpoint IK
+# selector. Both arms' targets go through the same backend.
+ik_solver:
+  backend: mujoco
+  timeout_s: 0.005
+  solver_type: Distance
+# Opt-in bounded pose relaxation: when strict IK fails, accept a solution within
+# these tolerances instead of discarding the plan (dashboard toggle, default off).
+ik_relaxation:
+  enabled: false
+  position_tolerance_m: 0.005
+  rotation_tolerance_deg: 3.0
+# Bounded differential recovery: once an endpoint IK fails, both arms track the
+# same paired row with damped least-squares steps under this joint-speed bound
+# until both endpoints are reached or the tick budget runs out.
+ik_recovery:
+  enabled: true
+  max_joint_velocity: 1.0
+  position_scale_m: 0.05
+  rotation_scale_rad: 0.5
+  damping: 0.01
+  posture_weight: 0.05
+  max_ticks_per_target: 30

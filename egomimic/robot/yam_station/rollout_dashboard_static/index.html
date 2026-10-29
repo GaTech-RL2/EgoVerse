@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YAM rollout</title>
+    <link rel="stylesheet" href="/style.css?v=12">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">RL2 YAM · LOCAL POLICY ROLLOUT</p>
+          <h1>Rollout monitor</h1>
+          <p>Three live cameras. With this browser tab focused, press <kbd>c</kbd> to start, <kbd>Space</kbd> to pause or resume, <kbd>v</kbd> to record a synchronized video, <kbd>d</kbd> to record a demo-format episode (robot state, actions and full camera frames, about 5 GB per minute), and <kbd>r</kbd> to return YAM to home and then to the ready state. Reconnect cameras pauses control without closing the rollout. The overlay is visual only.</p>
+        </div>
+        <div class="rollout-control-panel">
+          <p id="current-model" class="current-model">Selected model: connecting…</p>
+          <p id="rollout-time" class="rollout-time" role="timer" title="Active time since Continue; pauses excluded, Restart resets to zero.">Rollout time: 00:00</p>
+          <div class="rollout-meta">
+            <span id="status" class="starting">Connecting…</span>
+            <p id="recording-indicator" class="recording" hidden>● RECORDING VIDEO</p>
+          </div>
+          <div class="rollout-button-grid">
+            <button id="start" disabled>Start rollout <kbd>c</kbd></button>
+            <button id="pause" disabled>Pause rollout <kbd>Space</kbd></button>
+            <button id="record-video" disabled>Record video <kbd>v</kbd></button>
+            <button id="record-episode" disabled>Record episode <kbd>d</kbd></button>
+            <button id="select-model" disabled>Select model</button>
+            <button id="restart" disabled>Reset YAM home <kbd>r</kbd></button>
+            <button id="reconnect-cameras" disabled>Reconnect RGB cameras</button>
+            <label class="overlay-toggle" for="overlay">
+              <input id="overlay" type="checkbox">
+              Show front action overlay
+            </label>
+            <button id="stop" class="stop">Stop rollout <kbd>q</kbd></button>
+          </div>
+        </div>
+      </header>
+      <p id="overlay-status" class="overlay-status">Waiting for a Cartesian action plan</p>
+      <p id="inference-status" class="overlay-status">Inference: waiting for first plan</p>
+      <label id="ik-solver-control" class="overlay-toggle" hidden>
+        Endpoint IK
+        <select id="ik-solver" disabled>
+          <option value="mujoco">MuJoCo</option>
+          <option value="pytracik">TRAC-IK</option>
+        </select>
+        <span id="ik-solver-detail"></span>
+      </label>
+      <label id="ik-relaxation-control" class="overlay-toggle" hidden>
+        <input id="ik-relaxation" type="checkbox" disabled>
+        Allow small IK pose errors
+        <span id="ik-relaxation-detail"></span>
+      </label>
+      <section id="gripper-settings" class="gripper-settings" aria-label="Gripper force settings" hidden>
+        <strong>Gripper force limit</strong>
+        <div id="gripper-controls"></div>
+        <small>Applied on the next control tick (1–50 N).</small>
+      </section>
+      <section id="velocity-decision" class="velocity-decision" hidden aria-live="assertive">
+        <strong>Joint velocity limit reached</strong>
+        <p id="velocity-detail"></p>
+        <div class="actions">
+          <button data-velocity-action="execute" class="warning">Execute once <kbd>e</kbd></button>
+          <button data-velocity-action="resample">Resample <kbd>s</kbd></button>
+          <button data-velocity-action="restart">Restart <kbd>r</kbd></button>
+        </div>
+      </section>
+      <section id="episode-save" class="episode-save" hidden aria-live="polite">
+        <strong id="episode-title">Recording episode</strong>
+        <p id="episode-detail">When the rollout is over, save the take with its outcome. Reset (r) keeps it as unlabeled.</p>
+        <div class="actions">
+          <button data-episode-outcome="success" class="success">Save: success</button>
+          <button data-episode-outcome="failure" class="failure">Save: failure</button>
+          <button data-episode-outcome="unlabeled">Save unlabeled <kbd>d</kbd></button>
+          <button id="discard-episode">Discard</button>
+        </div>
+      </section>
+      <p id="episode-status" class="overlay-status" hidden></p>
+      <section class="reset-guide-controls" aria-label="Visual reset guides">
+        <label for="reset-guide">Reset guide</label>
+        <select id="reset-guide" aria-describedby="reset-guide-status">
+          <option value="">Off</option>
+        </select>
+        <small id="reset-guide-status" role="status">Visual guide only · not recorded · no robot motion</small>
+      </section>
+      <section id="cameras" class="cameras" aria-label="Live rollout cameras"></section>
+      <div class="rollout-controls">
+        <div class="launchers">
+          <button id="open-videos" class="video-launch" disabled>Recorded videos</button>
+          <button id="open-episodes" class="video-launch" disabled>Recorded episodes</button>
+        </div>
+        <div id="inference-controls" class="inference-controls" hidden aria-label="Selected model inference controls"></div>
+      </div>
+      <p class="notice">This dashboard binds to the station loopback interface only. Runtime inference controls are declared and bounded by the selected model's YAML profile. Start, pause, and home requests are executed by the rollout loop; video and episode recording observe existing camera frames and the commands the rollout loop already sent, and have no direct arm or teleoperation control.</p>
+    </main>
+    <dialog id="videos">
+      <header>
+        <div>
+          <p class="eyebrow">LOCAL MP4 REVIEW</p>
+          <h2>Recorded rollout videos</h2>
+        </div>
+        <div class="actions">
+          <button id="refresh-videos">Refresh</button>
+          <button id="close-videos">Close</button>
+        </div>
+      </header>
+      <div class="video-browser">
+        <aside class="video-sidebar" aria-label="Recorded rollout video list">
+          <div id="video-list">Loading…</div>
+        </aside>
+        <section class="video-review">
+          <p id="video-empty">Select a completed rollout video to review it.</p>
+          <div id="video-player-wrap" hidden>
+            <p class="eyebrow">SELECTED VIDEO</p>
+            <h3 id="video-title"></h3>
+            <p id="video-meta" class="video-meta"></p>
+            <video id="video-player" controls playsinline preload="metadata"></video>
+          </div>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="episodes">
+      <header>
+        <div>
+          <p class="eyebrow">DEMO-FORMAT HDF5 EPISODES</p>
+          <h2>Recorded rollout episodes</h2>
+        </div>
+        <div class="actions">
+          <button id="refresh-episodes">Refresh</button>
+          <button id="close-episodes">Close</button>
+        </div>
+      </header>
+      <div id="episode-list" class="episode-list">Loading…</div>
+    </dialog>
+    <dialog id="models">
+      <header>
+        <div>
+          <p class="eyebrow">LOCAL CHECKPOINT PICKER</p>
+          <h2>Select rollout model</h2>
+          <p id="model-current" class="video-meta"></p>
+        </div>
+        <div class="actions">
+          <button id="model-up">Up one folder</button>
+          <button id="model-refresh">Refresh</button>
+          <button id="model-close">Close</button>
+        </div>
+      </header>
+      <p id="model-path" class="model-path"></p>
+      <label class="model-search" for="model-search">
+        <span>Search this folder</span>
+        <input id="model-search" type="search" autocomplete="off" placeholder="Match anywhere in a name">
+      </label>
+      <div id="model-list" class="model-list">Loading…</div>
+    </dialog>
+    <!-- Generated from robot/reset_overlay_templates.yaml. Run build_reset_guides.py. -->
+    <script id="reset-guide-catalog" type="application/json">{"version":1,"templates":[{"id":"rl2-yam-earbuds-20261010","label":"Earbuds \u2014 left / case / right","camera":"front_img_1","image_size":[640,480],"provenance":{"camera_serial":"230322272195","captured_at":"2026-10-10T22:56:09-04:00","source_image_sha256":"ba58a2044fbaef73f4f916a067323752ea8916580ee22b546de21bc558b73336","placement":"User-confirmed table-plane projection: size 105.7, x 0, y 63.5","warning":"Recheck placement after moving the camera or table. Not surveyed calibration."},"regions":[{"label":"Left","points":[[216.06140961614906,231.80945168925663],[283.22134650936016,231.45398786744497],[280.2821555535088,295.01799006867714],[207.04833752125842,295.1446907785335]]},{"label":"Case","points":[[283.22134650936016,231.45398786744497],[350.7955911838059,231.12289178846373],[354.0180506380843,294.7067966731917],[280.2821555535088,295.01799006867714]]},{"label":"Right","points":[[350.7955911838059,231.12289178846373],[418.1763060993439,230.81930061865893],[427.51468215290413,294.2126378607729],[354.0180506380843,294.7067966731917]]}]}]}</script>
+    <script type="module" src="/app.js?v=15"></script>
+  </body>
+</html>
