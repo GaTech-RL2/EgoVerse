@@ -5,6 +5,10 @@ columns equal the zarr keys. Frames where an arm's pose reads all zeros stay for
 as in zarr, and are also flagged `<arm>_valid = False`. The HDF5 carries no per-frame
 times, so frame i is at start + i / --fps. With --stage-to the delivery is staged for the
 committer (egomimic/scripts/lance_commit.py), which appends it to the Lance tables.
+
+lab, operator, task and the other SQL_FIELDS come from the episode's SQL row (--manifest, a
+plan_zarr_migration manifest or an app.episodes export), as the committer takes Aria's; only
+without one are they read from the capture's _metadata.json.
 """
 
 import argparse
@@ -22,6 +26,7 @@ import pyarrow.parquet as pq
 from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.lance import commit
+from egomimic.rldb.lance.metadata import objects_list, read_manifest, text_or_none
 from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id, robot_steps_table
 from egomimic.rldb.zarr.required_metadata import required_metadata_error
 from egomimic.scripts.eva_process.eva_to_zarr import (
@@ -42,6 +47,8 @@ CAMERAS = {
     "right_wrist_img": "right_wrist",
 }
 SIZE = (360, 480)
+# app.episodes columns that replace the capture's _metadata.json values.
+SQL_FIELDS = ("lab", "operator", "task", "task_description", "scene", "objects")
 
 
 def numeric_columns(raw: Path, arm: str) -> tuple[dict[str, np.ndarray], np.ndarray]:
@@ -113,12 +120,27 @@ def required_fields(md: dict) -> dict[str, str]:
     return fields
 
 
-def convert(args) -> dict:
+def episode_metadata(md: dict, sql: dict | None) -> dict:
+    """The capture's metadata with SQL_FIELDS taken from its SQL row when there is one; a
+    field the row leaves null stays null, so the required check rejects it."""
+    if sql is None:
+        return md
+    out = dict(md)
+    for k in SQL_FIELDS:
+        v = sql.get(k)
+        # Not str(v): objects may be a list.
+        out[k] = None if text_or_none(v) is None else v
+    return out
+
+
+def convert(args, metadata: dict | None = None) -> dict:
+    """Write the delivery; `metadata` is the episode's SQL row (see SQL_FIELDS)."""
     t0 = time.time()
     raw = args.raw_dir / f"{args.vendor_recording_id}.hdf5"
     md = json.loads(
         (args.raw_dir / f"{args.vendor_recording_id}_metadata.json").read_text()
     )
+    md = episode_metadata(md, metadata)
     required = required_fields(md)
     embodiment = md["robot_name"]
     arm = ARM_OF[embodiment]
@@ -153,7 +175,7 @@ def convert(args) -> dict:
         "scene": md.get("scene"),
         "task_name": required["task_name"],
         "task_description": md.get("task_description"),
-        "objects": md.get("objects") or [],
+        "objects": objects_list(md.get("objects")),
         "fps": args.fps,
         "num_frames": n,
         "videos": cams,
@@ -185,11 +207,22 @@ def main():
     )
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument(
+        "--manifest",
+        type=Path,
+        help="parquet or CSV of SQL episode rows; the episode's row supplies SQL_FIELDS",
+    )
+    ap.add_argument(
         "--stage-to", help="staging root (s3:// or local) for the committer"
     )
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
-    print(json.dumps(convert(args), indent=1))
+    sql = None
+    if args.manifest:
+        h = timestamp_ms_to_episode_hash(args.vendor_recording_id)
+        sql = read_manifest(args.manifest).get(h)
+        if sql is None:
+            raise SystemExit(f"{h} is not in {args.manifest}")
+    print(json.dumps(convert(args, sql), indent=1))
     if args.stage_to:
         commit.stage(
             args.out_dir / args.vendor_recording_id,
