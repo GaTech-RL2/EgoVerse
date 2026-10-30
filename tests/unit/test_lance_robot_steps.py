@@ -2,11 +2,15 @@
 
 import numpy as np
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 import torch
 
 lance = pytest.importorskip("lance")
 
+from fixtures.lance_tables import eva_delivery  # noqa: E402
+
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR  # noqa: E402
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
 from egomimic.rldb.lance.schema import (  # noqa: E402
@@ -21,13 +25,15 @@ from egomimic.rldb.lance.schema import (  # noqa: E402
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset  # noqa: E402
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter  # noqa: E402
+from egomimic.scripts.lance_commit import commit_staged  # noqa: E402
 
+HAND = END_EFFECTOR.HUMAN_HAND.value
 PERIOD_NS = 33_333_333
 H = 4
 TASK = "fold and stack the skirts"
 STEPS_KEYS = {
-    "yam": ("abc", "yam_bimanual", "parallel_jaw_gripper"),
-    "dexmate": ("sharpa_dex", "dexmate_bimanual", "dex_hand"),
+    "yam": ("abc", "yam_bimanual", END_EFFECTOR.PARALLEL_JAW_GRIPPER.value),
+    "dexmate": ("sharpa_dex", "dexmate_bimanual", END_EFFECTOR.DEX_HAND.value),
 }
 
 
@@ -42,7 +48,7 @@ def _side_keys(side_keys: dict, sides=("left", "right")) -> dict:
 ANNOTATIONS = {
     "annotations": {"key_type": "annotation_keys", "zarr_key": "annotations"}
 }
-# The numeric keys of Yam._get_keymap("cartesian") (aniketh/arc), horizon shortened.
+# The numeric keys of Yam._get_keymap("cartesian"), horizon shortened.
 YAM_KEY_MAP = {
     **_side_keys(
         {
@@ -62,7 +68,7 @@ YAM_KEY_MAP = {
     ),
     **ANNOTATIONS,
 }
-# The numeric keys of Dexmate._get_keymap("keypoints") (jmni/sharpa-ingest-tooling).
+# The numeric keys of Dexmate._get_keymap("keypoints").
 DEXMATE_KEY_MAP = {
     **_side_keys(
         {
@@ -167,10 +173,10 @@ def _delivery(tmp, kind: str, i: int, n: int, valid=None):
 
 
 def test_registered_steps_schemas():
-    assert steps_schema("yam_bimanual", "parallel_jaw_gripper") is EVA_STEPS
-    assert steps_schema("dexmate_bimanual", "dex_hand") is DEXMATE_STEPS
-    # "human_hand" is a tracked human hand: its steps tables hold HUMAN_STEPS.
-    for emb, ee in [("dexmate_bimanual", "human_hand"), ("yam_bimanual", "human_hand")]:
+    assert steps_schema(*STEPS_KEYS["yam"][1:]) is EVA_STEPS
+    assert steps_schema(*STEPS_KEYS["dexmate"][1:]) is DEXMATE_STEPS
+    # HAND is a tracked human hand: its steps tables hold HUMAN_STEPS.
+    for emb, ee in [("dexmate_bimanual", HAND), ("yam_bimanual", HAND)]:
         with pytest.raises(ValueError, match="no steps schema"):
             steps_schema(emb, ee)
     assert steps_path(*STEPS_KEYS["dexmate"]) == (
@@ -196,9 +202,9 @@ def test_commit_round_trips_yam_and_dexmate_steps(tmp_path):
     rec = lance.dataset(root / "recordings.lance").to_table()
     assert rec.schema.equals(RECORDINGS)
     assert sorted(rec.column("end_effector").to_pylist()) == [
-        "dex_hand",
-        "parallel_jaw_gripper",
-        "parallel_jaw_gripper",
+        END_EFFECTOR.DEX_HAND.value,
+        END_EFFECTOR.PARALLEL_JAW_GRIPPER.value,
+        END_EFFECTOR.PARALLEL_JAW_GRIPPER.value,
     ]
 
 
@@ -209,10 +215,24 @@ def test_committer_rejects_steps_not_in_the_key_schema(tmp_path):
     wrong = commit.Delivery(yam.recording, yam.task, yam.alias, dex.steps, yam.videos)
     with pytest.raises(ValueError, match="steps schema"):
         commit.append(root, [wrong])
-    as_hand = dict(dex.recording, end_effector="human_hand")
+    as_hand = dict(dex.recording, end_effector=HAND)
     with pytest.raises(ValueError, match="no steps schema"):
         commit.steps_key(as_hand)
     assert commit.committed_ids(root) == set()
+
+
+def test_a_delivery_with_off_schema_steps_is_rejected_alone(tmp_path):
+    pytest.importorskip("av")
+    staging = tmp_path / "staging"
+    for vid in ("100", "200"):
+        commit.stage(eva_delivery(tmp_path / "built", vid), staging / "eva" / vid)
+    path = staging / "eva" / "200" / "steps.parquet"
+    steps = pq.read_table(path)
+    pq.write_table(steps.select(steps.column_names[::-1]), path)
+    root = tmp_path / "lance"
+    report = commit_staged(str(staging), "eva", str(root), tmp_path / "work")
+    assert report["batches"][0]["added"] == [recording_id("eva", "100")]
+    assert "steps schema differs" in report["rejected"]["200"][0]
 
 
 def _zarr_twin(root, d, arrays, key_map) -> ZarrDataset:

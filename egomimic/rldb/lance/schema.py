@@ -5,6 +5,8 @@ import uuid
 import numpy as np
 import pyarrow as pa
 
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
+
 RECORDING_NAMESPACE = uuid.UUID("6f1d4c3e-2b1a-5e7f-9c8d-0a1b2c3d4e5f")
 
 
@@ -176,16 +178,16 @@ DEXMATE_STEPS = pa.schema(
 # (embodiment, end_effector) -> the schema of its steps tables.
 STEPS_SCHEMAS = {
     **{
-        (f"human_{arms}", "human_hand"): HUMAN_STEPS
+        (f"human_{arms}", END_EFFECTOR.HUMAN_HAND.value): HUMAN_STEPS
         for arms in ("bimanual", "left_arm", "right_arm")
     },
     **{
-        (f"eva_{arms}", "parallel_jaw_gripper"): EVA_STEPS
+        (f"eva_{arms}", END_EFFECTOR.PARALLEL_JAW_GRIPPER.value): EVA_STEPS
         for arms in ("bimanual", "left_arm", "right_arm")
     },
     # YAM stores exactly EVA's per-arm arrays (6 joints, a [0, 1] gripper).
-    ("yam_bimanual", "parallel_jaw_gripper"): EVA_STEPS,
-    ("dexmate_bimanual", "dex_hand"): DEXMATE_STEPS,
+    ("yam_bimanual", END_EFFECTOR.PARALLEL_JAW_GRIPPER.value): EVA_STEPS,
+    ("dexmate_bimanual", END_EFFECTOR.DEX_HAND.value): DEXMATE_STEPS,
 }
 
 

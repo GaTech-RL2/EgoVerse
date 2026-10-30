@@ -25,7 +25,6 @@ import pyarrow.compute as pc
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
-from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance.dataset import (
     _is_remote,
     _s3_client,
@@ -79,7 +78,6 @@ def steps_key(recording: dict, steps: pa.Table | None = None) -> tuple[str, str,
     for c in STEPS_KEY:
         if not recording.get(c):
             raise ValueError(f"recording {rid}: no {c}")
-    END_EFFECTOR(recording["end_effector"])
     schema = steps_schema(recording["embodiment"], recording["end_effector"])
     if steps is not None and not steps.schema.equals(schema):
         raise ValueError(
@@ -92,7 +90,7 @@ def steps_key(recording: dict, steps: pa.Table | None = None) -> tuple[str, str,
 def check_required(d: Delivery) -> tuple[str, str, str]:
     """`d`'s steps key; rejects a delivery without lab, operator or task_name (only
     scene and objects may be empty)."""
-    key = steps_key(d.recording)
+    key = d.steps_key
     if not d.recording.get("operator"):
         raise ValueError(f"recording {d.recording_id}: no operator")
     if not d.task.get("task_name"):

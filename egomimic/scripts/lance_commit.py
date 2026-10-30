@@ -206,7 +206,7 @@ def load_eva_deliveries(
             t_end_ns=m["t_end_ns"],
         )
         try:
-            commit.steps_key(recording)
+            commit.steps_key(recording, steps)
         except ValueError as e:
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue

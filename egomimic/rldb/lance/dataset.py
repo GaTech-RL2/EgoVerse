@@ -24,6 +24,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import torch
 
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance import mp4_ranges
 from egomimic.rldb.lance.schema import (
@@ -55,8 +56,8 @@ ZARR_TO_LANCE = {
 }
 # Robot steps columns already carry the zarr key names.
 COLUMNS_OF_END_EFFECTOR = {
-    "parallel_jaw_gripper": zarr_columns(EVA_STEPS),
-    "dex_hand": zarr_columns(DEXMATE_STEPS),
+    END_EFFECTOR.PARALLEL_JAW_GRIPPER.value: zarr_columns(EVA_STEPS),
+    END_EFFECTOR.DEX_HAND.value: zarr_columns(DEXMATE_STEPS),
 }
 
 

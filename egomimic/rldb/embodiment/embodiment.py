@@ -35,22 +35,12 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
-    # Ids as the branches that write these zarr episodes (abc_to_zarr, sharpa_to_zarr) assign them.
+    # Ids already written in YAM and Dexmate zarr episodes.
     YAM_BIMANUAL = 7
     DEXMATE_BIMANUAL = 8
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
-
-
-class END_EFFECTOR(Enum):
-    """What acts at the end of each arm; the Lance `end_effector` column holds the value."""
-
-    # A tracked human hand (keypoints).
-    HUMAN_HAND = "human_hand"
-    PARALLEL_JAW_GRIPPER = "parallel_jaw_gripper"
-    # An actuated multi-finger robot hand (joints, FK keypoints, tactile).
-    DEX_HAND = "dex_hand"
 
 
 def _intrinsics_from_batch(batch, i: int):
