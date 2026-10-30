@@ -6,6 +6,9 @@ published by its `recordings` row, and readers ignore steps rows nobody referenc
 append() replaces such leftovers of an interrupted run rather than duplicating them.
 Videos live outside Lance under `videos/<recording_id>/<content digest>/` and are never
 overwritten, so older table versions keep pointing at the files they were written with.
+A converter either stages its MP4s with the delivery (`stage`; the committer copies them
+into place) or uploads them to their final place itself (`stage_direct`; the committer
+only checks their sizes).
 
 `root` is a local directory or an s3:// prefix; credentials come from the R2_*
 environment (dataset.storage_options).
@@ -22,13 +25,16 @@ from pathlib import Path
 import lance
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
+from egomimic.rldb.lance import mp4_ranges
 from egomimic.rldb.lance.dataset import (
     _is_remote,
     _s3_client,
     open_table,
+    read_range,
     storage_options,
 )
 from egomimic.rldb.lance.schema import (
@@ -43,6 +49,10 @@ from egomimic.rldb.lance.schema import (
     steps_schema,
 )
 
+# How long an MP4 under videos/ that nothing references or claims is kept: a converter
+# uploads its videos before it stages the meta.json that claims them.
+VIDEO_UPLOAD_GRACE = datetime.timedelta(days=1)
+
 CATALOG = {
     "aliases.lance": ALIASES,
     "tasks.lance": TASKS,
@@ -52,7 +62,9 @@ CATALOG = {
 
 @dataclass
 class Delivery:
-    """One validated recording: catalog rows without `video_path`/`content_digest`, its steps and local MP4s."""
+    """One validated recording: catalog rows without `video_path`/`content_digest`, its steps
+    and either local MP4s or, for a direct-mode delivery, its meta.json "lance_videos" entry
+    (`place_videos`) naming MP4s already in place."""
 
     recording: dict
     task: dict
@@ -61,6 +73,7 @@ class Delivery:
     videos: dict[str, Path]
     # What the converter recorded about it (meta.json "provenance"), kept in `changes`.
     provenance: dict | None = None
+    placed: dict | None = None
 
     @property
     def recording_id(self) -> str:
@@ -107,26 +120,30 @@ def _split(uri: str) -> tuple[str, str]:
     return bucket, key
 
 
-def list_files(prefix) -> dict[str, tuple[int, str]]:
-    """{path relative to `prefix`: (size, etag or mtime)} of every file under it."""
+def _objects(prefix):
+    """(path relative to `prefix`, size, etag or mtime_ns, modified at) of every file under it."""
     prefix = str(prefix).rstrip("/")
     if not _is_remote(prefix):
         root = Path(prefix)
-        return {
-            str(p.relative_to(root)): (p.stat().st_size, str(p.stat().st_mtime_ns))
-            for p in (root.rglob("*") if root.exists() else ())
-            if p.is_file()
-        }
+        for p in root.rglob("*") if root.exists() else ():
+            if p.is_file():
+                st = p.stat()
+                at = datetime.datetime.fromtimestamp(st.st_mtime, datetime.timezone.utc)
+                yield str(p.relative_to(root)), st.st_size, str(st.st_mtime_ns), at
+        return
     bucket, key = _split(prefix)
-    out = {}
     for page in (
         _s3_client()
         .get_paginator("list_objects_v2")
         .paginate(Bucket=bucket, Prefix=key + "/")
     ):
         for o in page.get("Contents", []):
-            out[o["Key"][len(key) + 1 :]] = (o["Size"], o["ETag"])
-    return out
+            yield o["Key"][len(key) + 1 :], o["Size"], o["ETag"], o["LastModified"]
+
+
+def list_files(prefix) -> dict[str, tuple[int, str]]:
+    """{path relative to `prefix`: (size, etag or mtime)} of every file under it."""
+    return {rel: (size, version) for rel, size, version, _ in _objects(prefix)}
 
 
 def list_dirs(prefix) -> list[str]:
@@ -163,7 +180,8 @@ def put_file(src: Path, dst: str) -> None:
         _s3_client().upload_file(str(src), *_split(dst))
     else:
         Path(dst).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        # Not copy2: the copy's mtime is its upload time, which orphan_videos goes by.
+        shutil.copyfile(src, dst)
 
 
 def put_bytes(data: bytes, dst: str) -> None:
@@ -227,6 +245,89 @@ def _size(uri: str) -> int | None:
         return _s3_client().head_object(Bucket=bucket, Key=key)["ContentLength"]
     except ClientError:
         return None
+
+
+def _touch(uri: str) -> None:
+    """Set a file's modified time to now."""
+    if not _is_remote(uri):
+        Path(uri).touch()
+        return
+    bucket, key = _split(uri)
+    # S3 only moves LastModified by rewriting the object; a self-copy does it server-side.
+    _s3_client().copy_object(
+        Bucket=bucket,
+        Key=key,
+        CopySource={"Bucket": bucket, "Key": key},
+        MetadataDirective="REPLACE",
+    )
+
+
+def _place(src: Path, dst: str) -> None:
+    """Upload `src` to `dst` unless a file of its size is there, which is touched instead
+    so orphan_videos sees it as freshly uploaded."""
+    if _size(dst) == Path(src).stat().st_size:
+        _touch(dst)
+    else:
+        put_file(src, dst)
+
+
+def video_path(recording_id: str, digest: str, cam: str) -> str:
+    """Where a recording's MP4 lives, relative to the Lance root."""
+    return f"videos/{recording_id}/{digest[:16]}/{cam}.mp4"
+
+
+def _local_cams(delivery: Path, meta: dict) -> list[str]:
+    return meta.get("videos") or sorted(p.stem for p in delivery.glob("*.mp4"))
+
+
+def place_videos(delivery: Path, root) -> dict:
+    """Upload a delivery's MP4s to their final place under the Lance root `root` (`_place`)
+    and return the meta.json "lance_videos" entry naming them:
+    {"root", "content_digest", "videos": {cam: {"path", "size", "num_frames"}}}."""
+    delivery = Path(delivery)
+    meta = json.loads((delivery / "meta.json").read_text())
+    videos = {cam: delivery / f"{cam}.mp4" for cam in _local_cams(delivery, meta)}
+    digest = content_digest(pq.read_table(delivery / "steps.parquet"), videos)
+    out = {}
+    for cam, src in sorted(videos.items()):
+        rel = video_path(meta["recording_id"], digest, cam)
+        _place(src, join(root, rel))
+        frames = mp4_ranges.read_index(
+            lambda a, b, p=str(src): read_range(p, a, b)
+        ).num_frames
+        out[cam] = {"path": rel, "size": src.stat().st_size, "num_frames": frames}
+    return {"root": str(root).rstrip("/"), "content_digest": digest, "videos": out}
+
+
+def stage_direct(delivery: Path, dst, root) -> None:
+    """`stage` without the MP4s: they go straight to the Lance root `root` (`place_videos`),
+    and only the other files plus meta.json, carrying "lance_videos", go to `dst`. Videos
+    of a delivery that is then rejected or never committed are left behind for
+    `orphan_videos`."""
+    delivery = Path(delivery)
+    meta = json.loads((delivery / "meta.json").read_text())
+    meta["lance_videos"] = place_videos(delivery, root)
+    for p in sorted(delivery.iterdir()):
+        if p.is_file() and p.suffix != ".mp4" and p.name != "meta.json":
+            put_file(p, join(dst, p.name))
+    put_bytes(json.dumps(meta, indent=1).encode(), join(dst, "meta.json"))
+
+
+def check_placed(root, recording_id: str, placed: dict) -> list[str]:
+    """Errors for a direct-mode delivery's videos: wrong root or layout, missing, or a size
+    that differs from meta.json. Only HEADs the MP4s."""
+    if placed.get("root") != str(root).rstrip("/"):
+        return [f"videos were placed under {placed.get('root')}, not {root}"]
+    errs = []
+    for cam, v in sorted(placed["videos"].items()):
+        if v["path"] != video_path(recording_id, placed["content_digest"], cam):
+            errs.append(f"{cam}.mp4 is at {v['path']}, not its content-addressed path")
+            continue
+        size = _size(join(root, v["path"]))
+        if size != v["size"]:
+            got = "missing" if size is None else f"{size} bytes"
+            errs.append(f"{v['path']} is {got}, meta.json says {v['size']}")
+    return errs
 
 
 _open = open_table
@@ -349,15 +450,17 @@ def _ids_predicate(ids) -> str:
 
 
 def _stage(root, d: Delivery) -> dict[str, pa.Table]:
-    """Copy the videos into place and build each table's rows for one delivery."""
-    digest = content_digest(d.steps, d.videos)
-    paths = {}
-    for cam, src in d.videos.items():
-        rel = f"videos/{d.recording_id}/{digest[:16]}/{cam}.mp4"
-        dst = join(root, rel)
-        if _size(dst) != Path(src).stat().st_size:
-            put_file(src, dst)
-        paths[cam] = rel
+    """Copy the videos into place (unless the converter placed them) and build each table's rows for one delivery."""
+    if d.placed:
+        digest = d.placed["content_digest"]
+        paths = {cam: v["path"] for cam, v in d.placed["videos"].items()}
+    else:
+        digest = content_digest(d.steps, d.videos)
+        paths = {}
+        for cam, src in d.videos.items():
+            rel = video_path(d.recording_id, digest, cam)
+            _place(src, join(root, rel))
+            paths[cam] = rel
     rec = {**d.recording, "video_path": sorted(paths.items()), "content_digest": digest}
     return {
         "steps": d.steps,
@@ -630,9 +733,11 @@ def compact(root) -> None:
 
 def cleanup(
     root,
+    staging,
     older_than: datetime.timedelta = datetime.timedelta(days=14),
+    upload_grace: datetime.timedelta = VIDEO_UPLOAD_GRACE,
 ) -> None:
-    """Drop untagged versions older than `older_than`, then videos no remaining version references.
+    """Drop untagged versions older than `older_than`, then `gc_videos`.
 
     `older_than` must exceed the longest training run that resolved an untagged version.
     """
@@ -640,23 +745,58 @@ def cleanup(
         _open(uri).cleanup_old_versions(
             older_than=older_than, error_if_tagged_old_versions=False
         )
-    gc_videos(root)
+    gc_videos(root, staging, upload_grace)
 
 
-def gc_videos(root) -> list[str]:
-    """Delete MP4s under videos/ that no version of `recordings` references."""
+def _staged_videos(staging) -> set[str]:
+    """Video paths claimed by direct-mode deliveries staged under `<staging>/<source>/<id>/`,
+    except ones rejected since their meta.json was last written."""
+    out = set()
+    for source in list_dirs(staging):
+        for vid in list_dirs(join(staging, source)):
+            at = {rel: t for rel, _, _, t in _objects(join(staging, source, vid))}
+            if "meta.json" not in at:
+                continue
+            if "REJECTED.json" in at and at["REJECTED.json"] >= at["meta.json"]:
+                continue
+            meta = json.loads(get_bytes(join(staging, source, vid, "meta.json")))
+            placed = meta.get("lance_videos") or {}
+            out.update(v["path"] for v in placed.get("videos", {}).values())
+    return out
+
+
+def orphan_videos(
+    root,
+    staging,
+    upload_grace: datetime.timedelta = VIDEO_UPLOAD_GRACE,
+    delete: bool = False,
+) -> list[str]:
+    """MP4s under videos/ that no version of `recordings` references and no pending
+    delivery under the staging root `staging` claims, last written more than
+    `upload_grace` ago (so uploads whose meta.json is not staged yet are spared).
+    Deletes them only with `delete`."""
     uri = join(root, "recordings.lance")
-    keep = set()
-    for v in _open(uri).versions():
+    keep = _staged_videos(staging)
+    for v in _open(uri).versions() if _exists(uri) else ():
         tbl = _open(uri, v["version"]).to_table(columns=["video_path"])
         for m in tbl.column(0).to_pylist():
             keep.update(p for _, p in m)
-    removed = [
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - upload_grace
+    orphans = [
         join(root, "videos", p)
-        for p in list_files(join(root, "videos"))
-        if p.endswith(".mp4") and f"videos/{p}" not in keep
+        for p, _, _, at in _objects(join(root, "videos"))
+        if p.endswith(".mp4") and f"videos/{p}" not in keep and at <= cutoff
     ]
-    remove(removed)
+    if delete:
+        remove(orphans)
+    return orphans
+
+
+def gc_videos(
+    root, staging, upload_grace: datetime.timedelta = VIDEO_UPLOAD_GRACE
+) -> list[str]:
+    """Delete `orphan_videos` and, on a local root, the directories they leave empty."""
+    removed = orphan_videos(root, staging, upload_grace, delete=True)
     if not _is_remote(str(root)):
         vids = Path(root) / "videos"
         for d in sorted(vids.rglob("*"), key=lambda p: -len(p.parts)):
