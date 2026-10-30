@@ -3,8 +3,8 @@
 Numerics go through the same EvaHD5Extractor and per-arm split as eva_to_zarr, so steps
 columns equal the zarr keys. Frames where an arm's pose reads all zeros stay forward-filled
 as in zarr, and are also flagged `<arm>_valid = False`. The HDF5 carries no per-frame
-times, so frame i is at start + i / FPS. The committer
-(egomimic/scripts/lance_pilot/commit.py --lab eva) appends deliveries to the Lance tables.
+times, so frame i is at start + i / --fps. The committer
+(egomimic/scripts/lance_pilot/commit.py --source eva) appends deliveries to the Lance tables.
 """
 
 import argparse
@@ -19,6 +19,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id
 from egomimic.scripts.eva_process.eva_to_zarr import (
@@ -31,7 +32,6 @@ from egomimic.utils.video_utils import open_av1_encoder
 
 log = logging.getLogger("eva_to_lance")
 
-FPS = 30.0
 ARM_OF = {"eva_bimanual": "both", "eva_left_arm": "left", "eva_right_arm": "right"}
 # HDF5 camera -> delivery camera; 640x480 sources, encoded at short side 360.
 CAMERAS = {
@@ -100,7 +100,7 @@ def steps_table(rid: str, ts: np.ndarray, cols: dict, valid: dict) -> pa.Table:
     )
 
 
-def encode_videos(raw: Path, out: Path, n: int, ffmpeg: str) -> list[str]:
+def encode_videos(raw: Path, out: Path, n: int, fps: float, ffmpeg: str) -> list[str]:
     h, w = SIZE
     done = []
     with h5py.File(raw, "r") as f:
@@ -110,7 +110,7 @@ def encode_videos(raw: Path, out: Path, n: int, ffmpeg: str) -> list[str]:
                 continue
             if len(imgs[src]) != n:
                 raise ValueError(f"{src} has {len(imgs[src])} frames, numerics {n}")
-            enc = open_av1_encoder(out / f"{cam}.mp4", h, w, FPS, ffmpeg)
+            enc = open_av1_encoder(out / f"{cam}.mp4", h, w, fps, ffmpeg)
             for a in range(0, n, 64):
                 for frame in imgs[src][a : a + 64]:
                     small = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
@@ -141,13 +141,13 @@ def convert(args) -> dict:
         for slot, side in enumerate(("left", "right"))
     }
     start_ns = int(args.vendor_recording_id) * 1_000_000
-    ts = start_ns + np.round(np.arange(n) * 1e9 / FPS).astype(np.int64)
+    ts = start_ns + np.round(np.arange(n) * 1e9 / args.fps).astype(np.int64)
     pq.write_table(
         steps_table(rid, ts, cols, valid), out / "steps.parquet", compression="zstd"
     )
     t_numeric = time.time() - t0
 
-    cams = encode_videos(raw, out, n, args.ffmpeg)
+    cams = encode_videos(raw, out, n, args.fps, args.ffmpeg)
     k = np.asarray(Eva.INTRINSICS, np.float64)[:3, :3].copy()
     k[:2] *= SIZE[0] / 480
     meta = {
@@ -155,17 +155,18 @@ def convert(args) -> dict:
         "recording_id": rid,
         "episode_hash": timestamp_ms_to_episode_hash(args.vendor_recording_id),
         "embodiment": embodiment,
-        "site": md.get("lab"),
+        "end_effector": END_EFFECTOR.PARALLEL_JAW_GRIPPER.value,
+        "lab": md.get("lab"),
         "operator": md.get("operator"),
         "scene": md.get("scene"),
         "task_name": md.get("task"),
         "task_description": md.get("task_description"),
         "objects": md.get("objects") or [],
-        "fps": FPS,
+        "fps": args.fps,
         "num_frames": n,
         "videos": cams,
         "t_start_ns": int(ts[0]),
-        "t_end_ns": int(ts[-1]) + round(1e9 / FPS),
+        "t_end_ns": int(ts[-1]) + round(1e9 / args.fps),
         "intrinsics": {"front_1": k.reshape(-1).tolist()},
         # Same per-arm base-to-camera transforms eva_to_zarr stores.
         "extrinsics": {a: m.reshape(-1).tolist() for a, m in Eva.EXTRINSICS.items()},
@@ -183,6 +184,12 @@ def main():
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument(
         "--vendor-recording-id", required=True, help="epoch ms, the HDF5 file stem"
+    )
+    ap.add_argument(
+        "--fps",
+        type=float,
+        required=True,
+        help="the demo's frame rate; the HDF5 has no per-frame times",
     )
     ap.add_argument("--ffmpeg", default="ffmpeg")
     args = ap.parse_args()
