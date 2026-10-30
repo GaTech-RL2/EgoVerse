@@ -1,7 +1,6 @@
-"""Streaming leaves (batched reads through video chunk tables) match the local MP4 path.
+"""Streaming leaves (batched MP4 byte-range reads) match the local per-sample MP4 path.
 
-Needs EGOVERSE_TEST_LANCE_ROOT (pilot tables) and EGOVERSE_TEST_LANCE_CHUNKS (a dir
-holding `video_chunks/front_1_k8.lance`, from `chunk_videos.py`). CPU only.
+Needs EGOVERSE_TEST_LANCE_ROOT (pilot tables). CPU only.
 """
 
 import os
@@ -23,16 +22,11 @@ from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def root(tmp_path_factory):
+def root():
     src = os.environ.get("EGOVERSE_TEST_LANCE_ROOT")
-    chunks = os.environ.get("EGOVERSE_TEST_LANCE_CHUNKS")
-    if not src or not chunks:
-        pytest.skip("set EGOVERSE_TEST_LANCE_ROOT and EGOVERSE_TEST_LANCE_CHUNKS")
-    out = tmp_path_factory.mktemp("lance")
-    for name in ("steps", "recordings.lance", "tasks.lance", "aliases.lance", "videos"):
-        (out / name).symlink_to(Path(src) / name)
-    (out / "video_chunks").symlink_to(Path(chunks) / "video_chunks")
-    return out
+    if not src:
+        pytest.skip("set EGOVERSE_TEST_LANCE_ROOT")
+    return Path(src)
 
 
 def _dataset(root, resolver=LanceEpisodeResolver, **kw):
@@ -48,13 +42,9 @@ def _dataset(root, resolver=LanceEpisodeResolver, **kw):
     return MultiDataset(datasets=leaves, mode="total")
 
 
-def test_chunked_batch_matches_per_sample_mp4(root):
+def test_range_batch_matches_per_sample_mp4(root):
     per_sample = _dataset(root)
-    batched = _dataset(
-        root,
-        LanceStreamingResolver,
-        video_chunks={"images.front_1": "front_1_k8"},
-    )
+    batched = _dataset(root, LanceStreamingResolver)
     assert len(batched) == len(per_sample)
     rng = random.Random(0)
     idxs = [rng.randrange(len(batched)) for _ in range(48)]

@@ -3,9 +3,7 @@
 Each fake is `--frames` real rows sliced from a bimanual pilot episode and points at that
 episode's real video, so every loader runs unmodified:
   zarr     a symlink to the source store (startup reads only attrs, so length does not matter)
-  lance    recordings/aliases/tasks rows + contiguous steps rows; the 480p k8 chunk table gets
-           one row per 8 frames with an empty blob (the resolver only scans recording_id and
-           num_frames; first batches sample real episodes only); videos/ is a symlink
+  lance    recordings/aliases/tasks rows + contiguous steps rows; videos/ is a symlink
   lerobot  data parquet rows + episodes rows whose video from/to timestamps fall inside the
            source episode's span of a real video file, rolled at LeRobot's file-size limits;
            videos/ is a symlink
@@ -22,9 +20,7 @@ from pathlib import Path
 import lance
 import numpy as np
 import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from lance.blob import blob_array
 
 from egomimic.rldb.lance.schema import only_steps_path
 from egomimic.scripts.lance_pilot import PILOT
@@ -60,7 +56,7 @@ def make_zarr(src: Path, out: Path, n: int, manifest: list[dict]) -> None:
 
 
 # --------------------------------------------------------------------------- lance
-def make_lance(src: Path, chunks_src: Path, out: Path, n: int, frames: int) -> None:
+def make_lance(src: Path, out: Path, n: int, frames: int) -> None:
     out.mkdir(parents=True)
     os.symlink(src / "videos", out / "videos")
     rec = lance.dataset(str(src / "recordings.lance")).to_table()
@@ -68,8 +64,6 @@ def make_lance(src: Path, chunks_src: Path, out: Path, n: int, frames: int) -> N
     tasks = lance.dataset(str(src / "tasks.lance")).to_table()
     steps_rel = only_steps_path(rec)
     steps = lance.dataset(str(src / steps_rel)).to_table()
-    chunks_ds = lance.dataset(str(chunks_src))
-    chunks = chunks_ds.to_table(columns=["num_frames"])
 
     ids = steps.column("recording_id").to_numpy(zero_copy_only=False)
     first = {}
@@ -143,39 +137,6 @@ def make_lance(src: Path, chunks_src: Path, out: Path, n: int, frames: int) -> N
         max_rows_per_file=1 << 23,
     )
 
-    k = int(pc.max(chunks.column("num_frames")).as_py())
-    n_chunks = -(-frames // k)
-    nf = [min(k, frames - j * k) for j in range(n_chunks)]
-
-    def chunk_batches():
-        per = max(1, 65536 // n_chunks)
-        for b0 in range(0, n, per):
-            ids_ = fake_ids[b0 : b0 + per]
-            m = len(ids_)
-            yield pa.record_batch(
-                [
-                    pa.array(
-                        np.repeat(np.asarray(ids_, dtype=object), n_chunks), pa.string()
-                    ),
-                    pa.array(np.tile(np.arange(n_chunks, dtype=np.int32), m)),
-                    pa.array(
-                        np.tile(np.arange(0, frames, k, dtype=np.int32)[:n_chunks], m)
-                    ),
-                    pa.array(np.tile(np.asarray(nf, np.int32), m)),
-                    blob_array([b""] * (m * n_chunks)),
-                ],
-                schema=chunks_ds.schema,
-            )
-
-    # Blob columns do not round-trip through Arrow: copy the real table, append fake rows.
-    dst = out / "video_chunks" / chunks_src.name
-    shutil.copytree(chunks_src, dst)
-    lance.write_dataset(
-        pa.RecordBatchReader.from_batches(chunks_ds.schema, chunk_batches()),
-        str(dst),
-        mode="append",
-        max_rows_per_file=1 << 20,
-    )
     a_all = ali.to_pylist()
     real_bi = {r["recording_id"] for r in bi}
     (out.parent / "real_lance.txt").write_text(
@@ -307,9 +268,6 @@ def make_lerobot(
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pilot", type=Path, default=PILOT)
-    ap.add_argument(
-        "--chunks", type=Path, required=True, help="480p k8 chunk table of the pilot"
-    )
     ap.add_argument("--lerobot", type=Path, required=True)
     ap.add_argument("--lerobot-bimanual", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
@@ -330,9 +288,7 @@ def main():
         if fmt == "zarr":
             make_zarr(args.pilot / "zarr", out / "zarr", args.n, manifest)
         elif fmt == "lance":
-            make_lance(
-                args.pilot / "lance", args.chunks, out / "lance", args.n, args.frames
-            )
+            make_lance(args.pilot / "lance", out / "lance", args.n, args.frames)
         else:
             bi = [int(x) for x in args.lerobot_bimanual.read_text().split()]
             make_lerobot(args.lerobot, out / "lerobot", args.n, args.frames, bi)
