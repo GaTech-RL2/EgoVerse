@@ -101,6 +101,16 @@ def write_episode(
         }  # what the poses were composed through
     if v.has_head_pose:
         numeric["obs_head_pose"] = _pose(T, rng)
+    if v.embodiment == "human_bimanual":
+        # Hand keypoints (the default human action): a constant wrist pose per
+        # hand plus 21 MANO keypoints held at fixed offsets from it, so the
+        # wrist-frame keypoint action is constant in time like the poses.
+        for side in ("left", "right"):
+            wrist = _pose(T, rng)
+            offsets = rng.normal(0, 0.03, (1, 21, 3))
+            kp = wrist[:, None, :3] + offsets  # (T, 21, 3) world frame
+            numeric[f"{side}.obs_wrist_pose"] = wrist
+            numeric[f"{side}.obs_keypoints"] = kp.reshape(T, 63)
     return ZarrWriter.create_and_write(
         root / f"{vendor}_{seed:02d}.zarr",
         numeric_data=numeric,
