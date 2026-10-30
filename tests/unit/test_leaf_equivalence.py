@@ -71,6 +71,10 @@ def test_zarr_and_lance_leaves_agree(tmp_path):
         assert isinstance(leaf, EpisodeLeaf) and isinstance(twin, EpisodeLeaf)
         for i in range(len(leaf)):
             a, b = leaf[i], twin[leaf.anchor(i)]
+            # Only Lance tracks per-hand validity; every action chunk sampled here
+            # has both hands (history can reach back to an untracked frame).
+            assert bool((a.pop("action_hand_mask") == 1).all())
+            a.pop("proprio_hand_valid")
             assert a.keys() == b.keys()
             for k in a:
                 if isinstance(a[k], torch.Tensor):

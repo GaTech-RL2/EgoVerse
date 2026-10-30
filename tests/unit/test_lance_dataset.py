@@ -438,3 +438,55 @@ def test_history_floor_at_the_task_start_when_asked(segmented):
     assert s["obs_head_pose"][:, 0].tolist() == [6, 6, 7]
     with pytest.raises(ValueError, match="history_floor"):
         LanceEpisodeResolver(root, key_map=KEY_MAP, history_floor="episode")
+
+
+def _hands(n=8):
+    valid = {h: np.ones(n, bool) for h in ("head", "left", "right")}
+    valid["left"][2] = False
+    valid["right"][5] = False
+    return valid
+
+
+@pytest.mark.parametrize(
+    "require, want",
+    [
+        ("both", [[0, 1], [3, 4], [6, 8]]),
+        ("either", [[0, 8]]),
+        ("left", [[0, 1], [3, 8]]),
+        ("right", [[0, 4], [6, 8]]),
+        ("none", [[0, 8]]),
+    ],
+)
+def test_require_hands_in_frame_rules(require, want):
+    iv = eligible_intervals(_hands(), ("left", "right"), 2, require)
+    np.testing.assert_array_equal(iv, want)
+
+
+def test_require_hands_always_needs_the_head():
+    valid = _hands()
+    valid["head"][7] = False
+    for require in ("either", "none"):
+        assert eligible_intervals(valid, ("left", "right"), 2, require)[-1, 1] == 7
+
+
+def test_require_a_hand_the_embodiment_lacks_is_an_error():
+    with pytest.raises(ValueError, match="left"):
+        eligible_intervals(_hands(), ("right",), 2, "left")
+
+
+def test_samples_carry_per_hand_masks(catalog):
+    root, recs = catalog
+    rid = recs[0][0]
+    both = _resolve(root)[rid]
+    s = both[0]
+    assert s["action_hand_mask"].tolist() == [1, 1]
+    assert s["proprio_hand_valid"].tolist() == [1, 1]
+    either = _resolve(root, require_hands_in_frame="either")[rid]
+    assert _frames(either) == list(range(recs[0][2]))
+    # left is untracked at frame 4: in the chunk of anchor 3, at the anchor 4.
+    assert _at(either, 3)["action_hand_mask"].tolist() == [0, 1]
+    assert _at(either, 3)["proprio_hand_valid"].tolist() == [1, 1]
+    assert _at(either, 4)["proprio_hand_valid"].tolist() == [0, 1]
+    assert _at(either, 5)["action_hand_mask"].tolist() == [1, 1]
+    with pytest.raises(ValueError, match="require_hands_in_frame"):
+        _resolve(root, require_hands_in_frame="at_least_one")
