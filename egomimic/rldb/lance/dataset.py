@@ -26,7 +26,14 @@ import torch
 
 from egomimic.rldb.filters import DatasetFilter, PinError, _ensure_dataset_filter
 from egomimic.rldb.lance import mp4_ranges
-from egomimic.rldb.lance.schema import ARM, STEPS_KEY, steps_path, task_instance_id
+from egomimic.rldb.lance.schema import (
+    DEXMATE_STEPS,
+    EVA_STEPS,
+    STEPS_KEY,
+    steps_path,
+    task_instance_id,
+    zarr_columns,
+)
 from egomimic.rldb.leaf import EpisodeLeaf
 
 logger = logging.getLogger(__name__)
@@ -48,9 +55,8 @@ ZARR_TO_LANCE = {
 }
 # Robot steps columns already carry the zarr key names.
 COLUMNS_OF_END_EFFECTOR = {
-    "parallel_jaw_gripper": {
-        f"{s}.{f}": f"{s}.{f}" for s in ("left", "right") for f in ARM.names
-    }
+    "parallel_jaw_gripper": zarr_columns(EVA_STEPS),
+    "dex_hand": zarr_columns(DEXMATE_STEPS),
 }
 
 
@@ -68,6 +74,8 @@ HANDS_OF = {
     "eva_bimanual": ("left", "right"),
     "eva_left_arm": ("left",),
     "eva_right_arm": ("right",),
+    "yam_bimanual": ("left", "right"),
+    "dexmate_bimanual": ("left", "right"),
 }
 
 _TABLES: dict[tuple[str, int], "lance.LanceDataset"] = {}

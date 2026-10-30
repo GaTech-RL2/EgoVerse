@@ -25,15 +25,19 @@ HISTORY_MASK_SUFFIX = "_mask"
 
 
 class EMBODIMENT(Enum):
-    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
-    # the only non-human embodiment. There is NO vendor/source notion at the
-    # embodiment level — the data source is recorded only in the SQL `lab` field.
+    # All human demonstration data is one embodiment (HUMAN_*); each robot is its
+    # own embodiment (EVA_*, YAM_*, DEXMATE_*). There is NO vendor/source notion at
+    # the embodiment level — the data source is recorded only in the SQL `lab` field.
+    # Norm-stat caches and checkpoints persist these ids, so never renumber a member.
     HUMAN_RIGHT_ARM = 1
     HUMAN_LEFT_ARM = 2
     HUMAN_BIMANUAL = 3
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # Ids as the branches that write these zarr episodes (abc_to_zarr, sharpa_to_zarr) assign them.
+    YAM_BIMANUAL = 7
+    DEXMATE_BIMANUAL = 8
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -42,8 +46,11 @@ EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
 class END_EFFECTOR(Enum):
     """What acts at the end of each arm; the Lance `end_effector` column holds the value."""
 
+    # A tracked human hand (keypoints).
     HUMAN_HAND = "human_hand"
     PARALLEL_JAW_GRIPPER = "parallel_jaw_gripper"
+    # An actuated multi-finger robot hand (joints, FK keypoints, tactile).
+    DEX_HAND = "dex_hand"
 
 
 def _intrinsics_from_batch(batch, i: int):

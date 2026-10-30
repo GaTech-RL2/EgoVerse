@@ -2,6 +2,7 @@
 
 import uuid
 
+import numpy as np
 import pyarrow as pa
 
 RECORDING_NAMESPACE = uuid.UUID("6f1d4c3e-2b1a-5e7f-9c8d-0a1b2c3d4e5f")
@@ -126,6 +127,129 @@ EVA_STEPS = pa.schema(
         ("right_valid", pa.bool_()),
     ]
 )
+
+# Dexmate arm with a Sharpa Wave hand, robot base frame: palm poses xyz + wxyz, joints in
+# rad (7 arm, 22 hand), keypoints the 21 MANO-layout points (xyz) by FK of the hand joints,
+# tactile each fingertip's (fx, fy, fz, tx, ty, tz), thumb to little.
+DEX_ARM = pa.struct(
+    [
+        ("obs_ee_pose", _vec(7)),
+        ("obs_joints", _vec(7)),
+        ("obs_hand_joints", _vec(22)),
+        ("obs_hand_keypoints", _vec(63)),
+        ("obs_tactile", _vec(30)),
+        ("cmd_ee_pose", _vec(7)),
+        ("cmd_joints", _vec(7)),
+        ("cmd_hand_joints", _vec(22)),
+        ("cmd_hand_keypoints", _vec(63)),
+    ]
+)
+
+# SharpaDex vendor columns, unchanged (zarr `sharpa.*`; outside the dexmate_bimanual contract).
+SHARPA = pa.struct(
+    [
+        ("obs_tcp_pose", _vec(12)),
+        ("cmd_tcp_pose", _vec(12)),
+        ("tcp", _vec(24)),
+        ("joint_torque", _vec(65)),
+        ("subtask_index", pa.int64()),
+    ]
+)
+
+# Column names are the zarr keys. The head link pose is the robot's head link, not a
+# calibrated camera, hence not `head_pose`; aux joints are the lower body then the neck.
+DEXMATE_STEPS = pa.schema(
+    [
+        ("recording_id", pa.string()),
+        ("timestamp_ns", pa.int64()),
+        ("obs_head_link_pose", _vec(7)),
+        ("obs_aux_joints", _vec(7)),
+        ("cmd_aux_joints", _vec(7)),
+        ("left", DEX_ARM),
+        ("right", DEX_ARM),
+        ("left_valid", pa.bool_()),
+        ("right_valid", pa.bool_()),
+        ("sharpa", SHARPA),
+    ]
+)
+
+# (embodiment, end_effector) -> the schema of its steps tables.
+STEPS_SCHEMAS = {
+    **{
+        (f"human_{arms}", "human_hand"): HUMAN_STEPS
+        for arms in ("bimanual", "left_arm", "right_arm")
+    },
+    **{
+        (f"eva_{arms}", "parallel_jaw_gripper"): EVA_STEPS
+        for arms in ("bimanual", "left_arm", "right_arm")
+    },
+    # YAM stores exactly EVA's per-arm arrays (6 joints, a [0, 1] gripper).
+    ("yam_bimanual", "parallel_jaw_gripper"): EVA_STEPS,
+    ("dexmate_bimanual", "dex_hand"): DEXMATE_STEPS,
+}
+
+
+def steps_schema(embodiment: str, end_effector: str) -> pa.Schema:
+    try:
+        return STEPS_SCHEMAS[(embodiment, end_effector)]
+    except KeyError:
+        raise ValueError(
+            f"no steps schema for embodiment {embodiment!r} with end_effector {end_effector!r}"
+        ) from None
+
+
+def _is_data(field: pa.Field) -> bool:
+    return field.name not in ("recording_id", "timestamp_ns") and not (
+        field.name.endswith("_valid")
+    )
+
+
+def zarr_columns(schema: pa.Schema) -> dict[str, str]:
+    """{zarr key: steps column} of a robot steps schema, whose columns are named by their zarr keys."""
+    out = {}
+    for f in filter(_is_data, schema):
+        if pa.types.is_struct(f.type):
+            out.update({f"{f.name}.{c.name}": f"{f.name}.{c.name}" for c in f.type})
+        else:
+            out[f.name] = f.name
+    return out
+
+
+def robot_steps_table(
+    schema: pa.Schema,
+    recording_id: str,
+    timestamp_ns: np.ndarray,
+    arrays: dict[str, np.ndarray],
+    valid: dict[str, np.ndarray],
+) -> pa.Table:
+    """Steps rows of a robot schema from {zarr key: (T, d) array} and {side: (T,) bool}."""
+    n = len(timestamp_ns)
+
+    def column(key: str, typ: pa.DataType) -> pa.Array:
+        x = np.asarray(arrays[key])
+        if pa.types.is_fixed_size_list(typ):
+            x = x.astype(np.float32).reshape(n, typ.list_size)
+            return pa.FixedSizeListArray.from_arrays(
+                pa.array(x.reshape(-1)), typ.list_size
+            )
+        return pa.array(x.reshape(n).astype(typ.to_pandas_dtype()), typ)
+
+    cols = {
+        "recording_id": pa.array([recording_id] * n, pa.string()),
+        "timestamp_ns": pa.array(np.asarray(timestamp_ns), pa.int64()),
+    }
+    for f in schema:
+        if f.name.endswith("_valid"):
+            cols[f.name] = pa.array(np.asarray(valid[f.name[: -len("_valid")]], bool))
+        elif _is_data(f) and pa.types.is_struct(f.type):
+            cols[f.name] = pa.StructArray.from_arrays(
+                [column(f"{f.name}.{c.name}", c.type) for c in f.type],
+                fields=list(f.type),
+            )
+        elif _is_data(f):
+            cols[f.name] = column(f.name, f.type)
+    return pa.table(cols, schema=schema)
+
 
 RECORDINGS = pa.schema(
     [

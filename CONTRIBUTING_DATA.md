@@ -640,7 +640,7 @@ write_annotations(
 
 ## 9. Embodiment Identifiers
 
-The `embodiment` field in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the `lab` field (`zarr.attrs`, §6.3), never in `embodiment`. Only the robot **Eva** is a distinct non-human embodiment.
+The `embodiment` field in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the `lab` field (`zarr.attrs`, §6.3), never in `embodiment`. Each robot (Eva, YAM, Dexmate) is its own embodiment.
 
 | `embodiment` string | Integer id | Description |
 |---|---|---|
@@ -650,6 +650,8 @@ The `embodiment` field in `zarr.attrs` must be exactly one of the strings below.
 | `eva_right_arm` | 4 | Eva camera + right-arm robot |
 | `eva_left_arm` | 5 | Eva camera + left-arm robot |
 | `eva_bimanual` | 6 | Eva camera + bimanual robot |
+| `yam_bimanual` | 7 | YAM bimanual robot (parallel-jaw grippers) |
+| `dexmate_bimanual` | 8 | Dexmate bimanual robot (Sharpa Wave hands) |
 
 If you are contributing egocentric human data, you use `human_bimanual` (or the single-arm variants) regardless of your hardware — set the `lab` field (e.g. `lab="microagi"`) to identify your source.
 
