@@ -190,3 +190,18 @@ ANNOTATIONS = pa.schema(
         ("rubric_version", pa.string()),
     ]
 )
+
+# One row per committer batch; `tag` names the version of every table the batch produced.
+CHANGES = pa.schema(
+    [
+        ("tag", pa.string()),
+        # The converter that staged the batch (the tag prefix), e.g. "aria"; not a lab.
+        ("source", pa.string()),
+        # Steps tables the batch wrote, as steps_path gives them.
+        ("steps_tables", pa.list_(pa.string())),
+        ("committed_at", pa.timestamp("ms", tz="UTC")),
+        ("operator", pa.string()),
+        ("added", pa.list_(pa.string())),
+        ("replaced", pa.list_(pa.string())),
+    ]
+)

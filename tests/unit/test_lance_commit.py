@@ -1,5 +1,6 @@
 import dataclasses
 import datetime
+from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
@@ -94,7 +95,7 @@ def test_steps_table_per_lab_embodiment_end_effector(tmp_path):
     assert lance.dataset(root / STEPS).count_rows() == 10
     other = steps_path("mecka", "human_bimanual", "human_hand")
     assert lance.dataset(root / other).count_rows() == 8
-    assert {str(u.relative_to(root)) for u in commit.table_uris(root)} >= {
+    assert {str(Path(u).relative_to(root)) for u in commit.table_uris(root)} >= {
         STEPS,
         other,
     }

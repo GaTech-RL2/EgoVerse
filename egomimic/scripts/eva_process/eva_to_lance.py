@@ -3,8 +3,8 @@
 Numerics go through the same EvaHD5Extractor and per-arm split as eva_to_zarr, so steps
 columns equal the zarr keys. Frames where an arm's pose reads all zeros stay forward-filled
 as in zarr, and are also flagged `<arm>_valid = False`. The HDF5 carries no per-frame
-times, so frame i is at start + i / --fps. The committer
-(egomimic/scripts/lance_pilot/commit.py --source eva) appends deliveries to the Lance tables.
+times, so frame i is at start + i / --fps. With --stage-to the delivery is staged for the
+committer (egomimic/scripts/lance_commit.py), which appends it to the Lance tables.
 """
 
 import argparse
@@ -21,6 +21,7 @@ import pyarrow.parquet as pq
 
 from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id
 from egomimic.rldb.zarr.required_metadata import required_metadata_error
 from egomimic.scripts.eva_process.eva_to_zarr import (
@@ -208,9 +209,17 @@ def main():
         help="the demo's frame rate; the HDF5 has no per-frame times",
     )
     ap.add_argument("--ffmpeg", default="ffmpeg")
+    ap.add_argument(
+        "--stage-to", help="staging root (s3:// or local) for the committer"
+    )
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
     print(json.dumps(convert(args), indent=1))
+    if args.stage_to:
+        commit.stage(
+            args.out_dir / args.vendor_recording_id,
+            commit.join(args.stage_to, "eva", args.vendor_recording_id),
+        )
 
 
 if __name__ == "__main__":
