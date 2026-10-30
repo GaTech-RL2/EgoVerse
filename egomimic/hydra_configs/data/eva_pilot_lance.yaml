@@ -9,7 +9,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.lance.dataset.LanceEpisodeResolver
-      lance_root: /coc/flash7/scratch/lance_pilot/lance_eva
+      lance_root: /coc/flash7/scratch/lance_pilot/lance_v2
       cameras:
         images.front_1: front_1
         images.left_wrist: left_wrist
