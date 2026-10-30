@@ -3,7 +3,12 @@ import copy
 import torch
 from torchmetrics import MeanSquaredError
 
-from egomimic.eval.action_metrics import layout_metrics
+from egomimic.eval.action_metrics import (
+    fill_untracked_from_pred,
+    layout_metrics,
+    per_tracked_hand,
+    tracked_hand_fraction,
+)
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.metrics import frechet_gaussian_over_time
@@ -33,6 +38,9 @@ class HPTEvalVideo(EvalVideo):
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = algo.ac_keys[embodiment_id]
+            _batch = fill_untracked_from_pred(
+                _batch, ac_key, preds.get(f"{embodiment_name}_{ac_key}")
+            )
 
             loss_key = f"{embodiment_name}_loss"
             if loss_key in preds:
@@ -45,21 +53,26 @@ class HPTEvalVideo(EvalVideo):
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 pred_key = f"{embodiment_name}_{ac_key}"
-                metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
-                    preds[pred_key].cpu(), _batch[ac_key].cpu()
-                )
-                metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
-                    preds[pred_key][:, -1].cpu().contiguous(),
-                    _batch[ac_key][:, -1].cpu().contiguous(),
-                )
+                main = {
+                    f"Valid/{pred_key}_paired_mse_avg": mse(
+                        preds[pred_key].cpu(), _batch[ac_key].cpu()
+                    ),
+                    f"Valid/{pred_key}_final_mse_avg": mse(
+                        preds[pred_key][:, -1].cpu().contiguous(),
+                        _batch[ac_key][:, -1].cpu().contiguous(),
+                    ),
+                }
                 fd = frechet_gaussian_over_time(preds[pred_key], _batch[ac_key])
-                metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
-                metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
-                metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
-                metrics.update(
+                main[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
+                main[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
+                main[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
+                main.update(
                     layout_metrics(
                         preds[pred_key], _batch[ac_key], f"Valid/{pred_key}", ac_key
                     )
+                )
+                metrics.update(
+                    per_tracked_hand(main, tracked_hand_fraction(_batch, ac_key))
                 )
 
             if embodiment_name in algo.auxiliary_ac_keys:

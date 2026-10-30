@@ -490,3 +490,34 @@ def test_samples_carry_per_hand_masks(catalog):
     assert _at(either, 5)["action_hand_mask"].tolist() == [1, 1]
     with pytest.raises(ValueError, match="require_hands_in_frame"):
         _resolve(root, require_hands_in_frame="at_least_one")
+
+
+@pytest.mark.parametrize("episode_cache", [False, True])
+def test_norm_stats_leave_out_untracked_hand_chunks(catalog, tmp_path, episode_cache):
+    from egomimic.rldb.multi import MultiDataset
+
+    root, recs = catalog
+    leaves = _resolve(root, require_hands_in_frame="either")
+    ds = MultiDataset(datasets=leaves, mode="total")
+    stats = MultiDataset(state={}, norm_mode="zscore")
+    stats.populate_from_datasets({"human_bimanual": ds})
+    stats.infer_shapes_from_batch(ds[0])
+    stats.infer_norm_from_dataset(
+        ds,
+        "human_bimanual",
+        sample_frac=1.0,
+        num_workers=0,
+        episode_cache=tmp_path / "norm" if episode_cache else None,
+    )
+    emb = int(ds[0]["embodiment"])
+    tracked = [
+        s["left.action_ee_pose"].numpy()
+        for s in (ds[i] for i in range(len(ds)))
+        if s["action_hand_mask"][0] == 1
+    ]
+    assert len(tracked) == len(ds) - 3 * len(recs)
+    np.testing.assert_allclose(
+        stats.norm_stats[emb]["left.action_ee_pose"]["mean"],
+        np.mean(tracked, axis=0),
+        rtol=1e-5,
+    )

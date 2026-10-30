@@ -28,7 +28,11 @@ from egomimic.utils.action_utils import (
     degenerate_mask,
 )
 from egomimic.utils.gpu_orphans import die_with_parent
-from egomimic.utils.pose_utils import bounds_check_channels, rot6d_channels
+from egomimic.utils.pose_utils import (
+    bounds_check_channels,
+    hand_channel_mask,
+    rot6d_channels,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +107,34 @@ def _infer_key_type(key_name: str) -> str | None:
     if "annotation" in name or "tokenized" in name or "lang" in name:
         return "annotation_keys"
     return None
+
+
+HAND_FLAGS = {"action_keys": "action_hand_mask", "proprio_keys": "proprio_hand_valid"}
+
+
+def hand_keep(data: dict, key_type: str | None, zarr_key: str, value):
+    """Bool mask, broadcastable to ``value``, of the channels of a tracked hand, from
+    the sample's (or batch's) ``action_hand_mask`` / ``proprio_hand_valid`` [left,
+    right] flags; None when the sample has no flags or ``value`` has no hand layout."""
+    flags = data.get(HAND_FLAGS.get(key_type))
+    if flags is None:
+        return None
+    flags = torch.as_tensor(flags)
+    width = value.shape[-1]
+    side = zarr_key.split(".", 1)[0]
+    if side in ("left", "right"):
+        channels = flags[..., [0 if side == "left" else 1] * width]
+    else:
+        channels = hand_channel_mask(flags, width)
+        if channels is None:
+            return None
+    # Flags are per sample (actions) or per history step (proprio); a key without
+    # that step axis takes the newest step.
+    while channels.ndim > value.ndim:
+        channels = channels[..., -1, :]
+    while channels.ndim < value.ndim:
+        channels = channels.unsqueeze(-2)
+    return channels > 0.5
 
 
 def worker_context(leaves) -> str | None:
@@ -365,7 +397,16 @@ class MultiDataset(torch.utils.data.Dataset):
                     )
                 continue
 
-            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+            # An untracked hand's channels hold fill values; the loss and the
+            # stats leave them out, so they cannot reject a sample either.
+            keep = None
+            if any(f in data for f in HAND_FLAGS.values()):
+                key_type = self.key_types.get(embodiment_id, {}).get(key_name)
+                keep = hand_keep(data, key_type, zarr_key, arr)
+            if keep is not None:
+                keep = torch.broadcast_to(keep.to(arr.device), arr.shape)
+            bad = ~torch.isfinite(arr)
+            if torch.any(bad if keep is None else bad & keep):
                 prefix = f"NaN/Inf in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"naninf:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
@@ -384,6 +425,8 @@ class MultiDataset(torch.utils.data.Dataset):
                 arr_q = arr[..., check_idx]
                 q_low = q_low[..., check_idx]
                 q_high = q_high[..., check_idx]
+                if keep is not None:
+                    keep = keep[..., check_idx]
             else:
                 arr_q = arr
 
@@ -394,6 +437,9 @@ class MultiDataset(torch.utils.data.Dataset):
             tol = self.BOUNDS_ABS_TOL + self.BOUNDS_REL_SLACK * (q_high - q_low)
             below = arr_q < q_low - tol
             above = arr_q > q_high + tol
+            if keep is not None:
+                below &= keep
+                above &= keep
             # Cells normalize() treats as constant (wrist-frame t=0, the kp0 /
             # kp9 structural zeros) cannot blow up the loss whatever offset
             # they carry, so don't reject on them. The exemption follows
@@ -824,11 +870,14 @@ class MultiDataset(torch.utils.data.Dataset):
                 for k in norm_keys
                 if (z := self.keyname_to_zarr_key(k, embodiment)) is not None
             }
-            collected, episode_meta = episode_norm_samples.collect(
+            collected, keeps, episode_meta = episode_norm_samples.collect(
                 Path(episode_cache),
                 dataset.datasets,
                 zarr_keys,
                 n_samples,
+                key_types={
+                    k: self.key_types.get(embodiment, {}).get(k) for k in zarr_keys
+                },
                 seed=seed,
                 num_workers=num_workers,
                 fingerprints=episode_fingerprints,
@@ -847,7 +896,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     worker_context([dataset]) if num_workers > 0 else None
                 ),
             )
-            collected = self._collect_norm_samples(
+            collected, keeps = self._collect_norm_samples(
                 loader, norm_keys, embodiment, n_samples, batch_size, num_workers
             )
         for k in [k for k, v in collected.items() if not v]:
@@ -858,7 +907,9 @@ class MultiDataset(torch.utils.data.Dataset):
         computing_start = time.time()
         for k in norm_keys:
             collected[k] = self._drop_nonfinite_rows(
-                np.concatenate(collected[k], axis=0), k
+                np.concatenate(collected[k], axis=0),
+                k,
+                self._keep_rows(collected[k], keeps.get(k)),
             )
             X = collected[k]
             if pool_horizon and X.ndim > 2:
@@ -891,7 +942,10 @@ class MultiDataset(torch.utils.data.Dataset):
     def _collect_norm_samples(
         self, loader, norm_keys, embodiment, n_samples, batch_size, num_workers
     ):
+        """({norm key: sample chunks}, {norm key: their hand_keep masks, None for a
+        chunk without hand flags})."""
         collected = {k: [] for k in norm_keys}
+        keeps = {k: [] for k in norm_keys}
         cur = 0
         with tqdm(total=n_samples, unit="sample") as pbar:
             for batch in loader:
@@ -908,21 +962,50 @@ class MultiDataset(torch.utils.data.Dataset):
                         "[MultiDataset] Could not infer batch size from DataLoader batch"
                     )
                 take = min(remaining, batch_len)
+                flags = {f: batch[f][:take] for f in HAND_FLAGS.values() if f in batch}
                 for k in norm_keys:
                     zarr_key = self.keyname_to_zarr_key(k, embodiment)
                     if zarr_key is None or zarr_key not in batch:
                         continue
                     x = batch[zarr_key][:take]
+                    keep = hand_keep(
+                        flags, self.key_types.get(embodiment, {}).get(k), zarr_key, x
+                    )
                     if hasattr(x, "detach"):
                         x = x.detach().cpu().numpy()
                     collected[k].append(x)
+                    keeps[k].append(
+                        None
+                        if keep is None
+                        else np.broadcast_to(keep.numpy(), x.shape).copy()
+                    )
                 cur += take
                 pbar.update(take)
-        return collected
+        return collected, keeps
 
     @staticmethod
-    def _drop_nonfinite_rows(X: np.ndarray, key: str) -> np.ndarray:
+    def _keep_rows(chunks: list, keeps: list | None) -> np.ndarray | None:
+        """The hand_keep masks of the norm sample ``chunks``, concatenated (all True
+        for a chunk without one); None when no chunk has one."""
+        if not keeps or all(m is None for m in keeps):
+            return None
+        return np.concatenate(
+            [
+                np.ones(x.shape, bool) if m is None else m
+                for x, m in zip(chunks, keeps, strict=True)
+            ],
+            axis=0,
+        )
+
+    @staticmethod
+    def _drop_nonfinite_rows(
+        X: np.ndarray, key: str, keep: np.ndarray | None = None
+    ) -> np.ndarray:
         """Drop norm samples (rows of X, shape (N, ...)) containing NaN/Inf.
+
+        ``keep`` (X's shape) marks the cells of a tracked hand: the others are set
+        to NaN instead and left out of the stats per cell, so an untracked hand
+        neither drops the row nor shapes its channels' stats.
 
         np.percentile/mean propagate NaN, and a NaN quantile then poisons every
         normalized sample of that key (the per-sample bounds check cannot flag
@@ -930,8 +1013,17 @@ class MultiDataset(torch.utils.data.Dataset):
         command) are still rejected sample-by-sample at train time; they must
         not shape the statistics.
         """
-        finite = np.isfinite(X).reshape(X.shape[0], -1).all(axis=1)
+        ok = np.isfinite(X) if keep is None else np.isfinite(X) | ~keep
+        finite = ok.reshape(X.shape[0], -1).all(axis=1)
         n_bad = int((~finite).sum())
+        if keep is not None:
+            X = np.where(keep, X, np.nan)
+            untracked = np.isnan(X[finite]).all(axis=0)
+            if finite.any() and untracked.any():
+                raise ValueError(
+                    f"[MultiDataset] key={key}: {int(untracked.sum())} cells have no "
+                    "sample from a tracked hand"
+                )
         if n_bad == 0:
             return X
         if n_bad == X.shape[0]:
@@ -946,21 +1038,35 @@ class MultiDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def _compute_stats_for_array(X):
+        # NaN marks untracked-hand cells (see _drop_nonfinite_rows); the nan* ops are
+        # much slower, so only when there are some.
+        mean, std, mn, mx, median, percentile = (
+            (
+                np.nanmean,
+                np.nanstd,
+                np.nanmin,
+                np.nanmax,
+                np.nanmedian,
+                np.nanpercentile,
+            )
+            if np.isnan(X).any()
+            else (np.mean, np.std, np.min, np.max, np.median, np.percentile)
+        )
         return {
-            "mean": np.mean(X, axis=0),
-            "std": np.std(X, axis=0),
-            "min": np.min(X, axis=0),
-            "max": np.max(X, axis=0),
-            "median": np.median(X, axis=0),
-            "quantile_1": np.percentile(X, 1, axis=0),
-            "quantile_99": np.percentile(X, 99, axis=0),
+            "mean": mean(X, axis=0),
+            "std": std(X, axis=0),
+            "min": mn(X, axis=0),
+            "max": mx(X, axis=0),
+            "median": median(X, axis=0),
+            "quantile_1": percentile(X, 1, axis=0),
+            "quantile_99": percentile(X, 99, axis=0),
             # Bounds-check quantiles snap to observed samples ("lower" /
             # "higher") instead of interpolating: with fewer than 10k samples
             # the default linear percentile lands strictly inside the sample
             # range, and the extreme frames of the very episodes the stats
             # were computed on would be rejected at train time.
-            "quantile_0_01": np.percentile(X, 0.01, axis=0, method="lower"),
-            "quantile_99_99": np.percentile(X, 99.99, axis=0, method="higher"),
+            "quantile_0_01": percentile(X, 0.01, axis=0, method="lower"),
+            "quantile_99_99": percentile(X, 99.99, axis=0, method="higher"),
         }
 
     def cache_stats(self, save_cache_dir: str):
@@ -1035,6 +1141,15 @@ class MultiDataset(torch.utils.data.Dataset):
                 else:
                     continue
             out[zarr_key] = self._apply_norm_one(tensor, stats, zarr_key)
+            if key_type == "proprio_keys":
+                keep = hand_keep(data, key_type, zarr_key, out[zarr_key])
+                if keep is not None:
+                    # An untracked hand reads as the dataset mean pose instead of
+                    # its fill values: 0 on normalized channels, the mean itself on
+                    # pass-through ones (rot6d), where 0 is no rotation at all.
+                    mean = torch.as_tensor(stats["mean"], dtype=out[zarr_key].dtype)
+                    fill = self._apply_norm_one(mean, stats, zarr_key)
+                    out[zarr_key] = torch.where(keep, out[zarr_key], fill)
         return out
 
     def unnormalize(self, data: dict, embodiment_id: int) -> dict:

@@ -1094,6 +1094,8 @@ class HPT(DeterministicEvalMixin, Algo):
             action_pad_mask = processed_batch[embodiment_id].pop(
                 "action_pad_mask", None
             )
+            # MultiDataset already zeroed an untracked hand's proprio.
+            processed_batch[embodiment_id].pop("proprio_hand_valid", None)
             if self.use_pad_mask and action_pad_mask is not None:
                 if action_pad_mask.shape[-1] != S:
                     raise ValueError(
@@ -1444,6 +1446,9 @@ class HPT(DeterministicEvalMixin, Algo):
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
+        # DenoisingPolicy.compute_loss leaves an untracked hand's channels out.
+        if "action_hand_mask" in batch:
+            data["action_hand_mask"] = batch["action_hand_mask"]
 
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]

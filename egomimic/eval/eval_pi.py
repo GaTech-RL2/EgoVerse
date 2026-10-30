@@ -2,7 +2,13 @@ import copy
 
 import torch
 
-from egomimic.eval.action_metrics import _paired_mse, layout_metrics
+from egomimic.eval.action_metrics import (
+    _paired_mse,
+    fill_untracked_from_pred,
+    layout_metrics,
+    per_tracked_hand,
+    tracked_hand_fraction,
+)
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 
@@ -43,6 +49,7 @@ class PIEvalVideo(EvalVideo):
             ac_key = algo.ac_keys[embodiment_id]
             pred_key = f"{embodiment_name}_{ac_key}"
             loss_key = f"{embodiment_name}_loss"
+            _batch = fill_untracked_from_pred(_batch, ac_key, preds.get(pred_key))
 
             if loss_key in preds:
                 loss_val = preds[loss_key]
@@ -64,7 +71,9 @@ class PIEvalVideo(EvalVideo):
                             pred[:, -1].cpu(), gt[:, -1].cpu()
                         ),
                     }
-                metrics.update(layout)
+                metrics.update(
+                    per_tracked_hand(layout, tracked_hand_fraction(_batch, ac_key))
+                )
 
             if do_viz:
                 gt_batch_viz = _batch
