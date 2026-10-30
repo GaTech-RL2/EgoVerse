@@ -1,0 +1,41 @@
+# Lance pilot: the same bimanual Aria recordings as aria_pilot_zarr.yaml, read
+# through the Lance catalog. Lance is not fork-safe, so workers use forkserver
+# (https://lance.org/integrations/pytorch/).
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.lance.dataset.LanceEpisodeResolver
+      lance_root: /coc/flash7/scratch/lance_pilot/lance
+      cameras:
+        images.front_1: front_1
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_headframe_6d
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual'"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 4
+    multiprocessing_context: forkserver
+    persistent_workers: true

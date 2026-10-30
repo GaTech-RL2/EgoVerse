@@ -26,7 +26,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from egomimic.rldb.zarr import norm_cache
+from egomimic.rldb.zarr import norm_cache, zarr_dataset_multi
 from egomimic.utils.gpu_orphans import die_with_parent
 from egomimic.utils.type_utils import _to_numpy
 
@@ -213,6 +213,11 @@ def _sample_episodes(
         num_workers=num_workers,
         collate_fn=_as_list,
         worker_init_fn=die_with_parent if num_workers > 0 else None,
+        multiprocessing_context=(
+            zarr_dataset_multi.worker_context(leaves.values())
+            if num_workers > 0
+            else None
+        ),
     )
     idx_buf: dict[str, list[int]] = {}
     row_buf: dict[str, dict[str, list[np.ndarray]]] = {}
@@ -246,16 +251,14 @@ def collect(
     drawn uniformly from ``leaves`` (episode hash -> ZarrDataset). Episodes
     missing from ``root`` at the needed density are sampled and cached first.
 
-    ``fingerprints``: ``norm_cache.episode_fingerprint`` per episode hash, when
+    ``fingerprints``: ``norm_cache.leaf_fingerprint`` per episode hash, when
     the caller already has them (trainHydra's split key); the rest are computed.
     An episode without one is never cached."""
     root = Path(root)
     fingerprints = dict(fingerprints or {})
     for h, ds in leaves.items():
         if h not in fingerprints:
-            fingerprints[h] = norm_cache.episode_fingerprint(
-                getattr(ds, "episode_path", None)
-            )
+            fingerprints[h] = norm_cache.leaf_fingerprint(ds)
     lengths = {h: len(ds) for h, ds in leaves.items()}
     stride = stride_for(sum(lengths.values()), n_target)
 
