@@ -1,13 +1,23 @@
-"""Validate deliveries and write them into the Lance tables (the pilot's committer).
+"""The committer: the only writer of the Lance tables.
 
-Aria recording and task metadata come from SQL; EVA's come from the delivery's meta.json
-(eva_to_lance copies the raw metadata JSON). Per-frame data and video come from each
-delivery. New recordings are appended; committed ones are skipped unless --replace. See
-egomimic/rldb/lance/commit.py for the table operations.
+Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
+`<staging>/<lab>/<vendor id>/` (commit.stage). Each run validates the complete ones,
+commits them in batches (each batch tagged `<lab>-<UTC time>` on every table and recorded
+in `changes`), and deletes their staged files. A delivery that fails validation gets
+REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
+Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
+See egomimic/rldb/lance/commit.py for the table operations.
+
+    python -m egomimic.scripts.lance_commit --staging s3://rldb/lance_staging \\
+        --lab eva --lance s3://rldb/lance --work-dir /coc/flash7/scratch/committer
 """
 
 import argparse
+import hashlib
 import json
+import shutil
+import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -15,16 +25,17 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from sqlalchemy import text
-from torchcodec.decoders import VideoDecoder
 
-from egomimic.rldb.lance import commit
+from egomimic.rldb.lance import commit, mp4_ranges
+from egomimic.rldb.lance.dataset import read_range
 from egomimic.rldb.lance.schema import task_instance_id
-from egomimic.scripts.lance_pilot import PILOT
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_timestamp_ms,
     timestamp_ms_to_episode_hash,
 )
+
+REJECTED = "REJECTED.json"
 
 
 def sql_rows(hashes: list[str]) -> pd.DataFrame:
@@ -46,9 +57,9 @@ def check_delivery(d: Path, meta: dict, steps: pa.Table) -> list[str]:
     if not (np.diff(ts) > 0).all():
         errs.append("timestamps not strictly increasing")
     for cam in meta.get("videos", ("front_1", "front_1_480")):
-        frames = VideoDecoder(
-            str(d / f"{cam}.mp4"), seek_mode="exact"
-        ).metadata.num_frames
+        frames = mp4_ranges.read_index(
+            lambda a, b, p=d / f"{cam}.mp4": read_range(str(p), a, b)
+        ).num_frames
         if frames != n:
             errs.append(f"{cam}.mp4 has {frames} frames, steps has {n}")
     return errs
@@ -193,47 +204,154 @@ def load_eva_deliveries(
     return deliveries, rejected
 
 
+LOADERS = {"aria": load_deliveries, "eva": load_eva_deliveries}
+
+
+def _load(lab: str, dirs: list[Path]):
+    """LOADERS[lab] over `dirs`; a delivery the loader cannot even read is rejected alone."""
+    try:
+        return LOADERS[lab](dirs)
+    except Exception:
+        deliveries, rejected = [], {}
+        for d in dirs:
+            try:
+                ok, bad = LOADERS[lab]([d])
+            except Exception as e:
+                ok, bad = [], {d.name: [f"unreadable: {type(e).__name__}: {e}"]}
+            deliveries += ok
+            rejected.update(bad)
+        return deliveries, rejected
+
+
+def files_digest(files: dict[str, tuple[int, str]]) -> str:
+    """Changes whenever a staged file is replaced (S3 ETag, or local size and mtime)."""
+    h = hashlib.sha256()
+    for name, (size, version) in sorted(files.items()):
+        if name != REJECTED:
+            h.update(f"{name}\0{size}\0{version}\0".encode())
+    return h.hexdigest()
+
+
+def pending(staging: str, lab: str, replace: bool = False) -> list[tuple[str, str]]:
+    """(vendor id, files digest) of complete staged deliveries not rejected as they are;
+    with `replace`, ones rejected only for being committed already come back."""
+    out = []
+    for vid in commit.list_dirs(commit.join(staging, lab)):
+        prefix = commit.join(staging, lab, vid)
+        files = commit.list_files(prefix)
+        if "meta.json" not in files:
+            continue
+        digest = files_digest(files)
+        if REJECTED in files:
+            with tempfile.TemporaryDirectory() as t:
+                commit.get_file(commit.join(prefix, REJECTED), Path(t) / REJECTED)
+                note = json.loads((Path(t) / REJECTED).read_text())
+            if note["digest"] == digest and not (replace and note["committed"]):
+                continue
+        out.append((vid, digest))
+    return out
+
+
+def commit_staged(
+    staging: str,
+    lab: str,
+    lance_root: str,
+    work_dir: Path,
+    batch_size: int = 64,
+    replace: bool = False,
+    operator: str | None = None,
+) -> dict:
+    """Commit every pending staged delivery of `lab`, `batch_size` at a time; returns
+    {"batches": [commit_batch results], "rejected": {vendor id: errors}}."""
+    report = {"batches": [], "rejected": {}}
+    todo = pending(staging, lab, replace)
+    have = commit.committed_ids(lance_root)
+    for b in range(0, len(todo), batch_size):
+        batch = dict(todo[b : b + batch_size])
+        local = {}
+        for vid in batch:
+            src = commit.join(staging, lab, vid)
+            local[vid] = work_dir / lab / vid
+            for name in commit.list_files(src):
+                if name != REJECTED:
+                    commit.get_file(commit.join(src, name), local[vid] / name)
+        deliveries, rejected = _load(lab, list(local.values()))
+        skipped = []
+        if not replace:
+            skipped = [d for d in deliveries if d.recording_id in have]
+            for d in skipped:
+                deliveries.remove(d)
+                rejected[d.recording["vendor_recording_id"]] = [
+                    "already committed; rerun with --replace to replace it"
+                ]
+        result = commit.commit_batch(
+            lance_root, deliveries, lab, replace_committed=replace, operator=operator
+        )
+        if result:
+            report["batches"].append(result)
+            have |= set(result["added"])
+        for vid, errs in rejected.items():
+            note = {
+                "errors": errs,
+                "digest": batch[vid],
+                "committed": vid
+                in {d.recording["vendor_recording_id"] for d in skipped},
+                "rejected_at": time.time(),
+            }
+            commit.put_bytes(
+                json.dumps(note, indent=1).encode(),
+                commit.join(staging, lab, vid, REJECTED),
+            )
+        report["rejected"].update(rejected)
+        done = [d.recording["vendor_recording_id"] for d in deliveries]
+        commit.remove(
+            [
+                commit.join(staging, lab, vid, name)
+                for vid in done
+                for name in commit.list_files(commit.join(staging, lab, vid))
+            ]
+        )
+        for path in local.values():
+            shutil.rmtree(path, ignore_errors=True)
+    return report
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
-        "--deliveries",
-        type=Path,
-        default=PILOT / "deliveries",
+        "--staging",
+        required=True,
+        help="staging root (s3:// or local); deliveries are under <staging>/<lab>/<vendor id>/",
     )
-    ap.add_argument("--lance", type=Path, default=PILOT / "lance")
+    ap.add_argument("--lab", choices=sorted(LOADERS), required=True)
+    ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
+    ap.add_argument(
+        "--work-dir",
+        type=Path,
+        required=True,
+        help="local scratch for downloaded deliveries",
+    )
+    ap.add_argument("--batch-size", type=int, default=64)
     ap.add_argument(
         "--replace",
         action="store_true",
-        help="replace committed recordings with these deliveries",
+        help="replace committed recordings with restaged deliveries",
     )
-    ap.add_argument("--tag", help="tag every table's resulting version")
-    ap.add_argument(
-        "--source",
-        choices=["aria", "eva"],
-        default="aria",
-        help="converter that wrote the deliveries",
-    )
+    ap.add_argument("--operator", help="recorded in changes; defaults to $USER")
     args = ap.parse_args()
-
-    dirs = sorted(p for p in args.deliveries.iterdir() if (p / "meta.json").exists())
-    load = load_eva_deliveries if args.source == "eva" else load_deliveries
-    deliveries, rejected = load(dirs)
-
-    have = commit.committed_ids(args.lance)
-    added = commit.append(args.lance, deliveries)
-    replaced = []
-    if args.replace:
-        for d in deliveries:
-            if d.recording_id in have:
-                commit.replace(args.lance, d)
-                replaced.append(d.recording_id)
-    print(
-        f"appended {len(added)}, replaced {len(replaced)}, skipped {len(deliveries) - len(added) - len(replaced)} already committed"
+    report = commit_staged(
+        args.staging,
+        args.lab,
+        args.lance,
+        args.work_dir,
+        args.batch_size,
+        args.replace,
+        args.operator,
     )
-    if args.tag:
-        print(f"tagged {args.tag}: {commit.tag(args.lance, args.tag)}")
-    for k, v in rejected.items():
-        print(f"rejected {k}: {'; '.join(v)}")
+    for b in report["batches"]:
+        print(f"{b['tag']}: added {len(b['added'])}, replaced {len(b['replaced'])}")
+    for vid, errs in report["rejected"].items():
+        print(f"rejected {vid}: {'; '.join(errs)}")
 
 
 if __name__ == "__main__":
