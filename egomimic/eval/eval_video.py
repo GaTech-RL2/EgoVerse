@@ -7,6 +7,10 @@ import torchvision.io as tvio
 from egomimic.eval.eval import Eval
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
+# The source rate: val loaders are never sharded across ranks, so rank 0
+# renders every source frame.
+VIDEO_FPS = 30
+
 
 class EvalVideo(Eval):
     """
@@ -89,17 +93,6 @@ class EvalVideo(Eval):
         """
         raise NotImplementedError
 
-    def _video_fps(self, source_fps: int = 30) -> int:
-        """Playback fps compensating for the DistributedSampler stride.
-
-        Distributed validation deals the (unshuffled) val indices round-robin,
-        so rank 0's consecutive rendered frames are ``world_size`` source
-        frames apart. Writing them at the raw source fps produces a
-        world_size-times timelapse; scale playback down to restore wall-clock
-        pacing."""
-        world = max(1, int(getattr(self.trainer, "world_size", 1) or 1))
-        return max(1, round(source_fps / world))
-
     def _write_video(self, key, frames) -> None:
         path = os.path.join(
             self.video_dir(),
@@ -108,7 +101,7 @@ class EvalVideo(Eval):
             f"validation_video_{self.val_counter[key]}.mp4",
         )
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        tvio.write_video(path, frames, fps=self._video_fps(), video_codec="h264")
+        tvio.write_video(path, frames, fps=VIDEO_FPS, video_codec="h264")
 
     def on_validation_start(self):
         # _write_video creates the epoch directory it writes into.

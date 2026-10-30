@@ -11,17 +11,6 @@ class _StubEvalVideo(EvalVideo):
         raise NotImplementedError
 
 
-def test_video_fps_compensates_for_world_size():
-    # Distributed val strides an episode's frames by world_size on each rank;
-    # playback fps must scale down to keep videos wall-clock real-time.
-    ev = _StubEvalVideo.__new__(_StubEvalVideo)
-    for world, expected in [(1, 30), (2, 15), (4, 8), (8, 4)]:
-        ev.trainer = SimpleNamespace(world_size=world)
-        assert ev._video_fps() == expected, (world, ev._video_fps())
-    ev.trainer = SimpleNamespace()  # no world_size attr -> assume 1
-    assert ev._video_fps() == 30
-
-
 def test_viz_gate_follows_lightning_epoch_convention():
     ev = _StubEvalVideo(viz_every_n_epochs=20)
     # Lightning validates at current_epoch 19, 39, ... for check_val_every_n_epoch=20
