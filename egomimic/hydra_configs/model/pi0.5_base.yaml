@@ -68,11 +68,10 @@ optimizer:
   eps: 1e-8
   weight_decay: 0.0
 
+# Constant after warmup: a fixed-horizon cosine decays to 0 regardless of run length.
 scheduler:
-  _target_: transformers.get_cosine_schedule_with_warmup
+  _target_: transformers.optimization.get_constant_schedule_with_warmup
   _partial_: true
   num_warmup_steps: 2000
-  num_training_steps: 60000
-  num_cycles: 0.5
 
 scheduler_interval: step

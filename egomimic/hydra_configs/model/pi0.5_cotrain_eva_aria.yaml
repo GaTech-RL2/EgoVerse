@@ -20,7 +20,7 @@ robomimic_model:
   action_converters:
     rules:
       EVA_BIMANUAL:
-        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesian6D
       HUMAN_BIMANUAL:
         _target_: egomimic.utils.action_utils.HumanBimanualKeypoints
     # optional fallback if no match is found

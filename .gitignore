@@ -45,6 +45,10 @@ annotations_test/**
 log_conversion/**
 debug_model_inputs/**
 temp_dir/**
+/datasets/
+*.log
+.inductor_cache/
+
 scratch/
 sample_data/
 external_ckpts/

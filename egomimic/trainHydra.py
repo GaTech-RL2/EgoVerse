@@ -40,6 +40,21 @@ log = RankedLogger(__name__, rank_zero_only=True)
 _PI_WEIGHT_KEY = "model.robomimic_model.config.pytorch_weight_path"
 
 
+def _data_transform_modes(cfg: DictConfig) -> dict[str, str]:
+    """``{dataset name: transform_list.mode}`` for the train datasets that set one."""
+    datasets = OmegaConf.select(cfg, "data.train_datasets", default=None)
+    if not isinstance(datasets, DictConfig):
+        return {}
+    modes = {}
+    for name in datasets:
+        mode = OmegaConf.select(
+            datasets, f"{name}.resolver.transform_list.mode", default=None
+        )
+        if mode is not None:
+            modes[str(name)] = str(mode)
+    return modes
+
+
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     """The config tree ``ModelWrapper`` receives. Only this copy skips the PI base
     weights (see ``_weights_from_checkpoint``); ``cfg`` keeps the real path for
@@ -52,6 +67,11 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     ):
         model_cfg.robomimic_model.norm_stats = None
     tree = OmegaConf.create({"model": model_cfg})
+    # Saved with the checkpoint so the robot rollout rebuilds the same inputs
+    # and reverts the outputs; the data config itself is not saved.
+    modes = _data_transform_modes(cfg)
+    if modes:
+        tree.data_transform_modes = modes
     has_weights = OmegaConf.select(tree, _PI_WEIGHT_KEY, default=None) is not None
     if has_weights and _weights_from_checkpoint(cfg):
         log.info(

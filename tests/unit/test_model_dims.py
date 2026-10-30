@@ -52,6 +52,8 @@ EXPECTED = {
     "hpt_bc_flow_scale": (None, {"human_bimanual": (144, 144)}),
     "hpt_bc_flow_human_cartesian": (None, {"human_bimanual": (20, 18)}),
     "hpt_bc_keypoints_base": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_keypoints_wrist_300M": (None, {"human_bimanual": (144, 144)}),
+    "hpt_bc_mecka_6d_300M": (None, {"human_bimanual": (20, 18)}),
     "hpt_cotrain_enc_dec_base": (None, COTRAIN),
     # Separate heads: the human head follows the keypoint default.
     "hpt_cotrain_flow_seperate_head": (
