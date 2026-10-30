@@ -684,6 +684,7 @@ class LanceEpisodeResolver:
         self.history_floor = history_floor
         self.require_hands_in_frame = require_hands_in_frame
         self.annotations = None
+        self._manifest = None
         if annotations is not None:
             unknown = set(annotations) - set(self.ANNOTATION_DEFAULTS)
             if unknown:
@@ -697,6 +698,26 @@ class LanceEpisodeResolver:
             want = open_table(uri, want).version
             self.versions[name] = want
         return uri, want, _table(uri, want)
+
+    def manifest(self) -> dict:
+        """What this resolver read: {"root", "versions": {table: version}, "tags":
+        {table: [tags on that version]}}. Listing tags reads every table's metadata,
+        so it is cached until another table is read."""
+        if self._manifest is None or self._manifest["versions"] != self.versions:
+            tags = {
+                name: sorted(
+                    t
+                    for t, info in _table(f"{self.root}/{name}", v).tags.list().items()
+                    if info["version"] == v
+                )
+                for name, v in self.versions.items()
+            }
+            self._manifest = {
+                "root": self.root,
+                "versions": dict(self.versions),
+                "tags": tags,
+            }
+        return copy.deepcopy(self._manifest)
 
     def recordings(self) -> pd.DataFrame:
         """One row per recording."""
@@ -932,6 +953,16 @@ class LanceEpisodeResolver:
                     axis=1,
                 ),
                 **ann_kw,
+            )
+        untagged = sorted(n for n, t in self.manifest()["tags"].items() if not t)
+        if untagged:
+            logger.warning(
+                "read untagged versions of %s under %s (%s): this run can be "
+                "reproduced only until cleanup_old_versions drops them; tag them "
+                "(commit.tag) to keep them",
+                untagged,
+                self.root,
+                {n: self.versions[n] for n in untagged},
             )
         if no_anchor:
             logger.warning(
