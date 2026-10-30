@@ -206,7 +206,9 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
 
     videos = sorted(p.relative_to(root) for p in (root / "videos").rglob("*.mp4"))
     assert len(videos) == 3
-    commit.cleanup(root, older_than=datetime.timedelta(0))
+    commit.cleanup(
+        root, tmp_path / "staging", datetime.timedelta(0), datetime.timedelta(0)
+    )
     assert (
         sorted(p.relative_to(root) for p in (root / "videos").rglob("*.mp4")) == videos
     )  # t1 still needs the old one
@@ -214,7 +216,9 @@ def test_edit_add_columns_tag_cleanup(tmp_path):
     assert _head(_resolve(root)[h1]) == 500
 
     lance.dataset(root / "recordings.lance").tags.delete("t1")
-    commit.cleanup(root, older_than=datetime.timedelta(0))
+    commit.cleanup(
+        root, tmp_path / "staging", datetime.timedelta(0), datetime.timedelta(0)
+    )
     assert len(list((root / "videos").rglob("*.mp4"))) == 2
 
 

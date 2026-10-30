@@ -1,10 +1,12 @@
 """The committer: the only writer of the Lance tables.
 
 Converters stage deliveries (steps.parquet, MP4s, meta.json last) under
-`<staging>/<source>/<vendor id>/` (commit.stage). Each run validates the complete ones,
-commits them in batches (each batch tagged `<source>-<UTC time>` on every table and recorded
-in `changes`), and deletes their staged files. A delivery that fails validation gets
-REJECTED.json (errors plus a digest of its files) and is skipped until its files change.
+`<staging>/<source>/<vendor id>/` (commit.stage), or upload the MP4s straight to the Lance
+root and stage the rest (commit.stage_direct); those videos are only checked by size, never
+downloaded. Each run validates the complete ones, commits them in batches (each batch tagged
+`<source>-<UTC time>` on every table and recorded in `changes`), and deletes their staged
+files. A delivery that fails validation gets REJECTED.json (errors plus a digest of its
+files) and is skipped until its files change.
 Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
 A delivery's meta.json "provenance" is kept in its batch's `changes` row.
 
@@ -65,10 +67,17 @@ def check_delivery(d: Path, meta: dict, steps: pa.Table) -> list[str]:
     ts = steps.column("timestamp_ns").to_numpy()
     if not (np.diff(ts) > 0).all():
         errs.append("timestamps not strictly increasing")
+    placed = meta.get("lance_videos")
     for cam in meta.get("videos", ("front_1", "front_1_480")):
-        frames = mp4_ranges.read_index(
-            lambda a, b, p=d / f"{cam}.mp4": read_range(str(p), a, b)
-        ).num_frames
+        if placed:
+            if cam not in placed["videos"]:
+                errs.append(f"{cam}.mp4 is not in lance_videos")
+                continue
+            frames = placed["videos"][cam]["num_frames"]
+        else:
+            frames = mp4_ranges.read_index(
+                lambda a, b, p=d / f"{cam}.mp4": read_range(str(p), a, b)
+            ).num_frames
         if frames != n:
             errs.append(f"{cam}.mp4 has {frames} frames, steps has {n}")
     return errs
@@ -147,9 +156,8 @@ def load_deliveries(
             t_start_ns=m["t_start_ns"],
             t_end_ns=m["t_end_ns"],
         )
-        videos = {cam: d / f"{cam}.mp4" for cam in ("front_1", "front_1_480")}
-        delivery = commit.Delivery(
-            recording, task, alias, steps, videos, m.get("provenance")
+        delivery = _delivery(
+            d, m, recording, task, alias, steps, ("front_1", "front_1_480")
         )
         try:
             commit.check_required(delivery)
@@ -158,6 +166,20 @@ def load_deliveries(
             continue
         deliveries.append(delivery)
     return deliveries, rejected
+
+
+def _delivery(d: Path, meta: dict, recording, task, alias, steps, cams):
+    placed = meta.get("lance_videos")
+    videos = {} if placed else {cam: d / f"{cam}.mp4" for cam in cams}
+    return commit.Delivery(
+        recording,
+        task,
+        alias,
+        steps,
+        videos,
+        provenance=meta.get("provenance"),
+        placed=placed,
+    )
 
 
 def load_eva_deliveries(
@@ -210,10 +232,7 @@ def load_eva_deliveries(
         except ValueError as e:
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue
-        videos = {cam: d / f"{cam}.mp4" for cam in m["videos"]}
-        deliveries.append(
-            commit.Delivery(recording, task, alias, steps, videos, m.get("provenance"))
-        )
+        deliveries.append(_delivery(d, m, recording, task, alias, steps, m["videos"]))
     return deliveries, rejected
 
 
@@ -378,6 +397,10 @@ def commit_staged(
                 if name != REJECTED:
                     commit.get_file(commit.join(src, name), local[vid] / name)
         deliveries, rejected = _load(source, list(local.values()))
+        for d in [d for d in deliveries if d.placed]:
+            if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
+                deliveries.remove(d)
+                rejected[d.recording["vendor_recording_id"]] = errs
         skipped = []
         if not replace:
             skipped = [d for d in deliveries if d.recording_id in have]

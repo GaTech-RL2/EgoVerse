@@ -231,7 +231,9 @@ def test_versioned_commits(pilot, tmp_path):
         _all_same(s2, _samples(leaves2), s2) == []
     )  # compaction leaves old files in place
 
-    commit.cleanup(root, older_than=datetime.timedelta(0))
+    commit.cleanup(
+        root, tmp_path / "staging", datetime.timedelta(0), datetime.timedelta(0)
+    )
     t1 = _resolver(root, tag="t1").resolve()
     assert _all_same(s1, _samples(t1), s1) == []
     assert {h: leaf.cache_fingerprint() for h, leaf in t1.items()} == fp1
