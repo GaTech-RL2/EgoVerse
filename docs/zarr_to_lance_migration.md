@@ -353,8 +353,12 @@ MANO decides the cost. `torch` uses CUDA whenever a GPU is visible and otherwise
 On the rl2-lab A40s (free, since R2 has no egress charge) the whole raw path takes ~1 day
 with 10–16 GPUs. On EC2 g5/g6 it costs ~$250–400 on demand. MANO on CPU instead is ~10k
 vCPU-h, about $450 on demand or $150 spot. The fit loop is bound by iteration count, not
-batch size (512 frames per chunk barely loads an A40), so fitting many chunks per
-optimizer batch should cut GPU time severalfold. Measure that before choosing hardware.
+batch size (512 frames per chunk barely loads an A40), so `aria_to_lance --mano-batch`
+(default 8,192) optimizes many 512-frame chunks together, with the loss still normalized
+per chunk so results match, and the fit loop skins only the 5 fingertip vertices it needs
+(`mano_joints_fn`) instead of all 778. On one 4,587-frame episode (2,400 iters, A40) MANO
+dropped from 338 s to 52 s for both hands (6.5x), within 1e-3 mm of the old fit, which
+cuts the GPU-h above to ~40.
 
 ### TODO (Ray driver and committer)
 
@@ -392,5 +396,5 @@ optimizer batch should cut GPU time severalfold. Measure that before choosing ha
 7. Raw path: should the 4 rl2 rows with the legacy embodiment `eva` (which have raw) get
    their embodiment fixed in SQL? Are the 487 EVA captures whose SQL rows are deleted
    really dropped? (Resolved: no zarr fallback for Aria and EVA.)
-8. Where MANO runs: the cluster A40s, EC2 GPUs, or EC2 CPU (about 10k vCPU-h).
-   Re-measure after batching the fit.
+8. Where MANO runs: the cluster A40s, EC2 GPUs, or EC2 CPU (about 10k vCPU-h before
+   `--mano-batch`; re-measure on CPU with it).

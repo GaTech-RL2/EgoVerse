@@ -135,7 +135,10 @@ def convert(args) -> dict:
         if args.mano and tracked.any():
             mano_kp = np.full(aria_kp.shape, np.nan)
             mano_kp[tracked] = convert_aria_keypoints_to_mano(
-                aria_kp[tracked], is_rhand=rhand, n_iters=args.mano_iters
+                aria_kp[tracked],
+                is_rhand=rhand,
+                n_iters=args.mano_iters,
+                batch_size=args.mano_batch,
             )
             ee = mano_keypoints_to_cartesian(mano_kp, is_rhand=rhand)
             keypoints = mano_kp
@@ -266,6 +269,12 @@ def main():
     ap.add_argument("--embodiment", required=True, choices=sorted(ARM_OF))
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
+    ap.add_argument(
+        "--mano-batch",
+        type=int,
+        default=8192,
+        help="frames per MANO optimizer batch (speed/memory only; results unchanged)",
+    )
     ap.add_argument("--ffmpeg", default="ffmpeg")
     ap.add_argument(
         "--stage-to", help="staging root (s3:// or local) for the committer"
