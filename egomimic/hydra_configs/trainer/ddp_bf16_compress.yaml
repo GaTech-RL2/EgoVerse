@@ -1,0 +1,16 @@
+# Plain DDP plus a bf16 gradient all-reduce, for a model big enough that the
+# gradient reduction, not the math, sets the step time. Only the reduction is
+# bf16; master weights and the optimizer stay fp32.
+#
+# This is plain DDP: no unused-parameter detection. A model that leaves any
+# trainable tensor without a gradient needs `ddp_pi`-style
+# `ddp_find_unused_parameters_true` instead, and will crash under this one.
+defaults:
+  - ddp
+
+# The parent's `strategy: ddp` string has to become a DDPStrategy object to
+# take a ddp_comm_hook.
+strategy:
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  ddp_comm_hook:
+    _target_: egomimic.utils.ddp_hooks.make_bf16_compress_hook
