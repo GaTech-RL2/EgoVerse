@@ -33,6 +33,8 @@ EMBODIMENTS = (
     "eva_right_arm",
     "eva_left_arm",
     "eva_bimanual",
+    "yam_bimanual",
+    "dexmate_bimanual",
 )
 
 

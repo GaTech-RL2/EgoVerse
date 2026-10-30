@@ -19,10 +19,10 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.lance import commit
-from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id
+from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id, robot_steps_table
 from egomimic.rldb.zarr.required_metadata import required_metadata_error
 from egomimic.scripts.eva_process.eva_to_zarr import (
     _separate_numeric_and_image,
@@ -67,39 +67,14 @@ def numeric_columns(raw: Path, arm: str) -> tuple[dict[str, np.ndarray], np.ndar
 
 
 def steps_table(rid: str, ts: np.ndarray, cols: dict, valid: dict) -> pa.Table:
+    """EVA_STEPS rows; an arm the robot lacks is zeros."""
     n = len(ts)
-
-    def field(x, width):
-        x = np.asarray(x, np.float32).reshape(n, -1)
-        if width is None:
-            return pa.array(x[:, 0])
-        return pa.FixedSizeListArray.from_arrays(pa.array(x.reshape(-1)), width)
-
-    arms = {}
-    for side in ("left", "right"):
-        absent = f"{side}.obs_ee_pose" not in cols
-        arms[side] = pa.StructArray.from_arrays(
-            [
-                field(
-                    np.zeros((n, getattr(f.type, "list_size", 1)))
-                    if absent
-                    else cols[f"{side}.{f.name}"],
-                    getattr(f.type, "list_size", None),
-                )
-                for f in ARM
-            ],
-            fields=list(ARM),
-        )
-    return pa.table(
-        {
-            "recording_id": pa.array([rid] * n),
-            "timestamp_ns": pa.array(ts),
-            **arms,
-            "left_valid": pa.array(valid["left"]),
-            "right_valid": pa.array(valid["right"]),
-        },
-        schema=EVA_STEPS,
-    )
+    zeros = {
+        f"{side}.{f.name}": np.zeros((n, getattr(f.type, "list_size", 1)))
+        for side in ("left", "right")
+        for f in ARM
+    }
+    return robot_steps_table(EVA_STEPS, rid, ts, {**zeros, **cols}, valid)
 
 
 def encode_videos(raw: Path, out: Path, n: int, fps: float, ffmpeg: str) -> list[str]:

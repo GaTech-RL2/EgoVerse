@@ -25,7 +25,6 @@ import pyarrow.compute as pc
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
-from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance.dataset import (
     _is_remote,
     _s3_client,
@@ -41,6 +40,7 @@ from egomimic.rldb.lance.schema import (
     TASKS,
     steps_path,
     steps_paths,
+    steps_schema,
 )
 
 CATALOG = {
@@ -68,22 +68,29 @@ class Delivery:
 
     @property
     def steps_key(self) -> tuple[str, str, str]:
-        return steps_key(self.recording)
+        return steps_key(self.recording, self.steps)
 
 
-def steps_key(recording: dict) -> tuple[str, str, str]:
-    """(lab, embodiment, end_effector) of a recordings row; rejects missing or unknown values."""
+def steps_key(recording: dict, steps: pa.Table | None = None) -> tuple[str, str, str]:
+    """(lab, embodiment, end_effector) of a recordings row; rejects missing or unknown
+    values, an (embodiment, end_effector) with no steps schema, and `steps` rows not in it."""
+    rid = recording.get("recording_id")
     for c in STEPS_KEY:
         if not recording.get(c):
-            raise ValueError(f"recording {recording.get('recording_id')}: no {c}")
-    END_EFFECTOR(recording["end_effector"])
+            raise ValueError(f"recording {rid}: no {c}")
+    schema = steps_schema(recording["embodiment"], recording["end_effector"])
+    if steps is not None and not steps.schema.equals(schema):
+        raise ValueError(
+            f"recording {rid}: steps schema differs from the "
+            f"{recording['embodiment']}/{recording['end_effector']} one"
+        )
     return tuple(recording[c] for c in STEPS_KEY)
 
 
 def check_required(d: Delivery) -> tuple[str, str, str]:
     """`d`'s steps key; rejects a delivery without lab, operator or task_name (only
     scene and objects may be empty)."""
-    key = steps_key(d.recording)
+    key = d.steps_key
     if not d.recording.get("operator"):
         raise ValueError(f"recording {d.recording_id}: no operator")
     if not d.task.get("task_name"):

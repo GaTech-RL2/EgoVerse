@@ -27,7 +27,7 @@ import lance
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
 from egomimic.rldb.lance.commit import (
     _exists,
     _is_remote,

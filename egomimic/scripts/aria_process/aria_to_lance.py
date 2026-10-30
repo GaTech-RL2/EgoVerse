@@ -20,7 +20,7 @@ from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
 from projectaria_tools.core.sensor_data import TimeDomain
 from projectaria_tools.core.stream_id import StreamId
 
-from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
+from egomimic.rldb.embodiment.end_effector import END_EFFECTOR
 from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.lance import commit
 from egomimic.rldb.lance.schema import HUMAN_STEPS, recording_id
