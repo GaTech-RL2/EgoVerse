@@ -407,16 +407,24 @@ class HPTModel(nn.Module):
                 horizon = np.random.randint(1, data_horizon + 1)
                 data[modality] = data[modality][:, data_horizon - horizon :]
 
-            positional_embedding = get_sinusoid_encoding_table(
-                0, horizon * int(np.prod(data_shape[2:-1])), data_shape[-1]
-            ).to(data[modality])
-            positional_embedding = einops.repeat(
-                positional_embedding, "b h w -> (repeat b) h w", repeat=data_shape[0]
-            )
+            # An observation-history stem owns its own LEARNED time-step
+            # embedding (added after the projection); the input-side sinusoid
+            # here is a constant [0, 1, 0, 1, ...] added to the NORMALIZED
+            # values, which would be amplitude-1 noise on [-1, 1] data once
+            # axis 1 carries more than the current step.
+            if getattr(stem, "history_len", 1) == 1:
+                positional_embedding = get_sinusoid_encoding_table(
+                    0, horizon * int(np.prod(data_shape[2:-1])), data_shape[-1]
+                ).to(data[modality])
+                positional_embedding = einops.repeat(
+                    positional_embedding,
+                    "b h w -> (repeat b) h w",
+                    repeat=data_shape[0],
+                )
 
-            data[modality] = data[modality] + positional_embedding.view(
-                data[modality].shape
-            )
+                data[modality] = data[modality] + positional_embedding.view(
+                    data[modality].shape
+                )
             stem_token = stem.compute_latent(data[modality])
             feats.append(stem_token)
             feat_dict[modality] = stem_token
@@ -1169,7 +1177,13 @@ class HPT(Algo):
             ac_key = self.ac_keys[embodiment_id]
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
-                _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
+                _batch,
+                cam_keys,
+                proprio_keys,
+                lang_keys,
+                ac_key,
+                aux_ac_keys,
+                domain=embodiment_name,
             )
             hpt_batch = {
                 "domain": embodiment_name,  # readability on config side
@@ -1227,7 +1241,13 @@ class HPT(Algo):
             ac_key = self.ac_keys[embodiment_id]
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
-                _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
+                _batch,
+                cam_keys,
+                proprio_keys,
+                lang_keys,
+                ac_key,
+                aux_ac_keys,
+                domain=embodiment_name,
             )
             hpt_batch = {
                 "domain": embodiment_name,  # readability on config side
@@ -1357,8 +1377,25 @@ class HPT(Algo):
         augs = self.train_image_augs if self.nets.training else self.eval_image_augs
         return augs(images) if augs is not None else images
 
+    def _stem_history_len(self, domain: str, modality: str) -> int:
+        """``history_len`` of ``domain``'s ``modality`` stem (1 when the stem
+        declares none). Stems are registered as ``f"{domain}_{modality}"``; a
+        cotrain run has one per domain, so the domain has to be named -- a
+        suffix match would return whichever came first in the dict.
+        """
+        stem = self.nets["policy"].stems[f"{domain}_{modality}"]
+        return int(getattr(stem, "history_len", 1))
+
     def _robomimic_to_hpt_data(
-        self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]
+        self,
+        batch,
+        cam_keys,
+        proprio_keys,
+        lang_keys,
+        ac_key,
+        aux_ac_keys=[],
+        *,
+        domain: str,
     ):
         """
         helper method that returns data in the format required for the HPT model
@@ -1371,7 +1408,22 @@ class HPT(Algo):
         for key in proprio_keys:
             if key in batch:
                 short = key.rsplit(".", 1)[-1]
-                data[f"state_{short}"] = batch[key].unsqueeze(1)
+                modality = f"state_{short}"
+                value = batch[key]
+                if value.ndim == 2:
+                    data[modality] = value.unsqueeze(1)  # (B, D) -> (B, 1, D)
+                else:
+                    # Observation history: already (B, K, D), one token per step.
+                    history_len = self._stem_history_len(domain, modality)
+                    if value.shape[1] != history_len:
+                        raise ValueError(
+                            f"proprio '{key}' carries {value.shape[1]} history "
+                            f"steps but the '{modality}' stem has "
+                            f"history_len={history_len}; set model...stem_specs."
+                            f"{domain}.{modality}.history_len and the keymap's "
+                            "proprio_history to the same K"
+                        )
+                    data[modality] = value
 
         for key in cam_keys:
             if key in batch:
