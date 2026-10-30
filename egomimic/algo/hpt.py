@@ -847,6 +847,12 @@ class HPT(Algo):
         annotation_modality: str = "annotation",
         default_prompt: str = "",
         # ---------------------------
+        # Loss masking: supervise only the real action steps of a chunk
+        # (the dataset's ``action_pad_mask``) instead of the repeat-last
+        # padding at every episode / annotation tail.
+        # ---------------------------
+        use_pad_mask: bool = False,
+        # ---------------------------
         # Catch-all kwargs
         # ---------------------------
         **kwargs,
@@ -857,6 +863,7 @@ class HPT(Algo):
         self.annotation_sampling_mode = annotation_sampling_mode
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
+        self.use_pad_mask = use_pad_mask
 
         # Per-sample so every image draws its own jitter parameters; torchvision
         # samples once per call, i.e. once for the whole stacked batch.
@@ -891,6 +898,9 @@ class HPT(Algo):
 
         self.diffusion = kwargs.get("diffusion", False)
         model.diffusion = self.diffusion
+        if self.use_pad_mask and not self.diffusion:
+            # Only DenoisingPolicy.compute_loss reads pad_mask.
+            raise ValueError("use_pad_mask requires a denoising head (diffusion: true)")
 
         if self.diffusion:
             if self.norm_stats.norm_mode == "zscore":
@@ -1095,9 +1105,23 @@ class HPT(Algo):
 
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
             device = processed_batch[embodiment_id][ac_key].device
-            processed_batch[embodiment_id]["pad_mask"] = torch.ones(
-                B, S, 1, device=device
+            # action_pad_mask is consumed here; only pad_mask goes downstream.
+            action_pad_mask = processed_batch[embodiment_id].pop(
+                "action_pad_mask", None
             )
+            if self.use_pad_mask and action_pad_mask is not None:
+                if action_pad_mask.shape[-1] != S:
+                    raise ValueError(
+                        f"action_pad_mask length {action_pad_mask.shape[-1]} does "
+                        f"not match the action horizon {S}"
+                    )
+                processed_batch[embodiment_id]["pad_mask"] = action_pad_mask[
+                    ..., None
+                ].to(device)
+            else:
+                processed_batch[embodiment_id]["pad_mask"] = torch.ones(
+                    B, S, 1, device=device
+                )
 
             # Sample one annotation per item (random/first, default fallback for
             # empty). Stays as list[str]; the Qwen stem owns tokenization.
