@@ -36,10 +36,7 @@ import uuid
 from dataclasses import dataclass
 
 from egomimic.rldb.zarr.episode_rules import EMBODIMENTS, QUAT_UNIT_TOL, arm_sides
-from egomimic.rldb.zarr.required_metadata import (
-    REQUIRED_METADATA_FIELDS,
-    WAIVABLE_FIELDS,
-)
+from egomimic.rldb.zarr.required_metadata import REQUIRED_METADATA_FIELDS
 
 SPEC_VERSION = "0.1"
 SUPPORTED_SPEC_VERSIONS = ("0.1",)
@@ -330,11 +327,6 @@ METADATA_KEYS = (
     MetaKey("shutter", "shutter", human_only=True),  # "global" or "rolling:16ms"
     # HandKeypoints.positions order, chosen by the vendor, e.g. ",".join(MANO_JOINTS)
     MetaKey("hand_joints", "hand_joints", human_only=True),
-)
-# Every converter must give these (task_name, operator, lab); only scene and objects
-# may be listed in missing_metadata. The shared waiver_errors rejects the rest.
-UNWAIVABLE_FIELDS = tuple(
-    f for f in REQUIRED_METADATA_FIELDS if f not in WAIVABLE_FIELDS
 )
 # Topics published exactly once per episode.
 ONCE_TOPICS = ("/tf_static", "/imu-info")
