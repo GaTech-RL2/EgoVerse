@@ -47,6 +47,11 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+      # Failed vendor egomotion (constant or jumping head pose) corrupts the
+      # head-frame action chunks. To drop those episodes, write a blocklist with
+      # scan_egomotion.py and pass its path here:
+      #   data.train_datasets.human_bimanual.filters.exclude_hashes=<blocklist>
+      exclude_hashes: null
     mode: train
     valid_ratio: 0.05
 
