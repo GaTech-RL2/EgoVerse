@@ -99,3 +99,28 @@ def test_unrecorded_legacy_checkpoint_uses_predictions_as_is(monkeypatch):
     monkeypatch.setattr(PolicyRollout, "_load_policy", lambda self: policy)
     r = PolicyRollout("both", "ckpt", 1, True)
     assert r.transform_mode is None and r.revert_transform_list is None
+
+
+def test_patch_nulls_paligemma_init(tmp_path):
+    """The checkpoint's state_dict holds every weight, so a PaliGemma-init
+    policy must not fetch the gated repo on the robot."""
+    import torch
+
+    tree = {
+        "model": {
+            "robomimic_model": {
+                "config": {
+                    "pytorch_weight_path": None,
+                    "paligemma_weight_path": "google/paligemma-3b-pt-224",
+                }
+            }
+        }
+    }
+    path = tmp_path / "a.ckpt"
+    torch.save({"hyper_parameters": {"config_tree": tree}}, path)
+    patched = PolicyRollout._patch_checkpoint_paths(str(path))
+    config = torch.load(patched, weights_only=False)["hyper_parameters"]["config_tree"][
+        "model"
+    ]["robomimic_model"]["config"]
+    assert config["paligemma_weight_path"] is None
+    assert config["pytorch_weight_path"] is None

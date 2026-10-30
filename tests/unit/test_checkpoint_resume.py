@@ -67,6 +67,24 @@ def test_explicit_ckpt_path_nulls_base_weights_for_model_only(
     assert cfg.model.robomimic_model.config.pytorch_weight_path is not None
 
 
+def test_explicit_ckpt_path_nulls_paligemma_init_too(compose_resolve, tmp_path):
+    """A PaliGemma-init run resumed from a checkpoint must not fetch the gated
+    PaliGemma repo again."""
+    ckpt = _touch(tmp_path / "runA" / "last.ckpt")
+    cfg = _pi_cfg(
+        compose_resolve,
+        tmp_path,
+        "model.robomimic_model.config.pytorch_weight_path=null",
+        "model.robomimic_model.config.paligemma_weight_path=/some/paligemma",
+        f"ckpt_path={ckpt}",
+    )
+    train_hydra._prepare_checkpoint_resume(cfg)
+    config = train_hydra._build_model_config_tree(cfg).model.robomimic_model.config
+    assert config.pytorch_weight_path is None
+    assert config.paligemma_weight_path is None
+    assert cfg.model.robomimic_model.config.paligemma_weight_path == "/some/paligemma"
+
+
 @pytest.mark.parametrize("ckpt_path", ["last", "best", "hpc", "missing.ckpt"])
 def test_ckpt_path_that_is_not_a_file_keeps_base_weights(
     compose_resolve, tmp_path, ckpt_path

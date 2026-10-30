@@ -317,12 +317,21 @@ class PolicyRollout(Rollout):
         robomimic = cfg.get("model", {}).get("robomimic_model", {})
         config = robomimic.get("config", {})
         old_path = config.get("pytorch_weight_path")
-        if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
+        # The state_dict holds every weight; a PaliGemma-init checkpoint would
+        # otherwise fetch the gated Hub repo on the robot.
+        paligemma = config.get("paligemma_weight_path")
+        if paligemma is None and (
+            old_path is None or old_path == cls.LOCAL_WEIGHT_PATH
+        ):
             return ckpt_path
-        print(
-            f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
-        )
-        config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
+        if paligemma is not None:
+            print(f"[rollout] Patching paligemma_weight_path: {paligemma} -> None")
+            config["paligemma_weight_path"] = None
+        else:
+            print(
+                f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
+            )
+            config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
         ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
         patched_path = ckpt_path + ".patched"
         _torch.save(ckpt, patched_path)
