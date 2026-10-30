@@ -175,8 +175,8 @@ def test_every_head_can_be_subsampled_independently():
 
 
 def test_eval_overrides_apply_before_metric_subsampling():
-    """Eval mode forces one device, so K must not be scaled by the training
-    config's world size."""
+    """Eval mode applies the evaluator's trainer overrides before the val
+    datasets are subsampled."""
     cfg = _cfg(metric={"valid": 7})
     cfg.trainer = {"devices": 4, "num_nodes": 2}
     cfg.evaluator = {
@@ -188,26 +188,34 @@ def test_eval_overrides_apply_before_metric_subsampling():
     assert th._metric_frames_per_episode(cfg, "valid") == 7
 
 
-def test_k_scales_with_the_world_size():
-    """K in the config is the single-rank value. DistributedSampler strides,
-    so W ranks between them read W times the frames in the same number of
-    batches each; without the scaling a 4-GPU run scores a quarter of what the
-    same config scores on one GPU."""
+def test_k_ignores_the_world_size():
+    """The val loaders are not sharded, so every rank reads the same first
+    limit_val_batches batches; scaling K by W would push the split's last
+    episodes past that window on every rank."""
     cfg = _cfg(metric={"valid": 7})
-    for devices, nodes, expected in (
-        (1, 1, 7),
-        (4, 1, 28),
-        (8, 2, 112),
-        ([0, 1], 1, 14),
-        ("auto", 1, 7),  # unknown at config time: stay single-rank
-        (-1, 1, 7),
-    ):
+    for devices, nodes in ((1, 1), (4, 1), (8, 2), ([0, 1], 1), ("auto", 1)):
         cfg.trainer = {"devices": devices, "num_nodes": nodes}
-        assert th._metric_frames_per_episode(cfg, "valid") == expected, devices
-    # a split shorter than K is kept whole, so scaling cannot truncate
-    cfg.trainer = {"devices": 4, "num_nodes": 1}
-    split = {HUMAN: _split({"ep0": 20})}
-    assert len(th._subsample_val_datasets(cfg, "valid", split)[HUMAN]) == 20
+        assert th._metric_frames_per_episode(cfg, "valid") == 7, devices
+
+
+def test_auto_k_is_derived_from_the_resolved_split():
+    """`auto` = floor(limit_val_batches * batch_size / episodes), per dataset,
+    from the head's own loader batch size, whatever the world size."""
+    cfg = _cfg(metric={"valid": "auto"})
+    cfg.trainer = {"limit_val_batches": 4, "devices": 2}
+    split = {HUMAN: _split({"ep0": 100, "ep1": 100, "ep2": 100})}
+    params = {HUMAN: {"batch_size": 5}}
+    wrapped = th._subsample_val_datasets(cfg, "valid", split, params)[HUMAN]
+    assert wrapped.frames_per_episode == 4 * 5 // 3
+    for limit in (1.0, None, True):
+        cfg.trainer.limit_val_batches = limit
+        with pytest.raises(ValueError, match="auto"):
+            th._subsample_val_datasets(cfg, "valid", split, params)
+    cfg.trainer.limit_val_batches = 0  # validation off
+    assert th._subsample_val_datasets(cfg, "valid", split, params) == split
+    cfg.trainer.limit_val_batches = 4
+    with pytest.raises(ValueError, match="batch_size"):
+        th._subsample_val_datasets(cfg, "valid", split, {})
 
 
 # ------------------------------------------------------------- 3. video loaders
