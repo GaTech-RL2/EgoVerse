@@ -14,7 +14,7 @@ PI algo pads that to ``model.action_dim``) and the eval path unpacks it
 (``from32_norm_6d``). No rotation math and no normalization happen here.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Sequence, Tuple
 
 import torch
 
@@ -81,6 +81,14 @@ def _stat_tensor(stats: dict[str, Any], key: str, ref: torch.Tensor) -> torch.Te
     return value.to(dtype=ref.dtype if ref.is_floating_point() else torch.float32)
 
 
+# A channel whose stat range (std, max - min, or q99 - q1) is below this is
+# treated as constant: it normalizes to 0 and unnormalizes to its centre.
+# These are structural zeros (wrist-frame t=0 cells, kp0/kp9 off-axis
+# components), where a bare ``+ 1e-6`` denominator would scale any off-convention
+# value by 1e6.
+NORM_MIN_RANGE = 1e-4
+
+
 def _norm_center_scale(
     stats: dict[str, Any], norm_mode: str, ref: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -103,24 +111,48 @@ def _eps(norm_mode: str) -> float:
     return 1e-6 if norm_mode == "zscore" else 0.5e-6
 
 
+def _degenerate(scale: torch.Tensor, norm_mode: str) -> torch.Tensor:
+    full_range = scale if norm_mode == "zscore" else 2.0 * scale
+    return full_range < NORM_MIN_RANGE
+
+
+def _passthrough(
+    out: torch.Tensor, tensor: torch.Tensor, channels: Sequence[int] | None
+) -> torch.Tensor:
+    if not channels:
+        return out
+    out = out.clone()
+    out[..., list(channels)] = tensor[..., list(channels)]
+    return out
+
+
 def _apply_norm_one(
     tensor: torch.Tensor,
     stats: dict[str, Any],
     norm_mode: str,
+    identity_channels: Sequence[int] | None = None,
 ) -> torch.Tensor:
-    """Normalize with per-key stats (zscore, or [-1, 1] for minmax/quantile)."""
+    """Normalize with per-key stats (zscore, or [-1, 1] for minmax/quantile).
+    Channels with a range below ``NORM_MIN_RANGE`` map to 0;
+    ``identity_channels`` pass through untouched."""
     center, scale = _norm_center_scale(stats, norm_mode, tensor)
-    return (tensor - center) / (scale + _eps(norm_mode))
+    out = (tensor - center) / (scale + _eps(norm_mode))
+    out = torch.where(_degenerate(scale, norm_mode), torch.zeros_like(out), out)
+    return _passthrough(out, tensor, identity_channels)
 
 
 def _apply_unnorm_one(
     tensor: torch.Tensor,
     stats: dict[str, Any],
     norm_mode: str,
+    identity_channels: Sequence[int] | None = None,
 ) -> torch.Tensor:
-    """Inverse of :func:`_apply_norm_one`."""
+    """Inverse of :func:`_apply_norm_one`; degenerate channels return their
+    centre (mean / midpoint) whatever the model predicted."""
     center, scale = _norm_center_scale(stats, norm_mode, tensor)
-    return tensor * (scale + _eps(norm_mode)) + center
+    out = tensor * (scale + _eps(norm_mode)) + center
+    out = torch.where(_degenerate(scale, norm_mode), center.expand_as(out), out)
+    return _passthrough(out, tensor, identity_channels)
 
 
 # ---------- rotation helpers (shared with the eval metrics) ----------

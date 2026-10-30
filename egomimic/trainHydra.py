@@ -94,6 +94,18 @@ def _prepare_checkpoint_resume(cfg: DictConfig) -> None:
     )
 
 
+def _checkpoint_rot6d_passthrough(ckpt_path: str) -> Optional[bool]:
+    """The ``rot6d_passthrough`` convention of the norm stats saved in a
+    ModelWrapper checkpoint's hparams, or None when it holds none."""
+    checkpoint = torch.load(
+        ckpt_path, map_location="cpu", weights_only=False, mmap=True
+    )
+    state = (checkpoint.get("hyper_parameters") or {}).get("norm_stats_state")
+    if not state:
+        return None
+    return MultiDataset.from_state(state).rot6d_passthrough
+
+
 def _weights_from_checkpoint(cfg: DictConfig) -> bool:
     """True when ``cfg.ckpt_path`` is a checkpoint file whose state_dict will
     overwrite every weight, so PI need not read its base safetensors (it treats
@@ -239,6 +251,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         from egomimic.rldb.zarr import norm_cache
 
         sample_frac = OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0)
+        pool_horizon = bool(
+            OmegaConf.select(cfg, "norm_stats.pool_horizon", default=False)
+        )
         explicit_path = OmegaConf.select(
             cfg, "norm_stats.precomputed_norm_path", default=None
         )
@@ -274,6 +289,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     episodes,
                     cfg.data.train_datasets[dataset_name],
                     sample_frac,
+                    pool_horizon,
                 )
                 key = norm_cache.norm_cache_key(inputs)
                 cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
@@ -289,6 +305,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 precomputed_norm_path=explicit_path
                 if explicit_path is not None
                 else cached,
+                pool_horizon=pool_horizon,
             )
             if key is not None and cached is None:
                 if norm_stats.norm_stats.get(emb):
@@ -308,6 +325,18 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             if save_cache_dir:
                 norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
+    _prepare_checkpoint_resume(cfg)
+    # Fresh stats default to rot6d passthrough; a resumed/evaluated checkpoint
+    # trained before it must keep normalizing rot6d like it was trained to.
+    if _weights_from_checkpoint(cfg):
+        saved = _checkpoint_rot6d_passthrough(cfg.ckpt_path)
+        if saved is not None and saved != norm_stats.rot6d_passthrough:
+            log.warning(
+                f"{cfg.ckpt_path} was trained with rot6d_passthrough={saved}; "
+                "using it for this run's normalization"
+            )
+            norm_stats.rot6d_passthrough = saved
+
     # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
     # by reference. Bounds-check + normalize run at the MultiDataset level in
     # ``__getitem__`` — not as per-leaf transforms — which avoids the shared
@@ -316,8 +345,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         ds.set_norm_stats_from(norm_stats)
     for ds in datamodule.valid_datasets.values():
         ds.set_norm_stats_from(norm_stats)
-
-    _prepare_checkpoint_resume(cfg)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
