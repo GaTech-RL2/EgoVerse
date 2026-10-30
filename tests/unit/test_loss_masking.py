@@ -21,7 +21,7 @@ from egomimic.algo.hpt import HPT
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import Human
-from egomimic.rldb.zarr.action_chunk_transforms import InterpolatePadMask
+from egomimic.rldb.transforms import InterpolatePadMask
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     LocalAnnotationCutoffEpisodeResolver,
     LocalEpisodeResolver,

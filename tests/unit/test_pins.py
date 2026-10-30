@@ -179,6 +179,22 @@ def test_from_resolver_skips_check_for_non_embodiment_names(tmp_path) -> None:
     assert set(ds.datasets) == {"eva_00"}
 
 
+def test_from_resolver_passes_sync_from_s3_only_where_resolve_takes_it(
+    tmp_path,
+) -> None:
+    write_episode(tmp_path, "eva", seed=0)
+
+    class NoSyncFlag(LocalEpisodeResolver):
+        def resolve(self, filters=None, expected_embodiment=None):
+            return super().resolve(
+                filters=filters, expected_embodiment=expected_embodiment
+            )
+
+    for resolver in (NoSyncFlag(tmp_path), LocalEpisodeResolver(tmp_path)):
+        ds = MultiDataset._from_resolver(resolver, sync_from_s3=True, mode="total")
+        assert set(ds.datasets) == {"eva_00"}
+
+
 def test_train_fails_fast_on_bad_pin(tmp_path, monkeypatch) -> None:
     hermetic_env(monkeypatch)
     recipe = RECIPES[("eva", "hpt")]

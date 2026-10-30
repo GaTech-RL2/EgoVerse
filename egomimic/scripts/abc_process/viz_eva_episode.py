@@ -116,7 +116,7 @@ class AxisOverlay:
     """Project EE / world triads into front_1 pixels via the pipeline transform."""
 
     def __init__(self, extrinsics_key: str, intrinsics_key: str = "eva"):
-        from egomimic.rldb.zarr.action_chunk_transforms import (
+        from egomimic.rldb.transforms import (
             PoseCoordinateFrameTransform,
         )
         from egomimic.utils.pose_utils import _matrix_to_xyzwxyz, _xyzwxyz_to_matrix

@@ -6,11 +6,16 @@ import pytest
 
 lance = pytest.importorskip("lance")
 
-from fixtures.lance_tables import steps_table  # noqa: E402
+from fixtures.lance_tables import PERIOD_NS, steps_table  # noqa: E402
 
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
-from egomimic.rldb.lance.schema import recording_id, steps_path  # noqa: E402
+from egomimic.rldb.lance.schema import (  # noqa: E402
+    TASKS,
+    recording_id,
+    steps_path,
+    task_instance_id,
+)
 
 STEPS = steps_path("rl2", "human_bimanual", "human_hand")
 
@@ -49,13 +54,14 @@ def _delivery(tmp, i, n, offset=None, video=b"mp4", **rec):
             task_instance_id=f"t{i}",
             recording_id=rid,
             t_start_ns=0,
-            t_end_ns=n,
+            t_end_ns=n * PERIOD_NS,
             task_name="fold",
             task_description=f"task {i}",
             objects=[],
-            annotations=[],
         ),
-        alias=dict(episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n),
+        alias=dict(
+            episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n * PERIOD_NS
+        ),
         steps=steps_table(rid, n, 100 * i if offset is None else offset),
         videos={"front_1": src / "front_1.mp4"},
     )
@@ -246,3 +252,42 @@ def test_append_after_interrupted_append_does_not_duplicate_steps(
     assert lance.dataset(root / "aliases.lance").count_rows() == 3
     leaves = _resolve(root)
     assert sorted(len(leaf) for leaf in leaves.values()) == [8 - 3, 9 - 3, 10 - 3]
+
+
+def test_task_instance_id_is_stable_and_keyed_on_name_and_start():
+    rid = recording_id("aria", "1")
+    a = task_instance_id(rid, "fold_clothes", 100)
+    assert a == task_instance_id(rid, "fold_clothes", 100)
+    assert a != task_instance_id(rid, "fold_clothes", 101)
+    assert a != task_instance_id(rid, "iron_clothes", 100)
+    assert a != task_instance_id(recording_id("aria", "2"), "fold_clothes", 100)
+
+
+def test_release_tag_covers_annotations(tmp_path):
+    root = tmp_path / "lance"
+    commit.append(root, [_delivery(tmp_path, 0, 10)])
+    tagged = commit.tag(root, "release-1")
+    assert "annotations.lance" in tagged
+    resolver = LanceEpisodeResolver(
+        root, key_map=KEY_MAP, cameras={}, tag="release-1", annotations={}
+    )
+    (leaf,) = resolver.resolve().values()
+    assert leaf[0]["annotations"] == []
+
+
+def test_drop_task_annotations_brings_old_tables_to_the_schema(tmp_path):
+    root = tmp_path / "lance"
+    first, second = _delivery(tmp_path, 0, 10), _delivery(tmp_path, 1, 8)
+    commit.append(root, [first])
+    tasks = root / "tasks.lance"
+    old = lance.dataset(tasks).to_table()
+    nested = pa.list_(pa.struct([("text", pa.string())]))
+    lance.write_dataset(
+        old.append_column("annotations", pa.array([[]] * old.num_rows, nested)),
+        tasks,
+        mode="overwrite",
+    )
+    commit.drop_task_annotations(root)
+    assert lance.dataset(tasks).schema.names == TASKS.names
+    assert commit.append(root, [second]) == [second.recording_id]
+    commit.drop_task_annotations(root)

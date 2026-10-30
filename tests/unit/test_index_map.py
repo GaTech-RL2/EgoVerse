@@ -1,6 +1,6 @@
 import pytest
 
-from egomimic.rldb.zarr.zarr_dataset_multi import _IndexMap
+from egomimic.rldb.multi import _IndexMap
 
 
 def test_index_map_matches_per_sample_list():

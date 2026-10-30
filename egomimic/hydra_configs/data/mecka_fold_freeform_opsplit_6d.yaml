@@ -84,7 +84,7 @@ held_out_operators:
 
 train_datasets:
   human_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    _target_: egomimic.rldb.multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}

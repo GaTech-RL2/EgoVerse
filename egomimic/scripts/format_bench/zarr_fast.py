@@ -195,6 +195,7 @@ class FastZarrDataset(ZarrDataset):
     `assemble_sample` hands the prefetched rows to the stock `__getitem__`, so decoding,
     padding, masks and the JPEG-failure retry (a different index reads afresh) are unchanged."""
 
+    batched_fetch = True
     fetch_split = None
 
     def init_episode(self):

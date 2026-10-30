@@ -30,6 +30,30 @@ SCHEMA = pa.schema(
     ]
 )
 
+CHUNK_ROWS_PER_FILE = 1 << 20
+
+
+def chunk_table(
+    recording_id: str, chunks: list[bytes], num_frames: int, k: int
+) -> pa.Table:
+    """One recording's chunk rows; raises unless the chunks cover exactly `num_frames`."""
+    starts = list(range(0, len(chunks) * k, k))
+    sizes = [min(k, num_frames - s) for s in starts]
+    if sum(sizes) != num_frames:
+        raise ValueError(
+            f"{recording_id}: chunks cover {len(chunks)} x {k}, num_frames {num_frames}"
+        )
+    return pa.table(
+        {
+            "recording_id": [recording_id] * len(chunks),
+            "chunk_index": list(range(len(chunks))),
+            "frame_start": starts,
+            "num_frames": sizes,
+            "data": blob_array(chunks),
+        },
+        schema=SCHEMA,
+    )
+
 
 def chunk_mp4(path: Path, k: int) -> list[bytes]:
     """Stream-copy `path` into consecutive k-frame MP4s."""
@@ -103,11 +127,7 @@ def main():
             path = args.lance_root / dict(recs[rid]["video_path"])[args.camera]
             chunks = chunk_mp4(path, k)
             nf = recs[rid]["num_frames"]
-            starts = list(range(0, len(chunks) * k, k))
-            if sum(min(k, nf - s) for s in starts) != nf:
-                raise ValueError(
-                    f"{rid}: chunks cover {len(chunks)} x {k}, num_frames {nf}"
-                )
+            tbl = chunk_table(rid, chunks, nf, k)
             want = sorted(rng.sample(range(nf), min(args.check_frames, nf)))
             full, _ = frames(str(path), want)
             for j, f in enumerate(want):
@@ -116,18 +136,11 @@ def main():
                     raise ValueError(
                         f"{rid}: frame {f} differs between chunk and full MP4"
                     )
-            tbl = pa.table(
-                {
-                    "recording_id": [rid] * len(chunks),
-                    "chunk_index": list(range(len(chunks))),
-                    "frame_start": starts,
-                    "num_frames": [min(k, nf - s) for s in starts],
-                    "data": blob_array(chunks),
-                },
-                schema=SCHEMA,
-            )
             lance.write_dataset(
-                tbl, uri, mode="append" if i else "overwrite", max_rows_per_file=1 << 20
+                tbl,
+                uri,
+                mode="append" if i else "overwrite",
+                max_rows_per_file=CHUNK_ROWS_PER_FILE,
             )
             mp4_bytes += path.stat().st_size
             chunk_bytes += sum(map(len, chunks))

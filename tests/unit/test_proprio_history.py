@@ -705,7 +705,7 @@ def test_revert_transform_list_is_blind_to_proprio_history(builder_name):
 
 
 def test_select_current_step_leaves_a_flat_value_alone_and_is_idempotent():
-    from egomimic.rldb.zarr.action_chunk_transforms import SelectCurrentStep
+    from egomimic.rldb.transforms import SelectCurrentStep
 
     t = SelectCurrentStep(keys=["observations.state.ee_pose", "missing"])
     flat = np.arange(20, dtype=np.float32)
@@ -721,7 +721,7 @@ def test_select_current_step_leaves_a_flat_value_alone_and_is_idempotent():
 
 def test_every_human_revert_list_selects_the_current_proprio_step():
     from egomimic.rldb.embodiment import human as human_mod
-    from egomimic.rldb.zarr.action_chunk_transforms import SelectCurrentStep
+    from egomimic.rldb.transforms import SelectCurrentStep
 
     builders = {
         "_build_human_cartesian_revert_6d_transform_list": "observations.state.ee_pose",

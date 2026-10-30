@@ -51,7 +51,7 @@ class MeckaOverlay:
         # Intrinsics live on the embodiment module; imported lazily so --help
         # stays cheap.
         from egomimic.rldb.embodiment.human import MECKA_INTRINSICS
-        from egomimic.rldb.zarr.action_chunk_transforms import (
+        from egomimic.rldb.transforms import (
             PoseCoordinateFrameTransform,
         )
         from egomimic.utils.pose_utils import _xyzwxyz_to_matrix

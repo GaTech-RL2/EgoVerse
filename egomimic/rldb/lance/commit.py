@@ -16,12 +16,14 @@ from pathlib import Path
 
 import lance
 import pyarrow as pa
+import pyarrow.compute as pc
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
 from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.lance.schema import (
     ALIASES,
+    ANNOTATIONS,
     RECORDINGS,
     STEPS_KEY,
     TASKS,
@@ -88,6 +90,16 @@ def steps_uris(root: Path) -> list[Path]:
     return [Path(root) / p for p in steps_paths(recordings)]
 
 
+ANNOTATIONS_TABLE = "annotations.lance"
+# annotation_id hashes an annotation's content, so `edit` may change only its grade.
+ANNOTATION_GRADING = ("quality_score", "graded_by", "rubric_version")
+EDITABLE = (*CATALOG, ANNOTATIONS_TABLE)
+
+
+def annotations_uri(root: Path) -> Path:
+    return Path(root) / ANNOTATIONS_TABLE
+
+
 def chunk_uris(root: Path) -> list[Path]:
     """The `video_chunks/*.lance` tables (chunk_videos.py)."""
     return sorted(
@@ -96,10 +108,11 @@ def chunk_uris(root: Path) -> list[Path]:
 
 
 def table_uris(root: Path) -> list[Path]:
-    """Every table: steps, catalog in write order, then video chunks."""
+    """Every table: steps, catalog in write order, annotations, then video chunks."""
     return [
         *steps_uris(root),
         *(Path(root) / n for n in CATALOG),
+        annotations_uri(root),
         *chunk_uris(root),
     ]
 
@@ -131,7 +144,9 @@ def _append(uri: Path, table: pa.Table) -> None:
     lance.write_dataset(table, uri, mode="append" if _exists(uri) else "create")
 
 
-def _replace(uri: Path, predicate: str, table: pa.Table) -> None:
+def _replace(
+    uri: Path, predicate: str | None, table: pa.Table, message: str | None = None
+) -> None:
     """Delete rows matching `predicate` and append `table` in one commit.
 
     merge_insert would also be one commit, but it writes matched rows before inserted
@@ -139,7 +154,7 @@ def _replace(uri: Path, predicate: str, table: pa.Table) -> None:
     """
     ds = lance.dataset(uri)
     removed, updated = [], []
-    for frag in ds.get_fragments():
+    for frag in ds.get_fragments() if predicate else []:
         if frag.count_rows(predicate) == 0:
             continue
         meta = frag.delete(predicate)
@@ -147,11 +162,11 @@ def _replace(uri: Path, predicate: str, table: pa.Table) -> None:
             removed.append(frag.fragment_id)
         else:
             updated.append(meta)
-    new = write_fragments(table, uri, schema=ds.schema)
+    new = write_fragments(table, uri, schema=ds.schema) if table.num_rows else []
     op = LanceOperation.Update(
         removed_fragment_ids=removed, updated_fragments=updated, new_fragments=new
     )
-    lance.LanceDataset.commit(uri, op, read_version=ds.version)
+    lance.LanceDataset.commit(uri, op, read_version=ds.version, commit_message=message)
 
 
 def _append_new(uri: Path, predicate: str, table: pa.Table) -> None:
@@ -219,7 +234,43 @@ def append(root: Path, deliveries: list[Delivery]) -> list[str]:
         _append_new(
             Path(root) / name, pred, pa.concat_tables([s[name] for s in staged])
         )
+    _ensure_annotations(root)
     return [d.recording_id for d in todo]
+
+
+def _ensure_annotations(root: Path) -> None:
+    # Exists from the first commit on, so a release tag always has an annotations version to pin.
+    if not _exists(annotations_uri(root)):
+        _append(annotations_uri(root), ANNOTATIONS.empty_table())
+
+
+def apply_annotations(
+    root: Path, adds: pa.Table, deletes: list[str], message: str | None = None
+) -> dict[str, int]:
+    """Add rows and delete rows by `annotation_id`, in one commit. Adds whose id is already
+    committed are skipped, so resubmitting a file is a no-op. `message` (e.g. who
+    approved it) is stored on the commit: `read_transaction(v).transaction_properties`."""
+    _ensure_annotations(root)
+    uri = annotations_uri(root)
+    have = lance.dataset(uri).to_table(columns=["annotation_id"]).column(0)
+    adds = adds.select(ANNOTATIONS.names).cast(ANNOTATIONS)
+    adds = adds.filter(
+        pc.invert(pc.is_in(adds["annotation_id"], have.combine_chunks()))
+    )
+    if not adds.num_rows and not deletes:
+        return {"added": 0, "deleted": 0}
+    pred = (
+        f"annotation_id IN ({', '.join(map(_sql_str, deletes))})" if deletes else None
+    )
+    _replace(uri, pred, adds, message)
+    return {"added": adds.num_rows, "deleted": len(deletes)}
+
+
+def drop_task_annotations(root: Path) -> None:
+    """One-off for tables written while annotations were nested in tasks."""
+    ds = lance.dataset(Path(root) / "tasks.lance")
+    if "annotations" in ds.schema.names:
+        ds.drop_columns(["annotations"])
 
 
 def replace(root: Path, d: Delivery) -> None:
@@ -245,10 +296,21 @@ def replace(root: Path, d: Delivery) -> None:
 
 
 def edit(root: Path, table: str, rows: pa.Table, on: str) -> None:
-    """Update columns of existing rows keyed by `on` (label and metadata fixes); every key must exist."""
-    if table not in CATALOG:
+    """Update columns of existing rows keyed by `on` (label and metadata fixes); every key must exist.
+    On annotations.lance only the grading columns can change; content goes through
+    `apply_annotations`."""
+    if table not in EDITABLE:
         # merge_insert rewrites matched rows at the end of the table, which would split a recording's steps.
-        raise ValueError(f"edit only applies to {list(CATALOG)}; use replace for steps")
+        raise ValueError(
+            f"edit only applies to {list(EDITABLE)}; use replace for steps"
+        )
+    if table == ANNOTATIONS_TABLE:
+        other = set(rows.column_names) - {"annotation_id", *ANNOTATION_GRADING}
+        if on != "annotation_id" or other:
+            raise ValueError(
+                f"edit on {table} is keyed by annotation_id and changes only "
+                f"{list(ANNOTATION_GRADING)}; got on={on!r}, other columns {sorted(other)}"
+            )
     ds = lance.dataset(Path(root) / table)
     moved = [c for c in STEPS_KEY if c in rows.column_names]
     if table == "recordings.lance" and moved:
@@ -272,6 +334,7 @@ def add_columns(root: Path, table: str, columns: dict[str, str]) -> None:
 
 def tag(root: Path, name: str) -> dict[str, int]:
     """Tag the current version of every table with `name`; returns {table: version}."""
+    _ensure_annotations(root)
     out = {}
     for uri in table_uris(root):
         ds = lance.dataset(uri)
@@ -288,7 +351,7 @@ def index(root: Path) -> None:
 
 
 def compact(root: Path) -> None:
-    for uri in table_uris(root):
+    for uri in filter(_exists, table_uris(root)):
         ds = lance.dataset(uri)
         ds.optimize.compact_files()
         if lance.dataset(uri).describe_indices():
@@ -303,7 +366,7 @@ def cleanup(
 
     `older_than` must exceed the longest training run that resolved an untagged version.
     """
-    for uri in table_uris(root):
+    for uri in filter(_exists, table_uris(root)):
         lance.dataset(uri).cleanup_old_versions(
             older_than=older_than, error_if_tagged_old_versions=False
         )

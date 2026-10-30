@@ -44,12 +44,17 @@ _LOCATION_FIELDS = (
 # Store-level metadata of a zarr v3 (zarr.json) or v2 group/array.
 _V3_METADATA = ("zarr.json",)
 _V2_METADATA = (".zgroup", ".zarray", ".zattrs")
-# Holds the episode reader, resolvers and stats methods; hashed for every recipe.
-_READER_MODULE = "egomimic.rldb.zarr.zarr_dataset_multi"
+# Leaf windowing, the stats methods, and the zarr reader and resolvers; hashed for
+# every recipe.
+_READER_MODULES = (
+    "egomimic.rldb.leaf",
+    "egomimic.rldb.multi",
+    "egomimic.rldb.zarr.zarr_dataset_multi",
+)
 
 
 def leaf_fingerprint(ds) -> str | None:
-    """A leaf's own ``cache_fingerprint()`` if it has one (non-zarr storage), else
+    """A leaf's own ``cache_fingerprint()`` (every ``EpisodeLeaf`` has one), else
     ``episode_fingerprint`` of its zarr directory."""
     own = getattr(ds, "cache_fingerprint", None)
     if own is not None:
@@ -101,10 +106,10 @@ def _is_egomimic(name) -> bool:
 
 
 def code_modules(recipe: Mapping) -> list[str]:
-    """The reader module, every egomimic module defining a ``_target_`` in the
+    """The reader modules, every egomimic module defining a ``_target_`` in the
     recipe, and the egomimic modules those reach through top-level imports."""
     targets = {get_object(t).__module__ for t in _targets(recipe)}
-    todo = {_READER_MODULE, *filter(_is_egomimic, targets)}
+    todo = {*_READER_MODULES, *filter(_is_egomimic, targets)}
     seen: set[str] = set()
     while todo:
         name = todo.pop()

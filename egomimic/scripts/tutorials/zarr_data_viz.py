@@ -27,9 +27,7 @@ resolver = S3EpisodeResolver(TEMP_DIR, key_map=key_map, transform_list=transform
 filters = DatasetFilter(
     filter_lambdas=["lambda row: row['episode_hash'] in {'2026-03-17-01-32-38-000000'}"]
 )
-multi_ds = MultiDataset._from_resolver(
-    resolver, filters=filters, sync_from_s3=True, mode="total"
-)
+multi_ds = MultiDataset._from_resolver(resolver, filters=filters, mode="total")
 
 loader = torch.utils.data.DataLoader(multi_ds, batch_size=1, shuffle=False)
 
