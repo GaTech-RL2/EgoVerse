@@ -1,0 +1,10 @@
+# Wrist-frame all-cartesian Pi train_viz head around eval_pi_wristframe_6d.
+# Optional: train_viz wraps the canonical evaluator by default; select this to
+# pin a different base with
+# `+evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d`. See
+# egomimic/eval/eval_train_viz.py.
+defaults:
+  - /evaluator@base: eval_pi_wristframe_6d
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.PrefixedEvalVideo

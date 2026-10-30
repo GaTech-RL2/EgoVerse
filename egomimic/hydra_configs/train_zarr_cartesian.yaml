@@ -28,6 +28,17 @@ launch_params:
 
 seed: 42
 
+# Optional pre-fit baseline validation (metrics at epoch 0; the overlay video
+# still follows evaluator.viz_every_n_epochs). Off by default; enable with
+# `val_at_start=true`. Skipped automatically on requeues/checkpoint resumes.
+val_at_start: false
+
+# Second eval head on TRAIN data at every validation (metrics `train_viz/`,
+# videos under `videos_train_viz/`). Wraps the canonical evaluator and reuses
+# the train split unless the data config declares `train_viz_datasets` /
+# the top-level config a `train_viz_evaluator`. `train_viz=false` turns it off.
+train_viz: true
+
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile

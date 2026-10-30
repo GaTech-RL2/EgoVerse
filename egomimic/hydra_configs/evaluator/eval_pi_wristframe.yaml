@@ -1,0 +1,5 @@
+# Alias of eval_pi (data=cotrain_pi_lang_wrist): the default Pi evaluator is
+# already the wrist-frame one.
+defaults:
+  - eval_pi
+  - _self_
