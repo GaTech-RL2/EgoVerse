@@ -118,8 +118,7 @@ class ZarrActionExpertDataset(ZarrDataset):
 
         end = min(eos + 1, episode_end)
         raw = self.episode_reader.read({zarr_key: (t, end)})
-        self._pad_sequences(raw, horizon)
-        return raw[zarr_key]
+        return self._pad_to_horizon(raw[zarr_key], horizon)
 
     def _resample(self, index, _fallback_origin, _attempts) -> dict:
         origin = _fallback_origin if _fallback_origin is not None else index
