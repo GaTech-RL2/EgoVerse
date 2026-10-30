@@ -7,8 +7,9 @@ downloaded. Each run validates the complete ones, commits them in batches (each 
 `<source>-<UTC time>` on every table and recorded in `changes`), and deletes their staged
 files. A delivery that fails validation gets REJECTED.json (errors plus a digest of its
 files) and is skipped until its files change.
-Aria recording and task metadata come from SQL; EVA's from the delivery's meta.json.
-A delivery's meta.json "provenance" is kept in its batch's `changes` row.
+Aria recording and task metadata come from SQL; EVA's and zarr's from the delivery's meta.json.
+A delivery's meta.json "provenance" is kept in its batch's `changes` row, and its
+"annotations" (zarr_to_lance's) are committed right after its batch as one annotation change.
 
 `--source annotations` commits annotation change files that `lance_annotations stage` put under
 `<staging>/annotations/<id>/`, one commit and tag each, oldest first; each is reviewed again
@@ -35,9 +36,12 @@ import pyarrow.parquet as pq
 from sqlalchemy import text
 
 from egomimic.rldb.lance import commit, mp4_ranges
-from egomimic.rldb.lance.annotations import read_changes, review
+from egomimic.rldb.lance.annotations import committed, read_changes, review
 from egomimic.rldb.lance.dataset import read_range
+from egomimic.rldb.lance.metadata import objects_list, text_or_none
+from egomimic.rldb.lance.schema import ANNOTATIONS as ANNOTATIONS_SCHEMA
 from egomimic.rldb.lance.schema import task_instance_id
+from egomimic.rldb.zarr.required_metadata import UNWAIVABLE_FIELDS
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_timestamp_ms,
@@ -81,17 +85,6 @@ def check_delivery(d: Path, meta: dict, steps: pa.Table) -> list[str]:
         if frames != n:
             errs.append(f"{cam}.mp4 has {frames} frames, steps has {n}")
     return errs
-
-
-def text_or_none(v):
-    return None if v is None or (isinstance(v, float) and np.isnan(v)) else str(v)
-
-
-def objects_list(v) -> list[str]:
-    if v is None:
-        return []
-    items = list(v) if not isinstance(v, str) else v.strip("{}").split(",")
-    return [str(o).strip('"') for o in items if o and str(o) not in ("None", "NULL")]
 
 
 def load_deliveries(
@@ -182,14 +175,22 @@ def _delivery(d: Path, meta: dict, recording, task, alias, steps, cams):
     )
 
 
-def load_eva_deliveries(
+def captured_at(meta: dict) -> pd.Timestamp | None:
+    """None for an episode with no capture time (abc's UUID-named zarrs)."""
+    ms = meta.get("captured_at_ms", meta["vendor_recording_id"])
+    return None if ms is None else pd.Timestamp(int(ms), unit="ms", tz="UTC")
+
+
+def load_meta_deliveries(
     dirs: list[Path],
 ) -> tuple[list[commit.Delivery], dict[str, list[str]]]:
+    """Deliveries whose meta.json carries their recording and task metadata (EVA, zarr)."""
     deliveries, rejected = [], {}
     for d in sorted(dirs):
         m = json.loads((d / "meta.json").read_text())
         steps = pq.read_table(d / "steps.parquet")
         errs = check_delivery(d, m, steps)
+        errs += [f"no {k}" for k in UNWAIVABLE_FIELDS if not m.get(k)]
         if errs:
             rejected[m["vendor_recording_id"]] = errs
             continue
@@ -200,17 +201,15 @@ def load_eva_deliveries(
             lab=m["lab"],
             embodiment=m["embodiment"],
             end_effector=m.get("end_effector"),
-            rig_name="eva",
+            rig_name=m.get("rig_name", "eva"),
             operator=m["operator"],
             scene=m["scene"],
-            captured_at=pd.Timestamp(
-                int(m["vendor_recording_id"]), unit="ms", tz="UTC"
-            ),
+            captured_at=captured_at(m),
             fps=m["fps"],
             num_frames=m["num_frames"],
             intrinsics=list(m["intrinsics"].items()),
             extrinsics=list(m["extrinsics"].items()),
-            license=None,
+            license=m.get("license"),
         )
         task = dict(
             task_instance_id=task_instance_id(rid, m["task_name"], m["t_start_ns"]),
@@ -236,7 +235,11 @@ def load_eva_deliveries(
     return deliveries, rejected
 
 
-LOADERS = {"aria": load_deliveries, "eva": load_eva_deliveries}
+LOADERS = {
+    "aria": load_deliveries,
+    "eva": load_meta_deliveries,
+    "zarr": load_meta_deliveries,
+}
 
 
 # A delivery whose files cannot be read or parsed. Anything else (SQL, network) aborts the
@@ -373,6 +376,64 @@ def commit_staged_annotations(staging: str, lance_root: str, work_dir: Path) -> 
     return report
 
 
+def _annotation_rows(d: commit.Delivery, meta: dict) -> list[dict]:
+    """Change rows for the annotations a delivery carries (zarr_to_lance's), by its lab."""
+    return [
+        dict(
+            op="add",
+            recording_id=d.recording_id,
+            t_start_ns=a["t_start_ns"],
+            t_end_ns=a["t_end_ns"],
+            annotation_type="language",
+            text=a["text"],
+            annotation_vendor=a.get("annotation_vendor") or meta["lab"],
+        )
+        for a in meta.get("annotations") or ()
+    ]
+
+
+def _commit_annotations(
+    lance_root,
+    rows: list[dict],
+    done: set,
+    replaced: dict[str, set],
+    batch_tag: str,
+    operator,
+) -> dict:
+    """Commit the annotations of a batch's committed recordings (`done`) as one annotation
+    change; rows that fail review are reported and skipped, never the recordings.
+    `replaced` maps each replaced recording whose delivery carries annotations to its
+    annotation vendors: its committed rows from those vendors that the new delivery no
+    longer has are deleted, so a re-conversion does not leave stale spans behind."""
+    rows = [r for r in rows if r["recording_id"] in done]
+    rv = review(lance_root, pa.Table.from_pylist(rows)) if rows else None
+    adds = rv.adds if rv else ANNOTATIONS_SCHEMA.empty_table()
+    keep = {*adds.column("annotation_id").to_pylist(), *(rv.unchanged if rv else ())}
+    deletes = []
+    if replaced:
+        deletes = [
+            r["annotation_id"]
+            for r in committed(lance_root).to_pylist()
+            if r["annotation_vendor"] in replaced.get(r["recording_id"], ())
+            and r["annotation_id"] not in keep
+        ]
+    out = None
+    if adds.num_rows or deletes:
+        out = commit.commit_annotations(
+            lance_root,
+            adds,
+            deletes,
+            operator=operator,
+            provenance={"source": "delivery", "batch": batch_tag},
+        )
+    return {
+        "tag": out and out["tag"],
+        "rows": adds.num_rows,
+        "deleted": len(deletes),
+        "errors": rv.errors if rv else [],
+    }
+
+
 def commit_staged(
     staging: str,
     source: str,
@@ -409,6 +470,18 @@ def commit_staged(
                 rejected[d.recording["vendor_recording_id"]] = [
                     "already committed; rerun with --replace to replace it"
                 ]
+        spans, vendors = [], {}
+        for d in deliveries:
+            meta = json.loads(
+                (local[d.recording["vendor_recording_id"]] / "meta.json").read_text()
+            )
+            rows = _annotation_rows(d, meta)
+            spans += rows
+            if "annotations" in meta:
+                vendors[d.recording_id] = {
+                    meta["lab"],
+                    *(r["annotation_vendor"] for r in rows),
+                }
         result = commit.commit_batch(
             lance_root,
             deliveries,
@@ -419,6 +492,12 @@ def commit_staged(
         if result:
             report["batches"].append(result)
             have |= set(result["added"])
+            done = {*result["added"], *result["replaced"]}
+            replaced = {r: vendors[r] for r in result["replaced"] if r in vendors}
+            ann = _commit_annotations(
+                lance_root, spans, done, replaced, result["tag"], operator
+            )
+            report.setdefault("annotations", []).append(ann)
         skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
         for vid, errs in rejected.items():
             _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)

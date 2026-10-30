@@ -376,7 +376,7 @@ def _required_metadata_problems(
 ) -> tuple[list[str], list[str]]:
     """(problems, waiver warnings) from the zarr required-metadata rules on the episode
     info (CONTRIBUTING_DATA.md §6.3). Fields named in `missing_metadata` are waived
-    (MissingMetadata), except spec.UNWAIVABLE_FIELDS."""
+    (MissingMetadata), except UNWAIVABLE_FIELDS."""
     raw = info.get(spec.MISSING_METADATA_KEY, "")
     waived = {f.strip() for f in raw.split(",") if f.strip()}
     out = waiver_errors(info, waived)

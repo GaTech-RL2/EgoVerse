@@ -212,10 +212,13 @@ def test_proto_field_numbers_are_unique():
 
 
 def test_only_scene_and_objects_can_be_waived():
-    from egomimic.rldb.zarr.required_metadata import REQUIRED_METADATA_FIELDS
+    from egomimic.rldb.zarr.required_metadata import (
+        REQUIRED_METADATA_FIELDS,
+        UNWAIVABLE_FIELDS,
+    )
 
-    assert set(spec.UNWAIVABLE_FIELDS) == {"task_name", "operator", "lab"}
-    waivable = set(REQUIRED_METADATA_FIELDS) - set(spec.UNWAIVABLE_FIELDS)
+    assert set(UNWAIVABLE_FIELDS) == {"task_name", "operator", "lab"}
+    waivable = set(REQUIRED_METADATA_FIELDS) - set(UNWAIVABLE_FIELDS)
     assert waivable == {"scene", "objects"}
 
 

@@ -15,6 +15,9 @@ from typing import Any
 
 REQUIRED_METADATA_FIELDS = ("task_name", "operator", "lab", "scene", "objects")
 WAIVABLE_FIELDS = ("scene", "objects")
+UNWAIVABLE_FIELDS = tuple(
+    f for f in REQUIRED_METADATA_FIELDS if f not in WAIVABLE_FIELDS
+)
 
 # Values that mean "I didn't fill this in". Rejected so a placeholder can't
 # stand in for a real value (compared case-insensitively after strip).

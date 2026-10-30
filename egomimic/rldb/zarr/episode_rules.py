@@ -79,13 +79,20 @@ def start_time_error(start_time_ms: Any) -> str | None:
     )
 
 
-def episode_hash_start_ms(name: str) -> int | None:
-    """Epoch ms encoded in an episode hash like 2026-01-12-03-47-29-664000, or None."""
+def episode_hash_start_ns(name: str) -> int | None:
+    """Epoch ns encoded in an episode hash like 2026-01-12-03-47-29-664000, or None."""
     try:
         dt = datetime.strptime(name, _EPISODE_HASH_FORMAT)
     except ValueError:
         return None
-    return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
+    dt = dt.replace(tzinfo=timezone.utc)
+    return (int(dt.timestamp()) * 1_000_000 + dt.microsecond) * 1000
+
+
+def episode_hash_start_ms(name: str) -> int | None:
+    """Epoch ms encoded in an episode hash like 2026-01-12-03-47-29-664000, or None."""
+    ns = episode_hash_start_ns(name)
+    return None if ns is None else ns // 1_000_000
 
 
 def _matrix_shape(value: Any) -> tuple[int, ...] | None:
