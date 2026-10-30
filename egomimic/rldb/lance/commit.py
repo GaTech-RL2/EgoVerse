@@ -165,6 +165,13 @@ def put_bytes(data: bytes, dst: str) -> None:
         Path(dst).write_bytes(data)
 
 
+def get_bytes(src: str) -> bytes:
+    if _is_remote(src):
+        bucket, key = _split(src)
+        return _s3_client().get_object(Bucket=bucket, Key=key)["Body"].read()
+    return Path(src).read_bytes()
+
+
 def get_file(src: str, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if _is_remote(src):
@@ -415,6 +422,30 @@ def apply_annotations(
     return {"added": adds.num_rows, "deleted": len(deletes)}
 
 
+def commit_annotations(
+    root,
+    adds: pa.Table,
+    deletes: list[str],
+    operator: str | None = None,
+    message: str | None = None,
+) -> dict | None:
+    """`apply_annotations`, recorded in `changes` under source "annotations" (added: recordings
+    gaining rows, replaced: recordings losing rows) and tagged. None when nothing changed."""
+    _ensure_tables(root)
+    gone = []
+    if deletes:
+        pred = f"annotation_id IN ({', '.join(map(_sql_str, deletes))})"
+        rids = _open(annotations_uri(root)).to_table(
+            columns=["recording_id"], filter=pred
+        )
+        gone = sorted(set(rids.column(0).to_pylist()))
+    counts = apply_annotations(root, adds, deletes, message)
+    if not any(counts.values()):
+        return None
+    added = sorted(set(adds.column("recording_id").to_pylist()))
+    return {"rows": counts, **_record(root, "annotations", added, gone, operator)}
+
+
 def drop_task_annotations(root) -> None:
     """One-off for tables written while annotations were nested in tasks."""
     ds = _open(join(root, "tasks.lance"))
@@ -463,15 +494,20 @@ def commit_batch(
                 replaced.append(d.recording_id)
     if not added and not replaced:
         return None
+    done = set(added) | set(replaced)
+    steps = {steps_path(*d.steps_key) for d in deliveries if d.recording_id in done}
+    return _record(root, source, added, replaced, operator, sorted(steps))
+
+
+def _record(
+    root, source: str, added: list, replaced: list, operator, steps_tables=()
+) -> dict:
     now = datetime.datetime.now(datetime.timezone.utc)
     name = f"{source}-{now:%Y%m%dT%H%M%S.%f}"[:-3]
-    done = set(added) | set(replaced)
     row = dict(
         tag=name,
         source=source,
-        steps_tables=sorted(
-            {steps_path(*d.steps_key) for d in deliveries if d.recording_id in done}
-        ),
+        steps_tables=list(steps_tables),
         committed_at=now,
         operator=operator or getpass.getuser(),
         added=added,
