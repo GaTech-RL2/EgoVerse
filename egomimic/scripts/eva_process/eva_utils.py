@@ -22,7 +22,7 @@ ACTION_KEYS = {"cmd_eepose", "obs_eepose", "cmd_joints", "obs_joints"}
 
 class EvaHD5Extractor:
     @staticmethod
-    def process_episode(episode_path, arm):
+    def process_episode(episode_path, arm, with_images=True):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
         Parameters
@@ -49,7 +49,7 @@ class EvaHD5Extractor:
 
         with h5py.File(episode_path, "r") as episode:
             episode_name = Path(episode_path).stem
-            for camera in EvaHD5Extractor.get_cameras(episode):
+            for camera in EvaHD5Extractor.get_cameras(episode) if with_images else ():
                 images = (
                     torch.from_numpy(episode["observations"]["images"][camera][:])
                     .permute(0, 3, 1, 2)
@@ -73,8 +73,11 @@ class EvaHD5Extractor:
             episode_dt = datetime.datetime.fromtimestamp(
                 timestamp_ms / 1000.0, tz=datetime.timezone.utc
             )
+            # Per arm slot, frames clean_zero_data fills in any of the arrays it cleans.
+            dropout = np.zeros((len(episode_feats["obs_eepose"]), 2), bool)
             for key in ACTION_KEYS:
                 if key in episode_feats:
+                    dropout |= EvaHD5Extractor.zero_pose_frames(episode_feats[key])
                     episode_feats[key] = EvaHD5Extractor.clean_zero_data(
                         episode_feats[key]
                     )
@@ -91,6 +94,7 @@ class EvaHD5Extractor:
             else:
                 value = EMBODIMENT.EVA_BIMANUAL.value
 
+            episode_feats["metadata.pose_dropout"] = dropout
             episode_feats["metadata.embodiment"] = np.full(
                 (num_timesteps, 1), value, dtype=np.int32
             )
@@ -149,6 +153,13 @@ class EvaHD5Extractor:
         return states
 
     @staticmethod
+    def zero_pose_frames(data: np.ndarray) -> np.ndarray:
+        """(N, 2) per arm slot of a (N, 14) array: all six xyzypr values are zero."""
+        return np.stack(
+            [(data[:, s] == 0).all(1) for s in (slice(0, 6), slice(7, 13))], axis=1
+        )
+
+    @staticmethod
     def clean_zero_data(data: np.ndarray) -> np.ndarray:
         """
         Fill zero xyzypr frames in a (N, 14) action array per arm.
@@ -164,11 +175,8 @@ class EvaHD5Extractor:
         """
         data = data.copy()
 
-        arm_pose_slices = [slice(0, 6), slice(7, 13)]  # left, right
-
-        for pose_slice in arm_pose_slices:
-            zero_mask = np.all(data[:, pose_slice] == 0, axis=1)  # (N,)
-
+        zero = EvaHD5Extractor.zero_pose_frames(data)
+        for pose_slice, zero_mask in zip((slice(0, 6), slice(7, 13)), zero.T):
             if not np.any(zero_mask):
                 continue
 
