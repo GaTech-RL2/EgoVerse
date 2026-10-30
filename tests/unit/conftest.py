@@ -45,3 +45,17 @@ def compose_and_resolve(
 def compose_resolve():
     yield compose_and_resolve
     HydraConfig.instance().cfg = None  # do not leak the singleton between tests
+
+
+QWEN_EMBEDDING_REPO = "Qwen/Qwen3-Embedding-0.6B"
+
+
+@pytest.fixture(scope="session")
+def qwen_snapshot():
+    """Cached Qwen3-Embedding-0.6B snapshot directory; skips when it is absent."""
+    from huggingface_hub import snapshot_download
+
+    try:
+        return snapshot_download(QWEN_EMBEDDING_REPO, local_files_only=True)
+    except Exception:
+        pytest.skip(f"{QWEN_EMBEDDING_REPO} snapshot not in the HF cache")

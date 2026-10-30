@@ -14,7 +14,12 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
-from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.models.hpt_nets import (
+    MultiheadAttention,
+    SimpleTransformer,
+    apply_skipping_pretrained,
+    verify_pretrained_weights,
+)
 from egomimic.models.image_augs import per_sample
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.hf_utils import download_from_huggingface
@@ -198,7 +203,12 @@ class HPTModel(nn.Module):
         """
         self.stems = nn.ModuleDict(self.stems)
         self.heads = nn.ModuleDict(self.heads)
-        self.apply(self._init_weights)
+        # Only initialize the modules HPT builds itself. ``self.apply`` would
+        # walk into pretrained submodules (the HF text encoders, the ImageNet
+        # ResNet backbone) and overwrite their weights with xavier noise; the
+        # traversal below skips anything a module declares via
+        # ``PretrainedWeights``, so future pretrained stems are covered too.
+        apply_skipping_pretrained(self, self._init_weights)
 
         # Shared action tokens
         if self.token_postprocessing == "action_token":
@@ -945,8 +955,6 @@ class HPT(Algo):
         for modality, encoder_cfg in self.encoders.items():
             model.init_encoder(modality, encoder_cfg)
 
-        model.finalize_modules()
-
         self.ac_keys = {}
         self.camera_keys = {}
         self.proprio_keys = {}
@@ -999,6 +1007,16 @@ class HPT(Algo):
 
         self.nets["policy"] = model
         self.nets = self.nets.float().to(self.device)
+
+        # Every pretrained submodule must still hold its checkpoint's weights
+        # once the model is fully built, moved and upcast. Raises on mismatch;
+        # this runs before any checkpoint restore, so a resume is never the cause.
+        # It holds a second copy of the encoder's weights for a few seconds, so
+        # it is skippable -- but on by default: a silently re-initialised
+        # encoder trains to a plausible, wrong result.
+        self.verify_pretrained = bool(kwargs.get("verify_pretrained", True))
+        if self.verify_pretrained:
+            verify_pretrained_weights(self.nets["policy"])
 
         self.training_step = 0
 

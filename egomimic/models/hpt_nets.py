@@ -1,4 +1,7 @@
+import hashlib
+import json
 import os
+from collections import OrderedDict
 from functools import partial
 from typing import Callable, List, Optional, Union
 
@@ -8,6 +11,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 import torchvision
 from einops import rearrange, repeat
+from termcolor import cprint
 from timm.models.layers import DropPath, trunc_normal_
 from timm.models.vision_transformer import VisionTransformer
 from torch import einsum
@@ -15,6 +19,179 @@ from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
 from egomimic.utils.tensor_utils import get_sinusoid_encoding_table
+
+# Modules owning pretrained weights declare them so init passes skip them and
+# the weights can be hash-verified.
+
+
+class PretrainedWeights:
+    """Mixin marking a module whose weights come from a pretrained checkpoint.
+
+    Subclasses list the attribute names holding the pretrained submodules in
+    ``_hpt_pretrained_attrs``. Two things follow:
+
+    * ``finalize_modules``'s init pass skips those subtrees entirely.
+    * if the subclass can produce a reference state dict for the checkpoint
+      (``pretrained_reference_state_dict``), the weights are hashed and
+      compared with that reference once the model is fully built.
+    """
+
+    _hpt_pretrained_attrs: tuple = ()
+
+    def pretrained_submodules(self) -> List[nn.Module]:
+        """The submodules whose weights must never be re-initialised."""
+        mods = []
+        for name in self._hpt_pretrained_attrs:
+            mod = getattr(self, name, None)
+            if isinstance(mod, nn.Module):
+                mods.append(mod)
+        return mods
+
+    def pretrained_state_dict(self) -> dict:
+        """Flat ``{"<attr>.<param>": tensor}`` view of the pretrained weights."""
+        state = {}
+        for name in self._hpt_pretrained_attrs:
+            mod = getattr(self, name, None)
+            if isinstance(mod, nn.Module):
+                for key, value in mod.state_dict().items():
+                    state[f"{name}.{key}"] = value
+        return state
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """The checkpoint's own weights, read back independently of this model.
+
+        ``None`` (the default) means "cannot be verified offline"; the checker
+        then skips this module instead of failing, so only the stems that own
+        an HF snapshot are hash-checked. ``ResNet`` is protected from the init
+        pass but not verified: its torchvision weights are not a file this can
+        re-read.
+        """
+        return None
+
+    def pretrained_hash_dtype(self) -> Optional[torch.dtype]:
+        """dtype both sides are cast to before hashing (``None`` = as stored)."""
+        return None
+
+
+def pretrained_module_ids(root: nn.Module) -> set:
+    """ids of every module living under a declared pretrained submodule."""
+    skip = set()
+    for module in root.modules():
+        if not isinstance(module, PretrainedWeights):
+            continue
+        for sub in module.pretrained_submodules():
+            skip.update(id(m) for m in sub.modules())
+    return skip
+
+
+def apply_skipping_pretrained(root: nn.Module, fn: Callable) -> None:
+    """``root.apply(fn)`` that never enters a pretrained submodule.
+
+    Same post-order traversal (and therefore the same RNG consumption) as
+    ``nn.Module.apply`` for a tree with no pretrained submodules.
+    """
+    skip = pretrained_module_ids(root)
+
+    def _walk(module: nn.Module) -> None:
+        if id(module) in skip:
+            return
+        for child in module.children():
+            _walk(child)
+        fn(module)
+
+    _walk(root)
+
+
+def hash_state_dict(state: dict, dtype: Optional[torch.dtype] = None) -> str:
+    """Deterministic sha256 over parameter names + raw bytes, in name order."""
+    digest = hashlib.sha256()
+    for name in sorted(state):
+        tensor = state[name].detach().to("cpu")
+        if dtype is not None:
+            tensor = tensor.to(dtype)
+        digest.update(name.encode("utf-8"))
+        digest.update(str(tuple(tensor.shape)).encode("utf-8"))
+        digest.update(str(tensor.dtype).encode("utf-8"))
+        digest.update(tensor.flatten().contiguous().view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def verify_pretrained_weights(root: nn.Module, verbose: bool = True) -> dict:
+    """Hash every declared pretrained submodule and compare with its checkpoint.
+
+    Raises ``RuntimeError`` naming the module and both hashes on a mismatch.
+    Returns ``{module_name: sha256}`` for the modules that could be checked.
+    """
+    checked = {}
+    for name, module in root.named_modules():
+        if not isinstance(module, PretrainedWeights):
+            continue
+        label = name or root.__class__.__name__
+        reference = module.pretrained_reference_state_dict()
+        if reference is None:
+            if verbose:
+                cprint(
+                    f"[hpt] pretrained weights of '{label}'"
+                    f" ({module.__class__.__name__}) not verified: no local"
+                    " checkpoint to compare against",
+                    color="yellow",
+                )
+            continue
+        dtype = module.pretrained_hash_dtype()
+        current = module.pretrained_state_dict()
+        if set(current) != set(reference):
+            raise RuntimeError(
+                f"pretrained weight check failed for '{label}'"
+                f" ({module.__class__.__name__}): the checkpoint and the live module"
+                f" disagree on which tensors exist; only in model:"
+                f" {sorted(set(current) - set(reference))[:5]}, only in checkpoint:"
+                f" {sorted(set(reference) - set(current))[:5]}"
+            )
+        live_hash = hash_state_dict(current, dtype)
+        ref_hash = hash_state_dict(reference, dtype)
+        if live_hash != ref_hash:
+            raise RuntimeError(
+                f"pretrained weights of '{label}' ({module.__class__.__name__}) do not"
+                f" match their checkpoint: model sha256={live_hash},"
+                f" checkpoint sha256={ref_hash}. Something modified them between"
+                " the load and here -- an init pass that descended into the"
+                " subtree, or an in-place edit."
+            )
+        checked[label] = live_hash
+        if verbose:
+            cprint(
+                f"[hpt] pretrained weights of '{label}' verified: sha256={live_hash}",
+                color="green",
+            )
+    return checked
+
+
+def _snapshot_state_dict(
+    snapshot_dir: str, prefix: str = "", dtype: Optional[torch.dtype] = None
+) -> Optional[dict]:
+    """Read a local HF snapshot's safetensors shards into a flat state dict.
+
+    ``None`` if the snapshot has no safetensors (the caller then skips the
+    check rather than hitting the network).
+    """
+    from safetensors.torch import load_file
+
+    index = os.path.join(snapshot_dir, "model.safetensors.index.json")
+    if os.path.isfile(index):
+        with open(index, encoding="utf-8") as handle:
+            shards = sorted(set(json.load(handle)["weight_map"].values()))
+        files = [os.path.join(snapshot_dir, shard) for shard in shards]
+    else:
+        single = os.path.join(snapshot_dir, "model.safetensors")
+        if not os.path.isfile(single):
+            return None
+        files = [single]
+
+    state = {}
+    for path in files:
+        for key, tensor in load_file(path, device="cpu").items():
+            state[f"{prefix}{key}"] = tensor if dtype is None else tensor.to(dtype)
+    return state
 
 
 ## Taken directly from hpt/models/transformer with no modifications
@@ -632,11 +809,9 @@ class MLPPolicyStem(PolicyStem):
         return y
 
 
-class ResNet(PolicyStem):
-    # ``self.net`` holds the ImageNet-pretrained torchvision backbone (``self.proj``
-    # is built here and must keep its own init). Declared so a weight-protection
-    # pass can find it without knowing about this class.
-    _hpt_pretrained = True
+class ResNet(PretrainedWeights, PolicyStem):
+    # ``self.net`` is the ImageNet-pretrained torchvision backbone; ``self.proj``
+    # is built by HPT and must keep its xavier init.
     _hpt_pretrained_attrs = ("net",)
 
     def __init__(
@@ -770,7 +945,19 @@ def _local_snapshot_if_offline(model_name: str) -> str:
     return snapshot_download(model_name, local_files_only=True)
 
 
-class _Qwen3BaseEncoder(PolicyStem):
+def _cached_snapshot(model_name: str) -> Optional[str]:
+    """The HF-cache snapshot directory for ``model_name``, or ``None``."""
+    if not model_name:
+        return None
+    from huggingface_hub import snapshot_download
+
+    try:
+        return snapshot_download(model_name, local_files_only=True)
+    except Exception:
+        return None
+
+
+class _Qwen3BaseEncoder(PretrainedWeights, PolicyStem):
     """Shared base for Qwen3-Embedding stems used by HPT.
 
     Owns the tokenizer + transformer encoder so HPT.process_batch_for_training
@@ -787,9 +974,19 @@ class _Qwen3BaseEncoder(PolicyStem):
             cost down when frozen).
         normalize_pooled: only used by the pooled subclass; L2-normalizes the
             sentence embedding (Qwen3 official recipe).
+        cache_text_features: cache the frozen per-token hidden states per
+            unique prompt string (default True). Ignored when ``freeze`` is
+            False - a trainable encoder must stay online.
+        text_cache_max_entries: cache capacity in ENTRIES; LRU eviction beyond
+            it. An entry is the prompt's un-padded (L, D) hidden states in the
+            encoder's compute dtype, fp32 once HPT upcasts the model: tens of
+            KB for a short prompt, ~0.5 MB at max_length 128 and D=1024. The
+            8192 default is a few hundred MB on real annotations and ~4 GB in
+            the worst case.
     """
 
     DEFAULT_MODEL = "Qwen/Qwen3-Embedding-0.6B"
+    _hpt_pretrained_attrs = ("encoder",)
 
     def __init__(
         self,
@@ -798,6 +995,8 @@ class _Qwen3BaseEncoder(PolicyStem):
         freeze: bool = True,
         dtype: str = "float16",
         output_dim: int | None = None,
+        cache_text_features: bool = True,
+        text_cache_max_entries: int = 8192,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -815,6 +1014,10 @@ class _Qwen3BaseEncoder(PolicyStem):
         load_path = _local_snapshot_if_offline(model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(load_path, padding_side="left")
         self.encoder = AutoModel.from_pretrained(load_path, torch_dtype=torch_dtype)
+        # Remembered so the weight-hash check can read the same snapshot back
+        # and compare in the dtype the encoder was loaded in.
+        self._snapshot_dir = load_path
+        self._load_dtype = torch_dtype
         if freeze:
             for p in self.encoder.parameters():
                 p.requires_grad = False
@@ -830,8 +1033,47 @@ class _Qwen3BaseEncoder(PolicyStem):
             if self.output_dim != self.hidden_size
             else nn.Identity()
         )
+        self._init_text_feature_cache(cache_text_features, text_cache_max_entries)
 
-    def _encode(self, prompts):
+    # ----------------------------------------------------------------
+    # frozen text-feature cache
+    # ----------------------------------------------------------------
+
+    def _init_text_feature_cache(
+        self, cache_text_features: bool = True, text_cache_max_entries: int = 8192
+    ) -> None:
+        """Set up the (empty) prompt -> per-token-features cache."""
+        self.cache_text_features = bool(cache_text_features)
+        self.text_cache_max_entries = int(text_cache_max_entries)
+        self._text_feature_cache = OrderedDict()
+        self._text_cache_hits = 0
+        self._text_cache_misses = 0
+
+    def clear_text_feature_cache(self) -> None:
+        """Drop every cached prompt (the hit/miss counters are cumulative)."""
+        self._text_feature_cache.clear()
+
+    def text_feature_cache_stats(self) -> dict:
+        """``{"entries": n, "hits": h, "misses": m}``; hits/misses count prompt
+        occurrences, duplicates inside one batch included."""
+        return {
+            "entries": len(self._text_feature_cache),
+            "hits": self._text_cache_hits,
+            "misses": self._text_cache_misses,
+        }
+
+    def _text_cache_enabled(self) -> bool:
+        # A trainable encoder must stay online: its outputs change every step
+        # and the loss needs the graph. Only a frozen encoder is cacheable.
+        return bool(
+            self.cache_text_features
+            and self.freeze_encoder
+            and self.text_cache_max_entries > 0
+        )
+
+    def _encode_online(self, prompts):
+        """Tokenize + run the encoder, returning ``(last_hidden_state,
+        attention_mask)`` left-padded (the tokenizer is ``padding_side="left"``)."""
         tokens = self.tokenizer(
             prompts,
             padding=True,
@@ -845,6 +1087,95 @@ class _Qwen3BaseEncoder(PolicyStem):
         else:
             out = self.encoder(**tokens)
         return out.last_hidden_state, tokens["attention_mask"]
+
+    def _encode(self, prompts):
+        """``(last_hidden_state, attention_mask)`` for ``prompts``, served from
+        the per-prompt cache whenever the encoder is frozen.
+
+        The annotation vocabulary is tiny next to the number of training steps,
+        so a frozen encoder recomputes the same 600M-parameter forward over and
+        over. Misses go through ``_encode_online`` in ONE sub-batch of unique
+        strings; each prompt's un-padded ``(L_i, D)`` rows are stored (the mask
+        is implied by ``L_i``) and the batch is re-assembled with the same LEFT
+        padding the tokenizer produces, so callers cannot tell the paths apart.
+
+        One deliberate difference: padded positions come back as ZEROS here,
+        whereas the online path leaves the encoder's output for the pad tokens
+        there. Every consumer masks those positions out
+        (``forward_with_mask``; last-token pooling reads the final, always-real
+        position under left padding), so this only removes junk.
+        """
+        if not self._text_cache_enabled():
+            return self._encode_online(prompts)
+
+        prompts = list(prompts)
+        device = self.device
+        misses = []
+        for prompt in prompts:
+            entry = self._text_feature_cache.get(prompt)
+            if entry is None:
+                self._text_cache_misses += 1
+                if prompt not in misses:
+                    misses.append(prompt)
+            else:
+                self._text_cache_hits += 1
+                self._text_feature_cache.move_to_end(prompt)
+
+        fresh = {}
+        if misses:
+            hidden, mask = self._encode_online(misses)
+            mask = mask.bool()
+            for i, prompt in enumerate(misses):
+                # un-padded per-token states; detached, no graph is kept
+                fresh[prompt] = hidden[i][mask[i]].detach()
+                self._text_feature_cache[prompt] = fresh[prompt]
+                self._text_feature_cache.move_to_end(prompt)
+            while len(self._text_feature_cache) > self.text_cache_max_entries:
+                self._text_feature_cache.popitem(last=False)  # LRU victim
+
+        # Read this batch's rows from what was just encoded first: a batch with
+        # more unique prompts than text_cache_max_entries evicts its own
+        # earliest entries in the trim above, and a KeyError here would be a
+        # crash rather than a slow path.
+        rows = [
+            fresh[p] if p in fresh else self._text_feature_cache[p] for p in prompts
+        ]
+        longest = max(row.shape[0] for row in rows)
+        hidden = rows[0].new_zeros((len(rows), longest, rows[0].shape[-1]))
+        mask = torch.zeros((len(rows), longest), dtype=torch.long, device=device)
+        for i, row in enumerate(rows):  # LEFT padding, as padding_side="left"
+            length = row.shape[0]
+            hidden[i, longest - length :] = row
+            mask[i, longest - length :] = 1
+        return hidden, mask
+
+    def _apply(self, *args, **kwargs):
+        """``.to()`` / ``.cuda()`` / ``.float()`` invalidate the cache: the
+        stored tensors belong to the old device / dtype."""
+        out = super()._apply(*args, **kwargs)
+        if getattr(self, "_text_feature_cache", None):
+            self.clear_text_feature_cache()
+        return out
+
+    def pretrained_reference_state_dict(self) -> Optional[dict]:
+        """The snapshot's own safetensors, cast exactly the way
+        ``from_pretrained(torch_dtype=...)`` casts them."""
+        snapshot_dir = self._snapshot_dir
+        if not os.path.isdir(snapshot_dir):
+            # Online, from_pretrained was given the repo id; the files it loaded
+            # are in the HF cache all the same.
+            snapshot_dir = _cached_snapshot(snapshot_dir)
+            if snapshot_dir is None:
+                return None
+        return _snapshot_state_dict(
+            snapshot_dir, prefix="encoder.", dtype=self._load_dtype
+        )
+
+    def pretrained_hash_dtype(self) -> Optional[torch.dtype]:
+        """Hash in the load dtype. ``HPT.__init__`` upcasts the whole model with
+        ``nets.float()``; fp16 -> fp32 -> fp16 is exact, so casting the live
+        weights back down compares like for like without a second model load."""
+        return self._load_dtype
 
     def train(self, mode: bool = True):
         """Keep the frozen encoder in eval mode regardless of outer train flag."""
@@ -877,18 +1208,26 @@ class QwenPerTokenEncoder(_Qwen3BaseEncoder):
     information from the learnable stem tokens.
     """
 
-    def forward(self, prompts):
+    def forward_with_mask(self, prompts):
+        """Returns ``(features, attention_mask)``; the mask is what padded
+        positions must be excluded by, since zeroing them before the biased
+        ``proj`` turns them into the learned constant ``proj.bias``."""
         hidden, mask = self._encode(prompts)
         feat = hidden.float() * mask.unsqueeze(-1).float()
-        return self.proj(feat)  # (B, L, output_dim)
+        return self.proj(feat), mask.bool()  # (B, L, output_dim), (B, L)
+
+    def forward(self, prompts):
+        return self.forward_with_mask(prompts)[0]
 
     def compute_latent(self, prompts):
-        feat = self(prompts)  # (B, L, hidden_size)
+        feat, mask = self.forward_with_mask(prompts)  # (B, L, output_dim), (B, L)
         stem_tokens = self.tokens.repeat(feat.shape[0], 1, 1)
-        return self.cross_attention(stem_tokens, feat)
+        return self.cross_attention(stem_tokens, feat, mask=mask)
 
 
-class T5Encoder(PolicyStem):
+class T5Encoder(PretrainedWeights, PolicyStem):
+    _hpt_pretrained_attrs = ("encoder",)
+
     def __init__(self, per_token=True, **kwargs) -> None:
         """T5 Encoder that expects pre-tokenized inputs
 
