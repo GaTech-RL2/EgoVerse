@@ -173,7 +173,9 @@ class Human(Embodiment):
                 }
             else:
                 colors = cls.FINGER_COLORS
-            # Single keypoint renderer; a (D,) step draws as start markers.
+            # Single keypoint renderer; a (D,) step draws as start markers. The
+            # replay video draws per-step skeletons with
+            # viz_utils._viz_keypoints_skeleton, deliberately unreachable here.
             return _viz_keypoints_horizon_trace(
                 image=image,
                 actions=viz_data,
