@@ -2126,6 +2126,16 @@ class ZarrDataset(torch.utils.data.Dataset):
             return None
         return int(history), int(spec.get("history_stride", 1) or 1)
 
+    def _fps(self) -> float:
+        """The episode's frame rate (zarr ``fps`` attr; 30 when absent)."""
+        return float(self.metadata.get("fps") or 30)
+
+    def _lagged_idx(self, idx: int, lag_s: float) -> int:
+        """Frame ``lag_s`` seconds before ``idx`` (at least one frame back),
+        clamped at the episode start -- so the first samples read frame 0,
+        the same front padding ``_history_window`` gives proprio."""
+        return max(0, idx - max(1, round(float(lag_s) * self._fps())))
+
     @staticmethod
     def _history_window(array: np.ndarray, history: int, stride: int) -> np.ndarray:
         """``history`` steps from a contiguous backward window: the current
@@ -2168,9 +2178,16 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
             horizon = spec.get("horizon")
             history = self._history_spec(spec)
+            lag_s = spec.get("lag_s")
             if horizon is not None:
                 start = idx
                 stop = self._chunk_end_idx(idx, horizon, spec.get("key_type"))
+            elif lag_s is not None:
+                # A single PAST frame (image history): the same zarr array as
+                # the current-frame entry, read ``lag_s`` seconds back.
+                lagged = self._lagged_idx(idx, lag_s)
+                windows[k] = (spec["zarr_key"], lagged, lagged + 1, True)
+                continue
             elif history is not None:
                 # Backward window ending at (and including) the current frame,
                 # every `history_stride`-th step; clamped at the episode start,
@@ -2316,6 +2333,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = torch.from_numpy(v).to(torch.float32)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
+            # Control frequency of this episode (RDT's ctrl-freq token).
+            data["fps"] = torch.tensor(self._fps(), dtype=torch.float32)
             # Per-episode camera intrinsics travel with the batch so a single
             # data-driven embodiment can project without a hardcoded class const.
             # Single-camera -> (3,4) K matrix; no/multi-camera -> NaN sentinel,
