@@ -13,6 +13,7 @@ from egomimic.rldb.lance.schema import (
     annotation_id,
     recording_id,
     steps_path,
+    task_instance_id,
 )
 
 PERIOD_NS = 33_333_333
@@ -41,7 +42,7 @@ def vec(x, n):
     )
 
 
-def steps_table(rid, n, offset):
+def steps_table(rid, n, offset, valid=None):
     t = np.arange(n, dtype=np.float32)
     hand = lambda s: pa.StructArray.from_arrays(  # noqa: E731
         [
@@ -53,8 +54,14 @@ def steps_table(rid, n, offset):
         ],
         fields=list(HUMAN_STEPS.field("left").type),
     )
-    valid = np.ones(n, bool)
-    valid[4] = False
+    left_valid = np.ones(n, bool)
+    left_valid[4] = False
+    flags = {
+        "left_valid": left_valid,
+        "right_valid": np.ones(n, bool),
+        "head_pose_valid": np.ones(n, bool),
+        **(valid or {}),
+    }
     return pa.table(
         {
             "recording_id": pa.array([rid] * n),
@@ -62,26 +69,58 @@ def steps_table(rid, n, offset):
             "head_pose": vec(np.c_[t + offset, np.zeros((n, 6))], 7),
             "left": hand(0.5),
             "right": hand(0.25),
-            "left_valid": pa.array(valid),
-            "right_valid": pa.array(np.ones(n, bool)),
-            "head_pose_valid": pa.array(np.ones(n, bool)),
+            **{k: pa.array(v) for k, v in flags.items()},
             "eye_gaze": vec(np.zeros((n, 3)), 3),
         },
         schema=HUMAN_STEPS,
     )
 
 
-def write_catalog(tmp_path, annotations=lambda recs: []):
+def task(rid, f0, f1, name="fold_clothes", description="folding clothes"):
+    """A TASKS row over frames [f0, f1) of a `steps_table` recording."""
+    t0 = f0 * PERIOD_NS
+    return dict(
+        task_instance_id=task_instance_id(rid, name, t0),
+        recording_id=rid,
+        t_start_ns=t0,
+        t_end_ns=f1 * PERIOD_NS,
+        task_name=name,
+        task_description=description,
+        objects=[],
+    )
+
+
+def alias(rid, f0, f1, episode_hash):
+    return dict(
+        episode_hash=episode_hash,
+        recording_id=rid,
+        t_start_ns=f0 * PERIOD_NS,
+        t_end_ns=f1 * PERIOD_NS,
+    )
+
+
+def write_catalog(
+    tmp_path,
+    annotations=lambda recs: [],
+    tasks=lambda recs: [task(rid, 0, n) for rid, _, n in recs],
+    aliases=lambda recs: [alias(rid, 0, n, h) for rid, h, n in recs],
+    valid=lambda rid, n: {},
+):
     """Steps, recordings, tasks, aliases and annotations tables for two aria recordings
     under ``tmp_path``; returns their sorted ``(recording_id, episode_hash, num_frames)``.
-    ``annotations(recs)`` gives the annotation rows."""
+    ``annotations(recs)``, ``tasks(recs)`` and ``aliases(recs)`` give those rows (by
+    default one task and one alias per whole recording); ``valid(rid, n)`` overrides
+    validity columns of a recording's steps."""
     recs = [
         (recording_id("aria", "1"), "2025-01-01-00-00-00-000000", 12),
         (recording_id("aria", "2"), "2025-01-01-00-00-01-000000", 8),
     ]
     recs.sort()
     steps = pa.concat_tables(
-        [steps_table(rid, n, 100 * i) for i, (rid, _, n) in enumerate(recs)]
+        [
+            steps_table(rid, n, 100 * i, valid(rid, n))
+            for i, (rid, _, n) in enumerate(recs)
+        ]
     )
     lance.write_dataset(
         steps, tmp_path / steps_path("rl2", "human_bimanual", "human_hand")
@@ -114,36 +153,10 @@ def write_catalog(tmp_path, annotations=lambda recs: []):
         tmp_path / "recordings.lance",
     )
     lance.write_dataset(
-        pa.Table.from_pylist(
-            [
-                dict(
-                    task_instance_id=f"t{i}",
-                    recording_id=rid,
-                    t_start_ns=0,
-                    t_end_ns=n * PERIOD_NS,
-                    task_name="fold_clothes",
-                    task_description="folding clothes",
-                    objects=[],
-                )
-                for i, (rid, _, n) in enumerate(recs)
-            ],
-            schema=TASKS,
-        ),
-        tmp_path / "tasks.lance",
+        pa.Table.from_pylist(tasks(recs), schema=TASKS), tmp_path / "tasks.lance"
     )
     lance.write_dataset(
-        pa.Table.from_pylist(
-            [
-                dict(
-                    episode_hash=h,
-                    recording_id=rid,
-                    t_start_ns=0,
-                    t_end_ns=n * PERIOD_NS,
-                )
-                for rid, h, n in recs
-            ],
-            schema=ALIASES,
-        ),
+        pa.Table.from_pylist(aliases(recs), schema=ALIASES),
         tmp_path / "aliases.lance",
     )
     lance.write_dataset(

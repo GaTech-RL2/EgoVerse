@@ -462,7 +462,9 @@ def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
         if not pins or not datasets:
             continue
         live = {name: ds for name, ds in datasets.items() if ds is not None}
-        unplaced = sorted(set(pins) - {h for ds in live.values() for h in ds.datasets})
+        unplaced = sorted(
+            h for h in pins if all(ds.episode(h) is None for ds in live.values())
+        )
         if unplaced:
             raise PinError(
                 f"{len(unplaced)} pinned video episode(s) for head '{head}' are in "
@@ -471,7 +473,7 @@ def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
             )
         built = {}
         for name, ds in live.items():
-            mine = [h for h in pins if h in ds.datasets]
+            mine = [h for h in pins if ds.episode(h) is not None]
             if not mine:
                 continue
             built[name] = pinned_episode_subset(ds, mine, dataset_name=name)

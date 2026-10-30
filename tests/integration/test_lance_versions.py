@@ -158,7 +158,7 @@ def test_versioned_commits(pilot, tmp_path):
 
     # v3: replace one recording with shifted head poses
     victim = first[3]
-    vh = victim.alias["episode_hash"]
+    vh = victim.alias["recording_id"]
     commit.replace(root, _shift_head(victim, 0.05))
     leaves3 = _resolver(root).resolve()
     s3 = _samples(leaves3)
@@ -186,7 +186,7 @@ def test_versioned_commits(pilot, tmp_path):
         on="task_instance_id",
     )
     leaves4 = _resolver(root).resolve()
-    eh = edited.alias["episode_hash"]
+    eh = edited.alias["recording_id"]
     assert leaves4[eh].task_text == "edited text"
     assert leaves1[eh].task_text != "edited text"
     assert _resolver(root, tag="t1").resolve()[eh].task_text == leaves1[eh].task_text

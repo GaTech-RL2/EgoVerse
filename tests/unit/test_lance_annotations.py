@@ -68,23 +68,23 @@ def test_annotation_id_is_content_addressed():
 
 def test_without_annotations_config_the_task_text_stands_in(annotated):
     root, recs = annotated
-    leaf = _leaves(root)[recs[0][1]]
+    leaf = _leaves(root)[recs[0][0]]
     assert leaf[0]["annotations"] == ["folding clothes"]
 
 
 def test_covering_annotations_in_start_order(annotated):
     root, recs = annotated
-    leaf = _leaves(root, types=["language"])[recs[0][1]]
+    leaf = _leaves(root, types=["language"])[recs[0][0]]
     assert _at_frame(leaf, 1)["annotations"] == ["reach", "look"]
     assert _at_frame(leaf, 5)["annotations"] == ["reach", "grasp"]
     assert _at_frame(leaf, 9)["annotations"] == []
-    other = _leaves(root, types=["language"])[recs[1][1]]
+    other = _leaves(root, types=["language"])[recs[1][0]]
     assert other[0]["annotations"] == []
 
 
 def test_vendor_and_quality_filters(annotated):
     root, recs = annotated
-    h = recs[0][1]
+    h = recs[0][0]
     assert _at_frame(_leaves(root, vendors=["scale"])[h], 1)["annotations"] == ["reach"]
     graded = _leaves(root, min_quality=4)[h]
     assert _at_frame(graded, 5)["annotations"] == ["grasp"]
@@ -93,7 +93,7 @@ def test_vendor_and_quality_filters(annotated):
 
 def test_clamp_actions_stops_at_the_covering_annotation_end(annotated):
     root, recs = annotated
-    h = recs[0][1]
+    h = recs[0][0]
     plain = _leaves(root)[h]
     clamped = _leaves(root, clamp_actions=True)[h]
     # Frame 5 is covered by "reach" [0, 6) and "grasp" [5, 9): the earlier end wins.
@@ -106,10 +106,10 @@ def test_clamp_actions_stops_at_the_covering_annotation_end(annotated):
 def test_require_keeps_only_annotated_anchors(annotated):
     root, recs = annotated
     leaves = _leaves(root, require=True)
-    assert list(leaves) == [recs[0][1]]
+    assert list(leaves) == [recs[0][0]]
     # Eligible anchors are 0, 1 and 5.. (frame 4 is invalid); annotations cover [0, 9).
-    assert [leaves[recs[0][1]].anchor(i) for i in range(6)] == [0, 1, 5, 6, 7, 8]
-    assert len(leaves[recs[0][1]]) == 6
+    assert [leaves[recs[0][0]].anchor(i) for i in range(6)] == [0, 1, 5, 6, 7, 8]
+    assert len(leaves[recs[0][0]]) == 6
 
 
 def test_streaming_batch_gives_the_same_annotations(annotated):
