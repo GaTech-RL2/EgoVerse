@@ -135,6 +135,46 @@ def _default_mano_device() -> torch.device:
     return torch.device("cpu")
 
 
+def mano_joints_fn(model):
+    """Return f(betas, global_orient, hand_pose, transl) -> (N, 21, 3) joints.
+
+    Equal to `model(..., return_verts=True, return_tips=True).joints` but skins
+    only the 5 fingertip vertices instead of all 778 (~3x faster per fit step).
+    """
+    from mano.lbs import batch_rigid_transform, batch_rodrigues
+
+    tip = torch.tensor(list(model.tip_ids.values()), dtype=torch.long)
+    tip = tip.to(model.v_template.device)
+    n_verts = model.v_template.shape[0]
+    # Joints are regressed from the unposed shaped mesh, so fold J_regressor in.
+    j_template = model.J_regressor @ model.v_template
+    j_shapedirs = torch.einsum("jv,vkl->jkl", model.J_regressor, model.shapedirs)
+    tip_template = model.v_template[tip]
+    tip_shapedirs = model.shapedirs[tip]
+    tip_posedirs = model.posedirs.view(-1, n_verts, 3)[:, tip].reshape(
+        model.posedirs.shape[0], -1
+    )
+    tip_weights = model.lbs_weights[tip]
+    ident = torch.eye(3, dtype=j_template.dtype, device=j_template.device)
+
+    def joints(betas, global_orient, hand_pose, transl):
+        if model.use_pca:
+            hand_pose = hand_pose @ model.hand_components
+        pose = torch.cat([global_orient, hand_pose], dim=1) + model.pose_mean
+        n = pose.shape[0]
+        j_rest = j_template + torch.einsum("bl,jkl->bjk", betas, j_shapedirs)
+        v_rest = tip_template + torch.einsum("bl,vkl->bvk", betas, tip_shapedirs)
+        rot = batch_rodrigues(pose.view(-1, 3)).view(n, -1, 3, 3)
+        pose_feat = (rot[:, 1:] - ident).view(n, -1)
+        v_posed = v_rest + (pose_feat @ tip_posedirs).view(n, -1, 3)
+        j_posed, rel = batch_rigid_transform(rot, j_rest, model.parents)
+        T = torch.matmul(tip_weights, rel.view(n, -1, 16)).view(n, -1, 4, 4)
+        v = (T[..., :3, :3] @ v_posed.unsqueeze(-1)).squeeze(-1) + T[..., :3, 3]
+        return torch.cat([j_posed, v], dim=1) + transl.unsqueeze(1)
+
+    return joints
+
+
 def fit_mano_to_aria_batched(
     aria_kp: torch.Tensor,
     is_rhand: bool,
@@ -213,16 +253,9 @@ def fit_mano_to_aria_batched(
     group_denom = group_sum(point_valid.sum(1).float()).clamp(min=1)
     group_count = group_sum(torch.ones(N, device=device))
 
+    joints_fn = mano_joints_fn(model)
     for step in range(n_iters):
-        out = model(
-            betas=beta,
-            global_orient=R_global,
-            hand_pose=theta,
-            transl=t_global,
-            return_verts=True,
-            return_tips=True,
-        )
-        pred = out.joints.index_select(1, mano_idx_t)  # (N, 20, 3)
+        pred = joints_fn(beta, R_global, theta, t_global).index_select(1, mano_idx_t)
 
         per_point_err = ((pred - targets) ** 2).sum(dim=-1)  # (N, 20)
         masked = per_point_err * point_valid.float()

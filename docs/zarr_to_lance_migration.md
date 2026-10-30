@@ -355,8 +355,10 @@ with 10–16 GPUs. On EC2 g5/g6 it costs ~$250–400 on demand. MANO on CPU inst
 vCPU-h, about $450 on demand or $150 spot. The fit loop is bound by iteration count, not
 batch size (512 frames per chunk barely loads an A40), so `aria_to_lance --mano-batch`
 (default 8,192) optimizes many 512-frame chunks together, with the loss still normalized
-per chunk so results match (~2e-4 mm). On one 4,587-frame episode MANO dropped from 177 s
-to 83 s per hand on an A40, which roughly halves the GPU-h above.
+per chunk so results match, and the fit loop skins only the 5 fingertip vertices it needs
+(`mano_joints_fn`) instead of all 778. On one 4,587-frame episode (2,400 iters, A40) MANO
+dropped from 338 s to 52 s for both hands (6.5x), within 1e-3 mm of the old fit, which
+cuts the GPU-h above to ~40.
 
 ### TODO (Ray driver and committer)
 
