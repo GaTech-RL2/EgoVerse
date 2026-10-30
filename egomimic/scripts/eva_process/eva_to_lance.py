@@ -22,6 +22,7 @@ import pyarrow.parquet as pq
 from egomimic.rldb.embodiment.embodiment import END_EFFECTOR
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.lance.schema import ARM, EVA_STEPS, recording_id
+from egomimic.rldb.zarr.required_metadata import required_metadata_error
 from egomimic.scripts.eva_process.eva_to_zarr import (
     _separate_numeric_and_image,
     _split_per_arm,
@@ -122,12 +123,27 @@ def encode_videos(raw: Path, out: Path, n: int, fps: float, ffmpeg: str) -> list
     return done
 
 
+def required_fields(md: dict) -> dict[str, str]:
+    """lab, task_name and operator from the demo metadata; raises if any is absent,
+    empty or a placeholder (only scene and objects may be missing)."""
+    fields = {
+        "lab": md.get("lab"),
+        "task_name": md.get("task"),
+        "operator": md.get("operator"),
+    }
+    errors = [e for f, v in fields.items() if (e := required_metadata_error(f, v))]
+    if errors:
+        raise ValueError("; ".join(errors))
+    return fields
+
+
 def convert(args) -> dict:
     t0 = time.time()
     raw = args.raw_dir / f"{args.vendor_recording_id}.hdf5"
     md = json.loads(
         (args.raw_dir / f"{args.vendor_recording_id}_metadata.json").read_text()
     )
+    required = required_fields(md)
     embodiment = md["robot_name"]
     arm = ARM_OF[embodiment]
     out = args.out_dir / args.vendor_recording_id
@@ -156,10 +172,10 @@ def convert(args) -> dict:
         "episode_hash": timestamp_ms_to_episode_hash(args.vendor_recording_id),
         "embodiment": embodiment,
         "end_effector": END_EFFECTOR.PARALLEL_JAW_GRIPPER.value,
-        "lab": md.get("lab"),
-        "operator": md.get("operator"),
+        "lab": required["lab"],
+        "operator": required["operator"],
         "scene": md.get("scene"),
-        "task_name": md.get("task"),
+        "task_name": required["task_name"],
         "task_description": md.get("task_description"),
         "objects": md.get("objects") or [],
         "fps": args.fps,
