@@ -10,6 +10,7 @@ h5py = pytest.importorskip("h5py")
 from egomimic.rldb.lance.schema import EVA_STEPS  # noqa: E402
 from egomimic.scripts.eva_process.eva_to_lance import (  # noqa: E402
     convert,
+    episode_metadata,
     numeric_columns,
     required_fields,
     steps_table,
@@ -133,3 +134,22 @@ def test_convert_fails_the_episode_before_writing_without_an_operator(tmp_path):
     with pytest.raises(ValueError, match="operator"):
         convert(args)
     assert not out.exists()
+
+
+def test_the_sql_row_replaces_the_capture_metadata():
+    md = {"robot_name": "eva_bimanual", "lab": "old", "task": "t", "scene": "s"}
+    sql = {"lab": "rl2", "operator": "op_7", "task": "fold_clothes", "scene": np.nan}
+    got = episode_metadata(md, sql)
+    assert required_fields(got) == {
+        "lab": "rl2",
+        "task_name": "fold_clothes",
+        "operator": "op_7",
+    }
+    assert got["robot_name"] == "eva_bimanual" and got["scene"] is None
+    assert episode_metadata(md, None) is md
+
+
+def test_a_null_sql_operator_is_not_filled_from_the_capture():
+    md = {**GOOD_MD, "robot_name": "eva_bimanual"}
+    with pytest.raises(ValueError, match="operator"):
+        required_fields(episode_metadata(md, {**GOOD_MD, "operator": None}))
