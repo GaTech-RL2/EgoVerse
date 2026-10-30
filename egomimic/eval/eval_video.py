@@ -35,9 +35,9 @@ class EvalVideo(Eval):
         # (current_epoch + 1) is a multiple of this; metrics log every pass.
         self.viz_every_n_epochs = viz_every_n_epochs
         # On viz epochs, render overlay frames for only the first N val
-        # batches (None = all). Rendering is CPU-bound (~1s/frame) and
-        # dominates viz-epoch wall time; metrics are still computed on EVERY
-        # batch regardless.
+        # batches (None = all). Rendering is CPU-bound and dominates viz-epoch
+        # wall time; metrics are still computed on EVERY batch
+        # regardless. Required on heads with pinned video loaders (trainHydra).
         self.viz_max_batches = viz_max_batches
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame for the
@@ -94,6 +94,11 @@ class EvalVideo(Eval):
         raise NotImplementedError
 
     def _write_video(self, key, frames) -> None:
+        # Every rank that gets here renders the same frames to the same path
+        # (no DistributedSampler splits the val loaders), so without
+        # this the file is whatever the last rank to finish wrote.
+        if not self.trainer.is_global_zero:
+            return
         path = os.path.join(
             self.video_dir(),
             f"epoch_{self.trainer.current_epoch}",

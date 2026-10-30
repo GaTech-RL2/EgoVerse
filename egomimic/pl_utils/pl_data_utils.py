@@ -1,7 +1,8 @@
 import logging
+from functools import partial
 
 from lightning import LightningDataModule
-from lightning.pytorch.utilities.combined_loader import CombinedLoader
+from lightning.pytorch.utilities.combined_loader import CombinedLoader, _MaxSizeCycle
 from torch.utils.data import DataLoader, default_collate
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,42 @@ def head_of_loader(name: str) -> tuple[str, bool]:
     if name.endswith(VIDEO_SUFFIX):
         return name[: -len(VIDEO_SUFFIX)], True
     return name, False
+
+
+class _VizGatedLoader(CombinedLoader):
+    """A val loader that yields nothing when its gate is closed.
+
+    ``ModelWrapper.validation_step`` already returns before the forward for a
+    ``<head>_video`` loader it does not want, but Lightning has built the batch by
+    then, so the pinned frames are decoded and discarded anyway.
+
+    The val loaders are built once (``_EvaluationLoop.setup_data`` returns early
+    once ``_combined_loader`` is set), so the gate cannot be a length; it is an
+    empty iterator. ``_Sequential`` already reads an early ``StopIteration`` from
+    one dataloader as "move to the next".
+    """
+
+    def __init__(self, iterables, gate):
+        super().__init__(iterables, "max_size_cycle")
+        self._gate = gate
+
+    def __iter__(self):
+        if not self._gate():
+            return iter(())
+        return super().__iter__()
+
+    def __len__(self) -> int:
+        if self._iterator is not None:
+            return super().__len__()
+        # `CombinedLoader.__len__` reads a live iterator, and `__iter__` is what
+        # forks this loader's workers and starts them prefetching. Lightning asks
+        # for the length once per rank in `setup_data`, where the gate is already
+        # closed on every rank but 0, so answering WITHOUT an iterator is what
+        # keeps those ranks off the pinned episode. The length does not depend on
+        # the gate. `_MaxSizeCycle` (the mode is pinned in __init__) only stores
+        # its iterables until __iter__, so asking it forks nothing. These
+        # Lightning privates were checked against lightning 2.6.1.
+        return len(_MaxSizeCycle(self.flattened, self.limits))
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -134,7 +171,9 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         return CombinedLoader(iterables, "max_size_cycle")
 
-    def _build_val_style_loader(self, datasets: dict, params: dict, kind: str):
+    def _build_val_style_loader(
+        self, datasets: dict, params: dict, kind: str, gate=None
+    ):
         iterables = dict()
         for dataset_name, dataset in datasets.items():
             dataset_params = params.get(dataset_name)
@@ -150,7 +189,37 @@ class MultiDataModuleWrapper(LightningDataModule):
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
-        return CombinedLoader(iterables, "max_size_cycle")
+        if gate is None:
+            return CombinedLoader(iterables, "max_size_cycle")
+        return _VizGatedLoader(iterables, gate)
+
+    def _video_gate(self, head: str) -> bool:
+        """Does this validation pass render ``head``'s overlay video?
+
+        Open only on rank 0 and only on a viz pass. The val loaders carry no
+        ``DistributedSampler`` (``val_dataloader`` always returns a list), so
+        every other rank would produce the same frames only to discard them.
+
+        Ranks therefore iterate different numbers of val batches. That is safe
+        because the video loader logs nothing, so the ``sync_dist`` reduction in
+        ``_evaluation_epoch_end`` stays symmetric. The other ranks wait in that
+        reduction while rank 0 renders, so ``evaluator.viz_max_batches`` (which
+        trainHydra requires on every head with a video loader) must keep the
+        render under the process-group timeout.
+
+        Reads the same ``should_viz()`` ``ModelWrapper.validation_step`` does,
+        back through the trainer so the datamodule needs no extra wiring, and
+        falls open whenever a link is missing: eval-only mode, tests, an
+        evaluator that predates the hook.
+        """
+        trainer = getattr(self, "trainer", None)
+        if trainer is not None and not getattr(trainer, "is_global_zero", True):
+            return False
+        module = getattr(trainer, "lightning_module", None)
+        val_heads = getattr(module, "_val_heads", None)
+        evaluator = val_heads().get(head) if callable(val_heads) else None
+        should_viz = getattr(evaluator, "should_viz", None)
+        return should_viz() if callable(should_viz) else True
 
     def _metric_sources(self) -> dict:
         return {
@@ -186,16 +255,22 @@ class MultiDataModuleWrapper(LightningDataModule):
             # unshuffled); only the dataset differs.
             sources[video_loader_name(head)] = (datasets, sources[head][1])
         names = self.val_loader_names()
-        loaders = [
-            # kind names the *_dataloader_params block in the error message, and
-            # a video loader borrows its head's block.
-            self._build_val_style_loader(*sources[name], kind=head_of_loader(name)[0])
-            for name in names
-        ]
-        if len(loaders) == 1:
-            return loaders[0]
-        # Several heads: return a list so Lightning populates dataloader_idx
-        # (the position in val_loader_names()) and ModelWrapper can dispatch.
+        loaders = []
+        for name in names:
+            head, video_only = head_of_loader(name)
+            loaders.append(
+                # kind names the *_dataloader_params block in the error message,
+                # and a video loader borrows its head's block.
+                self._build_val_style_loader(
+                    *sources[name],
+                    kind=head,
+                    gate=partial(self._video_gate, head) if video_only else None,
+                )
+            )
+        # Always a list, even for one head: Lightning populates dataloader_idx
+        # (the position in val_loader_names()) for ModelWrapper to dispatch on,
+        # and it never puts a DistributedSampler under a list's CombinedLoaders
+        # (it does for a bare one), so every rank sees every val batch.
         return loaders
 
 

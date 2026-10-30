@@ -306,7 +306,11 @@ def test_val_dataloader_returns_two_loaders_with_train_viz():
         valid_dataloader_params=params,
         held_out_operators=["op1"],
     )
-    assert isinstance(dm.val_dataloader(), CombinedLoader)
+    # A one-element list, not a bare CombinedLoader: Lightning would put a
+    # DistributedSampler under a bare one and shard only this case.
+    loaders = dm.val_dataloader()
+    assert isinstance(loaders, list) and len(loaders) == 1
+    assert isinstance(loaders[0], CombinedLoader)
     dm = MultiDataModuleWrapper(
         train_datasets={"human_bimanual": _Dicts(4, "train")},
         valid_datasets={"human_bimanual": _Dicts(4, "valid")},
