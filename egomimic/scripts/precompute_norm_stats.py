@@ -163,8 +163,7 @@ def main() -> None:
         if cache_dir and norm_stats.norm_stats.get(emb):
             # Same key trainHydra derives, so its next run is a cache hit.
             episodes = {
-                h: norm_cache.episode_fingerprint(getattr(ds, "episode_path", None))
-                for h, ds in dataset.datasets.items()
+                h: norm_cache.leaf_fingerprint(ds) for h, ds in dataset.datasets.items()
             }
             inputs = norm_cache.cache_inputs(
                 dataset_name,
