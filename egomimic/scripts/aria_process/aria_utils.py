@@ -144,12 +144,19 @@ def fit_mano_to_aria_batched(
     lr: float = 0.05,
     beta_reg: float = 0.01,
     verbose: bool = False,
+    norm_group: int | None = None,
 ) -> torch.Tensor:
     """Batched MANO fit against Aria keypoints, in whatever frame they're in.
 
     aria_kp: (N, 21, 3) Aria-layout keypoints (NaN = invalid point).
     Returns (N, 21, 3) canonical-MANO-ordered keypoints on CPU, in the same
     frame as the input; frames with an invalid wrist are all-NaN.
+
+    Frames are fit independently, but the loss is normalized by the batch's
+    valid-point/frame counts, which scales each frame's gradient (and, via
+    Adam's eps, its result). `norm_group` normalizes per consecutive block of
+    that many frames instead, so a large batch reproduces fitting each block
+    separately.
     """
     import mano  # lazy: optional dep + license-gated model files
 
@@ -196,6 +203,15 @@ def fit_mano_to_aria_batched(
     targets = aria_kp.index_select(1, aria_idx_t)  # (N, 20, 3)
     point_valid = torch.isfinite(targets).all(dim=-1)  # (N, 20)
     targets = torch.nan_to_num(targets, nan=0.0)
+    group = norm_group or N
+    gid = torch.arange(N, device=device) // group
+    n_groups = (N + group - 1) // group
+
+    def group_sum(x):
+        return torch.zeros(n_groups, device=device).index_add(0, gid, x)
+
+    group_denom = group_sum(point_valid.sum(1).float()).clamp(min=1)
+    group_count = group_sum(torch.ones(N, device=device))
 
     for step in range(n_iters):
         out = model(
@@ -210,9 +226,8 @@ def fit_mano_to_aria_batched(
 
         per_point_err = ((pred - targets) ** 2).sum(dim=-1)  # (N, 20)
         masked = per_point_err * point_valid.float()
-        denom = point_valid.sum().clamp(min=1).float()
-        pos_loss = masked.sum() / denom
-        reg_loss = beta_reg * (beta**2).sum() / N
+        pos_loss = (group_sum(masked.sum(1)) / group_denom).sum()
+        reg_loss = beta_reg * (group_sum((beta**2).sum(1)) / group_count).sum()
         loss = pos_loss + reg_loss
         opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -254,11 +269,14 @@ def convert_aria_keypoints_to_mano(
     beta_reg: float = 0.01,
     chunk_size: int = 512,
     verbose: bool = False,
+    batch_size: int = 8192,
 ) -> np.ndarray:
     """Convert one hand's (T, 63) Aria keypoints to (T, 63) canonical MANO.
 
-    Output is in the same coordinate frame as the input. Fits are batched in
-    chunks of `chunk_size` frames to bound memory.
+    Output is in the same coordinate frame as the input. The loss is normalized
+    per `chunk_size`-frame chunk (this defines the result); `batch_size` frames
+    (rounded down to whole chunks) are optimized together, which only changes
+    speed and memory.
     """
     kp = torch.as_tensor(np.asarray(keypoints_t63), dtype=torch.float32).reshape(
         -1, 21, 3
@@ -269,11 +287,12 @@ def convert_aria_keypoints_to_mano(
     kp = torch.where(
         kp.abs() < _ARIA_INVALID_SENTINEL, kp, torch.full_like(kp, float("nan"))
     )
+    batch = max(batch_size // chunk_size, 1) * chunk_size
     outs = []
-    for s in range(0, kp.shape[0], chunk_size):
+    for s in range(0, kp.shape[0], batch):
         outs.append(
             fit_mano_to_aria_batched(
-                kp[s : s + chunk_size],
+                kp[s : s + batch],
                 is_rhand=is_rhand,
                 model_dir=model_dir,
                 device=device,
@@ -281,6 +300,7 @@ def convert_aria_keypoints_to_mano(
                 lr=lr,
                 beta_reg=beta_reg,
                 verbose=verbose,
+                norm_group=chunk_size,
             )
         )
     return torch.cat(outs, dim=0).reshape(-1, 63).numpy().astype(np.float64)
