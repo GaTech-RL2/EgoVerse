@@ -315,6 +315,24 @@ class EvalVideo(Eval):
         # add_dataloader_idx=False: with the train_viz loader Lightning would
         # otherwise suffix every key with "/dataloader_idx_N"; the train-viz
         # wrapper prefixes its keys itself.
-        self.trainer.lightning_module.log_dict(
-            metrics, sync_dist=True, add_dataloader_idx=False
-        )
+        if not metrics:
+            return
+        weights = getattr(self, "metric_batch_sizes", None)
+        if weights is None:
+            self.trainer.lightning_module.log_dict(
+                metrics, sync_dist=True, add_dataloader_idx=False
+            )
+        else:
+            # Lightning otherwise infers the original (unfiltered) batch size.
+            # Group equal weights while retaining each metric's scored denominator.
+            for count in sorted(set(weights.values())):
+                if count <= 0:
+                    raise ValueError("A logged metric needs scored samples")
+                selected = {
+                    key: value
+                    for key, value in metrics.items()
+                    if weights.get(key) == count
+                }
+                self.trainer.lightning_module.log_dict(
+                    selected, sync_dist=True, add_dataloader_idx=False, batch_size=count
+                )

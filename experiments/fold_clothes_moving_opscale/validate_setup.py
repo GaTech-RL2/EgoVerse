@@ -146,6 +146,7 @@ def main():
         smoke.get("status") == "passed"
         and smoke.get("commit") == commit
         and smoke.get("design_sha256") == sha(root / "moving_opscale_design.json")
+        and smoke.get("evaluation_policy") == "tracking_valid_windows_v1"
         and smoke.get("checks")
         == {
             "finite_loss": True,
@@ -153,12 +154,14 @@ def main():
             "all_validation_episodes": True,
             "wandb_metrics": True,
             "video_counts": True,
+            "tracking_validity": True,
         }
     )
     report = {
         "schema_version": 1,
         "status": "passed" if smoke_ok else "blocked",
         "commit": commit,
+        "evaluation_policy": "tracking_valid_windows_v1",
         "private_root": str(root),
         "design_sha256": sha(root / "moving_opscale_design.json"),
         "checks": {

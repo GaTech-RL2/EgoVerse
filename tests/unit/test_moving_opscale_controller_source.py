@@ -215,6 +215,9 @@ def test_submission_records_controller_and_routes_worker_training_and_monitor(
     monkeypatch.setattr(
         launcher, "verified_norm", lambda *args: (root / "norm/stats.json", "stats")
     )
+    norm_report = root / "norm/b24_op4/norm_complete.json"
+    norm_report.parent.mkdir(parents=True)
+    norm_report.write_text(json.dumps({"commit": training_commit}))
     monkeypatch.setattr(launcher, "wandb_auth_available", lambda: True)
     for name in ("R2_ENDPOINT_URL", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
         monkeypatch.setenv(name, "synthetic-test-value")
@@ -250,6 +253,7 @@ def test_submission_records_controller_and_routes_worker_training_and_monitor(
     registry = json.loads((root / "registry.json").read_text())
     assert registry["repository"] == str(training)
     assert registry["commit"] == training_commit
+    assert registry["runs"]["b24_op4"]["norm_stats_producer_commit"] == training_commit
     assert registry["operational_controller"]["commit"] == controller_commit
     assert monitors[0][1] == str(
         training / "experiments/fold_clothes_moving_opscale/monitor.py"

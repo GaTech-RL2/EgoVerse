@@ -13,11 +13,18 @@ import math
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import torch
 from lightning.pytorch import Callback
 from lightning.pytorch.loggers import WandbLogger
+from PIL import Image, ImageDraw
 from torch.utils.data import DataLoader
 
+from egomimic.eval.eval_hpt import (
+    EVALUATION_TRACKING_POLICY,
+    filter_tracking_batch,
+    tracking_valid_mask,
+)
 from egomimic.eval.opscale_reference_open_loop import OpenLoopSimEval
 from egomimic.pl_utils.pl_data_utils import annotation_collate
 from egomimic.rldb.embodiment.human import (
@@ -28,6 +35,8 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     EvenStrideDataset,
     pinned_episode_subset,
 )
+from egomimic.utils.type_utils import _to_numpy
+from egomimic.utils.viz_utils import _prepare_viz_image
 
 COHORT_HEADS = {
     "seen_matched": "valid",
@@ -92,6 +101,96 @@ class _NamedReferenceRenderer(OpenLoopSimEval):
     def _episode_leaf(self, episode_hash):
         return self.leaves[episode_hash]
 
+    def on_validation_start(self):
+        super().on_validation_start()
+        self._timeline = {}
+        self._tracking = {"visited": 0, "scored": 0, "skipped": 0}
+        self._unscored_spans = []
+        self._active_anchors = []
+        self._video_tracking = None
+
+    def _put_sequence(self, anchor, frames):
+        if anchor in self._timeline:
+            raise RuntimeError("Repeated reference video anchor")
+        self._timeline[anchor] = [
+            torch.as_tensor(np.ascontiguousarray(frame)) for frame in frames
+        ]
+
+    def _camera_only_window(self, anchor):
+        """Keep the original clock; never revert/project sentinel ground truth."""
+        leaf = self._episode_leaf(self.episode)
+        stop = min(anchor + self.execute_steps, int(leaf.total_frames))
+        image_key = self._image_key("human_bimanual")
+        frames = []
+        for frame in range(anchor, stop):
+            raw = leaf[frame]
+            if int(raw.get("frame_idx", frame)) != frame:
+                raise RuntimeError(
+                    "Camera-only video frame was replaced during decoding"
+                )
+            image = Image.fromarray(_prepare_viz_image(_to_numpy(raw[image_key])))
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, 0, image.width, 25), fill="black")
+            draw.text((4, 5), "Tracking unavailable: no prediction", fill="white")
+            frames.append(np.asarray(image).copy())
+        self._unscored_spans.append({"start_frame": anchor, "frame_count": len(frames)})
+        return frames
+
+    def compute_metrics_and_viz(self, batch, do_viz=True):
+        if len(batch) != 1:
+            raise ValueError("Named reference video requires one embodiment")
+        samples = next(iter(batch.values()))
+        mask = tracking_valid_mask(samples, required=True)
+        anchors = torch.as_tensor(samples["frame_idx"]).cpu().tolist()
+        if len(anchors) != len(mask):
+            raise ValueError("Video tracking flags and frame indices disagree")
+        for anchor, valid in zip(anchors, mask.cpu().tolist()):
+            self._tracking["visited"] += 1
+            self._tracking["scored" if valid else "skipped"] += 1
+            if not valid and do_viz:
+                self._put_sequence(int(anchor), self._camera_only_window(int(anchor)))
+        filtered, _counts, _active = filter_tracking_batch(batch, required=True)
+        self._active_anchors = [
+            int(anchor) for anchor, valid in zip(anchors, mask.cpu().tolist()) if valid
+        ]
+        if not filtered:
+            return {}, {}
+        return super().compute_metrics_and_viz(filtered, do_viz=do_viz)
+
+    def _buffer_sequences(self, hashes, sequences):
+        if len(sequences) != len(self._active_anchors) or any(
+            h != self.episode for h in hashes
+        ):
+            raise RuntimeError("Reference video windows lost their source identity")
+        for anchor, frames in zip(self._active_anchors, sequences):
+            self._put_sequence(anchor, frames)
+
+    def on_validation_end(self):
+        if self._tracking["scored"] <= 0:
+            raise RuntimeError("Pinned video has no tracking-valid prediction window")
+        frames = []
+        for anchor, sequence in sorted(self._timeline.items()):
+            if anchor != len(frames):
+                raise RuntimeError("Reference video omitted or repeated source frames")
+            frames.extend(sequence)
+        expected = int(self._episode_leaf(self.episode).total_frames)
+        if len(frames) != expected:
+            raise RuntimeError(
+                "Reference video did not preserve the complete source clock"
+            )
+        self._frames = {self.episode: frames}
+        self._video_tracking = {
+            "evaluation_policy": EVALUATION_TRACKING_POLICY,
+            "tracking": dict(self._tracking),
+            "source_frames": len(frames),
+            "unscored_frames": sum(
+                span["frame_count"] for span in self._unscored_spans
+            ),
+            "unscored_spans": list(self._unscored_spans),
+            "timing": "original_source_frames_with_labeled_unscored_spans",
+        }
+        super().on_validation_end()
+
     def _upload_open_loop_video(self, group, path, index):
         key = f"videos_open_loop/{self.cohort}/{self.operator}/{self.episode}"
         uploaded = False
@@ -117,6 +216,7 @@ class _NamedReferenceRenderer(OpenLoopSimEval):
                 "episode": self.episode,
                 "path": path,
                 "wandb_key": key,
+                **self._video_tracking,
             }
         )
 
@@ -134,6 +234,7 @@ class MovingOpscaleEvaluation(Callback):
         self.episodes = None
         self.pins = None
         self.observed = {}
+        self.tracking_coverage = {}
         self.final_evidence = None
 
     def _load(self):
@@ -152,6 +253,10 @@ class MovingOpscaleEvaluation(Callback):
         if trainer.world_size != 1:
             raise ValueError("Moving opscale preserves the single-GPU reference recipe")
         self.observed = {cohort: set() for cohort in COHORT_HEADS}
+        self.tracking_coverage = {
+            cohort: {"visited": 0, "scored": 0, "skipped": 0, "episodes": {}}
+            for cohort in COHORT_HEADS
+        }
 
     def on_validation_batch_end(
         self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0
@@ -171,9 +276,17 @@ class MovingOpscaleEvaluation(Callback):
             hashes = samples.get("episode_hash")
             if hashes is None:
                 raise ValueError("Validation batches must preserve episode_hash")
-            self.observed[cohort].update(
-                [hashes] if isinstance(hashes, str) else map(str, hashes)
-            )
+            ids = [hashes] if isinstance(hashes, str) else list(map(str, hashes))
+            valid = tracking_valid_mask(samples, len(ids), required=True).cpu().tolist()
+            self.observed[cohort].update(ids)
+            totals = self.tracking_coverage[cohort]
+            for episode, scored in zip(ids, valid):
+                counts = totals["episodes"].setdefault(
+                    episode, {"visited": 0, "scored": 0, "skipped": 0}
+                )
+                for counter in ("visited", "scored" if scored else "skipped"):
+                    counts[counter] += 1
+                    totals[counter] += 1
 
     def _render(self, trainer, pl_module):
         uploads = []
@@ -292,6 +405,17 @@ class MovingOpscaleEvaluation(Callback):
                     f"missing={len(expected - actual)}, extra={len(actual - expected)}"
                 )
             coverage[cohort] = {"expected": len(expected), "observed": len(actual)}
+        for cohort in COHORT_HEADS:
+            totals = self.tracking_coverage.get(cohort, {})
+            per_episode = totals.get("episodes", {})
+            if set(per_episode) != set(self.split[cohort]) or any(
+                counts["scored"] <= 0 for counts in per_episode.values()
+            ):
+                raise RuntimeError(
+                    f"Every {cohort} episode requires tracking-valid scored coverage"
+                )
+            if totals["visited"] != totals["scored"] + totals["skipped"]:
+                raise RuntimeError(f"Inconsistent tracking coverage for {cohort}")
         final = trainer.current_epoch + 1 >= trainer.max_epochs
         render_now = final or (trainer.current_epoch + 1) % self.viz_every_n_epochs == 0
         videos = self._render(trainer, pl_module) if render_now else []
@@ -308,6 +432,8 @@ class MovingOpscaleEvaluation(Callback):
             metrics.update(selected)
         evidence = {
             "completed": False,
+            "evaluation_policy": EVALUATION_TRACKING_POLICY,
+            "tracking_coverage": self.tracking_coverage,
             "split_name": self.split_name,
             "epoch": trainer.current_epoch,
             "global_step": trainer.global_step,
@@ -350,6 +476,9 @@ class MovingOpscaleEvaluation(Callback):
                             v["cohort"] == cohort for v in evidence["videos"]
                         ),
                         "metrics_logged": True,
+                        "scored_episodes": len(
+                            evidence["tracking_coverage"][cohort]["episodes"]
+                        ),
                     }
                     for cohort in COHORT_HEADS
                 },

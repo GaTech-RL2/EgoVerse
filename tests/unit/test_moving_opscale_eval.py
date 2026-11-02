@@ -114,7 +114,15 @@ def test_lightning_epoch_hook_sees_current_cohort_metrics(tmp_path):
 
     loaders = [
         DataLoader(
-            [{"human_bimanual": {"episode_hash": eid}} for eid in split[cohort]],
+            [
+                {
+                    "human_bimanual": {
+                        "episode_hash": eid,
+                        "evaluation_tracking_valid": True,
+                    }
+                }
+                for eid in split[cohort]
+            ],
             batch_size=8,
         )
         for cohort in cohorts

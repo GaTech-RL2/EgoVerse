@@ -2513,6 +2513,11 @@ class EvenStrideDataset(MultiDataset):
         return sample
 
     def _read_exact(self, leaf, name: str, frame_idx: int) -> dict:
+        # Classify raw tracking before transforms can spread a missing wrist
+        # anchor across the whole relative action chunk. This metadata never
+        # selects another frame and is absent from the training/norm path.
+        validity = getattr(leaf, "evaluation_tracking_validity", None)
+        tracking_valid = True if validity is None else bool(validity(frame_idx))
         sample = leaf[frame_idx]
         episode = self._episode_name_for_dataset(leaf, name)
         got = sample.get("frame_idx")
@@ -2528,6 +2533,9 @@ class EvenStrideDataset(MultiDataset):
                     raise ValueError(
                         f"non-finite val data in {key} at {episode}/{frame_idx}"
                     )
+        sample["evaluation_tracking_valid"] = torch.tensor(
+            tracking_valid, dtype=torch.bool
+        )
         return sample
 
     def _seeded_replacement(self, leaf, name: str, frame_idx: int, error) -> dict:
@@ -2673,6 +2681,76 @@ class ZarrDataset(torch.utils.data.Dataset):
         # Frames a sample may start at; None = all of them (set_pose_glitch_mask).
         self.sample_indices: np.ndarray | None = None
         super().__init__()
+
+    def evaluation_tracking_validity(self, idx: int) -> bool:
+        """Whether every required raw MANO hand observation is tracked.
+
+        This evaluation-only read leaves ``__getitem__`` and normalization
+        unchanged. The canonical missing-hand convention is exactly 63 zero
+        keypoint components paired with seven positive 1e9 wrist components.
+        A missing current wrist anchor, real proprio-history row, or any raw
+        future interpolation-support row makes this selected start unscorable.
+        Camera images and unrequested gaps between history rows are not read.
+        """
+        if not 0 <= idx < self.total_frames:
+            raise IndexError(f"Evaluation frame {idx} outside this episode")
+        required: dict[str, set[int]] = {}
+        for key, (raw_key, window) in self._read_windows(idx).items():
+            if raw_key not in ("left.obs_wrist_pose", "right.obs_wrist_pose"):
+                continue
+            if isinstance(window, np.ndarray):
+                # Front-padded history tokens are explicitly nulled by the
+                # existing history mask; only its real rows are required.
+                real = self._history_indices(idx, self.key_map[key])[1].astype(bool)
+                frames = window[real]
+            else:
+                start, end = window
+                frames = range(start, start + 1 if end is None else end)
+            required.setdefault(raw_key, set()).update(int(frame) for frame in frames)
+        if not required:
+            # Other embodiments/stub keymaps do not use this MANO convention.
+            return True
+        intervals: dict[str, list[tuple[int, int]]] = {}
+        for wrist_key, frames in required.items():
+            keypoints_key = wrist_key.replace(".obs_wrist_pose", ".obs_keypoints")
+            for raw_key in (wrist_key, keypoints_key):
+                intervals[raw_key] = [(frame, frame + 1) for frame in sorted(frames)]
+        groups = self.episode_reader.read_intervals(intervals)
+
+        def rows(raw_key: str, frames: list[int]):
+            selected = []
+            for frame in frames:
+                for start, block in groups[raw_key]:
+                    if start <= frame < start + len(block):
+                        selected.append(block[frame - start])
+                        break
+                else:
+                    raise ValueError(f"Missing raw tracking row {raw_key}/{frame}")
+            return np.asarray(selected)
+
+        valid = True
+        for wrist_key, required_frames in required.items():
+            frames = sorted(required_frames)
+            if not frames:
+                continue
+            poses = rows(wrist_key, frames)
+            keypoints = rows(
+                wrist_key.replace(".obs_wrist_pose", ".obs_keypoints"), frames
+            ).reshape(len(frames), -1)
+            if poses.shape != (len(frames), 7) or keypoints.shape != (len(frames), 63):
+                raise ValueError("Unexpected raw wrist/keypoint tracking shape")
+            if not np.isfinite(poses).all() or not np.isfinite(keypoints).all():
+                raise ValueError("Non-finite raw wrist/keypoint tracking data")
+            large = (np.abs(poses) >= 1e8).any(axis=-1)
+            sentinel = (poses == 1e9).all(axis=-1)
+            if (large & ~sentinel).any():
+                raise ValueError(
+                    "Malformed large wrist pose is not a missing-hand sentinel"
+                )
+            if (sentinel & ~(keypoints == 0).all(axis=-1)).any():
+                raise ValueError("Missing-hand sentinel has nonzero keypoints")
+            valid = valid and not bool(sentinel.any())
+        return valid
 
     def set_pose_glitch_mask(
         self,

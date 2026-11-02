@@ -8,6 +8,82 @@ from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.metrics import frechet_gaussian_over_time
 
+EVALUATION_TRACKING_POLICY = "tracking_valid_windows_v1"
+TRACKING_VALID_KEY = "evaluation_tracking_valid"
+
+
+def tracking_valid_mask(samples, size=None, required=False):
+    flag = samples.get(TRACKING_VALID_KEY)
+    if flag is None:
+        if required:
+            raise ValueError("Exact validation requires evaluation_tracking_valid")
+        return None
+    flag = torch.as_tensor(flag)
+    if flag.ndim != 1 or (size is not None and len(flag) != size):
+        raise ValueError("evaluation_tracking_valid must have one value per sample")
+    if not ((flag == 0) | (flag == 1)).all():
+        raise ValueError("evaluation_tracking_valid must be boolean or binary")
+    return flag.bool()
+
+
+def _select_sample_rows(value, keep, size):
+    if isinstance(value, dict):
+        return {
+            key: _select_sample_rows(item, keep, size) for key, item in value.items()
+        }
+    if torch.is_tensor(value) and value.ndim and value.shape[0] == size:
+        return value[keep.to(value.device)]
+    if isinstance(value, (list, tuple)) and len(value) == size:
+        selected = [item for item, valid in zip(value, keep.tolist()) if valid]
+        return tuple(selected) if isinstance(value, tuple) else selected
+    return value
+
+
+def filter_tracking_batch(batch, required=False):
+    """Keep only fully tracked windows before any target-conditioned forward.
+
+    No flag means legacy behavior. A flagged batch must flag every embodiment;
+    sample identifiers and values are sliced, never replaced or imputed.
+    """
+    active = required or any(
+        TRACKING_VALID_KEY in samples for samples in batch.values()
+    )
+    if not active:
+        return batch, {}, False
+    filtered, counts = {}, {}
+    for embodiment, samples in batch.items():
+        keep = tracking_valid_mask(samples, required=True)
+        counts[embodiment] = int(keep.sum().item())
+        if counts[embodiment]:
+            filtered[embodiment] = _select_sample_rows(samples, keep, len(keep))
+    return filtered, counts, True
+
+
+def _metric_sample_count(key, samples, action_key, count):
+    """Respect existing per-third reductions that omit all-padding rows."""
+    pad = samples.get("action_pad_mask")
+    if pad is None:
+        return count
+    valid = torch.as_tensor(pad).bool()
+    if valid.ndim == 3:
+        valid = valid.squeeze(-1)
+    horizon = samples[action_key].shape[1]
+    for part, third, lo, hi in (
+        ("early", 0, 0.0, 0.1),
+        ("mid", 1, 0.1, 0.5),
+        ("late", 2, 0.5, 1.0),
+    ):
+        if key.endswith(f"_paired_mse_{part}_third"):
+            bounds = (0, horizon // 3, 2 * horizon // 3, horizon)
+            start, stop = bounds[third : third + 2]
+        elif key.endswith(f"_l2_{part}"):
+            start = min(int(round(lo * horizon)), horizon - 1)
+            stop = max(int(round(hi * horizon)), start + 1)
+        else:
+            continue
+        return int(valid[:, start:stop].any(dim=1).sum().item())
+    return count
+
 
 class HPTEvalVideo(EvalVideo):
     """
@@ -23,6 +99,17 @@ class HPTEvalVideo(EvalVideo):
     """
 
     def compute_metrics_and_viz(self, batch, do_viz=True):
+        for embodiment_id, samples in batch.items():
+            if TRACKING_VALID_KEY in samples:
+                tracking_valid_mask(
+                    samples,
+                    size=samples[self.model.ac_keys[embodiment_id]].shape[0],
+                    required=True,
+                )
+        batch, scored_counts, tracking_active = filter_tracking_batch(batch)
+        self.metric_batch_sizes = {} if tracking_active else None
+        if not batch:
+            return {}, {}
         algo = self.model
         preds = algo.forward_eval(batch)
 
@@ -42,8 +129,9 @@ class HPTEvalVideo(EvalVideo):
                 metrics[f"Valid/{loss_key}"] = loss_val
                 if total_loss is None:
                     total_loss = torch.zeros_like(loss_val)
-                total_loss = total_loss + loss_val
-                n_loss_embodiments += 1
+                weight = scored_counts[embodiment_id] if tracking_active else 1
+                total_loss = total_loss + loss_val * weight
+                n_loss_embodiments += weight
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 pred_key = f"{embodiment_name}_{ac_key}"
@@ -144,4 +232,25 @@ class HPTEvalVideo(EvalVideo):
         if total_loss is not None and n_loss_embodiments > 0:
             metrics["Valid/action_loss"] = total_loss / n_loss_embodiments
 
+        if tracking_active:
+            for embodiment_id, count in scored_counts.items():
+                prefix = f"Valid/{get_embodiment(embodiment_id).lower()}_"
+                self.metric_batch_sizes.update(
+                    {
+                        key: _metric_sample_count(
+                            key,
+                            batch[embodiment_id],
+                            algo.ac_keys[embodiment_id],
+                            count,
+                        )
+                        for key in metrics
+                        if key.startswith(prefix)
+                    }
+                )
+            if "Valid/action_loss" in metrics:
+                self.metric_batch_sizes["Valid/action_loss"] = n_loss_embodiments
+            if set(self.metric_batch_sizes) != set(metrics):
+                raise RuntimeError(
+                    "Tracking-filtered metrics have missing sample weights"
+                )
         return metrics, images_dict

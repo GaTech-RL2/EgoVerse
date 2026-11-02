@@ -19,8 +19,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from experiments.fold_clothes_moving_opscale.normalization_provenance import (
+    normalization_reuse_identity,
+    normalization_source_matches,
+)
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
+EVALUATION_POLICY = "tracking_valid_windows_v1"
 
 
 def now():
@@ -125,7 +131,8 @@ def norm(args):
         previous = json.loads(report.read_text())
         if (
             previous.get("status") == "passed"
-            and all(previous.get(k) == v for k, v in identity.items())
+            and normalization_source_matches(runs, previous, commit, repo)
+            and all(previous.get(k) == v for k, v in identity.items() if k != "commit")
             and stats.is_file()
             and previous.get("stats_sha256") == sha(stats)
         ):
@@ -326,6 +333,86 @@ def verify_wandb(run_id, status, expected_step):
     raise RuntimeError(f"W&B smoke evidence did not become available: {last_error}")
 
 
+def verify_tracking_status(status, counts, *, split=None, canonical_index=None):
+    """Require genuine scored coverage, not merely visited invalid data."""
+    need(
+        status.get("evaluation_policy") == EVALUATION_POLICY,
+        "Missing current evaluation tracking policy",
+    )
+    coverage = status.get("tracking_coverage", {})
+    need(set(coverage) == set(counts), "Missing tracking coverage cohorts")
+
+    def check_counts(item):
+        need(isinstance(item, dict), "Malformed tracking counts")
+        values = [item.get(key) for key in ("visited", "scored", "skipped")]
+        need(
+            all(type(value) is int and value >= 0 for value in values),
+            "Invalid tracking counts",
+        )
+        visited, scored, skipped = values
+        need(
+            scored > 0 and visited == scored + skipped,
+            "Tracking coverage has no scored data or inconsistent counts",
+        )
+
+    for cohort, expected_count in counts.items():
+        item = coverage[cohort]
+        check_counts(item)
+        episodes = item.get("episodes", {})
+        need(len(episodes) == expected_count, "Tracking scored episode count differs")
+        if split is not None:
+            need(
+                set(episodes) == set(split[cohort]),
+                "Tracking episode identities differ from private split",
+            )
+        for episode in episodes.values():
+            check_counts(episode)
+        for key in ("visited", "scored", "skipped"):
+            need(
+                sum(episode[key] for episode in episodes.values()) == item[key],
+                "Tracking cohort totals disagree with episodes",
+            )
+    for video in status.get("videos", []):
+        need(
+            video.get("evaluation_policy") == EVALUATION_POLICY,
+            "Video tracking policy missing",
+        )
+        check_counts(video.get("tracking"))
+        frames, unscored = video.get("source_frames"), video.get("unscored_frames")
+        need(
+            type(frames) is int
+            and frames > 0
+            and type(unscored) is int
+            and 0 <= unscored <= frames,
+            "Video frame accounting is invalid",
+        )
+        need(
+            video.get("timing") == "original_source_frames_with_labeled_unscored_spans",
+            "Video source timing is unverified",
+        )
+        if canonical_index is not None:
+            need(
+                frames == canonical_index[video["episode"]]["total_frames"],
+                "Video does not retain all original source frames",
+            )
+        spans = video.get("unscored_spans")
+        need(isinstance(spans, list), "Video missing unscored span accounting")
+        end, total = 0, 0
+        for span in spans:
+            start, length = span.get("start_frame"), span.get("frame_count")
+            need(
+                type(start) is int
+                and type(length) is int
+                and start >= end
+                and length > 0
+                and start + length <= frames,
+                "Invalid or overlapping unscored video span",
+            )
+            end, total = start + length, total + length
+        need(total == unscored, "Unscored video frame count mismatch")
+    return coverage
+
+
 def reusable_first_phase(args, runs, commit, design_hash):
     """Authenticate a stopped first phase; this never grants a smoke gate pass.
 
@@ -481,6 +568,7 @@ def smoke(args):
         "checks": {},
         "runs": [],
         "job_id": os.environ["SLURM_JOB_ID"],
+        "normalization_reuse": normalization_reuse_identity(runs, commit),
     }
     if getattr(args, "operational_controller", None):
         report["operational_controller"] = args.operational_controller
@@ -492,7 +580,7 @@ def smoke(args):
             normalized = json.loads(norm_file.read_text())
             need(
                 normalized.get("status") == "passed"
-                and normalized["commit"] == commit
+                and normalization_source_matches(runs, normalized, commit, repo)
                 and normalized["design_sha256"] == design_hash,
                 f"Missing matching normalization for {cell}",
             )
@@ -627,16 +715,30 @@ def smoke(args):
                     status["global_step"] == saved["step"],
                     "Evaluation and checkpoint steps disagree",
                 )
+                tracking = verify_tracking_status(
+                    status,
+                    {
+                        cohort: len(split[cohort])
+                        for cohort in ("seen_matched", "seen_perlevel", "unseen")
+                    },
+                    split=split,
+                    canonical_index=json.loads(
+                        (root / "canonical_zarr/_episode_index.json").read_text()
+                    ),
+                )
                 backend = verify_wandb(run_id, status, saved["step"])
                 if reuse_this_phase:
                     saved["sha256"] = reused["checkpoint_sha256"]
                 report["runs"].append(
                     {
                         "operator_count": operators,
+                        "norm_stats_producer_commit": normalized["commit"],
                         "epochs": epochs,
                         "checkpoint": saved,
                         "backend": backend,
                         "coverage": status["coverage"],
+                        "evaluation_policy": EVALUATION_POLICY,
+                        "tracking_coverage": tracking,
                         "config_sha256": sha(
                             here / "budget_24" / f"op_{operators}.yaml"
                         ),
@@ -669,12 +771,14 @@ def smoke(args):
             {
                 "status": "passed",
                 "finished_at": now(),
+                "evaluation_policy": EVALUATION_POLICY,
                 "checks": {
                     "finite_loss": True,
                     "checkpoint_resume": True,
                     "all_validation_episodes": True,
                     "wandb_metrics": True,
                     "video_counts": True,
+                    "tracking_validity": True,
                 },
             }
         )

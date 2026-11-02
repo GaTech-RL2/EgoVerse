@@ -34,6 +34,10 @@ from launch_pace import (
     write_json,
 )
 
+from experiments.fold_clothes_moving_opscale.normalization_provenance import (
+    normalization_source_matches,
+)
+
 TERMINAL = {
     "COMPLETED",
     "FAILED",
@@ -195,7 +199,7 @@ def norm_evidence(root, commit, design_sha, cells=None):
         split = root / "private/splits" / f"fold_moving_b{b}_op{n}.json"
         need(
             report.get("status") == "passed"
-            and report.get("commit") == commit
+            and normalization_source_matches(root, report, commit, REPO)
             and report.get("design_sha256") == design_sha
             and report.get("canonical_index_sha256") == canonical_sha
             and report.get("budget_hours") == b
@@ -320,7 +324,13 @@ def step(state, args):
             f"Smoke normalization b{b}_op{n} failed or is malformed",
         )
         need(
-            progress.get("commit") == args.commit
+            (
+                progress.get("commit") == args.commit
+                or (
+                    progress.get("status") == "passed"
+                    and normalization_source_matches(root, progress, args.commit, REPO)
+                )
+            )
             and progress.get("design_sha256") == state["design_sha256"]
             and progress.get("budget_hours") == b
             and progress.get("operator_count") == n,

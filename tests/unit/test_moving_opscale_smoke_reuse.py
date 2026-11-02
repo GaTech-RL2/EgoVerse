@@ -21,7 +21,7 @@ def save(path, value):
 
 
 def evaluation(folder, operators, step=2):
-    split, videos, coverage = {}, [], {}
+    split, videos, coverage, tracking = {}, [], {}, {}
     for cohort, count, pins in [
         ("seen_matched", 40, 4),
         ("seen_perlevel", 3 * operators, 4 if operators == 4 else 5),
@@ -31,6 +31,14 @@ def evaluation(folder, operators, step=2):
         split[cohort] = episodes
         split[f"video_{cohort}"] = episodes[:pins]
         coverage[cohort] = {"expected": count, "observed": count}
+        tracking[cohort] = {
+            "visited": count,
+            "scored": count,
+            "skipped": 0,
+            "episodes": {
+                eid: {"visited": 1, "scored": 1, "skipped": 0} for eid in episodes
+            },
+        }
         for episode in episodes[:pins]:
             path = folder / "0/videos" / f"{episode}.mp4"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -41,6 +49,12 @@ def evaluation(folder, operators, step=2):
                     "cohort": cohort,
                     "episode": episode,
                     "wandb_key": f"videos_open_loop/{cohort}/{episode}",
+                    "evaluation_policy": preflight.EVALUATION_POLICY,
+                    "tracking": {"visited": 1, "scored": 1, "skipped": 0},
+                    "source_frames": 100,
+                    "unscored_frames": 0,
+                    "unscored_spans": [],
+                    "timing": "original_source_frames_with_labeled_unscored_spans",
                 }
             )
     return split, {
@@ -48,6 +62,8 @@ def evaluation(folder, operators, step=2):
         "epoch": step // 2 - 1,
         "videos": videos,
         "coverage": coverage,
+        "evaluation_policy": preflight.EVALUATION_POLICY,
+        "tracking_coverage": tracking,
         "metrics": {f"val/{cohort}/Valid/action_loss": 0.5 for cohort in coverage},
     }
 
@@ -260,7 +276,14 @@ def test_smoke_reverifies_then_resumes_same_run_and_starts_op128_fresh(
     private = tmp_path / "private"
     repo = tmp_path / "immutable-training-repo"
     here = repo / "experiments/fold_clothes_moving_opscale"
-    save(private / "canonical_zarr/_episode_index.json", {"synthetic": True})
+    save(
+        private / "canonical_zarr/_episode_index.json",
+        {
+            f"{cohort}-{index}": {"total_frames": 100}
+            for cohort in ("seen_matched", "seen_perlevel", "unseen")
+            for index in range(400)
+        },
+    )
     for operators in [4, 128]:
         cell = f"b24_op{operators}"
         split = (

@@ -25,6 +25,11 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from experiments.fold_clothes_moving_opscale.normalization_provenance import (
+    normalization_reuse_identity,
+    normalization_source_matches,
+)
+
 BUDGETS = (24, 32, 48, 64, 72, 96)
 OPERATORS = (4, 8, 16, 32, 64, 128)
 MATRIX = {(b, n) for b in BUDGETS for n in OPERATORS}
@@ -384,7 +389,7 @@ def verified_norm(root, budget, count, commit, design_sha, entry):
     )
     need(
         report.get("status") == "passed"
-        and report.get("commit") == commit
+        and normalization_source_matches(root, report, commit, REPO)
         and report.get("design_sha256") == design_sha
         and report.get("budget_hours") == budget
         and report.get("operator_count") == count
@@ -442,7 +447,16 @@ def verify_backend_completion(run, output, step, commit, verifier=None):
         len(evidence.get("videos", [])) == expected_videos, "Final video count mismatch"
     )
     if verifier is None:
-        from run_preflight import verify_wandb
+        from run_preflight import verify_tracking_status, verify_wandb
+
+        verify_tracking_status(
+            evidence,
+            {
+                "seen_matched": 40,
+                "seen_perlevel": 3 * run["operator_count"],
+                "unseen": run["unseen_episode_count"],
+            },
+        )
 
         verifier = verify_wandb
     backend = verifier(run["wandb_id"], evidence, step)
@@ -557,6 +571,7 @@ def submit(args):
                 "max_attempts": 3,
             },
             "runs": {},
+            "normalization_reuse": normalization_reuse_identity(root, gate["commit"]),
             **(
                 {"operational_controller": controller} if controller is not None else {}
             ),
@@ -612,6 +627,9 @@ def submit(args):
             expected_steps=400000,
             norm_stats_path=str(norms[(budget, count)][0]),
             norm_stats_sha256=norms[(budget, count)][1],
+            norm_stats_producer_commit=read_json(
+                root / "norm" / cell / "norm_complete.json"
+            )["commit"],
         )
         registry["runs"][cell] = record
         write_json(registry_path, registry)
@@ -697,6 +715,11 @@ def execute(registry_path, cell):
     require_production_enabled(Path(registry_path).parent)
     registry = read_json(registry_path)
     controller = restore_registry_source(registry)
+    need(
+        registry.get("normalization_reuse")
+        == normalization_reuse_identity(Path(registry_path).parent, registry["commit"]),
+        "Normalization compatibility receipt changed since submission",
+    )
     controller_metadata = (
         {"operational_controller": controller} if controller is not None else {}
     )
@@ -819,6 +842,10 @@ def execute(registry_path, cell):
             "checkpoint": str(checkpoint),
             "backend_verified": True,
             "wandb_proof_sha256": digest(proof_path),
+            "norm_stats_producer_commit": run.get(
+                "norm_stats_producer_commit", registry["commit"]
+            ),
+            "normalization_reuse": registry.get("normalization_reuse"),
             **controller_metadata,
         },
     )
