@@ -17,7 +17,14 @@ import subprocess
 import time
 from pathlib import Path
 
-from launch_pace import continue_timed_out_run, digest, now, read_json, write_json
+from launch_pace import (
+    MATRIX,
+    continue_timed_out_run,
+    digest,
+    now,
+    read_json,
+    write_json,
+)
 
 TERMINAL = {
     "COMPLETED",
@@ -216,6 +223,31 @@ def inspect_run(run, registry, scheduler):
     return result
 
 
+def verify_preflight(root, pipeline):
+    """Preflight completion is separate from verified production-run completion."""
+    report = safe_report(root / "preflight_complete.json") or {}
+    expected = {f"b{b}_op{n}" for b, n in MATRIX}
+    if not (
+        report.get("status") == "passed"
+        and report.get("scope") == "preflight_only"
+        and report.get("commit") == pipeline.get("commit")
+        and set(report.get("normalization_sha256", {})) == expected
+    ):
+        return False
+    try:
+        return (
+            digest(root / "readiness.json") == report.get("readiness_sha256")
+            and digest(root / "gate.json") == report.get("gate_sha256")
+            and digest(root / "evaluation_smoke.json") == report.get("smoke_sha256")
+            and all(
+                digest(root / "norm" / cell / "norm_complete.json") == checksum
+                for cell, checksum in report["normalization_sha256"].items()
+            )
+        )
+    except OSError:
+        return False
+
+
 def snapshot(root):
     registry = safe_report(root / "registry.json")
     result = {
@@ -267,6 +299,17 @@ def snapshot(root):
                 if pipeline.get("state") == "BLOCKED"
                 else "PREFLIGHT_ACTIVE"
             )
+            if pipeline.get("phase") == "PREFLIGHT_COMPLETE":
+                result["state"] = (
+                    "PREFLIGHT_COMPLETE"
+                    if verify_preflight(root, pipeline)
+                    else "PREFLIGHT_COMPLETE_UNVERIFIED"
+                )
+                result["reason"] = (
+                    "Preflight finished; production training remains disabled"
+                    if result["state"] == "PREFLIGHT_COMPLETE"
+                    else "Preflight completion evidence is missing or changed"
+                )
         elif result.get("staging", {}).get("state", "UNKNOWN").split()[
             0
         ] in TERMINAL - {"COMPLETED"}:
@@ -364,6 +407,7 @@ def main():
             "COMPLETE",
             "SUBSET_COMPLETE",
             "TERMINAL_REVIEW_REQUIRED",
+            "PREFLIGHT_COMPLETE",
         ):
             return
         time.sleep(args.interval)

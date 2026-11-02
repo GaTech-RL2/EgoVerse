@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Durable, fail-closed conductor: staging -> normalization -> GPU smoke -> sweep.
+"""Durable conductor: staging -> normalization -> GPU smoke -> verified preflight.
+
+Production requires an explicit run-root production_control.json opt-in.
 
 Start only after committing and testing the experiment. All actions are logged
 before submission. Ambiguous submissions stop for reconciliation; no command is
@@ -27,6 +29,7 @@ from launch_pace import (
     digest,
     need,
     now,
+    production_enabled,
     read_json,
     write_json,
 )
@@ -384,6 +387,28 @@ def step(state, args):
         read_json(root / "gate.json")["status"] == "passed",
         "Launch gate remains blocked",
     )
+    if not production_enabled(root):
+        write_json(
+            root / "preflight_complete.json",
+            {
+                "status": "passed",
+                "scope": "preflight_only",
+                "commit": args.commit,
+                "design_sha256": state["design_sha256"],
+                "completed_at": now(),
+                "readiness_sha256": digest(root / "readiness.json"),
+                "gate_sha256": digest(root / "gate.json"),
+                "smoke_sha256": digest(root / "evaluation_smoke.json"),
+                "normalization_sha256": {
+                    f"b{b}_op{n}": digest(
+                        root / "norm" / f"b{b}_op{n}" / "norm_complete.json"
+                    )
+                    for b in BUDGETS
+                    for n in OPERATORS
+                },
+            },
+        )
+        return "PREFLIGHT_COMPLETE"
     if "production" not in state["actions"]:
         state["actions"]["production"] = {"state": "SUBMITTING", "created_at": now()}
         write_json(root / "pipeline.json", state)
@@ -461,7 +486,13 @@ def main():
         try:
             phase = step(state, a)
             status = {
-                "state": "COMPLETE" if phase == "SWEEP_SUBMITTED" else "ACTIVE",
+                "state": (
+                    "COMPLETE"
+                    if phase == "SWEEP_SUBMITTED"
+                    else "PREFLIGHT_COMPLETE"
+                    if phase == "PREFLIGHT_COMPLETE"
+                    else "ACTIVE"
+                ),
                 "phase": phase,
                 "updated_at": now(),
                 "pid": os.getpid(),
@@ -484,7 +515,7 @@ def main():
             print(json.dumps(status), flush=True)
             state["last_phase"] = phase
             write_json(state_path, state)
-        if a.once or phase == "SWEEP_SUBMITTED":
+        if a.once or phase in ("SWEEP_SUBMITTED", "PREFLIGHT_COMPLETE"):
             return 0
         time.sleep(a.interval)
 

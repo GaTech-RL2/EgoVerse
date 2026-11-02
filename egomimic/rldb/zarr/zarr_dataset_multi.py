@@ -652,10 +652,12 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        stage_to_local: bool = True,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        self.stage_to_local = stage_to_local
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -734,9 +736,22 @@ class EpisodeResolver:
         )
 
     def load(self, paths: list[tuple[str, str]]) -> dict[str, "ZarrDataset"]:
-        """Datasets for ``paths``, first copied to a node-local stage directory
-        (``$EGOVERSE_STAGE_DIR`` or ``DEFAULT_STAGE_DIR``) and read from there."""
+        """Read selected episodes, staging locally unless explicitly disabled.
+
+        Default staging uses ``$EGOVERSE_STAGE_DIR`` or ``DEFAULT_STAGE_DIR``.
+        ``stage_to_local=False`` reads the same selected episodes in place.
+        """
         valid = {h for _, h in paths}
+        if not self.stage_to_local:
+            logger.info(
+                "Reading %d selected episodes directly from %s",
+                len(valid),
+                self.folder_path,
+            )
+            datasets = self._load_zarr_datasets(
+                search_path=self.folder_path, valid_folder_names=valid
+            )
+            return dict(sorted(datasets.items()))
         stage_dir = Path(os.environ.get(STAGE_DIR_ENV) or DEFAULT_STAGE_DIR)
         staged = stage_episodes(
             self.folder_path, stage_dir, valid, self._stage_versions(valid)
@@ -775,6 +790,7 @@ class S3EpisodeResolver(EpisodeResolver):
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
         validate_wrist_convention: bool = True,
+        stage_to_local: bool = True,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -784,6 +800,7 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
+            stage_to_local=stage_to_local,
         )
 
     def _stage_versions(self, names: set[str]) -> dict[str, str] | None:
@@ -1267,8 +1284,11 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        stage_to_local: bool = True,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(
+            folder_path, key_map, transform_list, stage_to_local=stage_to_local
+        )
         self.debug = debug
 
     @classmethod

@@ -1,0 +1,113 @@
+{
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "fixed",
+        "blocked",
+        "failed",
+        "review",
+        "approved",
+        "rejected"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "verified": {
+      "type": "boolean"
+    },
+    "science_unchanged": {
+      "type": "boolean"
+    },
+    "tests_passed": {
+      "type": "boolean"
+    },
+    "code_changes": {
+      "type": "boolean"
+    },
+    "approval_rejected": {
+      "type": "boolean"
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "job_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidate_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "destination"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "candidate_repo": {
+      "type": "string",
+      "description": "Empty for wrapper-only fixes; exact clean candidate worktree path/full Git SHA for source promotion."
+    },
+    "candidate_commit": {
+      "type": "string",
+      "description": "Empty for wrapper-only fixes; exact clean candidate worktree path/full Git SHA for source promotion."
+    }
+  },
+  "required": [
+    "outcome",
+    "summary",
+    "verified",
+    "science_unchanged",
+    "tests_passed",
+    "code_changes",
+    "approval_rejected",
+    "commands",
+    "job_ids",
+    "changed_files",
+    "verification",
+    "evidence_files",
+    "candidate_files",
+    "candidate_repo",
+    "candidate_commit"
+  ],
+  "additionalProperties": false
+}

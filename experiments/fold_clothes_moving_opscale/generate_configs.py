@@ -35,6 +35,7 @@ def main():
     resolver = {
         "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver",
         "folder_path": "${oc.env:EGOVERSE_MECKA_PRIVATE_DIR}/canonical_zarr",
+        "stage_to_local": False,
         "key_map": reference["data_key_map"],
         "transform_list": reference["data_transform_list"],
     }

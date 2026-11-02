@@ -82,6 +82,32 @@ def need(condition, message):
         raise RuntimeError(message)
 
 
+def production_enabled(root):
+    """Only an explicit run-root opt-in may release production training."""
+    try:
+        control = read_json(Path(root) / "production_control.json")
+    except (OSError, ValueError):
+        return False
+    return (
+        isinstance(control, dict)
+        and control.get("allow_training") is True
+        and control.get("scope") != "preflight_only"
+    )
+
+
+def require_production_enabled(root):
+    need(
+        production_enabled(root),
+        "Production training is disabled; production_control.json must explicitly allow training",
+    )
+
+
+def submit_training_job(root, arguments, **kwargs):
+    # Recheck immediately before every initial or continuation allocation.
+    require_production_enabled(root)
+    return command(arguments, **kwargs)
+
+
 def validate_data_proof(private, ready, selected=None):
     """Bind canonical resolver metadata to the verified source frame receipts."""
     # Local import avoids the canonicalizer's dependency on this module's
@@ -349,6 +375,8 @@ def verify_backend_completion(run, output, step, commit, verifier=None):
 
 
 def submit(args):
+    if args.submit:
+        require_production_enabled(args.run_root)
     gate, ready, indexed = validate_gate(args.gate, args.readiness)
     selected = sorted(MATRIX)
     if args.cells:
@@ -531,7 +559,7 @@ def submit(args):
         record["sbatch_command"] = sbatch
         write_json(registry_path, registry)
         try:
-            raw = command(sbatch, timeout=90)
+            raw = submit_training_job(root, sbatch, timeout=90)
             job = raw.split(";")[0]
             need(
                 job.isdigit(),
@@ -553,6 +581,7 @@ def submit(args):
 
 
 def execute(registry_path, cell):
+    require_production_enabled(Path(registry_path).parent)
     registry = read_json(registry_path)
     # The transfer proof is pinned by content, but may be older after time in queue.
     gate, _, _ = validate_gate(registry["gate"], registry["readiness"], freshness=False)
@@ -682,6 +711,8 @@ def continue_timed_out_run(registry_path, cell, observed_job, observed_state):
     if observed_state not in ("TIMEOUT", "PREEMPTED"):
         return False
     path = Path(registry_path)
+    if not production_enabled(path.parent):
+        return False
     with (path.parent / "submission.lock").open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -774,7 +805,9 @@ def continue_timed_out_run(registry_path, cell, observed_job, observed_state):
             write_json(path, registry)
             return False
         try:
-            job = command(run["sbatch_command"], timeout=90).split(";")[0]
+            job = submit_training_job(
+                path.parent, run["sbatch_command"], timeout=90
+            ).split(";")[0]
             need(job.isdigit(), "Unrecognized continuation submission response")
         except Exception:
             run["state"] = "SUBMISSION_UNCERTAIN"
