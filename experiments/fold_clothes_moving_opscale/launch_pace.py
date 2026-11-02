@@ -84,6 +84,11 @@ def need(condition, message):
 
 def validate_data_proof(private, ready, selected=None):
     """Bind canonical resolver metadata to the verified source frame receipts."""
+    # Local import avoids the canonicalizer's dependency on this module's
+    # atomic JSON/hash helpers while binding every downstream consumer to the
+    # current correction algorithm, including its missing-hand semantics.
+    from canonicalize import VERSION as CORRECTION_VERSION
+
     private = Path(private).resolve()
     need(
         ready.get("schema_version") == 1 and ready.get("status") == "passed",
@@ -152,6 +157,10 @@ def validate_data_proof(private, ready, selected=None):
     )
     for eid, meta in index.items():
         convention = meta.get("moving_opscale_canonicalization", {})
+        need(
+            convention.get("version") == CORRECTION_VERSION,
+            "Canonical correction version is stale or missing",
+        )
         need(
             meta.get("episode_id") == eid
             and int(meta.get("total_frames", -1)) == counts[eid],

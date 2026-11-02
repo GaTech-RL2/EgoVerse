@@ -146,3 +146,52 @@ def test_zarr_variable_length_annotation_bytes(tmp_path):
     array = group.create_array("annotations", shape=(1,), dtype=VariableLengthBytes())
     array[:] = np.array([b'{"text":"fold shirt","start":0,"end":60}'], dtype=object)
     assert json.loads(bytes(array[0:1][0]))["text"] == "fold shirt"
+
+
+def test_exact_missing_sentinel_is_preserved(modules, raw_episode, tmp_path):
+    canonical, readiness = modules
+    raw = raw_episode("pre_fix")
+    group = zarr.open_group(str(raw), mode="r+")
+    group["left.obs_keypoints"][-1] = np.zeros(63)
+    group["left.obs_wrist_pose"][-1] = np.full(7, 1e9)
+    before = canonical.tree_digest(raw)
+    assert readiness.check_hand_pose(np.zeros((21, 3)), np.full(7, 1e9))
+    view = tmp_path / "canonical_zarr"
+    record = canonical.canonicalize_episode(raw, view, 60)
+    output = zarr.open_group(str(view / raw.name), mode="r")
+    assert np.array_equal(output["left.obs_wrist_pose"][-1], np.full(7, 1e9))
+    assert record["missing_hand_sentinel_rows"] == 1
+    assert record["version"] == "left-wrist-local-rz180-v2"
+    assert canonical.canonicalize_episode(raw, view, 60) == record
+    assert canonical.tree_digest(raw) == before
+
+
+@pytest.mark.parametrize(
+    "pose,kp",
+    [
+        (np.array([1e9, 1e9, 1e9, 0.5, 0.5, -0.5, 0.5]), np.zeros((21, 3))),
+        (np.full(7, 1e9), np.ones((21, 3))),
+        (np.full(7, -1e9), np.zeros((21, 3))),
+    ],
+)
+def test_malformed_or_inconsistent_sentinels_fail(modules, pose, kp):
+    _, readiness = modules
+    with pytest.raises(ValueError, match="sentinel"):
+        readiness.check_hand_pose(kp, pose)
+
+
+def test_existing_v1_canonical_view_is_not_silently_reused(
+    modules, raw_episode, tmp_path
+):
+    canonical, _ = modules
+    raw = raw_episode("pre_fix")
+    view = tmp_path / "canonical_zarr"
+    canonical.canonicalize_episode(raw, view, 60)
+    path = view / raw.name / "zarr.json"
+    meta = json.loads(path.read_text())
+    meta["attributes"]["moving_opscale_canonicalization"]["version"] = (
+        "left-wrist-local-rz180-v1"
+    )
+    path.write_text(json.dumps(meta))
+    with pytest.raises(ValueError, match="source provenance differs"):
+        canonical.canonicalize_episode(raw, view, 60)

@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlparse
 
-from canonicalize import canonicalize_episode, classify
+from canonicalize import canonicalize_episode, classify, missing_hand_rows
 from launch_pace import BUDGETS, OPERATORS, digest, now, read_json, write_json
 
 ARRAYS = (
@@ -214,6 +214,30 @@ def chunk_keys(meta):
         yield separator.join(parts)
 
 
+def check_hand_pose(keypoints, pose):
+    import numpy as np
+
+    from egomimic.scripts.mecka_process.mecka_to_zarr import compute_hand_pose_xyzquat
+
+    require(
+        np.isfinite(keypoints).all() and np.isfinite(pose).all(),
+        "Nonfinite keypoints/wrist",
+    )
+    if missing_hand_rows(
+        np.asarray(keypoints).reshape(1, 63), np.asarray(pose).reshape(1, 7)
+    )[0]:
+        return True
+    _, reconstructed = compute_hand_pose_xyzquat(keypoints, 0)
+    require(
+        np.allclose(pose[:3], reconstructed[:3], atol=1e-5),
+        "Wrist position convention differs",
+    )
+    require(
+        abs(float(np.linalg.norm(pose[3:])) - 1) <= 1e-4, "Non-unit wrist quaternion"
+    )
+    return False
+
+
 def inspect_episode(item):
     eid, expected, stage, inventory = item
     path = stage / f"{eid}.zarr"
@@ -265,10 +289,6 @@ def inspect_episode(item):
         import numpy as np
         import zarr
 
-        from egomimic.scripts.mecka_process.mecka_to_zarr import (
-            compute_hand_pose_xyzquat,
-        )
-
         arrays = zarr.open_group(str(path), mode="r")
         probes = sorted({0, frames // 2, frames - 1})
         for index in probes:
@@ -283,21 +303,7 @@ def inspect_episode(item):
             for side in ("left", "right"):
                 kp = np.asarray(arrays[f"{side}.obs_keypoints"][index]).reshape(21, 3)
                 actual = np.asarray(arrays[f"{side}.obs_wrist_pose"][index])
-                require(
-                    np.isfinite(kp).all() and np.isfinite(actual).all(),
-                    "Nonfinite keypoints/wrist",
-                )
-                # The converter preserves zero-hand frames; their identity pose
-                # is valid. The established orientation classifier skips these.
-                _, reconstructed = compute_hand_pose_xyzquat(kp, 0)
-                require(
-                    np.allclose(actual[:3], reconstructed[:3], atol=1e-5),
-                    "Wrist position convention differs",
-                )
-                require(
-                    abs(float(np.linalg.norm(actual[3:])) - 1) <= 1e-4,
-                    "Non-unit wrist quaternion",
-                )
+                check_hand_pose(kp, actual)
         # Zarr's variable-length-byte scalar indexing returns a wrapper. The
         # slice-then-index path is also the dataset loader's JPEG read path.
         annotations = bytes(arrays["annotations"][0:1][0])

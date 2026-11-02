@@ -11,8 +11,11 @@ def proof(tmp_path, monkeypatch):
     source = (
         Path(__file__).resolve().parents[2] / "experiments/fold_clothes_moving_opscale"
     )
+    if not (source / "launch_pace.py").is_file():
+        source = Path(__file__).resolve().parent
     monkeypatch.syspath_prepend(str(source))
     launch = importlib.import_module("launch_pace")
+    correction = importlib.import_module("canonicalize")
     root = tmp_path / "private"
     for folder in ("inputs", "recovery2", "canonical_zarr", "splits"):
         (root / folder).mkdir(parents=True)
@@ -27,6 +30,7 @@ def proof(tmp_path, monkeypatch):
             "episode_id": eid,
             "total_frames": count,
             "moving_opscale_canonicalization": {
+                "version": correction.VERSION,
                 "source_convention": convention,
                 "target_convention": "post_fix",
                 "frames": count,
@@ -139,3 +143,21 @@ def test_norm_cache_is_bound_to_canonical_index(proof):
     launch.write_json(norm / "norm_complete.json", report)
     with pytest.raises(RuntimeError, match="Normalization provenance mismatch"):
         launch.verified_norm(root, 24, 4, "a" * 40, "design", entry)
+
+
+@pytest.mark.parametrize(
+    "version", [None, "left-wrist-local-rz180-v1", "unreviewed-future-version"]
+)
+def test_stale_missing_or_unreviewed_correction_version_cannot_pass(proof, version):
+    launch, root, ready, index = proof
+    provenance = index["original"]["moving_opscale_canonicalization"]
+    if version is None:
+        provenance.pop("version")
+    else:
+        provenance["version"] = version
+    launch.write_json(root / "canonical_zarr/_episode_index.json", index)
+    ready["canonical_index_sha256"] = launch.digest(
+        root / "canonical_zarr/_episode_index.json"
+    )
+    with pytest.raises(RuntimeError, match="correction version is stale or missing"):
+        launch.validate_data_proof(root, ready)

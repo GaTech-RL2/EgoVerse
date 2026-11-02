@@ -16,7 +16,7 @@ from pathlib import Path
 
 from launch_pace import digest, read_json, write_json
 
-VERSION = "left-wrist-local-rz180-v1"
+VERSION = "left-wrist-local-rz180-v2"
 LEFT = "left.obs_wrist_pose"
 POSE_KEYS = ("left.obs_keypoints", LEFT, "right.obs_keypoints", "right.obs_wrist_pose")
 
@@ -55,6 +55,32 @@ def classify(group, frames):
 
     sample = sample_poses(group, frames)
     return left_wrist_convention(sample, frames=len(sample[LEFT]), tol_deg=10.0)
+
+
+def missing_hand_rows(keypoints, poses):
+    """Recognize only the established zero-KP/full-positive-1e9 sentinel.
+
+    pose_utils propagates values >=1e8 as invalid, but compatibility must not
+    turn arbitrary large or malformed poses into valid missing observations.
+    Padded zero poses and the current converter's identity fallback are not
+    this legacy sentinel and continue through their existing checks.
+    """
+    import numpy as np
+
+    poses = np.asarray(poses)
+    keypoints = np.asarray(keypoints).reshape(len(poses), -1)
+    large = (np.abs(poses) >= 1e8).any(axis=-1)
+    sentinel = (poses == 1e9).all(axis=-1)
+    zero_keypoints = (keypoints == 0).all(axis=-1)
+    require(
+        not (large & ~sentinel).any(),
+        "Malformed large wrist pose is not a missing-hand sentinel",
+    )
+    require(
+        not (sentinel & ~zero_keypoints).any(),
+        "Missing-hand sentinel has nonzero keypoints",
+    )
+    return sentinel
 
 
 def canonicalize_episode(raw, canonical_root, frames, convention=None):
@@ -161,14 +187,29 @@ def canonicalize_episode(raw, canonical_root, frames, convention=None):
         if observed == "pre_fix":
             array = zarr.open_array(str(temporary / LEFT), mode="r+")
             poses = np.asarray(array[:])
-            corrected = RotateLocalFrame(keys=[LEFT]).transform({LEFT: poses})[LEFT]
+            missing = missing_hand_rows(group["left.obs_keypoints"][:], poses)
+            corrected = poses.copy()
+            corrected[~missing] = RotateLocalFrame(keys=[LEFT]).transform(
+                {LEFT: poses[~missing]}
+            )[LEFT]
+            require(
+                np.array_equal(corrected[missing], poses[missing]),
+                "Missing-hand sentinel changed",
+            )
             require(np.isfinite(corrected).all(), "Nonfinite canonical wrist poses")
             require(
                 np.array_equal(poses[:, :3], corrected[:, :3]),
                 "Wrist correction moved positions",
             )
             array[:] = corrected.astype(poses.dtype)
-        record = dict(source, output_left_sha256=tree_digest(temporary / LEFT))
+        record = dict(
+            source,
+            output_left_sha256=tree_digest(temporary / LEFT),
+            missing_hand_sentinel_rows=int(
+                missing_hand_rows(group["left.obs_keypoints"][:], group[LEFT][:]).sum()
+            ),
+            missing_hand_policy="zero-keypoints+full-positive-1e9-preserved",
+        )
         root_meta["attributes"]["moving_opscale_canonicalization"] = record
         write_json(temporary / "zarr.json", root_meta)
         record = verify(temporary)
