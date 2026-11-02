@@ -41,7 +41,7 @@ def test_install_requires_reviewed_digest_and_preserves_runtime_files():
         )
 
 
-def test_install_refuses_enabled_agents_active_claims_or_production_scope():
+def test_install_refuses_enabled_agents_active_claims_or_incomplete_production_scope():
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         ops = root / "operations"
@@ -58,7 +58,7 @@ def test_install_refuses_enabled_agents_active_claims_or_production_scope():
             install.require_quiescent(root)
         (ops / "recovery_state.json").unlink()
         (root / "production_control.json").write_text('{"allow_training": true}')
-        with pytest.raises(RuntimeError, match="preflight-only"):
+        with pytest.raises(RuntimeError, match="production control"):
             install.require_quiescent(root)
 
 

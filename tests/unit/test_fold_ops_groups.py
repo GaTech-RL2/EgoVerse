@@ -168,8 +168,12 @@ class Groups(unittest.TestCase):
 
 class LeaseRenewal(unittest.TestCase):
     def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        d.write(self.root / "production_control.json", {"allow_training": False})
         self.record = {
-            "run_root": "/tmp/synthetic",
+            "run_root": str(self.root),
             "incident_id": "incident",
             "owner": "owner",
             "deadline": 4000,
@@ -194,6 +198,21 @@ class LeaseRenewal(unittest.TestCase):
                 for x in call.call_args_list
             )
         )
+
+    def test_scope_change_during_timeout_stops_before_another_renewal(self):
+        def timeout(*args, **kwargs):
+            d.write(self.root / "production_control.json", {"allow_training": True})
+            raise subprocess.TimeoutExpired(["controller"], 45)
+
+        with (
+            patch.object(d.time, "time", return_value=100),
+            patch.object(d.time, "sleep"),
+            patch.object(d, "controller", side_effect=timeout) as call,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "production control"):
+                d.renew_lease(self.record)
+        self.assertEqual(call.call_count, 1)
+        self.assertEqual(self.record["lease_expires_at"], 1900)
 
     def test_explicit_rejection_is_never_retried(self):
         with (

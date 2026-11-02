@@ -615,14 +615,93 @@ out.write_text(json.dumps(result))
             with self.assertRaises(ValueError):
                 d.candidate_location(pinned, root, invalid)
 
-    def test_preflight_policy_cannot_be_missing_or_allow_production(self):
-        d.preflight_guard(self.root)
+    def test_scope_policy_cannot_be_missing_or_implicitly_allow_production(self):
+        d.scope_guard(self.record)
         d.write(self.root / "production_control.json", {"allow_training": True})
         with self.assertRaises(RuntimeError):
-            d.preflight_guard(self.root)
+            d.scope_guard(self.record)
         (self.root / "production_control.json").unlink()
         with self.assertRaises(RuntimeError):
-            d.preflight_guard(self.root)
+            d.scope_guard(self.record)
+
+    def production_control(self):
+        control = {
+            "schema_version": 1,
+            "allow_training": True,
+            "scope": "production",
+            "user_instruction": "Launch the existing 36 runs and monitor them.",
+        }
+        d.write(self.root / "production_control.json", control)
+        return control
+
+    def test_production_agent_receives_current_authorization_and_pinned_source(self):
+        self.production_control()
+        self.fake_executable()
+        with patch.object(d, "controller", return_value={}):
+            result = d.run_phase(self.record, "repair")
+        self.assertEqual(result["outcome"], "fixed")
+        prompt = (self.folder / "repair.prompt.md").read_text()
+        self.assertIn("CURRENT AUTHORIZED SCOPE: production", prompt)
+        self.assertIn("existing pipeline owns initial production submission", prompt)
+        self.assertIn(self.record["commit"], prompt)
+        self.assertTrue(self.record["authorization_scope"]["allow_training"])
+
+    def test_scope_change_between_review_and_apply_never_starts_another_agent(self):
+        d.scope_guard(self.record)
+        self.production_control()
+        with patch.object(d.subprocess, "Popen") as launch:
+            with self.assertRaisesRegex(RuntimeError, "authorization changed"):
+                d.run_phase(self.record, "apply")
+        launch.assert_not_called()
+
+    def test_revocation_stops_running_agent_without_waiting_for_lease_expiry(self):
+        self.production_control()
+        self.fake_executable(hang=True)
+        renewals = 0
+
+        def renew(*args, **kwargs):
+            nonlocal renewals
+            renewals += 1
+            if renewals == 2:
+                d.write(
+                    self.root / "production_control.json", {"allow_training": False}
+                )
+            return {}
+
+        with patch.object(d, "controller", side_effect=renew):
+            with self.assertRaisesRegex(RuntimeError, "authorization changed"):
+                d.run_phase(self.record, "repair")
+        saved = d.read(self.folder / "attempt.json")["child"]
+        self.assertFalse(d.alive(saved))
+        self.assertEqual(renewals, 2)
+
+    def test_revocation_during_initial_renewal_never_starts_agent(self):
+        self.production_control()
+        self.fake_executable()
+
+        def revoke(*args, **kwargs):
+            d.write(self.root / "production_control.json", {"allow_training": False})
+            return {}
+
+        with (
+            patch.object(d, "controller", side_effect=revoke),
+            patch.object(d.subprocess, "Popen") as launch,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "authorization changed"):
+                d.run_phase(self.record, "repair")
+        launch.assert_not_called()
+
+    def test_invalid_control_does_not_claim_or_launch(self):
+        d.write(self.root / "production_control.json", {"allow_training": True})
+        args = SimpleNamespace(run_root=self.root)
+        with (
+            patch.object(d, "controller") as claim,
+            patch.object(d.subprocess, "Popen") as launch,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Invalid production control"):
+                d.start_attempt(args, "abc", self.incident, 123)
+        claim.assert_not_called()
+        launch.assert_not_called()
 
     def test_disabled_dispatcher_makes_no_controller_or_model_calls(self):
         args = SimpleNamespace(

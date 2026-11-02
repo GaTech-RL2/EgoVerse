@@ -21,16 +21,20 @@ from contextlib import contextmanager
 from pathlib import Path
 
 if __package__:
+    from .authorization_scope import read_scope
     from .supervise import heartbeat_age, load, process_state, save, utc
 else:
+    from authorization_scope import read_scope
     from supervise import heartbeat_age, load, process_state, save, utc
 
 COOLDOWN = 1800
 MAX_ATTEMPTS = 3
 POLICY = {
     "schema_version": 1,
-    "scope": "preflight_only",
-    "allow_production_training": False,
+    "scope_source": "run_root/production_control.json",
+    "default_scope": "preflight_only",
+    "initial_production_submission": "existing_pipeline_with_all_gates",
+    "production_source_migration": "blocked",
     "allowed_automatic": [
         "inspect_logs_and_artifacts",
         "repair_operations_wrappers_with_tests",
@@ -65,6 +69,16 @@ POLICY = {
     "max_parallel_repair_agents": 1,
     "automatic_local_restart_default": False,
 }
+
+
+def recovery_policy(root):
+    authorization = read_scope(root)
+    return {
+        **POLICY,
+        "scope": authorization["scope"],
+        "allow_production_training": authorization["allow_training"],
+        "authorization_scope": authorization,
+    }
 
 
 def require(condition, message):
@@ -645,7 +659,15 @@ def reconcile(root, apply=False):
         alerts = group_action_alerts(alerts, load(root / "pipeline.json", {}))
         for kind, identity in reconcile_incidents(state, alerts, now):
             event(operations, kind, incident_id=identity)
-        local = inspect_local(config, operations, state, now, apply)
+        policy = recovery_policy(root)
+        save(operations / "recovery_policy.json", policy)
+        local = inspect_local(
+            config,
+            operations,
+            state,
+            now,
+            apply and policy["authorization_scope"]["valid"],
+        )
         state.update(
             updated_at=utc(),
             heartbeat_epoch=now,
@@ -698,7 +720,7 @@ def initialize(args):
             "Recovery configuration already exists with different identity",
         )
         save(operations / "recovery_config.json", config)
-        save(operations / "recovery_policy.json", POLICY)
+        save(operations / "recovery_policy.json", recovery_policy(root))
         if not (operations / "recovery_state.json").exists():
             save(operations / "recovery_state.json", empty_state())
     return {"initialized": True, "automatic_restart_enabled": False}

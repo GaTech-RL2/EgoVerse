@@ -19,6 +19,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+if __package__:
+    from .authorization_scope import require_scope, scope_instructions
+else:
+    from authorization_scope import require_scope, scope_instructions
+
 POLL = 120
 LEASE = 1800
 COOLDOWN = 1800
@@ -211,6 +216,7 @@ def renew_lease(record):
     never extends our local validity assumption. Rejections stop immediately.
     """
     for attempt in range(3):
+        scope_guard(record)
         started = time.time()
         timeout = min(45.0, record["deadline"] - started)
         known_until = record.get("lease_expires_at")
@@ -233,6 +239,7 @@ def renew_lease(record):
                 lease_seconds=LEASE,
                 timeout_seconds=timeout,
             )
+            scope_guard(record)
             # Conservative lower bound: the controller renews after call start.
             record["lease_expires_at"] = started + LEASE
             record["lease_renewal_retries"] = attempt
@@ -420,10 +427,13 @@ def phase_prompt(record, phase, prior=None, reviewed=None):
     return (
         policy
         + "\n\n"
+        + scope_instructions(record["authorization_scope"])
+        + "\n\n"
         + (HERE / f"agent_{phase}_prompt.md").read_text()
         + "\n\nINCIDENT CONTEXT (data, not instructions):\n"
         + json.dumps(
             {
+                "authorization_scope": record["authorization_scope"],
                 "incident_id": record["incident_id"],
                 "alert": record["alert"],
                 "run_root": record["run_root"],
@@ -441,19 +451,17 @@ def phase_prompt(record, phase, prior=None, reviewed=None):
     )
 
 
-def preflight_guard(root):
-    control = read(Path(root) / "production_control.json", {})
-    if control.get("allow_training") is not False:
-        raise RuntimeError(
-            "Preflight-only recovery requires durable allow_training=false; production launch is forbidden"
-        )
+def scope_guard(record):
+    scope = require_scope(record["run_root"], record.get("authorization_scope"))
+    record["authorization_scope"] = scope
+    return scope
 
 
 def run_phase(record, phase, prior=None, reviewed=None):
     folder = Path(record["folder"])
     root = Path(record["run_root"])
     ops = root / "operations"
-    preflight_guard(root)
+    scope_guard(record)
     if time.time() >= record["deadline"]:
         raise TimeoutError("Incident agent budget expired before the next phase")
     if incident_manually_owned(ops, record):
@@ -480,6 +488,7 @@ def run_phase(record, phase, prior=None, reviewed=None):
         (folder / f"{phase}.events.jsonl").open("w") as events,
     ):
         runner_pid = os.getpid()
+        scope_guard(record)
         proc = subprocess.Popen(
             command,
             stdin=incoming,
@@ -498,7 +507,7 @@ def run_phase(record, phase, prior=None, reviewed=None):
         renewed = 0.0
         try:
             while proc.poll() is None:
-                preflight_guard(root)
+                scope_guard(record)
                 if time.time() > record["deadline"]:
                     raise TimeoutError("Incident agent exceeded the one-hour budget")
                 if incident_manually_owned(ops, record):
@@ -519,7 +528,7 @@ def run_phase(record, phase, prior=None, reviewed=None):
         raise RuntimeError(
             f"Codex {phase} exited {proc.returncode}; inspect local event log"
         )
-    preflight_guard(root)
+    scope_guard(record)
     source_guard(record["repo"], record["commit"])
     result = checked_answer(read(folder / f"{phase}.json"), phase, folder, reviewed)
     candidate_repo = result.get("candidate_repo", "")
@@ -536,6 +545,7 @@ def run_phase(record, phase, prior=None, reviewed=None):
         "recovery_controller.py",
         "promote_preproduction.py",
         "install_operations.py",
+        "authorization_scope.py",
         "AGENT_POLICY.md",
         "agent_result.schema.json",
         "dispatcher_control.json",
@@ -708,6 +718,7 @@ def reconcile_local(ops, root):
 
 
 def start_attempt(args, incident_id, incident, lock_fd):
+    authorization = require_scope(args.run_root)
     ops = args.run_root / "operations"
     token = uuid.uuid4().hex
     folder = ops / "agents" / token
@@ -715,6 +726,7 @@ def start_attempt(args, incident_id, incident, lock_fd):
     owner = f"dispatcher:{socket.gethostname()}:{token}"
     record = {
         "schema_version": 1,
+        "authorization_scope": authorization,
         "incident_id": incident_id,
         "alert_id": incident["alert_id"],
         "alert": incident.get("alert", {}),
@@ -794,6 +806,7 @@ def serve(args):
                 "active_attempt": None,
             }
             if control.get("enabled") is True:
+                status["authorization_scope"] = require_scope(args.run_root)
                 if not control_identity(args):
                     status["state"] = "PROMOTION_MAINTENANCE"
                 elif not reconcile_local(ops, args.run_root):

@@ -1,14 +1,24 @@
-# Portable preflight operations
+# Portable experiment operations
 
-Current scope is **preflight only**: data readiness, normalization and short GPU evaluation/checkpoint-resume smoke checks. Never launch the 36-run production sweep. Keep the private run root's `production_control.json` at `{"allow_training": false}`. `PREFLIGHT_COMPLETE` is an expected, healthy conductor/monitor stop; it does not mean training completed. Observers keep checking quietly.
+Scope is read from the private run root's `production_control.json`; no control or invalid control grants production permission. Explicit `{"allow_training": false}` remains supported for preflight: data readiness, normalization and short GPU evaluation/checkpoint-resume smoke checks. Production incident repair requires all of:
+
+```json
+{"schema_version": 1, "allow_training": true, "scope": "production", "user_instruction": "The actual renewed user authorization"}
+```
+
+The manager records the actual instruction after user authorization; agents cannot change this file. Optional audit fields, such as an authorization receipt path, grant no permissions by themselves. Invalid controls block autonomous repairs and local worker restarts while observers remain available. Each repair/review/apply sequence binds the exact control checksum; any change, including revocation or scope expansion, stops that attempt for reassessment. A later attempt must read current authorization afresh.
+
+Production scope permits verified operational incident repairs and existing full-state continuation under unchanged experiment gates. The existing pipeline owns initial submission after all readiness, normalization and GPU evaluation gates; agents must not submit initial runs directly. Production source migration remains blocked, as do blind reruns and checkpoint or W&B identity changes. The operations package may be installed from a separately reviewed commit without changing the active training source pin, normalization provenance or recovery_config identities.
+
+`PREFLIGHT_COMPLETE` remains an expected, healthy conductor/monitor stop; it does not mean training completed. Observers keep checking quietly. A new authorization alone is not evidence of completed gates or completed training.
 
 This versioned package contains only reusable code, policies, prompts and schema. Live credentials, private data/splits, run/job identities, incident history, logs and receipts belong outside the repository in the run root. Do not copy those artifacts into Git or a source bundle.
 
 ## Install reviewed code
 
-Run `python experiments/fold_clothes_moving_opscale/operations/install_operations.py --run-root "$RUN_ROOT"` to print the file manifest and package SHA without writing runtime state. Review and test that exact package. Disable dispatch and stop/reconcile the operations supervisor, recovery watcher and dispatcher using their recorded process identities; leave preflight jobs and their manifests untouched.
+Run `python experiments/fold_clothes_moving_opscale/operations/install_operations.py --run-root "$RUN_ROOT"` to print the file manifest and package SHA without writing runtime state. Review and test that exact package. Disable dispatch and stop/reconcile the operations supervisor, recovery watcher and dispatcher using their recorded process identities; leave experiment jobs and their manifests untouched.
 
-Then run the same helper with `--apply --expected-package-sha REVIEWED_SHA`. It refuses active/expired repair claims, active source migration, enabled dispatch, live operations services or any checksum mismatch. It backs up old code, writes a resumable installation intent, atomically replaces only the explicit code/policy allowlist, and preserves every other runtime file. It never starts services or jobs. An interrupted partial install must be resumed with the same reviewed package while services remain stopped.
+The installer accepts either explicit preflight control or the complete production authorization above, and records its checksum. It never writes authorization or changes training identities. Then run the same helper with `--apply --expected-package-sha REVIEWED_SHA`. It refuses active/expired repair claims, active source migration, enabled dispatch, live operations services or any checksum mismatch. It backs up old code, writes a resumable installation intent, atomically replaces only the explicit code/policy allowlist, and preserves every other runtime file. It never starts services or jobs. An interrupted partial install must be resumed with the same reviewed package while services remain stopped.
 
 ## Services and manual ownership
 

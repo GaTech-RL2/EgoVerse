@@ -16,9 +16,15 @@ import time
 from contextlib import ExitStack
 from pathlib import Path
 
+if __package__:
+    from .authorization_scope import read_scope, require_scope
+else:
+    from authorization_scope import read_scope, require_scope
+
 HERE = Path(__file__).resolve().parent
 FILES = (
     "__init__.py",
+    "authorization_scope.py",
     "agent_dispatcher.py",
     "recovery_controller.py",
     "supervise.py",
@@ -65,8 +71,7 @@ def inventory(source=HERE):
 
 def require_quiescent(root):
     ops = root / "operations"
-    if read(root / "production_control.json", {}).get("allow_training") is not False:
-        raise RuntimeError("Installation requires durable preflight-only control")
+    authorization = require_scope(root)
     if read(ops / "dispatcher_control.json", {}).get("enabled") is True:
         raise RuntimeError("Disable dispatch before installing operations code")
     if read(ops / "promotion_maintenance.json", {}).get("active"):
@@ -107,6 +112,8 @@ def require_quiescent(root):
                 "Stop or reconcile the recorded supervisor before installation"
             )
 
+    return authorization
+
 
 def install(root, expected, source=HERE):
     root = root.resolve()
@@ -126,7 +133,7 @@ def install(root, expected, source=HERE):
         ):
             lock = stack.enter_context((ops / name).open("a+"))
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        require_quiescent(root)
+        authorization = require_quiescent(root)
         intent_path = ops / "operations_install.json"
         previous = read(intent_path, {})
         if (
@@ -136,7 +143,12 @@ def install(root, expected, source=HERE):
             raise RuntimeError(
                 "A different interrupted install requires reconciliation"
             )
-        receipt = {"state": "INSTALLING", **package, "started_at": time.time()}
+        receipt = {
+            "state": "INSTALLING",
+            **package,
+            "started_at": time.time(),
+            "authorization_scope": authorization,
+        }
         save(intent_path, receipt)
         backup = ops / "code_history" / expected
         backup.mkdir(parents=True, exist_ok=True)
@@ -152,6 +164,7 @@ def install(root, expected, source=HERE):
             if file_hash(temp) != checksum:
                 raise RuntimeError("Source package changed during installation")
             temp.replace(target)
+        require_scope(root, authorization)
         receipt.update(state="INSTALLED", finished_at=time.time())
         save(intent_path, receipt)
         return receipt
@@ -173,6 +186,7 @@ def main():
                 {
                     "state": "PLAN_ONLY",
                     "run_root": str(args.run_root.resolve()),
+                    "authorization_scope": read_scope(args.run_root),
                     **inventory(),
                 },
                 indent=2,
