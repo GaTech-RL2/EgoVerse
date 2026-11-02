@@ -51,13 +51,26 @@ def write(path, data):
 def context(args):
     root = args.private_dir.resolve()
     runs = args.run_root.resolve()
+    repo = training_repository(args)
+    training_repo = getattr(args, "training_repo", None)
+    controller_commit = getattr(args, "controller_commit", None)
+    need(
+        bool(training_repo) == bool(controller_commit),
+        "Both training repository and controller commit are required",
+    )
+    if training_repo:
+        from launch_pace import configure_training_source
+
+        args.operational_controller = configure_training_source(
+            repo, controller_commit, args.commit
+        )
     commit = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=REPO, text=True
+        ["git", "rev-parse", "HEAD"], cwd=repo, text=True
     ).strip()
     need(len(args.commit) == 40 and commit == args.commit, "Preflight commit mismatch")
     need(
         not subprocess.check_output(
-            ["git", "status", "--porcelain"], cwd=REPO, text=True
+            ["git", "status", "--porcelain"], cwd=repo, text=True
         ).strip(),
         "Preflight requires the clean recorded source commit",
     )
@@ -71,16 +84,22 @@ def context(args):
 
     validate_data_proof(root, ready)
     os.environ["EGOVERSE_MECKA_PRIVATE_DIR"] = str(root)
-    os.environ["EGOVERSE_ROOT"] = str(REPO)
+    os.environ["EGOVERSE_ROOT"] = str(repo)
     os.environ["PYTHONPATH"] = os.pathsep.join(
-        [str(REPO), str(runs / "python-deps"), os.environ.get("PYTHONPATH", "")]
+        [str(repo), str(runs / "python-deps"), os.environ.get("PYTHONPATH", "")]
     )
-    sys.path[:0] = [str(REPO), str(runs / "python-deps")]
+    sys.path[:0] = [str(repo), str(runs / "python-deps")]
     return root, runs, commit, design_hash
+
+
+def training_repository(args):
+    return Path(getattr(args, "training_repo", None) or REPO).resolve()
 
 
 def norm(args):
     root, runs, commit, design_hash = context(args)
+    repo = training_repository(args)
+    here = repo / "experiments/fold_clothes_moving_opscale"
     need(
         args.budget in [24, 32, 48, 64, 72, 96]
         and args.operators in [4, 8, 16, 32, 64, 128],
@@ -96,7 +115,7 @@ def norm(args):
         "operator_count": args.operators,
         "canonical_index_sha256": sha(root / "canonical_zarr/_episode_index.json"),
         "config_sha256": sha(
-            HERE / f"budget_{args.budget}" / f"op_{args.operators}.yaml"
+            here / f"budget_{args.budget}" / f"op_{args.operators}.yaml"
         ),
         "split_sha256": sha(
             root / "splits" / f"fold_moving_b{args.budget}_op{args.operators}.json"
@@ -123,11 +142,11 @@ def norm(args):
     if not OmegaConf.has_resolver("eval"):
         OmegaConf.register_new_resolver("eval", eval)
     sys.argv = [
-        str(REPO / "egomimic/scripts/precompute_norm_stats.py"),
+        str(repo / "egomimic/scripts/precompute_norm_stats.py"),
         "--config-name",
         f"op_{args.operators}",
         "--config-dir",
-        str(HERE / f"budget_{args.budget}"),
+        str(here / f"budget_{args.budget}"),
         "--data",
         "mecka_fold_moving_budget",
         "--model",
@@ -140,12 +159,12 @@ def norm(args):
         "4",
         "--out",
         str(output),
-        f'hydra.searchpath=[file://{REPO / "egomimic/hydra_configs"}]',
+        f"hydra.searchpath=[file://{repo / 'egomimic/hydra_configs'}]",
         "seed=42026",
     ]
     try:
         runpy.run_path(
-            str(REPO / "egomimic/scripts/precompute_norm_stats.py"), run_name="__main__"
+            str(repo / "egomimic/scripts/precompute_norm_stats.py"), run_name="__main__"
         )
         need(
             stats.is_file() and stats.stat().st_size > 0,
@@ -193,14 +212,66 @@ def inspect_checkpoint(path):
     return result
 
 
+def wandb_video_path(record, key):
+    """Accept one legacy video or Lightning's one-element W&B video group."""
+    need(isinstance(record, dict), f"W&B missing video: {key}")
+    if "videos" in record or record.get("_type") == "videos":
+        videos = record.get("videos")
+        need(
+            record.get("_type") == "videos"
+            and type(record.get("count")) is int
+            and record["count"] == 1
+            and isinstance(videos, list)
+            and len(videos) == 1
+            and "path" not in record,
+            f"W&B expected exactly one grouped video: {key}",
+        )
+        record = videos[0]
+    need(
+        isinstance(record, dict)
+        and record.get("_type") in (None, "video-file")
+        and "videos" not in record,
+        f"W&B invalid video record: {key}",
+    )
+    path = record.get("path")
+    need(
+        isinstance(path, str)
+        and path.strip() == path
+        and bool(path)
+        and not path.startswith("/")
+        and ".." not in path.split("/")
+        and "\\" not in path,
+        f"W&B missing or invalid video path: {key}",
+    )
+    return path
+
+
+def expected_wandb_video_keys(status):
+    videos = status.get("videos") if isinstance(status, dict) else None
+    need(isinstance(videos, list) and videos, "Expected W&B videos must be nonempty")
+    keys = []
+    for video in videos:
+        key = video.get("wandb_key") if isinstance(video, dict) else None
+        need(
+            isinstance(key, str) and bool(key) and key.strip() == key,
+            "Expected W&B video key is missing or invalid",
+        )
+        keys.append(key)
+    need(len(set(keys)) == len(keys), "Expected W&B video keys must be unique")
+    return keys
+
+
 def verify_wandb(run_id, status, expected_step):
     import wandb
 
+    video_keys = expected_wandb_video_keys(status)
     api = wandb.Api(timeout=45)
     deadline = time.monotonic() + 1200
     last_error = ""
     while time.monotonic() < deadline:
         try:
+            # Api.run caches Run/summary objects; each retry needs fresh backend data.
+            api.flush()
             run = api.run(f"rl2-group/egoverse/{run_id}")
             summary = dict(run.summary._json_dict)
             need(run.state == "finished", f"W&B run state is {run.state}")
@@ -230,15 +301,16 @@ def verify_wandb(run_id, status, expected_step):
                     values and all(math.isfinite(v) for v in values),
                     f"W&B missing finite metrics: {cohort}",
                 )
-            for video in status["videos"]:
-                record = summary.get(video["wandb_key"])
+            paths = [wandb_video_path(summary.get(key), key) for key in video_keys]
+            need(
+                len(set(paths)) == len(video_keys),
+                "W&B expected videos must reference distinct uploaded files",
+            )
+            for key, path in zip(video_keys, paths):
+                size = run.file(path).size
                 need(
-                    isinstance(record, dict) and record.get("path"),
-                    f'W&B missing video: {video["wandb_key"]}',
-                )
-                need(
-                    run.file(record["path"]).size > 0,
-                    f'W&B video not uploaded: {video["wandb_key"]}',
+                    type(size) is int and size > 0,
+                    f"W&B video not uploaded: {key}",
                 )
             return {
                 "run_id": run_id,
@@ -246,7 +318,7 @@ def verify_wandb(run_id, status, expected_step):
                 "state": run.state,
                 "finite_losses": losses,
                 "backend_step": summary["trainer/global_step"],
-                "verified_videos": len(status["videos"]),
+                "verified_videos": len(video_keys),
             }
         except Exception as error:
             last_error = f"{type(error).__name__}: {error}"
@@ -254,8 +326,139 @@ def verify_wandb(run_id, status, expected_step):
     raise RuntimeError(f"W&B smoke evidence did not become available: {last_error}")
 
 
+def reusable_first_phase(args, runs, commit, design_hash):
+    """Authenticate a stopped first phase; this never grants a smoke gate pass.
+
+    The caller must still inspect the checkpoint, verify exact local coverage,
+    and query the W&B backend before running the genuine resume phase.
+    """
+    path = getattr(args, "reuse_first_phase", None)
+    checksum = getattr(args, "reuse_first_phase_sha256", None)
+    need(bool(path) == bool(checksum), "Reuse receipt and checksum must be paired")
+    if not path:
+        return None
+    path = Path(path).resolve()
+    need(sha(path) == checksum, "First-phase reuse receipt changed")
+    receipt = json.loads(path.read_text())
+    need(
+        receipt.get("schema_version") == 1
+        and receipt.get("status") == "ready_for_reverification"
+        and receipt.get("commit") == commit
+        and receipt.get("design_sha256") == design_hash,
+        "First-phase reuse identity mismatch",
+    )
+    source_job = receipt.get("job_id", "")
+    need(
+        isinstance(source_job, str) and source_job.isdigit(), "Invalid prior smoke job"
+    )
+    expected_id = f"fold_moving_smoke_b24_op4_{commit[:10]}_{source_job}"
+    need(receipt.get("run_id") == expected_id, "First-phase W&B identity mismatch")
+    folder = Path(receipt["folder"]).resolve()
+    need(
+        folder.is_relative_to(runs / "smoke" / commit[:12]),
+        "First phase is outside this smoke root",
+    )
+    need(
+        not (folder / "epoch_2.log").exists(),
+        "Prior resume was already attempted; review it first",
+    )
+    files = receipt.get("files", {})
+    checkpoint_name = "0/checkpoints/epoch_epoch=0.ckpt"
+    required = {
+        "epoch_1.log",
+        "0/.hydra/config.yaml",
+        "0/.hydra/overrides.yaml",
+        "0/.hydra/hydra.yaml",
+        "0/git_sha.txt",
+        "0/git.diff",
+        "0/git_untracked.txt",
+        "0/evaluation_status.json",
+        checkpoint_name,
+    }
+    need(
+        isinstance(files, dict) and required <= files.keys(),
+        "First-phase artifact manifest is incomplete",
+    )
+    for name, expected in files.items():
+        artifact = (folder / name).resolve()
+        need(
+            artifact.is_relative_to(folder) and artifact.is_file(),
+            "Invalid first-phase artifact path",
+        )
+        need(sha(artifact) == expected, f"First-phase artifact changed: {name}")
+    need(
+        (folder / "0/git_sha.txt").read_text().strip() == commit,
+        "First-phase training source differs",
+    )
+    need(
+        not (folder / "0/git.diff").read_text().strip(), "First-phase source was dirty"
+    )
+    need(
+        not (folder / "0/git_untracked.txt").read_text().strip(),
+        "First-phase source had untracked files",
+    )
+    failure_path = Path(receipt["failed_report"])
+    need(
+        sha(failure_path) == receipt["failed_report_sha256"],
+        "Prior failure evidence changed",
+    )
+    failure = json.loads(failure_path.read_text())
+    need(
+        failure.get("status") == "failed"
+        and failure.get("commit") == commit
+        and failure.get("design_sha256") == design_hash
+        and failure.get("error", "").startswith(
+            "W&B smoke evidence did not become available: RuntimeError: W&B missing video:"
+        ),
+        "Prior failure is not the reviewed video verifier failure",
+    )
+    from omegaconf import OmegaConf
+
+    overrides = list(OmegaConf.load(folder / "0/.hydra/overrides.yaml"))
+    expected_overrides = [
+        "trainer.max_epochs=1",
+        "trainer.min_epochs=1",
+        "trainer.limit_train_batches=2",
+        "trainer.check_val_every_n_epoch=1",
+        "callbacks.model_checkpoint.every_n_epochs=1",
+        "callbacks.moving_opscale_evaluation.viz_every_n_epochs=1",
+        f"norm_stats.precomputed_norm_path={runs / 'norm/b24_op4/norm_stats'}",
+        f"logger.wandb.id={expected_id}",
+        "logger.wandb.group=fold_clothes_moving_opscale_smoke",
+        "++logger.wandb.resume=never",
+    ]
+    need(
+        overrides == expected_overrides,
+        "First-phase overrides differ from the required smoke recipe",
+    )
+    status = json.loads((folder / "0/evaluation_status.json").read_text())
+    need(
+        status.get("global_step") == 2 and status.get("epoch") == 0,
+        "First phase is not epoch one / step two",
+    )
+    need(len(status.get("videos", [])) == 13, "First-phase video evidence incomplete")
+    for video in status["videos"]:
+        artifact = Path(video["path"]).resolve()
+        need(artifact.is_relative_to(folder), "First-phase video is outside its folder")
+        need(
+            str(artifact.relative_to(folder)) in files and artifact.stat().st_size > 0,
+            "First-phase video was not authenticated",
+        )
+    return {
+        "folder": folder,
+        "run_id": expected_id,
+        "job_id": source_job,
+        "checkpoint": folder / checkpoint_name,
+        "receipt": str(path),
+        "receipt_sha256": checksum,
+        "checkpoint_sha256": files[checkpoint_name],
+    }
+
+
 def smoke(args):
     root, runs, commit, design_hash = context(args)
+    repo = training_repository(args)
+    here = repo / "experiments/fold_clothes_moving_opscale"
     need(os.environ.get("SLURM_JOB_ID"), "GPU smoke must run inside a Slurm allocation")
     import torch
 
@@ -265,8 +468,9 @@ def smoke(args):
     )
     gpu = torch.cuda.get_device_name(0)
     need("H100" in gpu or "H200" in gpu, f"Unexpected GPU: {gpu}")
+    reused = reusable_first_phase(args, runs, commit, design_hash)
     output = args.output or runs / "evaluation_smoke.json"
-    smoke_root = runs / "smoke" / commit[:12]
+    smoke_root = runs / "smoke" / commit[:12] / f"attempt_{os.environ['SLURM_JOB_ID']}"
     report = {
         "schema_version": 1,
         "status": "running",
@@ -276,7 +480,10 @@ def smoke(args):
         "started_at": now(),
         "checks": {},
         "runs": [],
+        "job_id": os.environ["SLURM_JOB_ID"],
     }
+    if getattr(args, "operational_controller", None):
+        report["operational_controller"] = args.operational_controller
     write(output, report)
     try:
         for operators in [4, 128]:
@@ -305,17 +512,19 @@ def smoke(args):
             )
             folder = smoke_root / cell
             run_id = (
-                f'fold_moving_smoke_{cell}_{commit[:10]}_{os.environ["SLURM_JOB_ID"]}'
+                f"fold_moving_smoke_{cell}_{commit[:10]}_{os.environ['SLURM_JOB_ID']}"
             )
+            if reused and operators == 4:
+                folder, run_id = reused["folder"], reused["run_id"]
             checkpoint = None
             first_step = None
             for epochs in [1, 2] if operators == 4 else [1]:
                 command = [
                     sys.executable,
                     "-u",
-                    str(REPO / "egomimic/trainHydra.py"),
+                    str(repo / "egomimic/trainHydra.py"),
                     "-m",
-                    f'--config-dir={HERE / "budget_24"}',
+                    f"--config-dir={here / 'budget_24'}",
                     f"--config-name=op_{operators}",
                     "hydra/launcher=basic",
                     f"hydra.sweep.dir={folder}",
@@ -326,7 +535,7 @@ def smoke(args):
                     "trainer.check_val_every_n_epoch=1",
                     "callbacks.model_checkpoint.every_n_epochs=1",
                     "callbacks.moving_opscale_evaluation.viz_every_n_epochs=1",
-                    f'norm_stats.precomputed_norm_path={Path(normalized["stats_path"]).parent}',
+                    f"norm_stats.precomputed_norm_path={Path(normalized['stats_path']).parent}",
                     f"logger.wandb.id={run_id}",
                     "logger.wandb.group=fold_clothes_moving_opscale_smoke",
                     "++logger.wandb.resume=allow"
@@ -336,15 +545,26 @@ def smoke(args):
                 if checkpoint:
                     command.append(f"ckpt_path={checkpoint}")
                 folder.mkdir(parents=True, exist_ok=True)
-                with (folder / f"epoch_{epochs}.log").open("w") as stream:
-                    result = subprocess.run(
-                        command, cwd=REPO, stdout=stream, stderr=subprocess.STDOUT
+                reuse_this_phase = bool(reused and operators == 4 and epochs == 1)
+                if not reuse_this_phase:
+                    log_path = folder / f"epoch_{epochs}.log"
+                    need(
+                        not log_path.exists(),
+                        "Smoke phase was already attempted; preserve its evidence",
                     )
-                need(
-                    result.returncode == 0,
-                    f"{cell} smoke epoch {epochs} failed; see {folder}",
+                    with log_path.open("x") as stream:
+                        result = subprocess.run(
+                            command, cwd=repo, stdout=stream, stderr=subprocess.STDOUT
+                        )
+                    need(
+                        result.returncode == 0,
+                        f"{cell} smoke epoch {epochs} failed; see {folder}",
+                    )
+                candidates = (
+                    [reused["checkpoint"]]
+                    if reuse_this_phase
+                    else list(folder.glob("**/last.ckpt"))
                 )
-                candidates = list(folder.glob("**/last.ckpt"))
                 need(len(candidates) == 1, f"Expected one last checkpoint for {cell}")
                 checkpoint = candidates[0]
                 saved = inspect_checkpoint(checkpoint)
@@ -369,6 +589,15 @@ def smoke(args):
                     saved["resumed_from_step"] = first_step
                     saved["restored_all_states"] = True
                 status = json.loads((folder / "0/evaluation_status.json").read_text())
+                metrics = list(status.get("metrics", {}).values())
+                need(
+                    metrics
+                    and all(
+                        type(value) in (int, float) and math.isfinite(value)
+                        for value in metrics
+                    ),
+                    "Smoke local metrics are missing or nonfinite",
+                )
                 split = json.loads(
                     (root / "splits" / f"fold_moving_{cell}.json").read_text()
                 )
@@ -399,6 +628,8 @@ def smoke(args):
                     "Evaluation and checkpoint steps disagree",
                 )
                 backend = verify_wandb(run_id, status, saved["step"])
+                if reuse_this_phase:
+                    saved["sha256"] = reused["checkpoint_sha256"]
                 report["runs"].append(
                     {
                         "operator_count": operators,
@@ -407,11 +638,33 @@ def smoke(args):
                         "backend": backend,
                         "coverage": status["coverage"],
                         "config_sha256": sha(
-                            HERE / "budget_24" / f"op_{operators}.yaml"
+                            here / "budget_24" / f"op_{operators}.yaml"
+                        ),
+                        "execution_job_id": reused["job_id"]
+                        if reuse_this_phase
+                        else os.environ["SLURM_JOB_ID"],
+                        "verification_job_id": os.environ["SLURM_JOB_ID"],
+                        "reused_phase_receipt": reused["receipt"]
+                        if reuse_this_phase
+                        else None,
+                        "reused_phase_receipt_sha256": reused["receipt_sha256"]
+                        if reuse_this_phase
+                        else None,
+                        "evaluation_status_sha256": sha(
+                            folder / "0/evaluation_status.json"
                         ),
                     }
                 )
                 write(output, report)
+                if reuse_this_phase:
+                    # Preserve the independently reverified first-phase proof before
+                    # the real epoch-two resume updates the live output directory.
+                    write(
+                        Path(reused["receipt"]).with_name(
+                            "first_phase_reverified.json"
+                        ),
+                        report["runs"][-1],
+                    )
         report.update(
             {
                 "status": "passed",
@@ -441,6 +694,10 @@ def main():
     parser.add_argument("--budget", type=int)
     parser.add_argument("--operators", type=int)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--training-repo", type=Path)
+    parser.add_argument("--controller-commit")
+    parser.add_argument("--reuse-first-phase", type=Path)
+    parser.add_argument("--reuse-first-phase-sha256")
     args = parser.parse_args()
     (norm if args.mode == "norm" else smoke)(args)
 

@@ -43,7 +43,12 @@ DATA_CHECKS = (
     "episode_index",
     "canonical_view",
 )
-REPO = Path(__file__).resolve().parents[2]
+CONTROLLER_REPO = Path(__file__).resolve().parents[2]
+REPO = CONTROLLER_REPO
+CONTROLLER_SCRIPTS = (
+    "experiments/fold_clothes_moving_opscale/launch_pace.py",
+    "experiments/fold_clothes_moving_opscale/run_preflight.py",
+)
 
 
 def now():
@@ -80,6 +85,81 @@ def command(args, **kwargs):
 def need(condition, message):
     if not condition:
         raise RuntimeError(message)
+
+
+def clean_source(repo, commit):
+    """Bind an executable source tree to one clean, full commit."""
+    need(
+        isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit),
+        "Full source commit required",
+    )
+    need(
+        command(["git", "-C", str(repo), "rev-parse", "HEAD"]) == commit,
+        "Source commit changed",
+    )
+    need(
+        not command(
+            ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=all"]
+        ),
+        "Source tree is dirty",
+    )
+
+
+def operational_source(training_repo, training_commit, controller_commit):
+    """Explicit dual-source identity; application code remains at training_repo."""
+    need(
+        training_repo is not None and controller_commit is not None,
+        "--training-repo and --controller-commit must be supplied together",
+    )
+    training_repo = Path(training_repo).resolve()
+    controller_repo = CONTROLLER_REPO.resolve()
+    clean_source(training_repo, training_commit)
+    clean_source(controller_repo, controller_commit)
+    return {
+        "schema_version": 1,
+        "repository": str(controller_repo),
+        "commit": controller_commit,
+        "training_repository": str(training_repo),
+        "training_commit": training_commit,
+        "scripts": {
+            name: digest(controller_repo / name) for name in CONTROLLER_SCRIPTS
+        },
+    }
+
+
+def configure_training_source(training_repo, controller_commit, training_commit):
+    """Select the training tree only after independently pinning both sources."""
+    identity = operational_source(training_repo, training_commit, controller_commit)
+    global REPO
+    REPO = Path(identity["training_repository"])
+    return identity
+
+
+def restore_registry_source(registry):
+    """Workers recover the reviewed controller/training binding from the registry."""
+    expected = registry.get("operational_controller")
+    if expected is None:
+        return None
+    need(
+        isinstance(expected, dict) and expected.get("schema_version") == 1,
+        "Invalid operational controller identity",
+    )
+    need(
+        expected.get("repository") == str(CONTROLLER_REPO.resolve()),
+        "Worker is not executing the recorded operational controller",
+    )
+    need(
+        expected.get("training_repository") == registry.get("repository")
+        and expected.get("training_commit") == registry.get("commit"),
+        "Registry training/controller source identities disagree",
+    )
+    actual = configure_training_source(
+        registry["repository"], expected.get("commit"), registry["commit"]
+    )
+    need(
+        actual == expected, "Operational controller source or script checksums changed"
+    )
+    return actual
 
 
 def production_enabled(root):
@@ -201,7 +281,8 @@ def validate_data_proof(private, ready, selected=None):
     return ready["canonical_index_sha256"]
 
 
-def validate_gate(gate_path, ready_path, repo=REPO, *, freshness=True):
+def validate_gate(gate_path, ready_path, repo=None, *, freshness=True):
+    repo = REPO if repo is None else Path(repo)
     gate, ready = read_json(gate_path), read_json(ready_path)
     for label, report, checks in [
         ("validation", gate, GATE_CHECKS),
@@ -279,6 +360,15 @@ def parser():
         help="Existing EgoVerse environment Python",
     )
     p.add_argument("--gpu", choices=("h100", "h200"), default="h200")
+    p.add_argument(
+        "--training-repo",
+        type=Path,
+        help="Explicit immutable application source; paired with --controller-commit",
+    )
+    p.add_argument(
+        "--controller-commit",
+        help="Full clean commit of this operational launcher checkout",
+    )
     p.add_argument("--submit", action="store_true")
     p.add_argument(
         "--cells",
@@ -377,6 +467,16 @@ def verify_backend_completion(run, output, step, commit, verifier=None):
 def submit(args):
     if args.submit:
         require_production_enabled(args.run_root)
+    controller = None
+    if (
+        getattr(args, "training_repo", None) is not None
+        or getattr(args, "controller_commit", None) is not None
+    ):
+        controller = configure_training_source(
+            args.training_repo,
+            args.controller_commit,
+            read_json(args.gate).get("commit"),
+        )
     gate, ready, indexed = validate_gate(args.gate, args.readiness)
     selected = sorted(MATRIX)
     if args.cells:
@@ -457,7 +557,14 @@ def submit(args):
                 "max_attempts": 3,
             },
             "runs": {},
+            **(
+                {"operational_controller": controller} if controller is not None else {}
+            ),
         }
+    )
+    need(
+        registry.get("operational_controller") == controller,
+        "Existing registry belongs to a different operational controller",
     )
     need(
         registry["commit"] == gate["commit"]
@@ -469,7 +576,7 @@ def submit(args):
         subprocess.Popen(
             [
                 str(python),
-                str(Path(__file__).with_name("monitor.py")),
+                str(REPO / "experiments/fold_clothes_moving_opscale/monitor.py"),
                 "--run-root",
                 str(root),
             ],
@@ -479,6 +586,8 @@ def submit(args):
             close_fds=True,
         )
     for budget, count in selected:
+        if controller is not None:
+            restore_registry_source(registry)
         cell = f"b{budget}_op{count}"
         if cell in registry["runs"]:
             print(f"{cell}: existing submission record; skipped", flush=True)
@@ -511,8 +620,12 @@ def submit(args):
             "#!/bin/bash\nset -euo pipefail\numask 077\n"
             + "export PYTHONDONTWRITEBYTECODE=1\n"
             + "export PYTHONPATH="
-            + shlex.quote(str(REPO))
-            + ':"${PYTHONPATH:-}"\n'
+            + (
+                shlex.quote(os.pathsep.join([str(REPO), str(root / "python-deps")]))
+                + "\n"
+                if controller is not None
+                else shlex.quote(str(REPO)) + ':"${PYTHONPATH:-}"\n'
+            )
             + "export EGOVERSE_ROOT="
             + shlex.quote(str(REPO))
             + "\n"
@@ -583,6 +696,10 @@ def submit(args):
 def execute(registry_path, cell):
     require_production_enabled(Path(registry_path).parent)
     registry = read_json(registry_path)
+    controller = restore_registry_source(registry)
+    controller_metadata = (
+        {"operational_controller": controller} if controller is not None else {}
+    )
     # The transfer proof is pinned by content, but may be older after time in queue.
     gate, _, _ = validate_gate(registry["gate"], registry["readiness"], freshness=False)
     need(
@@ -617,13 +734,15 @@ def execute(registry_path, cell):
             "started_at": now(),
             "job_id": os.environ.get("SLURM_JOB_ID"),
             "wandb_id": run["wandb_id"],
+            **controller_metadata,
         },
     )
     overlay = Path(registry["run_root"]) / "python-deps"
     env = dict(
         os.environ,
         PYTHONPATH=os.pathsep.join(
-            [str(REPO), str(overlay), os.environ.get("PYTHONPATH", "")]
+            [str(REPO), str(overlay)]
+            + ([] if controller is not None else [os.environ.get("PYTHONPATH", "")])
         ),
         EGOVERSE_MECKA_PRIVATE_DIR=gate["private_root"],
         EGOVERSE_ROOT=str(REPO),
@@ -670,6 +789,8 @@ def execute(registry_path, cell):
     )
     if result.returncode:
         return result.returncode
+    if controller is not None:
+        restore_registry_source(registry)
     checkpoints = list(output.glob("**/last.ckpt"))
     need(
         checkpoints,
@@ -684,6 +805,7 @@ def execute(registry_path, cell):
     del value
     need(step >= 400000, f"Training exited at step {step}, before required 400000")
     proof = verify_backend_completion(run, output, step, registry["commit"])
+    proof.update(controller_metadata)
     proof_path = run_dir / "wandb_complete.json"
     write_json(proof_path, proof)
     write_json(
@@ -697,6 +819,7 @@ def execute(registry_path, cell):
             "checkpoint": str(checkpoint),
             "backend_verified": True,
             "wandb_proof_sha256": digest(proof_path),
+            **controller_metadata,
         },
     )
     return 0
@@ -736,6 +859,7 @@ def continue_timed_out_run(registry_path, cell, observed_job, observed_state):
         if len(attempts) >= min(3, int(policy.get("max_attempts", 0))):
             return False
         try:
+            restore_registry_source(registry)
             gate, _, _ = validate_gate(
                 registry["gate"], registry["readiness"], freshness=False
             )
