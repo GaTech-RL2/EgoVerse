@@ -939,7 +939,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             train_viz_eval_obj.model = model.model
             model.train_viz_evaluator = train_viz_eval_obj
         if datamodule.unseen_op_valid_datasets:
-            unseen_eval_obj = _build_prefixed_evaluator(cfg, "unseen_op_valid")
+            unseen_eval_obj = _build_prefixed_evaluator(
+                cfg, cfg.data.get("unseen_op_valid_prefix") or "unseen_op_valid"
+            )
             unseen_eval_obj.trainer = trainer
             unseen_eval_obj.model = model.model
             model.unseen_op_valid_evaluator = unseen_eval_obj

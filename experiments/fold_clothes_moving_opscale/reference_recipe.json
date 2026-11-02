@@ -1,0 +1,453 @@
+{
+  "source_run_url": "https://wandb.ai/rl2-group/egoverse/runs/fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325",
+  "source_run_id": "fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325",
+  "source_report_url": "https://forge.coreweave.com/wandb/rl2-group/egoverse/reports/Fixed-Budget-Operator-Scaling-Four-Tasks-Restart--VmlldzoxODE3MTgxMA",
+  "observed_state": "finished",
+  "observed_epoch": 3999,
+  "observed_global_step": 399999,
+  "model": {
+    "ema": {
+      "power": 0.75,
+      "enabled": false,
+      "max_decay": 0.9999
+    },
+    "compile": {
+      "enabled": true
+    },
+    "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+    "optimizer": {
+      "lr": 0.0001,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "_target_": "torch.optim.AdamW",
+      "_convert_": "all",
+      "_partial_": true,
+      "weight_decay": 0.01
+    },
+    "scheduler": {
+      "decay": 70000,
+      "stable": 323000,
+      "warmup": 7000,
+      "_target_": "egomimic.utils.scheduler_utils.warmup_stable_decay",
+      "_partial_": true
+    },
+    "robomimic_model": {
+      "dims": {
+        "human_bimanual": {
+          "action": 144,
+          "proprio": 144
+        }
+      },
+      "trunk": {
+        "depth": 18,
+        "cond_drop": {
+          "img": 0,
+          "lang": 0.1,
+          "state": 0.1
+        },
+        "embed_dim": 1280,
+        "mlp_ratio": 1,
+        "num_heads": 20,
+        "lang_pad_to": 128,
+        "image_history": 2,
+        "image_history_dropout": 0.1,
+        "image_history_null_token": true
+      },
+      "width": 1280,
+      "ac_keys": {
+        "human_bimanual": "actions_keypoints"
+      },
+      "domains": [
+        "human_bimanual"
+      ],
+      "_target_": "egomimic.algo.rdt.RDT",
+      "diffusion": true,
+      "multitask": false,
+      "head_specs": {
+        "human_bimanual": {
+          "model": {
+            "act_dim": 144,
+            "act_seq": 100,
+            "_target_": "egomimic.models.rdt_nets.RDTDenoiser",
+            "hidden_dim": 1280,
+            "time_scale": 1000,
+            "n_state_tokens": 4
+          },
+          "pooling": null,
+          "_target_": "egomimic.models.fm_policy.FMPolicy",
+          "time_dist": "beta",
+          "infer_ac_dims": {
+            "human_bimanual": 144
+          },
+          "action_horizon": 100,
+          "num_inference_steps": 10
+        }
+      },
+      "pretrained": false,
+      "stem_specs": {
+        "human_bimanual": {
+          "state_keypoints": {
+            "widths": [
+              1280,
+              1280
+            ],
+            "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+            "input_dim": 144,
+            "output_dim": 1280,
+            "history_len": 4,
+            "history_dropout": 0.1,
+            "history_null_token": true
+          }
+        }
+      },
+      "use_pad_mask": false,
+      "encoder_specs": {
+        "front_img_1": {
+          "_target_": "egomimic.models.hpt_nets.DINOv3Stem",
+          "image_size": [
+            224,
+            400
+          ],
+          "model_name": "vit_base_patch16_dinov3.lvd1689m",
+          "output_dim": 1280,
+          "freeze_backbone": false
+        }
+      },
+      "annotation_key": "annotations",
+      "default_prompt": "",
+      "eval_image_augs": null,
+      "shared_obs_keys": [
+        "front_img_1",
+        "annotation"
+      ],
+      "train_image_augs": {
+        "_target_": "torchvision.transforms.Compose",
+        "transforms": [
+          {
+            "hue": 0.05,
+            "_target_": "torchvision.transforms.ColorJitter",
+            "contrast": 0.1,
+            "brightness": 0.1,
+            "saturation": 0.1
+          }
+        ]
+      },
+      "shared_stem_specs": {
+        "annotation": {
+          "dtype": "float16",
+          "freeze": true,
+          "_target_": "egomimic.models.hpt_nets.QwenPerTokenEncoder",
+          "max_length": 128,
+          "model_name": "Qwen/Qwen3-Embedding-0.6B",
+          "output_dim": 1280,
+          "cache_text_features": true,
+          "text_cache_max_entries": 8192
+        },
+        "front_img_1": {
+          "widths": [
+            1280
+          ],
+          "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+          "input_dim": 1280,
+          "output_dim": 1280
+        }
+      },
+      "annotation_modality": "annotation",
+      "pretrained_checkpoint": null,
+      "annotation_sampling_mode": "random"
+    },
+    "backbone_lr_scale": 0.1,
+    "scheduler_interval": "step"
+  },
+  "trainer": {
+    "devices": 1,
+    "_target_": "lightning.pytorch.trainer.Trainer",
+    "strategy": "ddp",
+    "num_nodes": 1,
+    "precision": "bf16",
+    "max_epochs": 4000,
+    "min_epochs": 4000,
+    "accelerator": "gpu",
+    "deterministic": false,
+    "sync_batchnorm": true,
+    "gradient_clip_val": 1,
+    "limit_val_batches": 500,
+    "limit_train_batches": 100,
+    "num_sanity_val_steps": 0,
+    "accumulate_grad_batches": 1,
+    "check_val_every_n_epoch": 50,
+    "gradient_clip_algorithm": "norm"
+  },
+  "seed": 42026,
+  "train_batch_per_device": 64,
+  "effective_global_batch": 64,
+  "reference_training_devices": 1,
+  "parameter_counts": {
+    "model/params/total": 998332560,
+    "model/params/trainable": 402556048,
+    "model/params/non_trainable": 595776512
+  },
+  "data_key_map": {
+    "_target_": "egomimic.rldb.embodiment.human.Human.get_keymap",
+    "keymap_mode": "keypoints",
+    "annotation_key": "annotations",
+    "history_stride": 1,
+    "proprio_history": 4,
+    "image_history_gap_s": 0.0666666667
+  },
+  "data_transform_list": {
+    "mode": "keypoints_wristframe_6d",
+    "stride": 1,
+    "_target_": "egomimic.rldb.embodiment.human.Human.get_transform_list",
+    "pad_proprio_gripper": false,
+    "fix_left_wrist_convention": false
+  },
+  "data_pose_glitch_mask": {
+    "step_m": 0.05,
+    "rot_deg": 10
+  },
+  "valid_dataloader_params": {
+    "human_bimanual": {
+      "shuffle": false,
+      "batch_size": 32,
+      "num_workers": 8
+    }
+  },
+  "data_nondatasets": {
+    "_target_": "egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper",
+    "valid_prefix": "seen_op_valid",
+    "open_loop_stride": 30,
+    "train_dataloader_params": {
+      "human_bimanual": {
+        "batch_size": 64,
+        "num_workers": 12
+      }
+    },
+    "valid_dataloader_params": {
+      "human_bimanual": {
+        "shuffle": false,
+        "batch_size": 32,
+        "num_workers": 8
+      }
+    },
+    "metric_frames_per_episode": {
+      "valid": "auto",
+      "unseen_op_valid": "auto"
+    },
+    "open_loop_dataloader_params": {
+      "human_bimanual": {
+        "shuffle": false,
+        "batch_size": 16,
+        "num_workers": 4
+      }
+    },
+    "unseen_op_valid_dataloader_params": {
+      "human_bimanual": {
+        "shuffle": false,
+        "batch_size": 32,
+        "num_workers": 4
+      }
+    },
+    "video_episodes_counts": {
+      "valid": 1,
+      "unseen_op_valid": 1
+    },
+    "open_loop_episodes_counts": {
+      "seen": 1,
+      "unseen": 1
+    }
+  },
+  "evaluation": {
+    "evaluator": null,
+    "namespaces": [
+      "seen_op_valid/Valid/action_loss",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_final_mse_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_max",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_min",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_dtw_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_early",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_final",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_late",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_mid",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_paired_mse_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_rot_err_deg_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_rot_err_deg_final",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_final_mse_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_early",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_late",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_mid",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_early_third",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_late_third",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_mid_third",
+      "seen_op_valid/Valid/human_bimanual_loss",
+      "unseen_op_valid/Valid/action_loss",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_final_mse_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_max",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_frechet_gauss_min",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_dtw_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_early",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_final",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_late",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_mid",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_paired_mse_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_rot_err_deg_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_rot_err_deg_final",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_final_mse_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_early",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_late",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_l2_mid",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_early_third",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_late_third",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_wrist_xyz_paired_mse_mid_third",
+      "unseen_op_valid/Valid/human_bimanual_loss",
+      "videos_open_loop/seen",
+      "videos_open_loop/unseen"
+    ],
+    "video_interval_epochs": 200,
+    "resolved_evaluator": {
+      "viz_func": {
+        "eva_bimanual": {
+          "_target_": "egomimic.rldb.embodiment.eva.Eva.viz_gt_preds",
+          "_partial_": true,
+          "image_key": "observations.images.front_img_1",
+          "action_key": "actions_cartesian",
+          "mode": "traj"
+        },
+        "human_bimanual": {
+          "_target_": "egomimic.rldb.embodiment.human.Human.viz_gt_preds",
+          "_partial_": true,
+          "image_key": "observations.images.front_img_1",
+          "action_key": "actions_keypoints",
+          "mode": "keypoints"
+        }
+      },
+      "_target_": "egomimic.eval.eval_hpt.HPTEvalVideo",
+      "viz_every_n_epochs": 0,
+      "viz_max_batches": 10,
+      "transform_lists": {
+        "human_bimanual": {
+          "_target_": "egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list"
+        }
+      }
+    },
+    "resolved_open_loop_evaluator": {
+      "viz_func": {
+        "human_bimanual": {
+          "_target_": "egomimic.rldb.embodiment.human.Human.viz_gt_preds",
+          "_partial_": true,
+          "image_key": "observations.images.front_img_1",
+          "action_key": "actions_keypoints",
+          "mode": "keypoints"
+        }
+      },
+      "_target_": "egomimic.eval.open_loop_sim.OpenLoopSimEval",
+      "execute_steps": 30,
+      "wandb_videos": 1,
+      "viz_every_n_epochs": 200,
+      "viz_mode": "overlay",
+      "transform_lists": {
+        "human_bimanual": {
+          "_target_": "egomimic.rldb.embodiment.human._build_human_keypoints_revert_6d_wristframe_transform_list"
+        }
+      },
+      "log_metrics": false,
+      "final_only": false
+    }
+  },
+  "provenance": {
+    "args": [
+      "--config-name=experiments/fold_clothes_fixed_budget_opscale/rdt_300m_op8_grouped_v2_fresh_wsd",
+      "logger.wandb.project=EgoVerse",
+      "logger.wandb.entity=rl2-group",
+      "logger.wandb.tags=[\"opscale-4tasks-restart\"]",
+      "logger.wandb.id=fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325",
+      "+logger.wandb.resume=never",
+      "~model.scheduler.start_factor",
+      "~model.scheduler.end_factor",
+      "~model.scheduler.total_iters",
+      "trainer.max_epochs=4000",
+      "trainer.min_epochs=4000",
+      "launch_params.gpus_per_node=1",
+      "trainer.accumulate_grad_batches=1",
+      "trainer.limit_train_batches=100",
+      "data.train_dataloader_params.human_bimanual.batch_size=64",
+      "model.compile.enabled=true",
+      "trainer.check_val_every_n_epoch=50",
+      "callbacks.model_checkpoint.every_n_epochs=50",
+      "open_loop_evaluator.viz_every_n_epochs=200",
+      "callbacks.model_checkpoint._target_=egomimic.utils.r2_checkpoint_io.R2ModelCheckpoint",
+      "callbacks.model_checkpoint.save_last=false",
+      "+callbacks.model_checkpoint.bucket=rldb",
+      "+callbacks.model_checkpoint.prefix=egoverse/runs/fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325/checkpoints",
+      "+callbacks.model_checkpoint.run_id=fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325",
+      "norm_stats.precomputed_norm_path=null",
+      "ckpt_path=null",
+      "hydra.run.dir=/workspace/users/ani-cheluva/EgoVerse/logs/fold_clothes_grouped_v2_20261024/runs/fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325"
+    ],
+    "program": "/workspace/users/ani-cheluva/EgoVerse/logs/fold_clothes_grouped_v2_20261024/source/egomimic/trainHydra.py",
+    "codePath": "logs/fold_clothes_grouped_v2_20261024/source/egomimic/trainHydra.py",
+    "git": {
+      "remote": "https://github.com/GaTech-RL2/EgoVerse",
+      "commit": "dd87495a7dd7cc71a7865c0c6a738f24c3cbc9b4"
+    }
+  },
+  "notes": [
+    "300M describes the DiT backbone, not total/trainable full model parameter count.",
+    "The reference used uncommitted/configured extensions: R2ModelCheckpoint and open-loop evaluation are absent at the base commit. Do not silently substitute the base default 1B recipe.",
+    "All secrets and normalization-stat arrays are excluded from this evidence."
+  ],
+  "report_verified": {
+    "id": "VmlldzoxODE3MTgxMA==",
+    "title": "Fixed Budget Operator Scaling \u2014 Four Tasks Restart",
+    "source_runs": [
+      "fixed_budget_fold_clothes_rdt300m_op4_fresh_wsd_grouped_v2_20261024_185325",
+      "fixed_budget_fold_clothes_rdt300m_op6_fresh_wsd_grouped_v2_20261024_185325",
+      "fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325",
+      "fixed_budget_fold_tshirts_rdt300m_op4_fresh_wsd_grouped_v3_20261024_190554",
+      "fixed_budget_fold_tshirts_rdt300m_op6_fresh_wsd_grouped_v3_20261024_190554",
+      "fixed_budget_fold_tshirts_rdt300m_op8_fresh_wsd_grouped_v3_20261024_190554",
+      "fixed_budget_hang_clothes_rdt300m_op4_fresh_wsd_20261022_182731",
+      "fixed_budget_hang_clothes_rdt300m_op6_fresh_wsd_20261022_182731",
+      "fixed_budget_hang_clothes_rdt300m_op8_fresh_wsd_20261022_182731",
+      "fixed_budget_organize_cables_rdt300m_op4_fresh_wsd_20261022_182731",
+      "fixed_budget_organize_cables_rdt300m_op6_fresh_wsd_20261022_182731",
+      "fixed_budget_organize_cables_rdt300m_op8_fresh_wsd_20261022_182731"
+    ],
+    "metrics": [
+      "Train/Loss",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_avg",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_early",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_late",
+      "seen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_mid",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_avg",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_early",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_late",
+      "unseen_op_valid/Valid/human_bimanual_actions_keypoints_kp_l2_mid"
+    ],
+    "media_keys": [
+      "videos_open_loop/seen",
+      "videos_open_loop/unseen"
+    ]
+  },
+  "norm_stats": {
+    "norm_mode": "quantile",
+    "pool_horizon": false,
+    "sample_frac": 1.0,
+    "max_samples": 200000,
+    "num_workers": 4,
+    "save_cache_dir": "${hydra:runtime.output_dir}",
+    "precomputed_norm_path": null,
+    "history_stats_path": null,
+    "cache_dir": "${paths.cache_dir}/norm_stats",
+    "use_cache": true
+  },
+  "source_resolved_config": "s3://rldb/egoverse/runs/fixed_budget_fold_clothes_rdt300m_op8_fresh_wsd_grouped_v2_20261024_185325/.hydra/config.yaml"
+}

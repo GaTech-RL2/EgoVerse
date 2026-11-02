@@ -1,0 +1,89 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+valid_prefix: val/seen_matched
+extra_valid_prefix: val/seen_perlevel
+unseen_op_valid_prefix: val/unseen
+exact_val_reads: true
+replace_invalid_val_frames: false
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:EGOVERSE_MECKA_PRIVATE_DIR}/canonical_zarr
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+        annotation_key: annotations
+        history_stride: 1
+        proprio_history: 4
+        image_history_gap_s: 0.0666666667
+      transform_list:
+        mode: keypoints_wristframe_6d
+        stride: 1
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        pad_proprio_gripper: false
+        fix_left_wrist_convention: false
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      episode_hashes: ???
+    pose_glitch_mask: &id001
+      step_m: 0.05
+      rot_deg: 10
+    mode: total
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      episode_hashes: ???
+    pose_glitch_mask: *id001
+    mode: total
+    bounds_rel_slack: 10.0
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+extra_valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      episode_hashes: ???
+    pose_glitch_mask: *id001
+    mode: total
+    bounds_rel_slack: 10.0
+extra_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+unseen_op_valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      episode_hashes: ???
+    pose_glitch_mask: *id001
+    mode: total
+    bounds_rel_slack: 10.0
+unseen_op_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 8
+    shuffle: false
+metric_frames_per_episode:
+  valid: auto
+  extra_valid: auto
+  unseen_op_valid: auto
+video_episodes:
+  valid: ???
+  extra_valid: ???
+  unseen_op_valid: ???

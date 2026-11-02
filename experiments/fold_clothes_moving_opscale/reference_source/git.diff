@@ -1,0 +1,609 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 9316b38e9..2ae0a6ac3 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -23,6 +23,12 @@ Tests live under `tests/`, never next to source in `egomimic/`.
+ ## Model settings
+ use plan mode for anything except extremely simple tasks
+ 
++## H100 fixed-budget operator scaling
++Use training microbatch 64 per GPU with gradient accumulation 1. These single-GPU
++experiments use 100 training batches per epoch: global batch 64, 6,400 samples and
++100 optimizer updates per epoch. Preserve this when resuming; do not silently
++substitute microbatch 32 with accumulation 2. Validation batch sizes are separate.
++
+ ## Slurm rules
+ If you're on a slurm cluster, request a GPU before running or testing training.
+ On sky1/sky2: salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c 12 --mem=30G
+diff --git a/egomimic/eval/replay_viz.py b/egomimic/eval/replay_viz.py
+index c3e70b583..500fce385 100644
+--- a/egomimic/eval/replay_viz.py
++++ b/egomimic/eval/replay_viz.py
+@@ -255,3 +255,57 @@ def render_replay(
+     if not out:
+         return np.zeros((0, *clip.images.shape[1:]), np.uint8), 0
+     return np.stack(out), a
++def chunk_step_for_video_frame(frame: int, n_frames: int, n_steps: int) -> int:
++    """Chunk index whose time matches source frame ``frame`` of an execution window.
++
++    A mecka chunk is 30 source frames resampled to 100 steps (``linspace`` on
++    both), so frame ``j`` of a 30-frame execution shows step
++    ``round(j * 99 / 29)``, not step ``j``.
++    """
++    if n_steps <= 1 or n_frames <= 1:
++        return 0
++    return min(n_steps - 1, int(frame * (n_steps - 1) / (n_frames - 1) + 0.5))
++
++
++def overlay_executed_chunk(
++    images,
++    gt_anchor,
++    pred_anchor,
++    gt_frames,
++    intrinsics,
++    edges,
++    *,
++    n_window: int | None = None,
++    fallback_intrinsics=None,
++) -> np.ndarray:
++    """One MANO skeleton per source frame: green ground truth, red prediction.
++
++    ``images`` is ``(span, H, W, 3)`` starting at the replan. ``gt_anchor`` and
++    ``pred_anchor`` are ``(T, 126)`` in the replan frame's camera. ``gt_frames[j]``
++    is the observed hand at source frame ``j``, in that frame's camera. The
++    prediction is moved into the same camera by the rigid fit that takes the
++    anchor-camera ground-truth step onto ``gt_frames[j]``. Only that one step
++    is drawn. ``n_window`` is the full execution length used for the time map
++    when ``span`` is shorter because the episode ended.
++    """
++    images = np.asarray(images)
++    gt_anchor = np.asarray(gt_anchor, dtype=np.float32)
++    pred_anchor = np.asarray(pred_anchor, dtype=np.float32)
++    gt_frames = np.asarray(gt_frames, dtype=np.float32)
++    span = len(images)
++    n_steps = gt_anchor.shape[0]
++    window = span if n_window is None else int(n_window)
++    if isinstance(intrinsics, np.ndarray) and intrinsics.ndim == 2:
++        intrinsics = [intrinsics] * span
++    out = []
++    for j in range(span):
++        k = chunk_step_for_video_frame(j, window, n_steps)
++        K = intrinsics[j] if intrinsics[j] is not None else fallback_intrinsics
++        R, t = rigid_fit(gt_anchor[k].reshape(-1, 3), gt_frames[j].reshape(-1, 3))
++        pred_here = _apply_rigid(pred_anchor[k], R, t)
++        drawn = _draw_skeleton(images[j], gt_frames[j], K, edges, (0, 255, 0))
++        drawn = _draw_skeleton(drawn, pred_here, K, edges, (255, 0, 0))
++        out.append(drawn)
++    if not out:
++        return np.zeros((0, *images.shape[1:]), np.uint8)
++    return np.stack(out)
+diff --git a/egomimic/hydra_configs/model/rdt_bc_mecka_kp_dinov3_vitb.yaml b/egomimic/hydra_configs/model/rdt_bc_mecka_kp_dinov3_vitb.yaml
+index 5fdfccc35..85e8942af 100644
+--- a/egomimic/hydra_configs/model/rdt_bc_mecka_kp_dinov3_vitb.yaml
++++ b/egomimic/hydra_configs/model/rdt_bc_mecka_kp_dinov3_vitb.yaml
+@@ -2,7 +2,7 @@
+ # architecture notes) on the 144-D wrist-frame hand-keypoint action with the
+ # 144-D keypoint state at t-3 .. t, and RDT-1B's image pair: the current frame
+ # and the one stored before it, so the data config must set
+-# key_map.proprio_history: 4, history_stride: 1 and image_history_gap_s: 0.033
++# key_map.proprio_history: 4, history_stride: 1 and image_history_gap_s: 0.0666666667
+ # (t-1 at mecka's 30 fps). Pairs with evaluator=eval_hpt_keypoints_wrist.
+ #
+ # ~1B total: DiT 1280 x 18 (~295M) + DINOv3 ViT-B (86M) + frozen Qwen (596M).
+diff --git a/egomimic/hydra_configs/train_zarr_mecka_flagship_fold_kp_rdt.yaml b/egomimic/hydra_configs/train_zarr_mecka_flagship_fold_kp_rdt.yaml
+index 77e33eb92..1aa6bcd85 100644
+--- a/egomimic/hydra_configs/train_zarr_mecka_flagship_fold_kp_rdt.yaml
++++ b/egomimic/hydra_configs/train_zarr_mecka_flagship_fold_kp_rdt.yaml
+@@ -4,7 +4,7 @@
+ #   train_zarr_mecka_flagship_fold_kp_rdt_overfit1   one fold_clothes episode, 1 GPU
+ #   train_zarr_mecka_flagship_fold_kp_rdt            fold_clothes, 3 held out
+ #   train_zarr_mecka_flagship_fold_cup_kp_rdt        + cup_on_saucer, 3 held out
+-# Recipe of train_zarr_mecka_20pct_6d_rdt_mem_base: 8xH100, 32 / GPU, AdamW 1e-4,
++# Recipe of train_zarr_mecka_20pct_6d_rdt_mem_base: 8xH100, 64 / GPU, AdamW 1e-4,
+ # 1k-step warmup, grad clip 1.0, 1000 x 100 steps, val every 25 epochs.
+ defaults:
+   - train_zarr_mecka_20pct_6d_rdt_mem_base
+@@ -14,13 +14,19 @@ defaults:
+   - override evaluator: eval_hpt_keypoints_wrist
+   - _self_
+ 
++trainer:
++  accumulate_grad_batches: 1
++
+ data:
++  train_dataloader_params:
++    human_bimanual:
++      batch_size: 64
+   train_datasets:
+     human_bimanual:
+       resolver:
+         key_map:
+-          # t-1 at mecka's 30 fps, RDT-1B's pair
+-          image_history_gap_s: 0.033
++          # t-2 and t at Mecka's 30 fps: slots 1 and 3 of the 4-step history.
++          image_history_gap_s: 0.0666666667
+           proprio_history: 4
+           history_stride: 1
+ 
+diff --git a/egomimic/pl_utils/pl_data_utils.py b/egomimic/pl_utils/pl_data_utils.py
+index 3dac2567f..5e781f981 100644
+--- a/egomimic/pl_utils/pl_data_utils.py
++++ b/egomimic/pl_utils/pl_data_utils.py
+@@ -9,7 +9,7 @@ from egomimic.utils.gpu_orphans import orphan_guarded
+ logger = logging.getLogger(__name__)
+ 
+ # Val heads that can carry a metric loader, in val_dataloader() order.
+-VAL_HEADS = ("valid", "train_viz", "unseen_op_valid", "extra_valid")
++VAL_HEADS = ("valid", "train_viz", "unseen_op_valid", "extra_valid", "open_loop")
+ # Suffix of the video-only companion loader of a head (``valid`` ->
+ # ``valid_video``). ModelWrapper.validation_step splits on it.
+ VIDEO_SUFFIX = "_video"
+@@ -106,6 +106,10 @@ class MultiDataModuleWrapper(LightningDataModule):
+         train_operators: list | None = None,
+         exact_val_reads: bool = True,
+         replace_invalid_val_frames: bool = True,
++        open_loop_datasets: dict | None = None,
++        open_loop_dataloader_params: dict | None = None,
++        open_loop_episodes: dict | None = None,
++        open_loop_stride: int | None = None,
+     ):
+         """
+         Args:
+@@ -205,6 +209,10 @@ class MultiDataModuleWrapper(LightningDataModule):
+         self.video_episodes = dict(video_episodes or {})
+         self.exact_val_reads = exact_val_reads
+         self.replace_invalid_val_frames = replace_invalid_val_frames
++        self.open_loop_datasets = {k: v for k, v in (open_loop_datasets or {}).items() if v is not None}
++        self.open_loop_dataloader_params = open_loop_dataloader_params or {}
++        self.open_loop_episodes = dict(open_loop_episodes or {})
++        self.open_loop_stride = open_loop_stride
+         self.tasks = list(tasks or [])
+         self.held_out_hashes = list(held_out_hashes or [])
+         self.train_operators = list(train_operators or [])
+@@ -295,6 +303,7 @@ class MultiDataModuleWrapper(LightningDataModule):
+                 self.extra_valid_datasets,
+                 self.extra_valid_dataloader_params,
+             ),
++            "open_loop": (self.open_loop_datasets, self.open_loop_dataloader_params),
+         }
+ 
+     def val_loader_names(self) -> list[str]:
+diff --git a/egomimic/pl_utils/pl_model.py b/egomimic/pl_utils/pl_model.py
+index f7d7ed2bc..013bde0b7 100644
+--- a/egomimic/pl_utils/pl_model.py
++++ b/egomimic/pl_utils/pl_model.py
+@@ -87,6 +87,7 @@ class ModelWrapper(LightningModule):
+         self.unseen_op_valid_evaluator = None
+         # Optional fourth evaluator for the extra_valid loader.
+         self.extra_valid_evaluator = None
++        self.open_loop_evaluator = None
+         # Val loader names in dataloader_idx order, from
+         # MultiDataModuleWrapper.val_loader_names(); None = [valid, train_viz].
+         self.val_loader_names = None
+@@ -293,6 +294,7 @@ class ModelWrapper(LightningModule):
+             "train_viz": self.train_viz_evaluator,
+             "unseen_op_valid": getattr(self, "unseen_op_valid_evaluator", None),
+             "extra_valid": getattr(self, "extra_valid_evaluator", None),
++            "open_loop": getattr(self, "open_loop_evaluator", None),
+         }
+ 
+     def on_validation_start(self):
+diff --git a/egomimic/rldb/zarr/zarr_dataset_multi.py b/egomimic/rldb/zarr/zarr_dataset_multi.py
+index 4b5043715..7c359f3d2 100644
+--- a/egomimic/rldb/zarr/zarr_dataset_multi.py
++++ b/egomimic/rldb/zarr/zarr_dataset_multi.py
+@@ -2231,8 +2231,20 @@ class MultiDataset(torch.utils.data.Dataset):
+             for k in ("loading_time", "computing_time", "frames"):
+                 if k in self._norm_run_metadata:
+                     payload[k] = self._norm_run_metadata[k]
+-        with open(out_path, "w") as f:
+-            json.dump(payload, f, indent=4)
++        # DDP ranks can save the same run-local stats concurrently. Publish a
++        # complete file atomically so another rank never reads partial JSON.
++        tmp_path = None
++        try:
++            with tempfile.NamedTemporaryFile(
++                mode="w", dir=cache_dir, prefix=".norm_stats.",
++                suffix=".tmp", delete=False,
++            ) as f:
++                tmp_path = f.name
++                json.dump(payload, f, indent=4)
++            os.replace(tmp_path, out_path)
++        finally:
++            if tmp_path is not None and os.path.exists(tmp_path):
++                os.unlink(tmp_path)
+         logger.info(f"[MultiDataset] Cached stats to {out_path}")
+ 
+     # ---- normalize / unnormalize ----
+diff --git a/egomimic/scripts/mecka_process/mono/mecka_mono_to_zarr.py b/egomimic/scripts/mecka_process/mono/mecka_mono_to_zarr.py
+index a22516929..b83875a20 100644
+--- a/egomimic/scripts/mecka_process/mono/mecka_mono_to_zarr.py
++++ b/egomimic/scripts/mecka_process/mono/mecka_mono_to_zarr.py
+@@ -59,21 +59,39 @@ GLITCH_ROT_DEG = 10.0
+ 
+ 
+ def load_hand_pose(path: Path) -> tuple[np.ndarray, np.ndarray, int]:
+-    """World-frame keypoints (T, 2, 21, 3) [left, right], RL2-style egomotion
+-    rows (T, 11) holding the camera position at 1:4 and quat xyzw at 7:11, and
+-    the video frame index of row 0."""
+-    h = json.load(open(path))
+-    # Frame keys are video frame indices; some episodes start tracking a few
+-    # frames in.
+-    idx = sorted(int(k) for k in h["frames"])
++    """Read mono hand landmarks and camera motion.
++
++    The original export used one ``hand_pose.json`` with a ``frames`` map.  The
++    September master download stores the same hand records in ``hands.json`` and
++    camera transforms in ``body.json``.  Support both formats so completed local
++    downloads never fall back to the expired legacy URLs.
++    """
++    if path.is_file():
++        h = json.load(open(path))
++        frames = h["frames"]
++        body_by_frame = None
++    else:
++        raw = path
++        h = json.load(open(raw / "hands.json"))
++        frames = h["frames"]
++        body = json.load(open(raw / "body.json"))
++        body_by_frame = {int(row["frame"]): row for row in body["poses"]}
++
++    idx = sorted(int(k) for k in frames)
+     first, T = idx[0], len(idx)
+     if idx[-1] - first + 1 != T:
+         raise ValueError(f"hand_pose frames {first}..{idx[-1]} have gaps ({T} present)")
+     kp = np.zeros((T, 2, 21, 3))
+     ego = np.zeros((T, 11))
+-    for i in range(T):
+-        f = h["frames"][str(first + i)]
+-        c = f["camera_transform"]
++    for i, frame_index in enumerate(idx):
++        f = frames[str(frame_index)]
++        if body_by_frame is None:
++            c = f["camera_transform"]
++        else:
++            body_row = body_by_frame.get(frame_index)
++            if body_row is None:
++                raise ValueError(f"body pose missing frame {frame_index}")
++            c = body_row["camera_transform"]
+         ego[i, 1:4] = [c["position"][a] for a in "xyz"]
+         ego[i, 7:11] = [c["orientation"][a] for a in "xyzw"]
+         for hand in f["hands"]:
+@@ -147,9 +165,12 @@ def motion_qa(ego: np.ndarray, kp_world: np.ndarray) -> dict:
+ 
+ 
+ def download(ep: dict, raw: Path) -> None:
+-    """Idempotent; each file lands via rename so a concurrent or interrupted
+-    downloader never leaves a truncated file under its final name."""
+-    if (raw / ".complete").exists():
++    """Idempotent; prefer a complete local export before legacy download URLs."""
++    # Current private exports are already downloaded as hands/body JSON files;
++    # their master still contains obsolete hand_pose URLs.
++    if (raw / ".complete").exists() or all(
++        (raw / name).exists() for name in ("video.mp4", "hands.json", "body.json", "intrinsics.json")
++    ):
+         return
+     raw.mkdir(parents=True, exist_ok=True)
+     for key, name in RAW_FILES.items():
+@@ -162,7 +183,8 @@ def download(ep: dict, raw: Path) -> None:
+ 
+ 
+ def convert(ep: dict, row: dict, raw: Path, out_dir: Path) -> dict:
+-    kp, ego, first = load_hand_pose(raw / "hand_pose.json")
++    pose_source = raw / "hand_pose.json"
++    kp, ego, first = load_hand_pose(pose_source if pose_source.exists() else raw)
+     images = read_video(raw / "video.mp4", len(kp), skip=first)
+     T = min(len(images), len(kp))
+     if T < FPS:
+diff --git a/egomimic/trainHydra.py b/egomimic/trainHydra.py
+index c1325c962..e7af25d88 100644
+--- a/egomimic/trainHydra.py
++++ b/egomimic/trainHydra.py
+@@ -488,6 +488,107 @@ def _video_datasets(cfg: DictConfig, heads: dict) -> dict:
+     return out
+ 
+ 
++def _open_loop_datasets(cfg: DictConfig, heads: dict) -> dict:
++    """One strided loader over the seen and unseen open-loop episodes.
++
++    ``data.open_loop_episodes.seen`` / ``.unseen`` are episode hashes already
++    in those heads' splits. They are concatenated in that order and wrapped
++    with ``EvenStrideDataset(stride=data.open_loop_stride)``, so each sample
++    is the next re-prediction point of the walk. Missing pins raise
++    ``PinError`` the same way a video pin does.
++    """
++    spec = cfg.data.get("open_loop_episodes")
++    if spec is None:
++        return {}
++    groups = (
++        ("seen", "valid", [str(h) for h in (spec.get("seen") or [])]),
++        (
++            "unseen",
++            "unseen_op_valid",
++            [str(h) for h in (spec.get("unseen") or [])],
++        ),
++    )
++    if not any(pins for _, _, pins in groups):
++        return {}
++    stride = int(cfg.data.get("open_loop_stride") or 0)
++    if stride < 1:
++        raise ValueError(
++            "data.open_loop_stride must be a positive integer when "
++            "data.open_loop_episodes is set"
++        )
++    evaluator = cfg.get("open_loop_evaluator")
++    execute_steps = None if evaluator is None else evaluator.get("execute_steps")
++    if execute_steps is not None and int(execute_steps) != stride:
++        raise ValueError(
++            f"open-loop stride is {stride} but execute_steps is {execute_steps}; "
++            "the next sample has to be the frame where the previous command ends"
++        )
++    leaves_by_name: dict = {}
++    source_by_name: dict = {}
++    order: list[str] = []
++    for _group, head, pins in groups:
++        if not pins:
++            continue
++        datasets = {
++            name: ds for name, ds in (heads.get(head) or {}).items() if ds is not None
++        }
++        unplaced = sorted(
++            set(pins) - {h for ds in datasets.values() for h in ds.datasets}
++        )
++        if unplaced:
++            raise PinError(
++                f"{len(unplaced)} open-loop episode(s) for '{head}' are in none of "
++                f"its datasets {sorted(datasets)}: {unplaced}."
++            )
++        for name, ds in datasets.items():
++            mine = [h for h in pins if h in ds.datasets]
++            if not mine:
++                continue
++            subset = pinned_episode_subset(ds, mine, dataset_name=name)
++            bucket = leaves_by_name.setdefault(name, {})
++            for episode, leaf in subset.datasets.items():
++                if episode in bucket:
++                    raise PinError(
++                        f"open-loop episode {episode} is pinned in more than one group"
++                    )
++                bucket[episode] = leaf
++                order.append(episode)
++            source_by_name.setdefault(name, ds)
++    built = {}
++    for name, leaves in leaves_by_name.items():
++        ordered = {h: leaves[h] for h in order if h in leaves}
++        source = source_by_name[name]
++        merged = MultiDataset(
++            datasets=ordered, mode="total", norm_mode=source.norm_mode
++        )
++        merged.set_norm_stats_from(source)
++        built[name] = EvenStrideDataset(
++            merged, stride=stride,
++            preserve_indices=bool(cfg.data.get("validation_dataset_options")),
++        )
++        log.info(
++            f"open-loop dataset '{name}': stride {stride} over {len(ordered)} "
++            f"episode(s) -> {len(built[name])} frames"
++        )
++    return built
++
++
++
++def _attach_open_loop_evaluator(cfg, model, trainer, datamodule) -> None:
++    if not getattr(datamodule, "open_loop_datasets", None):
++        return
++    node = cfg.get("open_loop_evaluator")
++    if node is None:
++        raise ValueError(
++            "data.open_loop_episodes is set but there is no open_loop_evaluator"
++        )
++    eval_obj = hydra.utils.instantiate(node)
++    eval_obj.trainer = trainer
++    eval_obj.model = model.model
++    model.open_loop_evaluator = eval_obj
++
++
++
+ def _require_capped_video_heads(model, datamodule) -> None:
+     """A pinned video loader renders on rank 0 alone while the other ranks wait
+     in the val reduction, so an uncapped render (``viz_max_batches=None``) is
+@@ -648,6 +749,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+                 "extra_valid": extra_valid_datasets,
+             },
+         )
++        open_loop_datasets = _open_loop_datasets(
++            cfg, {"valid": valid_datasets, "unseen_op_valid": unseen_op_valid_datasets}
++        )
++
+         valid_datasets = _subsample_val_datasets(
+             cfg,
+             "valid",
+@@ -693,6 +798,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+         datamodule_kwargs["extra_valid_datasets"] = extra_valid_datasets
+         # Built above; hydra has nothing to instantiate for these.
+         datamodule_kwargs["video_datasets"] = video_datasets
++        datamodule_kwargs["open_loop_datasets"] = open_loop_datasets
+         datamodule: LightningDataModule = hydra.utils.instantiate(
+             cfg.data, **datamodule_kwargs
+         )
+@@ -836,6 +942,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+         for ds in head_datasets.values():
+             ds.set_norm_stats_from(norm_stats)
+ 
++    for ds in getattr(datamodule, "open_loop_datasets", {}).values():
++        ds.set_norm_stats_from(norm_stats)
++
+     # A validate job's requeue must not swap its ckpt_path for its own last.ckpt.
+     if _resolve_mode(cfg) == "validate":
+         _enable_checkpoint_ema(cfg)
+@@ -950,6 +1059,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+             extra_eval_obj.trainer = trainer
+             extra_eval_obj.model = model.model
+             model.extra_valid_evaluator = extra_eval_obj
++        _attach_open_loop_evaluator(cfg, model, trainer, datamodule)
+         _require_capped_video_heads(model, datamodule)
+         model.val_loader_names = datamodule.val_loader_names()
+         if mode == "validate":
+diff --git a/egomimic/utils/hydra_resolvers.py b/egomimic/utils/hydra_resolvers.py
+index a0abf07d6..d1d7458ed 100644
+--- a/egomimic/utils/hydra_resolvers.py
++++ b/egomimic/utils/hydra_resolvers.py
+@@ -71,6 +71,8 @@ def experiment_wandb_tag(config_name):
+ 
+ def apply_experiment_wandb_tag(cfg, config_name) -> None:
+     """Add the experiments-folder name to ``logger.wandb.tags`` when present."""
++    if not cfg.get("experiment_wandb_auto_tag", True):
++        return
+     tag = experiment_wandb_tag(config_name)
+     wandb_cfg = OmegaConf.select(cfg, "logger.wandb")
+     if tag is None or wandb_cfg is None:
+diff --git a/egomimic/utils/scheduler_utils.py b/egomimic/utils/scheduler_utils.py
+index 768634925..f39e958e6 100644
+--- a/egomimic/utils/scheduler_utils.py
++++ b/egomimic/utils/scheduler_utils.py
+@@ -90,3 +90,60 @@ def warmup_stable_decay(
+         return min_factor
+ 
+     return torch.optim.lr_scheduler.LambdaLR(optimizer, factor)
++
++
++def warmup_stable_decay_extension(
++    optimizer: torch.optim.Optimizer,
++    restart_step: int,
++    warmup: int,
++    stable: int,
++    decay: int,
++    previous_warmup: int,
++    previous_stable: int,
++    previous_decay: int,
++    warmup_start_factor: float = 1.0e-3,
++    min_factor: float = 0.0,
++) -> torch.optim.lr_scheduler.LambdaLR:
++    """Continue a completed WSD run with a second, continuous WSD phase.
++
++    ``restart_step`` is the checkpoint's global optimizer step. The earlier
++    phase is reconstructed exactly, so loading its LambdaLR state keeps the
++    checkpoint LR continuous. The extension warms from that LR to the peak,
++    holds it, then decays to ``min_factor`` at the new total step budget.
++    """
++    lengths = (restart_step, warmup, stable, decay, previous_warmup,
++               previous_stable, previous_decay)
++    if any(value < 0 for value in lengths):
++        raise ValueError("WSD phase lengths and restart_step must be >= 0")
++    if not 0.0 <= warmup_start_factor <= 1.0 or not 0.0 <= min_factor <= 1.0:
++        raise ValueError("WSD factors must be in [0, 1]")
++    old_decay_start = previous_warmup + previous_stable
++    old_end = old_decay_start + previous_decay
++    if restart_step > old_end:
++        raise ValueError("restart_step cannot exceed the previous WSD budget")
++
++    def old_factor(step: int) -> float:
++        if step < previous_warmup:
++            return warmup_start_factor + (1.0 - warmup_start_factor) * step / previous_warmup
++        if step < old_decay_start:
++            return 1.0
++        if step < old_end:
++            return 1.0 - (1.0 - min_factor) * (step - old_decay_start) / previous_decay
++        return min_factor
++
++    restart_factor = old_factor(restart_step)
++    decay_start = restart_step + warmup + stable
++    end_step = decay_start + decay
++
++    def factor(step: int) -> float:
++        if step < restart_step:
++            return old_factor(step)
++        if step < restart_step + warmup:
++            return restart_factor + (1.0 - restart_factor) * (step - restart_step) / warmup
++        if step < decay_start:
++            return 1.0
++        if step < end_step:
++            return 1.0 - (1.0 - min_factor) * (step - decay_start) / decay
++        return min_factor
++
++    return torch.optim.lr_scheduler.LambdaLR(optimizer, factor)
+diff --git a/egomimic/utils/utils.py b/egomimic/utils/utils.py
+index c2a5a1160..f87f817e6 100644
+--- a/egomimic/utils/utils.py
++++ b/egomimic/utils/utils.py
+@@ -63,9 +63,11 @@ def task_wrapper(task_func: Callable) -> Callable:
+     """
+ 
+     def wrap(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
++        exit_code = 1
+         # execute the task
+         try:
+             metric_dict, object_dict = task_func(cfg=cfg)
++            exit_code = 0
+ 
+         # things to do if exception occurs
+         except Exception as ex:
+@@ -75,7 +77,7 @@ def task_wrapper(task_func: Callable) -> Callable:
+             # some hyperparameter combinations might be invalid or cause out-of-memory errors
+             # so when using hparam search plugins like Optuna, you might want to disable
+             # raising the below exception to avoid multirun failure
+-            raise ex
++            raise
+ 
+         # things to always do after either success or exception
+         finally:
+@@ -88,7 +90,7 @@ def task_wrapper(task_func: Callable) -> Callable:
+ 
+                 if wandb.run:
+                     log.info("Closing wandb!")
+-                    wandb.finish()
++                    wandb.finish(exit_code=exit_code)
+ 
+         return metric_dict, object_dict
+ 
+diff --git a/tests/unit/test_scheduler_utils.py b/tests/unit/test_scheduler_utils.py
+index 0378aaf8a..cdd61f2a1 100644
+--- a/tests/unit/test_scheduler_utils.py
++++ b/tests/unit/test_scheduler_utils.py
+@@ -3,7 +3,10 @@
+ import pytest
+ import torch
+ 
+-from egomimic.utils.scheduler_utils import warmup_stable_decay
++from egomimic.utils.scheduler_utils import (
++    warmup_stable_decay,
++    warmup_stable_decay_extension,
++)
+ 
+ 
+ def _opt(lrs=(1e-4, 1e-5)):
+@@ -92,3 +95,34 @@ def test_wsd_zero_length_phases_do_not_divide_by_zero():
+ def test_wsd_rejects_bad_arguments(kwargs):
+     with pytest.raises(ValueError):
+         warmup_stable_decay(_opt(), **kwargs)
++
++
++def test_wsd_extension_continues_checkpoint_lr_and_ends_at_400k():
++    opt = _opt((1.0, 0.1))
++    extended = warmup_stable_decay_extension(
++        opt, restart_step=48000, previous_warmup=1000,
++        previous_stable=39000, previous_decay=10000,
++        warmup=7000, stable=275000, decay=70000,
++    )
++    factor = extended.lr_lambdas[0]
++    assert [factor(s) for s in (0, 1000, 40000, 48000, 55000, 330000, 365000, 400000)] == pytest.approx(
++        [0.001, 1.0, 1.0, 0.2, 1.0, 1.0, 0.5, 0.0]
++    )
++
++    # LambdaLR restores the checkpoint step but retains the newly constructed
++    # lambda. The first resumed optimizer step must change LR continuously.
++    old = warmup_stable_decay(
++        _opt((1.0, 0.1)), warmup=1000, stable=39000, decay=10000
++    )
++    state = old.state_dict()
++    state["last_epoch"] = 48000
++    state["_step_count"] = 48001
++    state["_last_lr"] = [0.2, 0.02]
++    extended.load_state_dict(state)
++    opt.param_groups[0]["lr"] = 0.2
++    opt.param_groups[1]["lr"] = 0.02
++    opt.step()
++    extended.step()
++    assert [g["lr"] for g in opt.param_groups] == pytest.approx(
++        [factor(48001), factor(48001) * 0.1]
++    )

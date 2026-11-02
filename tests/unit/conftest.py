@@ -22,6 +22,13 @@ def compose_and_resolve(
     Returns the task config (without the ``hydra`` node) fully resolved, or with
     ``keep_hydra`` the unresolved full tree (``OmegaConf.select`` resolves on read).
     """
+    if (
+        config_name == "fold_moving_common"
+        or "data=mecka_fold_moving_budget" in overrides
+    ):
+        from fixtures.moving_opscale import split_overrides
+
+        overrides = [*overrides, *split_overrides()]
     with initialize_config_dir(config_dir=str(CONFIG_DIR), version_base=None):
         cfg = compose(
             config_name=config_name, overrides=overrides, return_hydra_config=True
@@ -56,3 +63,15 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "mecka_private" in item.nodeid:
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _moving_budget_private_path(request, tmp_path, monkeypatch):
+    # The moving template intentionally requires a private root and explicit
+    # split overrides. Composition tests supply synthetic values; production
+    # never receives a fallback path or an unfiltered dataset.
+    if any(
+        name in request.node.nodeid
+        for name in ("mecka_fold_moving_budget", "fold_moving_common")
+    ):
+        monkeypatch.setenv("EGOVERSE_MECKA_PRIVATE_DIR", str(tmp_path / "private"))

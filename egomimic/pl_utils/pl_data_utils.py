@@ -97,6 +97,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         extra_valid_dataloader_params: dict | None = None,
         extra_valid_prefix: str | None = None,
         valid_prefix: str | None = None,
+        unseen_op_valid_prefix: str | None = None,
         held_out_operators: list | None = None,
         video_datasets: dict | None = None,
         metric_frames_per_episode: dict | None = None,
@@ -193,6 +194,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.extra_valid_dataloader_params = extra_valid_dataloader_params or {}
         self.extra_valid_prefix = extra_valid_prefix
         self.valid_prefix = valid_prefix
+        self.unseen_op_valid_prefix = unseen_op_valid_prefix
         self.held_out_operators = list(held_out_operators or [])
         # {head: {dataset_name: dataset}}; heads with no pinned episodes are
         # dropped so `val_loader_names()` only grows for configs that ask for it.

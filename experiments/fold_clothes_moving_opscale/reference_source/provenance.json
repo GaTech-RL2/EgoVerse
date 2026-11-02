@@ -1,0 +1,14 @@
+[
+  {
+    "archive_key": "egoverse/runtime_artifacts/egoverse-fixedbudget-multitask-wsd4k-fullsource-20261018.tar.gz",
+    "member": "source/egomimic/eval/open_loop_sim.py",
+    "file": "open_loop_sim.py",
+    "sha256": "ef2b96034aad3202b4561fd686757a6c71fd8773e66c89c9c352f64b7f4cf4dc"
+  },
+  {
+    "archive_key": "egoverse/runtime_artifacts/egoverse-fixedbudget-multitask-wsd4k-fullsource-20261018.tar.gz",
+    "member": "source/egomimic/eval/replay_viz.py",
+    "file": "replay_viz.py",
+    "sha256": "6bfaab32620851ccd0268c0a17b2b1b9ef7c574ba03d858ba0b0ac17525dfbb5"
+  }
+]

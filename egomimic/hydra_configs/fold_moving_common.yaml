@@ -1,0 +1,213 @@
+# @package _global_
+defaults:
+- /train_zarr_mecka_flagship_fold_kp_rdt
+- /_scheduler_reset
+- override /data: mecka_fold_moving_budget
+- override /hydra/launcher: submitit_pace
+- _self_
+name: fold_clothes_moving_opscale
+description: unconfigured
+seed: 42026
+ckpt_path: null
+mode: train
+train_viz: false
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+model:
+  ema:
+    power: 0.75
+    enabled: false
+    max_decay: 0.9999
+  compile:
+    enabled: true
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  optimizer:
+    lr: 0.0001
+    betas:
+    - 0.9
+    - 0.95
+    _target_: torch.optim.AdamW
+    _convert_: all
+    _partial_: true
+    weight_decay: 0.01
+  scheduler:
+    decay: 70000
+    stable: 323000
+    warmup: 7000
+    _target_: egomimic.utils.scheduler_utils.warmup_stable_decay
+    _partial_: true
+  robomimic_model:
+    dims:
+      human_bimanual:
+        action: 144
+        proprio: 144
+    trunk:
+      depth: 18
+      cond_drop:
+        img: 0
+        lang: 0.1
+        state: 0.1
+      embed_dim: 1280
+      mlp_ratio: 1
+      num_heads: 20
+      lang_pad_to: 128
+      image_history: 2
+      image_history_dropout: 0.1
+      image_history_null_token: true
+    width: 1280
+    ac_keys:
+      human_bimanual: actions_keypoints
+    domains:
+    - human_bimanual
+    _target_: egomimic.algo.rdt.RDT
+    diffusion: true
+    multitask: false
+    head_specs:
+      human_bimanual:
+        model:
+          act_dim: 144
+          act_seq: 100
+          _target_: egomimic.models.rdt_nets.RDTDenoiser
+          hidden_dim: 1280
+          time_scale: 1000
+          n_state_tokens: 4
+        pooling: null
+        _target_: egomimic.models.fm_policy.FMPolicy
+        time_dist: beta
+        infer_ac_dims:
+          human_bimanual: 144
+        action_horizon: 100
+        num_inference_steps: 10
+    pretrained: false
+    stem_specs:
+      human_bimanual:
+        state_keypoints:
+          widths:
+          - 1280
+          - 1280
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 144
+          output_dim: 1280
+          history_len: 4
+          history_dropout: 0.1
+          history_null_token: true
+    use_pad_mask: false
+    encoder_specs:
+      front_img_1:
+        _target_: egomimic.models.hpt_nets.DINOv3Stem
+        image_size:
+        - 224
+        - 400
+        model_name: vit_base_patch16_dinov3.lvd1689m
+        output_dim: 1280
+        freeze_backbone: false
+    annotation_key: annotations
+    default_prompt: ''
+    eval_image_augs: null
+    shared_obs_keys:
+    - front_img_1
+    - annotation
+    train_image_augs:
+      _target_: torchvision.transforms.Compose
+      transforms:
+      - hue: 0.05
+        _target_: torchvision.transforms.ColorJitter
+        contrast: 0.1
+        brightness: 0.1
+        saturation: 0.1
+    shared_stem_specs:
+      annotation:
+        dtype: float16
+        freeze: true
+        _target_: egomimic.models.hpt_nets.QwenPerTokenEncoder
+        max_length: 128
+        model_name: Qwen/Qwen3-Embedding-0.6B
+        output_dim: 1280
+        cache_text_features: true
+        text_cache_max_entries: 8192
+      front_img_1:
+        widths:
+        - 1280
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 1280
+        output_dim: 1280
+    annotation_modality: annotation
+    pretrained_checkpoint: null
+    annotation_sampling_mode: random
+  backbone_lr_scale: 0.1
+  scheduler_interval: step
+trainer:
+  devices: 1
+  _target_: lightning.pytorch.trainer.Trainer
+  strategy: ddp
+  num_nodes: 1
+  precision: bf16
+  max_epochs: 4000
+  min_epochs: 4000
+  accelerator: gpu
+  deterministic: false
+  sync_batchnorm: true
+  gradient_clip_val: 1
+  limit_val_batches: 800
+  limit_train_batches: 100
+  num_sanity_val_steps: 0
+  accumulate_grad_batches: 1
+  check_val_every_n_epoch: 50
+  gradient_clip_algorithm: norm
+data:
+  train_dataloader_params:
+    human_bimanual:
+      batch_size: 64
+      num_workers: 8
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: keypoints
+          annotation_key: annotations
+          history_stride: 1
+          proprio_history: 4
+          image_history_gap_s: 0.0666666667
+        transform_list:
+          mode: keypoints_wristframe_6d
+          stride: 1
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          pad_proprio_gripper: false
+          fix_left_wrist_convention: false
+norm_stats:
+  norm_mode: quantile
+  pool_horizon: false
+  sample_frac: 1.0
+  max_samples: 200000
+  num_workers: 4
+  save_cache_dir: ${paths.output_dir}
+  precomputed_norm_path: null
+  history_stats_path: null
+  cache_dir: ${paths.cache_dir}/norm_stats
+  use_cache: true
+logger:
+  wandb:
+    project: egoverse
+    entity: rl2-group
+    group: fold_clothes_moving_opscale_v1
+    job_type: moving_budget_opscale
+    tags:
+    - fold_clothes_moving_opscale
+    - v1
+callbacks:
+  moving_opscale_evaluation:
+    _target_: egomimic.eval.moving_opscale_eval.MovingOpscaleEvaluation
+    private_dir: ${oc.env:EGOVERSE_MECKA_PRIVATE_DIR}
+    split_name: ???
+    viz_every_n_epochs: 200
+  model_checkpoint:
+    every_n_epochs: 50
+    save_last: true
+    save_top_k: 2
+    monitor: epoch
+    mode: max
+evaluator:
+  viz_every_n_epochs: 0
+  viz_max_batches: 10

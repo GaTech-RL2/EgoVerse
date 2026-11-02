@@ -1,0 +1,38 @@
+# @package _global_
+defaults:
+- /fold_moving_common
+- _self_
+description: b48_op64_v1
+callbacks:
+  moving_opscale_evaluation:
+    split_name: fold_moving_b48_op64
+logger:
+  wandb:
+    name: fold_clothes_b48_op64_rdt300m_v1
+    tags:
+    - fold_clothes_moving_opscale
+    - v1
+    - budget_hours=48
+    - operators=64
+data:
+  train_operators: ${mecka_private:fold_moving_b48_op64,operators}
+  video_episodes:
+    valid: ${mecka_private:fold_moving_b48_op64,video_seen_matched}
+    extra_valid: ${mecka_private:fold_moving_b48_op64,video_seen_perlevel}
+    unseen_op_valid: ${mecka_private:fold_moving_b48_op64,video_unseen}
+  train_datasets:
+    human_bimanual:
+      filters:
+        episode_hashes: ${mecka_private:fold_moving_b48_op64,train}
+  valid_datasets:
+    human_bimanual:
+      filters:
+        episode_hashes: ${mecka_private:fold_moving_b48_op64,seen_matched}
+  extra_valid_datasets:
+    human_bimanual:
+      filters:
+        episode_hashes: ${mecka_private:fold_moving_b48_op64,seen_perlevel}
+  unseen_op_valid_datasets:
+    human_bimanual:
+      filters:
+        episode_hashes: ${mecka_private:fold_moving_b48_op64,unseen}

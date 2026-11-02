@@ -1,4 +1,4 @@
-exclude: ^external/
+exclude: ^(external/|experiments/fold_clothes_moving_opscale/reference_source/)
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit

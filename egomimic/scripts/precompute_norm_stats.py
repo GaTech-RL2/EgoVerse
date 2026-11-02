@@ -51,6 +51,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--config-name", default="train_zarr_cartesian_pi")
     ap.add_argument(
+        "--config-dir",
+        default=None,
+        help="optional directory containing the primary Hydra config",
+    )
+    ap.add_argument(
         "--data",
         required=True,
         help="data config group; MUST match the training run's data config",
@@ -112,7 +117,11 @@ def main() -> None:
     if args.history_only and args.history_max_lag <= 0:
         ap.error("--history-only needs --history-max-lag")
 
-    cfg_dir = os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
+    cfg_dir = (
+        os.path.abspath(args.config_dir)
+        if args.config_dir
+        else os.path.join(os.path.dirname(egomimic.__file__), "hydra_configs")
+    )
     GlobalHydra.instance().clear()
     overrides = [
         f"data={args.data}",

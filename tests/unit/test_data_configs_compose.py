@@ -38,6 +38,10 @@ def _params(known_broken: dict[str, str]):
 
 
 def compose_data(name: str, overrides: list[str] | None = None):
+    if name == "mecka_fold_moving_budget":
+        from fixtures.moving_opscale import split_overrides
+
+        overrides = [*split_overrides(), *(overrides or [])]
     with initialize_config_module(
         config_module="egomimic.hydra_configs", version_base=None
     ):
