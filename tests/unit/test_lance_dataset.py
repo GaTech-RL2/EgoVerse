@@ -1,6 +1,8 @@
 import numpy as np
+import pandas as pd
 import pyarrow as pa
 import pytest
+import torch
 
 lance = pytest.importorskip("lance")
 
@@ -16,6 +18,7 @@ from egomimic.rldb.lance.dataset import (  # noqa: E402
     eligible_intervals,
 )
 from egomimic.rldb.lance.schema import task_instance_id  # noqa: E402
+from egomimic.rldb.multi import SEED, MultiDataset, split_dataset_names  # noqa: E402
 
 
 def test_eligible_intervals_requires_whole_chunk_valid():
@@ -434,6 +437,71 @@ def test_clip_pins_through_multidataset(segmented):
     assert _frames(video.datasets["clip_b2"]) == [4, 5, 6, 7]
     with pytest.raises(PinError):
         pinned_episode_subset(whole, ["nope"])
+
+
+def _many_recordings(tmp_path, monkeypatch, hashes):
+    """A resolver whose aliases give `hashes`, and one leaf per recording."""
+    root, _ = tmp_path, write_catalog(tmp_path)
+    resolver = LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={})
+    rids = [f"rec_{i:02d}" for i in range(len(hashes))]
+    aliases = pd.DataFrame({"recording_id": rids, "episode_hash": hashes})
+    monkeypatch.setitem(resolver.__dict__, "_aliases", aliases)
+    return resolver, {r: _FakeLeaf() for r in rids}
+
+
+class _FakeLeaf(torch.utils.data.Dataset):
+    episode_hash = None
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, i):
+        return {}
+
+
+def test_split_matches_a_split_on_the_zarr_hashes(tmp_path, monkeypatch):
+    # Hashes that sort differently from their recording ids.
+    hashes = [f"{i * 7 % 40:02d}_hash" for i in range(40)]
+    resolver, leaves = _many_recordings(tmp_path, monkeypatch, hashes)
+    keys = resolver.split_keys(leaves)
+    ds = {m: MultiDataset(datasets=leaves, mode=m, valid_ratio=0.2, split_keys=keys)
+          for m in ("train", "valid")}
+    _, valid = split_dataset_names(hashes, valid_ratio=0.2, seed=SEED)
+    assert {keys[r] for r in ds["valid"].datasets} == set(valid)
+    assert not set(ds["train"].datasets) & set(ds["valid"].datasets)
+    assert len(ds["train"].datasets) + len(ds["valid"].datasets) == 40
+
+
+def test_leaves_are_ordered_by_split_key(tmp_path, monkeypatch):
+    hashes = [f"{i * 7 % 40:02d}_hash" for i in range(40)]
+    resolver, leaves = _many_recordings(tmp_path, monkeypatch, hashes)
+    keys = resolver.split_keys(leaves)
+    ds = MultiDataset(datasets=leaves, mode="total", split_keys=keys)
+    assert [keys[r] for r in ds.datasets] == sorted(hashes)
+
+
+def test_recordings_with_several_clips_or_none_split_on_their_id(segmented):
+    root, a, b = segmented
+    resolver = LanceEpisodeResolver(root, key_map=KEY_MAP, cameras={})
+    keys = resolver.split_keys([a, b, "not_aliased"])
+    assert set(keys) == {a}
+    assert b not in keys and "not_aliased" not in keys
+
+
+def test_two_datasets_with_one_split_key_raise():
+    leaves = {"a": _FakeLeaf(), "b": _FakeLeaf()}
+    with pytest.raises(ValueError, match="same split key"):
+        MultiDataset(datasets=leaves, mode="total", split_keys={"a": "x", "b": "x"})
+
+
+def test_no_split_keys_keeps_the_split_and_order_on_names():
+    names = [f"{i * 7 % 40:02d}_name" for i in range(40)]
+    leaves = {n: _FakeLeaf() for n in names}
+    train, valid = split_dataset_names(names, valid_ratio=0.2, seed=SEED)
+    ds = MultiDataset(datasets=leaves, mode="train", valid_ratio=0.2)
+    assert set(ds.datasets) == set(train)
+    assert list(ds.datasets) == [n for n in names if n in set(train)]
+    assert ds.valid_collections == set(valid)
 
 
 HISTORY_KEY_MAP = {

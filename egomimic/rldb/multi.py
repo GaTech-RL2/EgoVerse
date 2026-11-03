@@ -233,6 +233,7 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        split_keys: dict[str, str] | None = None,
         **kwargs,
     ):
         """
@@ -243,6 +244,9 @@ class MultiDataset(torch.utils.data.Dataset):
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
             state: If provided, populate stats fields from this dict (deploy mode).
+            split_keys: {dataset name: key the train/valid split shuffles}, for
+                names that differ from the key another backend splits on (Lance
+                recording_id -> zarr episode_hash). Missing names split as themselves.
         """
         super().__init__()
 
@@ -274,9 +278,14 @@ class MultiDataset(torch.utils.data.Dataset):
             raise ValueError("MultiDataset requires either `datasets` or `state`.")
 
         # ---- Normal data-mode construction ----
-        self.train_collections, self.valid_collections = split_dataset_names(
-            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+        keys = {n: (split_keys or {}).get(n, n) for n in datasets}
+        if len(set(keys.values())) != len(keys):
+            raise ValueError("split_keys maps two datasets to the same split key")
+        _, valid_keys = split_dataset_names(
+            keys.values(), valid_ratio=valid_ratio, seed=SEED
         )
+        self.valid_collections = {n for n, k in keys.items() if k in valid_keys}
+        self.train_collections = set(datasets) - self.valid_collections
 
         if mode == "train":
             chosen = self.train_collections
@@ -295,7 +304,9 @@ class MultiDataset(torch.utils.data.Dataset):
         else:
             raise ValueError(f"Unknown mode: {mode}")
 
-        self.datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
+        # Split-key order too, so a global index means the same frame as on zarr.
+        order = sorted(datasets, key=keys.get) if split_keys else list(datasets)
+        self.datasets = {n: datasets[n] for n in order if n in chosen}
         assert self.datasets, "No datasets left after applying mode split."
 
         self.index_map = _IndexMap(self.datasets)
@@ -639,6 +650,11 @@ class MultiDataset(torch.utils.data.Dataset):
                 "were skipped by the resolver (see the log above)."
             )
 
+        # Lance splits on each recording's zarr episode_hash, so it holds out the
+        # same episodes as the zarr run of the same recipe.
+        split_keys = getattr(resolver, "split_keys", None)
+        if split_keys is not None:
+            kwargs["split_keys"] = split_keys(resolved)
         ds = cls(datasets=resolved, **kwargs)
         manifest = getattr(resolver, "manifest", None)
         # Which table versions the leaves came from; trainHydra writes it to the run dir.

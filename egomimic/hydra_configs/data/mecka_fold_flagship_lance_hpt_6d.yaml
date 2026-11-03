@@ -1,0 +1,133 @@
+# MECKA_FOLD_FLAGSHIP_LANCE_HPT_6D: mecka_fold_flagship_opsplit_hpt_6d read through a Lance
+# catalog built by zarr_to_lance + lance_commit from the same 1,607 flagship zarrs. Same keymap,
+# transforms, filters, split and video pins; the zarr_processed_path filter is dropped because the
+# root holds only flagship. Lance is not fork-safe, so workers use forkserver.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# The 2 held-out (UNSEEN) operator ids (SQL app.episodes.operator). Referenced
+# by the filter lambdas below via the mounted path `data.held_out_operators`.
+# MultiDataModuleWrapper accepts this key (config-only).
+held_out_operators:
+  - 6871d82a1aaf88556f0c6041
+  - 6903a36c466be157ec64562d
+
+# Metric prefix / video dir for the canonical valid loader (config-only; read by
+# trainHydra), so the seen-operator val is not logged under a bare Valid/.
+valid_prefix: seen_op_valid
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.lance.dataset.LanceEpisodeResolver
+      lance_root: ${oc.env:EGOVERSE_LANCE_PILOT,/coc/flash7/scratch/lance_pilot}/lance_v2
+      cameras:
+        images.front_1: front_1
+      # Rows of annotations.lance (none on the flagship), like the zarr annotations track;
+      # without this the prompt falls back to the task name.
+      annotations: {}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+        # Proprio observation history: the ee_pose keys read K steps spaced
+        # `history_stride` frames apart, (K, 20) with the current frame last.
+        # At 30 fps the median wrist translation is 6.8 mm over 1 frame but
+        # 42.9 mm over 5, so an unstrided window is mostly sensor noise while
+        # the action chunk it conditions spans a full second; K = 3, s = 5 is
+        # 0.33 s of past. Must match the stem's `history_len` (the run fails
+        # loudly if not), and the K = 1 baseline needs
+        #   ...key_map.proprio_history=1 ...key_map.history_stride=1
+        #   model.robomimic_model.stem_specs.human_bimanual.state_ee_pose.history_len=1
+        # The two val loaders interpolate this resolver, so they follow.
+        proprio_history: 3
+        history_stride: 5
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        fix_left_wrist_convention: true
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() == 'fold_clothes'"
+        # OPERATOR SPLIT: train = every operator NOT in the held-out list.
+        - "lambda row: str(row.get('operator', '')) not in ${data.held_out_operators}"
+    # Seeded 95/5 episode split within the train operators; the 5 % is the
+    # seen-operator val (valid_datasets below).
+    mode: train
+    valid_ratio: 0.05
+
+# SEEN operators, held-out episodes (the complement of train's 95 %) ->
+# seen_op_valid/ metrics via the canonical evaluator.
+valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters: ${data.train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${data.train_datasets.human_bimanual.valid_ratio}
+
+# UNSEEN operators: all episodes of the held-out operators -> unseen_op_valid/
+# metrics via a second copy of the canonical evaluator.
+unseen_op_valid_datasets:
+  human_bimanual:
+    _target_: ${data.train_datasets.human_bimanual._target_}
+    resolver: ${data.train_datasets.human_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+        - "lambda row: str(row.get('task', '')).lower() == 'fold_clothes'"
+        # OPERATOR SPLIT: unseen val = the held-out operators only.
+        - "lambda row: str(row.get('operator', '')) in ${data.held_out_operators}"
+    mode: total
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
+
+# Unshuffled (both val loaders): the same leading slice every val, comparable
+# across epochs with a coherent overlay video. Capped per pass by the
+# trainer's limit_val_batches. The train_viz loader reuses these params.
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
+    shuffle: false
+
+unseen_op_valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    multiprocessing_context: forkserver
+    persistent_workers: true
+    shuffle: false
+
+# Frames taken evenly from each episode per val head, so every episode is
+# scored. Not scaled by world size: every rank reads the same val batches.
+# K = floor(limit_val_batches * batch_size / episodes in the split)
+#   = floor(80 * 64 / n), n = 70 / 1346 / 191 (valid / train_viz /
+#   unseen_op_valid, measured 2026-09-15); re-derive when the split changes.
+metric_frames_per_episode:
+  valid: 73
+  train_viz: 3
+  unseen_op_valid: 26
+
+# Episodes each head's video loader renders, one per operator, in frame order.
+video_episodes:
+  valid:
+    - 692e771c39719ab57395b408
+  train_viz:
+    - 692e9bda21fc595fbe6f941e
+  unseen_op_valid:
+    - 692eadbaaec602a46af10686
+    - 692ea49a727c13b350cb7c48
