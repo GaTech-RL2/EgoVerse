@@ -1,0 +1,24 @@
+# Composed recipe: train_zarr_mecka_flagship_6d_rdt read through the Lance catalog
+# (data/mecka_fold_flagship_lance_hpt_6d.yaml). Same model, action space, evaluators
+# and norm stats as the zarr recipe.
+#
+#   python egomimic/trainHydra.py --config-name=train_lance_mecka_flagship_6d_rdt \
+#     norm_stats.precomputed_norm_path=<out>/norm_stats
+defaults:
+  - train_lance_mecka_flagship_6d_hpt
+  - override model: rdt_bc_mecka_6d_dinov3_vitb
+  - _self_
+
+data:
+  train_datasets:
+    human_bimanual:
+      resolver:
+        key_map:
+          # RDT's 2-frame image history and no proprio history; see the zarr recipe.
+          image_history_gap_s: 0.1
+          proprio_history: 1
+          history_stride: 1
+
+trainer:
+  # RDT clips at 1.0: protects the fine-tuned tower from the from-scratch DiT.
+  gradient_clip_val: 1.0
