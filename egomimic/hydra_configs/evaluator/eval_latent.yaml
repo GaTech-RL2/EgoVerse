@@ -33,3 +33,9 @@ emit_combined: true
 # good for cotrain_pi_latent_random. Override to "hash" for the pairs config
 # so each of the 4 specific episodes gets its own color.
 color_by: embodiment
+
+# KNN accuracy (embodiment classification from latent features).
+# Uses cuML GPU KNN when available, sklearn CPU otherwise.
+# Reports 5-fold cross-validation accuracy per layer slice.
+compute_knn: false
+knn_k: 5
