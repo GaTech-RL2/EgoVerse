@@ -806,6 +806,14 @@ class LanceEpisodeResolver:
         out.update({r: r for r in rids})
         return {h: out[h] for h in hashes if h in out}
 
+    def split_keys(self, names) -> dict[str, str]:
+        """{recording_id: its zarr episode_hash} for recordings with exactly one
+        aliased clip, so the train/valid split matches a zarr run's. Recordings with
+        several clips or none split on their recording_id."""
+        a = self._aliases[self._aliases.recording_id.isin(set(names))]
+        one = a.groupby("recording_id").episode_hash.agg(list)
+        return {r: h[0] for r, h in one.items() if len(h) == 1}
+
     def _annotation_rows(self) -> dict[str, pd.DataFrame]:
         """{recording_id: rows passing the `annotations` filters, sorted by start}."""
         cfg = self.annotations
