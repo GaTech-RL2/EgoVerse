@@ -741,6 +741,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             norm_dataset = _instantiate_dataset(
                 instantiate_copy, dataset_name=dataset_name
             )
+            norm_dataset.use_training_tracking_reference(dataset)
 
             emb = get_embodiment_id(dataset_name)
             key = inputs = cached = episode_cache = None
@@ -759,6 +760,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                     sample_frac,
                     pool_horizon,
                     max_samples,
+                    seed=int(cfg.seed)
+                    if norm_dataset.training_tracking_policy
+                    else None,
                 )
                 key = norm_cache.norm_cache_key(inputs)
                 cached = norm_cache.find_cached(cache_dir, dataset_name, key, emb)
@@ -776,6 +780,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 if explicit_path is not None
                 else cached,
                 pool_horizon=pool_horizon,
+                **(
+                    {"seed": int(cfg.seed)}
+                    if norm_dataset.training_tracking_policy
+                    else {}
+                ),
                 episode_cache=episode_cache,
             )
             if key is not None and cached is None:

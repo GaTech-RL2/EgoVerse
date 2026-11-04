@@ -47,6 +47,8 @@ def recipe_key(dataset_name: str, dataset_cfg) -> str:
         "resolver": norm_cache.recipe_inputs(resolver)["resolver"],
         "code": norm_cache.code_hash(resolver),
     }
+    if raw.get("training_tracking_policy") is not None:
+        inputs["training_tracking_policy"] = raw["training_tracking_policy"]
     blob = json.dumps(inputs, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 

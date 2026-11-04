@@ -1452,6 +1452,7 @@ class MultiDataset(torch.utils.data.Dataset):
     BOUNDS_ABS_TOL = 1e-6
     bounds_rel_slack = 0.5
     bounds_check = True
+    TRAINING_TRACKING_POLICY = "raw_tracking_valid_windows_v1"
 
     def __init__(
         self,
@@ -1465,6 +1466,7 @@ class MultiDataset(torch.utils.data.Dataset):
         state: dict | None = None,
         bounds_check: bool = True,
         bounds_rel_slack: float | None = None,
+        training_tracking_policy: str | None = None,
         **kwargs,
     ):
         """
@@ -1485,6 +1487,12 @@ class MultiDataset(torch.utils.data.Dataset):
         """
         super().__init__()
         self.bounds_check = bounds_check
+        if training_tracking_policy not in (None, self.TRAINING_TRACKING_POLICY):
+            raise ValueError(
+                f"Unknown training tracking policy: {training_tracking_policy!r}"
+            )
+        self.training_tracking_policy = training_tracking_policy
+        self.training_tracking_coverage: dict[str, dict[str, int]] = {}
         if bounds_rel_slack is not None:
             self.bounds_rel_slack = bounds_rel_slack
 
@@ -1539,6 +1547,19 @@ class MultiDataset(torch.utils.data.Dataset):
         self.datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
         assert self.datasets, "No datasets left after applying mode split."
 
+        if self.training_tracking_policy is not None:
+            # Resolver memoization can share leaves with evaluation datasets.
+            # The opt-in guard belongs only to this training graph.
+            self.datasets = {
+                name: copy.copy(leaf) for name, leaf in self.datasets.items()
+            }
+            for name, leaf in self.datasets.items():
+                if not isinstance(leaf, ZarrDataset):
+                    raise TypeError(
+                        "Training tracking guard requires flat ZarrDataset leaves"
+                    )
+                self.training_tracking_coverage[name] = leaf.prepare_training_tracking()
+
         self._global_indices_by_dataset = {n: [] for n in self.datasets}
         for dataset_name, dataset in self.datasets.items():
             starts = getattr(dataset, "sample_indices", None)
@@ -1549,6 +1570,41 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def __len__(self) -> int:
         return len(self.index_map)
+
+    def use_training_tracking_reference(self, source: "MultiDataset") -> None:
+        """Use full training-window eligibility with the numerics-only norm keymap.
+
+        Norm statistics still read current-step proprio; their eligible anchors
+        must also have all real history requested by the training recipe.
+        """
+        if source.training_tracking_policy is None:
+            return
+        if self.training_tracking_policy != source.training_tracking_policy:
+            raise ValueError("Normalization/training tracking policies differ")
+        if set(self.datasets) != set(source.datasets):
+            raise ValueError("Normalization/training selected episodes differ")
+        for name, leaf in self.datasets.items():
+            reference = source.datasets[name]
+            if (
+                Path(leaf.episode_path).resolve()
+                != Path(reference.episode_path).resolve()
+            ):
+                raise ValueError("Normalization/training episode paths differ")
+            leaf._training_tracking_valid_mask = (
+                reference._training_tracking_valid_mask.copy()
+            )
+            leaf._training_tracking_valid_indices = (
+                reference._training_tracking_valid_indices.copy()
+            )
+        # The numerics-only keymap can otherwise build a different camera-jump
+        # mask because its history is intentionally collapsed to one frame.
+        self.index_map = list(source.index_map)
+        self._global_indices_by_dataset = copy.deepcopy(
+            source._global_indices_by_dataset
+        )
+        self.training_tracking_coverage = copy.deepcopy(
+            source.training_tracking_coverage
+        )
 
     @staticmethod
     def _episode_name_for_dataset(dataset, dataset_name: str) -> str:
@@ -2024,6 +2080,8 @@ class MultiDataset(torch.utils.data.Dataset):
 
         self.norm_stats.setdefault(embodiment, {})
 
+        tracking_policy = getattr(dataset, "training_tracking_policy", None)
+        tracking_coverage = getattr(dataset, "training_tracking_coverage", {})
         if precomputed_norm_path is not None:
             if os.path.isdir(precomputed_norm_path):
                 precomputed_file = os.path.join(
@@ -2048,6 +2106,20 @@ class MultiDataset(torch.utils.data.Dataset):
                         "embodiment collapse — recompute norm stats instead of "
                         "reusing a pre-collapse norm_stats.json."
                     )
+                if tracking_policy is not None:
+                    metadata = payload.get("norm_run_metadata") or {}
+                    if metadata.get("training_tracking_policy") != tracking_policy:
+                        raise ValueError(
+                            "Precomputed normalization lacks the required training tracking policy; recompute it"
+                        )
+                    if metadata.get("sampling_seed") != int(seed):
+                        raise ValueError(
+                            "Precomputed normalization sampling seed does not match the configured seed"
+                        )
+                    if metadata.get("tracking_coverage") != tracking_coverage:
+                        raise ValueError(
+                            "Precomputed normalization tracking coverage does not match the training dataset"
+                        )
                 # JSON gives back nested lists; a fresh computation stores
                 # float32 arrays, so convert to keep both paths identical.
                 self.norm_stats[embodiment] = {
@@ -2059,6 +2131,16 @@ class MultiDataset(torch.utils.data.Dataset):
                     f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
                 )
                 return
+
+        if tracking_policy is not None and episode_cache is not None:
+            # Historical per-episode rows bypass the guarded MultiDataset and
+            # encode neither its same-episode resampling nor full history support.
+            # Keep the content-keyed final-stat cache; compute fresh rows through
+            # the exact guarded training sampler instead.
+            logger.info(
+                "Training tracking guard bypasses the per-episode norm row cache"
+            )
+            episode_cache = None
 
         if episode_cache is not None and not all(
             not isinstance(ds, MultiDataset)
@@ -2113,9 +2195,23 @@ class MultiDataset(torch.utils.data.Dataset):
                 generator=torch.Generator().manual_seed(seed),
                 worker_init_fn=die_with_parent,
             )
-            collected = self._collect_norm_samples(
-                loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+            # Worker processes get Python/NumPy seeds from the private loader
+            # generator. With zero workers, same-episode replacement runs here;
+            # seed it locally too without advancing the caller's random streams.
+            rng_states = (
+                (random.getstate(), np.random.get_state()) if tracking_policy else None
             )
+            try:
+                if tracking_policy:
+                    random.seed(seed)
+                    np.random.seed(int(seed) % (2**32))
+                collected = self._collect_norm_samples(
+                    loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+                )
+            finally:
+                if rng_states is not None:
+                    random.setstate(rng_states[0])
+                    np.random.set_state(rng_states[1])
         for k in [k for k, v in collected.items() if not v]:
             del collected[k]
             norm_keys.remove(k)
@@ -2149,6 +2245,15 @@ class MultiDataset(torch.utils.data.Dataset):
             "computing_time": computing_time,
             "frames": n_samples,
             **episode_meta,
+            **(
+                {
+                    "training_tracking_policy": tracking_policy,
+                    "sampling_seed": int(seed),
+                    "tracking_coverage": copy.deepcopy(tracking_coverage),
+                }
+                if tracking_policy is not None
+                else {}
+            ),
         }
         logger.info(
             f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
@@ -2246,6 +2351,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "loading_time": None,
             "computing_time": None,
             "frames": None,
+            "norm_run_metadata": copy.deepcopy(self._norm_run_metadata),
         }
         if self._norm_run_metadata is not None:
             for k in ("loading_time", "computing_time", "frames"):
@@ -2682,6 +2788,126 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.sample_indices: np.ndarray | None = None
         super().__init__()
 
+    @staticmethod
+    def _tracked_raw_rows(poses: np.ndarray, keypoints: np.ndarray) -> np.ndarray:
+        """Strict canonical MANO missing-row classification before transforms."""
+        keypoints = keypoints.reshape(len(poses), -1)
+        if poses.shape != (len(poses), 7) or keypoints.shape != (len(poses), 63):
+            raise ValueError("Unexpected raw wrist/keypoint tracking shape")
+        if not np.isfinite(poses).all() or not np.isfinite(keypoints).all():
+            raise ValueError("Non-finite raw wrist/keypoint tracking data")
+        large = (np.abs(poses) >= 1e8).any(axis=-1)
+        sentinel = (poses == 1e9).all(axis=-1)
+        if (large & ~sentinel).any():
+            raise ValueError(
+                "Malformed large wrist pose is not a missing-hand sentinel"
+            )
+        if (sentinel & ~(keypoints == 0).all(axis=-1)).any():
+            raise ValueError("Missing-hand sentinel has nonzero keypoints")
+        return ~sentinel
+
+    def prepare_training_tracking(self) -> dict[str, int]:
+        """Build a bounded, numeric-only eligibility table for this episode.
+
+        Preserve the original index map and episode weights. Invalid requested
+        starts are resampled uniformly within this episode before decoding or
+        transforms; a selected episode with no usable start fails closed.
+        """
+        T = self.total_frames
+        starts = np.arange(T, dtype=np.int64)
+        eligible = (
+            starts
+            if self.sample_indices is None
+            else np.asarray(self.sample_indices, dtype=np.int64)
+        )
+        specs = [
+            spec
+            for spec in self.key_map.values()
+            if spec.get("zarr_key") in ("left.obs_wrist_pose", "right.obs_wrist_pose")
+            and spec.get("key_type") != "annotation_keys"
+        ]
+        if not specs:
+            raise ValueError(
+                "Training tracking policy requires raw MANO wrist/keypoint reads"
+            )
+        tracked = {}
+        for raw_key in sorted({spec["zarr_key"] for spec in specs}):
+            keypoints_key = raw_key.replace(".obs_wrist_pose", ".obs_keypoints")
+            rows = np.empty(T, dtype=bool)
+            # Bound temporary memory even for unusually long episodes.
+            for lo in range(0, T, 65536):
+                hi = min(T, lo + 65536)
+                groups = self.episode_reader.read_intervals(
+                    {raw_key: [(lo, hi)], keypoints_key: [(lo, hi)]}
+                )
+                arrays = {}
+                for key in (raw_key, keypoints_key):
+                    for begin, block in groups[key]:
+                        if begin <= lo and hi <= begin + len(block):
+                            arrays[key] = block[lo - begin : hi - begin]
+                            break
+                    else:
+                        raise ValueError(f"Missing raw tracking rows {key}/{lo}:{hi}")
+                rows[lo:hi] = self._tracked_raw_rows(
+                    arrays[raw_key], arrays[keypoints_key]
+                )
+            tracked[raw_key] = rows
+        valid = np.ones(T, dtype=bool)
+        for spec in specs:
+            rows = tracked[spec["zarr_key"]]
+            horizon = spec.get("horizon")
+            history = spec.get("history")
+            if horizon is not None:
+                if type(self)._chunk_end_idx is ZarrDataset._chunk_end_idx:
+                    ends = np.minimum(starts + int(horizon), T)
+                else:
+                    # Annotation-cutoff subclasses have per-start EOS limits.
+                    ends = np.fromiter(
+                        (
+                            self._chunk_end_idx(
+                                int(i), int(horizon), spec.get("key_type")
+                            )
+                            for i in starts
+                        ),
+                        dtype=np.int64,
+                        count=T,
+                    )
+                bad_prefix = np.r_[0, np.cumsum(~rows)]
+                valid &= bad_prefix[ends] == bad_prefix[starts]
+            elif history is not None and (
+                int(history) > 1 or spec.get("key_type") == "camera_keys"
+            ):
+                newest = starts - (
+                    self._seconds_to_frames(spec["lag_s"])
+                    if spec.get("lag_s") is not None
+                    else 0
+                )
+                for offset in range(int(history)):
+                    indices = newest - self._history_stride(spec) * offset
+                    real = indices >= 0
+                    # Null-padded history is not required tracking support.
+                    valid[real] &= rows[indices[real]]
+            elif spec.get("lag_s") is not None:
+                valid &= rows[
+                    np.maximum(0, starts - self._seconds_to_frames(spec["lag_s"]))
+                ]
+            else:
+                valid &= rows
+        usable = eligible[valid[eligible]]
+        if not len(usable):
+            raise ValueError(
+                f"Selected episode has no tracking-valid training windows: {Path(self.episode_path).name}"
+            )
+        eligible_mask = np.zeros(T, dtype=bool)
+        eligible_mask[eligible] = True
+        self._training_tracking_valid_mask = valid & eligible_mask
+        self._training_tracking_valid_indices = usable
+        return {
+            "eligible_starts": int(len(eligible)),
+            "valid_starts": int(len(usable)),
+            "rejected_starts": int(len(eligible) - len(usable)),
+        }
+
     def evaluation_tracking_validity(self, idx: int) -> bool:
         """Whether every required raw MANO hand observation is tracked.
 
@@ -3046,9 +3272,13 @@ class ZarrDataset(torch.utils.data.Dataset):
             nonlocal attempts
             next_idx, attempts = get_fallback_idx(
                 idx=idx,
-                candidates=range(self.total_frames)
-                if self.sample_indices is None
-                else self.sample_indices.tolist(),
+                candidates=(
+                    self._training_tracking_valid_indices.tolist()
+                    if hasattr(self, "_training_tracking_valid_indices")
+                    else range(self.total_frames)
+                    if self.sample_indices is None
+                    else self.sample_indices.tolist()
+                ),
                 _attempts=attempts,
                 max_attempts=self.total_frames,
                 exhausted_error=(
@@ -3063,6 +3293,9 @@ class ZarrDataset(torch.utils.data.Dataset):
             return next_idx
 
         while True:
+            tracking_mask = getattr(self, "_training_tracking_valid_mask", None)
+            if tracking_mask is not None and not tracking_mask[idx]:
+                idx = int(random.choice(self._training_tracking_valid_indices))
             windows = self._read_windows(idx)
             # One zarr call per key, not one per keymap entry: an action chunk
             # and the proprio history of the same pose name the same key with

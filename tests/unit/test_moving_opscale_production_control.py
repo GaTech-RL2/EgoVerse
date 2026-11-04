@@ -88,6 +88,7 @@ def test_worker_and_timeout_continuation_also_require_opt_in(
 def test_all_preflight_stages_finish_without_production(scenario, monkeypatch):  # noqa: F811
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
     s.done["normalization"] = s.done["evaluation-smoke"] = True
     original_read = s.module.read_json
@@ -102,7 +103,7 @@ def test_all_preflight_stages_finish_without_production(scenario, monkeypatch): 
     monkeypatch.setattr(s.module.subprocess, "run", production)
     assert s.module.step(s.state, s.args) == "PREFLIGHT_COMPLETE"
     assert s.actions == ["final-data-check", "normalization", "evaluation-smoke"]
-    assert s.evidence == [((24, 4), (24, 128)), None]
+    assert s.evidence == [((24, 4), (24, 16), (24, 128)), None]
     assert "validate_setup.py" in command.call_args.args[0][1]
     production.assert_not_called()
     assert "production" not in s.state["actions"]

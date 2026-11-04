@@ -85,19 +85,20 @@ def scenario(tmp_path, monkeypatch):
     )
 
 
-def test_smoke_waits_for_both_reports(scenario):
+def test_smoke_waits_for_required_reports(scenario):
     s = scenario
     s.ready(4)
     assert s.module.step(s.state, s.args) == "COMPUTING_NORMALIZATION"
     assert "evaluation-smoke" not in s.actions
 
 
-def test_two_verified_norms_start_smoke_before_array_finishes(scenario):
+def test_three_verified_norms_start_smoke_before_array_finishes(scenario):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
     assert s.module.step(s.state, s.args) == "NORMALIZATION_AND_GPU_SMOKE"
-    assert s.evidence == [((24, 4), (24, 128))]
+    assert s.evidence == [((24, 4), (24, 16), (24, 128))]
     assert "evaluation-smoke" in s.actions
     assert "production" not in s.state["actions"]
 
@@ -105,6 +106,7 @@ def test_two_verified_norms_start_smoke_before_array_finishes(scenario):
 def test_invalid_smoke_norm_provenance_prevents_launch(scenario, monkeypatch):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
 
     def invalid(*args, **kwargs):
@@ -119,6 +121,7 @@ def test_invalid_smoke_norm_provenance_prevents_launch(scenario, monkeypatch):
 def test_smoke_success_does_not_release_production_before_all_norms(scenario):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
     s.done["evaluation-smoke"] = True
     assert s.module.step(s.state, s.args) == "WAITING_FOR_REMAINING_NORMALIZATION"
@@ -128,16 +131,18 @@ def test_smoke_success_does_not_release_production_before_all_norms(scenario):
 def test_completed_array_requires_all_norm_evidence_while_smoke_runs(scenario):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
     s.done["normalization"] = True
     assert s.module.step(s.state, s.args) == "RUNNING_GPU_SMOKE"
-    assert s.evidence == [((24, 4), (24, 128)), None]
+    assert s.evidence == [((24, 4), (24, 16), (24, 128)), None]
     assert "production" not in s.state["actions"]
 
 
 def test_failed_array_blocks_even_when_smoke_norms_exist(scenario, monkeypatch):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128)
 
     def fail(action):
@@ -171,6 +176,7 @@ def test_failed_array_element_is_detected_before_other_records_arrive(
 def test_running_normalization_reports_wait_without_blocking(scenario):
     s = scenario
     s.ready(4, status="running")
+    s.ready(16)
     s.ready(128, status="running")
     assert s.module.step(s.state, s.args) == "COMPUTING_NORMALIZATION"
     assert "evaluation-smoke" not in s.actions
@@ -180,6 +186,7 @@ def test_running_normalization_reports_wait_without_blocking(scenario):
 def test_one_passed_and_one_running_report_still_waits(scenario):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128, status="running")
     assert s.module.step(s.state, s.args) == "COMPUTING_NORMALIZATION"
     assert "evaluation-smoke" not in s.actions
@@ -188,6 +195,7 @@ def test_one_passed_and_one_running_report_still_waits(scenario):
 def test_failed_normalization_report_blocks_without_launch(scenario):
     s = scenario
     s.ready(4)
+    s.ready(16)
     s.ready(128, status="failed")
     with pytest.raises(RuntimeError, match="failed or is malformed"):
         s.module.step(s.state, s.args)
@@ -247,3 +255,11 @@ def test_completed_with_nonzero_exit_is_failed(scenario, monkeypatch):
         namespace,
     )
     assert namespace["scheduler"]("10")[0] == "FAILED"
+
+
+def test_op16_diagnostic_norm_is_required_before_smoke(scenario):
+    s = scenario
+    s.ready(4)
+    s.ready(128)
+    assert s.module.step(s.state, s.args) == "COMPUTING_NORMALIZATION"
+    assert "evaluation-smoke" not in s.actions

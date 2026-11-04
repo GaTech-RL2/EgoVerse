@@ -27,6 +27,11 @@ from experiments.fold_clothes_moving_opscale.normalization_provenance import (
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 EVALUATION_POLICY = "tracking_valid_windows_v1"
+TRAINING_POLICY = "raw_tracking_valid_windows_v1"
+SMOKE_TRAIN_STEPS = 64
+DIAGNOSTIC_TRAIN_STEPS = 512
+TRAINING_BATCH_SIZE = 64
+TRAINING_LOSS_CEILING = 1000.0
 
 
 def now():
@@ -102,6 +107,428 @@ def training_repository(args):
     return Path(getattr(args, "training_repo", None) or REPO).resolve()
 
 
+def training_norm_summary(payload, episodes):
+    """Authenticate full training-window eligibility in newly computed norms."""
+    metadata = payload.get("norm_run_metadata", {})
+    need(
+        metadata.get("training_tracking_policy") == TRAINING_POLICY,
+        "Normalization lacks the strict raw training tracking policy",
+    )
+    need(metadata.get("sampling_seed") == 42026, "Normalization sampling seed differs")
+    coverage = metadata.get("tracking_coverage", {})
+    need(
+        isinstance(coverage, dict) and set(coverage) == set(episodes) and coverage,
+        "Normalization tracking coverage does not match every selected training episode",
+    )
+    totals = {key: 0 for key in ("eligible_starts", "valid_starts", "rejected_starts")}
+    for item in coverage.values():
+        need(
+            isinstance(item, dict)
+            and all(type(item.get(key)) is int and item[key] >= 0 for key in totals),
+            "Normalization tracking counts are invalid",
+        )
+        need(
+            item["valid_starts"] > 0
+            and item["eligible_starts"]
+            == item["valid_starts"] + item["rejected_starts"],
+            "Normalization has an unusable episode or inconsistent tracking counts",
+        )
+        for key in totals:
+            totals[key] += item[key]
+    return {
+        "policy": TRAINING_POLICY,
+        "sampling_seed": 42026,
+        "episode_count": len(coverage),
+        **totals,
+        "coverage_sha256": hashlib.sha256(
+            json.dumps(coverage, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
+    }
+
+
+def validate_training_norm(report, payload, episodes, commit):
+    proof = training_norm_summary(payload, episodes)
+    need(
+        report.get("status") == "passed"
+        and report.get("commit") == commit
+        and report.get("training_tracking_policy") == TRAINING_POLICY,
+        "Training norms must be freshly computed under this source and tracking policy",
+    )
+    need(
+        report.get("training_validity") == proof,
+        "Normalization tracking proof changed or is missing",
+    )
+    return proof
+
+
+def verify_training_evidence(
+    evidence, *, commit, job_id, cell, start_step, steps, norm_sha256
+):
+    need(
+        evidence.get("status") == "passed"
+        and evidence.get("training_tracking_policy") == TRAINING_POLICY,
+        "Strict training evidence is missing or failed",
+    )
+    need(
+        evidence.get("commit") == commit
+        and evidence.get("job_id") == str(job_id)
+        and evidence.get("cell") == cell
+        and evidence.get("seed") == 42026
+        and evidence.get("norm_stats_sha256") == norm_sha256,
+        "Training evidence identity differs",
+    )
+    need(
+        evidence.get("start_step") == start_step
+        and evidence.get("expected_steps") == steps
+        and evidence.get("batch_size") == TRAINING_BATCH_SIZE
+        and evidence.get("verified_samples") == steps * TRAINING_BATCH_SIZE
+        and evidence.get("loss_ceiling") == TRAINING_LOSS_CEILING,
+        "Training evidence does not prove the required update count and full batch64",
+    )
+    updates = evidence.get("updates", [])
+    need(
+        isinstance(updates, list) and len(updates) == steps,
+        "Training update evidence is incomplete",
+    )
+    for index, update in enumerate(updates, start_step + 1):
+        need(
+            update.get("step") == index
+            and update.get("batch_size") == TRAINING_BATCH_SIZE,
+            "Training update sequence or batch size differs",
+        )
+        loss, grad = update.get("loss"), update.get("gradient_norm")
+        need(
+            type(loss) in (int, float)
+            and math.isfinite(loss)
+            and 0 <= loss <= TRAINING_LOSS_CEILING,
+            "Training loss is nonfinite or exceeds the diagnostic ceiling",
+        )
+        need(
+            type(grad) in (int, float) and math.isfinite(grad) and grad >= 0,
+            "Training gradients are nonfinite or missing",
+        )
+    if cell == "b24_op16":
+        probe = evidence.get("forced_resampling", {})
+        need(
+            probe.get("requested_raw_valid") is False
+            and probe.get("actual_raw_valid") is True
+            and probe.get("same_episode") is True
+            and bool(probe.get("episode"))
+            and type(probe.get("requested_frame")) is int
+            and type(probe.get("actual_frame")) is int
+            and probe["requested_frame"] != probe["actual_frame"],
+            "Representative training did not exercise a real invalid start within the same episode",
+        )
+    return {
+        "updates": steps,
+        "samples": steps * TRAINING_BATCH_SIZE,
+        "loss_min": min(item["loss"] for item in updates),
+        "loss_max": max(item["loss"] for item in updates),
+        "gradient_norm_max": max(item["gradient_norm"] for item in updates),
+    }
+
+
+def validate_smoke_training(report, runs, commit):
+    """Reopen all four per-update receipts; booleans alone never grant launch."""
+    runs = Path(runs).resolve()
+    need(
+        report.get("status") == "passed"
+        and report.get("commit") == commit
+        and report.get("training_tracking_policy") == TRAINING_POLICY
+        and report.get("run_root") == str(runs),
+        "Strict training smoke identity missing",
+    )
+    job = str(report.get("job_id", ""))
+    need(job.isdigit(), "Training smoke job identity missing")
+    phases = report.get("runs", [])
+    need(
+        len(phases) == 3
+        and [(item.get("operator_count"), item.get("epochs")) for item in phases]
+        == [(4, 1), (4, 2), (128, 1)],
+        "Full evaluation/resume smoke phases are incomplete",
+    )
+    diagnostic = report.get("training_diagnostic", {})
+    need(
+        diagnostic.get("operator_count") == 16,
+        "Representative op16 training diagnostic missing",
+    )
+    results = []
+    for item, cell, start, steps in [
+        (diagnostic, "b24_op16", 0, DIAGNOSTIC_TRAIN_STEPS),
+        (phases[0], "b24_op4", 0, SMOKE_TRAIN_STEPS),
+        (phases[1], "b24_op4", SMOKE_TRAIN_STEPS, SMOKE_TRAIN_STEPS),
+        (phases[2], "b24_op128", 0, SMOKE_TRAIN_STEPS),
+    ]:
+        proof = item.get("training_evidence", {})
+        path = (
+            runs
+            / "smoke"
+            / commit[:12]
+            / f"attempt_{job}"
+            / cell
+            / f"training_evidence_{start}_{start + steps}.json"
+        )
+        need(
+            proof.get("path") == str(path)
+            and path.is_file()
+            and proof.get("sha256") == sha(path),
+            "Training evidence artifact is missing, misplaced or changed",
+        )
+        normalized = json.loads(
+            (runs / "norm" / cell / "norm_complete.json").read_text()
+        )
+        stats = runs / "norm" / cell / "norm_stats/norm_stats.json"
+        split = json.loads(
+            (runs / "private/splits" / f"fold_moving_{cell}.json").read_text()
+        )
+        need(
+            normalized.get("stats_path") == str(stats)
+            and normalized.get("stats_sha256") == sha(stats),
+            "Training diagnostic normalization changed",
+        )
+        norm_proof = validate_training_norm(
+            normalized, json.loads(stats.read_text()), split["train"], commit
+        )
+        need(
+            item.get("normalization") == norm_proof,
+            "Smoke normalization policy proof differs",
+        )
+        result = verify_training_evidence(
+            json.loads(path.read_text()),
+            commit=commit,
+            job_id=job,
+            cell=cell,
+            start_step=start,
+            steps=steps,
+            norm_sha256=sha(stats),
+        )
+        need(
+            all(proof.get(key) == value for key, value in result.items()),
+            "Training evidence summary differs",
+        )
+        need(
+            item.get("checkpoint", {}).get("step") == start + steps,
+            "Smoke training/checkpoint steps differ",
+        )
+        results.append(result)
+    return results
+
+
+def training_audit_callback(
+    output,
+    cell,
+    commit,
+    job_id,
+    norm_stats_path,
+    norm_stats_sha256,
+    start_step,
+    expected_steps,
+):
+    """Smoke-only observer; no model, optimizer, loss or gradient modifications."""
+    import random
+
+    import numpy as np
+    import torch
+    from lightning.pytorch import Callback
+
+    class TrainingAudit(Callback):
+        def __init__(self):
+            self.path = Path(output)
+            self.report = {
+                "schema_version": 1,
+                "status": "running",
+                "cell": cell,
+                "commit": commit,
+                "job_id": str(job_id),
+                "seed": 42026,
+                "training_tracking_policy": TRAINING_POLICY,
+                "norm_stats_sha256": norm_stats_sha256,
+                "start_step": start_step,
+                "expected_steps": expected_steps,
+                "batch_size": TRAINING_BATCH_SIZE,
+                "loss_ceiling": TRAINING_LOSS_CEILING,
+                "updates": [],
+                "verified_samples": 0,
+            }
+
+        def on_train_start(self, trainer, pl_module):
+            need(
+                trainer.global_step == start_step
+                and trainer.accumulate_grad_batches == 1,
+                "Training audit requires the exact starting step and no accumulation",
+            )
+            need(os.environ.get("PL_GLOBAL_SEED") == "42026", "Training seed differs")
+            self.dataset = trainer.datamodule.train_datasets["human_bimanual"]
+            need(
+                self.dataset.training_tracking_policy == TRAINING_POLICY,
+                "Instantiated training dataset lacks strict tracking validity",
+            )
+            need(
+                sha(norm_stats_path) == norm_stats_sha256, "Training norm file changed"
+            )
+            stats = json.loads(Path(norm_stats_path).read_text())
+            summary = training_norm_summary(stats, self.dataset.datasets)
+            need(
+                stats["norm_run_metadata"]["tracking_coverage"]
+                == self.dataset.training_tracking_coverage,
+                "Live training eligibility differs from normalization eligibility",
+            )
+            self.report["normalization"] = summary
+            need(
+                pl_module.enable_grad_norm,
+                "Existing gradient norm instrumentation is required",
+            )
+            # This probe consumes no training RNG state and never supplies its
+            # decoded sample to the optimizer. It exercises real selected data.
+            if cell == "b24_op16":
+                rng = (
+                    random.getstate(),
+                    np.random.get_state(),
+                    torch.random.get_rng_state(),
+                )
+                try:
+                    for episode, leaf in sorted(self.dataset.datasets.items()):
+                        if not self.dataset.training_tracking_coverage[episode][
+                            "rejected_starts"
+                        ]:
+                            continue
+                        eligible = getattr(leaf, "sample_indices", None)
+                        eligible = range(len(leaf)) if eligible is None else eligible
+                        requested = next(
+                            (
+                                int(i)
+                                for i in eligible
+                                if not leaf._training_tracking_valid_mask[int(i)]
+                            ),
+                            None,
+                        )
+                        if requested is None:
+                            continue
+                        need(
+                            not leaf.evaluation_tracking_validity(requested),
+                            "Forced invalid start unexpectedly tracked",
+                        )
+                        sample = leaf[requested]
+                        actual = int(sample["frame_idx"])
+                        actual_episode = sample["episode_hash"]
+                        valid = bool(leaf.evaluation_tracking_validity(actual))
+                        need(
+                            actual_episode == episode
+                            and actual != requested
+                            and valid
+                            and actual in leaf._training_tracking_valid_indices,
+                            "Strict guard did not resample to a tracked start within the same episode",
+                        )
+                        self.report["forced_resampling"] = {
+                            "episode": episode,
+                            "requested_frame": requested,
+                            "actual_frame": actual,
+                            "requested_raw_valid": False,
+                            "actual_raw_valid": valid,
+                            "same_episode": True,
+                        }
+                        break
+                    need(
+                        "forced_resampling" in self.report,
+                        "Representative split has no exercised invalid raw window",
+                    )
+                finally:
+                    random.setstate(rng[0])
+                    np.random.set_state(rng[1])
+                    torch.random.set_rng_state(rng[2])
+            write(self.path, self.report)
+
+        def on_train_batch_start(self, trainer, pl_module, batch, batch_idx):
+            sample = batch["human_bimanual"]
+            episodes = sample["episode_hash"]
+            frames = sample["frame_idx"].detach().cpu().tolist()
+            need(
+                len(episodes) == len(frames) == TRAINING_BATCH_SIZE
+                and sample["actions_keypoints"].shape[0] == TRAINING_BATCH_SIZE,
+                "Actual training batch size differs from64",
+            )
+            for episode, frame in zip(episodes, frames, strict=True):
+                leaf = self.dataset.datasets.get(episode)
+                need(
+                    leaf is not None
+                    and type(frame) is int
+                    and 0 <= frame < len(leaf._training_tracking_valid_mask)
+                    and bool(leaf._training_tracking_valid_mask[frame])
+                    and frame in leaf._training_tracking_valid_indices,
+                    "An untracked raw window reached an actual training batch",
+                )
+            self.report["verified_samples"] += TRAINING_BATCH_SIZE
+
+        def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+            value = outputs["loss"] if isinstance(outputs, dict) else outputs
+            loss = float(value.detach().cpu())
+            need(
+                bool(pl_module.grad_norm_history),
+                "Per-update gradient norm evidence missing",
+            )
+            grad = float(pl_module.grad_norm_history[-1])
+            self.report["updates"].append(
+                {
+                    "step": int(trainer.global_step),
+                    "batch_size": TRAINING_BATCH_SIZE,
+                    "loss": loss,
+                    "gradient_norm": grad,
+                }
+            )
+            write(self.path, self.report)
+            need(
+                math.isfinite(loss) and 0 <= loss <= TRAINING_LOSS_CEILING,
+                "Training loss is nonfinite or exceeds the diagnostic ceiling",
+            )
+            need(math.isfinite(grad), "Training gradients are nonfinite")
+
+        def on_train_end(self, trainer, pl_module):
+            self.report["status"] = "passed"
+            try:
+                self.report["summary"] = verify_training_evidence(
+                    self.report,
+                    commit=commit,
+                    job_id=job_id,
+                    cell=cell,
+                    start_step=start_step,
+                    steps=expected_steps,
+                    norm_sha256=norm_stats_sha256,
+                )
+            except Exception:
+                self.report["status"] = "failed"
+                write(self.path, self.report)
+                raise
+            write(self.path, self.report)
+
+        def on_exception(self, trainer, pl_module, exception):
+            self.report.update(status="failed", error_type=type(exception).__name__)
+            write(self.path, self.report)
+
+    return TrainingAudit()
+
+
+def training_audit_overrides(
+    folder, cell, commit, job_id, normalized, start_step, steps
+):
+    output = folder / f"training_evidence_{start_step}_{start_step + steps}.json"
+    values = {
+        "_target_": "experiments.fold_clothes_moving_opscale.run_preflight.training_audit_callback",
+        "output": str(output),
+        "cell": cell,
+        "commit": commit,
+        "job_id": str(job_id),
+        "norm_stats_path": normalized["stats_path"],
+        "norm_stats_sha256": normalized["stats_sha256"],
+        "start_step": start_step,
+        "expected_steps": steps,
+    }
+    # Quote strings so numeric-looking job IDs and source digests stay strings.
+    return output, [
+        f"++callbacks.training_validity_audit.{key}={json.dumps(value)}"
+        for key, value in values.items()
+    ]
+
+
 def norm(args):
     root, runs, commit, design_hash = context(args)
     repo = training_repository(args)
@@ -114,8 +541,14 @@ def norm(args):
     output = runs / "norm" / f"b{args.budget}_op{args.operators}"
     report = output / "norm_complete.json"
     stats = output / "norm_stats" / "norm_stats.json"
+    selected_train = json.loads(
+        (
+            root / "splits" / f"fold_moving_b{args.budget}_op{args.operators}.json"
+        ).read_text()
+    )["train"]
     identity = {
         "commit": commit,
+        "training_tracking_policy": TRAINING_POLICY,
         "design_sha256": design_hash,
         "budget_hours": args.budget,
         "operator_count": args.operators,
@@ -136,6 +569,9 @@ def norm(args):
             and stats.is_file()
             and previous.get("stats_sha256") == sha(stats)
         ):
+            validate_training_norm(
+                previous, json.loads(stats.read_text()), selected_train, commit
+            )
             print(json.dumps({"norm": str(report), "status": "already_passed"}))
             return
     output.mkdir(parents=True, exist_ok=True)
@@ -177,7 +613,9 @@ def norm(args):
             stats.is_file() and stats.stat().st_size > 0,
             "Normalization did not write stats",
         )
-        json.loads(stats.read_text())
+        training_validity = training_norm_summary(
+            json.loads(stats.read_text()), selected_train
+        )
         write(
             report,
             {
@@ -186,6 +624,7 @@ def norm(args):
                 "created_at": now(),
                 "stats_path": str(stats),
                 "stats_sha256": sha(stats),
+                "training_validity": training_validity,
                 "seed": 42026,
                 "sample_frac": 1.0,
                 "max_samples": 200000,
@@ -555,7 +994,12 @@ def smoke(args):
     )
     gpu = torch.cuda.get_device_name(0)
     need("H100" in gpu or "H200" in gpu, f"Unexpected GPU: {gpu}")
-    reused = reusable_first_phase(args, runs, commit, design_hash)
+    need(
+        not getattr(args, "reuse_first_phase", None)
+        and not getattr(args, "reuse_first_phase_sha256", None),
+        "Fresh strict-policy training smoke forbids legacy two-step first-phase reuse",
+    )
+    reused = None
     output = args.output or runs / "evaluation_smoke.json"
     smoke_root = runs / "smoke" / commit[:12] / f"attempt_{os.environ['SLURM_JOB_ID']}"
     report = {
@@ -569,12 +1013,14 @@ def smoke(args):
         "runs": [],
         "job_id": os.environ["SLURM_JOB_ID"],
         "normalization_reuse": normalization_reuse_identity(runs, commit),
+        "training_tracking_policy": TRAINING_POLICY,
+        "run_root": str(runs),
     }
     if getattr(args, "operational_controller", None):
         report["operational_controller"] = args.operational_controller
     write(output, report)
     try:
-        for operators in [4, 128]:
+        for operators in [16, 4, 128]:
             cell = f"b24_op{operators}"
             norm_file = runs / "norm" / cell / "norm_complete.json"
             normalized = json.loads(norm_file.read_text())
@@ -598,6 +1044,15 @@ def smoke(args):
                 == sha(root / "splits" / f"fold_moving_{cell}.json"),
                 "Normalization split changed",
             )
+            split = json.loads(
+                (root / "splits" / f"fold_moving_{cell}.json").read_text()
+            )
+            norm_proof = validate_training_norm(
+                normalized,
+                json.loads(Path(normalized["stats_path"]).read_text()),
+                split["train"],
+                commit,
+            )
             folder = smoke_root / cell
             run_id = (
                 f"fold_moving_smoke_{cell}_{commit[:10]}_{os.environ['SLURM_JOB_ID']}"
@@ -607,6 +1062,19 @@ def smoke(args):
             checkpoint = None
             first_step = None
             for epochs in [1, 2] if operators == 4 else [1]:
+                phase_steps = (
+                    DIAGNOSTIC_TRAIN_STEPS if operators == 16 else SMOKE_TRAIN_STEPS
+                )
+                start_step = (epochs - 1) * phase_steps
+                training_path, audit_overrides = training_audit_overrides(
+                    folder,
+                    cell,
+                    commit,
+                    os.environ["SLURM_JOB_ID"],
+                    normalized,
+                    start_step,
+                    phase_steps,
+                )
                 command = [
                     sys.executable,
                     "-u",
@@ -619,7 +1087,7 @@ def smoke(args):
                     "hydra.sweep.subdir=0",
                     f"trainer.max_epochs={epochs}",
                     f"trainer.min_epochs={epochs}",
-                    "trainer.limit_train_batches=2",
+                    f"trainer.limit_train_batches={phase_steps}",
                     "trainer.check_val_every_n_epoch=1",
                     "callbacks.model_checkpoint.every_n_epochs=1",
                     "callbacks.moving_opscale_evaluation.viz_every_n_epochs=1",
@@ -630,6 +1098,14 @@ def smoke(args):
                     if checkpoint
                     else "++logger.wandb.resume=never",
                 ]
+                command.extend(audit_overrides)
+                if operators == 16:
+                    command.extend(
+                        [
+                            "trainer.limit_val_batches=0",
+                            "callbacks.moving_opscale_evaluation=null",
+                        ]
+                    )
                 if checkpoint:
                     command.append(f"ckpt_path={checkpoint}")
                 folder.mkdir(parents=True, exist_ok=True)
@@ -657,7 +1133,7 @@ def smoke(args):
                 checkpoint = candidates[0]
                 saved = inspect_checkpoint(checkpoint)
                 need(
-                    saved["step"] == epochs * 2,
+                    saved["step"] == epochs * phase_steps,
                     "Checkpoint step does not match requested optimizer updates",
                 )
                 if first_step is None:
@@ -676,6 +1152,32 @@ def smoke(args):
                     )
                     saved["resumed_from_step"] = first_step
                     saved["restored_all_states"] = True
+                training_evidence = json.loads(training_path.read_text())
+                training_summary = verify_training_evidence(
+                    training_evidence,
+                    commit=commit,
+                    job_id=os.environ["SLURM_JOB_ID"],
+                    cell=cell,
+                    start_step=start_step,
+                    steps=phase_steps,
+                    norm_sha256=normalized["stats_sha256"],
+                )
+                training_proof = {
+                    "path": str(training_path),
+                    "sha256": sha(training_path),
+                    "norm_stats_sha256": normalized["stats_sha256"],
+                    **training_summary,
+                }
+                if operators == 16:
+                    report["training_diagnostic"] = {
+                        "operator_count": 16,
+                        "checkpoint": saved,
+                        "training_evidence": training_proof,
+                        "normalization": norm_proof,
+                        "config_sha256": sha(here / "budget_24/op_16.yaml"),
+                    }
+                    write(output, report)
+                    continue
                 status = json.loads((folder / "0/evaluation_status.json").read_text())
                 metrics = list(status.get("metrics", {}).values())
                 need(
@@ -732,6 +1234,8 @@ def smoke(args):
                 report["runs"].append(
                     {
                         "operator_count": operators,
+                        "training_evidence": training_proof,
+                        "normalization": norm_proof,
                         "norm_stats_producer_commit": normalized["commit"],
                         "epochs": epochs,
                         "checkpoint": saved,
@@ -779,9 +1283,14 @@ def smoke(args):
                     "wandb_metrics": True,
                     "video_counts": True,
                     "tracking_validity": True,
+                    "training_validity": True,
+                    "fresh_training_norms": True,
+                    "representative_training": True,
+                    "finite_gradients": True,
                 },
             }
         )
+        validate_smoke_training(report, runs, commit)
         write(output, report)
     except Exception as error:
         report.update({"status": "failed", "finished_at": now(), "error": str(error)})

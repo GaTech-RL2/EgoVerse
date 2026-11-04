@@ -11,6 +11,11 @@ import build_splits as splits
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
+from experiments.fold_clothes_moving_opscale.run_preflight import (
+    TRAINING_POLICY,
+    validate_smoke_training,
+)
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 
@@ -127,6 +132,10 @@ def main():
                     list(cfg.data.train_datasets.human_bimanual.filters.episode_hashes)
                     == s["train"]
                 )
+                assert (
+                    cfg.data.train_datasets.human_bimanual.training_tracking_policy
+                    == TRAINING_POLICY
+                )
                 assert list(cfg.data.train_operators) == s["operators"]
                 assert cfg.norm_stats.precomputed_norm_path is None
             entries.append(
@@ -155,13 +164,21 @@ def main():
             "wandb_metrics": True,
             "video_counts": True,
             "tracking_validity": True,
+            "training_validity": True,
+            "fresh_training_norms": True,
+            "representative_training": True,
+            "finite_gradients": True,
         }
     )
+    if smoke_ok:
+        validate_smoke_training(smoke, a.evaluation_smoke.parent, commit)
     report = {
         "schema_version": 1,
         "status": "passed" if smoke_ok else "blocked",
         "commit": commit,
         "evaluation_policy": "tracking_valid_windows_v1",
+        "training_tracking_policy": TRAINING_POLICY,
+        "smoke_sha256": sha(a.evaluation_smoke) if smoke_ok else None,
         "private_root": str(root),
         "design_sha256": sha(root / "moving_opscale_design.json"),
         "checks": {
@@ -171,6 +188,7 @@ def main():
             "configuration_integrity": True,
             "reference_recipe": True,
             "evaluation_smoke": smoke_ok,
+            "training_validity": smoke_ok,
         },
         "configurations": entries,
         "actual_hours": validation["actual_hours"],

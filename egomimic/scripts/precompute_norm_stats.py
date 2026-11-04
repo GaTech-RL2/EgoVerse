@@ -206,6 +206,7 @@ def main() -> None:
 
         inst.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(inst, dataset_name=dataset_name)
+        norm_dataset.use_training_tracking_reference(dataset)
 
         t0 = time.perf_counter()
         norm_stats.infer_norm_from_dataset(
@@ -216,6 +217,9 @@ def main() -> None:
             num_workers=args.num_workers,
             precomputed_norm_path=None,  # force compute
             pool_horizon=pool_horizon,
+            **(
+                {"seed": int(cfg.seed)} if norm_dataset.training_tracking_policy else {}
+            ),
             episode_cache=None
             if not cache_dir
             else episode_norm_samples.cache_root(
@@ -240,6 +244,7 @@ def main() -> None:
                 args.sample_frac,
                 pool_horizon,
                 args.max_samples,
+                seed=int(cfg.seed) if norm_dataset.training_tracking_policy else None,
             )
             key = norm_cache.norm_cache_key(inputs)
             emb = get_embodiment_id(dataset_name)

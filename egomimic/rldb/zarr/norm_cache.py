@@ -156,12 +156,19 @@ def cache_inputs(
     sample_frac: float,
     pool_horizon: bool = False,
     max_samples: int | None = None,
+    seed: int | None = None,
 ) -> dict:
     """Everything the key hashes. ``episodes`` maps episode hash to its
     ``episode_fingerprint``. norm_mode is not an input: every stat is computed
     regardless of it."""
     cfg = _to_dict(dataset_cfg)
+    guarded = cfg.get("training_tracking_policy") is not None
+    if guarded and seed is None:
+        raise ValueError(
+            "Guarded normalization cache identity requires the sampling seed"
+        )
     return {
+        **({"sampling_seed": int(seed)} if guarded else {}),
         "v": KEY_VERSION,
         "dataset": dataset_name,
         "episodes": sorted([str(h), fp] for h, fp in episodes.items()),

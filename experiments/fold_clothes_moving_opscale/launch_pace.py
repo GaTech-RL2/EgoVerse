@@ -29,6 +29,11 @@ from experiments.fold_clothes_moving_opscale.normalization_provenance import (
     normalization_reuse_identity,
     normalization_source_matches,
 )
+from experiments.fold_clothes_moving_opscale.training_numerics import (
+    load_training_numeric_latches,
+    training_numeric_identity,
+    training_numeric_tail,
+)
 
 BUDGETS = (24, 32, 48, 64, 72, 96)
 OPERATORS = (4, 8, 16, 32, 64, 128)
@@ -40,6 +45,7 @@ GATE_CHECKS = (
     "configuration_integrity",
     "reference_recipe",
     "evaluation_smoke",
+    "training_validity",
 )
 DATA_CHECKS = (
     "transfer_complete",
@@ -328,6 +334,19 @@ def validate_gate(gate_path, ready_path, repo=None, *, freshness=True):
             0 <= age <= 86400,
             "Data readiness verification must be within the past 24 hours",
         )
+    from experiments.fold_clothes_moving_opscale.run_preflight import (
+        TRAINING_POLICY,
+        validate_smoke_training,
+    )
+
+    smoke_path = Path(gate_path).resolve().parent / "evaluation_smoke.json"
+    need(
+        gate.get("training_tracking_policy") == TRAINING_POLICY
+        and smoke_path.is_file()
+        and gate.get("smoke_sha256") == digest(smoke_path),
+        "Strict training smoke gate is absent or changed",
+    )
+    validate_smoke_training(read_json(smoke_path), smoke_path.parent, commit)
     entries = gate.get("configurations", [])
     need(len(entries) == 36, "Gate must validate all 36 configurations")
     indexed = {(int(e["budget_hours"]), int(e["operator_count"])): e for e in entries}
@@ -412,6 +431,14 @@ def verified_norm(root, budget, count, commit, design_sha, entry):
         digest(path) == report["stats_sha256"],
         "Norm statistics changed after precompute",
     )
+    from experiments.fold_clothes_moving_opscale.run_preflight import (
+        validate_training_norm,
+    )
+
+    split = read_json(
+        Path(root) / "private/splits" / f"fold_moving_b{budget}_op{count}.json"
+    )
+    validate_training_norm(report, read_json(path), split["train"], commit)
     return path, report["stats_sha256"]
 
 
@@ -711,6 +738,33 @@ def submit(args):
         write_json(registry_path, registry)
 
 
+def require_clean_training_numerics(root, registry, run):
+    """Never start or resume a run with observed numerical contamination."""
+    root = Path(root).resolve()
+    identity = training_numeric_identity(run, registry["commit"], root)
+    need(
+        identity is not None, "Invalid numerical run identity; training requires review"
+    )
+    key, log = identity
+    try:
+        incidents = load_training_numeric_latches(root)
+    except (OSError, ValueError, TypeError, AttributeError):
+        raise RuntimeError(
+            "Malformed numerical incident receipt; training requires review"
+        ) from None
+    need(
+        key not in incidents,
+        "Observed numerical incident; checkpoint continuation requires review",
+    )
+    if log.exists():
+        report = training_numeric_tail(log)
+        need(report["status"] == "READ", "Numerical log evidence is unavailable")
+        need(
+            not report["evidence"],
+            "Observed numerical anomaly; training requires review",
+        )
+
+
 def execute(registry_path, cell):
     require_production_enabled(Path(registry_path).parent)
     registry = read_json(registry_path)
@@ -731,6 +785,7 @@ def execute(registry_path, cell):
         "Gate changed after submission",
     )
     run = registry["runs"][cell]
+    require_clean_training_numerics(Path(registry_path).parent, registry, run)
     stats_path, stats_sha = verified_norm(
         registry["run_root"],
         run["budget_hours"],
@@ -886,6 +941,7 @@ def continue_timed_out_run(registry_path, cell, observed_job, observed_state):
         if len(attempts) >= min(3, int(policy.get("max_attempts", 0))):
             return False
         try:
+            require_clean_training_numerics(path.parent, registry, run)
             restore_registry_source(registry)
             gate, _, _ = validate_gate(
                 registry["gate"], registry["readiness"], freshness=False

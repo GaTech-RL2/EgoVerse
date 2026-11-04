@@ -189,6 +189,8 @@ def await_action(action):
 
 
 def norm_evidence(root, commit, design_sha, cells=None):
+    from run_preflight import validate_training_norm
+
     cells = cells if cells is not None else ((b, n) for b in BUDGETS for n in OPERATORS)
     canonical_sha = digest(root / "private/canonical_zarr/_episode_index.json")
     for b, n in cells:
@@ -208,6 +210,12 @@ def norm_evidence(root, commit, design_sha, cells=None):
             and report.get("split_sha256") == digest(split)
             and report.get("stats_sha256") == digest(report["stats_path"]),
             f"Normalization evidence mismatch for b{b}_op{n}",
+        )
+        validate_training_norm(
+            report,
+            read_json(Path(report["stats_path"])),
+            read_json(split)["train"],
+            commit,
         )
 
 
@@ -311,7 +319,7 @@ def step(state, args):
     norm_body += ' --budget "${budgets[$((SLURM_ARRAY_TASK_ID / 6))]}" --operators "${operators[$((SLURM_ARRAY_TASK_ID % 6))]}"'
     action = ensure_job(state, root, "normalization", norm_body, array=True)
     norms_done = await_action(action)  # Fail immediately if any array task fails.
-    smoke_cells = ((24, 4), (24, 128))
+    smoke_cells = ((24, 4), (24, 16), (24, 128))
     smoke_norms_pending = False
     for b, n in smoke_cells:
         path = root / "norm" / f"b{b}_op{n}" / "norm_complete.json"
@@ -340,7 +348,7 @@ def step(state, args):
     if smoke_norms_pending:
         need(
             not norms_done,
-            "Normalization array completed without both passed smoke normalization reports",
+            "Normalization array completed without all three passed smoke normalization reports",
         )
         return "COMPUTING_NORMALIZATION"
     norm_evidence(root, args.commit, state["design_sha256"], cells=smoke_cells)

@@ -52,7 +52,9 @@ def main():
             "pose_glitch_mask": reference["data_pose_glitch_mask"],
             "mode": "total",
         }
-        if head != "train":
+        if head == "train":
+            dataset["training_tracking_policy"] = "raw_tracking_valid_windows_v1"
+        else:
             dataset["bounds_rel_slack"] = 10.0
         data[f"{head}_datasets"] = {"human_bimanual": dataset}
         data[f"{head}_dataloader_params"] = {

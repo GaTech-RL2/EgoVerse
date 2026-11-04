@@ -120,7 +120,21 @@ def test_norm_cache_is_bound_to_canonical_index(proof):
     norm = root / "norm/b24_op4"
     (norm / "norm_stats").mkdir(parents=True)
     stats = norm / "norm_stats/norm_stats.json"
-    stats.write_text("{}")
+    preflight = importlib.import_module("run_preflight")
+    payload = {
+        "norm_run_metadata": {
+            "training_tracking_policy": preflight.TRAINING_POLICY,
+            "sampling_seed": 42026,
+            "tracking_coverage": {
+                "original": {
+                    "eligible_starts": 100,
+                    "valid_starts": 100,
+                    "rejected_starts": 0,
+                }
+            },
+        }
+    }
+    launch.write_json(stats, payload)
     entry = {"config_sha256": "config", "split_sha256": "split"}
     report = {
         "status": "passed",
@@ -136,6 +150,8 @@ def test_norm_cache_is_bound_to_canonical_index(proof):
         "canonical_index_sha256": ready["canonical_index_sha256"],
         "stats_path": str(stats),
         "stats_sha256": launch.digest(stats),
+        "training_tracking_policy": preflight.TRAINING_POLICY,
+        "training_validity": preflight.training_norm_summary(payload, ["original"]),
     }
     launch.write_json(norm / "norm_complete.json", report)
     assert launch.verified_norm(root, 24, 4, "a" * 40, "design", entry)[0] == stats

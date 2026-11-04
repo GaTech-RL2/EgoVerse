@@ -270,56 +270,13 @@ def test_prior_epoch_two_attempt_is_never_overwritten(prior):
         authenticate(prior)
 
 
-def test_smoke_reverifies_then_resumes_same_run_and_starts_op128_fresh(
+def test_strict_training_smoke_rejects_legacy_two_step_reuse(
     prior, tmp_path, monkeypatch
 ):
-    private = tmp_path / "private"
-    repo = tmp_path / "immutable-training-repo"
-    here = repo / "experiments/fold_clothes_moving_opscale"
-    save(
-        private / "canonical_zarr/_episode_index.json",
-        {
-            f"{cohort}-{index}": {"total_frames": 100}
-            for cohort in ("seen_matched", "seen_perlevel", "unseen")
-            for index in range(400)
-        },
-    )
-    for operators in [4, 128]:
-        cell = f"b24_op{operators}"
-        split = (
-            prior.split
-            if operators == 4
-            else evaluation(tmp_path / "fixture-op128", 128)[0]
-        )
-        save(private / "splits" / f"fold_moving_{cell}.json", split)
-        save(
-            here / "budget_24" / f"op_{operators}.yaml",
-            {"synthetic_operators": operators},
-        )
-        stats = prior.runs / "norm" / cell / "norm_stats/norm_stats.json"
-        save(stats, {"synthetic": True})
-        save(
-            prior.runs / "norm" / cell / "norm_complete.json",
-            {
-                "status": "passed",
-                "commit": COMMIT,
-                "design_sha256": DESIGN,
-                "stats_path": str(stats),
-                "stats_sha256": preflight.sha(stats),
-                "canonical_index_sha256": preflight.sha(
-                    private / "canonical_zarr/_episode_index.json"
-                ),
-                "split_sha256": preflight.sha(
-                    private / "splits" / f"fold_moving_{cell}.json"
-                ),
-            },
-        )
-    args = prior.args
-    args.training_repo = repo
-    args.output = prior.runs / "evaluation_smoke.json"
-    args.operational_controller = {"commit": "c" * 40}
     monkeypatch.setattr(
-        preflight, "context", lambda unused: (private, prior.runs, COMMIT, DESIGN)
+        preflight,
+        "context",
+        lambda unused: (tmp_path / "private", prior.runs, COMMIT, DESIGN),
     )
     monkeypatch.setenv("SLURM_JOB_ID", NEW_JOB)
     monkeypatch.setitem(
@@ -333,83 +290,11 @@ def test_smoke_reverifies_then_resumes_same_run_and_starts_op128_fresh(
             )
         ),
     )
-    events = []
-
-    def inspect(path):
-        events.append(("inspect", Path(path)))
-        step = (
-            4
-            if Path(path).name == "last.ckpt"
-            and Path(path).is_relative_to(prior.folder)
-            else 2
-        )
-        return {
-            "step": step,
-            "optimizer_state": True,
-            "scheduler_state": True,
-            "path": str(path),
-        }
-
-    def verify(run_id, status, expected_step):
-        events.append(("verify", run_id, expected_step))
-        return {
-            "run_id": run_id,
-            "state": "finished",
-            "verified_videos": len(status["videos"]),
-        }
-
-    def execute(command, cwd, stdout, stderr):
-        assert cwd == repo.resolve()
-        assert str(repo / "egomimic/trainHydra.py") in command
-        assert f"--config-dir={here / 'budget_24'}" in command
-        options = dict(item.split("=", 1) for item in command if "=" in item)
-        operators = int(options["--config-name"].removeprefix("op_"))
-        epoch = int(options["trainer.max_epochs"])
-        events.append(("execute", operators, epoch))
-        folder = Path(options["hydra.sweep.dir"])
-        if operators == 4:
-            assert events[:2] == [
-                ("inspect", prior.checkpoint),
-                ("verify", prior.run_id, 2),
-            ]
-            assert epoch == 2
-            assert options["logger.wandb.id"] == prior.run_id
-            assert options["ckpt_path"] == str(prior.checkpoint)
-            assert options["++logger.wandb.resume"] == "allow"
-            assert prior.args.reuse_first_phase.with_name(
-                "first_phase_reverified.json"
-            ).exists()
-            stdout.write("Restored all states\n")
-        else:
-            assert operators == 128 and epoch == 1
-            assert (
-                options["logger.wandb.id"]
-                == f"fold_moving_smoke_b24_op128_{COMMIT[:10]}_{NEW_JOB}"
-            )
-            assert "ckpt_path" not in options
-            assert options["++logger.wandb.resume"] == "never"
-        checkpoint = folder / "0/checkpoints/last.ckpt"
-        checkpoint.parent.mkdir(parents=True, exist_ok=True)
-        checkpoint.write_bytes(b"new synthetic checkpoint")
-        _, status = evaluation(folder, operators, step=epoch * 2)
-        save(folder / "0/evaluation_status.json", status)
-        return SimpleNamespace(returncode=0)
-
-    monkeypatch.setattr(preflight, "inspect_checkpoint", inspect)
-    monkeypatch.setattr(preflight, "verify_wandb", verify)
-    monkeypatch.setattr(preflight.subprocess, "run", execute)
-    preflight.smoke(args)
-    assert [event for event in events if event[0] == "execute"] == [
-        ("execute", 4, 2),
-        ("execute", 128, 1),
-    ]
-    report = json.loads(args.output.read_text())
-    assert report["status"] == "passed"
-    assert len(report["runs"]) == 3
-    assert report["commit"] == COMMIT
-    assert report["operational_controller"] == args.operational_controller
-    assert report["runs"][0]["execution_job_id"] == OLD_JOB
-    assert report["runs"][0]["verification_job_id"] == NEW_JOB
-    assert report["runs"][1]["checkpoint"]["resumed_from_step"] == 2
-    assert report["runs"][1]["checkpoint"]["step"] == 4
-    assert all(report["checks"].values())
+    monkeypatch.setattr(
+        preflight.subprocess,
+        "run",
+        lambda *a, **k: pytest.fail("No training may launch with legacy evidence"),
+    )
+    with pytest.raises(RuntimeError, match="forbids legacy two-step"):
+        preflight.smoke(prior.args)
+    assert not (prior.runs / "evaluation_smoke.json").exists()

@@ -6,6 +6,7 @@ exact_val_reads: true
 replace_invalid_val_frames: false
 train_datasets:
   human_bimanual:
+    training_tracking_policy: raw_tracking_valid_windows_v1
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
