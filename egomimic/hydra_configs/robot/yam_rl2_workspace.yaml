@@ -1,0 +1,7 @@
+# One physical outer TCP workspace, enclosing the old calibrated per-arm boxes.
+frame: can_follower_r
+ee_site: tcp_site
+bounds:
+  x: [0.0314, 0.5120]
+  y: [-0.2548, 0.8804]
+  z: [0.0147, 0.5875]
