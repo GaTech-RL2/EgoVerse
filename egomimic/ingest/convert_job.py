@@ -20,7 +20,13 @@ from pathlib import Path
 
 from egomimic.ingest import formats
 from egomimic.ingest.stage import read_pin, stage_digest
-from egomimic.ingest.store import DeliveryChanged, Ref, Store
+from egomimic.ingest.store import (
+    DeliveryChanged,
+    Ref,
+    Store,
+    add_store_args,  # noqa: F401  (the ingest tools' shared flags)
+    store_from_args,  # noqa: F401
+)
 
 
 def run_job(
@@ -74,24 +80,6 @@ def run_job(
         shutil.rmtree(work, ignore_errors=True)
     store.put_job(ref, fingerprint, outcome)
     return outcome
-
-
-def add_store_args(ap: argparse.ArgumentParser) -> None:
-    src = ap.add_mutually_exclusive_group()
-    src.add_argument("--bucket", default="ingest", help="pipeline bucket on R2")
-    src.add_argument("--local-store", type=Path, help="a directory instead of R2")
-    ap.add_argument(
-        "--vendor-bucket", default="ingest-{vendor}", help="vendor bucket pattern"
-    )
-    ap.add_argument("--root", default="", help="key prefix in every bucket")
-
-
-def store_from_args(args) -> Store:
-    from egomimic.ingest.store import LocalStore, R2Store
-
-    if args.local_store:
-        return LocalStore(args.local_store)
-    return R2Store(args.bucket, root=args.root, vendor_bucket=args.vendor_bucket)
 
 
 def add_convert_args(ap: argparse.ArgumentParser) -> None:

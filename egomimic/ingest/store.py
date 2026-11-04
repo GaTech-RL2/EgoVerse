@@ -37,6 +37,7 @@ LocalStore (a directory holding one folder per bucket, for tests and local runs)
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import hashlib
 import json
@@ -962,3 +963,19 @@ class R2Store(Store):
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") != "NoSuchUpload":
                 raise  # network / auth trouble: the caller must be able to retry
+
+
+def add_store_args(ap: argparse.ArgumentParser) -> None:
+    src = ap.add_mutually_exclusive_group()
+    src.add_argument("--bucket", default="ingest", help="pipeline bucket on R2")
+    src.add_argument("--local-store", type=Path, help="a directory instead of R2")
+    ap.add_argument(
+        "--vendor-bucket", default="ingest-{vendor}", help="vendor bucket pattern"
+    )
+    ap.add_argument("--root", default="", help="key prefix in every bucket")
+
+
+def store_from_args(args) -> Store:
+    if args.local_store:
+        return LocalStore(args.local_store)
+    return R2Store(args.bucket, root=args.root, vendor_bucket=args.vendor_bucket)
