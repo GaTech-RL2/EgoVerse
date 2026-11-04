@@ -156,15 +156,17 @@ def _delivery(tmp, kind: str, i: int, n: int, valid=None):
             intrinsics=[("front_1", np.eye(3).ravel().tolist())],
             extrinsics=[],
         ),
-        task=dict(
-            task_instance_id=f"t-{vid}",
-            recording_id=rid,
-            t_start_ns=t0,
-            t_end_ns=t1,
-            task_name="fold",
-            task_description=TASK,
-            objects=[],
-        ),
+        tasks=[
+            dict(
+                task_instance_id=f"t-{vid}",
+                recording_id=rid,
+                t_start_ns=t0,
+                t_end_ns=t1,
+                task_name="fold",
+                task_description=TASK,
+                objects=[],
+            )
+        ],
         alias=dict(episode_hash=h, recording_id=rid, t_start_ns=t0, t_end_ns=t1),
         steps=steps,
         videos={"front_1": video},
@@ -212,7 +214,7 @@ def test_committer_rejects_steps_not_in_the_key_schema(tmp_path):
     root = tmp_path / "lance"
     dex, _ = _delivery(tmp_path, "dexmate", 0, 5)
     yam, _ = _delivery(tmp_path, "yam", 1, 5)
-    wrong = commit.Delivery(yam.recording, yam.task, yam.alias, dex.steps, yam.videos)
+    wrong = commit.Delivery(yam.recording, yam.tasks, yam.alias, dex.steps, yam.videos)
     with pytest.raises(ValueError, match="steps schema"):
         commit.append(root, [wrong])
     as_hand = dict(dex.recording, end_effector=HAND)
