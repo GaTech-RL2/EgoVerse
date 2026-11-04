@@ -1,0 +1,163 @@
+robot:
+  kind: yam
+  arms:
+  - left
+  - right
+  channels:
+    left: can_follower_l
+    right: can_follower_r
+  gripper_type: linear_4310
+  # Match the working yam_ws/gello_teleop i2rt controller.
+  gripper_kp: 20.0
+  gripper_kd: 0.5
+  # i2rt 1.1.2 currently fixes this at 50 N; startup verifies the active value.
+  gripper_force_limit: 50.0
+  zero_gravity_mode: true
+  enable_auto_recovery: true
+  frequency: 60
+  home_duration: 1.5
+  home:
+    left:
+    - -0.008
+    - 0.007
+    - 0.004
+    - -0.07
+    - 0.001
+    - -0.015
+    - 0.999
+    right:
+    - 0.007
+    - 0.006
+    - 0.005
+    - -0.073
+    - -0.013
+    - -0.022
+    - 0.999
+  kinematics:
+    joint_names:
+    - joint1
+    - joint2
+    - joint3
+    - joint4
+    - joint5
+    - joint6
+    site_name: tcp_site
+  cameras:
+    front_img_1:
+      type: realsense
+      enabled: true
+      serial_number: '230322272195'
+      height: 480
+      width: 640
+      fps: 30
+    left_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '218622270679'
+      height: 480
+      width: 640
+      fps: 30
+    right_wrist_img:
+      type: realsense
+      enabled: true
+      serial_number: '230322270555'
+      height: 480
+      width: 640
+      fps: 30
+frequency: 60
+startup_timeout: 30.0
+station_calibration:
+  source_repository: GaTech-RL2/yam-pipeline
+  source_revision: 1b1f9b12d300a41872b8a8c6c04f0c9f5f892f88
+  agentview_extrinsics: egomimic/hydra_configs/robot/yam_rl2_agentview_extrinsics.yaml
+  workspace: egomimic/hydra_configs/robot/yam_rl2_workspace.yaml
+gello:
+  driver: ROBOTIS Dynamixel SDK
+  sdk_version: 4.0.5
+  # EMA uses alpha * newest + (1 - alpha) * previous: 90% newest, 10% previous.
+  input_filter_alpha: 0.9
+  calibrated: true
+  bus:
+    baudrate: 57600
+    protocol_version: 2.0
+    torque_enable_address: 64
+    present_position_address: 132
+    present_position_length: 4
+    encoder_resolution: 4096
+  leaders:
+    left:
+      port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTA2W8LR-if00-port0
+      joint_ids:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      gripper_id: 6
+      joint_signs:
+      - 1
+      - -1
+      - 1
+      - 1
+      - 1
+      - 1
+      joint_offsets_rad:
+      - 3.103243133892652
+      - 3.132388768862479
+      - 3.1492625575292212
+      - 2.9022916506796332
+      - 6.2816513263917
+      - 1.4741555371581012
+      gripper_open_rad: 3.522019888985432
+      gripper_closed_rad: 2.564815877344792
+    right:
+      port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Converter_FTA2W8MH-if00-port0
+      joint_ids:
+      - 7
+      - 8
+      - 9
+      - 10
+      - 12
+      - 11
+      gripper_id: 13
+      joint_signs:
+      - 1
+      - -1
+      - 1
+      - 1
+      - 1
+      - 1
+      joint_offsets_rad:
+      - -1.6214176927951227
+      - 3.1354567304382504
+      - 3.158466442256535
+      - 4.615748190747894
+      - 0.1518640980006785
+      - 6.198816363845876
+      gripper_open_rad: 3.419243176197094
+      gripper_closed_rad: 2.5494760694659355
+  # Calibrated GELLO zeros map onto robot.home. g and b only arm; the
+  # open-then-squeeze gate then slews followers to home plus the current
+  # GELLO offset. b also starts recording at that gate.
+  alignment: absolute
+  max_input_age: 0.25
+  max_joint_velocity: 4.5
+  max_alignment_velocity: 0.5
+  activation_gripper_threshold: 0.9
+keys:
+  activate_both: g
+  record: 'b'
+  stop: x
+  home: y
+  quit: q
+recording:
+  enabled: true
+  directory: ./demos/yam_gello
+  rate_hz: 30
+  episode_start: 0
+  # Manual save by default. The dashboard can enable a positive frame limit.
+  episode_length: null
+preview:
+  enabled: true
+  width: 640
