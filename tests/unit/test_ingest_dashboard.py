@@ -125,7 +125,10 @@ def test_a_post_without_the_form_token_is_refused(app):
 def test_login_only_redirects_to_our_own_pages(app):
     c = app.test_client()
     for target, expect in (("/d/acme/episode_0001", "/d/acme/episode_0001"),
-                           ("//evil.example", "/"), ("https://evil.example", "/")):  # fmt: skip
+                           ("/d/acme/episode_0001?state=ready", "/d/acme/episode_0001?state=ready"),
+                           ("//evil.example", "/"), ("https://evil.example", "/"),
+                           ("/%09/evil.example", "/"), ("/%0a/evil.example", "/"),
+                           ("/%5Cevil.example", "/"), ("%09//evil.example", "/")):  # fmt: skip
         r = c.post(
             f"/login?next={target}",
             data={"user": "simar", "password": PW, "csrf": csrf(c)},  # new per login

@@ -19,7 +19,7 @@ import traceback
 from pathlib import Path
 
 from egomimic.ingest import formats
-from egomimic.ingest.stage import read_pin, stage_digest
+from egomimic.ingest.stage import Prepared, read_pin, stage_digest
 from egomimic.ingest.store import (
     DeliveryChanged,
     Ref,
@@ -53,6 +53,17 @@ def run_job(
                 p = formats.prepare_delivery(
                     local, staged, lance_root, fingerprint=fingerprint, **settings
                 )
+                if p.status == "staged":
+                    # `lab` comes from the vendor's own file. Decided before anything is
+                    # stored: the diff would show the vendor another lab's recording.
+                    lab = read_pin(p.staged)["lab"]
+                    if lab not in store.vendor_labs(ref.vendor):
+                        p = Prepared(
+                            "rejected",
+                            problems=[
+                                f"lab {lab!r} is not registered to vendor {ref.vendor!r}"
+                            ],
+                        )
                 outcome = {
                     "status": p.status,
                     "recording_id": p.recording_id,

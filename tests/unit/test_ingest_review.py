@@ -201,8 +201,9 @@ def test_bulk_decisions_are_checked(app, store, tmp_path):
     page = c.get("/").get_data(as_text=True)
     assert "A decline needs a comment" in page and "Tick the deliveries" in page
     assert store.decisions(A) == []
-    r = post(decision="approve", item=[item], back="//evil.example")
-    assert r.headers["Location"] == "/"
+    for back in ("//evil.example", "/\t/evil.example", "/\\evil.example"):
+        r = post(decision="approve", item=[item], back=back)
+        assert r.headers["Location"] == "/"
 
 
 def test_latest_decisions_come_from_one_listing(store):
@@ -254,6 +255,7 @@ def test_upload_convert_approve_commit(app, store, tmp_path):
             lance_staging=staging, revision="r1",
         )  # fmt: skip
 
+    store.add_vendor("acme", "ingest-acme", ["rl2"])
     store.upload_delivery(A, write_mcap_episode(tmp_path / "ep"), {"by": "acme-ops"})
     assert watch().staged == ["acme/episode_0001"]
     c = login(app, "simar")

@@ -3,23 +3,26 @@ decisions and dashboard accounts.
 
 Keys below are logical. `deliveries/<vendor>/...` lives in that vendor's own bucket
 (`ingest-<vendor>`, at `<delivery_id>/<file>`), so a vendor can hold a write key for
-exactly its bucket and upload with its own S3 tools; everything under `pipeline/` lives
-in the private `ingest` bucket. The dashboard, the watcher and the conversion jobs share
-nothing but these buckets, so every kind of object has exactly one writer:
+exactly its bucket and upload with its own S3 tools; `pipeline/jobs/` and `pipeline/staged/`
+live in `egoverse-ingest-jobs`, the only bucket a conversion job's key can write (it parses
+vendor-supplied video, so it must not reach accounts, decisions or status); everything else
+under `pipeline/` lives in the private `ingest` bucket. The dashboard, the watcher and the
+conversion jobs share nothing but these buckets, so every kind of object has exactly one
+writer:
 
     deliveries/<vendor>/<delivery_id>/<file>             vendor files (own tools, or presigned
                                                          uploads through the dashboard)
     deliveries/<vendor>/<delivery_id>/_complete.json     dashboard, when an upload finishes:
                                                          the exact files (size, etag) it holds
     deliveries/<vendor>/<delivery_id>/_done.json         vendor (own tools), written last
-    pipeline/vendors.json                                onboard script: vendor -> bucket
+    pipeline/vendors.json                                onboard script: vendor -> bucket, labs
     pipeline/jobs/<vendor>/<delivery_id>/<fingerprint>.json
                                                          conversion job: its outcome
     pipeline/status/<vendor>/<delivery_id>.json          watcher
     pipeline/decisions/<vendor>/<delivery_id>/<t>-<who>-<decision>-<stage>.json
                                                          dashboard (staff)
     pipeline/uploads/<vendor>/<delivery_id>/<id>.json    dashboard: uploads in progress
-    pipeline/staged/<vendor>/<delivery_id>/<digest>/...  watcher: staged results, by digest
+    pipeline/staged/<vendor>/<delivery_id>/<digest>/...  conversion job: staged results, by digest
     pipeline/accounts.json                               dashboard (staff)
 
 A dashboard delivery is complete only while its files match the manifest in
@@ -57,11 +60,24 @@ ACCOUNTS = f"{PIPELINE}/accounts.json"
 VENDORS = f"{PIPELINE}/vendors.json"
 PIPELINE_BUCKET = "ingest"
 VENDOR_BUCKET = "ingest-{vendor}"
+# Not ingest-*, which would read as a vendor's bucket.
+JOBS_BUCKET = "egoverse-ingest-jobs"
+JOB_PREFIXES = (f"{PIPELINE}/jobs/", f"{PIPELINE}/staged/")
 
 # Vendors are lowercase slugs (as the spec's `vendor` key); delivery ids may also hold dots
 # and upper case, e.g. an episode id or a VRS stem.
 VENDOR = re.compile(r"[a-z0-9]+(?:[_-][a-z0-9]+)*")
 DELIVERY_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
+# As lance_commit.mcap_source, which this module stays too light to import.
+LAB = re.compile(r"[a-z0-9][a-z0-9_]*")
+
+
+def check_labs(labs) -> list[str]:
+    """`labs` a vendor may deliver for, as `lab` names the committer's folder."""
+    labs = list(labs)
+    if not labs or not all(isinstance(x, str) and LAB.fullmatch(x) for x in labs):
+        raise ValueError(f"labs {labs!r}: need lowercase letters, digits and _")
+    return sorted(set(labs))
 
 
 @dataclass(frozen=True, order=True)
@@ -193,6 +209,7 @@ class Store(ABC):
 
     vendor_bucket = VENDOR_BUCKET
     pipeline_bucket = PIPELINE_BUCKET
+    jobs_bucket = JOBS_BUCKET
 
     def _loc(self, key: str) -> tuple[str, str]:
         if key.startswith(DELIVERIES + "/"):
@@ -200,6 +217,8 @@ class Store(ABC):
             if not VENDOR.fullmatch(vendor):
                 raise ValueError(f"{key!r} names no vendor")
             return self.vendor_bucket.format(vendor=vendor), rest
+        if key.startswith(JOB_PREFIXES):
+            return self.jobs_bucket, key
         return self.pipeline_bucket, key
 
     def _list(self, prefix: str) -> dict[str, tuple[int, str]]:
@@ -218,11 +237,17 @@ class Store(ABC):
         """Vendors with a bucket, as the onboard script registered them."""
         return sorted((_load(self._get(VENDORS)) or {}).get("vendors", {}))
 
-    def add_vendor(self, vendor: str, bucket: str) -> None:
+    def vendor_labs(self, vendor: str) -> list[str]:
+        """The labs `vendor` may deliver for; none if it was never registered."""
+        reg = _load(self._get(VENDORS)) or {}
+        return reg.get("vendors", {}).get(vendor, {}).get("labs", [])
+
+    def add_vendor(self, vendor: str, bucket: str, labs) -> None:
         if not VENDOR.fullmatch(vendor):
             raise ValueError(f"vendor {vendor!r} is not a lowercase slug")
+        labs = check_labs(labs)
         reg = _load(self._get(VENDORS)) or {"vendors": {}}
-        reg["vendors"][vendor] = {"bucket": bucket, "added_at": now()}
+        reg["vendors"][vendor] = {"bucket": bucket, "labs": labs, "added_at": now()}
         self._put(VENDORS, _json(reg))
 
     # ---- primitives each backend provides
@@ -826,8 +851,9 @@ def _md5(p: Path, cached: bool = False) -> str:
 
 
 class R2Store(Store):
-    """The ingest buckets on Cloudflare R2 (S3 API): `bucket` for pipeline/ and
-    `vendor_bucket` (formatted with the vendor) for each vendor's deliveries. Credentials
+    """The ingest buckets on Cloudflare R2 (S3 API): `bucket` for pipeline/, `jobs_bucket`
+    for what conversion jobs write, and `vendor_bucket` (formatted with the vendor) for each
+    vendor's deliveries. Credentials
     as the rest of the repo: R2_ENDPOINT_URL / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY.
 
     `root` puts the whole layout under one prefix in every bucket (e.g. "_test/<run>/"
@@ -839,6 +865,7 @@ class R2Store(Store):
         client=None,
         root: str = "",
         vendor_bucket: str = VENDOR_BUCKET,
+        jobs_bucket: str = JOBS_BUCKET,
     ):
         if client is None:
             from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
@@ -851,6 +878,7 @@ class R2Store(Store):
         self.s3 = client
         self.pipeline_bucket = bucket
         self.vendor_bucket = vendor_bucket
+        self.jobs_bucket = jobs_bucket
         self.root = root
 
     @property
@@ -972,10 +1000,18 @@ def add_store_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument(
         "--vendor-bucket", default="ingest-{vendor}", help="vendor bucket pattern"
     )
+    ap.add_argument(
+        "--jobs-bucket", default=JOBS_BUCKET, help="bucket conversion jobs write to"
+    )
     ap.add_argument("--root", default="", help="key prefix in every bucket")
 
 
 def store_from_args(args) -> Store:
     if args.local_store:
         return LocalStore(args.local_store)
-    return R2Store(args.bucket, root=args.root, vendor_bucket=args.vendor_bucket)
+    return R2Store(
+        args.bucket,
+        root=args.root,
+        vendor_bucket=args.vendor_bucket,
+        jobs_bucket=args.jobs_bucket,
+    )

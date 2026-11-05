@@ -191,6 +191,9 @@ def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> 
         raise StageCorrupt(f"stored stage {digest} does not hash to its own digest")
     pin = json.loads(pin_bytes)
     verify(pin, store.staged_files(ref, digest))
+    # Checked by the job too, but a job's own output shouldn't be the only guard.
+    if pin["lab"] not in store.vendor_labs(ref.vendor):
+        raise StageCorrupt(f"lab {pin['lab']!r} is not registered to {ref.vendor!r}")
     current = store.get_delivery(ref)
     raw = commit.join(raw_root, ref.vendor, ref.delivery_id, digest)
     for name in current.files:
@@ -388,7 +391,14 @@ def launcher_from_args(args, store: Store) -> Launcher:
             store, args.lance, args.work / "jobs", **convert_settings(args)
         )
     job_args = ["--lance", str(args.lance), "--work", args.job_work]
-    job_args += ["--bucket", args.bucket, "--vendor-bucket", args.vendor_bucket]
+    job_args += [
+        "--bucket",
+        args.bucket,
+        "--jobs-bucket",
+        args.jobs_bucket,
+        "--vendor-bucket",
+        args.vendor_bucket,
+    ]
     if args.root:
         job_args += ["--root", args.root]
     job_args += ["--codec", args.codec, "--mano-iters", str(args.mano_iters)]

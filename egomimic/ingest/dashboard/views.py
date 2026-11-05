@@ -5,8 +5,23 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
+
+from werkzeug.urls import iri_to_uri
 
 from egomimic.ingest.store import Listed, Ref, Store
+
+
+def safe_target(target: str) -> str | None:
+    """`target` if it is a page of this site, else None. A browser or Werkzeug strips tabs
+    and newlines and reads backslashes as slashes, so /<tab>/evil.com would leave the site."""
+    if not target.startswith("/") or target.startswith("//") or "\\" in target:
+        return None
+    if any(ord(c) < 32 or ord(c) == 127 for c in target):
+        return None
+    u = urlsplit(iri_to_uri(target))
+    return None if u.scheme or u.netloc else target
+
 
 # What each state means, in the words a vendor reads.
 STATES = {
