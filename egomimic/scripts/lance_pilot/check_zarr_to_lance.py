@@ -189,7 +189,19 @@ def check_samples(
         cameras=cameras,
         require_hands_in_frame="none",
     ).resolve(filters=DatasetFilter(episode_hashes=[h]))[rec["recording_id"]]
-    out = {"zarr_len": len(Z), "lance_len": len(L)}
+    # What training actually samples: the default keeps only anchors with both hands valid.
+    default = LanceEpisodeResolver(
+        root, key_map=key_map, transform_list=tl, cameras=cameras
+    ).resolve(filters=DatasetFilter(episode_hashes=[h]))
+    default_len = (
+        len(default[rec["recording_id"]]) if rec["recording_id"] in default else 0
+    )
+    out = {
+        "zarr_len": len(Z),
+        "lance_len": len(L),
+        "default_len": default_len,
+        "anchors_dropped_by_default": len(L) - default_len,
+    }
     out["anchors_identity"] = len(L) == len(Z) and all(
         L.anchor(j) == j for j in range(len(L))
     )
