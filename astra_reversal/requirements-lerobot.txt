@@ -1,0 +1,5 @@
+# Install in a separate environment; this leaves external/lerobot and OpenPI alone.
+# LeRobot v0.4.4 and the Transformers branch required by that release's PI models.
+lerobot @ git+https://github.com/huggingface/lerobot.git@8fff0fde7c79f23a93d845d1a50e985de01f8b8a
+transformers @ git+https://github.com/huggingface/transformers.git@dcddb970176382c0fcf4521b0c0e6fc15894dfe0
+scipy>=1.10.1,<1.15

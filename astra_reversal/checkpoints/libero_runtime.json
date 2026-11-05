@@ -1,0 +1,25 @@
+{
+  "python": "3.11.14",
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "versions": {
+    "numpy": "1.26.4",
+    "scipy": "1.14.1",
+    "numba": "0.61.2",
+    "llvmlite": "0.44.0",
+    "mujoco": "3.2.3",
+    "robosuite": "1.4.1",
+    "bddl": "1.0.1",
+    "future": "1.0.0",
+    "gym": "0.25.2",
+    "Pillow": "12.3.0",
+    "imageio": "2.37.4",
+    "imageio-ffmpeg": "0.5.1",
+    "torch": "2.7.1",
+    "torchvision": "0.22.1",
+    "transformers": "4.53.3",
+    "sentencepiece": "0.2.2",
+    "safetensors": "0.8.0"
+  },
+  "libero_revision": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+  "isolation": "astra_reversal/.deps/libero-runtime; shared base environment unchanged"
+}

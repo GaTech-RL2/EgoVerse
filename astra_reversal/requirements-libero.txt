@@ -1,0 +1,13 @@
+# Simulator dependencies tested on macOS arm64 / Python 3.11.
+# Install with requirements-lerobot.txt in an isolated environment.
+numpy==1.26.4
+scipy==1.14.1
+numba==0.61.2
+mujoco==3.2.3
+robosuite==1.4.1
+bddl==1.0.1
+future==1.0.0
+gym==0.25.2
+easydict==1.13
+imageio-ffmpeg==0.5.1
+opencv-python==4.11.0.86

@@ -1,0 +1,51 @@
+{
+  "seed": 0,
+  "method": "policy_fresh",
+  "benchmark": {
+    "suite": "libero_10",
+    "control_frequency_hz": 20,
+    "task_action_budget": 520,
+    "stabilization_steps": 10,
+    "trials_per_task": 50,
+    "protocol": "standard_libero_10",
+    "environment_revision": "f78abd68ee283de9f9be3c8f7e2a9ad60246e95c",
+    "reset_source": "prescribed_initial_states"
+  },
+  "agent": {
+    "model_version": null,
+    "sampling_settings": {},
+    "refresh_env_steps": 20,
+    "invalid_response_retries": 1,
+    "subgoal_timeout_env_steps": 60,
+    "subgoal_recovery_replans": 2,
+    "history_limit": 40,
+    "request_timeout_seconds": 120.0
+  },
+  "policy": {
+    "config_name": "pi05_libero",
+    "checkpoint": "astra_reversal/.deps/checkpoints/pi05_libero_base",
+    "checkpoint_provenance": "https://huggingface.co/lerobot/pi05_libero_base/tree/a217bfd3b14673cf2ce597e69997ab21866438dd",
+    "training_overlap": "unknown",
+    "execute_steps": 5,
+    "device": "cpu",
+    "tokenizer_path": "astra_reversal/.deps/tokenizers/paligemma-3b-pt-224"
+  },
+  "flow": {
+    "integrator": "euler",
+    "inversion_steps": 10,
+    "generation_steps": 10,
+    "noise_mix_rho": 0.0
+  },
+  "controller": {
+    "latent_max_age_env_steps": 20,
+    "completion_positive_checks": 2,
+    "output_bounds": "clip",
+    "compute_matched_candidates": 2
+  },
+  "evaluation": {
+    "split": "development",
+    "save_flow_traces": true,
+    "save_rollout_videos": true,
+    "bootstrap_samples": 2000
+  }
+}
