@@ -13,6 +13,7 @@ import math
 import os
 import random
 import time
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Mapping
 
@@ -234,6 +235,7 @@ class MultiDataset(torch.utils.data.Dataset):
         norm_mode: str = "zscore",
         state: dict | None = None,
         split_keys: dict[str, str] | None = None,
+        extra_split_keys: Iterable[str] = (),
         **kwargs,
     ):
         """
@@ -281,8 +283,9 @@ class MultiDataset(torch.utils.data.Dataset):
         keys = {n: (split_keys or {}).get(n, n) for n in datasets}
         if len(set(keys.values())) != len(keys):
             raise ValueError("split_keys maps two datasets to the same split key")
+        universe = {*keys.values(), *extra_split_keys}
         _, valid_keys = split_dataset_names(
-            keys.values(), valid_ratio=valid_ratio, seed=SEED
+            universe, valid_ratio=valid_ratio, seed=SEED
         )
         self.valid_collections = {n for n, k in keys.items() if k in valid_keys}
         self.train_collections = set(datasets) - self.valid_collections
@@ -294,13 +297,14 @@ class MultiDataset(torch.utils.data.Dataset):
         elif mode == "total":
             chosen = set(datasets.keys())
         elif mode == "percent":
-            all_names = sorted(datasets.keys())
+            all_keys = sorted(universe)
             rng = random.Random(SEED)
-            rng.shuffle(all_names)
-            n_keep = int(len(all_names) * percent)
+            rng.shuffle(all_keys)
+            n_keep = int(len(all_keys) * percent)
             if percent > 0.0:
                 n_keep = max(1, n_keep)
-            chosen = set(all_names[:n_keep])
+            kept = set(all_keys[:n_keep])
+            chosen = {n for n, k in keys.items() if k in kept}
         else:
             raise ValueError(f"Unknown mode: {mode}")
 
@@ -654,7 +658,18 @@ class MultiDataset(torch.utils.data.Dataset):
         # same episodes as the zarr run of the same recipe.
         split_keys = getattr(resolver, "split_keys", None)
         if split_keys is not None:
-            kwargs["split_keys"] = split_keys(resolved)
+            # A recording that lost all its samples still holds its place in the shuffle,
+            # or every other episode could land on the other side of the split.
+            candidates = {*getattr(resolver, "split_candidates", ()), *resolved}
+            all_keys = split_keys(candidates)
+            kwargs["split_keys"] = {n: all_keys[n] for n in resolved if n in all_keys}
+            empty = candidates - set(resolved)
+            kwargs["extra_split_keys"] = [all_keys.get(n, n) for n in empty]
+            if empty:
+                logger.warning(
+                    "%d recordings have no samples; they keep their place in the split",
+                    len(empty),
+                )
         ds = cls(datasets=resolved, **kwargs)
         manifest = getattr(resolver, "manifest", None)
         # Which table versions the leaves came from; trainHydra writes it to the run dir.

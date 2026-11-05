@@ -933,6 +933,8 @@ class LanceEpisodeResolver:
         horizon = self._horizon()
 
         out, no_ann, no_anchor = {}, [], []
+        # Passed the filters, samples or not: what a zarr run of the recipe would split.
+        self.split_candidates = candidates = set()
         for row in recs.itertuples():
             rid, clock = row.recording_id, clocks[row.recording_id]
             uri, version, r0, n, valid = located[rid]
@@ -946,6 +948,8 @@ class LanceEpisodeResolver:
             if filters.episode_hashes:
                 mask &= _mask([clock.frames(r) for r in pins[rid]], n)
             mask &= ~_mask([clock.frames(r) for r in excludes.get(rid, [])], n)
+            if mask.any():
+                candidates.add(rid)
             hands = HANDS_OF.get(row.embodiment, ("left", "right"))
             eligible = _mask(
                 eligible_intervals(
