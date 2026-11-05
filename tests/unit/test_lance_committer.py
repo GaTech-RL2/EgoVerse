@@ -167,7 +167,9 @@ def test_delivery_provenance_is_kept_in_changes(env, tmp_path):
     stage("200")
     run()
     (row,) = _changes(root)
-    assert json.loads(row["provenance"]) == {
+    prov = json.loads(row["provenance"])
+    assert all(p.pop("staged_files") for p in prov.values())
+    assert {r: p for r, p in prov.items() if p} == {
         recording_id("eva", "100"): {"converter": "abc123"}
     }
 
@@ -244,6 +246,46 @@ def test_annotations_lost_to_a_crash_are_recovered_on_the_next_run(
     assert lance.dataset(root / "annotations.lance").count_rows() == 1
     assert commit.list_files(commit.join(staging, "eva", "100")) == {}
     assert run()["batches"] == []
+
+
+def test_a_labels_only_correction_is_not_mistaken_for_an_interrupted_run(env, tmp_path):
+    staging, root, _, run = env
+    src = _with_annotation(eva_delivery(tmp_path / "v1", "100"))
+    commit.stage(src, commit.join(staging, "eva", "100"))
+    run()
+    assert lance.dataset(root / "annotations.lance").count_rows() == 1
+    # The same steps and videos, labels withdrawn.
+    meta = json.loads((src / "meta.json").read_text())
+    meta["annotations"] = []
+    (src / "meta.json").write_text(json.dumps(meta))
+    commit.stage(src, commit.join(staging, "eva", "100"))
+    report = run()
+    assert "already committed" in report["rejected"]["100"][0]
+    assert "resumed" not in report
+    assert lance.dataset(root / "annotations.lance").count_rows() == 1
+    run(replace=True)
+    assert lance.dataset(root / "annotations.lance").count_rows() == 0
+
+
+def test_a_crash_before_the_batch_is_recorded_still_recovers(
+    env, tmp_path, monkeypatch
+):
+    staging, root, _, run = env
+    src = _with_annotation(eva_delivery(tmp_path / "v1", "100"))
+    commit.stage(src, commit.join(staging, "eva", "100"))
+    real = commit._record
+
+    def boom(*a, **kw):
+        raise RuntimeError("R2 went away")
+
+    monkeypatch.setattr(commit, "_record", boom)
+    with pytest.raises(RuntimeError):
+        run()
+    monkeypatch.setattr(commit, "_record", real)
+    assert recording_id("eva", "100") in commit.committed_ids(root)
+    report = run()
+    assert report["resumed"] == [recording_id("eva", "100")]
+    assert lance.dataset(root / "annotations.lance").count_rows() == 1
 
 
 def test_mixed_case_sql_values_land_in_the_lowercase_table(tmp_path, monkeypatch):

@@ -51,6 +51,8 @@ from egomimic.utils.aws.aws_sql import (
 REJECTED = "REJECTED.json"
 ANNOTATIONS = "annotations"
 BATCH_SIZE = 64
+# In a recording's `changes` provenance: files_digest of the staged delivery it came from.
+STAGED_FILES = "staged_files"
 
 
 def sql_rows(hashes: list[str]) -> pd.DataFrame:
@@ -472,14 +474,23 @@ def commit_staged(
         skipped, resumed = [], []
         if not replace:
             again = [d for d in deliveries if d.recording_id in have]
-            digests = commit.committed_digests(
-                lance_root, [d.recording_id for d in again]
-            )
+            ids = [d.recording_id for d in again]
+            digests = commit.committed_digests(lance_root, ids)
+            recorded = commit.recorded_provenance(lance_root, ids)
             for d in again:
                 deliveries.remove(d)
-                if digests.get(d.recording_id) == commit.delivery_digest(d):
-                    # This very delivery, committed by a run that stopped before finishing
-                    # it: its annotations may be missing and it is still staged.
+                vid = d.recording["vendor_recording_id"]
+                # This very delivery, committed by a run that stopped before finishing it:
+                # its annotations may be missing and it is still staged. The same staged
+                # files, or the same content if the run stopped before recording them. Same
+                # content alone is not enough: a correction may change only metadata or labels.
+                prov = recorded.get(d.recording_id)
+                same = (
+                    prov.get(STAGED_FILES) == batch[vid]
+                    if prov is not None
+                    else digests.get(d.recording_id) == commit.delivery_digest(d)
+                )
+                if same:
                     resumed.append(d)
                     continue
                 skipped.append(d)
@@ -487,6 +498,11 @@ def commit_staged(
                     "already committed; rerun with --replace to replace it"
                 ]
         spans, vendors = [], {}
+        for d in deliveries:
+            d.provenance = {
+                **(d.provenance or {}),
+                STAGED_FILES: batch[d.recording["vendor_recording_id"]],
+            }
         for d in [*deliveries, *resumed]:
             meta = json.loads(
                 (local[d.recording["vendor_recording_id"]] / "meta.json").read_text()

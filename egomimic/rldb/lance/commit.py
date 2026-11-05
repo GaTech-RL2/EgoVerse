@@ -491,6 +491,22 @@ def committed_digests(root, ids) -> dict[str, str]:
     return dict(zip(*(rows.column(c).to_pylist() for c in rows.column_names)))
 
 
+def recorded_provenance(root, ids) -> dict[str, dict]:
+    """{recording_id: provenance of its latest `changes` row} for those of `ids` that have
+    one; a recording committed by a run that stopped before recording it has none."""
+    ids, out = set(ids), {}
+    uri = changes_uri(root)
+    if not ids or not _exists(uri):
+        return out
+    rows = _open(uri).to_table(columns=["committed_at", "source", "provenance"])
+    for row in sorted(rows.to_pylist(), key=lambda r: r["committed_at"]):
+        if row["source"] == "annotations" or not row["provenance"]:
+            continue
+        prov = json.loads(row["provenance"])
+        out.update((rid, prov[rid]) for rid in ids & set(prov))
+    return out
+
+
 def committed_ids(root) -> set[str]:
     uri = join(root, "recordings.lance")
     if not _exists(uri):
