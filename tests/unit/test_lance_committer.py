@@ -15,6 +15,13 @@ from egomimic.scripts.lance_commit import REJECTED, commit_staged  # noqa: E402
 EVA_STEPS = steps_path("rl2", "eva_bimanual", "parallel_jaw_gripper")
 
 N = EVA_DELIVERY_FRAMES
+_KEY_MAP = {
+    "left.action_ee_pose": {
+        "key_type": "action_keys",
+        "zarr_key": "left.obs_ee_pose",
+        "horizon": 2,
+    },
+}
 
 
 @pytest.fixture
@@ -163,3 +170,100 @@ def test_delivery_provenance_is_kept_in_changes(env, tmp_path):
     assert json.loads(row["provenance"]) == {
         recording_id("eva", "100"): {"converter": "abc123"}
     }
+
+
+def test_a_crash_inside_replace_unpublishes_the_recording_and_a_rerun_recovers(
+    env, tmp_path, monkeypatch
+):
+    staging, root, stage, run = env
+    stage("100")
+    stage("200")
+    run()
+    rid = recording_id("eva", "100")
+    commit.stage(
+        eva_delivery(tmp_path / "v2", "100", offset=50),
+        commit.join(staging, "eva", "100"),
+    )
+    real = commit._replace
+
+    def crash_on_steps(uri, *a, **kw):
+        if "/steps/" in str(uri):
+            raise RuntimeError("R2 went away")
+        return real(uri, *a, **kw)
+
+    monkeypatch.setattr(commit, "_replace", crash_on_steps)
+    with pytest.raises(RuntimeError):
+        run(replace=True)
+    monkeypatch.setattr(commit, "_replace", real)
+
+    # Meanwhile the other recording stays readable and this one is simply absent.
+    leaves = LanceEpisodeResolver(
+        str(root), key_map=_KEY_MAP, cameras={}, require_hands_in_frame="none"
+    ).resolve()
+    assert set(leaves) == {recording_id("eva", "200")}
+
+    run(replace=True)
+    assert rid in commit.committed_ids(root)
+    rows = [
+        r
+        for r in lance.dataset(root / EVA_STEPS).to_table().to_pylist()
+        if r["recording_id"] == rid
+    ]
+    assert len(rows) == N and rows[0]["left"]["obs_ee_pose"][0] == 50.5
+
+
+def _with_annotation(src):
+    meta = json.loads((src / "meta.json").read_text())
+    meta["annotations"] = [
+        {"t_start_ns": meta["t_start_ns"], "t_end_ns": meta["t_end_ns"], "text": "fold"}
+    ]
+    (src / "meta.json").write_text(json.dumps(meta))
+    return src
+
+
+def test_annotations_lost_to_a_crash_are_recovered_on_the_next_run(
+    env, tmp_path, monkeypatch
+):
+    staging, root, _, run = env
+    src = _with_annotation(eva_delivery(tmp_path / "v1", "100"))
+    commit.stage(src, commit.join(staging, "eva", "100"))
+    real = commit.commit_annotations
+
+    def boom(*a, **kw):
+        raise RuntimeError("R2 went away")
+
+    monkeypatch.setattr(commit, "commit_annotations", boom)
+    with pytest.raises(RuntimeError):
+        run()
+    monkeypatch.setattr(commit, "commit_annotations", real)
+    assert recording_id("eva", "100") in commit.committed_ids(root)
+    assert lance.dataset(root / "annotations.lance").count_rows() == 0
+
+    report = run()  # the same delivery, still staged
+    assert report["resumed"] == [recording_id("eva", "100")] and not report["rejected"]
+    assert lance.dataset(root / "annotations.lance").count_rows() == 1
+    assert commit.list_files(commit.join(staging, "eva", "100")) == {}
+    assert run()["batches"] == []
+
+
+def test_mixed_case_sql_values_land_in_the_lowercase_table(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from egomimic.scripts import lance_commit
+    from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
+
+    vid = "1760000000000"
+    d = eva_delivery(tmp_path, vid)
+    h = timestamp_ms_to_episode_hash(vid)
+    row = dict(
+        lab="RL2", embodiment="EVA_Bimanual", operator="op", rig_name="eva", scene="1",
+        task="fold", task_description="fold it", objects="[]", license=None,
+    )  # fmt: skip
+    monkeypatch.setattr(
+        lance_commit,
+        "sql_rows",
+        lambda hashes: pd.DataFrame([row], index=pd.Index([h], name="episode_hash")),
+    )
+    (delivery,), rejected = lance_commit.load_deliveries([d])
+    assert not rejected
+    assert delivery.steps_key == ("rl2", "eva_bimanual", "parallel_jaw_gripper")

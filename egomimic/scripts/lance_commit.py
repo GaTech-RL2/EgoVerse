@@ -87,6 +87,13 @@ def check_delivery(d: Path, meta: dict, steps: pa.Table) -> list[str]:
     return errs
 
 
+def _lower(value) -> str | None:
+    """A SQL lab or embodiment as the planner and drivers write it: one spelling per
+    steps table."""
+    value = text_or_none(value)
+    return value.lower() if value else value
+
+
 def load_deliveries(
     dirs: list[Path],
 ) -> tuple[list[commit.Delivery], dict[str, list[str]]]:
@@ -104,7 +111,7 @@ def load_deliveries(
         h = timestamp_ms_to_episode_hash(m["vendor_recording_id"])
         if h not in sql.index:
             errs.append("no SQL row")
-        elif m["embodiment"] != sql.loc[h].embodiment:
+        elif m["embodiment"].lower() != _lower(sql.loc[h].embodiment):
             # Hand validity in steps was computed for the converter's embodiment.
             errs.append(
                 f"converted as {m['embodiment']}, SQL says {sql.loc[h].embodiment}"
@@ -117,8 +124,8 @@ def load_deliveries(
         recording = dict(
             recording_id=rid,
             vendor_recording_id=m["vendor_recording_id"],
-            lab=text_or_none(s.lab),
-            embodiment=text_or_none(s.embodiment),
+            lab=_lower(s.lab),
+            embodiment=_lower(s.embodiment),
             end_effector=m.get("end_effector"),
             rig_name=text_or_none(s.rig_name),
             operator=text_or_none(s.operator),
@@ -462,16 +469,25 @@ def commit_staged(
             if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
                 deliveries.remove(d)
                 rejected[d.recording["vendor_recording_id"]] = errs
-        skipped = []
+        skipped, resumed = [], []
         if not replace:
-            skipped = [d for d in deliveries if d.recording_id in have]
-            for d in skipped:
+            again = [d for d in deliveries if d.recording_id in have]
+            digests = commit.committed_digests(
+                lance_root, [d.recording_id for d in again]
+            )
+            for d in again:
                 deliveries.remove(d)
+                if digests.get(d.recording_id) == commit.delivery_digest(d):
+                    # This very delivery, committed by a run that stopped before finishing
+                    # it: its annotations may be missing and it is still staged.
+                    resumed.append(d)
+                    continue
+                skipped.append(d)
                 rejected[d.recording["vendor_recording_id"]] = [
                     "already committed; rerun with --replace to replace it"
                 ]
         spans, vendors = [], {}
-        for d in deliveries:
+        for d in [*deliveries, *resumed]:
             meta = json.loads(
                 (local[d.recording["vendor_recording_id"]] / "meta.json").read_text()
             )
@@ -489,20 +505,24 @@ def commit_staged(
             replace_committed=replace,
             operator=operator,
         )
+        done, replaced = {d.recording_id for d in resumed}, {}
         if result:
             report["batches"].append(result)
             have |= set(result["added"])
-            done = {*result["added"], *result["replaced"]}
+            done |= {*result["added"], *result["replaced"]}
             replaced = {r: vendors[r] for r in result["replaced"] if r in vendors}
+        if done:
             ann = _commit_annotations(
-                lance_root, spans, done, replaced, result["tag"], operator
+                lance_root, spans, done, replaced, result and result["tag"], operator
             )
             report.setdefault("annotations", []).append(ann)
+        if resumed:
+            report.setdefault("resumed", []).extend(d.recording_id for d in resumed)
         skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
         for vid, errs in rejected.items():
             _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)
         report["rejected"].update(rejected)
-        for d in deliveries:
+        for d in [*deliveries, *resumed]:
             _unstage(staging, source, d.recording["vendor_recording_id"])
         for path in local.values():
             shutil.rmtree(path, ignore_errors=True)

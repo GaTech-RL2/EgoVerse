@@ -298,3 +298,21 @@ def test_tag_covers_every_steps_table(tmp_path):
     tagged = commit.tag(root, "t1")
     assert {STEPS, eva_steps} <= set(tagged)
     assert "t1" in lance.dataset(root / eva_steps).tags.list()
+
+
+def test_edit_with_a_missing_key_writes_nothing(tmp_path):
+    root = tmp_path / "lance"
+    d = _delivery(tmp_path, 0, 10)
+    commit.append(root, [d])
+    uri = root / "tasks.lance"
+    version = lance.dataset(uri).version
+    rows = pa.table(
+        {
+            "task_instance_id": [d.task["task_instance_id"], "typo"],
+            "task_description": ["edited", "edited"],
+        }
+    )
+    with pytest.raises(KeyError, match="1 of 2 keys"):
+        commit.edit(root, "tasks.lance", rows, on="task_instance_id")
+    assert lance.dataset(uri).version == version
+    assert lance.dataset(uri).to_table().to_pylist()[0]["task_description"] == "task 0"
