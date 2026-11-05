@@ -95,6 +95,12 @@ def main():
     ap.add_argument("--limit", type=int, help="convert at most this many recordings")
     ap.add_argument("--mano", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--mano-iters", type=int, default=2400)
+    ap.add_argument(
+        "--mano-batch",
+        type=int,
+        default=8192,
+        help="frames per MANO optimizer batch (speed/memory only; results unchanged)",
+    )
     ap.add_argument("--ffmpeg", default="ffmpeg")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
@@ -123,6 +129,7 @@ def main():
         out_dir=args.deliveries,
         mano=args.mano,
         mano_iters=args.mano_iters,
+        mano_batch=args.mano_batch,
         ffmpeg=args.ffmpeg,
     )
     task = convert_one.options(num_cpus=args.cpus_per_task)
