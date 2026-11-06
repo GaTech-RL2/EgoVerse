@@ -5,6 +5,7 @@ KNOWN_BROKEN* list configs that fail for reasons outside this branch; they are
 strict xfails, so the day one is fixed the test fails until its entry is removed.
 """
 
+import inspect
 from pathlib import Path
 
 import hydra
@@ -84,6 +85,19 @@ def test_data_config_keymap_and_transforms_instantiate(name):
                 assert (
                     transforms is not None
                 ), f"{name}/{split}/{ds_name}: get_transform_list returned None (unknown mode?)"
+
+
+@pytest.mark.parametrize("name", _params(KNOWN_BROKEN_COMPOSE))
+def test_data_config_root_keys_are_wrapper_arguments(name):
+    """hydra.instantiate(cfg.data) passes every root key to the wrapper, so a
+    config-only key (a list the filter lambdas read) must be one of its arguments."""
+    cfg = compose_data(name)
+    target = hydra.utils.get_object(cfg.data._target_)
+    params = inspect.signature(target).parameters
+    if any(p.kind is p.VAR_KEYWORD for p in params.values()):
+        return
+    unknown = set(cfg.data) - {"_target_", *params}
+    assert not unknown, f"{name}: {target.__name__} does not accept {sorted(unknown)}"
 
 
 @pytest.mark.parametrize("name", ["eva", "aria", "mecka", "scale"])
