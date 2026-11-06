@@ -75,7 +75,7 @@ placeholders are rejected in every text key.
 | `task_description` | `fold the 2T shirt on the blue table` | *Optional.* Full task text. |
 | `vendor_recording_id` | `acme-rec-0001` | Your own ID for this recording. **Stable across every re-export or correction** (new labels, fixed calibration, re-run poses). Zarr episodes trimmed from it name it in their `vendor_recording_id` attr. |
 | `embodiment` | `human_bimanual` | One of `human_{bimanual,left_arm,right_arm}`, `eva_{bimanual,left_arm,right_arm}`. Must match the topics in the file. |
-| `rig_name` | `aria_gen1` | Capture setup. |
+| `rig_name` | `aria_gen1` | Capture setup. A name starting with `aria` gets Aria's front camera focal in Lance. |
 | `device_serial` | `1WM103600M1292` | Physical unit; ties the episode to its calibration. |
 | `start_time_unix`, `end_time_unix` | `1736651249664` | Recording bounds, Unix **ms**. |
 | `spec_version` | `0.1` | Version of this spec the file follows. |
@@ -178,7 +178,7 @@ the Lance annotation review (`egomimic/rldb/lance/annotations.py`), not a re-exp
 | `positions` | `(x, y, z)` in m per `hand_joints` entry, flattened; or empty for devices without keypoints. |
 | `confidence` | Whole-hand tracking confidence in [0, 1]. |
 | `joint_confidence` | Optional: one value in [0, 1] per joint. |
-| `wrist_pose` | Optional: T_frame_wrist. Required when `positions` is empty. |
+| `wrist_pose` | Optional: T_frame_wrist, in the Aria MPS wrist convention below. Required when `positions` is empty. |
 | `valid` | `false` when the hand is not tracked. **Never write zeros instead.** |
 
 **`hand_joints`** names the joints the device tracks, in its own order, from this
@@ -201,6 +201,11 @@ thumb_tip,index_tip,middle_tip,ring_tip,pinky_tip,wrist,thumb_mcp,thumb_ip,
 index_mcp,index_pip,index_dip,middle_mcp,middle_pip,middle_dip,ring_mcp,ring_pip,
 ring_dip,pinky_mcp,pinky_pip,pinky_dip,palm_center
 ```
+
+**Wrist frame** (Aria MPS's, measured on real recordings): origin at the wrist; +y out of
+the back of the hand (the palm faces −y); +z from the pinky side toward the index side;
++x = y × z, which points toward the fingers on the left hand and toward the forearm on
+the right.
 
 ## 7. Cameras
 
@@ -267,6 +272,12 @@ then decodes all of it and rejects an episode where any message is not exactly o
 
 ## 10. Where each Lance field comes from
 
+`python -m egomimic.scripts.mcap_process.mcap_to_lance --stage-to <staging> --lance <root> episode_<id>/...`
+validates each episode, converts it and stages it for the committer under
+`<staging>/mcap-<lab>/<vendor_recording_id>/` (`egomimic.scripts.lance_commit`, the only writer of the
+tables; `convert_and_stage` is the same per episode, for a pipeline to call). `lab` must be lowercase
+letters, digits and `_`. Lance times stay absolute Unix ns, as delivered.
+
 | Lance | MCAP |
 |---|---|
 | `recordings.recording_id` | `recording_id(lab, vendor_recording_id)` |
@@ -274,8 +285,8 @@ then decodes all of it and rejects an episode where any message is not exactly o
 | `recordings.lab`, `operator`, `embodiment`, `rig_name`, `scene`, `license` | episode info |
 | `recordings.captured_at` | `start_time_unix` |
 | `recordings.num_frames`, `fps` | Decoded steps-clock frames and their timestamps |
-| `recordings.video_path` | Assigned when each camera topic is extracted |
-| `recordings.intrinsics` / `extrinsics` | Each camera's `-info` (+ `-info-extra`) / `/tf_static` and the moving links |
+| `recordings.video_path` | One video per camera, one frame per steps row: the steps camera as `front_1_480` (480×640) and `front_1` (360×480) pinhole outputs, every other camera under its topic name (`/left-wrist-camera` → `left_wrist`) at its native size and focal |
+| `recordings.intrinsics` / `extrinsics` | The pinhole K of each video (Aria's front outputs use `ARIA_INTRINSICS`; other sources keep their native field of view) / each camera's pose relative to `head_pose` (the front camera, upright), from `/tf_static` |
 | `tasks.*` | `/task` messages, or the episode-info task keys over the whole recording |
 | `annotations.*` | `/subtask-annotation` (type, text, source, span) |
 | `steps.timestamp_ns` | Steps-clock frame times |

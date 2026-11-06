@@ -52,15 +52,17 @@ def _delivery(tmp, i, n, offset=None, video=b"mp4", **rec):
             extrinsics=[],
         )
         | rec,
-        task=dict(
-            task_instance_id=f"t{i}",
-            recording_id=rid,
-            t_start_ns=0,
-            t_end_ns=n * PERIOD_NS,
-            task_name="fold",
-            task_description=f"task {i}",
-            objects=[],
-        ),
+        tasks=[
+            dict(
+                task_instance_id=f"t{i}",
+                recording_id=rid,
+                t_start_ns=0,
+                t_end_ns=n * PERIOD_NS,
+                task_name="fold",
+                task_description=f"task {i}",
+                objects=[],
+            )
+        ],
         alias=dict(
             episode_hash=h, recording_id=rid, t_start_ns=0, t_end_ns=n * PERIOD_NS
         ),
@@ -115,7 +117,7 @@ def test_steps_table_per_lab_embodiment_end_effector(tmp_path):
         with pytest.raises(ValueError):
             commit.append(root, [_delivery(tmp_path, 2, 8, **bad)])
     no_task = _delivery(tmp_path, 2, 8)
-    no_task.task["task_name"] = None
+    no_task.tasks[0]["task_name"] = None
     with pytest.raises(ValueError, match="task_name"):
         commit.append(root, [no_task])
     assert commit.committed_ids(root) == {a.recording_id, b.recording_id}
@@ -308,7 +310,7 @@ def test_edit_with_a_missing_key_writes_nothing(tmp_path):
     version = lance.dataset(uri).version
     rows = pa.table(
         {
-            "task_instance_id": [d.task["task_instance_id"], "typo"],
+            "task_instance_id": [d.tasks[0]["task_instance_id"], "typo"],
             "task_description": ["edited", "edited"],
         }
     )

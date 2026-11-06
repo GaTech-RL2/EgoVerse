@@ -9,7 +9,11 @@ files. A delivery that fails validation gets REJECTED.json (errors plus a digest
 files) and is skipped until its files change.
 Aria recording and task metadata come from SQL; EVA's and zarr's from the delivery's meta.json.
 A delivery's meta.json "provenance" is kept in its batch's `changes` row, and its
-"annotations" (zarr_to_lance's) are committed right after its batch as one annotation change.
+"annotations" (zarr_to_lance's, mcap_to_lance's) are committed right after its batch as one
+annotation change.
+
+Vendor MCAP deliveries are staged per lab under `<staging>/mcap-<lab>/`, because a vendor id
+is only unique within its lab (`--source mcap-<lab>`).
 
 `--source annotations` commits annotation change files that `lance_annotations stage` put under
 `<staging>/annotations/<id>/`, one commit and tag each, oldest first; each is reviewed again
@@ -23,6 +27,7 @@ See egomimic/rldb/lance/commit.py for the table operations.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import struct
 import tempfile
@@ -159,7 +164,7 @@ def load_deliveries(
             t_end_ns=m["t_end_ns"],
         )
         delivery = _delivery(
-            d, m, recording, task, alias, steps, ("front_1", "front_1_480")
+            d, m, recording, [task], alias, steps, ("front_1", "front_1_480")
         )
         try:
             commit.check_required(delivery)
@@ -170,12 +175,12 @@ def load_deliveries(
     return deliveries, rejected
 
 
-def _delivery(d: Path, meta: dict, recording, task, alias, steps, cams):
+def _delivery(d: Path, meta: dict, recording, tasks, alias, steps, cams):
     placed = meta.get("lance_videos")
     videos = {} if placed else {cam: d / f"{cam}.mp4" for cam in cams}
     return commit.Delivery(
         recording,
-        task,
+        tasks,
         alias,
         steps,
         videos,
@@ -193,13 +198,18 @@ def captured_at(meta: dict) -> pd.Timestamp | None:
 def load_meta_deliveries(
     dirs: list[Path],
 ) -> tuple[list[commit.Delivery], dict[str, list[str]]]:
-    """Deliveries whose meta.json carries their recording and task metadata (EVA, zarr)."""
+    """Deliveries whose meta.json carries their recording and task metadata (EVA, zarr,
+    MCAP). A `tasks` list (MCAP) replaces the one task over the whole recording."""
     deliveries, rejected = [], {}
     for d in sorted(dirs):
         m = json.loads((d / "meta.json").read_text())
         steps = pq.read_table(d / "steps.parquet")
         errs = check_delivery(d, m, steps)
         errs += [f"no {k}" for k in UNWAIVABLE_FIELDS if not m.get(k)]
+        if "tasks" in m and not (
+            m["tasks"] and all(t.get("task_name") for t in m["tasks"])
+        ):
+            errs.append("a task has no task_name")
         if errs:
             rejected[m["vendor_recording_id"]] = errs
             continue
@@ -220,15 +230,17 @@ def load_meta_deliveries(
             extrinsics=list(m["extrinsics"].items()),
             license=m.get("license"),
         )
-        task = dict(
-            task_instance_id=task_instance_id(rid, m["task_name"], m["t_start_ns"]),
-            recording_id=rid,
-            t_start_ns=m["t_start_ns"],
-            t_end_ns=m["t_end_ns"],
-            task_name=m["task_name"],
-            task_description=m["task_description"],
-            objects=m["objects"],
-        )
+        tasks = m.get("tasks") or [
+            dict(
+                task_instance_id=task_instance_id(rid, m["task_name"], m["t_start_ns"]),
+                recording_id=rid,
+                t_start_ns=m["t_start_ns"],
+                t_end_ns=m["t_end_ns"],
+                task_name=m["task_name"],
+                task_description=m["task_description"],
+                objects=m["objects"],
+            )
+        ]
         alias = dict(
             episode_hash=m["episode_hash"],
             recording_id=rid,
@@ -240,7 +252,7 @@ def load_meta_deliveries(
         except ValueError as e:
             rejected[m["vendor_recording_id"]] = [str(e)]
             continue
-        deliveries.append(_delivery(d, m, recording, task, alias, steps, m["videos"]))
+        deliveries.append(_delivery(d, m, recording, tasks, alias, steps, m["videos"]))
     return deliveries, rejected
 
 
@@ -249,6 +261,29 @@ LOADERS = {
     "eva": load_meta_deliveries,
     "zarr": load_meta_deliveries,
 }
+MCAP_PREFIX = "mcap-"
+
+
+def mcap_source(lab: str) -> str:
+    """The staging folder of a lab's MCAP deliveries. `lab` comes from the vendor's file, so
+    it must be one plain name: it cannot reach another source's folder or leave staging."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_]*", lab):
+        raise ValueError(f"lab {lab!r}: only lowercase letters, digits and _")
+    return MCAP_PREFIX + lab
+
+
+def _loader(source: str):
+    return load_meta_deliveries if source.startswith(MCAP_PREFIX) else LOADERS[source]
+
+
+def _source_arg(source: str) -> str:
+    if source == ANNOTATIONS or source in LOADERS:
+        return source
+    if source.startswith(MCAP_PREFIX):
+        return mcap_source(source[len(MCAP_PREFIX) :])
+    raise argparse.ArgumentTypeError(
+        f"{source!r}: one of {sorted([*LOADERS, ANNOTATIONS])} or mcap-<lab>"
+    )
 
 
 # A delivery whose files cannot be read or parsed. Anything else (SQL, network) aborts the
@@ -281,7 +316,7 @@ def _load(source: str, dirs: list[Path]):
             ]
     dirs = [d for d in dirs if d.name not in rejected]
     try:
-        deliveries, bad = LOADERS[source](dirs)
+        deliveries, bad = _loader(source)(dirs)
         return deliveries, {**rejected, **bad}
     except Exception as e:
         if not _unreadable(e):
@@ -289,7 +324,7 @@ def _load(source: str, dirs: list[Path]):
         deliveries = []
         for d in dirs:
             try:
-                ok, bad = LOADERS[source]([d])
+                ok, bad = _loader(source)([d])
             except Exception as e:
                 if not _unreadable(e):
                     raise
@@ -393,7 +428,7 @@ def _annotation_rows(d: commit.Delivery, meta: dict) -> list[dict]:
             recording_id=d.recording_id,
             t_start_ns=a["t_start_ns"],
             t_end_ns=a["t_end_ns"],
-            annotation_type="language",
+            annotation_type=a.get("annotation_type") or "language",
             text=a["text"],
             annotation_vendor=a.get("annotation_vendor") or meta["lab"],
         )
@@ -560,7 +595,12 @@ def main():
         required=True,
         help="staging root (s3:// or local); deliveries are under <staging>/<source>/<vendor id>/",
     )
-    ap.add_argument("--source", choices=sorted([*LOADERS, ANNOTATIONS]), required=True)
+    ap.add_argument(
+        "--source",
+        type=_source_arg,
+        required=True,
+        help=f"one of {sorted([*LOADERS, ANNOTATIONS])} or mcap-<lab>",
+    )
     ap.add_argument("--lance", required=True, help="Lance root (s3:// or local)")
     ap.add_argument(
         "--work-dir",

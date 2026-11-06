@@ -69,7 +69,7 @@ class Delivery:
     (`place_videos`) naming MP4s already in place."""
 
     recording: dict
-    task: dict
+    tasks: list[dict]  # usually one; a vendor's /task topic can hold several
     alias: dict
     steps: pa.Table
     videos: dict[str, Path]
@@ -108,7 +108,7 @@ def check_required(d: Delivery) -> tuple[str, str, str]:
     key = d.steps_key
     if not d.recording.get("operator"):
         raise ValueError(f"recording {d.recording_id}: no operator")
-    if not d.task.get("task_name"):
+    if not all(t.get("task_name") for t in d.tasks):
         raise ValueError(f"recording {d.recording_id}: no task_name")
     return key
 
@@ -467,7 +467,7 @@ def _stage(root, d: Delivery) -> dict[str, pa.Table]:
     return {
         "steps": d.steps,
         "aliases.lance": pa.Table.from_pylist([d.alias], schema=ALIASES),
-        "tasks.lance": pa.Table.from_pylist([d.task], schema=TASKS),
+        "tasks.lance": pa.Table.from_pylist(d.tasks, schema=TASKS),
         "recordings.lance": pa.Table.from_pylist([rec], schema=RECORDINGS),
     }
 
