@@ -18,6 +18,7 @@ from torch import einsum
 from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
+from egomimic.utils.pose_utils import require_hand_channel_mask
 from egomimic.utils.tensor_utils import get_sinusoid_encoding_table
 
 # Modules owning pretrained weights declare them so init passes skip them and
@@ -1452,6 +1453,8 @@ class PolicyHead(nn.Module):
             x (torch.Tensor): Transformer outputs used to predict actions.
             data (dict): Contains:
                 - 'action': ground-truth action tensor of shape (B, T, D_target)
+                - 'action_hand_mask' (optional): (B, 2) [left, right]; an untracked
+                  hand's channels hold fill values, not motion, so they drop out
 
         Returns:
             torch.Tensor: Scalar loss
@@ -1468,7 +1471,19 @@ class PolicyHead(nn.Module):
         pred_action = pred_action[..., :D_common]
         target_action = target_action[..., :D_common]
 
-        return LOSS(pred_action, target_action)
+        hand_mask = data.get("action_hand_mask")
+        channels = (
+            None
+            if hand_mask is None
+            else require_hand_channel_mask(
+                hand_mask.to(target_action.device, target_action.dtype), D_target
+            )
+        )
+        if channels is None:
+            return LOSS(pred_action, target_action)
+        weight = channels[:, None, :D_common].expand_as(target_action)
+        per_channel = LOSS(pred_action, target_action, reduction="none")
+        return (per_channel * weight).sum() / weight.sum().clamp(min=1)
 
 
 class MLPPolicyHead(PolicyHead):

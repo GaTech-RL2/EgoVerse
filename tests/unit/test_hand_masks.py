@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from egomimic.algo.hpt import HPT
 from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.hpt_nets import LOSS, PolicyHead
 from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment_id
 from egomimic.rldb.multi import MultiDataset, hand_keep
 from egomimic.utils.pose_utils import hand_channel_mask
@@ -279,3 +280,42 @@ def test_eval_metrics_average_over_the_tracked_hands_only():
     )
     assert got.keys() == layout_metrics(pred, gt, "v", key).keys()
     assert tracked_hand_fraction({key: gt}, key) is None
+
+
+class _FixedMLP(torch.nn.Module):
+    """PolicyHead.compute_loss on a fixed prediction."""
+
+    compute_loss = PolicyHead.compute_loss
+
+    def __init__(self, pred):
+        super().__init__()
+        self.pred = pred
+
+    def forward(self, x):
+        return self.pred
+
+
+def test_mlp_head_loss_leaves_out_the_untracked_hand():
+    g = torch.Generator().manual_seed(0)
+    target = torch.randn(2, 4, 20, generator=g)
+    pred = torch.randn(2, 4, 20, generator=g)
+    head = _FixedMLP(pred)
+    x = torch.zeros(2, 3)
+    # All tracked, or no mask at all: exactly today's loss.
+    plain = head.compute_loss(x, {"action": target})
+    assert torch.equal(plain, LOSS(pred, target))
+    tracked = head.compute_loss(
+        x, {"action": target, "action_hand_mask": torch.ones(2, 2)}
+    )
+    torch.testing.assert_close(tracked, plain)
+    masked = head.compute_loss(x, {"action": target, "action_hand_mask": LEFT_ONLY})
+    torch.testing.assert_close(masked, LOSS(pred[..., :10], target[..., :10]))
+    # The untracked hand's fill values don't matter.
+    moved = pred.clone()
+    moved[..., 10:] += 100.0
+    assert torch.equal(
+        _FixedMLP(moved).compute_loss(
+            x, {"action": target, "action_hand_mask": LEFT_ONLY}
+        ),
+        masked,
+    )

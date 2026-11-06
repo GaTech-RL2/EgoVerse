@@ -191,3 +191,17 @@ def test_restaging_refreshes_a_placed_video_and_cleanup_spares_pending_ones(env)
     run()
     commit.cleanup(root, staging, older_than=ZERO, upload_grace=ZERO)
     assert not (root / rejected["videos"]["front_1"]["path"]).exists()
+
+
+def test_a_delivery_rejected_as_committed_keeps_its_videos_until_replace(env):
+    staging, root, build, stage, run = env
+    stage("100")
+    run()
+    placed = stage("100", offset=50)  # a re-conversion: new digest, new videos
+    assert "already committed" in run()["rejected"]["100"][0]
+    video = root / placed["videos"]["front_1"]["path"]
+    old = video.stat().st_mtime - 30 * 86400
+    os.utime(video, (old, old))
+    commit.cleanup(root, staging, older_than=ZERO, upload_grace=ZERO)
+    assert video.exists()
+    assert not run(replace=True)["rejected"]

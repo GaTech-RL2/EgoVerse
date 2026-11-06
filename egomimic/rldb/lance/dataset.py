@@ -806,6 +806,14 @@ class LanceEpisodeResolver:
         out.update({r: r for r in rids})
         return {h: out[h] for h in hashes if h in out}
 
+    def split_keys(self, names) -> dict[str, str]:
+        """{recording_id: its zarr episode_hash} for recordings with exactly one
+        aliased clip, so the train/valid split matches a zarr run's. Recordings with
+        several clips or none split on their recording_id."""
+        a = self._aliases[self._aliases.recording_id.isin(set(names))]
+        one = a.groupby("recording_id").episode_hash.agg(list)
+        return {r: h[0] for r, h in one.items() if len(h) == 1}
+
     def _annotation_rows(self) -> dict[str, pd.DataFrame]:
         """{recording_id: rows passing the `annotations` filters, sorted by start}."""
         cfg = self.annotations
@@ -925,6 +933,8 @@ class LanceEpisodeResolver:
         horizon = self._horizon()
 
         out, no_ann, no_anchor = {}, [], []
+        # Passed the filters, samples or not: what a zarr run of the recipe would split.
+        self.split_candidates = candidates = set()
         for row in recs.itertuples():
             rid, clock = row.recording_id, clocks[row.recording_id]
             uri, version, r0, n, valid = located[rid]
@@ -938,6 +948,8 @@ class LanceEpisodeResolver:
             if filters.episode_hashes:
                 mask &= _mask([clock.frames(r) for r in pins[rid]], n)
             mask &= ~_mask([clock.frames(r) for r in excludes.get(rid, [])], n)
+            if mask.any():
+                candidates.add(rid)
             hands = HANDS_OF.get(row.embodiment, ("left", "right"))
             eligible = _mask(
                 eligible_intervals(

@@ -6,6 +6,8 @@ published by its `recordings` row, and readers ignore steps rows nobody referenc
 append() replaces such leftovers of an interrupted run rather than duplicating them.
 Videos live outside Lance under `videos/<recording_id>/<content digest>/` and are never
 overwritten, so older table versions keep pointing at the files they were written with.
+replace() takes a recording's `recordings` row out first and writes the new one last, so
+a crash leaves it unpublished, never pointing at the wrong steps; append() then recovers it.
 A converter either stages its MP4s with the delivery (`stage`; the committer copies them
 into place) or uploads them to their final place itself (`stage_direct`; the committer
 only checks their sizes).
@@ -470,6 +472,72 @@ def _stage(root, d: Delivery) -> dict[str, pa.Table]:
     }
 
 
+def delivery_digest(d: Delivery) -> str:
+    """The content digest `d` commits with."""
+    if d.placed:
+        return d.placed["content_digest"]
+    return content_digest(d.steps, d.videos)
+
+
+def committed_digests(root, ids) -> dict[str, str]:
+    """{recording_id: content_digest} of those of `ids` that are committed."""
+    ids = list(ids)
+    uri = join(root, "recordings.lance")
+    if not ids or not _exists(uri):
+        return {}
+    rows = _open(uri).to_table(
+        columns=["recording_id", "content_digest"], filter=_ids_predicate(ids)
+    )
+    return dict(zip(*(rows.column(c).to_pylist() for c in rows.column_names)))
+
+
+def recorded_provenance(root, ids) -> dict[str, dict]:
+    """{recording_id: provenance of its latest `changes` row} for those of `ids` that have
+    one; a recording committed by a run that stopped before recording it has none."""
+    ids, out = set(ids), {}
+    uri = changes_uri(root)
+    if not ids or not _exists(uri):
+        return out
+    rows = _open(uri).to_table(columns=["committed_at", "source", "provenance"])
+    for row in sorted(rows.to_pylist(), key=lambda r: r["committed_at"]):
+        if row["source"] == "annotations" or not row["provenance"]:
+            continue
+        prov = json.loads(row["provenance"])
+        out.update((rid, prov[rid]) for rid in ids & set(prov))
+    return out
+
+
+def recorded_ids(root, ids) -> set[str]:
+    """Those of `ids` named in some `changes` row (added or replaced)."""
+    ids, uri = set(ids), changes_uri(root)
+    if not ids or not _exists(uri):
+        return set()
+    rows = _open(uri).to_table(columns=["added", "replaced"]).to_pylist()
+    return ids & {i for r in rows for i in (r["added"] or []) + (r["replaced"] or [])}
+
+
+def record_recovered(
+    root, deliveries: list[Delivery], source: str, operator: str | None = None
+) -> dict | None:
+    """Record and tag recordings that a run appended but stopped before recording
+    (`append` wrote them, `_record` never ran), so every committed recording is in a
+    `changes` row and in a tag. None when there are none."""
+    if not deliveries:
+        return None
+    provenance = {
+        d.recording_id: d.provenance for d in deliveries if d.provenance is not None
+    }
+    return _record(
+        root,
+        source,
+        [d.recording_id for d in deliveries],
+        [],
+        operator=operator,
+        provenance=provenance or None,
+        steps_tables=sorted({steps_path(*d.steps_key) for d in deliveries}),
+    )
+
+
 def committed_ids(root) -> set[str]:
     uri = join(root, "recordings.lance")
     if not _exists(uri):
@@ -594,6 +662,9 @@ def replace(root, d: Delivery) -> None:
             f"recording {d.recording_id}: {STEPS_KEY} changed from {old[0]}; its steps would move tables"
         )
     staged = _stage(root, d)
+    # Unpublish first: until the new row lands, readers skip this recording rather than
+    # pair its old row with new steps. An interrupted swap is finished by append().
+    _replace(uri, pred, RECORDINGS.empty_table())
     _replace(steps_uri(root, *d.steps_key), pred, staged["steps"])
     for name in CATALOG:
         _replace(join(root, name), pred, staged[name])
@@ -686,6 +757,13 @@ def edit(root, table: str, rows: pa.Table, on: str) -> None:
                 f"{list(ANNOTATION_GRADING)}; got on={on!r}, other columns {sorted(other)}"
             )
     ds = _open(join(root, table))
+    # Before writing: merge_insert would commit the keys it did find.
+    have = set(ds.to_table(columns=[on]).column(0).to_pylist())
+    missing = [k for k in rows.column(on).to_pylist() if k not in have]
+    if missing:
+        raise KeyError(
+            f"{table}: {len(missing)} of {rows.num_rows} keys not found, e.g. {missing[0]}"
+        )
     moved = [c for c in STEPS_KEY if c in rows.column_names]
     if table == "recordings.lance" and moved:
         old = {r[on]: r for r in ds.to_table(columns=[on, *moved]).to_pylist()}
@@ -694,11 +772,7 @@ def edit(root, table: str, rows: pa.Table, on: str) -> None:
                 raise ValueError(
                     f"recording {r[on]}: {STEPS_KEY} changed from {old[r[on]]}; use replace"
                 )
-    stats = ds.merge_insert(on).when_matched_update_all().execute(rows)
-    if stats["num_updated_rows"] != rows.num_rows:
-        raise KeyError(
-            f"{table}: {rows.num_rows - stats['num_updated_rows']} of {rows.num_rows} keys not found"
-        )
+    ds.merge_insert(on).when_matched_update_all().execute(rows)
 
 
 def add_columns(root, table: str, columns: dict[str, str]) -> None:
@@ -750,7 +824,8 @@ def cleanup(
 
 def _staged_videos(staging) -> set[str]:
     """Video paths claimed by direct-mode deliveries staged under `<staging>/<source>/<id>/`,
-    except ones rejected since their meta.json was last written."""
+    except ones rejected since their meta.json was last written. One rejected only for being
+    committed already keeps its claim: `lance_commit --replace` retries it."""
     out = set()
     for source in list_dirs(staging):
         for vid in list_dirs(join(staging, source)):
@@ -758,7 +833,11 @@ def _staged_videos(staging) -> set[str]:
             if "meta.json" not in at:
                 continue
             if "REJECTED.json" in at and at["REJECTED.json"] >= at["meta.json"]:
-                continue
+                note = json.loads(
+                    get_bytes(join(staging, source, vid, "REJECTED.json"))
+                )
+                if not note.get("committed"):
+                    continue
             meta = json.loads(get_bytes(join(staging, source, vid, "meta.json")))
             placed = meta.get("lance_videos") or {}
             out.update(v["path"] for v in placed.get("videos", {}).values())

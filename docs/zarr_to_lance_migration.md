@@ -204,7 +204,11 @@ Per stage, run by hand before moving on:
    34–38 dB mean at CRF 36.
 3. **Loader check:** `bench_loader` and `check_samples` on the new root, and a short
    training smoke run on one shard.
-4. **Rejection budget:** stop the rollout if more than 1% of a stage is rejected or fails
+4. **Samples lost to the hand filter:** training's default `require_hands_in_frame="both"`
+   samples fewer anchors than zarr where a hand is untracked. `check_zarr_to_lance` reports
+   `anchors_dropped_by_default`; explain any shard that loses a noticeable share. It is not a
+   failure by itself, but it means that shard trains on different samples than zarr did.
+5. **Rejection budget:** stop the rollout if more than 1% of a stage is rejected or fails
    for a reason not seen before.
 
 ## 7. Cost and time estimate

@@ -25,7 +25,7 @@ from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.lance.dataset import LanceEpisodeResolver, zarr_to_lance
+from egomimic.rldb.lance.dataset import LanceEpisodeResolver, steps_columns
 from egomimic.rldb.lance.schema import DEXMATE_STEPS, only_steps_path, zarr_columns
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver
 from egomimic.scripts.zarr_to_lance import (
@@ -104,7 +104,7 @@ def check_steps(z, root: Path, h: str, rec: dict) -> dict:
         valid["head"] = steps.column("head_pose_valid").to_numpy(zero_copy_only=False)
     out["valid_frac"] = {k: float(v.mean()) for k, v in valid.items()}
     diffs = {}
-    for zk, lk in zarr_to_lance(rec["end_effector"]).items():
+    for zk, lk in steps_columns(rec["end_effector"]).items():
         if zk not in z:
             continue
         a = np.asarray(z[zk][:n], dtype=np.float32).reshape(n, -1)
@@ -189,7 +189,19 @@ def check_samples(
         cameras=cameras,
         require_hands_in_frame="none",
     ).resolve(filters=DatasetFilter(episode_hashes=[h]))[rec["recording_id"]]
-    out = {"zarr_len": len(Z), "lance_len": len(L)}
+    # What training actually samples: the default keeps only anchors with both hands valid.
+    default = LanceEpisodeResolver(
+        root, key_map=key_map, transform_list=tl, cameras=cameras
+    ).resolve(filters=DatasetFilter(episode_hashes=[h]))
+    default_len = (
+        len(default[rec["recording_id"]]) if rec["recording_id"] in default else 0
+    )
+    out = {
+        "zarr_len": len(Z),
+        "lance_len": len(L),
+        "default_len": default_len,
+        "anchors_dropped_by_default": len(L) - default_len,
+    }
     out["anchors_identity"] = len(L) == len(Z) and all(
         L.anchor(j) == j for j in range(len(L))
     )

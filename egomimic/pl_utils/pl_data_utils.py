@@ -83,6 +83,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         unseen_op_valid_dataloader_params: dict | None = None,
         valid_prefix: str | None = None,
         held_out_operators: list | None = None,
+        flagship_hashes: list | None = None,
         video_datasets: dict | None = None,
         metric_frames_per_episode: dict | None = None,
         video_episodes: dict | None = None,
@@ -102,7 +103,7 @@ class MultiDataModuleWrapper(LightningDataModule):
                 third val loader (metrics ``unseen_op_valid/``).
             unseen_op_valid_dataloader_params: per-dataset DataLoader kwargs
                 for the unseen_op_valid loader.
-            valid_prefix, held_out_operators: config-only data-config keys that
+            valid_prefix, held_out_operators, flagship_hashes: config-only data-config keys that
                 hydra.instantiate(cfg.data) forwards; ignored here.
             video_datasets: optional ``{head: {dataset_name: dataset}}`` for the
                 video-ONLY companion loaders (``<head>_video``). Built by
