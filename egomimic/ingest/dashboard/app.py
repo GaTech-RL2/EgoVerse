@@ -42,6 +42,7 @@ from werkzeug.exceptions import HTTPException
 from egomimic.ingest import accounts, formats
 from egomimic.ingest.dashboard import review, templates, uploads, views
 from egomimic.ingest.dashboard.throttle import Throttle
+from egomimic.ingest.dashboard.views import safe_target
 from egomimic.ingest.store import Ref, Store
 
 ACCOUNTS_TTL = 10.0  # seconds an accounts read is reused across requests
@@ -182,10 +183,8 @@ def create_app(
         if not ok:
             extra = {"Retry-After": str(g.retry_after)} if status == 429 else {}
             return render_template("login.html", error=error), status, extra
-        target = request.args.get("next", "")
-        if not target.startswith("/") or target.startswith("//"):
-            target = url_for("index")  # only our own pages
-        return redirect(target)
+        # Only our own pages.
+        return redirect(safe_target(request.args.get("next", "")) or url_for("index"))
 
     @app.post("/logout")
     def logout():

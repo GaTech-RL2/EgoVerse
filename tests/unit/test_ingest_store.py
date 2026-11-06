@@ -129,7 +129,7 @@ def store(request, tmp_path):
         return LocalStore(tmp_path / "bucket")
     r2 = R2Store(client=FakeS3())
     for vendor in ("acme", "other"):
-        r2.add_vendor(vendor, f"ingest-{vendor}")
+        r2.add_vendor(vendor, f"ingest-{vendor}", ["rl2"])
     return r2
 
 
@@ -593,7 +593,7 @@ def test_clear_upload_keeps_the_record_when_the_abort_really_fails():
 def test_r2_root_namespaces_every_key():
     s3 = FakeS3()
     store = R2Store(client=s3, root="_test/run1/")
-    store.add_vendor("acme", "ingest-acme")
+    store.add_vendor("acme", "ingest-acme", ["rl2"])
     ref = Ref("acme", "e1")
     upload(store, ref, "episode.mcap", b"episode")
     store.mark_complete(ref, {}, ["episode.mcap"])
@@ -748,7 +748,7 @@ def test_each_vendor_has_its_own_bucket_and_pipeline_records_their_own(tmp_path)
     s3 = FakeS3()
     store = R2Store(client=s3)
     for vendor in ("acme", "other"):
-        store.add_vendor(vendor, f"ingest-{vendor}")
+        store.add_vendor(vendor, f"ingest-{vendor}", ["rl2"])
         upload(store, Ref(vendor, "e1"), "episode.mcap", vendor.encode())
     store.put_status(Ref("acme", "e1"), {"state": "ready"})
     buckets = {k.split("/", 1)[0] for k in s3.objects}

@@ -28,7 +28,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
-from egomimic.ingest.store import VENDOR, VENDOR_BUCKET
+from egomimic.ingest.store import VENDOR, VENDOR_BUCKET, check_labs
 
 API = "https://api.cloudflare.com/client/v4"
 WRITE_GROUP = "Workers R2 Storage Bucket Item Write"
@@ -139,6 +139,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("vendor")
     ap.add_argument(
+        "--lab",
+        action="append",
+        required=True,
+        help="a lab this vendor delivers for, as in its episodes' `lab` (repeatable)",
+    )
+    ap.add_argument(
         "--dashboard-origin",
         action="append",
         default=[],
@@ -148,6 +154,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true")
     add_store_args(ap)
     args = ap.parse_args(argv)
+    try:
+        labs = check_labs(args.lab)  # before a bucket and token exist
+    except ValueError as e:
+        ap.error(str(e))
     if not args.account:
         ap.error("set CLOUDFLARE_ACCOUNT_ID or pass --account")
     log: list = []
@@ -169,10 +179,11 @@ def main(argv: list[str] | None = None) -> int:
         for method, path, body in log:
             print(method, path, json.dumps(body) if body is not None else "")
         print(
-            f"would register {args.vendor} -> {out['bucket']} in pipeline/vendors.json"
+            f"would register {args.vendor} -> {out['bucket']}, labs {labs} "
+            "in pipeline/vendors.json"
         )
         return 0
-    store_from_args(args).add_vendor(args.vendor, out["bucket"])
+    store_from_args(args).add_vendor(args.vendor, out["bucket"], labs)
     print(json.dumps(out, indent=1))
     print("Give the vendor these credentials once; they are not stored.")
     return 0

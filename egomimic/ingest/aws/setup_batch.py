@@ -95,7 +95,9 @@ def main(argv: list[str] | None = None, client=None) -> int:
     ap.add_argument("--instance-role", required=True)
     ap.add_argument("--job-role", required=True)
     ap.add_argument(
-        "--env-secret", required=True, help="Secrets Manager ARN with the R2_* keys"
+        "--env-secret",
+        required=True,
+        help="Secrets Manager ARN with the jobs' own R2_* keys, not the box's (aws/README.md)",
     )
     ap.add_argument("--instance-types", nargs="+", default=INSTANCE_TYPES)
     ap.add_argument("--max-vcpus", type=int, default=448)

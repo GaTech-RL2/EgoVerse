@@ -29,6 +29,7 @@ from flask import (
     url_for,
 )
 
+from egomimic.ingest.dashboard.views import safe_target
 from egomimic.ingest.store import Ref, Store
 
 MAX_COMMENT = 1000
@@ -103,9 +104,7 @@ def decide_one(vendor, delivery_id):
 def decide_many():
     _staff()
     decision, comment = _form()
-    back = request.form.get("back", "")
-    if not back.startswith("/") or back.startswith("//"):
-        back = url_for("index")
+    back = safe_target(request.form.get("back", "")) or url_for("index")
     items = request.form.getlist("item")
     if not items:
         flash("Tick the deliveries to decide on first.", "error")

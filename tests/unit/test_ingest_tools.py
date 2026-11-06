@@ -55,7 +55,9 @@ def test_onboard_makes_one_bucket_and_a_key_for_only_that_bucket():
 
 
 def test_onboard_dry_run_sends_nothing(capsys):
-    assert onboard.main(["scale", "--account", "acct", "--dry-run"]) == 0
+    assert (
+        onboard.main(["scale", "--lab", "scale", "--account", "acct", "--dry-run"]) == 0
+    )
     out = capsys.readouterr().out
     assert "POST /accounts/acct/r2/buckets" in out and "ingest-scale" in out
 
@@ -66,6 +68,7 @@ def _ready(store, ref, stage):
 
 def test_review_decides_on_the_stage_in_the_status(tmp_path, capsys):
     store = LocalStore(tmp_path / "buckets")
+    store.add_vendor("acme", "ingest-acme", ["rl2"])
     a, b, c = Ref("acme", "a"), Ref("acme", "b"), Ref("beta", "c")
     _ready(store, a, "1" * 64)
     _ready(store, b, "2" * 64)
@@ -137,6 +140,7 @@ def test_the_loop_runs_a_pass_then_the_committer(tmp_path, capsys):
     from egomimic.ingest import run
 
     store = LocalStore(tmp_path / "buckets")
+    store.add_vendor("acme", "ingest-acme", ["rl2"])
     a = Ref("acme", "episode_0001")
     store.upload_delivery(a, write_mcap_episode(tmp_path / "src"), {})
     args = [
@@ -167,3 +171,30 @@ def test_accounts_and_the_dashboard_use_the_pipelines_buckets():
     accounts.add_store_args(ap)
     args = ap.parse_args(["--vendor-bucket", "v-{vendor}"])
     assert (args.bucket, args.vendor_bucket) == ("ingest", "v-{vendor}")
+
+
+def test_onboarding_needs_valid_labs_before_it_creates_anything(capsys):
+    with pytest.raises(SystemExit):
+        onboard.main(["scale", "--account", "acct", "--dry-run"])
+    with pytest.raises(SystemExit):
+        onboard.main(["scale", "--lab", "../x", "--account", "acct", "--dry-run"])
+    assert "POST" not in capsys.readouterr().out
+    onboard.main(["scale", "--lab", "scale", "--account", "acct", "--dry-run"])
+    assert "labs ['scale']" in capsys.readouterr().out
+
+
+def test_the_store_and_the_committer_agree_on_lab_names():
+    from egomimic.ingest.store import check_labs
+    from egomimic.scripts.lance_commit import mcap_source
+
+    for lab in ("rl2", "a_b", "Acme", "a-b", "../x", "", "_a"):
+        try:
+            check_labs([lab])
+            ok = True
+        except ValueError:
+            ok = False
+        try:
+            mcap_source(lab)
+            assert ok, lab
+        except ValueError:
+            assert not ok, lab

@@ -19,6 +19,7 @@ if not (
     pytest.skip("needs ffmpeg with libx264", allow_module_level=True)
 
 from egomimic.ingest import formats, watch  # noqa: E402
+from egomimic.ingest.convert_job import run_job  # noqa: E402
 from egomimic.ingest.launch import ENDED, RUNNING, Launcher, LocalLauncher  # noqa: E402
 from egomimic.ingest.run import commit_round  # noqa: E402
 from egomimic.ingest.store import LocalStore, Ref  # noqa: E402
@@ -33,6 +34,8 @@ class Env:
     def __init__(self, tmp_path):
         self.tmp = tmp_path
         self.store = LocalStore(tmp_path / "buckets")
+        for vendor in ("acme", "beta"):
+            self.store.add_vendor(vendor, f"ingest-{vendor}", ["rl2"])
         self.root = tmp_path / "lance"
         self.work = tmp_path / "work"
         self.raw = tmp_path / "raw"
@@ -399,3 +402,49 @@ def test_a_committed_delivery_reads_back_through_the_training_resolver(env):
     sample = leaves[st["recording_id"]][0]
     assert sample["observations.images.front_img_1"].shape[-2:] == (360, 480)
     assert sample["left.obs_ee_pose"].numel() > 0
+
+
+def test_a_lab_not_registered_to_the_vendor_is_rejected_with_nothing_stored(env):
+    env.deliver(A, metadata_override={"lab": "other_lab"})
+    assert env.run().rejected == ["acme/episode_0001"]
+    st = env.status(A)
+    assert st["state"] == "rejected" and "not registered" in st["problems"][0]
+    # Nothing a vendor could read about another lab's recording.
+    assert not st.get("diff") and not st.get("stage")
+    jobs = env.tmp / "buckets" / "egoverse-ingest-jobs" / "pipeline"
+    assert not (jobs / "staged").exists()
+    outcome = next((jobs / "jobs").rglob("*.json"))
+    assert not json.loads(outcome.read_text()).get("recording_id")
+
+
+def test_a_vendor_never_registered_can_deliver_nothing(env):
+    other = Ref("gamma", "episode_0001")
+    env.deliver(other)
+    assert env.run().rejected == ["gamma/episode_0001"]
+
+
+def test_hand_off_checks_the_lab_again(env):
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    env.store.add_vendor(
+        "acme", "ingest-acme", ["elsewhere"]
+    )  # the job's check is past
+    s = env.run()
+    assert s.failed == ["acme/episode_0001"] and not s.approved
+    assert "not registered" in env.status(A)["error"]
+    assert not env.staging.exists() and not env.raw.exists()
+
+
+def test_a_conversion_job_writes_only_to_the_jobs_bucket(env):
+    env.deliver(A)
+    before = {p for p in (env.tmp / "buckets").rglob("*") if p.is_file()}
+    d = env.store.get_delivery(A)
+    outcome = run_job(
+        env.store, A, d.fingerprint, str(env.root), env.tmp / "job_work", **SETTINGS
+    )
+    assert outcome["status"] == "staged"
+    new = {p for p in (env.tmp / "buckets").rglob("*") if p.is_file()} - before
+    assert new
+    buckets = {p.relative_to(env.tmp / "buckets").parts[0] for p in new}
+    assert buckets == {"egoverse-ingest-jobs"}

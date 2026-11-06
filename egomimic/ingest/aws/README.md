@@ -33,9 +33,17 @@ At ~$0.35-0.5/h for a Spot g6/g5.2xlarge that is roughly $1.4-2k of compute per
        --secret id=mano,src=/tmp/mano.tar -t $ECR/egoverse-ingest:$(git rev-parse --short HEAD) .
    docker push $ECR/egoverse-ingest:$(git rev-parse --short HEAD)
    ```
-2. **R2 credentials** for the box and jobs in Secrets Manager (`R2_ENDPOINT_URL`,
-   `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`), with write access to `ingest`, every
-   `ingest-*` bucket and `rldb`.
+2. **R2 credentials**: two separate keys, each its own Secrets Manager secret
+   (`R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`), plus a new bucket,
+   `egoverse-ingest-jobs`. Jobs parse vendor-supplied video, so they get the narrow key:
+   | Key | Write | Read |
+   |---|---|---|
+   | Box | `ingest`, `egoverse-ingest-jobs`, every `ingest-*`, `rldb` | the same |
+   | Jobs (`--env-secret`) | `egoverse-ingest-jobs` | `ingest`, every `ingest-*`, `rldb` |
+
+   A compromised job can't reach accounts, staff decisions or Lance. It can still read every
+   vendor's deliveries and tamper with other jobs' stages and outcomes; staff still have to
+   approve a stage, its digest has to match, and hand-off re-checks the vendor's labs.
 3. **Batch**: the Spot vCPU quota for G instances (`L-3819A6DF`, "All G and VT Spot
    Instance Requests") must cover `--max-vcpus`. In the lab account (us-east-2) it was 0
    on 2026-10-21, as was the On-Demand one (`L-DB2E81BA`), so request it first:
@@ -62,9 +70,10 @@ An admin, from their own machine, with a Cloudflare token that can create bucket
 API tokens:
 ```
 CLOUDFLARE_API_TOKEN=... CLOUDFLARE_ACCOUNT_ID=... \
-    python -m egomimic.ingest.onboard scale --dashboard-origin https://<dashboard host>
+    python -m egomimic.ingest.onboard scale --lab scale --dashboard-origin https://<dashboard host>
 ```
-It prints the vendor's bucket, endpoint and keys once. The vendor uploads each delivery
+`--lab` (repeatable) is what the vendor's episodes may name as `lab`; any other lab is
+rejected. It prints the vendor's bucket, endpoint and keys once. The vendor uploads each delivery
 to `s3://ingest-scale/<delivery id>/` and writes `_done.json` last; to correct one, delete
 `_done.json` first.
 
