@@ -507,6 +507,37 @@ def recorded_provenance(root, ids) -> dict[str, dict]:
     return out
 
 
+def recorded_ids(root, ids) -> set[str]:
+    """Those of `ids` named in some `changes` row (added or replaced)."""
+    ids, uri = set(ids), changes_uri(root)
+    if not ids or not _exists(uri):
+        return set()
+    rows = _open(uri).to_table(columns=["added", "replaced"]).to_pylist()
+    return ids & {i for r in rows for i in (r["added"] or []) + (r["replaced"] or [])}
+
+
+def record_recovered(
+    root, deliveries: list[Delivery], source: str, operator: str | None = None
+) -> dict | None:
+    """Record and tag recordings that a run appended but stopped before recording
+    (`append` wrote them, `_record` never ran), so every committed recording is in a
+    `changes` row and in a tag. None when there are none."""
+    if not deliveries:
+        return None
+    provenance = {
+        d.recording_id: d.provenance for d in deliveries if d.provenance is not None
+    }
+    return _record(
+        root,
+        source,
+        [d.recording_id for d in deliveries],
+        [],
+        operator=operator,
+        provenance=provenance or None,
+        steps_tables=sorted({steps_path(*d.steps_key) for d in deliveries}),
+    )
+
+
 def committed_ids(root) -> set[str]:
     uri = join(root, "recordings.lance")
     if not _exists(uri):

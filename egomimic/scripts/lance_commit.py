@@ -471,12 +471,13 @@ def commit_staged(
             if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
                 deliveries.remove(d)
                 rejected[d.recording["vendor_recording_id"]] = errs
-        skipped, resumed = [], []
+        skipped, resumed, unrecorded = [], [], []
         if not replace:
             again = [d for d in deliveries if d.recording_id in have]
             ids = [d.recording_id for d in again]
             digests = commit.committed_digests(lance_root, ids)
             recorded = commit.recorded_provenance(lance_root, ids)
+            logged = commit.recorded_ids(lance_root, ids)
             for d in again:
                 deliveries.remove(d)
                 vid = d.recording["vendor_recording_id"]
@@ -492,13 +493,15 @@ def commit_staged(
                 )
                 if same:
                     resumed.append(d)
+                    if d.recording_id not in logged:
+                        unrecorded.append(d)
                     continue
                 skipped.append(d)
                 rejected[d.recording["vendor_recording_id"]] = [
                     "already committed; rerun with --replace to replace it"
                 ]
         spans, vendors = [], {}
-        for d in deliveries:
+        for d in [*deliveries, *unrecorded]:
             d.provenance = {
                 **(d.provenance or {}),
                 STAGED_FILES: batch[d.recording["vendor_recording_id"]],
@@ -514,6 +517,10 @@ def commit_staged(
                     meta["lab"],
                     *(r["annotation_vendor"] for r in rows),
                 }
+        # Appended by a run that stopped before recording them: record and tag them now.
+        recovered = commit.record_recovered(lance_root, unrecorded, source, operator)
+        if recovered:
+            report["batches"].append(recovered)
         result = commit.commit_batch(
             lance_root,
             deliveries,
@@ -521,6 +528,7 @@ def commit_staged(
             replace_committed=replace,
             operator=operator,
         )
+        result_tag = (result or recovered or {}).get("tag")
         done, replaced = {d.recording_id for d in resumed}, {}
         if result:
             report["batches"].append(result)
@@ -529,7 +537,7 @@ def commit_staged(
             replaced = {r: vendors[r] for r in result["replaced"] if r in vendors}
         if done:
             ann = _commit_annotations(
-                lance_root, spans, done, replaced, result and result["tag"], operator
+                lance_root, spans, done, replaced, result_tag, operator
             )
             report.setdefault("annotations", []).append(ann)
         if resumed:

@@ -10,7 +10,11 @@ from fixtures.lance_tables import EVA_DELIVERY_FRAMES, eva_delivery  # noqa: E40
 from egomimic.rldb.lance import commit  # noqa: E402
 from egomimic.rldb.lance.dataset import LanceEpisodeResolver  # noqa: E402
 from egomimic.rldb.lance.schema import recording_id, steps_path  # noqa: E402
-from egomimic.scripts.lance_commit import REJECTED, commit_staged  # noqa: E402
+from egomimic.scripts.lance_commit import (  # noqa: E402
+    REJECTED,
+    STAGED_FILES,
+    commit_staged,
+)
 
 EVA_STEPS = steps_path("rl2", "eva_bimanual", "parallel_jaw_gripper")
 
@@ -282,10 +286,23 @@ def test_a_crash_before_the_batch_is_recorded_still_recovers(
     with pytest.raises(RuntimeError):
         run()
     monkeypatch.setattr(commit, "_record", real)
-    assert recording_id("eva", "100") in commit.committed_ids(root)
+    rid = recording_id("eva", "100")
+    assert rid in commit.committed_ids(root)
+    assert lance.dataset(root / "changes.lance").count_rows() == 0
     report = run()
-    assert report["resumed"] == [recording_id("eva", "100")]
+    assert report["resumed"] == [rid]
     assert lance.dataset(root / "annotations.lance").count_rows() == 1
+    # The rerun records and tags it, as the interrupted run would have.
+    [batch] = report["batches"]
+    assert batch["added"] == [rid]
+    rows = lance.dataset(root / "changes.lance").to_table().to_pylist()
+    deliveries = [r for r in rows if r["source"] == "eva"]
+    assert [r["added"] for r in deliveries] == [[rid]]
+    assert json.loads(deliveries[0]["provenance"])[rid][STAGED_FILES]
+    for uri in commit.table_uris(root):
+        ds = lance.dataset(uri)
+        assert ds.version == max(t["version"] for t in ds.tags.list().values()), uri
+    assert run()["batches"] == []
 
 
 def test_mixed_case_sql_values_land_in_the_lowercase_table(tmp_path, monkeypatch):
