@@ -74,6 +74,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The ingestion dashboard (egomimic/ingest/dashboard), deployed on its own.
+dashboard = ["flask>=3"]
 # format_bench and lance_pilot bench_* object-store benchmarks.
 bench = ["obstore==0.11.1", "google-crc32c==1.8.0"]
 

@@ -155,3 +155,15 @@ def test_the_loop_runs_a_pass_then_the_committer(tmp_path, capsys):
     assert rounds[-1]["commit"]["mcap-rl2"]["tags"][0].startswith("mcap-rl2-")
     run.main(args)
     assert store.get_status(a)["state"] == "committed"
+
+
+def test_accounts_and_the_dashboard_use_the_pipelines_buckets():
+    import argparse
+
+    from egomimic.ingest import accounts, convert_job
+
+    assert accounts.add_store_args is convert_job.add_store_args
+    ap = argparse.ArgumentParser()
+    accounts.add_store_args(ap)
+    args = ap.parse_args(["--vendor-bucket", "v-{vendor}"])
+    assert (args.bucket, args.vendor_bucket) == ("ingest", "v-{vendor}")
