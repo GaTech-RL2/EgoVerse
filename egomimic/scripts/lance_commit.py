@@ -40,7 +40,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from sqlalchemy import text
 
-from egomimic.rldb.lance import commit, mp4_ranges
+from egomimic.rldb.lance import commit, lock, mp4_ranges
 from egomimic.rldb.lance.annotations import committed, read_changes, review
 from egomimic.rldb.lance.dataset import read_range
 from egomimic.rldb.lance.metadata import objects_list, text_or_none
@@ -386,38 +386,44 @@ def _unstage(staging: str, source: str, vid: str) -> None:
     commit.remove([commit.join(prefix, name) for name in commit.list_files(prefix)])
 
 
-def commit_staged_annotations(staging: str, lance_root: str, work_dir: Path) -> dict:
-    """Commit every pending staged annotation change, oldest first, one commit each."""
-    report = {"batches": [], "rejected": {}}
-    todo = []
-    for sid, digest in pending(staging, ANNOTATIONS):
-        prefix = commit.join(staging, ANNOTATIONS, sid)
-        meta = json.loads(commit.get_bytes(commit.join(prefix, "meta.json")))
-        todo.append((meta["staged_at"], sid, digest, meta))
-    for _, sid, digest, meta in sorted(todo):
-        local = work_dir / ANNOTATIONS / sid
-        commit.get_file(
-            commit.join(staging, ANNOTATIONS, sid, "changes.parquet"),
-            local / "changes.parquet",
-        )
-        rv = review(lance_root, read_changes(local / "changes.parquet"))
-        if rv.errors:
-            _reject(staging, ANNOTATIONS, sid, rv.errors, digest)
-            report["rejected"][sid] = rv.errors
-        else:
-            out = commit.commit_annotations(
-                lance_root,
-                rv.adds,
-                rv.deletes,
-                operator=meta["approver"],
-                message=f"{meta['source']}, approved by {meta['approver']}",
-                provenance={k: meta[k] for k in ("approver", "source", "staged_at")},
+def commit_staged_annotations(
+    staging: str, lance_root: str, work_dir: Path, lock_wait: float | None = None
+) -> dict:
+    """Commit every pending staged annotation change, oldest first, one commit each.
+    Holds the writer lock on `lance_root` throughout (`lock_wait`: see writer_lock)."""
+    with lock.writer_lock(lance_root, wait=lock_wait):
+        report = {"batches": [], "rejected": {}}
+        todo = []
+        for sid, digest in pending(staging, ANNOTATIONS):
+            prefix = commit.join(staging, ANNOTATIONS, sid)
+            meta = json.loads(commit.get_bytes(commit.join(prefix, "meta.json")))
+            todo.append((meta["staged_at"], sid, digest, meta))
+        for _, sid, digest, meta in sorted(todo):
+            local = work_dir / ANNOTATIONS / sid
+            commit.get_file(
+                commit.join(staging, ANNOTATIONS, sid, "changes.parquet"),
+                local / "changes.parquet",
             )
-            if out:
-                report["batches"].append(out)
-            _unstage(staging, ANNOTATIONS, sid)
-        shutil.rmtree(local, ignore_errors=True)
-    return report
+            rv = review(lance_root, read_changes(local / "changes.parquet"))
+            if rv.errors:
+                _reject(staging, ANNOTATIONS, sid, rv.errors, digest)
+                report["rejected"][sid] = rv.errors
+            else:
+                out = commit.commit_annotations(
+                    lance_root,
+                    rv.adds,
+                    rv.deletes,
+                    operator=meta["approver"],
+                    message=f"{meta['source']}, approved by {meta['approver']}",
+                    provenance={
+                        k: meta[k] for k in ("approver", "source", "staged_at")
+                    },
+                )
+                if out:
+                    report["batches"].append(out)
+                _unstage(staging, ANNOTATIONS, sid)
+            shutil.rmtree(local, ignore_errors=True)
+        return report
 
 
 def _annotation_rows(d: commit.Delivery, meta: dict) -> list[dict]:
@@ -486,106 +492,114 @@ def commit_staged(
     batch_size: int = BATCH_SIZE,
     replace: bool = False,
     operator: str | None = None,
+    lock_wait: float | None = None,
 ) -> dict:
     """Commit every pending staged delivery of `source`, `batch_size` at a time; returns
-    {"batches": [commit_batch results], "rejected": {vendor id: errors}}."""
-    report = {"batches": [], "rejected": {}}
-    todo = pending(staging, source, replace)
-    have = commit.committed_ids(lance_root)
-    for b in range(0, len(todo), batch_size):
-        batch = dict(todo[b : b + batch_size])
-        local = {}
-        for vid in batch:
-            src = commit.join(staging, source, vid)
-            local[vid] = work_dir / source / vid
-            for name in commit.list_files(src):
-                if name != REJECTED:
-                    commit.get_file(commit.join(src, name), local[vid] / name)
-        deliveries, rejected = _load(source, list(local.values()))
-        for d in [d for d in deliveries if d.placed]:
-            if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
-                deliveries.remove(d)
-                rejected[d.recording["vendor_recording_id"]] = errs
-        skipped, resumed, unrecorded = [], [], []
-        if not replace:
-            again = [d for d in deliveries if d.recording_id in have]
-            ids = [d.recording_id for d in again]
-            digests = commit.committed_digests(lance_root, ids)
-            recorded = commit.recorded_provenance(lance_root, ids)
-            logged = commit.recorded_ids(lance_root, ids)
-            for d in again:
-                deliveries.remove(d)
-                vid = d.recording["vendor_recording_id"]
-                # This very delivery, committed by a run that stopped before finishing it:
-                # its annotations may be missing and it is still staged. The same staged
-                # files, or the same content if the run stopped before recording them. Same
-                # content alone is not enough: a correction may change only metadata or labels.
-                prov = recorded.get(d.recording_id)
-                same = (
-                    prov.get(STAGED_FILES) == batch[vid]
-                    if prov is not None
-                    else digests.get(d.recording_id) == commit.delivery_digest(d)
-                )
-                if same:
-                    resumed.append(d)
-                    if d.recording_id not in logged:
-                        unrecorded.append(d)
-                    continue
-                skipped.append(d)
-                rejected[d.recording["vendor_recording_id"]] = [
-                    "already committed; rerun with --replace to replace it"
-                ]
-        spans, vendors = [], {}
-        for d in [*deliveries, *unrecorded]:
-            d.provenance = {
-                **(d.provenance or {}),
-                STAGED_FILES: batch[d.recording["vendor_recording_id"]],
-            }
-        for d in [*deliveries, *resumed]:
-            meta = json.loads(
-                (local[d.recording["vendor_recording_id"]] / "meta.json").read_text()
-            )
-            rows = _annotation_rows(d, meta)
-            spans += rows
-            if "annotations" in meta:
-                vendors[d.recording_id] = {
-                    meta["lab"],
-                    *(r["annotation_vendor"] for r in rows),
+    {"batches": [commit_batch results], "rejected": {vendor id: errors}}.
+    Holds the writer lock on `lance_root` throughout, so the committed-or-not reads
+    and the writes they decide see no other writer (`lock_wait`: see writer_lock)."""
+    with lock.writer_lock(lance_root, wait=lock_wait):
+        report = {"batches": [], "rejected": {}}
+        todo = pending(staging, source, replace)
+        have = commit.committed_ids(lance_root)
+        for b in range(0, len(todo), batch_size):
+            batch = dict(todo[b : b + batch_size])
+            local = {}
+            for vid in batch:
+                src = commit.join(staging, source, vid)
+                local[vid] = work_dir / source / vid
+                for name in commit.list_files(src):
+                    if name != REJECTED:
+                        commit.get_file(commit.join(src, name), local[vid] / name)
+            deliveries, rejected = _load(source, list(local.values()))
+            for d in [d for d in deliveries if d.placed]:
+                if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
+                    deliveries.remove(d)
+                    rejected[d.recording["vendor_recording_id"]] = errs
+            skipped, resumed, unrecorded = [], [], []
+            if not replace:
+                again = [d for d in deliveries if d.recording_id in have]
+                ids = [d.recording_id for d in again]
+                digests = commit.committed_digests(lance_root, ids)
+                recorded = commit.recorded_provenance(lance_root, ids)
+                logged = commit.recorded_ids(lance_root, ids)
+                for d in again:
+                    deliveries.remove(d)
+                    vid = d.recording["vendor_recording_id"]
+                    # This very delivery, committed by a run that stopped before finishing it:
+                    # its annotations may be missing and it is still staged. The same staged
+                    # files, or the same content if the run stopped before recording them. Same
+                    # content alone is not enough: a correction may change only metadata or labels.
+                    prov = recorded.get(d.recording_id)
+                    same = (
+                        prov.get(STAGED_FILES) == batch[vid]
+                        if prov is not None
+                        else digests.get(d.recording_id) == commit.delivery_digest(d)
+                    )
+                    if same:
+                        resumed.append(d)
+                        if d.recording_id not in logged:
+                            unrecorded.append(d)
+                        continue
+                    skipped.append(d)
+                    rejected[d.recording["vendor_recording_id"]] = [
+                        "already committed; rerun with --replace to replace it"
+                    ]
+            spans, vendors = [], {}
+            for d in [*deliveries, *unrecorded]:
+                d.provenance = {
+                    **(d.provenance or {}),
+                    STAGED_FILES: batch[d.recording["vendor_recording_id"]],
                 }
-        # Appended by a run that stopped before recording them: record and tag them now.
-        recovered = commit.record_recovered(lance_root, unrecorded, source, operator)
-        if recovered:
-            report["batches"].append(recovered)
-        result = commit.commit_batch(
-            lance_root,
-            deliveries,
-            source,
-            replace_committed=replace,
-            operator=operator,
-        )
-        result_tag = (result or recovered or {}).get("tag")
-        done, replaced = {d.recording_id for d in resumed}, {}
-        if result:
-            report["batches"].append(result)
-            have |= set(result["added"])
-            done |= {*result["added"], *result["replaced"]}
-            replaced = {r: vendors[r] for r in result["replaced"] if r in vendors}
-        if done:
-            ann = _commit_annotations(
-                lance_root, spans, done, replaced, result_tag, operator
+            for d in [*deliveries, *resumed]:
+                meta = json.loads(
+                    (
+                        local[d.recording["vendor_recording_id"]] / "meta.json"
+                    ).read_text()
+                )
+                rows = _annotation_rows(d, meta)
+                spans += rows
+                if "annotations" in meta:
+                    vendors[d.recording_id] = {
+                        meta["lab"],
+                        *(r["annotation_vendor"] for r in rows),
+                    }
+            # Appended by a run that stopped before recording them: record and tag them now.
+            recovered = commit.record_recovered(
+                lance_root, unrecorded, source, operator
             )
-            report.setdefault("annotations", []).append(ann)
-        if resumed:
-            report.setdefault("resumed", []).extend(d.recording_id for d in resumed)
-        skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
-        for vid, errs in rejected.items():
-            _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)
-        report["rejected"].update(rejected)
-        for d in [*deliveries, *resumed]:
-            _unstage(staging, source, d.recording["vendor_recording_id"])
-        for path in local.values():
-            shutil.rmtree(path, ignore_errors=True)
-    return report
+            if recovered:
+                report["batches"].append(recovered)
+            result = commit.commit_batch(
+                lance_root,
+                deliveries,
+                source,
+                replace_committed=replace,
+                operator=operator,
+            )
+            result_tag = (result or recovered or {}).get("tag")
+            done, replaced = {d.recording_id for d in resumed}, {}
+            if result:
+                report["batches"].append(result)
+                have |= set(result["added"])
+                done |= {*result["added"], *result["replaced"]}
+                replaced = {r: vendors[r] for r in result["replaced"] if r in vendors}
+            if done:
+                ann = _commit_annotations(
+                    lance_root, spans, done, replaced, result_tag, operator
+                )
+                report.setdefault("annotations", []).append(ann)
+            if resumed:
+                report.setdefault("resumed", []).extend(d.recording_id for d in resumed)
+            skipped_ids = {d.recording["vendor_recording_id"] for d in skipped}
+            for vid, errs in rejected.items():
+                _reject(staging, source, vid, errs, batch[vid], vid in skipped_ids)
+            report["rejected"].update(rejected)
+            for d in [*deliveries, *resumed]:
+                _unstage(staging, source, d.recording["vendor_recording_id"])
+            for path in local.values():
+                shutil.rmtree(path, ignore_errors=True)
+        return report
 
 
 def main():

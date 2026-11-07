@@ -3,8 +3,10 @@
     python -m egomimic.ingest.run --lance s3://rldb/lance --work /var/lib/ingest
 
 The pass converts and hands off deliveries (egomimic/ingest/watch.py); the committer
-(egomimic/scripts/lance_commit.py, the only Lance writer) then commits what is staged under
---lance-staging: MCAP deliveries one lab at a time, annotation changes last. A STOP file in --work ends the loop after
+(egomimic/scripts/lance_commit.py) then commits what is staged under --lance-staging: MCAP
+deliveries one lab at a time, annotation changes last, all under one hold of the root's writer
+lock (egomimic/rldb/lance/lock.py). If another writer (a manual lance_commit, say) holds it
+for more than LOCK_WAIT_S, the round reports "busy" and the next round tries again. A STOP file in --work ends the loop after
 the current round; --once runs a single round.
 """
 
@@ -17,11 +19,16 @@ import time
 
 from egomimic.ingest.watch import Busy, add_pass_args, pass_from_args
 
+# How long a round waits for another writer's lock before reporting "busy".
+LOCK_WAIT_S = 60.0
+
 
 def commit_round(lance_staging: str, lance_root: str, work) -> dict:
     """lance_commit over each lab's staged MCAP deliveries, then annotation changes;
-    any other source's folder is left alone."""
+    any other source's folder is left alone. {"busy": holder} if another writer holds
+    the root's lock for longer than LOCK_WAIT_S."""
     from egomimic.rldb.lance import commit
+    from egomimic.rldb.lance.lock import LockHeld, writer_lock
     from egomimic.scripts.lance_commit import (
         ANNOTATIONS,
         MCAP_PREFIX,
@@ -30,14 +37,20 @@ def commit_round(lance_staging: str, lance_root: str, work) -> dict:
     )
 
     folders = commit.list_dirs(lance_staging)
-    reports = {
-        source: commit_staged(lance_staging, source, lance_root, work / "commit")
-        for source in sorted(f for f in folders if f.startswith(MCAP_PREFIX))
-    }
-    if ANNOTATIONS in folders:
-        reports[ANNOTATIONS] = commit_staged_annotations(
-            lance_staging, lance_root, work / "commit"
-        )
+    try:
+        with writer_lock(lance_root, wait=LOCK_WAIT_S):
+            reports = {
+                source: commit_staged(
+                    lance_staging, source, lance_root, work / "commit"
+                )
+                for source in sorted(f for f in folders if f.startswith(MCAP_PREFIX))
+            }
+            if ANNOTATIONS in folders:
+                reports[ANNOTATIONS] = commit_staged_annotations(
+                    lance_staging, lance_root, work / "commit"
+                )
+    except LockHeld as e:
+        return {"busy": str(e)}
     return {
         source: {
             "tags": [b["tag"] for b in report["batches"]],

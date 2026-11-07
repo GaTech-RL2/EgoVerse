@@ -12,11 +12,15 @@ A converter either stages its MP4s with the delivery (`stage`; the committer cop
 into place) or uploads them to their final place itself (`stage_direct`; the committer
 only checks their sizes).
 
+Every function here that writes holds `lock.writer_lock(root)`: one writer per root at a
+time (see egomimic/rldb/lance/lock.py for why and how).
+
 `root` is a local directory or an s3:// prefix; credentials come from the R2_*
 environment (dataset.storage_options).
 """
 
 import datetime
+import functools
 import getpass
 import hashlib
 import json
@@ -31,7 +35,7 @@ import pyarrow.parquet as pq
 from lance import LanceOperation
 from lance.fragment import write_fragments
 
-from egomimic.rldb.lance import mp4_ranges
+from egomimic.rldb.lance import lock, mp4_ranges
 from egomimic.rldb.lance.dataset import (
     _is_remote,
     _s3_client,
@@ -60,6 +64,17 @@ CATALOG = {
     "tasks.lance": TASKS,
     "recordings.lance": RECORDINGS,
 }
+
+
+def _writes(fn):
+    """Run `fn(root, ...)` holding the writer lock on `root`."""
+
+    @functools.wraps(fn)
+    def locked(root, *args, **kwargs):
+        with lock.writer_lock(root):
+            return fn(root, *args, **kwargs)
+
+    return locked
 
 
 @dataclass
@@ -395,6 +410,7 @@ def _sql_str(s: str) -> str:
 
 
 def _append(uri: str, table: pa.Table) -> None:
+    lock.check(uri)
     lance.write_dataset(
         table,
         uri,
@@ -411,6 +427,7 @@ def _replace(
     merge_insert would also be one commit, but it writes matched rows before inserted
     ones, so a recording's steps would no longer be in timestamp order.
     """
+    lock.check(uri)
     ds = _open(uri)
     removed, updated = [], []
     for frag in ds.get_fragments() if predicate else []:
@@ -516,6 +533,7 @@ def recorded_ids(root, ids) -> set[str]:
     return ids & {i for r in rows for i in (r["added"] or []) + (r["replaced"] or [])}
 
 
+@_writes
 def record_recovered(
     root, deliveries: list[Delivery], source: str, operator: str | None = None
 ) -> dict | None:
@@ -545,6 +563,7 @@ def committed_ids(root) -> set[str]:
     return set(_open(uri).to_table(columns=["recording_id"]).column(0).to_pylist())
 
 
+@_writes
 def append(root, deliveries: list[Delivery]) -> list[str]:
     """Commit new recordings; ones already in `recordings` are skipped, so re-running is a no-op."""
     have = committed_ids(root)
@@ -571,6 +590,7 @@ def append(root, deliveries: list[Delivery]) -> list[str]:
     return [d.recording_id for d in todo]
 
 
+@_writes
 def _ensure_tables(root) -> None:
     # Exist from the first commit on, so a tag always has a version of them to pin.
     for uri, schema in (
@@ -581,6 +601,7 @@ def _ensure_tables(root) -> None:
             _append(uri, schema.empty_table())
 
 
+@_writes
 def apply_annotations(
     root, adds: pa.Table, deletes: list[str], message: str | None = None
 ) -> dict[str, int]:
@@ -603,6 +624,7 @@ def apply_annotations(
     return {"added": adds.num_rows, "deleted": len(deletes)}
 
 
+@_writes
 def commit_annotations(
     root,
     adds: pa.Table,
@@ -638,6 +660,7 @@ def commit_annotations(
     }
 
 
+@_writes
 def drop_task_annotations(root) -> None:
     """One-off for tables written while annotations were nested in tasks."""
     ds = _open(join(root, "tasks.lance"))
@@ -645,6 +668,7 @@ def drop_task_annotations(root) -> None:
         ds.drop_columns(["annotations"])
 
 
+@_writes
 def replace(root, d: Delivery) -> None:
     """Swap a committed recording for a reprocessed delivery; its steps rows move to the end of the table."""
     check_required(d)
@@ -670,6 +694,7 @@ def replace(root, d: Delivery) -> None:
         _replace(join(root, name), pred, staged[name])
 
 
+@_writes
 def commit_batch(
     root,
     deliveries: list[Delivery],
@@ -707,6 +732,7 @@ def commit_batch(
     )
 
 
+@_writes
 def _record(
     root,
     source: str,
@@ -740,6 +766,7 @@ def _record(
     }
 
 
+@_writes
 def edit(root, table: str, rows: pa.Table, on: str) -> None:
     """Update columns of existing rows keyed by `on` (label and metadata fixes); every key must exist.
     On annotations.lance only the grading columns can change; content goes through
@@ -775,11 +802,13 @@ def edit(root, table: str, rows: pa.Table, on: str) -> None:
     ds.merge_insert(on).when_matched_update_all().execute(rows)
 
 
+@_writes
 def add_columns(root, table: str, columns: dict[str, str]) -> None:
     """New columns from SQL expressions over existing ones; written as new data files, nothing is rewritten."""
     _open(join(root, table)).add_columns(columns)
 
 
+@_writes
 def tag(root, name: str) -> dict[str, int]:
     """Tag the current version of every table with `name`; returns {table: version}."""
     _ensure_tables(root)
@@ -793,11 +822,13 @@ def tag(root, name: str) -> dict[str, int]:
     return out
 
 
+@_writes
 def index(root) -> None:
     for uri in steps_uris(root):
         _open(uri).create_scalar_index("recording_id", "BTREE")
 
 
+@_writes
 def compact(root) -> None:
     for uri in filter(_exists, table_uris(root)):
         _open(uri).optimize.compact_files()
@@ -805,6 +836,7 @@ def compact(root) -> None:
             _open(uri).optimize.optimize_indices()
 
 
+@_writes
 def cleanup(
     root,
     staging,
@@ -813,7 +845,9 @@ def cleanup(
 ) -> None:
     """Drop untagged versions older than `older_than`, then `gc_videos`.
 
-    `older_than` must exceed the longest training run that resolved an untagged version.
+    `older_than` must exceed the longest training run that resolved an untagged version,
+    and `upload_grace` the longest conversion that uploads its own videos (`stage_direct`):
+    the writer lock keeps out other commits, not converters.
     """
     for uri in filter(_exists, table_uris(root)):
         _open(uri).cleanup_old_versions(
@@ -853,7 +887,18 @@ def orphan_videos(
     """MP4s under videos/ that no version of `recordings` references and no pending
     delivery under the staging root `staging` claims, last written more than
     `upload_grace` ago (so uploads whose meta.json is not staged yet are spared).
-    Deletes them only with `delete`."""
+    Deletes them only with `delete`, holding the writer lock from the listing on, so
+    no commit places a video in between.
+
+    Videos a converter uploads itself (`stage_direct`) are placed outside the lock, before
+    their meta.json is staged: `upload_grace` must exceed the longest conversion."""
+    if delete:
+        with lock.writer_lock(root):
+            return _orphan_videos(root, staging, upload_grace, delete)
+    return _orphan_videos(root, staging, upload_grace, delete)
+
+
+def _orphan_videos(root, staging, upload_grace, delete: bool) -> list[str]:
     uri = join(root, "recordings.lance")
     keep = _staged_videos(staging)
     for v in _open(uri).versions() if _exists(uri) else ():
@@ -871,6 +916,7 @@ def orphan_videos(
     return orphans
 
 
+@_writes
 def gc_videos(
     root, staging, upload_grace: datetime.timedelta = VIDEO_UPLOAD_GRACE
 ) -> list[str]:
