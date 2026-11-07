@@ -1,0 +1,439 @@
+{
+  "private_dir": "/local/private_corrected",
+  "source_private_dir": "/local/private_original",
+  "run_root": "/local/runs/opscale_lambda_async_v1",
+  "cells": {
+    "b24_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b24_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b24_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b24_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b24_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b24_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b24_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b24_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b24_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b32_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b32_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b32_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b32_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b48_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b48_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b48_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b48_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b64_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b64_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b64_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b64_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b72_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b72_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b72_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b72_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op4": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op4",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op4/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op4.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op8": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op8",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op8/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op8.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op16": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op16",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op16/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op16.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op32": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op32",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op32/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op32.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op64": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op64",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op64/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op64.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    },
+    "b96_op128": {
+      "source_wandb_id": "REPLACE_WITH_EXACT_SOURCE_RUN_ID",
+      "norm_stats_dir": "/local/norms/b96_op128",
+      "resume_checkpoint": {
+        "local_path": "/local/checkpoints/b96_op128/resume.ckpt",
+        "sha256": "REPLACE_WITH_VERIFIED_CHECKPOINT_SHA256"
+      },
+      "source_stop_receipt": {
+        "local_path": "/local/source-stop/b96_op128.json",
+        "sha256": "REPLACE_WITH_VERIFIED_STOP_RECEIPT_SHA256"
+      }
+    }
+  }
+}

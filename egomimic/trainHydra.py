@@ -41,7 +41,8 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
-OmegaConf.register_new_resolver("eval", eval)
+if not OmegaConf.has_resolver("eval"):
+    OmegaConf.register_new_resolver("eval", eval)
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -549,7 +550,8 @@ def _single_device_validate_overrides(cfg: DictConfig) -> None:
         cfg.trainer.num_nodes = 1
         cfg.trainer.strategy = "auto"
         cfg.trainer.num_sanity_val_steps = 0
-        cfg.logger = None
+        if not cfg.get("external_checkpoint_evaluation", False):
+            cfg.logger = None
 
 
 def _validate_checkpoint(cfg, trainer, model, datamodule) -> str:
