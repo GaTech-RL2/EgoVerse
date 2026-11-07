@@ -46,7 +46,7 @@ Create a private input JSON outside Git (all36cells are mandatory):
 }
 ```
 
-The abbreviated example shows one entry; provide all36. From the activated environment and repository root:
+The abbreviated example shows one entry; provide all36. Add each cell’s `source_stop_receipt` from the required stop-proof section before training. The complete36-cell template `INPUTS.example.json` includes this field. From the activated environment and repository root:
 
 ```bash
 python -m experiments.fold_clothes_moving_opscale.lambda_async.runtime prepare --inputs /local/private_inputs.json
@@ -107,7 +107,7 @@ All72role configurations were composed and fully resolved against the corrected 
 
 ## R2 READY polling and complete-history barrier
 
-Optional `r2_sources` in the preparation input lets workers wait for future R2 READY publications. Credentials are supplied through boto3's normal environment/profile chain; the endpoint variable contains only the HTTPS endpoint URL.
+Optional `r2_sources` in the preparation input lets workers wait for future R2 READY publications. The worker uses `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` when both are present (the existing `setup_secrets.sh` format), otherwise boto3's normal environment/profile chain. A partially configured R2 pair fails visibly. It uses region `auto` and request/response checksums only when required for R2 compatibility. The endpoint variable contains only the HTTPS endpoint URL.
 
 ```json
 "r2_sources": [{

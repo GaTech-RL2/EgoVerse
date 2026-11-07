@@ -736,7 +736,8 @@ def evaluate(args):
 def sync_r2_sources(manifest_path, cell):
     """Consume immutable R2 READY records; full local SHA gates every download.
 
-    Credentials use boto3's normal environment/profile provider chain. Only
+    Explicit R2 environment credentials take precedence over boto3's provider
+    chain. Only
     explicitly configured private prefixes are listed; no bucket discovery.
     """
     import boto3
@@ -751,13 +752,25 @@ def sync_r2_sources(manifest_path, cell):
             endpoint and endpoint.startswith("https://"),
             "R2 endpoint environment variable is missing",
         )
+        credentials = {}
+        r2_key = os.environ.get("R2_ACCESS_KEY_ID")
+        r2_secret = os.environ.get("R2_SECRET_ACCESS_KEY")
+        need(bool(r2_key) == bool(r2_secret), "Incomplete R2 credential environment")
+        if r2_key:
+            credentials = {
+                "aws_access_key_id": r2_key,
+                "aws_secret_access_key": r2_secret,
+            }
         client = boto3.client(
             "s3",
             endpoint_url=endpoint,
+            region_name="auto",
+            **credentials,
             config=Config(
                 retries={"max_attempts": 5, "mode": "standard"},
                 connect_timeout=15,
                 read_timeout=120,
+                request_checksum_calculation="when_required",
                 response_checksum_validation="when_required",
             ),
         )
