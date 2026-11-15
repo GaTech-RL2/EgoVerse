@@ -1,0 +1,40 @@
+workflow:
+  name: leact-astra-conditioning-v2
+  resources:
+    default:
+      gpu: 8
+      cpu: 80
+      memory: 1024Gi
+      storage: 320Gi
+      platform: dgx-h100
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 48h
+  tasks:
+  - name: train
+    image: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+    command: [bash]
+    args: [/tmp/leact-astra-bootstrap.sh]
+    environment:
+      LEACT_WORKFLOW_ID: "{{workflow_id}}"
+      LEACT_PAYLOAD_SHA256: "{{payload_sha256}}"
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      VLLM_DISABLE_COMPILE_CACHE: "1"
+      OMP_NUM_THREADS: "8"
+      MKL_NUM_THREADS: "8"
+      NCCL_DEBUG: WARN
+      TORCH_NCCL_ASYNC_ERROR_HANDLING: "1"
+      FSDP_VERSION: "1"
+      FSDP_STATE_DICT_TYPE: FULL_STATE_DICT
+    files:
+    - localpath: astra-bootstrap.sh
+      path: /tmp/leact-astra-bootstrap.sh
+default-values:
+  payload_sha256: ""

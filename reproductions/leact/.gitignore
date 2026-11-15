@@ -1,0 +1,13 @@
+artifacts/
+__pycache__/
+.pytest_cache/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.pem
