@@ -1,0 +1,331 @@
+{
+  "metaworld": {
+    "spec": {
+      "protocol": "eai-standard/2.1",
+      "simulator": "mujoco",
+      "task_text": "Approach the handle from the side and press it downward.",
+      "control_dt": 0.0125,
+      "max_chunk_s": 10.0,
+      "max_watch_s": 30.0,
+      "max_control_steps": null,
+      "max_video_fps": 30,
+      "max_frames_per_call": 3000,
+      "on_service_error": "if a call fails with a connection error or 5xx, the service may have crashed and resumed the same episode (never a reset): the state is the one after the last call that completed on the service, which you may not have received; check GET /status (control_steps) before continuing",
+      "cameras": {
+        "front": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ],
+          "moving": false
+        },
+        "left": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ],
+          "moving": false
+        },
+        "right": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ],
+          "moving": false
+        },
+        "topview": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ],
+          "moving": false
+        }
+      },
+      "camera_calibration": "meta[\"cameras\"][cam] of every response: intrinsic_cv (pinhole, pixels) and cam2world_gl (4x4, OpenGL axes: x right, y up, the camera looks along -z; the viewpoint the image is rendered from). The cameras are fixed (moving = false): the calibration is the same in every response.",
+      "action_types": {
+        "ee_delta": {
+          "dim": 4,
+          "layout": [
+            "dx",
+            "dy",
+            "dz",
+            "grip"
+          ],
+          "lower": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "upper": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "dtype": "float64",
+          "units": "dx, dy, dz: 1.0 = 1 cm of hand-target motion per control step (world frame); grip: -1 open .. +1 close",
+          "semantics": "Meta-World's native action, applied once per control step: the hand's mocap target moves by [dx, dy, dz] x 0.01 m (kept inside the workspace box), the arm follows it through a weld constraint, and grip is the finger actuators' command (+1 closes, -1 opens). The wrist orientation is fixed.",
+          "rows": "rows `dt` apart (a multiple of control_dt, >= control_dt); each row is applied at every control step it covers (interpolate=hold) or ramped linearly from the previous row (linear); clipped to [lower, upper]. With dt = control_dt both are the same: one row = one native action."
+        },
+        "not_yet": [
+          "joint_position",
+          "ee_pose"
+        ]
+      },
+      "proprio_layout": [
+        "tcp_x",
+        "tcp_y",
+        "tcp_z",
+        "gripper_opening",
+        "mocap_x",
+        "mocap_y",
+        "mocap_z",
+        "right_j0_pos",
+        "right_j1_pos",
+        "right_j2_pos",
+        "right_j3_pos",
+        "right_j4_pos",
+        "right_j5_pos",
+        "right_j6_pos",
+        "right_j0_vel",
+        "right_j1_vel",
+        "right_j2_vel",
+        "right_j3_vel",
+        "right_j4_vel",
+        "right_j5_vel",
+        "right_j6_vel",
+        "r_close_pos",
+        "l_close_pos",
+        "cmd_dx",
+        "cmd_dy",
+        "cmd_dz",
+        "cmd_grip"
+      ],
+      "frames": "world frame: x to the robot's right, y forward (away from the robot base), z up; metres",
+      "budget": {
+        "reset": 0,
+        "wall_clock_s": 1800.0,
+        "clock": "meta time_s / time_left_s count from your first request to the service (any endpoint), not from the service's start, and keep running through a restart of the service; time_left_s = budget.wall_clock_s - time_s. The harness counts the same limit from the start of your session, so time_left_s never runs out before the harness stops you: your real time left is time_left_s minus the time you spent before that first request. Plan by time_left_s."
+      },
+      "episode": "runs until your time is up; the state after the last executed control step is graded"
+    },
+    "source": "reproductions/leact/artifacts/embodied-first-exam/fixed-action-v1/astra-movement/student-prompt-requests/fa0e1bf892a440c190efc0bef61bd710.request.json.gz",
+    "source_sha256": "0b7f9cd33887cee1f339f1e50931822d8f106c61dcd8b7b57bbe53d651c49dc4"
+  },
+  "robocasa": {
+    "spec": {
+      "protocol": "eai-standard/2.1",
+      "simulator": "robosuite",
+      "task_text": "turn on the sink faucet",
+      "control_dt": 0.05,
+      "max_chunk_s": 10.0,
+      "max_watch_s": 30.0,
+      "max_control_steps": null,
+      "max_video_fps": 30,
+      "max_frames_per_call": 3000,
+      "on_service_error": "if a call fails with a connection error or 5xx, the service may have crashed and resumed the same episode (never a reset): the state is the one after the last call that completed on the service, which you may not have received; check GET /status (control_steps) before continuing",
+      "cameras": {
+        "robot0_agentview_center": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ]
+        },
+        "robot0_agentview_left": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ]
+        },
+        "robot0_agentview_right": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ]
+        },
+        "robot0_eye_in_hand": {
+          "rgb": true,
+          "depth": true,
+          "size": [
+            320,
+            240
+          ]
+        }
+      },
+      "action_types": {
+        "ee_delta": {
+          "dim": 12,
+          "layout": [
+            "arm_dx",
+            "arm_dy",
+            "arm_dz",
+            "arm_drx",
+            "arm_dry",
+            "arm_drz",
+            "grip",
+            "base_x",
+            "base_y",
+            "base_yaw",
+            "torso",
+            "hybrid_mode"
+          ],
+          "lower": [
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0,
+            -1.0
+          ],
+          "upper": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "dtype": "float64",
+          "units": [
+            "normalised_translation",
+            "normalised_translation",
+            "normalised_translation",
+            "normalised_axis_angle",
+            "normalised_axis_angle",
+            "normalised_axis_angle",
+            "normalised_grip",
+            "normalised_velocity",
+            "normalised_velocity",
+            "normalised_yaw_velocity",
+            "normalised_torso_velocity",
+            "mode"
+          ],
+          "kinds": [
+            "delta",
+            "delta",
+            "delta",
+            "delta",
+            "delta",
+            "delta",
+            "grip",
+            "delta",
+            "delta",
+            "delta",
+            "delta",
+            "mode"
+          ],
+          "parts": {
+            "base": [
+              7,
+              10
+            ],
+            "right": [
+              0,
+              6
+            ],
+            "right_gripper": [
+              6,
+              7
+            ],
+            "torso": [
+              10,
+              11
+            ],
+            "hybrid_mode": [
+              11,
+              12
+            ]
+          },
+          "frame": "arm channels: end-effector deltas in the robot base frame, scaled by the controller (1.0 = 5 cm / 0.5 rad per control step); base and torso channels: robot base frame",
+          "semantics": "the robot's native composite-controller command (robosuite), applied once per control step; kinds: delta = motion per control step (0 holds still), absolute = target, grip / mode = held setting",
+          "grip": "positive closes, negative opens",
+          "hybrid_mode": "> 0: base mode (the arm goal moves with the base); <= 0: arm mode (default -1)",
+          "rows": "rows `dt` apart (a multiple of control_dt, >= control_dt); each row is applied at every control step it covers (interpolate=hold) or ramped linearly from the previous row (linear); clipped to [lower, upper]. With dt = control_dt both are the same: one row = one native action."
+        },
+        "not_yet": [
+          "joint_position",
+          "ee_pose"
+        ]
+      },
+      "proprio_layout": [
+        "mobilebase0_joint_mobile_forward_pos",
+        "mobilebase0_joint_mobile_side_pos",
+        "mobilebase0_joint_mobile_yaw_pos",
+        "mobilebase0_joint_torso_height_pos",
+        "robot0_joint1_pos",
+        "robot0_joint2_pos",
+        "robot0_joint3_pos",
+        "robot0_joint4_pos",
+        "robot0_joint5_pos",
+        "robot0_joint6_pos",
+        "robot0_joint7_pos",
+        "gripper0_right_finger_joint1_pos",
+        "gripper0_right_finger_joint2_pos",
+        "mobilebase0_joint_mobile_forward_vel",
+        "mobilebase0_joint_mobile_side_vel",
+        "mobilebase0_joint_mobile_yaw_vel",
+        "mobilebase0_joint_torso_height_vel",
+        "robot0_joint1_vel",
+        "robot0_joint2_vel",
+        "robot0_joint3_vel",
+        "robot0_joint4_vel",
+        "robot0_joint5_vel",
+        "robot0_joint6_vel",
+        "robot0_joint7_vel",
+        "gripper0_right_finger_joint1_vel",
+        "gripper0_right_finger_joint2_vel",
+        "eef_right_x",
+        "eef_right_y",
+        "eef_right_z",
+        "cmd_arm_dx",
+        "cmd_arm_dy",
+        "cmd_arm_dz",
+        "cmd_arm_drx",
+        "cmd_arm_dry",
+        "cmd_arm_drz",
+        "cmd_grip",
+        "cmd_base_x",
+        "cmd_base_y",
+        "cmd_base_yaw",
+        "cmd_torso",
+        "cmd_hybrid_mode"
+      ],
+      "frames": "world frame: metres, z up; robot-mounted cameras move with the robot (calibration in every response)",
+      "budget": {
+        "reset": 0,
+        "wall_clock_s": 3600.0,
+        "clock": "meta time_s / time_left_s count from your first request to the service (any endpoint), not from the service's start, and keep running through a restart of the service; time_left_s = budget.wall_clock_s - time_s. The harness counts the same limit from the start of your session, so time_left_s never runs out before the harness stops you: your real time left is time_left_s minus the time you spent before that first request. Plan by time_left_s."
+      },
+      "episode": "runs until your time is up; the state after the last executed control step is graded"
+    },
+    "source": "reproductions/leact/artifacts/embodied-first-exam/direct-control-v1/pilot/public-episodes/robocasa-turn-on-sink-faucet-i00-standard--direct_teacher/trace.json",
+    "source_sha256": "20d02907de8d48e16453a9d1290e26f5805fd223b7a3053f4f8f247239862987"
+  }
+}
