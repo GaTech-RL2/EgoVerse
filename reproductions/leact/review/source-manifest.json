@@ -1,0 +1,1711 @@
+{
+  "captured_utc": "2026-11-15T20:08:04.228461+00:00",
+  "files": [
+    {
+      "path": "reproductions/leact/.gitignore",
+      "layer": 1,
+      "bytes": 39,
+      "sha256": "ea9cf06f99e488ec3fa0884382143057bd0ca1a6d1d85ed0b33776864b304c2a"
+    },
+    {
+      "path": "reproductions/leact/README.md",
+      "layer": 1,
+      "bytes": 33507,
+      "sha256": "ffe456e3a00b50c47db949c9a446ab4ef0846f46879bd64076867b8471f5c1f3"
+    },
+    {
+      "path": "reproductions/leact/__init__.py",
+      "layer": 1,
+      "bytes": 63,
+      "sha256": "c9f2322ebfa1439a01771ac775023718fe520e6714b4895b4ee9c4d59b1f3eab"
+    },
+    {
+      "path": "reproductions/leact/__main__.py",
+      "layer": 1,
+      "bytes": 6246,
+      "sha256": "013cfe89cf47c79e08fe8463fd29b640963e89811ef0dbf14c6f5c067b8ffad1"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/__init__.py",
+      "layer": 1,
+      "bytes": 74,
+      "sha256": "9f5b6dc8251783605e15c2ead40ee5daa739ac9c29172a8bbe403bd938e8f2ce"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/__main__.py",
+      "layer": 1,
+      "bytes": 3831,
+      "sha256": "a4573d20d5861ec23ccb199458fde8145cb8c9b946f59eba5f6cb62709101aee"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/client.py",
+      "layer": 1,
+      "bytes": 10991,
+      "sha256": "1a91ad0cfcdcc4d9313868e83b0c89dd168945bd902eb8377b420dbb582dc1af"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/conditioning-objective-v2.json",
+      "layer": 1,
+      "bytes": 5289,
+      "sha256": "a0de8bde75754d09a54d18ea787840d76de7a5449284389edaafb9895f35fe33"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/conditioning.py",
+      "layer": 1,
+      "bytes": 9487,
+      "sha256": "ad6825e81791068dd3d5b84fea6b306502aed639ffc67b79a4fd7939b85c01b2"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/data.py",
+      "layer": 1,
+      "bytes": 9665,
+      "sha256": "bfd797ec66a853bd98ba7c187f88bcd8833938e41e4c301d97a70b33ff1d5213"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/leact.py",
+      "layer": 1,
+      "bytes": 6335,
+      "sha256": "e05b12c07728238d63bb0f0998ea30e38741cafb1d64bee6180d5083f29ecd5c"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/protocol.json",
+      "layer": 1,
+      "bytes": 4635,
+      "sha256": "1cc0fc7894d8b6708b5619640e809a06980297f2aea58a68f65a5f9549574792"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/queue.py",
+      "layer": 1,
+      "bytes": 12024,
+      "sha256": "97706dec7a5a3397fc31d9f1b899e5b932efcd0a8a23f55730fbb7f06d3e1281"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/queued-protocol-v2.json",
+      "layer": 1,
+      "bytes": 4943,
+      "sha256": "865c0663d23bd93c5d3eaad1b75ebfbc3e09b6b4b57a64338b416504cc78c134"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/run.py",
+      "layer": 1,
+      "bytes": 9724,
+      "sha256": "fc8323d5074ea240e775d3f98faf8ed1d12fd544885afbd439340a5a461173a4"
+    },
+    {
+      "path": "reproductions/leact/astra_expert/worker.py",
+      "layer": 1,
+      "bytes": 4269,
+      "sha256": "d76e435b0a729220f48314a67154c739911d2b00eaa37e3ac0c98e71d965f22b"
+    },
+    {
+      "path": "reproductions/leact/builderbench/__init__.py",
+      "layer": 1,
+      "bytes": 70,
+      "sha256": "19cf8e304ae4f0f1f0966d1d5c94740c8a46a900cf87f9ba06610af08035aaf3"
+    },
+    {
+      "path": "reproductions/leact/builderbench/collect.py",
+      "layer": 1,
+      "bytes": 13176,
+      "sha256": "db07541734f00b12986b071605b28bb21fdbf315c16aa77259c1c38c82fe828f"
+    },
+    {
+      "path": "reproductions/leact/builderbench/evaluate_student.py",
+      "layer": 1,
+      "bytes": 11574,
+      "sha256": "0d10d94e628493900ba8f309d77592a30cc1aa592fd2eab9cf48d762c70854a4"
+    },
+    {
+      "path": "reproductions/leact/builderbench/expert.py",
+      "layer": 1,
+      "bytes": 5235,
+      "sha256": "8103bec86bf92f4139f5369c4396959c2eea7f751c9d4f71ba4ab250ce1595e3"
+    },
+    {
+      "path": "reproductions/leact/builderbench/fixed_observations.py",
+      "layer": 1,
+      "bytes": 7160,
+      "sha256": "e337e2daae972c75adce320105db76fa961d77b712eed2c920301136e7ee369d"
+    },
+    {
+      "path": "reproductions/leact/builderbench/iterate.py",
+      "layer": 1,
+      "bytes": 8358,
+      "sha256": "5f12e2680319c8e91306ccdf4a9937123e79e296894f5019c33a8244f47d548a"
+    },
+    {
+      "path": "reproductions/leact/builderbench/metrics.py",
+      "layer": 1,
+      "bytes": 3116,
+      "sha256": "4ed3175a436ef0cc8c565f78e2a623061b7892ca575fa5a3b2548496a564b3a7"
+    },
+    {
+      "path": "reproductions/leact/builderbench/preflight.py",
+      "layer": 1,
+      "bytes": 6504,
+      "sha256": "bf10ee10c0d64b3e9d906beeebc0d7534b5b4e27e01c6adceedb10483fb0de62"
+    },
+    {
+      "path": "reproductions/leact/builderbench/queue.py",
+      "layer": 1,
+      "bytes": 15177,
+      "sha256": "c3b256c1c724fea6bb202db8b8133d31d453da95266fc9ed8755e014ce98ef75"
+    },
+    {
+      "path": "reproductions/leact/builderbench/render_trace_videos.py",
+      "layer": 1,
+      "bytes": 5512,
+      "sha256": "9bfd58c903abd3f9d925692bc23999dda9496b5487bed0855a51aa6ba2168195"
+    },
+    {
+      "path": "reproductions/leact/builderbench/run_student.py",
+      "layer": 1,
+      "bytes": 12008,
+      "sha256": "e0e15eda8ae12f086d69c157f4a478dab214df7582c899c6f7ad0ad47a5c79f6"
+    },
+    {
+      "path": "reproductions/leact/builderbench/simulator.py",
+      "layer": 1,
+      "bytes": 4642,
+      "sha256": "e78080d2afb5cd58d4ce7ea2ebbcc02f15b618c2846c18ff88b79539cf55865e"
+    },
+    {
+      "path": "reproductions/leact/builderbench/speed.py",
+      "layer": 1,
+      "bytes": 16099,
+      "sha256": "f137cb306d02893c63a9b53685c2b2af9b0655cb5135382fb4782c34a05b8818"
+    },
+    {
+      "path": "reproductions/leact/builderbench/student.py",
+      "layer": 1,
+      "bytes": 4574,
+      "sha256": "c0c36895053d604eb6060b78eb30918e027b83f9866dfac60b35d08cc532553a"
+    },
+    {
+      "path": "reproductions/leact/builderbench/student_data.py",
+      "layer": 1,
+      "bytes": 13444,
+      "sha256": "3fb830a8539e235c05ac889201d902c3b05b7cdf381cf67e4dbe3e2e03f9d984"
+    },
+    {
+      "path": "reproductions/leact/builderbench/trace_report.html",
+      "layer": 1,
+      "bytes": 29903,
+      "sha256": "fc0006915614e1091c8a30bf81c09c0f5d9182c5425b4f308e72d2ce121cb16a"
+    },
+    {
+      "path": "reproductions/leact/builderbench/trace_report.py",
+      "layer": 1,
+      "bytes": 10114,
+      "sha256": "8cb788dec5a7e86b7752d1ec40cc4868ddc9ad9d7fc9e3cc60ebbd67808b56a5"
+    },
+    {
+      "path": "reproductions/leact/builderbench/watch.py",
+      "layer": 1,
+      "bytes": 2781,
+      "sha256": "237468882daf500d7a995b5f170b8cb1179a9d36fd88ce129d88f4c5a7b17a76"
+    },
+    {
+      "path": "reproductions/leact/cluster/.gitignore",
+      "layer": 1,
+      "bytes": 21,
+      "sha256": "03824949a66ab6db1429bd078d10d1bc2d75706aa1b756c547f9a7ff541c77cb"
+    },
+    {
+      "path": "reproductions/leact/cluster/README.md",
+      "layer": 1,
+      "bytes": 19300,
+      "sha256": "bc16b614793b62c38fab1653963aab4eee5bb29d27e10a325fa0c941a0161d20"
+    },
+    {
+      "path": "reproductions/leact/cluster/astra-bootstrap.sh",
+      "layer": 1,
+      "bytes": 2393,
+      "sha256": "11c1c62696347628e8098aee9eae24695fd854666eb003fac9eb825d715dc94b"
+    },
+    {
+      "path": "reproductions/leact/cluster/astra-workflow.yaml",
+      "layer": 1,
+      "bytes": 1166,
+      "sha256": "e864dcdfdf4c6ba56160a342d16e05a8cfd1ff2fedcddd95f54803472d061f97"
+    },
+    {
+      "path": "reproductions/leact/cluster/bootstrap-uv.txt",
+      "layer": 1,
+      "bytes": 90,
+      "sha256": "0f0ccb4ee0975d94570b1cc68e62df4637064efa7a89de1750333b16e8365b53"
+    },
+    {
+      "path": "reproductions/leact/cluster/bootstrap.sh",
+      "layer": 1,
+      "bytes": 6128,
+      "sha256": "5e7e6d65ed8effbf9396dd9953a2f494a5597cb244e74c6640bc9307fa6063fc"
+    },
+    {
+      "path": "reproductions/leact/cluster/build_payload.py",
+      "layer": 1,
+      "bytes": 3424,
+      "sha256": "681af2f31a763564c0b2691a46f1ea3786245741a338b81b5147bd250ea276ca"
+    },
+    {
+      "path": "reproductions/leact/cluster/builderbench-bootstrap.sh",
+      "layer": 1,
+      "bytes": 3680,
+      "sha256": "61cf69c1cbeb74aa8279918ad85d36d94d349146b46caa0c24834b3e7d0b4b7a"
+    },
+    {
+      "path": "reproductions/leact/cluster/builderbench-workflow.yaml",
+      "layer": 1,
+      "bytes": 1352,
+      "sha256": "0691f18fe505ed643e86f08146fd3813b8558dccfc1094e2b4404f66e2d82642"
+    },
+    {
+      "path": "reproductions/leact/cluster/check_collectives.py",
+      "layer": 1,
+      "bytes": 832,
+      "sha256": "341d1d8765de777811fd8fa8303cad16b8c1b33f6255a45eee114da9aaf1f229"
+    },
+    {
+      "path": "reproductions/leact/cluster/coldstart-bootstrap.sh",
+      "layer": 1,
+      "bytes": 3088,
+      "sha256": "e8ea7a8ae4a0fbb6efed5cafc27519dacfb6bb22528c857af0092c5babe817dd"
+    },
+    {
+      "path": "reproductions/leact/cluster/coldstart-workflow.yaml",
+      "layer": 1,
+      "bytes": 1338,
+      "sha256": "412d77855755b851e724de6a25ef34a6b807b244101845c752ad3fcd27e79aad"
+    },
+    {
+      "path": "reproductions/leact/cluster/collect_builderbench_examples.py",
+      "layer": 1,
+      "bytes": 3270,
+      "sha256": "64d4ba3c6686c1a5a3e807c54f279cd6bb84891d273a9f6dc976079393441f1b"
+    },
+    {
+      "path": "reproductions/leact/cluster/collect_efe_model_chunks.py",
+      "layer": 2,
+      "bytes": 8103,
+      "sha256": "0e54dda58e8a6adeb8ed13ac9b6e8c8f83d94bd8926be4b3efcbe5f197f40dde"
+    },
+    {
+      "path": "reproductions/leact/cluster/collect_results.py",
+      "layer": 1,
+      "bytes": 19852,
+      "sha256": "677662eb8e10b66c99cce4a8f1bcb2789116aee65d97befd272b26452665b95b"
+    },
+    {
+      "path": "reproductions/leact/cluster/compute_budget.py",
+      "layer": 1,
+      "bytes": 957,
+      "sha256": "f5b094d17834fdcaa5e153bd9e385391b55cd9a6cc2831887ee6445663428e15"
+    },
+    {
+      "path": "reproductions/leact/cluster/deduplicate_builderbench_weights.py",
+      "layer": 1,
+      "bytes": 2802,
+      "sha256": "a7b8c23df723299072bfa1185aa87c39a7334cdaec6982410c2fbac5c2270301"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_action_agent.py",
+      "layer": 2,
+      "bytes": 3028,
+      "sha256": "9e1fcf369ef8c292baa8836fb4e131475dd1ed9789885f4022d1129392ca1e5c"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_action_artifacts.py",
+      "layer": 2,
+      "bytes": 7877,
+      "sha256": "494a2257c9d968f1f58e8c7b9935a69ffc2eb7966124b67316da341dc254bc98"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_action_loop.py",
+      "layer": 2,
+      "bytes": 18079,
+      "sha256": "2d6b68476d8ff2eae89633c7a113339ddb4a7579f13ec6d703d82915c49efd5d"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_approved_optimizer_cleanup.py",
+      "layer": 2,
+      "bytes": 5039,
+      "sha256": "bed089da026de04838ab792786a1ebb2c774d45a8089aa774bfdf7f31f0bbaad"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_astra_pilot.py",
+      "layer": 2,
+      "bytes": 16208,
+      "sha256": "189217357ae2ed5c8cf830fe8a3c79a886302f4da11e2b78f81a6b993fae57f7"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_behavior_audit.py",
+      "layer": 2,
+      "bytes": 7481,
+      "sha256": "fad628a7acd1efa34e79977419137cfb3cc1d02fc60b27e279435e2a1a5d4389"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_budget_gateway.py",
+      "layer": 2,
+      "bytes": 23948,
+      "sha256": "7195ba946dd40c30d03ea547a0faee6fe689296aa6468612fdd369c2c9d01502"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_capability_eval.py",
+      "layer": 2,
+      "bytes": 18356,
+      "sha256": "520a1fc8631a1afb5eb2bec4f115dddc34e5748dcccfee89e666f6374750c973"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_capability_regrade.py",
+      "layer": 2,
+      "bytes": 4885,
+      "sha256": "968316d1b08354454fc05b9a30348d4ef5140bf88b5fec1a1eeb6c081248ccb4"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_capability_scorer.Dockerfile",
+      "layer": 2,
+      "bytes": 963,
+      "sha256": "3a506afe8b485aeb6d2f59ed57993d85550726031fabf2e608f249b24fb7ed64"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_capability_storage.py",
+      "layer": 2,
+      "bytes": 1933,
+      "sha256": "50cedf567ad87d8826c7077f05840e99e08d59a5e661eb65823f3cb2533dafad"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_constrained_preflight.py",
+      "layer": 2,
+      "bytes": 3167,
+      "sha256": "2792559d3b046b0a4ca124197b2bef813128084c9062d9a5945816d67f6c8877"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_constrained_warm_data.py",
+      "layer": 2,
+      "bytes": 6149,
+      "sha256": "46a27be2ad34ef83667c52ed5625dae598f81a1830d6aa7142dcda8e4f2f3e6e"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_coverage_admission.py",
+      "layer": 2,
+      "bytes": 11137,
+      "sha256": "9486f82745013f83cee0b7236d20136e7446d3f6918e6ca5bc837ca97561f9ed"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_coverage_prepare_ahead.py",
+      "layer": 2,
+      "bytes": 7238,
+      "sha256": "ffbf517fe4c8e509479a6b8d82ecbdb86da2347bab07cc966363ae4ee844aece"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_coverage_retry.py",
+      "layer": 2,
+      "bytes": 5191,
+      "sha256": "8b34febd09aa6ca358e6bd37a899eda617e891f32cec79b9434a9c0314202b79"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_coverage_teacher.py",
+      "layer": 2,
+      "bytes": 9882,
+      "sha256": "4b462d8a7576879e2723a703bf3d06d7d35f7721191a640b40796d3fb67da8ee"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_coverage_train.py",
+      "layer": 2,
+      "bytes": 21034,
+      "sha256": "76a9ad906176d482f80fb0e1e9f1b276a9d7158f080263772f3c09007f8a499a"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_curated_leact_pipeline.py",
+      "layer": 2,
+      "bytes": 3740,
+      "sha256": "54af31ce364ffb08ed54250f01bc588c8205a04c390854665af70e6919a20a86"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_direct_control_prompt.txt",
+      "layer": 2,
+      "bytes": 2533,
+      "sha256": "58695485341c5aad64e0576cf2f23e6be07f6db2e3e9fe1f543edc1032c38263"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_direct_control_worker.py",
+      "layer": 2,
+      "bytes": 8034,
+      "sha256": "6e64b2f647bf163892bfceae8ced40c3def184068276fc0cb6f423257cb51804"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_direct_corpus_profile.py",
+      "layer": 2,
+      "bytes": 9448,
+      "sha256": "6e64162dcc1dcb5ec2a6860eeeed332eb2ead5764d386742240cbcea143f23e9"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_direct_scene_audit.py",
+      "layer": 2,
+      "bytes": 2338,
+      "sha256": "28ebba1cac2242a7b53edcd62ecbae41497731d71e20968ca540286243ab7118"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_direct_warmstart.py",
+      "layer": 2,
+      "bytes": 20650,
+      "sha256": "2dcaabb0f42bdf0b4bdd9a737377ea618e8529b08676147a4fc6ee801c075a7f"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_durable_training.py",
+      "layer": 2,
+      "bytes": 6501,
+      "sha256": "714f1fdf9fa02981d9dad08b3a1ec6696b2acde602b2c41ea9fcc897e17265ba"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_eval_fresh_bootstrap.py",
+      "layer": 2,
+      "bytes": 1499,
+      "sha256": "a1923cede0072664213fc5a66b852e98a9b034c0b75b61522420cc3229d25fb8"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_h100_runtime.py",
+      "layer": 2,
+      "bytes": 1881,
+      "sha256": "086ed1f97edb52448943d4d156ccea6f6d7fc7937087f0b657e24768ed263c4f"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_l40s_preflight.py",
+      "layer": 2,
+      "bytes": 4499,
+      "sha256": "a0a2c2d0cc9791faa745a7de14009d10490fc60108ed5d1aa2dabc91ebaef95f"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_leact_pipeline.py",
+      "layer": 2,
+      "bytes": 6439,
+      "sha256": "2e05b78ab265a8277438fb01d272d7a6dc3edd167ade5572b694576eb05395d2"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_leact_token_probe.py",
+      "layer": 2,
+      "bytes": 3251,
+      "sha256": "f194a36db36dacb8344e0c99f7989cc922b9681b3b3fc5d47e0d478873dd64da"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_leact_vl.py",
+      "layer": 2,
+      "bytes": 20217,
+      "sha256": "5ad3f5c54f7b0768619971f823bbe871ce1ec60ba08418cf40da3fa8e90567b9"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_merge_qwen36_warm.py",
+      "layer": 2,
+      "bytes": 4669,
+      "sha256": "b1a01f2207b68850a5d7bf3313cbf8905bf593bae9f0b6b641d9ecc1be30865a"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_model_cache.py",
+      "layer": 2,
+      "bytes": 4580,
+      "sha256": "e241ed33e069f86a3c431d4e57551c886e93d5ab3b23c6e05de9437dc4a89878"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_native_artifact_mirror.py",
+      "layer": 2,
+      "bytes": 4297,
+      "sha256": "b938212296ca71b1a9b49fd980646df00315a4efd4b6512294008c2a15c230da"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_native_pilot.py",
+      "layer": 2,
+      "bytes": 11568,
+      "sha256": "aa40edfd980808aeadcbe9be8801f826da52f40d3cc6e32d2acad0c0560c5bf0"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_old_cache_cleanup.py",
+      "layer": 2,
+      "bytes": 5786,
+      "sha256": "70aa32b37f4890e8890806361c00447c2408cc8b3e11941a7faa3943354bb6a9"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_groups.py",
+      "layer": 3,
+      "bytes": 2377,
+      "sha256": "cbacedf4c1faf51feeea8db76c493e6cdaa9c24f45a6b6f28a3735a5b98cefa7"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_loss.py",
+      "layer": 3,
+      "bytes": 6048,
+      "sha256": "aeec6cabbda10a99d2ceee9604aa796f8448f67cae08744859688e2522a01791"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_native_worker.py",
+      "layer": 3,
+      "bytes": 11690,
+      "sha256": "4a9eb134edb09904f569d5f12d8b52545a24aa5563b5831fa9c4acc51240091f"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_qualification.py",
+      "layer": 3,
+      "bytes": 7296,
+      "sha256": "4f01e5669c1c71dcd307c31a317ce770e49dc74d1dd2d39536b39937a4c7a1ef"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_sampler.py",
+      "layer": 3,
+      "bytes": 9975,
+      "sha256": "b01078c12350499eef802b0fc289dc545f59d70323b6675ae89e610609be41b1"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_update_data.py",
+      "layer": 3,
+      "bytes": 7931,
+      "sha256": "a22e1c85405573d7baf20fd90a3e9779c9d1775db6eff3a9b6d04579545b52b2"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_pear_update_worker.py",
+      "layer": 3,
+      "bytes": 5525,
+      "sha256": "10e7ce4b89f9cd5f052bc66256fa5b505aed5b6d19fc39b636de530696daa99c"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_prepare_qualification_student.py",
+      "layer": 2,
+      "bytes": 2729,
+      "sha256": "222831a775f3d8d19f2087f6c821d3ed97a3dbadb67a7099814e6c42a20aa994"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_prepare_student.py",
+      "layer": 2,
+      "bytes": 2537,
+      "sha256": "070b98138f9e329dadd754320533f1f1578b4fab51fa79c035d96a0984b5e393"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_preserve_rebuilt_checkpoint.py",
+      "layer": 2,
+      "bytes": 3049,
+      "sha256": "fdd69e9722f8c49448fdc3a0df9fe10ccdb11646975027a0aa0fc450eb208b58"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_action_diagnostic.py",
+      "layer": 2,
+      "bytes": 10803,
+      "sha256": "c4094be0440bd0862b699425ece0acf62ed44812d7854dc0c0fdfc0d5cb903fe"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_adapter_io.py",
+      "layer": 2,
+      "bytes": 7712,
+      "sha256": "fb2b68fd30edc4e80977d2636db847c7a8ea6abf8d8742034671a4fe2719f793"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_export_recovery.py",
+      "layer": 2,
+      "bytes": 13392,
+      "sha256": "2948c45d8382c6ecc4fa96ad81fc348b5ca2624da373d69f320914586b0c1b78"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_health.py",
+      "layer": 2,
+      "bytes": 4084,
+      "sha256": "f4798a7380e669146864f07e2f16576d49c38d13c54965ecc26bf64d75369660"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_leact.py",
+      "layer": 2,
+      "bytes": 20165,
+      "sha256": "59f01c5a0db488ee8f7b161c5fc7297e4ea9715087ec7e37852aac86ad9c9dc9"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_restart.py",
+      "layer": 2,
+      "bytes": 6574,
+      "sha256": "aa5e01cf4eeb56ea1e167acdfd85914d57e03252a4d48de596c0bc261d01923d"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_restart_probe.py",
+      "layer": 2,
+      "bytes": 5250,
+      "sha256": "cf61d494699fed6b12293134e7518c44484d3afc8e205ac93bce4f4584803a57"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_tool_parser.py",
+      "layer": 2,
+      "bytes": 1106,
+      "sha256": "5bb48b18f9d2378b7226f7e0ce8d7f2fcd60e6f3983b58dcf9376bb20b2de0f4"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen36_warmstart.py",
+      "layer": 2,
+      "bytes": 13177,
+      "sha256": "c36340a8e6d8fc38f11a5cbf6f24e8db6c4765a18e36a10b85d9675ea146024e"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_qwen_baseline.py",
+      "layer": 2,
+      "bytes": 15452,
+      "sha256": "af0896c32c55b56c4424e0b097a39e7b41879a7ee428f574fe9bc9805a3b9346"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_rebuild_saved_leact.py",
+      "layer": 2,
+      "bytes": 9714,
+      "sha256": "0765c52dd108a1e21ec290a5f0bcf166d1cc4040782fd5ab1a419609fca0aeab"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_recover_curated_storage.py",
+      "layer": 2,
+      "bytes": 7240,
+      "sha256": "db6c132d537f7efe632c7d7dfb941b958698001c1cbba79df831ce5bc3a1a7f0"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_relocate_coverage_storage.py",
+      "layer": 2,
+      "bytes": 8083,
+      "sha256": "fb1cbc75a3e8b380a0277f8ef966278fabc6ce0979a89842727ba94b85b20d1e"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_relocate_curated_leact.py",
+      "layer": 2,
+      "bytes": 5605,
+      "sha256": "92a616df596d5588bc98cfa447097ae8cdeb8b4226a406627bca410bb9ec7aa2"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_relocate_inactive_warmstart.py",
+      "layer": 2,
+      "bytes": 5237,
+      "sha256": "42de8bb0bcb266bc09e0fccc9f040759c66a60285b1e7dac62e8cb1f39fa8885"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_single_gpu_replay_diagnostic.py",
+      "layer": 2,
+      "bytes": 3611,
+      "sha256": "42db644c847e9fe4ed468edb039fb7707a81ea124e096a3f9442b173fbbb223d"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_train_pear_qualification.py",
+      "layer": 3,
+      "bytes": 14579,
+      "sha256": "893c743d827b5172ff09d04fae0d8da442f109e25ac7292617603fee04e05a67"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_train_qwen36_lora.py",
+      "layer": 2,
+      "bytes": 24990,
+      "sha256": "e59b1c7ba654dcd40f2b9eb5704ab97bd2e7d4d9f7772a6b1b786e6c2ddbcaff"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_train_vl.py",
+      "layer": 2,
+      "bytes": 21089,
+      "sha256": "e915e4f103731478ea1195fdd611cb0718213adea00219c53ca8b88702cfd0a7"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_training_data.py",
+      "layer": 2,
+      "bytes": 15547,
+      "sha256": "f4144f2ac1e54de61578e614e36131e5ad8b115e4ce63e878d33b1570dd51c31"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_training_eval_worker.py",
+      "layer": 2,
+      "bytes": 7196,
+      "sha256": "cd65d16074bc536cae0b059b0c2fb87b76c1916ba59b87e001a871eb2a75409d"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_training_pilot.py",
+      "layer": 2,
+      "bytes": 18380,
+      "sha256": "1d6ef983c501f2653f44bd413c2229181a09f13d78a77a5add852c920b91db67"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_training_resume.py",
+      "layer": 2,
+      "bytes": 10426,
+      "sha256": "796f0b6f32db07f9031d41b23e3ed46493bd1461fa57befdd9ba597d31c83708"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_training_state.py",
+      "layer": 2,
+      "bytes": 14735,
+      "sha256": "e4ad9213e021c1e60926d7d7f4fe78e7c414e16e8be5c922614fa1e4ed080575"
+    },
+    {
+      "path": "reproductions/leact/cluster/efe_visual_tensor_store.py",
+      "layer": 2,
+      "bytes": 3994,
+      "sha256": "13853112f0ff13d2f7e044080ff98db85e0d6f7ef8bca08de5bd0be1666b140b"
+    },
+    {
+      "path": "reproductions/leact/cluster/export_efe_training_viewer.py",
+      "layer": 2,
+      "bytes": 5813,
+      "sha256": "f5bc7669c3f1dcd01b3eaa45ec17ce277ba5fbad8992ab97cc5ab1751d97d363"
+    },
+    {
+      "path": "reproductions/leact/cluster/export_efe_viewer.py",
+      "layer": 2,
+      "bytes": 7259,
+      "sha256": "6cb82b84da0785e6571e33b47d8ae8f51c43241687e2fb4dcc7912890de826dc"
+    },
+    {
+      "path": "reproductions/leact/cluster/inspect_preflight.py",
+      "layer": 1,
+      "bytes": 5010,
+      "sha256": "33ea0fb23ce51b9c66188637095465226dae67b47fe5944862ff2206b9cfe169"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_capability.py",
+      "layer": 2,
+      "bytes": 18550,
+      "sha256": "18140e8868cbab6d930e6b611a17436e06c3af62106253d6348ddab89ab7e880"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_continuation.py",
+      "layer": 2,
+      "bytes": 7616,
+      "sha256": "2ec5ba35f7af176e4e9ce2e2e6fc05ce49f0bea48173b5c269f6c4baf054c380"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_coverage.py",
+      "layer": 2,
+      "bytes": 36532,
+      "sha256": "4f38ed4ae8a12a66dcd94749b0055416977a60bce4df9986b897c8cf6f4df420"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_coverage_eval.py",
+      "layer": 2,
+      "bytes": 11398,
+      "sha256": "a9d80fd1da84102ede8ab5608ea1bf04d54ec9b124a0ed4b739458a8542996c9"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_coverage_train.py",
+      "layer": 2,
+      "bytes": 12884,
+      "sha256": "a01b743cd48ca8b6390cc4d8d03b94ec996ca0566bcb5f84841c300856c0ef9c"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_curated_leact.py",
+      "layer": 2,
+      "bytes": 12149,
+      "sha256": "83aa903fcaa733c81a2b3eda662a5e0054c51cc2aee19d82939a7c1111f0ac41"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_direct_control.py",
+      "layer": 2,
+      "bytes": 24426,
+      "sha256": "4377380979e1730ce106f9633991cdc9da7188c5959499417593791693e7fb8e"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_direct_profile.py",
+      "layer": 2,
+      "bytes": 7532,
+      "sha256": "03966195ef3618d8abd169bc83ee8855ae5bfa03f8e7d7a297bd11a3f7bd9693"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_direct_warmstart.py",
+      "layer": 2,
+      "bytes": 18804,
+      "sha256": "90a0bb90abdfa6bab5a630b8d5365c90428ee3575fe09963ce0fc92c44bd9086"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_fixed_action.py",
+      "layer": 2,
+      "bytes": 20346,
+      "sha256": "7093096a8059e4d2f625f365322ce4be603d829ef73be2350c8c4e83bf49de15"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_leact_warm96.py",
+      "layer": 2,
+      "bytes": 19235,
+      "sha256": "1e8f583a8d3e3c3aabb7cce0ecb37762c82895f05a61994320961d5641616f6f"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_native_followups.py",
+      "layer": 2,
+      "bytes": 20498,
+      "sha256": "0e38db0a44e357659c86949adc63640a5c02c8e8bfaa4add01f20df92368dd1d"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_native_mirror.py",
+      "layer": 2,
+      "bytes": 2663,
+      "sha256": "836a14d0f3a5bf7192592f076f2cdf41f4a017a7180054947d4280abf0218608"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_pear.py",
+      "layer": 3,
+      "bytes": 8504,
+      "sha256": "373a77e5e10afd1a7ef191dd1449a4e8156bae03d28e7c8d5b27d35b0018fcc5"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_pear_native.py",
+      "layer": 3,
+      "bytes": 6764,
+      "sha256": "c3cf940fa47ea78ad161ab967391ae2b8caa1daef2cb0ae33f6714e4b3f45255"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_pear_optimizer.py",
+      "layer": 3,
+      "bytes": 11269,
+      "sha256": "9e6a00b3dd1f91db83404400d6b9c9264485dc9d773e849ab7a0c71e15971e23"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_pear_update_qualification.py",
+      "layer": 3,
+      "bytes": 7661,
+      "sha256": "da5d42f9115f22bb8684d6f95c8d396ce19d9755ad2c3ff1a638a6f255c6e9a1"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_pending.py",
+      "layer": 2,
+      "bytes": 3241,
+      "sha256": "b175fc5224d080cdf08ebe50ef383bbd2a9abfae66c28c4a083e259208fa6d07"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_qwen36_export.py",
+      "layer": 2,
+      "bytes": 9666,
+      "sha256": "84d7316ac3efffddcdca0297a385c71b44f02b6d06a7da5bbc34eac7b92e5f4f"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_qwen36_followup.py",
+      "layer": 2,
+      "bytes": 19936,
+      "sha256": "252a8ea01514c3d5a445d1dbb953edef605590da954ec4793a7a4cab9aab34b7"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_qwen36_leact.py",
+      "layer": 2,
+      "bytes": 13756,
+      "sha256": "ded5d70e3775304f1ae3ad2f24e0c87b44b0953dbdc72d79645a6f24aabdd630"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_qwen36_warm.py",
+      "layer": 2,
+      "bytes": 19036,
+      "sha256": "8b1c276405f04c8c95459672da19d35411b5fe101d8a6e972004d7617e074fa2"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_schedule.py",
+      "layer": 2,
+      "bytes": 7218,
+      "sha256": "08c5c3aef5c5d5c7d615821375ebc28a2897e9e89d9a21105e0342563236fc58"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_student_qualification.py",
+      "layer": 2,
+      "bytes": 24980,
+      "sha256": "cab159c40bd71a242c88c011374da8bce931f2e892d9fc34590d6c77b6c10792"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_training.py",
+      "layer": 2,
+      "bytes": 22036,
+      "sha256": "e50d33c543601d8c090212f4150c20720cea90d2cea741abce874055a161ed01"
+    },
+    {
+      "path": "reproductions/leact/cluster/launch_efe_training_eval.py",
+      "layer": 2,
+      "bytes": 18175,
+      "sha256": "20bb62f066dfd50ac1fd53bebcb3e92be52453167dc3224ef2bbe5addda82a2d"
+    },
+    {
+      "path": "reproductions/leact/cluster/monitor_efe_astra.py",
+      "layer": 2,
+      "bytes": 10492,
+      "sha256": "3adf5d30cc44d5e89648189c10b8db08859c9c2948eeaf94fe5190043be1bf5f"
+    },
+    {
+      "path": "reproductions/leact/cluster/monitor_efe_native.py",
+      "layer": 2,
+      "bytes": 6881,
+      "sha256": "7665b10275d3374b79a2ec4a6ea1510d518348d0d2f2bf546d96a9d4e5c7bf2b"
+    },
+    {
+      "path": "reproductions/leact/cluster/monitor_efe_pear.py",
+      "layer": 3,
+      "bytes": 4936,
+      "sha256": "a7c2b1264369d6365c880a10705b6055c42bf666f8fb6f51ea3b76b29d5dff52"
+    },
+    {
+      "path": "reproductions/leact/cluster/monitor_efe_pear_native.py",
+      "layer": 3,
+      "bytes": 7193,
+      "sha256": "59b221eb885861d6aeabd70a2d20cb40cbb60ee614cff0183fdb9c716fedc518"
+    },
+    {
+      "path": "reproductions/leact/cluster/monitor_efe_preflight.py",
+      "layer": 2,
+      "bytes": 5209,
+      "sha256": "1620a04b556f1cf3beecf1674d4229b5fef410f53aba8ad9bdadb002cd87811d"
+    },
+    {
+      "path": "reproductions/leact/cluster/offload_completed.py",
+      "layer": 1,
+      "bytes": 3487,
+      "sha256": "b08b958a647d27bfa4085825ea63a04ee8e55a658cae4fff38dd79d30d5afaa1"
+    },
+    {
+      "path": "reproductions/leact/cluster/preflight.py",
+      "layer": 1,
+      "bytes": 3342,
+      "sha256": "25a0fe1162bc11a9d825b28ce20660996237cd121b6674736fd55d2a157bf1fe"
+    },
+    {
+      "path": "reproductions/leact/cluster/prepare_existing_capability.py",
+      "layer": 2,
+      "bytes": 7812,
+      "sha256": "9c74579c7e2c8dc5ecedb2355eccd7e827304d1f401276e66f785d90f8b2da01"
+    },
+    {
+      "path": "reproductions/leact/cluster/prepare_staging.py",
+      "layer": 1,
+      "bytes": 3201,
+      "sha256": "1d3f3dac1fd08b7c76e782af1abb7e8f1e3a01cab51164c414aa6d601d5b1e6d"
+    },
+    {
+      "path": "reproductions/leact/cluster/prompt-bootstrap.sh",
+      "layer": 1,
+      "bytes": 3236,
+      "sha256": "355ecfbf9d77d91b3b4f02c7918fd7e56d94d05fdda461d394d40119d1b453b1"
+    },
+    {
+      "path": "reproductions/leact/cluster/prompt-workflow.yaml",
+      "layer": 1,
+      "bytes": 1802,
+      "sha256": "32ccac47d804eabede15c707552b0d144d08da198cde0ce7f2e41ef94e3a08aa"
+    },
+    {
+      "path": "reproductions/leact/cluster/rebuild_efe_leact_checkpoint.py",
+      "layer": 2,
+      "bytes": 12328,
+      "sha256": "8f98605d5430c4b064fa1d41a6c5b5bac0e18929208c2dbc14c932f49470d039"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_builderbench_exit.py",
+      "layer": 1,
+      "bytes": 4345,
+      "sha256": "48fd39daac422c7eb4747e34f0eabca63eef10331fee936600f3930e93feda56"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_builderbench_exit_after_dedup.py",
+      "layer": 1,
+      "bytes": 2261,
+      "sha256": "693e862646eddd8534f71c4a3267ce9a1edc367c647e16dc46c073b0b92c91b1"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_coverage_storage.py",
+      "layer": 2,
+      "bytes": 11930,
+      "sha256": "8fa379a3f04f9d6c29ef903344dc6a45d71fc371c43975cd0a72743505d5b7f4"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_direct_batches.py",
+      "layer": 2,
+      "bytes": 4437,
+      "sha256": "71c1453143d1bcf2fcfee57e16021213f79d3dd50e4f3bb8f56c6f028ea7aacd"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_native.py",
+      "layer": 2,
+      "bytes": 12299,
+      "sha256": "e42198cc1c67989452bb7eea0883b5150d26f517829de6334b047ac780c03c85"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_native_20261101.py",
+      "layer": 2,
+      "bytes": 14250,
+      "sha256": "4d9466bf176b5acd0612b663bb35ea85e61ef2a8004776c86b5e9ae52c321a08"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_native_20261102.py",
+      "layer": 2,
+      "bytes": 2723,
+      "sha256": "afbed7ca21560bb4cc9dcf49945d32fa84bea5fc1ac45739d2f559b75cfdac43"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_schedule.py",
+      "layer": 2,
+      "bytes": 20753,
+      "sha256": "d0539825018151aac89676889c2882de63c9d09fa380432daeb87d2894f358f0"
+    },
+    {
+      "path": "reproductions/leact/cluster/recover_efe_training_evals.py",
+      "layer": 2,
+      "bytes": 10442,
+      "sha256": "fd4d25a1d1a7dd128310d113ab562894f38039cc6f162e3206948e819cafdb1e"
+    },
+    {
+      "path": "reproductions/leact/cluster/reproduction-bootstrap.sh",
+      "layer": 1,
+      "bytes": 3652,
+      "sha256": "fe493830d5ebc765b59b613adc0e54647f8fc798e399dec81f517317c31aa552"
+    },
+    {
+      "path": "reproductions/leact/cluster/reproduction-workflow.yaml",
+      "layer": 1,
+      "bytes": 2186,
+      "sha256": "db51f7372ad6d499bbc18a070f1629fbd80269560c84e94ad12a641573c816c6"
+    },
+    {
+      "path": "reproductions/leact/cluster/requirements-gpu.in",
+      "layer": 1,
+      "bytes": 587,
+      "sha256": "a5ba9f750a9293f866445a647bdea075bee5b07119fb0ca028adbe83d152724a"
+    },
+    {
+      "path": "reproductions/leact/cluster/requirements-gpu.lock",
+      "layer": 1,
+      "bytes": 453122,
+      "sha256": "1d9b0570fde38dce09f62ab52b9116e26fc99d6775d0f4584d43e338487dd4a2"
+    },
+    {
+      "path": "reproductions/leact/cluster/resume_builderbench_fixed.py",
+      "layer": 1,
+      "bytes": 4804,
+      "sha256": "a57e7a9431167fd08dd6411a7fe92aa628d9689ca3f3ebc37371f452f97d7ce1"
+    },
+    {
+      "path": "reproductions/leact/cluster/resume_efe_coverage_after_storage.py",
+      "layer": 2,
+      "bytes": 4766,
+      "sha256": "78e843542fe9790249ec6da19c2c634bb3276e39674d09ec10b785cca81e8c69"
+    },
+    {
+      "path": "reproductions/leact/cluster/scale_efe.py",
+      "layer": 2,
+      "bytes": 7343,
+      "sha256": "23d8e073427500a8457db0f2b7bc077d85242754d184dfd7891b75d4a2de7590"
+    },
+    {
+      "path": "reproductions/leact/cluster/stop_builderbench.py",
+      "layer": 2,
+      "bytes": 3708,
+      "sha256": "01a5b2ba575995eaa1aa76cecd0d10afa538432045c12ccffc5e68443726553a"
+    },
+    {
+      "path": "reproductions/leact/cluster/supervise_efe_coverage.py",
+      "layer": 2,
+      "bytes": 4212,
+      "sha256": "1839ac96a6e4dc8af64bf9f45c925dd39999cfdb9f19c5036930a954b6f3c17c"
+    },
+    {
+      "path": "reproductions/leact/cluster/text_capability_eval.py",
+      "layer": 1,
+      "bytes": 19236,
+      "sha256": "8cb75dd59a5732cd033a65ccc374564ebade68d8409edc18ccd43d3da9eae573"
+    },
+    {
+      "path": "reproductions/leact/cluster/upload_payload.py",
+      "layer": 1,
+      "bytes": 3081,
+      "sha256": "f81bed0ff31f8cb20f61ba6a6f4d19d34dc015a865249f0dfd50902cb7dd8638"
+    },
+    {
+      "path": "reproductions/leact/cluster/workflow.yaml",
+      "layer": 1,
+      "bytes": 2463,
+      "sha256": "d4008f86e594087559d9e1ef25a678aa06a14efabeaa05cc781f4dd02ff5c4ae"
+    },
+    {
+      "path": "reproductions/leact/coldstart/__init__.py",
+      "layer": 1,
+      "bytes": 74,
+      "sha256": "025cb4fc68ad73619afe99a13f3ae95105a17cd034df132f2f6e45ea272564de"
+    },
+    {
+      "path": "reproductions/leact/coldstart/collect_full.py",
+      "layer": 1,
+      "bytes": 9731,
+      "sha256": "c85988f149c218b216712a490618747240bf1ce1474876e60915052816f7f5f5"
+    },
+    {
+      "path": "reproductions/leact/coldstart/continue_leact.py",
+      "layer": 1,
+      "bytes": 8114,
+      "sha256": "6a26c99784a7354ff86bf92c7100118ea8ff2baf1b61c91ffefd5df988815fe1"
+    },
+    {
+      "path": "reproductions/leact/coldstart/data.py",
+      "layer": 1,
+      "bytes": 11669,
+      "sha256": "b2da3ad6457a9f826e7f699cffad2bf2e520c39130c44a921b4233f01528efd9"
+    },
+    {
+      "path": "reproductions/leact/coldstart/queue.py",
+      "layer": 1,
+      "bytes": 13845,
+      "sha256": "09cfae5c8b17200f0780bcfde58ab0a93dddd1a5eb9b7728b3673429bf842e79"
+    },
+    {
+      "path": "reproductions/leact/coldstart/run.py",
+      "layer": 1,
+      "bytes": 13980,
+      "sha256": "93c3adf989ca903e4bf2cd55997e7e4010e3ceff91183ce7b524dab03a53cff4"
+    },
+    {
+      "path": "reproductions/leact/compare.py",
+      "layer": 1,
+      "bytes": 4643,
+      "sha256": "8c5c65d6df88718b921925f07998dd13d138665fdc6829600506931d3f424057"
+    },
+    {
+      "path": "reproductions/leact/core.py",
+      "layer": 1,
+      "bytes": 6802,
+      "sha256": "da7a378b9e48b0aa6b9945957d047ea4b31afdf4a499151c24f84412d0ab5dcf"
+    },
+    {
+      "path": "reproductions/leact/data.py",
+      "layer": 1,
+      "bytes": 2851,
+      "sha256": "1a858772b4fe5f61d39e318c8aa85578fc9301036e5ad07543f42c9e38f326c3"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/__init__.py",
+      "layer": 2,
+      "bytes": 79,
+      "sha256": "79fdc54f8e692778fe3290070e5d3d686032269ddfbe8280c938f50d5c57a8cb"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/capability_retention.py",
+      "layer": 2,
+      "bytes": 14928,
+      "sha256": "9b25e6af770205761b8c6c18c81582ff42762081110cccd6da3729ffb5b0c0b7"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/capability_score.py",
+      "layer": 2,
+      "bytes": 7868,
+      "sha256": "dac20386459785ecfb3fca6011784484e85850ffe02bc10e5cb6b5640cc9f58a"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/demonstrations.py",
+      "layer": 2,
+      "bytes": 5182,
+      "sha256": "fd204c341452b89a523c5d9e6a9e6e324530840fc79301c469d8dc7d97ae570d"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/direct_control_corpus.py",
+      "layer": 2,
+      "bytes": 5861,
+      "sha256": "310f2eca3b7bf9ff38076885baeaf003fd263df1d78babe6f125b11dc5eff71f"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/direct_control_viewer.html",
+      "layer": 2,
+      "bytes": 10363,
+      "sha256": "167f474c9253acfc6807ff84d31355f400b28407614ef8d66ef4f894f2ed83fd"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/direct_control_viewer.py",
+      "layer": 2,
+      "bytes": 7319,
+      "sha256": "f86884e432ef54b68a2162c54615b5a28eed882bfd2cd87982eb479302864b35"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/generalization.py",
+      "layer": 2,
+      "bytes": 14061,
+      "sha256": "47a63c607f6ecf5f8488c6c29cc0c4fc1a4d33dd555b17cd24e67c4eae9ed75d"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/prepare.py",
+      "layer": 2,
+      "bytes": 11203,
+      "sha256": "91d6f45e0ddc53aae0737330573cf0121580c49c5e906d977eb9fbd82821e205"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/report.py",
+      "layer": 2,
+      "bytes": 48309,
+      "sha256": "6a64442b818e1194417f9f846dca49804c2c6983a4cdd67c821321c30016b3a7"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/rollout_viewer.html",
+      "layer": 2,
+      "bytes": 48327,
+      "sha256": "5093bef604454f1a35be9b965630fac68259e5ad8a2cacb8bf47e951c88af1ae"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/rollout_viewer.py",
+      "layer": 2,
+      "bytes": 21732,
+      "sha256": "57222678d2bca89c2fcd40b4866b8255443b9142d048454c99da74873edfbac8"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/scene_admission.py",
+      "layer": 2,
+      "bytes": 7441,
+      "sha256": "42153354e5342306cd6a13fd39903dadc59b9b3c4a37fd235e9cbf61dfa3c7a0"
+    },
+    {
+      "path": "reproductions/leact/embodied_first_exam/trace_diagnosis.py",
+      "layer": 2,
+      "bytes": 7326,
+      "sha256": "4aa11a2aee213bf1eba69069a926d5347394acfef23a363a49759616b21ca06d"
+    },
+    {
+      "path": "reproductions/leact/evaluate.py",
+      "layer": 1,
+      "bytes": 3265,
+      "sha256": "cba7269389bed5fe4dbe972b4633566f22974fbd5576431c9fc57453db68286d"
+    },
+    {
+      "path": "reproductions/leact/experiment.py",
+      "layer": 1,
+      "bytes": 24407,
+      "sha256": "a95193d01fcb0dc6225866046cdb1f588e38761c6c4d8a65a90bb2cddd0542d5"
+    },
+    {
+      "path": "reproductions/leact/inference.py",
+      "layer": 1,
+      "bytes": 3131,
+      "sha256": "a01563bde11412541842e25644638bb049cea34c5d66175618f4e696a5f5ec66"
+    },
+    {
+      "path": "reproductions/leact/oracle.py",
+      "layer": 1,
+      "bytes": 4320,
+      "sha256": "04de73f386ffc39ae4a3166a68fdb85749e5ee0cd841e08a0a629b4a37e12b94"
+    },
+    {
+      "path": "reproductions/leact/pipeline.py",
+      "layer": 1,
+      "bytes": 8682,
+      "sha256": "6e01a319669794ab8d54ecd1dc0c7094cb9635ecf413c2d1ebfb20933b31adb8"
+    },
+    {
+      "path": "reproductions/leact/projection/__init__.py",
+      "layer": 1,
+      "bytes": 65,
+      "sha256": "a9cdc39590f6db086a32bfbf2f2b655f7545b5524101afc0cee5360e526e8979"
+    },
+    {
+      "path": "reproductions/leact/projection/backend.py",
+      "layer": 1,
+      "bytes": 5285,
+      "sha256": "427eb56e7ddc7a9597075e09e0a3593deea67554101f5d6387ca8d373335c818"
+    },
+    {
+      "path": "reproductions/leact/projection/collect.py",
+      "layer": 1,
+      "bytes": 379,
+      "sha256": "69dbce823a1135467214bbd2b49315fc4b619d00f200ee6f8888dc6d5ff6bc61"
+    },
+    {
+      "path": "reproductions/leact/projection/run.py",
+      "layer": 1,
+      "bytes": 10647,
+      "sha256": "4fff26224aeb61bb2e1b4db8e8d5db218659312caa03d03fd67530c0227ea5fd"
+    },
+    {
+      "path": "reproductions/leact/projection/sampler.py",
+      "layer": 1,
+      "bytes": 4581,
+      "sha256": "f56a547d3be040a77b7eb0a0f2b94838c7e6fdfd7dce0e446474d0cff56808a4"
+    },
+    {
+      "path": "reproductions/leact/projection/worker.py",
+      "layer": 1,
+      "bytes": 8290,
+      "sha256": "3e4bb375e01e7e89adf759212e8289ec2b569808230dadf1605901ebb2f5ae63"
+    },
+    {
+      "path": "reproductions/leact/prompt_diagnostic.py",
+      "layer": 1,
+      "bytes": 14061,
+      "sha256": "b71a2490ceae5a8b0771a466d727422fc41c299de6c5ec669eb2248674855c6a"
+    },
+    {
+      "path": "reproductions/leact/prompts.py",
+      "layer": 1,
+      "bytes": 2420,
+      "sha256": "6d08c9659bbc78c434b3ccb76d9ee8b0f8677f2952adcaf6b22aea222984f26b"
+    },
+    {
+      "path": "reproductions/leact/reproduction.py",
+      "layer": 1,
+      "bytes": 14870,
+      "sha256": "5d800812cfff693ee5cbe6eb79c86a25c89df7f25fbf37bd271b504a1090f435"
+    },
+    {
+      "path": "reproductions/leact/requirements-cpu.txt",
+      "layer": 1,
+      "bytes": 59,
+      "sha256": "2114ab56aff9a49a448d4c3af3ef9a22754cf8c49f692153c2678ed7f83b23be",
+      "recovered_from": "reproductions/leact/cluster/.build/self-leact-20261024-v1/source/reproductions/leact/requirements-cpu.txt"
+    },
+    {
+      "path": "reproductions/leact/tests/fixtures/efe-native-action-specs.json",
+      "layer": 2,
+      "bytes": 11244,
+      "sha256": "4031d25b7ba4c0054767c4d8720ee5fe6eb9b59f9824adf2b25e2b078c7deaeb"
+    },
+    {
+      "path": "reproductions/leact/tests/leaderboards.test.cjs",
+      "layer": 4,
+      "bytes": 6347,
+      "sha256": "429b0a23f0280128499a9b367054a22c8d56fdadcca0e9cb341751f8ac5aabb9"
+    },
+    {
+      "path": "reproductions/leact/tests/test_astra_conditioning.py",
+      "layer": 1,
+      "bytes": 3799,
+      "sha256": "8c41ebbde7bdae5403132828a50bae43cdf7e20c7b86228f0be89216898d7d81"
+    },
+    {
+      "path": "reproductions/leact/tests/test_astra_expert.py",
+      "layer": 1,
+      "bytes": 8427,
+      "sha256": "91df55ba6b8f4a5cd358ed27def4090e47c421c9626c66184c2e9050ab6e699c"
+    },
+    {
+      "path": "reproductions/leact/tests/test_builderbench.py",
+      "layer": 1,
+      "bytes": 5571,
+      "sha256": "dd3ac3321e7a203cf526c943968424ac9189dddf2c6718983b7a1c19cdb3db5b"
+    },
+    {
+      "path": "reproductions/leact/tests/test_builderbench_speed.py",
+      "layer": 1,
+      "bytes": 7705,
+      "sha256": "dcbaa14acc7e5ef300efa833c125988c3bb54379be12748260c77545294d2b3c"
+    },
+    {
+      "path": "reproductions/leact/tests/test_builderbench_student.py",
+      "layer": 1,
+      "bytes": 6551,
+      "sha256": "ec808e4fe893446ea099910c371542c33a8899e7e6098cb208705cb20dad4f94"
+    },
+    {
+      "path": "reproductions/leact/tests/test_coldstart.py",
+      "layer": 1,
+      "bytes": 7815,
+      "sha256": "82391e953d83b057579b8dfa562a6d21498267fcac8da1951ac89f98e0e6df86"
+    },
+    {
+      "path": "reproductions/leact/tests/test_collect_admission.py",
+      "layer": 1,
+      "bytes": 1273,
+      "sha256": "4d71b32c48aa891ff29864e0edc59df5e945cab49a7c39ce8ae8b5e30ff1db9c"
+    },
+    {
+      "path": "reproductions/leact/tests/test_compare.py",
+      "layer": 1,
+      "bytes": 5631,
+      "sha256": "e1780f7238cacad6ed6d4c663b06fc654cc6368c89c34ed8e83e3f88b1c11f92"
+    },
+    {
+      "path": "reproductions/leact/tests/test_core.py",
+      "layer": 1,
+      "bytes": 3185,
+      "sha256": "a153a591f92774867ac17e85377226cd201226a0be7f3aa6bb27efa8326ae235"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_action_loop.py",
+      "layer": 2,
+      "bytes": 9684,
+      "sha256": "ab45f8ef00e724532aec607cb3710916696bc7596d18f65ac87072ec6f270152"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_budget_gateway.py",
+      "layer": 2,
+      "bytes": 13146,
+      "sha256": "543b3ca698121f54eb0b6d72530ec201cafc25cfa4518c13d285d162fb1b14a8"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_capability_retention.py",
+      "layer": 2,
+      "bytes": 5143,
+      "sha256": "737cf0d757a172caed850bd669383de0a57b63bcb35482974c9c9a1440064e69"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_capability_storage.py",
+      "layer": 2,
+      "bytes": 1447,
+      "sha256": "d683b9510bd7b1f8194cab0601f34aed85dff9b0aa4c2c93bb2f232ce954b6b9"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_continuation.py",
+      "layer": 2,
+      "bytes": 4703,
+      "sha256": "65ec8956f34ea5eb08fdfebce16cbec36a59969c018f946321581779a1d32644"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_coverage_recovery.py",
+      "layer": 2,
+      "bytes": 3674,
+      "sha256": "66ca100bb11abdabd8b0d0a5386b23904164ceb94841342a98342306b54df733"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_demonstrations.py",
+      "layer": 2,
+      "bytes": 3897,
+      "sha256": "c2177db1b0ade67ec4609afe9822afd14a3fc94a99450b34af28bf9d28a01a0b"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_generalization.py",
+      "layer": 2,
+      "bytes": 2749,
+      "sha256": "bb5cd0d0adc095c96c420143d1bac6b445539805fea58996b72c8aad3aff9051"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_leact_local_storage.py",
+      "layer": 2,
+      "bytes": 2674,
+      "sha256": "d4c4ef01c623cb05891c4270eb1af0bda6e14482c153d7af3e3d37a9411a798d"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_native_collection.py",
+      "layer": 2,
+      "bytes": 2013,
+      "sha256": "d1307bcdfa8069b233d8e785110b8a065e970aa618d18fdf1fa8f2d5ad1d2539"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_native_controls.py",
+      "layer": 2,
+      "bytes": 1896,
+      "sha256": "b88b2d8f26b8efe5890d5998fe3224155964f7b203c5cf75f54237016b853c73"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_native_recovery.py",
+      "layer": 2,
+      "bytes": 5885,
+      "sha256": "67220353793c8ce7c8e0b9b3b994ad8e6a34f9234f954feb24cd3e57581a29d5"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_native_resume.py",
+      "layer": 2,
+      "bytes": 3277,
+      "sha256": "2fd7c2923ab7ec9ccfa2ddf44f061f3945db7d9ba57d5fba9ff2b3464806ca25"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_optimizer_cleanup.py",
+      "layer": 2,
+      "bytes": 2794,
+      "sha256": "439dcdf493e1a4d5135e9e54b41720e8fc296bb285df73f1f6695c17003adece"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_pear_capture.py",
+      "layer": 3,
+      "bytes": 4009,
+      "sha256": "8eb9b28208d9bdd83c75b6e30ac1f62323e2b1313db0f7ca700401ccd6e0d75b"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_pear_groups.py",
+      "layer": 3,
+      "bytes": 1988,
+      "sha256": "42fb80bd10e63093819d3f496ac9182634ba0a64c1ed8eaa715433a329d05469"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_pear_qualification_selection.py",
+      "layer": 3,
+      "bytes": 998,
+      "sha256": "cce6a3702121dd992e2c71afd2001ecc177390b80b081934295bd08ffbc0ce42"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_pear_update_data.py",
+      "layer": 3,
+      "bytes": 2003,
+      "sha256": "8568f1c74588f6416a7e272a17d1ed83c35c59bedd8d1f228f8af5b7500ea10f"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_restart_storage_schedule.py",
+      "layer": 2,
+      "bytes": 1846,
+      "sha256": "94eb3242bb4ef2ed05c8a66db9e4d970e58e4a5b5b251f8cc827f1d21683a2f8"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_schedule_comparison.py",
+      "layer": 2,
+      "bytes": 2538,
+      "sha256": "fb76f667029f4233e48a02a7b0af8afa80bc19423e41679743db2259f6bf609a"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_schedule_recovery.py",
+      "layer": 2,
+      "bytes": 15145,
+      "sha256": "13505f56392d572f3d55fa66028d1de70b9e33f66ad86c9f7939db5a6e8b531f"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_storage_relocation.py",
+      "layer": 2,
+      "bytes": 2257,
+      "sha256": "f2f56cf50d6626c18cb46393d2ce05abfc9fa0a28ff015c791ac2e98a6d936f9"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_student_preflight.py",
+      "layer": 2,
+      "bytes": 4723,
+      "sha256": "de89f606ab60c8e73fbe12de9120fad7090e96c08f4d03bdb65d794e8763a0a5"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_training_data.py",
+      "layer": 2,
+      "bytes": 3495,
+      "sha256": "73b6f5ad6eb938796df44e536b1a5c233ecba94be9799a49015e808b90958df0"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_training_execution.py",
+      "layer": 2,
+      "bytes": 3021,
+      "sha256": "e5a01a1d8a209bcf088bb6920b703a561e66e05e35e8d8d525d4b5d4af02aedb"
+    },
+    {
+      "path": "reproductions/leact/tests/test_efe_training_histories.py",
+      "layer": 2,
+      "bytes": 3458,
+      "sha256": "d0842e0e7a92c1477b783cfa0ba39a3a1a5b2a528b93e9f92f26663a9f235829"
+    },
+    {
+      "path": "reproductions/leact/tests/test_embodied_first_exam.py",
+      "layer": 2,
+      "bytes": 2103,
+      "sha256": "01e492812c0d878573ad3c12410a7283c9baace2d9e9c602bd18430b4551c396"
+    },
+    {
+      "path": "reproductions/leact/tests/test_pipeline.py",
+      "layer": 1,
+      "bytes": 10767,
+      "sha256": "798b5b74b94f339a33e714db3204bd3772fb97ba34df4f77645b5d30fc4d2b79"
+    },
+    {
+      "path": "reproductions/leact/tests/test_projection.py",
+      "layer": 1,
+      "bytes": 5881,
+      "sha256": "0970e259b5e18ec0f2f6f4bec10c3b7777180d4f907541d65dbf9547a8260cb1"
+    },
+    {
+      "path": "reproductions/leact/tests/test_reproduction.py",
+      "layer": 1,
+      "bytes": 2740,
+      "sha256": "eb8c50098275f5b3de8e80e638b07d74fef2df6c932d9d5c9e350440d9e9fdb4"
+    },
+    {
+      "path": "reproductions/leact/tests/test_self_leact.py",
+      "layer": 1,
+      "bytes": 4540,
+      "sha256": "058bac74e085ec21483b9f6de4986763b41138cf5addbd75ef5770cbd2863b08"
+    },
+    {
+      "path": "reproductions/leact/tests/test_template_integration.py",
+      "layer": 1,
+      "bytes": 2218,
+      "sha256": "1f5a02ea67264405d9d53907a3adaaa7397a7e3c305e8e44165aac5831c26a10"
+    },
+    {
+      "path": "reproductions/leact/tests/test_tracking.py",
+      "layer": 1,
+      "bytes": 10846,
+      "sha256": "2bb3a03cddc7a7471fdc95899083eda5de843fb98d67e6e05148af3227cce36b"
+    },
+    {
+      "path": "reproductions/leact/tracking/app.js",
+      "layer": 4,
+      "bytes": 105519,
+      "sha256": "e9bdc691ae35301251f6f50724b913e39ff0b7dc7343572368136afdd0e35f95"
+    },
+    {
+      "path": "reproductions/leact/tracking/auth_itss.command",
+      "layer": 1,
+      "bytes": 853,
+      "sha256": "7bdd196d53b77a91f154f5cef951925f52f28d5c3bac83b1a3e3c04adf5e79e5"
+    },
+    {
+      "path": "reproductions/leact/tracking/compact.py",
+      "layer": 1,
+      "bytes": 5766,
+      "sha256": "4c9b938ad0f3077b2d18994c716c4b19a9b370862bfe34414694d717492b4633"
+    },
+    {
+      "path": "reproductions/leact/tracking/configure_sync.py",
+      "layer": 1,
+      "bytes": 5192,
+      "sha256": "3d6f39f61c7a50ccdd2b9610873ede637f0e5696cd369ce8ba9e5f3261d63b65"
+    },
+    {
+      "path": "reproductions/leact/tracking/deploy.py",
+      "layer": 1,
+      "bytes": 4102,
+      "sha256": "8e70cf8e52f2abe727f3fec588acd6f2af99723b17673454747b6b962a614162"
+    },
+    {
+      "path": "reproductions/leact/tracking/export.py",
+      "layer": 1,
+      "bytes": 11831,
+      "sha256": "be6d4c52fe04bfec6f549d592e104cbcae45b236ee3e20c87e72e248a38d5420"
+    },
+    {
+      "path": "reproductions/leact/tracking/index.html",
+      "layer": 4,
+      "bytes": 18484,
+      "sha256": "04135c87af1f469aed39e0b817f7e63890e7951661a74e70a69a5152450ad127"
+    },
+    {
+      "path": "reproductions/leact/tracking/install_remote.sh",
+      "layer": 1,
+      "bytes": 4455,
+      "sha256": "9e1ccdafc86b6fb8f666bb00ac7d156dc8c435a22ce83d1f6fdc6b22f6bb336d"
+    },
+    {
+      "path": "reproductions/leact/tracking/leaderboards.js",
+      "layer": 4,
+      "bytes": 23735,
+      "sha256": "e03e3d6bffc66c8010524ccdc2da86f9e79c61bdb147cc4fe791ccc808c9c4ed"
+    },
+    {
+      "path": "reproductions/leact/tracking/local_service.py",
+      "layer": 1,
+      "bytes": 3304,
+      "sha256": "374a06293290e72ea97f771ae1d4a0abdd4107e5f1fbc571c30b6b3c018d0721"
+    },
+    {
+      "path": "reproductions/leact/tracking/receive.sh",
+      "layer": 1,
+      "bytes": 635,
+      "sha256": "858a7441beb4203077d551a1a55d533b3ca688503623899994a75db9a9e9b418"
+    },
+    {
+      "path": "reproductions/leact/tracking/server.py",
+      "layer": 1,
+      "bytes": 13122,
+      "sha256": "763bf58819fcf76b91a4b4cd1db7897f1f974e29402284631b307fafb06b126b"
+    },
+    {
+      "path": "reproductions/leact/tracking/style.css",
+      "layer": 4,
+      "bytes": 26273,
+      "sha256": "40e4aef1fa9f4be846d61167b0166fa8df540a5da0c05eab2f2e6f21a42f38d3"
+    },
+    {
+      "path": "reproductions/leact/tracking/sync.py",
+      "layer": 1,
+      "bytes": 6298,
+      "sha256": "0c5b0c4b4ca4fd6f609846f8b2fc759bab61f1edda1572f644fe22d524f48c1a"
+    },
+    {
+      "path": "reproductions/leact/tracking/traces.js",
+      "layer": 4,
+      "bytes": 8417,
+      "sha256": "c3ac9666174efc17d9a7248342147f213c2c14fd7cfc3bf87307c04e1b182507"
+    },
+    {
+      "path": "reproductions/leact/tracking/traces.py",
+      "layer": 1,
+      "bytes": 16687,
+      "sha256": "4f3c8eed99efc369950fdf02cffce4a6db14e5bba3f27d00b3e8a91160f7b002"
+    },
+    {
+      "path": "reproductions/leact/training.py",
+      "layer": 1,
+      "bytes": 8604,
+      "sha256": "569559cdb474cea393f65fee5927aa77a196e5a4514844170c40aca085f9b205"
+    }
+  ],
+  "publication_edits": [
+    "README.md: current-stack pointer and historical-plan note",
+    ".gitignore: local database and credential ignores",
+    "tests/test_efe_generalization.py: versioned metadata fixture",
+    "tests/test_efe_capability_retention.py: explicit skip when external suite is absent",
+    "tests/test_efe_training_data.py: remove one trailing blank line"
+  ]
+}

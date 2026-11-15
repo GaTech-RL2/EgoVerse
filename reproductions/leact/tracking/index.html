@@ -1,0 +1,95 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LeAct experiment tracker</title><link rel="stylesheet" href="/style.css"></head><body>
+<a class="skip-link" href="#losses">Skip to training curves</a>
+<header><div class="brand">LeAct <span>Research workspace</span></div><div><a href="https://arxiv.org/html/2607.21856v1" target="_blank" rel="noreferrer">Paper</a><a href="/export.json" download="leact-results.json">Export results</a></div></header>
+<main><nav class="main-nav" aria-label="Views"><button class="active" data-tab="losses">Loss curves</button><button data-tab="benchmarks">Benchmarks</button><button data-tab="overview">Results & analysis</button><button data-tab="traces">Traces & expert</button><button data-tab="runs">Run history</button><button data-tab="audit">Recipe audit</button></nav>
+<h1>Training progress</h1><p class="sub">Follow the expanded EFE study, from Astra warmstart to LeAct and PEAR.</p>
+<div id="status" class="notice">Loading experiment records…</div><p id="updated" class="muted"></p>
+<section id="benchmarks" class="view hidden">
+  <div class="benchmark-navigation"><a href="#leaderboard-leduc">Leduc 6r2s ↓</a><a href="#leaderboard-builder">BuilderBench ↓</a><a href="#leaderboard-efe">Embodied First Exam ↓</a><span id="leaderboard-updated" class="muted"></span></div>
+  <p id="baseline-navigation" class="baseline-navigation" hidden></p>
+  <section id="leaderboard-leduc" class="panel benchmark-panel" aria-labelledby="leduc-leaderboard-title">
+    <div class="panel-head"><div><div class="eyebrow">POKER · 4,032 INFORMATION STATES</div><h2 id="leduc-leaderboard-title">Leduc 6r2s</h2></div><label>Rank by <select id="leduc-ranking"><option value="single">Single-policy exploitability ↓</option><option value="bon">Oracle best-of-eight ↓</option></select></label></div>
+    <p class="loss-links">Loss curves: <a href="#loss-leduc-frontier">Frontier</a> · <a href="#loss-leduc-self">Self-generated</a> · <a href="#loss-leduc-projection">Projection</a> · <a href="#loss-leduc-controls">BC baselines</a></p>
+    <p id="leduc-leaderboard-note" class="muted"></p>
+    <div class="leaderboard-filters"><label><input id="leduc-all-epochs" type="checkbox"> Show intermediate checkpoints</label><label><input id="leduc-history" type="checkbox"> Include earlier pilot runs</label></div>
+    <div id="leduc-leaderboard"></div>
+    <p class="benchmark-footnote">These are seen-state imitation results. Oracle best-of-eight requires the solver at inference time. Final-epoch ranking does not select each run’s best-scoring epoch. Click a baseline to open its exact row; differing protocols are called out in the explanation.</p>
+    <details><summary>Expert and paper reference scores</summary><p id="leduc-reference-note" class="muted"></p></details>
+  </section>
+  <section id="leaderboard-builder" class="panel benchmark-panel" aria-labelledby="builder-leaderboard-title">
+    <div class="panel-head"><div><div class="eyebrow">ROBOTICS · QUALITY AND ROLLOUT SPEED</div><h2 id="builder-leaderboard-title">BuilderBench</h2></div><div class="benchmark-controls"><label>Task set <select id="builder-cohort"><option value="full">Full task collection</option></select></label><label>Rank by <select id="builder-ranking"><option value="progress">Cube progress ↑</option><option value="success">Full-task success ↑</option></select></label></div></div>
+    <p class="loss-links"><a href="#loss-builderbench">View BuilderBench loss curves →</a></p>
+    <p id="builder-leaderboard-note" class="muted"></p><div id="builder-leaderboard"></div>
+    <p class="benchmark-footnote">Speedup = Astra model time ÷ student model time over matched tasks and simulator seeds. Full-response timing includes reasoning and actions; Astra also includes network and provider scheduling. Missing speed measurements stay blank. Faster failures are assessed alongside task success.</p>
+  </section>
+  <section id="leaderboard-efe" class="panel benchmark-panel" aria-labelledby="efe-title">
+    <div class="panel-head"><div><div class="eyebrow">MULTITASK ROBOTICS · ASTRA → QWEN3-VL-8B</div><h2 id="efe-title">Embodied First Exam</h2></div><label>Comparison <select id="efe-comparison"><option value="all">All planned arms</option><option value="main">Astra-only study</option><option value="demos">Native demonstration study</option></select></label></div>
+    <p id="efe-summary" class="results-lead">Waiting for the approved pilot plan.</p>
+    <p><a href="/efe-rollouts.html" target="_blank" rel="noopener">Watch Astra vs Qwen development rollouts ↗</a> · <a href="/efe-rollouts.html#training" target="_blank" rel="noopener">Inspect the 21 training episodes ↗</a> · Original videos, public actions, grader verdicts and the 256 retained training decisions.</p>
+    <p><a href="/efe-direct-control.html" target="_blank" rel="noopener">Watch the new direct-control pilot and compare Qwen behavior ↗</a></p>
+    <p id="efe-current" class="muted"></p><div id="efe-counts" class="cards"></div>
+    <p id="efe-result-note" class="notice"></p><div id="efe-arms" class="efe-scroll"></div>
+    <p id="efe-comparison-note" class="benchmark-footnote"></p>
+    <details open id="efe-training-task-evaluation"><summary>Success and behavior on the exact training tasks</summary><p id="efe-training-task-scope" class="muted"></p><div id="efe-training-task-scores" class="efe-scroll"></div><div id="efe-training-task-suites" class="efe-scroll"></div><div id="efe-training-task-interpretation"></div><div id="efe-training-task-behavior" class="efe-scroll"></div><p id="efe-training-task-note" class="muted"></p></details>
+    <details open id="efe-trace-diagnosis"><summary>Why the student is not moving, and the next collection</summary><div id="efe-trace-diagnosis-text"></div><div id="efe-target-audit" class="efe-scroll"></div><p id="efe-trace-diagnosis-limits" class="muted"></p><div id="efe-direct-control-plan"></div><div id="efe-direct-control-tasks" class="efe-scroll"></div><div id="efe-direct-control-workers" class="efe-scroll"></div><p id="efe-direct-control-status" class="muted"></p><h3>Qwen under the direct-control prompt</h3><p class="muted">Same six training tasks and instruction suffix as the successful Astra pilot. Weights and legacy image processing are unchanged. These controls measure the prompt change before new curated SFT.</p><div id="efe-direct-control-students" class="efe-scroll"></div><p id="efe-direct-control-preparation" class="muted"></p></details>
+    <details open id="efe-coverage-expansion"><summary>Expanded capability run: 256 successful teacher episodes → warmstart → LeAct</summary><p class="loss-links"><a href="#loss-efe-expanded">Open current forward and backward loss curves</a></p><p id="efe-coverage-expansion-summary"></p><div id="efe-coverage-expansion-counts" class="efe-scroll"></div><div id="efe-coverage-expansion-jobs" class="efe-scroll"></div><p id="efe-coverage-expansion-recipe" class="muted"></p><div id="efe-coverage-expansion-results" class="efe-scroll"></div></details>
+    <details open id="efe-pear-comparison"><summary>LeAct vs PEAR-style robot RL · score-centering comparison</summary><p id="efe-pear-summary"></p><div id="efe-pear-conditions" class="efe-scroll"></div><p id="efe-pear-recipe" class="muted"></p><p id="efe-pear-native-findings"></p><div id="efe-pear-qualification-groups" class="efe-scroll"></div><p><a href="https://mit-han-lab.github.io/pear-blog/" target="_blank" rel="noopener">PEAR paper and method</a> · <a href="https://arxiv.org/abs/2609.20807" target="_blank" rel="noopener">Score centering</a> · <a id="efe-pear-workflow" target="_blank" rel="noopener">Qualification workflow</a></p></details>
+    <details open id="efe-student-qualification"><summary>Student qualification and shared robot interface</summary><p id="efe-constrained-warm-summary"></p><div id="efe-constrained-warm-status" class="efe-scroll"></div><div id="efe-leact-support" class="efe-scroll"></div><p id="efe-leact-support-note"></p><p id="efe-completed-comparison"></p><p id="efe-qualification-summary"></p><div id="efe-qualification-status" class="efe-scroll"></div><div id="efe-qualification-plan"></div><div id="efe-qualification-gates" class="efe-scroll"></div><p id="efe-fixed-action-summary"></p><div id="efe-fixed-action-status" class="efe-scroll"></div><p id="efe-fixed-action-limits"></p><p id="efe-published-audit"></p><div id="efe-published-examples" class="efe-scroll"></div></details>
+    <details open id="efe-capability-retention"><summary>General capability: existing checkpoints and EFE</summary><p id="efe-capability-description"></p><div id="efe-capability-table" class="efe-scroll"></div><p id="efe-capability-note" class="muted"></p></details>
+    <details open><summary>Three generalization tests</summary><div id="efe-cohorts"></div><p id="efe-coverage-note" class="muted"></p></details>
+    <details open><summary>Approved training pilot</summary><div id="efe-recipe"></div><p class="muted">Candidate settings are selected on development task success before core evaluation. More reasoning tokens and extra optimization are reported explicitly.</p></details>
+    <div id="efe-workers"></div><p id="efe-student-progress" class="muted"></p>
+    <p class="loss-links">Loss curves: <a href="#loss-efe-warmstart">Warmstart & learning-rate study</a> · <a href="#loss-efe-leact">LeAct</a></p>
+    <h3>Seven-task development pilot</h3>
+    <p class="muted">These tasks guide the training recipe. Partial development results are not the 449-task core benchmark score.</p>
+    <div id="efe-development"></div><p id="efe-training-progress" class="muted"></p><div id="efe-training-metrics"></div>
+    <details><summary>Runtime checks and collection readiness</summary><div id="efe-gates"></div><div id="efe-diagnostics"></div><p id="efe-resources" class="muted"></p></details>
+  </section>
+</section>
+<section id="overview" class="view hidden"><div id="cards" class="cards"></div>
+<div class="panel results-summary" aria-labelledby="results-title">
+  <h2 id="results-title">What the results mean</h2>
+  <p id="results-as-of" class="muted"></p>
+  <p id="results-headline" class="results-lead">Waiting for experiment records.</p>
+  <div id="results-explanation"></div>
+  <details open><summary>Experiment plan</summary><div id="results-plan"></div><p id="results-plan-note" class="muted"></p></details>
+  <details open><summary>BuilderBench · GPT-6 expert rollouts</summary><p id="builderbench-status" class="muted"></p><div id="builderbench-rollouts"></div><div id="builderbench-examples"></div></details>
+  <details open><summary>Rollout speed · Astra and trained students</summary><p id="builderbench-speed-status" class="muted"></p><div id="builderbench-speed-runs"></div><div id="builderbench-speed-comparisons"></div><p class="muted">Speedup = reference time ÷ student time on matched tasks and simulator seeds. Above 1× means faster. Success and cube progress remain part of the comparison. Decision latency includes the full reasoning and action response. Missing wall-clock measurements stay blank; simulator seconds and batched throughput are not substituted for online latency.</p></details>
+  <details><summary>Earlier experiments and comparison with the paper</summary><div id="results-history"></div></details>
+  <details><summary>Completed scores and paper references</summary><div id="results-scorecard"></div><p class="muted">Each experimental row uses one checkpoint for both metrics. Where epochs are compared, selection uses the lowest available oracle best-of-eight mean. Retried copies of the same checkpoint are counted once.</p></details>
+  <details><summary>How to read the curves and compare the experiments</summary><div id="results-reading-guide"></div></details>
+</div>
+<div class="panel"><h2>Overnight experiments</h2><p id="overnight-status" class="muted">No overnight study registered.</p><div id="overnight-studies"></div></div>
+<p class="muted">Training plots are in the <a href="#loss-efe-warmstart">Loss curves view</a>, grouped by experiment family.</p>
+<div class="panel"><h2>Reasoning checks</h2><p class="muted">16-state diagnostics. These are not full-tree benchmark scores.</p><div id="gates"></div></div>
+<div class="panel"><h2>Prompt comparison</h2><p class="muted">Matched states, seeds and sampling. Valid improvements require both baseline rollouts to finish and parse. Admission counts are selected traces that fit both forward and backward training examples; no weights were updated.</p><div id="prompt-diagnostics"></div></div>
+<div class="panel"><h2>Benchmark results</h2><p class="muted">Exploitability is lower-is-better. Best-of-eight uses the oracle to select each state's candidate.</p><div id="evaluations"></div><p class="muted">Unmeasured cells stay blank. Only completed full-tree evaluations appear here.</p></div>
+<div class="panel"><h2>Astra expert follow-up</h2><p id="astra-status" class="muted">Waiting for the follow-up protocol.</p><div id="astra-arms"></div><p class="muted">Actions are frozen before requesting public decision summaries. Both conditions use the same Astra action targets and independent CFR evaluation. API preflights do not measure full-tree playing strength.</p></div></section>
+<section id="losses" class="view">
+<aside class="loss-navigation-panel" aria-label="Experiment studies"><h2>Studies</h2>
+<label class="mobile-study-picker">Study <select id="loss-study-select" aria-label="Choose an experiment study"></select></label>
+<div id="loss-categories" class="loss-categories" role="group" aria-label="Experiment categories"></div>
+<div class="study-next"><h3>Next in this study</h3><p id="loss-next-stage">Loading stage status.</p><a href="#efe-pear-comparison">PEAR comparison</a><a href="#efe-coverage-expansion-results">Robot evaluation results</a></div>
+<p class="muted navigator-note">Only recorded optimizer updates appear as curves.</p></aside>
+<div class="panel training-panel">
+  <div class="panel-head"><div><h2 id="training-title">Expanded EFE warmstart</h2><p id="loss-category-note" class="muted"></p></div><span id="loss-run-state" class="run-state">Loading</span></div>
+  <div id="loss-current-run" class="current-run" aria-label="Current warmstart progress"></div>
+  <div class="plot-toolbar"><label>Metric <select id="metric"><option value="both" selected>Forward & backward loss</option><option value="loss">Combined loss</option><option value="learning_rate">Learning rate</option><option value="grad_norm">Gradient norm</option><option value="forward_ce">Forward loss</option><option value="backward_ce">Backward loss</option><option value="processed_tokens">Processed tokens per step</option><option value="supervised_tokens">Supervised tokens per step</option><option value="gpu_memory_gib">Peak GPU memory (GiB)</option></select></label><label>Range <select id="chart-range"><option value="all">All updates</option><option value="100">Last 100 updates</option><option value="50">Last 50 updates</option></select></label><label>Trend <select id="chart-smoothing"><option value="20">20-update mean</option><option value="1">Raw values</option></select></label><button id="chart-download" type="button">Download CSV</button></div>
+  <p id="chart-help" class="muted">Hover or tap to inspect. Click to pin a value.</p>
+  <div id="chart" aria-labelledby="training-title"></div>
+  <div class="chart-inspector">
+    <div id="chart-readout"><p class="muted">Point to a curve to see its run, optimizer step and exact value.</p></div>
+    <button id="chart-clear" type="button" disabled>Clear selection</button>
+  </div>
+  <p id="chart-announcement" class="sr-only" aria-live="polite"></p>
+  <div class="chart-run-controls"><span id="chart-run-count" class="muted"></span><button id="chart-show-all" type="button">Show all runs</button></div>
+  <div id="legend" class="legend" aria-label="Choose visible runs"></div>
+  <p id="curve-note" class="muted"></p><p id="loss-metric-note" class="muted"></p>
+  <h3>Latest recorded values</h3><div id="loss-latest" class="loss-table-scroll"></div>
+  <p class="muted chart-keyboard-help">Keyboard: focus the plot, then use ← → for points, ↑ ↓ for runs, Enter to pin and Esc to clear.</p>
+</div>
+</section>
+<section id="audit" class="view hidden"><div class="panel"><h2>Paper versus executed recipe</h2><p id="audit-verdict"></p><div id="step-equation" class="equation"></div><div class="filters"><label>Show <select id="audit-filter"><option value="all">All settings</option><option value="issues">Differences & unresolved choices</option></select></label></div><div id="audit-table"></div></div><div class="panel"><h2>Remaining unknowns</h2><ul id="unknowns"></ul><h2>Corrections for subsequent runs</h2><ul id="corrections"></ul><details><summary>Exact executed BC recipe</summary><pre id="recipe"></pre></details></div></section>
+<section id="traces" class="view hidden"><div class="panel"><h2>Reasoning, rollouts & expert policies</h2><p class="muted">Recorded model generations, including failures. A rollout here is a sampled decision at an information state; no complete game trajectories were recorded.</p><div class="trace-filters"><label>Run <select id="trace-run"></select></label><label>State <input id="trace-search" type="search" placeholder="Search state, player, card or ID"></label><button id="trace-search-button">Search</button></div><p id="trace-coverage" class="muted"></p></div><div class="trace-layout"><div class="panel state-panel"><div id="trace-states"></div><div class="pagination"><button id="trace-prev">Previous</button><span id="trace-page"></span><button id="trace-next">Next</button></div></div><div id="trace-detail" class="panel"><p class="muted">Choose a state to inspect its expert policy and generated outputs.</p></div></div></section>
+<section id="runs" class="view hidden"><div class="panel"><h2>Workflow history</h2><p class="muted">Infrastructure failures, quota cancellations and scientific diagnostics remain separate.</p><div id="run-table"></div></div><div class="panel"><h2>Evidence</h2><div id="evidence"></div></div></section>
+<footer>Recorded experiments, original measurements, and matched comparisons. Refreshes automatically every 15 seconds.</footer></main><script src="/leaderboards.js"></script><script src="/app.js"></script><script src="/traces.js"></script></body></html>
