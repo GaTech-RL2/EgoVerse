@@ -8,7 +8,7 @@ import yaml
 from .scale_efe import BASE,ROOT,BUILD_ROOT,read,write,submit,command
 from .compute_budget import reserved_nodes,node_limit
 from .launch_efe_training import freeze_sources
-from .efe_coverage_retry import retry_due,submission_priority
+from .efe_coverage_retry import retry_due,submission_priority,cuda_unavailable_before_training
 
 LANE='/tmp/efe-coverage-training'
 PAYLOAD_VERSION=7
@@ -161,7 +161,15 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
             if stage!='restart-probe':write(DEST/stage/'scheduler.json',state)
             record['status']=state['status']
             if state['status'].startswith('FAILED'):
-                if infra_retryable(state):
+                cuda_startup=cuda_unavailable_before_training(state,data)
+                if cuda_startup:
+                    review={'workflow':attempt['workflow'],'utc':now(),
+                        'classification':'CUDA device unavailable at initial set_device before restart-probe computation or training',
+                        'committed_restart_step':data.get('committed_restart_step'),
+                        'recipe_changed':False,'error':data['error']['error']}
+                    write(Path(attempt['build'])/'cuda-startup-review.json',review)
+                    record['infrastructure_review']=review
+                if infra_retryable(state) or cuda_startup:
                     record['retry']=retry_due(record,attempt['workflow'])
                     if not record['retry']:record['status']='RETRY_BACKOFF'
                 else:record.update(retry=False,status='NEEDS_REVIEW')

@@ -91,6 +91,26 @@ def native_disconnect_retry_tasks(spec,evidence):
     return planned[len(trials)-1:]
 
 
+def cuda_unavailable_before_training(scheduler, evidence):
+    """Retry only a matching worker's initial device acquisition failure.
+
+    A generic CUDA exception, a failed optimizer/replay assertion, or evidence
+    from an earlier allocation must remain under review.
+    """
+    name=scheduler.get('name')
+    if not name or scheduler.get('status')!='FAILED':return False
+    progress=evidence.get('progress',{})
+    error=evidence.get('error',{})
+    start=evidence.get('worker_start',{})
+    if any(row.get('workflow')!=name for row in (progress,error,start)):return False
+    if progress.get('phase')!='restart_validation' or progress.get('training_started') is not False:return False
+    message=error.get('error','')
+    return (message.startswith('restart-empty-shard-probe exited 1:')
+        and 'torch.cuda.set_device(local)' in message
+        and 'torch._C._cuda_setDevice(device)' in message
+        and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable' in message)
+
+
 def retry_due(record, workflow, at=None):
     """Call only after the scheduler failure has been classified as infrastructure."""
     at=at or datetime.now(timezone.utc)

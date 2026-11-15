@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import time
 import yaml
 
@@ -22,6 +23,26 @@ TEMPLATE=BUILD_ROOT/'efe-coverage-20261105-v1-warmstart-p7-allocation-retry-24'
 
 
 def now():return datetime.now(timezone.utc).isoformat()
+
+
+def result_from_logs(logs):
+    """Read the worker's final receipt even after its allocation has ended."""
+    marker='PEAR_OPTIMIZER_RESULT '
+    results=[]
+    for line in logs.splitlines():
+        if marker not in line:continue
+        try:value=json.loads(line.split(marker,1)[1])
+        except json.JSONDecodeError:continue
+        if isinstance(value,dict):results.append(value)
+    if not results:return None
+    result=results[-1]
+    if (result.get('success') is True and result.get('optimizer_updates')==1
+        and result.get('primary_rl_updates')==0
+        and result.get('native_episodes')==8 and result.get('generated_tokens')==1418034
+        and result.get('exact_adam_and_rng_restored') is True
+        and result.get('fresh_process_replay_max_error')==0.0):
+        return result
+    return None
 
 
 def prepare():
@@ -115,6 +136,17 @@ print('EFE_CAPTURE '+json.dumps(r),flush=True)
             evidence={'workflow':name,'captured_utc':now(),**remote(host,'preflight',script)}
             write(LOCAL/'evidence.json',evidence)
         except Exception as error:state['capture_error']=repr(error)
+    if complete and not evidence.get('result.json'):
+        final=subprocess.run(['osmo','workflow','logs',name,'-n','120'],
+            capture_output=True,text=True,timeout=35)
+        if final.returncode==0:
+            receipt=result_from_logs(final.stdout)
+            if receipt:
+                (LOCAL/'final-scheduler.log').write_text(final.stdout)
+                evidence={**evidence,'workflow':name,'captured_utc':now(),
+                    'result.json':receipt,'result_source':'terminal OSMO worker log',
+                    'terminal_log_sha256':hashlib.sha256(final.stdout.encode()).hexdigest()}
+                write(LOCAL/'evidence.json',evidence)
     if evidence.get('workflow')==name:
         state.update({k:v for k,v in evidence.get('progress.json',{}).items() if k not in {'workflow','utc'}})
         state['accumulation']=evidence.get('update-progress.json',{})
@@ -128,6 +160,14 @@ print('EFE_CAPTURE '+json.dumps(r),flush=True)
     state['summary']=(f"Real PEAR optimizer qualification: {state['phase'].replace('_',' ')}; "
         f"{state['optimizer_updates']}/1 discarded base-policy update. All 512 requests / 1,418,034 generated tokens from the admitted door-lock group are retained. "
         'A fresh-process likelihood, Adam and RNG replay gates completion. Primary RL arms still wait for the final common warmstart.')
+    if state['phase']=='optimizer_qualification_passed':
+        state['summary']=('PEAR optimizer qualification passed: one discarded base-policy update over all 512 requests / '
+            '1,418,034 generated tokens. A fresh process restored Adam and RNG exactly and reproduced the saved probes '
+            'with zero maximum error. Primary RL updates remain zero; both comparison arms wait for the common final warmstart.')
+    if scheduler['status']=='COMPLETED' and state['phase']!='optimizer_qualification_passed' and not evidence.get('error'):
+        complete=False
+        state['phase']='awaiting_terminal_evidence'
+        state['summary']='Scheduler completed; awaiting the final optimizer/reload receipt. No qualification pass or primary RL result is claimed.'
     from .launch_efe_coverage import infra_retryable
     from .efe_coverage_retry import retry_due
     if complete and not evidence.get('error') and state['phase']!='optimizer_qualification_passed' and infra_retryable(scheduler):
