@@ -1,0 +1,23 @@
+{
+  "upstream_revision": "b88c450c46de8a96bba83bf9606b66396cccfff5",
+  "projection_fields": [
+    "task",
+    "base_task",
+    "suite",
+    "family",
+    "mode",
+    "official_core",
+    "official_default",
+    "simulator",
+    "simulator_runtime",
+    "physics_engine",
+    "semantic_task",
+    "task_group",
+    "partition"
+  ],
+  "rows": 2224,
+  "source_inventory_sha256": "815b3dbfe05547e93b1d536660c521fc5f0b8ecaa0a0a984d890ebc9e8e41b04",
+  "source_splits_sha256": "f08bfb5010a7e8d796ed031e21b2ccdc99896342f23e9392ed4a47a801c8bcf3",
+  "fixture_sha256": "2e4f95b3f4d3344d3d98899dbd930a7eb23bbce7c9b0e3c74102ce7afddd476c",
+  "scope": "Task identities and frozen split metadata only; excludes instructions, solutions, simulator assets and rollouts."
+}
