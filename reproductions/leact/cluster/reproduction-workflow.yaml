@@ -1,0 +1,53 @@
+# Adapted from the validated LeAct prompt workflow and NVIDIA OSMO's
+# cookbook/dnn_training/single_node example. Each role owns one eight-H100
+# node and writes separate role outputs within the shared durable study.
+workflow:
+  name: "leact-reproduction-{{role}}"
+  resources:
+    default:
+      gpu: {{num_gpu}}
+      cpu: {{num_gpu * 10}}
+      memory: "{{num_gpu * 128}}Gi"
+      storage: "{{num_gpu * 40}}Gi"
+      platform: dgx-h100
+  timeout:
+    queue_timeout: 30m
+    exec_timeout: 24h
+  tasks:
+  - name: train
+    image: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+    command: [bash]
+    args: [/tmp/leact-reproduction-bootstrap.sh]
+    environment:
+      LEACT_WORKFLOW_ID: "{{workflow_id}}"
+      LEACT_ROLE: "{{role}}"
+      LEACT_GPUS: "{{num_gpu}}"
+      LEACT_PAYLOAD_SHA256: "{{payload_sha256}}"
+      LEACT_BASE: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact
+      LEACT_ENV_SOURCE: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/runs/leact-leduc-qwen3-8b-7/source
+      LEACT_STUDY_ROOT: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/studies/concise-reproduction-v1
+      LEACT_SAVED_EXPERIMENT: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/runs/leact-leduc-qwen3-8b-2/experiment-masked-bc-v1
+      LEACT_PROMPT_ROOT: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/runs/leact-prompt-diagnostic-3/prompt-diagnostic
+      LEACT_IMAGE: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      VLLM_DISABLE_COMPILE_CACHE: "1"
+      OMP_NUM_THREADS: "8"
+      MKL_NUM_THREADS: "8"
+      NCCL_DEBUG: WARN
+      TORCH_NCCL_ASYNC_ERROR_HANDLING: "1"
+      FSDP_VERSION: "1"
+      FSDP_STATE_DICT_TYPE: FULL_STATE_DICT
+    files:
+    - localpath: reproduction-bootstrap.sh
+      path: /tmp/leact-reproduction-bootstrap.sh
+default-values:
+  role: leact
+  num_gpu: 8
+  payload_sha256: ""

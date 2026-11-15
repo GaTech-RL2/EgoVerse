@@ -1,0 +1,63 @@
+# Adapted from NVIDIA OSMO cookbook/dnn_training/single_node/train.yaml.
+# Its README demonstrates a single-node TorchRun task with explicit resources and
+# durable training artifacts. This task adds checksum-gated source transfer and
+# uses the GR00T H100 pool's persistent Lustre mount instead of an object bucket.
+# Source: https://github.com/NVIDIA/OSMO/tree/main/cookbook/dnn_training/single_node
+workflow:
+  name: "{{workflow_name}}"
+  resources:
+    default:
+      gpu: {{num_gpu}}
+      cpu: {{num_gpu * 10}}
+      memory: "{{num_gpu * 128}}Gi"
+      storage: "{{num_gpu * 40}}Gi"
+      platform: dgx-h100
+  timeout:
+    queue_timeout: 4h
+    exec_timeout: 12h
+  tasks:
+  - name: leact
+    # vllm/vllm-openai:v0.10.2, verified linux/amd64 manifest, CUDA 12.8.1.
+    image: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+    command: [bash]
+    args: [/tmp/leact-bootstrap.sh]
+    environment:
+      LEACT_WORKFLOW_ID: "{{workflow_id}}"
+      LEACT_GPUS: "{{num_gpu}}"
+      LEACT_BASE: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact
+      LEACT_EXPERIMENT_TIMEOUT: 10h
+      LEACT_PHASE: "{{phase}}"
+      LEACT_MODE: "{{mode}}"
+      LEACT_BC_CHECKPOINT_ROOT: "{{bc_checkpoint_root}}"
+      LEACT_REASONING_CHECKPOINT: "{{reasoning_checkpoint}}"
+      LEACT_REASONING_PROVENANCE: "{{reasoning_provenance}}"
+      LEACT_EXPERIMENT_ROOT: "{{experiment_root}}"
+      LEACT_PAYLOAD_SHA256: "{{payload_sha256}}"
+      LEACT_IMAGE: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      OMP_NUM_THREADS: "8"
+      MKL_NUM_THREADS: "8"
+      NCCL_DEBUG: WARN
+      TORCH_NCCL_ASYNC_ERROR_HANDLING: "1"
+      FSDP_VERSION: "1"
+      FSDP_STATE_DICT_TYPE: FULL_STATE_DICT
+    files:
+    - localpath: bootstrap.sh
+      path: /tmp/leact-bootstrap.sh
+default-values:
+  workflow_name: leact-leduc-qwen3-8b
+  num_gpu: 8
+  phase: preflight
+  mode: bc
+  bc_checkpoint_root: ""
+  reasoning_checkpoint: ""
+  reasoning_provenance: ""
+  # For a subsequent full run, point this at the preflight experiment directory.
+  experiment_root: ""
+  # Required: SHA256 printed by build_payload.py; an empty value fails immediately.
+  payload_sha256: ""

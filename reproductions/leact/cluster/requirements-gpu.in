@@ -1,0 +1,21 @@
+# Linux x86_64 / Python 3.12. Direct versions verified against official PyPI metadata.
+# Keep the training and generation stack in one environment so checkpoints share
+# Transformers/tokenizer implementations. vLLM 0.10.2 requires torch 2.8.0.
+llamafactory==0.9.4
+vllm==0.10.2
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+transformers==4.55.4
+tokenizers==0.21.4
+accelerate==1.10.1
+datasets==4.0.0
+peft==0.17.1
+trl==0.21.0
+numpy==2.2.6
+scipy==1.15.3
+open-spiel==2.0.2
+PyYAML==6.0.3
+pytest==9.1.1
+# Reusable installer; bootstrap installs its exact wheel from the payload.
+uv==0.10.4

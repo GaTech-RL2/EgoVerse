@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "name": "leduc-astra-expert-actions-vs-public-summary-v1",
+  "status": "preparing; full collection and training wait for the current Leduc result",
+  "scope": "Follow-up to the independent LeAct reproduction, not an original paper benchmark",
+  "teacher": {
+    "endpoint": "https://inference-api.nvidia.com/v1/chat/completions",
+    "model": "azure/openai/gpt-6-astra",
+    "max_completion_tokens": 8192,
+    "reasoning_effort": "medium",
+    "credential": "NVIDIA_INFERENCE_API_KEY or macOS Keychain service egoverse.leact.nvidia-inference",
+    "collection_order": ["Freeze actions and mixed policies for all 4032 information states", "Request a public explanation of each frozen decision"],
+    "explanation": "1-3 sentences, requested maximum 100 words, validation ceiling 120 words; a public decision summary, not private internal reasoning",
+    "visibility": "Game rules, acting player's information state and legal actions only; no CFR policy or opponent private card",
+    "validation": "Exact model identity; complete public JSON response; all legal actions; finite probabilities summing to one; no fallback or action repair"
+  },
+  "arms": [
+    {
+      "id": "astra_actions",
+      "procedure": "LeAct with Astra expert action policies",
+      "backward_hint": "Qualitative action policy only",
+      "student_reasoning": "Student generates and filters its own traces",
+      "sft": "Joint forward/backward SFT on admitted student traces, with frozen Astra policy targets"
+    },
+    {
+      "id": "astra_actions_summary",
+      "procedure": "Same LeAct procedure with an additional public teacher explanation",
+      "backward_hint": "Identical qualitative action policy plus Astra's frozen brief explanation",
+      "student_reasoning": "Student generates and filters its own traces; teacher summary is an extra backward hint",
+      "sft": "Same joint forward/backward SFT and identical Astra policy targets; forward/evaluation prompts contain no expert hint"
+    }
+  ],
+  "matched_settings": {
+    "student": "Qwen/Qwen3-8B",
+    "base_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "initialization": "Same immutable shared reasoning anchor used by the current reproduction",
+    "states": 4032,
+    "rounds": 3,
+    "epochs_per_round": 3,
+    "learning_rate": 0.000005,
+    "effective_batch_size": 32,
+    "gpus_per_node": 8,
+    "maximum_nodes": 2,
+    "osmo_priority": "HIGH",
+    "backward_samples_n": 8,
+    "forward_baselines_m": 4,
+    "selected_traces_k": 2,
+    "sft_context_tokens": 2048,
+    "generation_max_tokens": 4096,
+    "prompt_variant": "concise_v1",
+    "selection": "Positive forward delta against Astra's policy; all baseline and candidate policies must finish and parse",
+    "length_filter": "Both SFT examples must fit before admitting a trace; log different admission counts rather than hiding them"
+  },
+  "evaluation": {
+    "oracle": "Original immutable CFR+ solver, never replaced by Astra for evaluation",
+    "oracle_sha256": "a3a15b2a6b13d3941961e8bba79935ec07b736ecf3333928ac3b4246cf614d08",
+    "metrics": ["full-tree exploitability", "capped KL to CFR", "oracle best-of-8 exploitability", "invalid/truncated output rates", "SFT admission counts"],
+    "teacher_baseline": "Measure Astra's own full-tree policy exploitability before training",
+    "seeds": [0, 1, 2],
+    "epoch_selection": "Evaluate every epoch; select by mean oracle-BoN exploitability, matching the current reproduction",
+    "interpretation": "Tests whether revealing a teacher's public explanation helps LeAct. It does not test recovery of private internal reasoning."
+  },
+  "dependency": {
+    "gate": "All planned current Leduc rounds complete, with lower mean single and oracle-BoN exploitability than the shared reasoning anchor",
+    "gate_is_not": "A claim of matching the paper's numerical results",
+    "preflight_exception": "At most four fixed information states for API, formatting and provenance checks; no GPU training"
+  },
+  "logging": ["Exact prompts", "Public teacher responses", "Model identity", "Usage including aggregate reasoning-token counts", "Frozen action and explanation hashes", "Student traces and rollout policies", "Admission/rejection reasons", "SFT optimizer steps and parameter-change verification", "Independent CFR evaluation"],
+  "execution": {
+    "api_preflight": "Implemented",
+    "full_teacher_collection": "Implemented with the Leduc dependency gate",
+    "training_jobs": "Not submitted; two current H100 jobs continue",
+    "tracker": "Local tracker active; ITSS publishing still awaits the existing SSH authentication"
+  }
+}

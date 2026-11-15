@@ -1,0 +1,47 @@
+# Adapted from the validated LeAct single-node diagnostic and NVIDIA OSMO's
+# cookbook/dnn_training/single_node example. Reuses the job7 environment and
+# saved models; runs matched prompt inference and token admission without SFT.
+workflow:
+  name: leact-prompt-diagnostic
+  resources:
+    default:
+      gpu: {{num_gpu}}
+      cpu: {{num_gpu * cpu_per_gpu}}
+      memory: "{{num_gpu * memory_gib_per_gpu}}Gi"
+      storage: "{{num_gpu * storage_gib_per_gpu}}Gi"
+      platform: dgx-h100
+  timeout:
+    queue_timeout: 30m
+    exec_timeout: 45m
+  tasks:
+  - name: diagnostic
+    image: docker.io/vllm/vllm-openai@sha256:df2607b26bdda2875de4832f4d08da0055b4b6e3570347f3a849bcc652771dd6
+    command: [bash]
+    args: [/tmp/leact-prompt-bootstrap.sh]
+    environment:
+      LEACT_WORKFLOW_ID: "{{workflow_id}}"
+      LEACT_GPUS: "{{num_gpu}}"
+      LEACT_PAYLOAD_SHA256: "{{payload_sha256}}"
+      LEACT_BASE: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact
+      LEACT_ENV_SOURCE: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/runs/leact-leduc-qwen3-8b-7/source
+      LEACT_SAVED_EXPERIMENT: /mnt/amlfs-07/shared/egoverse/rpunamiya/leact/runs/leact-leduc-qwen3-8b-2/experiment-masked-bc-v1
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      VLLM_DISABLE_COMPILE_CACHE: "1"
+      OMP_NUM_THREADS: "{{cpu_per_gpu}}"
+      MKL_NUM_THREADS: "{{cpu_per_gpu}}"
+    files:
+    - localpath: prompt-bootstrap.sh
+      path: /tmp/leact-prompt-bootstrap.sh
+default-values:
+  num_gpu: 8
+  cpu_per_gpu: 3
+  memory_gib_per_gpu: 64
+  storage_gib_per_gpu: 20
+  payload_sha256: ""
