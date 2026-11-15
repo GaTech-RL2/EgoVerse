@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from reproductions.leact.cluster.efe_coverage_retry import init_interruption_proven,submission_priority,native_disconnect_retry_tasks
+from reproductions.leact.cluster.efe_coverage_retry import init_interruption_proven,submission_priority,native_disconnect_retry_tasks,cuda_unavailable_before_training
 
 
 def startup_failure():
@@ -70,3 +70,26 @@ def test_native_model_error_cannot_retry():
     evidence=native_interruption()
     evidence['results']['trials'][-1]['action_metrics']['error']='Invalid JSON action'
     assert native_disconnect_retry_tasks(SPEC,evidence)==[]
+
+
+def cuda_startup_evidence():
+    return {'worker_start':{'workflow':'allocation-1'},
+        'progress':{'workflow':'allocation-1','phase':'restart_validation','training_started':False},
+        'error':{'workflow':'allocation-1','error':
+            'restart-empty-shard-probe exited 1: Traceback\n'
+            'torch.cuda.set_device(local)\ntorch._C._cuda_setDevice(device)\n'
+            'CUDA error: CUDA-capable device(s) is/are busy or unavailable'}}
+
+
+def test_initial_device_unavailability_can_retry_without_bypassing_training_guards():
+    scheduler={'name':'allocation-1','status':'FAILED'}
+    assert cuda_unavailable_before_training(scheduler,cuda_startup_evidence())
+    for key,value in [('phase','training'),('training_started',True),('workflow','older-allocation')]:
+        evidence=cuda_startup_evidence();evidence['progress'][key]=value
+        assert not cuda_unavailable_before_training(scheduler,evidence)
+    for message in ['CUDA error: device-side assert triggered','Full-model replay mismatch',
+                    'CUDA-capable device(s) is/are busy or unavailable']:
+        evidence=cuda_startup_evidence();evidence['error']['error']=message
+        assert not cuda_unavailable_before_training(scheduler,evidence)
+    assert not cuda_unavailable_before_training({'name':'allocation-2','status':'FAILED'},cuda_startup_evidence())
+    assert not cuda_unavailable_before_training({'name':'allocation-1','status':'RUNNING'},cuda_startup_evidence())
