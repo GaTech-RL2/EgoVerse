@@ -1,0 +1,85 @@
+{
+  "captured_utc": "2026-11-15T20:11:48.783508+00:00",
+  "snapshot_imported_utc": "2026-11-15T20:07:47.610218+00:00",
+  "scope": "Dated source-stack review. Scheduler completion alone does not establish optimizer replay or model quality.",
+  "efe": {
+    "admission": {
+      "decisions": 3927,
+      "decisions_sha256": "c77f214df3e62db40edd3850f85d6871e34b50298f355c9e49541f2549fd4512",
+      "gate_passed": true,
+      "native_execution_verified": true,
+      "successful_episodes": 256,
+      "suite_episodes": {
+        "metaworldplus": 251,
+        "robocasa": 5
+      },
+      "training_partition_only": true,
+      "unique_scenes": 40,
+      "unique_tasks": 40
+    },
+    "recovery": {
+      "workflow": "leact-efe-coverage-warmstart-v1-p7-r27-1",
+      "status": "NEEDS_REVIEW",
+      "last_recorded_update": 444,
+      "committed_restart_step": 444,
+      "planned_optimizer_updates": 737,
+      "forward_ce": 0.27146750688552856,
+      "backward_ce": 0.2858121991157532,
+      "summary": "Warmstart NEEDS_REVIEW: 444/737 updates logged; latest committed restart 444. Last forward/backward losses 0.2715/0.2858. LeAct WAITING_FOR_WARMSTART. Latest attempt stopped: restart-empty-shard-probe exited 1: Traceback (most recent call last):. No expanded student robot-success result is available yet.",
+      "evidence_captured_utc": "2026-11-15T08:09:38.724245+00:00"
+    },
+    "baselines": [
+      {
+        "cohort": "seen_training_scene",
+        "graded": 24,
+        "model": "astra",
+        "success_rate": 0.8333333333333334,
+        "successes": 20
+      },
+      {
+        "cohort": "same_simulator_new_task",
+        "graded": 12,
+        "model": "astra",
+        "success_rate": 0.5833333333333334,
+        "successes": 7
+      },
+      {
+        "cohort": "seen_training_scene",
+        "graded": 24,
+        "model": "base",
+        "success_rate": 0.16666666666666666,
+        "successes": 4
+      },
+      {
+        "cohort": "same_simulator_new_task",
+        "graded": 12,
+        "model": "base",
+        "success_rate": 0.08333333333333333,
+        "successes": 1
+      }
+    ],
+    "expanded_student_success_available": false
+  },
+  "pear_optimizer_qualification": {
+    "workflow": "leact-efe-pear-optimizer-v2-1",
+    "scheduler_status": "COMPLETED",
+    "last_captured_phase": "fresh_process_restart_verification",
+    "optimizer_updates": 1,
+    "primary_rl_updates": 0,
+    "update": {
+      "changed_adapter_values": 21347902,
+      "generated_tokens": 1418034,
+      "gradient_norm": 0.03373298794031143,
+      "loss": 0.08561460719333214,
+      "mean_abs_logprob_gap": 0.031859422301122695,
+      "optimizer_updates": 1,
+      "requests": 512,
+      "sampler_nll": 0.7135806313665226,
+      "score_centering": true,
+      "trainer_nll": 0.716064441320705,
+      "update_seconds": 1767.7398061030544
+    },
+    "fresh_process_verification_evidence_present": false,
+    "scope": "One discarded base-policy update on all eight door-lock episodes and every captured generated token. No primary RL update or post-training success score. Primary arms still start from the same final 737-update expanded warmstart."
+  }
+}

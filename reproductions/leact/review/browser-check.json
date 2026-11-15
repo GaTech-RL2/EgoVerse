@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "numerical": {
+    "step": 444,
+    "records": 444,
+    "referenceMeans": {
+      "forward_ce": 0.3166678220033646,
+      "backward_ce": 0.31629449129104614
+    },
+    "plottedMeans": {
+      "forward_ce": 0.3166678220033646,
+      "backward_ce": 0.31629449129104614
+    }
+  },
+  "pending": "Run / metric\tLatest raw value\tStep / budget\tState\tLearning rate\n Expanded warmstart + LeAct\tNo recorded value\t0 / —\tWaiting for warmstart\t—",
+  "dimensions": {
+    "width": 390,
+    "viewport": 390,
+    "plotTop": 598.65625
+  },
+  "errors": []
+}

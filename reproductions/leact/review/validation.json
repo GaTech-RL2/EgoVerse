@@ -1,0 +1,53 @@
+{
+  "checked_utc": "2026-11-15T20:14:53.729935+00:00",
+  "scope": "Isolated source checkout and frozen dashboard snapshot; no new GPU training or task-success evaluation performed for publication.",
+  "python": {
+    "passed": 309,
+    "skipped": 3,
+    "failed": 0,
+    "skip_reasons": {
+      "external_985_question_capability_corpus": 1,
+      "optional_llamafactory_template_dependency": 2
+    }
+  },
+  "javascript_leaderboards": {
+    "passed": 7,
+    "failed": 0
+  },
+  "syntax": {
+    "python_modules_parsed": 245,
+    "shell_scripts_checked": 8,
+    "javascript_files_checked": [
+      "tracking/app.js",
+      "tracking/traces.js",
+      "tracking/leaderboards.js"
+    ],
+    "json_files_parsed": 8
+  },
+  "browser": {
+    "passed": true,
+    "evidence": "browser-check.json",
+    "checks": [
+      "all primary tabs",
+      "EFE result deep link",
+      "current expanded loss curves",
+      "pending expanded LeAct has no fabricated loss",
+      "exact final raw forward/backward values",
+      "exact 20-update means",
+      "390px mobile viewport without horizontal overflow",
+      "mobile study selection"
+    ],
+    "javascript_errors": []
+  },
+  "repository_unit_suite": {
+    "status": "blocked_at_collection",
+    "command": "python -m pytest tests/unit -q",
+    "reason": "ModuleNotFoundError: No module named hydra",
+    "affects": "Existing EgoVerse tests/unit/conftest.py; no changes to that suite or egomimic source"
+  },
+  "publication_checks": {
+    "source_credentials": "No hard-coded credential found in the selected source or decoded review snapshot",
+    "raw_loss_values": "Preserved unchanged in review snapshot",
+    "large_artifacts": "Model weights, optimizer states, raw rollout data and frozen OSMO payloads excluded"
+  }
+}
