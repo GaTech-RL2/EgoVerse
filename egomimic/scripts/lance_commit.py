@@ -442,6 +442,13 @@ def _annotation_rows(d: commit.Delivery, meta: dict) -> list[dict]:
     ]
 
 
+def _own_sources(meta: dict) -> set[str]:
+    """The annotation sources an MCAP delivery may speak for: its lab, and the vendor
+    that delivered it, as the ingest hand-off records it in the provenance."""
+    vendor = (meta.get("provenance") or {}).get("vendor")
+    return {meta["lab"], *([vendor] if vendor else [])}
+
+
 def _commit_annotations(
     lance_root,
     rows: list[dict],
@@ -570,10 +577,15 @@ def commit_staged(
                 rows = _annotation_rows(d, meta)
                 spans += rows
                 if "annotations" in meta:
-                    vendors[d.recording_id] = {
-                        meta["lab"],
-                        *(r["annotation_vendor"] for r in rows),
-                    }
+                    named = {meta["lab"], *(r["annotation_vendor"] for r in rows)}
+                    # A vendor's MCAP names its labels' sources itself: it speaks only
+                    # for its lab and itself, never another source it names; in-house
+                    # converters (zarr, eva) speak for every source they carry.
+                    vendors[d.recording_id] = (
+                        named & _own_sources(meta)
+                        if source.startswith(MCAP_PREFIX)
+                        else named
+                    )
             # Appended by a run that stopped before recording them: record and tag them now.
             recovered = commit.record_recovered(
                 lance_root, unrecorded, source, operator

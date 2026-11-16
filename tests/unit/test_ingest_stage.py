@@ -40,6 +40,7 @@ def stage(tmp_path, name="s", fingerprint="f" * 64, **kw):
         tmp_path / "staged" / name,
         tmp_path / "lance",
         fingerprint=fingerprint,
+        vendor="acme",  # as convert_job passes the delivering vendor
         **OPTS,
     )
 
@@ -57,6 +58,9 @@ def land(tmp_path, staged, replace=False):
     for p in sorted(staged.iterdir(), key=lambda p: p.name == "meta.json"):
         if p.name not in REVIEW_ONLY:
             shutil.copyfile(p, dst / p.name)
+    meta = json.loads((dst / "meta.json").read_text())  # the hand-off's provenance
+    meta["provenance"] = {**(meta.get("provenance") or {}), "vendor": "acme"}
+    (dst / "meta.json").write_text(json.dumps(meta))
     return commit_staged(
         str(tmp_path / "lance_staging"),
         mcap_source(pin["lab"]),
@@ -215,3 +219,36 @@ def test_the_job_runs_the_committers_checks_and_pins_frame_counts(tmp_path):
     problems = committer_problems(p.staged)
     assert any("!= num_frames" in x for x in problems)
     assert any("frames, steps has 61" in x for x in problems)
+
+
+def test_a_vendor_cannot_drop_labels_of_a_source_it_merely_names(tmp_path):
+    import pyarrow as pa
+
+    from egomimic.rldb.lance import commit
+    from egomimic.rldb.lance.schema import ANNOTATIONS, annotation_id
+
+    land(tmp_path, stage(tmp_path, "v1").staged)
+    task = rows(tmp_path, "tasks.lance")[0]
+    rid, t0 = task["recording_id"], task["t_start_ns"]
+    theirs = dict(
+        recording_id=rid, t_start_ns=t0, t_end_ns=t0 + 1, annotation_type="language",
+        text="graded by scale", annotation_vendor="scale", quality_score=None,
+        graded_by=None, rubric_version=None,
+    )  # fmt: skip
+    theirs["annotation_id"] = annotation_id(
+        rid, "scale", "language", t0, t0 + 1, "graded by scale"
+    )
+    commit.apply_annotations(
+        str(tmp_path / "lance"), pa.Table.from_pylist([theirs], schema=ANNOTATIONS), []
+    )
+
+    def claim_scale(topic, msg, t):
+        if topic == "/subtask-annotation" and msg.data == "pick up the shirt":
+            msg.annotation_source = "scale"
+            return msg, t
+
+    p = stage(tmp_path, "v2", fingerprint="e" * 64, tamper=claim_scale)
+    assert "graded by scale" not in p.diff["labels"]["removed"]
+    land(tmp_path, p.staged, replace=True)
+    texts = {a["text"] for a in rows(tmp_path, "annotations.lance")}
+    assert "graded by scale" in texts

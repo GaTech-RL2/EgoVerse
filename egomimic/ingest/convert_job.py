@@ -51,8 +51,9 @@ def run_job(
                 outcome = {"status": "superseded"}
             else:
                 p = formats.prepare_delivery(
-                    local, staged, lance_root, fingerprint=fingerprint, **settings
-                )
+                    local, staged, lance_root, fingerprint=fingerprint,
+                    vendor=ref.vendor, **settings,
+                )  # fmt: skip
                 if p.status == "staged":
                     # `lab` comes from the vendor's own file. Decided before anything is
                     # stored: the diff would show the vendor another lab's recording.
