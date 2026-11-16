@@ -434,11 +434,20 @@ def _sql_str(s: str) -> str:
 
 def _append(uri: str, table: pa.Table) -> None:
     lock.check(uri)
-    lance.write_dataset(
-        table,
+    opts = storage_options(uri)
+    if not _exists(uri):
+        lance.write_dataset(table, uri, mode="create", storage_options=opts)
+        return
+    # Upload first, then check the lock right before publishing: a holder paused during
+    # the upload past its ttl must not commit alongside the writer that took over.
+    ds = _open(uri)
+    new = write_fragments(table, uri, schema=ds.schema, storage_options=opts)
+    lock.check(uri)
+    lance.LanceDataset.commit(
         uri,
-        mode="append" if _exists(uri) else "create",
-        storage_options=storage_options(uri),
+        LanceOperation.Append(new),
+        read_version=ds.version,
+        storage_options=opts,
     )
 
 
@@ -470,6 +479,7 @@ def _replace(
     op = LanceOperation.Update(
         removed_fragment_ids=removed, updated_fragments=updated, new_fragments=new
     )
+    lock.check(uri)  # after the upload, right before publishing (see _append)
     lance.LanceDataset.commit(
         uri,
         op,
@@ -688,6 +698,7 @@ def drop_task_annotations(root) -> None:
     """One-off for tables written while annotations were nested in tasks."""
     ds = _open(join(root, "tasks.lance"))
     if "annotations" in ds.schema.names:
+        lock.check(root)
         ds.drop_columns(["annotations"])
 
 
@@ -822,12 +833,14 @@ def edit(root, table: str, rows: pa.Table, on: str) -> None:
                 raise ValueError(
                     f"recording {r[on]}: {STEPS_KEY} changed from {old[r[on]]}; use replace"
                 )
+    lock.check(root)
     ds.merge_insert(on).when_matched_update_all().execute(rows)
 
 
 @_writes
 def add_columns(root, table: str, columns: dict[str, str]) -> None:
     """New columns from SQL expressions over existing ones; written as new data files, nothing is rewritten."""
+    lock.check(root)
     _open(join(root, table)).add_columns(columns)
 
 
@@ -840,6 +853,7 @@ def tag(root, name: str) -> dict[str, int]:
         ds = _open(uri)
         if name in ds.tags.list():
             raise ValueError(f"tag {name} already exists on {uri}")
+        lock.check(root)
         ds.tags.create(name, ds.version)
         out[uri[len(str(root).rstrip("/")) + 1 :]] = ds.version
     return out
@@ -848,12 +862,14 @@ def tag(root, name: str) -> dict[str, int]:
 @_writes
 def index(root) -> None:
     for uri in steps_uris(root):
+        lock.check(root)
         _open(uri).create_scalar_index("recording_id", "BTREE")
 
 
 @_writes
 def compact(root) -> None:
     for uri in filter(_exists, table_uris(root)):
+        lock.check(root)
         _open(uri).optimize.compact_files()
         if _open(uri).describe_indices():
             _open(uri).optimize.optimize_indices()
@@ -873,6 +889,7 @@ def cleanup(
     the writer lock keeps out other commits, not converters.
     """
     for uri in filter(_exists, table_uris(root)):
+        lock.check(root)
         _open(uri).cleanup_old_versions(
             older_than=older_than, error_if_tagged_old_versions=False
         )
@@ -935,6 +952,7 @@ def _orphan_videos(root, staging, upload_grace, delete: bool) -> list[str]:
         if p.endswith(".mp4") and f"videos/{p}" not in keep and at <= cutoff
     ]
     if delete:
+        lock.check(root)  # the listing can take minutes on a big root
         remove(orphans)
     return orphans
 

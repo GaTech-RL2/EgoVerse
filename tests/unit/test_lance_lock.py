@@ -3,6 +3,8 @@
 The R2 backend runs against a fake client that enforces If-None-Match / If-Match the way
 R2 does; the two committer races run in real processes on a local root."""
 
+import datetime
+import email.utils
 import io
 import json
 import multiprocessing as mp
@@ -225,6 +227,45 @@ def test_s3_a_put_that_landed_but_answered_412_still_counts_as_ours():
     fake.n_lost = 1
     a.release()
     assert fake.body()["released"]
+
+
+class ServerClock(FakeS3):
+    """Answers reads with Last-Modified and Date from one clock, as R2 does."""
+
+    def __init__(self):
+        super().__init__()
+        self.now = datetime.datetime(2026, 11, 1, tzinfo=datetime.timezone.utc)
+        self.modified = {}
+
+    def put_object(self, **kw):
+        out = super().put_object(**kw)
+        self.modified[(kw["Bucket"], kw["Key"])] = self.now
+        return out
+
+    def get_object(self, Bucket, Key):
+        out = super().get_object(Bucket, Key)
+        out["LastModified"] = self.modified[(Bucket, Key)]
+        date = email.utils.format_datetime(self.now, usegmt=True)
+        out["ResponseMetadata"] = {"HTTPHeaders": {"date": date}}
+        return out
+
+
+def test_s3_expiry_goes_by_the_servers_clock_not_the_hosts():
+    fake = ServerClock()
+    a = _s3lock(fake, ttl=60.0)
+    a.acquire(wait=0)
+    a._stop.set()
+    etag, _ = fake.objs[("b", "r/_writer.lock")]
+    # The holder's clock was far behind: its expires_at is long past for us...
+    skewed = {**fake.body(), "expires_at": time.time() - 3600}
+    fake.objs[("b", "r/_writer.lock")] = (etag, json.dumps(skewed).encode())
+    b = _s3lock(fake)
+    with pytest.raises(LockHeld):  # ...but R2 says it was renewed just now
+        b.acquire(wait=0)
+    fake.now += datetime.timedelta(seconds=61)  # unrenewed past its ttl, by R2
+    b.acquire(wait=0)
+    assert fake.body()["token"] == b.token
+    b.release()
 
 
 # --- the committer races the R2 test found -----------------------------------------------
