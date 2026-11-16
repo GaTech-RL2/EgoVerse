@@ -26,6 +26,13 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # Aria Gen 2 human data is kept apart from HUMAN_* on purpose: its
+    # episodes have no MANO fit (raw Aria keypoints; EE frame built from the
+    # Aria wrist/MCP landmarks) and a different head-camera frame (unrotated
+    # Gen 2 RGB), so it gets its own embodiment id and normalization stats.
+    ARIA_GEN2_RIGHT_ARM = 7
+    ARIA_GEN2_LEFT_ARM = 8
+    ARIA_GEN2_BIMANUAL = 9
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -57,12 +64,19 @@ def get_embodiment(index):
 # source lives only in the SQL `lab` field), so those names collapse to
 # HUMAN_*. Robot names (EVA_*) are never aliased.
 HUMAN_VENDOR_PREFIXES = ("MECKA", "SCALE", "ARIA", "LIGHTWHEEL")
+# SQL embodiment values that name the capture device rather than the arm
+# configuration: Aria Gen 2 rows ('aria_gen2') are bimanual Gen 2 data.
+DEVICE_EMBODIMENT_ALIASES = {"ARIA_GEN2": "ARIA_GEN2_BIMANUAL"}
 
 
 def canonical_embodiment_name(embodiment_name: str) -> str:
     """Upper-case EMBODIMENT member name, with legacy vendor prefixes
     (``MECKA_BIMANUAL`` ...) collapsed onto ``HUMAN_*``. Does not validate."""
     name = embodiment_name.upper()
+    if name in EMBODIMENT.__members__:
+        return name  # e.g. ARIA_GEN2_BIMANUAL is not a legacy ARIA_* alias
+    if name in DEVICE_EMBODIMENT_ALIASES:
+        return DEVICE_EMBODIMENT_ALIASES[name]
     vendor, _, suffix = name.partition("_")
     if vendor in HUMAN_VENDOR_PREFIXES and suffix:
         return f"HUMAN_{suffix}"

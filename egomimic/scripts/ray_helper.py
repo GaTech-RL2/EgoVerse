@@ -23,6 +23,7 @@ from egomimic.utils.aws.aws_data_utils import (
     s3_sync_to_local,
     upload_dir_to_s3,
 )
+from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 
 
 def ensure_path_ready(p: S3Path, retries: int = 30) -> bool:
@@ -134,16 +135,36 @@ class AriaRay(EmbodimentRay):
         self,
         processed_local_root: Path,
         log_root: Path,
+        device: str = "aria",
+        gen2_source: str = "mps",
+        split_demos: bool = True,
+        gen2_filter: dict | None = None,
     ):
+        """device: "aria" (Gen 1, needs MPS) or "aria_gen2".
+
+        gen2_source (aria_gen2 only): "mps" requires mps_*_vrs/ like Gen 1;
+        "on_device" converts from the VRS's own hand tracking / VIO / gaze.
+        split_demos (aria_gen2 only): one episode per demo; convert_one_bundle
+        then returns a list of per-demo results.
+        gen2_filter: Gen2FilterConfig overrides as a dict (aria_gen2 only).
+        """
         super().__init__(
             processed_local_root,
             log_root,
         )
+        self.device = device
+        self.gen2_source = gen2_source
+        self.split_demos = split_demos
+        self.gen2_filter = gen2_filter or {}
+        # Gen 2 VRS files also carry on-device hand tracking / VIO / eye gaze.
+        self.require_mps = device == "aria" or gen2_source == "mps"
+        # Gen 2 data is kept as raw Aria keypoints (no MANO fit).
+        self.convert_mano = device == "aria"
         self.raw_remote_prefix = os.environ.get(
-            "RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria"
+            "RAW_REMOTE_PREFIX", f"s3://rldb/raw_v2/{device}"
         ).rstrip("/")
         self.processed_remote_prefix = os.environ.get(
-            "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v3/aria"
+            "PROCESSED_REMOTE_PREFIX", f"s3://rldb/processed_v3/{device}"
         ).rstrip("/")
         self.bucket = os.environ.get("BUCKET", "rldb")
         self.resources_small = {"aria_small": 1}  # TODO: change to aria_small
@@ -227,9 +248,9 @@ class AriaRay(EmbodimentRay):
             missing = []
             if filename not in has_json:
                 missing.append("json")
-            if filename not in has_hand:
+            if self.require_mps and filename not in has_hand:
                 missing.append("hand_tracking")
-            if filename not in has_slam:
+            if self.require_mps and filename not in has_slam:
                 missing.append("slam")
             if missing:
                 print(
@@ -239,7 +260,7 @@ class AriaRay(EmbodimentRay):
             if True:
                 vrs = vrs_by_name[filename]
                 jsonf = root / f"{filename}.json"
-                mps_dir = root / f"mps_{filename}_vrs"
+                mps_dir = root / f"mps_{filename}_vrs" if self.require_mps else ""
                 # arm, task_name, task_description, required_metadata are inferred from row in run_conversion.py
                 args = {
                     "processed_local_root": str(self.processed_local_root),
@@ -255,6 +276,10 @@ class AriaRay(EmbodimentRay):
                     "chunk_timesteps": 100,
                     "save_mp4": True,
                     "image_compressed": False,
+                    "convert_mano": self.convert_mano,
+                    "gen2_source": self.gen2_source,
+                    "split_demos": self.split_demos,
+                    "gen2_filter": self.gen2_filter,
                 }
                 name = vrs_by_name[filename].stem
                 yield name, args
@@ -278,13 +303,19 @@ class AriaRay(EmbodimentRay):
         chunk_timesteps: int,
         image_compressed: bool,
         save_mp4: bool,
-    ) -> tuple[str, str, int]:
+        convert_mano: bool = True,
+        gen2_source: str = "mps",
+        split_demos: bool = True,
+        gen2_filter: dict | None = None,
+    ) -> tuple[str, str, int] | list[dict]:
         """
         Perform conversion for a single episode.
         Returns (ds_path, mp4_path, total_frames).
         • ds_path: dataset folder path
         • mp4_path: per-episode MP4 ('' if not created)
         • total_frames: -1 if unknown/failure
+        A Gen 2 recording split into demos returns a list of dicts instead, one
+        per demo: episode_hash, ds_path, mp4_path, frames.
         """
         processed_local_root = Path(processed_local_root)
         processed_remote_prefix = processed_remote_prefix.rstrip("/")
@@ -295,9 +326,12 @@ class AriaRay(EmbodimentRay):
         boto3_client = get_boto3_s3_client()
         vrs = S3Path(vrs, client=s3_client) if isinstance(vrs, str) else vrs
         jsonf = S3Path(jsonf, client=s3_client) if isinstance(jsonf, str) else jsonf
-        mps_dir = (
-            S3Path(mps_dir, client=s3_client) if isinstance(mps_dir, str) else mps_dir
-        )
+        if mps_dir:
+            mps_dir = (
+                S3Path(mps_dir, client=s3_client)
+                if isinstance(mps_dir, str)
+                else mps_dir
+            )
 
         stem = vrs.stem
         log_root.mkdir(parents=True, exist_ok=True)
@@ -314,11 +348,8 @@ class AriaRay(EmbodimentRay):
                 contextlib.redirect_stderr(tee_err),
             ):
                 print(f"[LOG] {stem}: {log_path}", flush=True)
-                targets = [
-                    vrs,
-                    jsonf,
-                    mps_dir,
-                ]
+                # mps_dir is empty for Gen 2 (no MPS needed).
+                targets = [t for t in (vrs, jsonf, mps_dir) if t]
 
                 raw_bucket, raw_prefix = _parse_s3_uri(
                     raw_remote_prefix, default_bucket=bucket
@@ -350,7 +381,7 @@ class AriaRay(EmbodimentRay):
                 vrs_path = tmp_dir / vrs.name
 
                 try:
-                    zarr_path, mp4_path = AriaRay.zarr_job(
+                    result = AriaRay.zarr_job(
                         raw_path=str(vrs_path),
                         output_dir=str(ds_parent),
                         arm=arm,
@@ -361,75 +392,44 @@ class AriaRay(EmbodimentRay):
                         chunk_timesteps=chunk_timesteps,
                         image_compressed=image_compressed,
                         save_mp4=save_mp4,
+                        convert_mano=convert_mano,
+                        gen2_source=gen2_source,
+                        split_demos=split_demos,
+                        gen2_filter=gen2_filter,
                     )
-                    frames = -1
-                    zarr_store_path = zarr_path
-                    info = zarr_store_path / "zarr.json"
-                    print(f"[DEBUG] Zarr metadata path: {info}", flush=True)
-                    if info.exists():
-                        try:
-                            meta = json.loads(info.read_text())
-                            print(
-                                f"[DEBUG] Zarr metadata keys: {list(meta.keys())}",
-                                flush=True,
-                            )
-                            frames = int(
-                                meta.get("attributes", {}).get("total_frames", -1)
-                            )
-                        except Exception as e:
-                            print(
-                                f"[ERR] Failed to parse zarr metadata {info}: {e}",
-                                flush=True,
-                            )
-                            frames = -1
-                    else:
-                        print(f"[ERR] Zarr metadata not found: {info}", flush=True)
-                        frames = -1
-
-                    try:
-                        out_bucket, out_prefix = _parse_s3_uri(
-                            processed_remote_prefix, default_bucket=bucket
+                    if result is None:
+                        raise RuntimeError("conversion failed (see log above)")
+                    publish = dict(
+                        processed_remote_prefix=processed_remote_prefix,
+                        bucket=bucket,
+                        boto3_client=boto3_client,
+                    )
+                    if isinstance(result, list):
+                        # Gen 2 split into demos: one published episode each,
+                        # under <prefix>/<recording hash>/ - the parent link
+                        # run_conversion uses to find a recording's demo rows.
+                        publish["processed_remote_prefix"] = (
+                            f"{processed_remote_prefix}/"
+                            f"{timestamp_ms_to_episode_hash(int(stem))}"
                         )
-                        zarr_filename = Path(zarr_path).stem
-                        ds_s3_prefix = (
-                            f"{out_prefix.rstrip('/')}/{zarr_filename}.zarr".strip("/")
-                        )
-                        mp4_s3_key = None
-                        if mp4_path:
-                            mp4_s3_key = (
-                                f"{out_prefix.rstrip('/')}/{Path(mp4_path).name}".strip(
-                                    "/"
-                                )
-                            )
-                        _cleanup_existing_processed_outputs(
-                            bucket=out_bucket,
-                            zarr_prefix=ds_s3_prefix,
-                            mp4_key=mp4_s3_key,
-                        )
-                        upload_dir_to_s3(
-                            str(zarr_store_path), out_bucket, prefix=ds_s3_prefix
-                        )
-                        shutil.rmtree(str(zarr_store_path), ignore_errors=True)
-                        print(
-                            f"[CLEANUP] Removed local zarr store: {zarr_store_path}",
-                            flush=True,
-                        )
-                        if mp4_path:
-                            boto3_client.upload_file(
-                                str(mp4_path), out_bucket, mp4_s3_key
-                            )
-                            Path(mp4_path).unlink(missing_ok=True)
-                            print(
-                                f"[CLEANUP] Removed local mp4: {mp4_path}", flush=True
-                            )
-                    except Exception as e:
-                        print(
-                            f"[ERR] Failed to upload {zarr_store_path} to S3: {e}",
-                            flush=True,
-                        )
-                        return "", "", -2
-
-                    return str(zarr_path), str(mp4_path), frames
+                        return [
+                            {
+                                "episode_hash": demo["episode_hash"],
+                                **dict(
+                                    zip(
+                                        ("ds_path", "mp4_path", "frames"),
+                                        AriaRay._publish_episode(
+                                            demo["zarr_path"],
+                                            demo["mp4_path"],
+                                            **publish,
+                                        ),
+                                    )
+                                ),
+                            }
+                            for demo in result
+                        ]
+                    zarr_path, mp4_path = result
+                    return AriaRay._publish_episode(zarr_path, mp4_path, **publish)
 
                 except Exception as e:
                     err_msg = f"[FAIL] {stem}: {e}\n{traceback.format_exc()}"
@@ -437,6 +437,71 @@ class AriaRay(EmbodimentRay):
                     return "", "", -1
                 finally:
                     shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    @staticmethod
+    def _publish_episode(
+        zarr_path, mp4_path, *, processed_remote_prefix, bucket, boto3_client
+    ) -> tuple[str, str, int]:
+        """Upload one converted episode (zarr + optional mp4) under
+        processed_remote_prefix and return (ds_path, mp4_path, total_frames);
+        total_frames is -1 if unreadable and -2 if the upload failed."""
+        zarr_path = Path(zarr_path)
+        frames = -1
+        zarr_store_path = zarr_path
+        info = zarr_store_path / "zarr.json"
+        print(f"[DEBUG] Zarr metadata path: {info}", flush=True)
+        if info.exists():
+            try:
+                meta = json.loads(info.read_text())
+                print(
+                    f"[DEBUG] Zarr metadata keys: {list(meta.keys())}",
+                    flush=True,
+                )
+                frames = int(meta.get("attributes", {}).get("total_frames", -1))
+            except Exception as e:
+                print(
+                    f"[ERR] Failed to parse zarr metadata {info}: {e}",
+                    flush=True,
+                )
+                frames = -1
+        else:
+            print(f"[ERR] Zarr metadata not found: {info}", flush=True)
+            frames = -1
+
+        try:
+            out_bucket, out_prefix = _parse_s3_uri(
+                processed_remote_prefix, default_bucket=bucket
+            )
+            zarr_filename = Path(zarr_path).stem
+            ds_s3_prefix = f"{out_prefix.rstrip('/')}/{zarr_filename}.zarr".strip("/")
+            mp4_s3_key = None
+            if mp4_path:
+                mp4_s3_key = f"{out_prefix.rstrip('/')}/{Path(mp4_path).name}".strip(
+                    "/"
+                )
+            _cleanup_existing_processed_outputs(
+                bucket=out_bucket,
+                zarr_prefix=ds_s3_prefix,
+                mp4_key=mp4_s3_key,
+            )
+            upload_dir_to_s3(str(zarr_store_path), out_bucket, prefix=ds_s3_prefix)
+            shutil.rmtree(str(zarr_store_path), ignore_errors=True)
+            print(
+                f"[CLEANUP] Removed local zarr store: {zarr_store_path}",
+                flush=True,
+            )
+            if mp4_path:
+                boto3_client.upload_file(str(mp4_path), out_bucket, mp4_s3_key)
+                Path(mp4_path).unlink(missing_ok=True)
+                print(f"[CLEANUP] Removed local mp4: {mp4_path}", flush=True)
+        except Exception as e:
+            print(
+                f"[ERR] Failed to upload {zarr_store_path} to S3: {e}",
+                flush=True,
+            )
+            return "", "", -2
+
+        return str(zarr_path), str(mp4_path), frames
 
     @staticmethod
     def zarr_job(
@@ -451,7 +516,11 @@ class AriaRay(EmbodimentRay):
         chunk_timesteps: int = 100,
         image_compressed: bool = False,
         save_mp4: bool = True,
-    ) -> None:
+        convert_mano: bool = True,
+        gen2_source: str = "mps",
+        split_demos: bool = True,
+        gen2_filter: dict | None = None,
+    ):
         args = SimpleNamespace(
             raw_path=raw_path,
             output_dir=output_dir,
@@ -463,6 +532,10 @@ class AriaRay(EmbodimentRay):
             chunk_timesteps=chunk_timesteps,
             image_compressed=image_compressed,
             save_mp4=save_mp4,
+            convert_mano=convert_mano,
+            gen2_source=gen2_source,
+            split_demos=split_demos,
+            gen2_filter=gen2_filter,
             debug=False,
         )
 

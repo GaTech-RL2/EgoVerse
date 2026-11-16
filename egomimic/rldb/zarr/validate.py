@@ -22,6 +22,7 @@ import simplejpeg
 import zarr
 
 from egomimic.rldb.zarr.episode_rules import (
+    HUMAN_EMBODIMENT_PREFIXES,
     QUAT_UNIT_TOL,
     SCHEMA_VERSION,
     arm_sides,
@@ -180,7 +181,7 @@ def _check_arrays(
 
     embodiment = str(embodiment or "")
     required = ["images.front_1"]
-    if embodiment.lower().startswith("human_"):
+    if embodiment.lower().startswith(HUMAN_EMBODIMENT_PREFIXES):
         required.append("obs_head_pose")  # training re-expresses poses relative to it
     required += [f"{side}.obs_ee_pose" for side in arm_sides(embodiment)]
     for key in required:

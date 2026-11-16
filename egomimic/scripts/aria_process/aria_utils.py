@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import Dict, List
@@ -15,7 +16,15 @@ from projectaria_tools.core.mps.utils import (
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
 from projectaria_tools.core.stream_id import StreamId
 
+from egomimic.scripts.aria_process.gen2_filter import (
+    Gen2FilterConfig,
+    Gen2FrameSignals,
+    classify_frames,
+    demo_segments,
+)
 from egomimic.utils.pose_utils import T_rot_orientation
+
+logger = logging.getLogger(__name__)
 
 ROTATION_MATRIX = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 T_ROT_CAM = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
@@ -286,18 +295,242 @@ def convert_aria_keypoints_to_mano(
     return torch.cat(outs, dim=0).reshape(-1, 63).numpy().astype(np.float64)
 
 
+def is_aria_gen2(provider) -> bool:
+    return provider.get_device_version() == calibration.DeviceVersion.Gen2
+
+
 def undistort_to_linear(
-    provider, stream_ids, raw_image, camera_label="rgb", height=480, width=640
+    provider,
+    stream_ids,
+    raw_image,
+    camera_label="rgb",
+    height=480,
+    width=640,
+    rotate=True,
 ):
+    """Undistort to a pinhole image of size (height, width).
+
+    Gen 1 mounts the RGB sensor sideways, so the linear image is rendered
+    portrait and rotated upright (rotate=True). Gen 2 RGB is already upright
+    landscape (rotate=False). Both produce the same focal length, so
+    ARIA_INTRINSICS holds for either generation.
+    """
     camera_label = provider.get_label_from_stream_id(stream_ids[camera_label])
     calib = provider.get_device_calibration().get_camera_calib(camera_label)
     focal_length = 133.25430222 * (height / 240)
+    # get_linear_camera_calibration takes (width, height).
+    linear_w, linear_h = (height, width) if rotate else (width, height)
     warped = calibration.get_linear_camera_calibration(
-        height, width, focal_length, camera_label, calib.get_transform_device_camera()
+        linear_w,
+        linear_h,
+        focal_length,
+        camera_label,
+        calib.get_transform_device_camera(),
     )
     warped_image = calibration.distort_by_calibration(raw_image, warped, calib)
-    warped_rot = np.rot90(warped_image, k=3)
-    return warped_rot
+    if rotate:
+        warped_image = np.rot90(warped_image, k=3)
+    return warped_image
+
+
+# Gen 2 on-device machine perception (MP) streams.
+GEN2_HAND_STREAM = StreamId("371-1")
+GEN2_VIO_STREAM = StreamId("371-2")
+GEN2_VIO_HIGH_FREQ_STREAM = StreamId("371-3")
+GEN2_EYE_GAZE_STREAM = StreamId("373-1")
+
+
+def _tracking_ts_ns(items) -> np.ndarray:
+    return np.array([int(x.tracking_timestamp.total_seconds() * 1e9) for x in items])
+
+
+def load_gen2_on_device_gaze(provider) -> list:
+    """On-device eye gaze (empty list if the VRS has no gaze stream)."""
+    if str(GEN2_EYE_GAZE_STREAM) not in {str(s) for s in provider.get_all_streams()}:
+        return []
+    return [
+        provider.get_eye_gaze_data_by_index(GEN2_EYE_GAZE_STREAM, i)
+        for i in range(provider.get_num_data(GEN2_EYE_GAZE_STREAM))
+    ]
+
+
+def select_gen2_eye_gaze(mps_gaze: list, on_device_gaze: list) -> tuple[list, str]:
+    """Eye gaze to write for a Gen 2 recording converted from MPS.
+
+    projectaria-tools < 2.3 cannot parse the Gen 2 MPS general_eye_gaze.csv
+    (new columns) and returns no samples; fall back to on-device gaze then.
+    Returns (gaze results, source name).
+    """
+    if len(mps_gaze):
+        return mps_gaze, "mps"
+    if len(on_device_gaze):
+        return on_device_gaze, "on_device"
+    return [], "none"
+
+
+def load_gen2_on_device_mp(provider, rgb_timestamps_ns):
+    """Read Gen 2 on-device hand tracking, VIO and eye gaze from the VRS.
+
+    Returns objects shaped like the Gen 1 MPS outputs so the existing get_*
+    helpers can consume them unchanged:
+      hand_tracking_results : list[mps.hand_tracking.HandTrackingResult]
+      world_device_T        : list[mps.ClosedLoopTrajectoryPose], one per RGB
+                              frame from the high-frequency VIO pose ("world"
+                              is the VIO odometry frame)
+      eye_gaze_results      : list[mps.EyeGaze] (empty if no gaze stream)
+      vio_ok                : (T,) bool, VIO status VALID with GOOD quality
+    """
+    time_domain = TimeDomain.DEVICE_TIME
+    closest = TimeQueryOptions.CLOSEST
+    streams = {str(s) for s in provider.get_all_streams()}
+    for sid in (GEN2_HAND_STREAM, GEN2_VIO_STREAM, GEN2_VIO_HIGH_FREQ_STREAM):
+        if str(sid) not in streams:
+            raise ValueError(f"Gen 2 VRS is missing on-device stream {sid}")
+
+    hand_tracking_results = [
+        provider.get_hand_pose_data_by_index(GEN2_HAND_STREAM, i)
+        for i in range(provider.get_num_data(GEN2_HAND_STREAM))
+    ]
+    world_device_T = []
+    vio_ok = np.ones(len(rgb_timestamps_ns), bool)
+    for t, ts in enumerate(rgb_timestamps_ns):
+        vio = provider.get_vio_data_by_time_ns(
+            GEN2_VIO_STREAM, ts, time_domain, closest
+        )
+        hf = provider.get_vio_high_freq_data_by_time_ns(
+            GEN2_VIO_HIGH_FREQ_STREAM, ts, time_domain, closest
+        )
+        vio_ok[t] = vio.status.name == "VALID" and vio.pose_quality.name == "GOOD"
+        pose = mps.ClosedLoopTrajectoryPose()
+        pose.tracking_timestamp = hf.tracking_timestamp
+        pose.transform_world_device = hf.transform_odometry_device
+        world_device_T.append(pose)
+    return (
+        hand_tracking_results,
+        world_device_T,
+        load_gen2_on_device_gaze(provider),
+        vio_ok,
+    )
+
+
+def gen2_utc_timestamps_ns(provider, rgb_timestamps_ns) -> np.ndarray:
+    """UTC (epoch ns) of each RGB frame, from the VRS's device-to-UTC sync.
+
+    Falls back to the recording's start_time_epoch_sec plus the device-time
+    offset (second resolution) when the VRS has no UTC sync.
+    """
+    rgb_timestamps_ns = np.asarray(rgb_timestamps_ns, dtype=np.int64)
+    rgb_id = StreamId("214-1")
+    if provider.supports_time_domain(rgb_id, TimeDomain.UTC):
+        device = np.asarray(
+            provider.get_timestamps_ns(rgb_id, TimeDomain.DEVICE_TIME), dtype=np.int64
+        )
+        utc = np.asarray(
+            provider.get_timestamps_ns(rgb_id, TimeDomain.UTC), dtype=np.int64
+        )
+        # Integer median: float64 would lose ~100 ns at epoch-ns magnitudes.
+        diffs = np.sort(utc - device)
+        offset = int(diffs[len(diffs) // 2])
+    else:
+        logger.warning("VRS has no UTC sync; demo times are second-resolution")
+        offset = provider.get_metadata().start_time_epoch_sec * 1_000_000_000 - int(
+            provider.get_timestamps_ns(rgb_id, TimeDomain.DEVICE_TIME)[0]
+        )
+    return rgb_timestamps_ns + offset
+
+
+def _nearest_index(sorted_ts: np.ndarray, query_ts: np.ndarray) -> np.ndarray:
+    """Index of the nearest element of sorted_ts for every query (-1 if empty)."""
+    if not len(sorted_ts):
+        return np.full(len(query_ts), -1)
+    hi = np.clip(np.searchsorted(sorted_ts, query_ts), 1, len(sorted_ts) - 1)
+    lo = hi - 1
+    if len(sorted_ts) == 1:
+        return np.zeros(len(query_ts), dtype=int)
+    return np.where(
+        np.abs(sorted_ts[lo] - query_ts) <= np.abs(sorted_ts[hi] - query_ts), lo, hi
+    )
+
+
+def gen2_frame_signals(
+    rgb_timestamps_ns,
+    world_device_T,
+    hand_tracking_results,
+    gaze_results,
+    tracking_ok,
+    cfg: Gen2FilterConfig,
+) -> Gen2FrameSignals:
+    """Per-RGB-frame inputs for gen2_filter.classify_frames.
+
+    world_device_T : sorted poses with .tracking_timestamp and
+                     .transform_world_device (MPS closed loop or on-device VIO)
+    hand_tracking_results : sorted HandTrackingResult list (MPS or on-device)
+    gaze_results : sorted on-device EyeGaze list; combined_gaze_valid is the
+                   glasses-on-face signal used to find resets
+    tracking_ok : (T,) bool, extra per-frame validity from the source
+    """
+    rgb = np.asarray(rgb_timestamps_ns, dtype=np.int64)
+    T = len(rgb)
+    pose_ts = _tracking_ts_ns(world_device_T)
+    hand_ts = _tracking_ts_ns(hand_tracking_results)
+    gaze_ts = _tracking_ts_ns(gaze_results)
+    pose_i = _nearest_index(pose_ts, rgb)
+    hand_i = _nearest_index(hand_ts, rgb)
+    gaze_i = _nearest_index(gaze_ts, rgb)
+
+    def close(ts, idx, max_dt_s):
+        if not len(ts):
+            return np.zeros(T, bool)
+        return np.abs(ts[idx] - rgb) <= max_dt_s * 1e9
+
+    tracking_ok = (
+        np.array(tracking_ok, bool)
+        & close(pose_ts, pose_i, cfg.max_pose_dt_s)
+        & close(hand_ts, hand_i, cfg.max_hand_dt_s)
+    )
+    gaze_available = bool(len(gaze_ts))
+    if gaze_available:
+        gaze_ok = close(gaze_ts, gaze_i, cfg.max_gaze_dt_s)
+        gaze_valid = gaze_ok & np.array(
+            [bool(gaze_results[i].combined_gaze_valid) for i in gaze_i]
+        )
+    else:
+        logger.warning(
+            "No on-device eye gaze: resets (glasses off the face) cannot be "
+            "detected, so demos will not be split at resets"
+        )
+        gaze_valid = np.ones(T, bool)
+
+    forward = np.zeros((T, 3))
+    hand_min_dist = np.full(T, np.nan)
+    left_tracked = np.zeros(T, bool)
+    right_tracked = np.zeros(T, bool)
+    for t in range(T):
+        if pose_i[t] >= 0:
+            T_wd = world_device_T[pose_i[t]].transform_world_device.to_matrix()
+            forward[t] = T_wd.reshape(-1, 4, 4)[0][:3, 2]
+        if hand_i[t] >= 0:
+            hands = hand_tracking_results[hand_i[t]]
+            left, right = hands.left_hand, hands.right_hand
+            left_tracked[t] = left is not None and not left.confidence < 0
+            right_tracked[t] = right is not None and not right.confidence < 0
+            dists = [
+                np.linalg.norm(np.stack(h.landmark_positions_device), axis=1).min()
+                for h in (left, right)
+                if h is not None
+            ]
+            if dists:
+                hand_min_dist[t] = min(dists)
+    return Gen2FrameSignals(
+        t_ns=rgb,
+        tracking_ok=tracking_ok,
+        gaze_valid=gaze_valid,
+        device_forward_world=forward,
+        hand_min_dist_m=hand_min_dist,
+        left_tracked=left_tracked,
+        right_tracked=right_tracked,
+        gaze_available=gaze_available,
+    )
 
 
 def slam_to_rgb(provider, height=480, width=640):
@@ -442,6 +675,46 @@ def mano_keypoints_to_cartesian(
     return out
 
 
+def aria_keypoints_to_canonical_layout(aria_kp_t63: np.ndarray) -> np.ndarray:
+    """Reorder raw Aria 21-keypoints into canonical MANO joint order (no fit).
+
+    The thumb CMC has no Aria landmark and is NaN; rows holding the 1e9
+    missing-data sentinel become NaN. Enough for mano_keypoints_to_cartesian,
+    which only reads the wrist and the four finger MCPs.
+    """
+    kp = np.asarray(aria_kp_t63, dtype=np.float64).reshape(-1, 21, 3)
+    canonical_from_otaheri = {o: c for c, o in enumerate(OTAHERI_TO_CANONICAL)}
+    out = np.full_like(kp, np.nan)
+    for aria_idx, otaheri_idx in ARIA_TO_OTAHERI.items():
+        out[:, canonical_from_otaheri[otaheri_idx]] = kp[:, aria_idx]
+    out[np.any(np.abs(kp) >= _ARIA_INVALID_SENTINEL, axis=(1, 2))] = np.nan
+    return out.reshape(-1, 63)
+
+
+def gen2_ee_frame_ok(hand_keypoints_pose: np.ndarray, arm: str) -> np.ndarray:
+    """(T,) bool: the keypoint-based EE frame exists for every hand the arm
+    uses. hand_keypoints_pose is AriaVRSExtractor.get_hand_keypoints' output."""
+    sides = {"left": ("left",), "right": ("right",), "both": ("left", "right")}[arm]
+    ok = np.ones(len(hand_keypoints_pose), bool)
+    for k, side in enumerate(sides):
+        raw_kp = hand_keypoints_pose[..., k * 70 + 7 : k * 70 + 70]
+        ee = mano_keypoints_to_cartesian(
+            aria_keypoints_to_canonical_layout(raw_kp), is_rhand=side == "right"
+        )
+        ok &= np.all(ee < 1e8, axis=1)
+    return ok
+
+
+def _set_gen2_hand(episode_feats: dict, side: str, raw_kp: np.ndarray) -> None:
+    """Gen 2 without a MANO fit: keep raw keypoints under obs_aria_keypoints
+    (obs_keypoints is reserved for canonical MANO) and build obs_ee_pose with
+    the same frame convention as the MANO path."""
+    episode_feats[f"{side}.obs_aria_keypoints"] = raw_kp
+    episode_feats[f"{side}.obs_ee_pose"] = mano_keypoints_to_cartesian(
+        aria_keypoints_to_canonical_layout(raw_kp), is_rhand=side == "right"
+    )
+
+
 def downsample_hwc_uint8_in_chunks(
     images: np.ndarray,  # (T,H,W,3) uint8
     out_hw=(240, 320),
@@ -500,6 +773,10 @@ class AriaVRSExtractor:
         mano_lr: float = 0.02,
         mano_beta_reg: float = 0.01,
         mano_chunk_size: int = 512,
+        gen2_source: str = "mps",
+        split_demos: bool = True,
+        intra_demo_drop: bool = True,
+        gen2_filter: Gen2FilterConfig | None = None,
     ):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
@@ -522,6 +799,24 @@ class AriaVRSExtractor:
         mano_chunk_size :
             MANO fit knobs; defaults match the validated tutorial settings
             (400 Adam iters @ lr 0.02, beta_reg 0.01, cuda>mps>cpu).
+        gen2_source : str
+            Gen 2 only: "mps" reads mps_<stem>_vrs/ like Gen 1, "on_device"
+            reads the VRS's own hand tracking / VIO / eye gaze, "auto" uses
+            MPS when its hand_tracking and slam outputs exist.
+        split_demos : bool
+            Gen 2 only: mark demos (stretches between resets / the opening
+            calibration) so the writer can save one episode per demo. Adds
+            "_demo_index" (per kept frame) and "_gen2_demos" (per-demo info)
+            to the returned dict. Gen 2 recordings also get "_attrs" (zarr
+            attrs: device, sources, keypoint layout); callers must pop every
+            "_" key before writing.
+        intra_demo_drop : bool
+            Gen 2 only: drop short in-demo errors (tracking gaps, head sweeps,
+            hand at headset, untracked hands) as Gen 1 does. If False, keep
+            those frames, write NaN where a pose is missing, and add a
+            per-frame "obs_frame_valid" flag.
+        gen2_filter : Gen2FilterConfig, optional
+            Gen 2 filter thresholds (defaults if None); see gen2_filter.py.
         Returns
         -------
         episode_feats : dict
@@ -552,26 +847,8 @@ class AriaVRSExtractor:
         eye_gaze_path = os.path.join(
             mps_sample_path, "eye_gaze", "general_eye_gaze.csv"
         )
-        use_eye_gaze = os.path.exists(eye_gaze_path)
-        # TODO: in the future might write to sql on the failure due to mps processing failures
-        if not os.path.exists(hand_tracking_results_path):
-            raise FileNotFoundError(
-                f"Hand tracking results file not found at {hand_tracking_results_path}"
-            )
-        if not os.path.exists(closed_loop_pose_path):
-            raise FileNotFoundError(
-                f"Closed loop pose file not found at {closed_loop_pose_path}"
-            )
-
         vrs_reader = data_provider.create_vrs_data_provider(str(episode_path))
-
-        hand_tracking_results = mps.hand_tracking.read_hand_tracking_results(
-            hand_tracking_results_path
-        )
-
-        closed_loop_traj = mps.read_closed_loop_trajectory(closed_loop_pose_path)
-        if use_eye_gaze:
-            eye_gaze_results = mps.read_eyegaze(eye_gaze_path)
+        gen2 = is_aria_gen2(vrs_reader)
 
         time_domain: TimeDomain = TimeDomain.DEVICE_TIME
 
@@ -585,9 +862,109 @@ class AriaVRSExtractor:
             for key, stream_id in stream_ids.items()
         }
 
-        rgb_to_device_T = slam_to_rgb(
-            vrs_reader, height=height, width=width
-        )  # aria sophus SE3
+        if gen2_source not in ("auto", "mps", "on_device"):
+            raise ValueError(f"Unknown gen2_source: {gen2_source!r}")
+        has_mps = os.path.exists(hand_tracking_results_path) and os.path.exists(
+            closed_loop_pose_path
+        )
+        gen2_masks = None
+        gen2_filter = gen2_filter or Gen2FilterConfig()
+        if not gen2:
+            split_demos, intra_demo_drop = False, True
+        if not intra_demo_drop and convert_mano:
+            raise ValueError("intra_demo_drop=False needs convert_mano=False")
+        rgb_ts = np.asarray(stream_timestamps_ns["rgb"])
+        if gen2 and (
+            gen2_source == "on_device" or (gen2_source == "auto" and not has_mps)
+        ):
+            # Gen 2 also records hand tracking, VIO and eye gaze on device.
+            logger.info("Aria Gen 2 recording: using on-device MP streams")
+            gen2_source_used, gaze_source = "on_device", "on_device"
+            (
+                hand_tracking_results,
+                closed_loop_traj,
+                eye_gaze_results,
+                vio_ok,
+            ) = load_gen2_on_device_mp(vrs_reader, rgb_ts)
+            use_eye_gaze = len(eye_gaze_results) > 0
+            gen2_signals = gen2_frame_signals(
+                rgb_ts,
+                closed_loop_traj,
+                hand_tracking_results,
+                eye_gaze_results,
+                vio_ok,
+                gen2_filter,
+            )
+            gen2_masks = classify_frames(gen2_signals, arm, gen2_filter)
+            if not vio_ok.any():
+                raise ValueError(
+                    "Gen 2 recording has no frames with valid on-device VIO "
+                    "(headset never started tracking)"
+                )
+        else:
+            use_eye_gaze = os.path.exists(eye_gaze_path)
+            # TODO: in the future might write to sql on the failure due to mps processing failures
+            if not os.path.exists(hand_tracking_results_path):
+                raise FileNotFoundError(
+                    f"Hand tracking results file not found at {hand_tracking_results_path}"
+                )
+            if not os.path.exists(closed_loop_pose_path):
+                raise FileNotFoundError(
+                    f"Closed loop pose file not found at {closed_loop_pose_path}"
+                )
+
+            hand_tracking_results = mps.hand_tracking.read_hand_tracking_results(
+                hand_tracking_results_path
+            )
+
+            closed_loop_traj = mps.read_closed_loop_trajectory(closed_loop_pose_path)
+            if use_eye_gaze:
+                eye_gaze_results = mps.read_eyegaze(eye_gaze_path)
+            if gen2:
+                # MPS poses/hands, but the reset rule still needs the
+                # on-device gaze validity (glasses on the face or not).
+                logger.info("Aria Gen 2 recording: using MPS outputs")
+                gen2_source_used, gaze_source = "mps", "mps"
+                on_device_gaze = load_gen2_on_device_gaze(vrs_reader)
+                gen2_signals = gen2_frame_signals(
+                    rgb_ts,
+                    closed_loop_traj,
+                    hand_tracking_results,
+                    on_device_gaze,
+                    np.ones(len(rgb_ts), bool),
+                    gen2_filter,
+                )
+                gen2_masks = classify_frames(gen2_signals, arm, gen2_filter)
+                if use_eye_gaze:
+                    eye_gaze_results, gaze_source = select_gen2_eye_gaze(
+                        eye_gaze_results, on_device_gaze
+                    )
+                    if gaze_source != "mps":
+                        logger.warning(
+                            "MPS eye gaze unreadable; using %s eye gaze", gaze_source
+                        )
+                if use_eye_gaze and not len(eye_gaze_results):
+                    logger.warning(
+                        "No eye gaze parsed from %s; skipping", eye_gaze_path
+                    )
+                    use_eye_gaze = False
+        if gen2_masks is not None:
+            fps = len(rgb_ts) / max((rgb_ts[-1] - rgb_ts[0]) / 1e9, 1e-6)
+            for name in ("boundary", "error"):
+                n = int(gen2_masks[name].sum())
+                logger.info("Gen 2 filter: %s %d frames (%.1f s)", name, n, n / fps)
+
+        if gen2:
+            # T_device_rgb straight from the RGB calibration; slam_to_rgb
+            # assumes the device frame is the left SLAM camera (Gen 1).
+            rgb_calib = vrs_reader.get_device_calibration().get_camera_calib(
+                vrs_reader.get_label_from_stream_id(stream_ids["rgb"])
+            )
+            rgb_to_device_T = rgb_calib.get_transform_device_camera().inverse()
+        else:
+            rgb_to_device_T = slam_to_rgb(
+                vrs_reader, height=height, width=width
+            )  # aria sophus SE3
 
         hand_cartesian_pose = AriaVRSExtractor.get_ee_pose(
             world_device_T=closed_loop_traj,
@@ -607,6 +984,7 @@ class AriaVRSExtractor:
             world_device_T=closed_loop_traj,
             device_rgb_T=rgb_to_device_T.inverse(),
             stream_timestamps_ns=stream_timestamps_ns,
+            rgb_rotated=not gen2,
         )
         if use_eye_gaze:
             eye_gaze = AriaVRSExtractor.get_eye_gaze(
@@ -620,6 +998,7 @@ class AriaVRSExtractor:
             stream_timestamps_ns=stream_timestamps_ns,
             height=height,
             width=width,
+            rotate=not gen2,
         )
 
         if low_res:
@@ -629,29 +1008,70 @@ class AriaVRSExtractor:
 
         rgb_timestamps_ns = np.array(stream_timestamps_ns["rgb"])
         print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(hand_cartesian_pose)}")
-        mask_data = [images, rgb_timestamps_ns]
-        filter_mask_data = [hand_cartesian_pose, hand_keypoints_pose, head_pose]
+        data = {
+            "images": images,
+            "rgb_ts": rgb_timestamps_ns,
+            "cart": hand_cartesian_pose,
+            "kp": hand_keypoints_pose,
+            "head": head_pose,
+        }
         if use_eye_gaze:
-            mask_data.append(eye_gaze)
-
-        (
-            output_filter_mask_data,
-            output_mask_data,
-        ) = AriaVRSExtractor.clean_data(
-            filter_mask_data=filter_mask_data,
-            mask_data=mask_data,
+            data["gaze"] = eye_gaze
+        filter_keys = ["cart", "kp", "head"]
+        demos = []
+        if gen2_masks is not None:
+            outside = gen2_masks["boundary"]
+            # A frame is an in-demo error if a gen2 rule or a missing pose
+            # (untracked hand, no head pose) flags it.
+            missing = np.zeros(len(rgb_timestamps_ns), bool)
+            for k in ("cart", "kp", "head"):
+                missing |= np.any(data[k] >= 1e8, axis=1)
+            errors = gen2_masks["error"] | missing
+            data["error"] = errors[:, None].astype(float)
+            if split_demos:
+                demo_index, demos, removed = demo_segments(
+                    rgb_timestamps_ns,
+                    outside,
+                    gen2_filter.min_demo_s,
+                    usable=~errors,
+                )
+                outside = demo_index < 0
+                data["demo"] = demo_index[:, None]
+                data["utc"] = gen2_utc_timestamps_ns(vrs_reader, rgb_timestamps_ns)[
+                    :, None
+                ]
+                t_s = (rgb_timestamps_ns - rgb_timestamps_ns[0]) / 1e9
+                for s, e in removed:
+                    logger.info(
+                        "Gen 2 demos: dropped %.1f-%.1f s, < %.1f s usable",
+                        t_s[s],
+                        t_s[e - 1],
+                        gen2_filter.min_demo_s,
+                    )
+            if intra_demo_drop:
+                drop = outside | (data["error"][:, 0] > 0)
+            else:
+                drop = outside
+                filter_keys = []
+            data["drop"] = np.where(drop, 1e9, 0.0)[:, None]
+            filter_keys.append("drop")
+        mask_keys = [k for k in data if k not in filter_keys]
+        kept_filter, kept_mask = AriaVRSExtractor.clean_data(
+            filter_mask_data=[data[k] for k in filter_keys],
+            mask_data=[data[k] for k in mask_keys],
         )
-
-        hand_cartesian_pose = output_filter_mask_data[0]
-        hand_keypoints_pose = output_filter_mask_data[1]
-        head_pose = output_filter_mask_data[2]
-
+        data = dict(zip(filter_keys, kept_filter)) | dict(zip(mask_keys, kept_mask))
+        hand_cartesian_pose = data["cart"]
+        hand_keypoints_pose = data["kp"]
+        head_pose = data["head"]
+        images = data["images"]
+        rgb_timestamps_ns = data["rgb_ts"]
         if use_eye_gaze:
-            eye_gaze = output_mask_data[2]
-
-        images = output_mask_data[0]
-        rgb_timestamps_ns = output_mask_data[1]
-
+            eye_gaze = data["gaze"]
+        if gen2_masks is not None and not intra_demo_drop:
+            for arr in (hand_cartesian_pose, hand_keypoints_pose, head_pose):
+                arr[arr >= 1e8] = np.nan
+            episode_feats["obs_frame_valid"] = data["error"][:, 0] == 0
         print(f"[DEBUG] LENGTH AFTER CLEANING: {len(hand_cartesian_pose)}")
 
         use_left_hand = arm == "left" or arm == "both"
@@ -683,6 +1103,8 @@ class AriaVRSExtractor:
                 episode_feats["left.obs_ee_pose"] = mano_keypoints_to_cartesian(
                     left_mano_kp, is_rhand=False
                 )
+            elif gen2:
+                _set_gen2_hand(episode_feats, "left", left_raw_kp)
             else:
                 episode_feats["left.obs_keypoints"] = left_raw_kp
 
@@ -710,6 +1132,8 @@ class AriaVRSExtractor:
                 episode_feats["right.obs_ee_pose"] = mano_keypoints_to_cartesian(
                     right_mano_kp, is_rhand=True
                 )
+            elif gen2:
+                _set_gen2_hand(episode_feats, "right", right_raw_kp)
             else:
                 episode_feats["right.obs_keypoints"] = right_raw_kp
         episode_feats["images.front_1"] = images
@@ -717,6 +1141,74 @@ class AriaVRSExtractor:
         if use_eye_gaze:
             episode_feats["obs_eye_gaze"] = eye_gaze
         episode_feats["obs_rgb_timestamps_ns"] = rgb_timestamps_ns
+        if gen2 and intra_demo_drop and not convert_mano:
+            # The keypoint-based EE frame can still fail on a degenerate hand.
+            bad = ~gen2_ee_frame_ok(hand_keypoints_pose, arm)
+            if bad.any():
+                logger.info("Gen 2: dropping %d frames with no EE frame", bad.sum())
+                for key in list(episode_feats):
+                    episode_feats[key] = episode_feats[key][~bad]
+                rgb_timestamps_ns = rgb_timestamps_ns[~bad]
+                if split_demos:
+                    data["demo"] = data["demo"][~bad]
+                    data["utc"] = data["utc"][~bad]
+        if not len(rgb_timestamps_ns):
+            raise ValueError(f"No usable frames left in {episode_path} after filtering")
+        if split_demos:
+            demo_kept = data["demo"][:, 0]
+            utc_kept = data["utc"][:, 0]
+            all_ts = np.array(stream_timestamps_ns["rgb"])
+            episode_feats["_demo_index"] = demo_kept
+            episode_feats["_gen2_demos"] = [
+                {
+                    "demo_index": d,
+                    "start_ns": int(all_ts[s]),
+                    "end_ns": int(all_ts[e - 1]),
+                    "start_s": float((all_ts[s] - all_ts[0]) / 1e9),
+                    "end_s": float((all_ts[e - 1] - all_ts[0]) / 1e9),
+                    "span_frames": int(e - s),
+                    "error_frames": int(errors[s:e].sum()),
+                    "kept_frames": int((demo_kept == d).sum()),
+                    # UTC of the demo's first kept frame (None: nothing kept)
+                    "first_kept_utc_ns": (
+                        int(utc_kept[demo_kept == d][0])
+                        if (demo_kept == d).any()
+                        else None
+                    ),
+                }
+                for d, (s, e) in enumerate(demos)
+            ]
+            for info in episode_feats["_gen2_demos"]:
+                logger.info(
+                    "Gen 2 demo %d: %.1f-%.1f s, %d frames, %d in-demo error "
+                    "frames, %d kept",
+                    info["demo_index"],
+                    info["start_s"],
+                    info["end_s"],
+                    info["span_frames"],
+                    info["error_frames"],
+                    info["kept_frames"],
+                )
+
+        if gen2:
+            if not intra_demo_drop:
+                for key, value in episode_feats.items():
+                    if key.endswith(("ee_pose", "wrist_pose")):
+                        value[value >= 1e8] = np.nan
+            episode_feats["_attrs"] = {
+                "device": "aria_gen2",
+                "mp_source": gen2_source_used,
+                "eye_gaze_source": gaze_source if use_eye_gaze else "none",
+                "keypoint_layout": (
+                    "mano_canonical" if convert_mano else "aria21_obs_aria_keypoints"
+                ),
+                "ee_pose_source": (
+                    "mano_fit" if convert_mano else "aria_keypoints_canonical_frame"
+                ),
+                "reset_detection": (
+                    "eye_gaze" if gen2_signals.gaze_available else "unavailable"
+                ),
+            }
 
         return episode_feats
 
@@ -753,6 +1245,7 @@ class AriaVRSExtractor:
         stream_timestamps_ns: dict,
         height=480,
         width=640,
+        rotate=True,
     ):
         """
         Get RGB Image from VRS
@@ -791,6 +1284,7 @@ class AriaVRSExtractor:
                 raw_image=sample_frame[0].to_numpy_array(),
                 height=height,
                 width=width,
+                rotate=rotate,
             )
 
             images.append(image_t)
@@ -918,6 +1412,7 @@ class AriaVRSExtractor:
         world_device_T,
         device_rgb_T,
         stream_timestamps_ns: dict,
+        rgb_rotated=True,
     ):
         """
         Get Head Pose from VRS
@@ -936,8 +1431,10 @@ class AriaVRSExtractor:
         head_pose = []
         frame_length = len(stream_timestamps_ns["rgb"])
 
+        # Gen 1 images are rotated upright (see undistort_to_linear); Gen 2 are not.
         rgb_to_rgbprime_rot = np.eye(4)
-        rgb_to_rgbprime_rot[:3, :3] = ROTATION_MATRIX.T
+        if rgb_rotated:
+            rgb_to_rgbprime_rot[:3, :3] = ROTATION_MATRIX.T
         rgb_to_rgbprime_T = sp.SE3.from_matrix(rgb_to_rgbprime_rot)
         rgbprime_to_rgb_T = rgb_to_rgbprime_T.inverse()
         for t in range(frame_length):

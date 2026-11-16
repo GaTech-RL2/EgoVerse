@@ -174,13 +174,30 @@ def episode_hash_to_table_row(engine, episode_hash):
 
     if rec is None:
         return None
+    return _record_to_table_row(rec)
 
+
+def _record_to_table_row(rec) -> TableRow:
     row_data = {
         field: rec[field]
         for field in TableRow.__dataclass_fields__.keys()
         if field in rec
     }
     return TableRow(**row_data)
+
+
+def episodes_with_path_prefix_or_error_marker(
+    engine, path_prefix: str, error_marker: str
+) -> list[TableRow]:
+    """Rows whose zarr_processed_path starts with path_prefix or whose
+    zarr_processing_error contains error_marker."""
+    t = _episodes_table(engine)
+    stmt = select(t).where(
+        t.c.zarr_processed_path.startswith(path_prefix, autoescape=True)
+        | t.c.zarr_processing_error.contains(error_marker, autoescape=True)
+    )
+    with engine.connect() as conn:
+        return [_record_to_table_row(rec) for rec in conn.execute(stmt).mappings()]
 
 
 def delete_episodes(engine, episode_hashes: list[int]):

@@ -31,6 +31,7 @@ VENDORS: dict[str, Vendor] = {
     "aria": Vendor("human_bimanual", 3, ("front_1",), True),
     "mecka": Vendor("human_bimanual", 1, ("front_1",), True),
     "scale": Vendor("human_bimanual", 1, ("front_1",), True),
+    "aria_gen2": Vendor("aria_gen2_bimanual", 3, ("front_1",), True),
 }
 
 

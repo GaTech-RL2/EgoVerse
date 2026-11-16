@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import dataclasses
 import os
 import time
 from pathlib import Path
@@ -19,6 +20,7 @@ from egomimic.rldb.zarr.required_metadata import (
     check_writer_metadata,
     required_metadata_from_args,
 )
+from egomimic.scripts.aria_process.gen2_filter import Gen2FilterConfig
 from egomimic.scripts.ray_helper import AriaRay, EmbodimentRay, EvaRay
 from egomimic.utils.aws.aws_data_utils import (
     get_cloudpathlib_s3_client,
@@ -26,12 +28,15 @@ from egomimic.utils.aws.aws_data_utils import (
 )
 from egomimic.utils.aws.aws_sql import (
     TableRow,
+    add_episode,
     create_default_engine,
     episode_hash_to_table_row,
     episode_table_to_df,
+    episodes_with_path_prefix_or_error_marker,
     timestamp_ms_to_episode_hash,
     update_episode,
 )
+from egomimic.utils.type_utils import str2bool
 
 PROCESSED_LOCAL_ROOT = Path(
     os.environ.get("PROCESSED_LOCAL_ROOT", "/home/ubuntu/processed")
@@ -167,6 +172,153 @@ def infer_task_description_from_row(row: TableRow) -> str:
     return row.task_description or ""
 
 
+def _demo_error_marker(recording_hash: str) -> str:
+    return f"[recording {recording_hash}]"
+
+
+def _demo_rows_of(
+    engine, recording: TableRow, processed_remote_prefix: str
+) -> dict[str, TableRow]:
+    """Demo rows of a split recording, found by the parent link: demo zarrs
+    live under <prefix>/<recording hash>/ and failed demos carry
+    "[recording <hash>]" in zarr_processing_error. Never the recording row."""
+    rows = episodes_with_path_prefix_or_error_marker(
+        engine,
+        f"{processed_remote_prefix}/{recording.episode_hash}/",
+        _demo_error_marker(recording.episode_hash),
+    )
+    return {r.episode_hash: r for r in rows if r.episode_hash != recording.episode_hash}
+
+
+def _retire(engine, rows, recording_hash: str) -> None:
+    for row in rows:
+        if not row.is_deleted:
+            row.is_deleted = True
+            update_episode(engine, row)
+            print(
+                f"[RETIRE] demo {row.episode_hash} from an earlier conversion of "
+                f"{recording_hash}",
+                flush=True,
+            )
+
+
+def _retire_demos_after_single_episode(
+    engine, recording: TableRow, processed_remote_prefix: str, *, split_demos, frames
+) -> None:
+    """A Gen 2 recording converted as ONE episode replaces the demo rows of an
+    earlier split. Only then: in split mode a single (ds, mp4, frames) result
+    is a failure code, and a failed redo must leave the existing demos live."""
+    if split_demos or frames is None or int(frames) <= 0:
+        return
+    _retire(
+        engine,
+        _demo_rows_of(engine, recording, processed_remote_prefix).values(),
+        recording.episode_hash,
+    )
+
+
+def _record_demo_rows(
+    engine, parent: TableRow, demos: list[dict], processed_remote_prefix: str
+) -> None:
+    """One SQL row per demo of a split Gen 2 recording.
+
+    - Each demo row links to its recording through its zarr path
+      (<prefix>/<recording hash>/<demo hash>.zarr; see _demo_rows_of).
+    - New demo rows copy the recording row's labels and is_eval; existing ones
+      are updated in place (conversion fields only, so is_eval / eval_*
+      survive a redo). Deleted demo rows are never resurrected and count as
+      done.
+    - Demo rows from an earlier conversion that are not in this one are
+      retired (is_deleted), so a redo cannot duplicate training data.
+    - A hash held by a row that is not one of this recording's demos is a
+      clash: that demo is not written and the recording is flagged.
+    - Last, the recording row is retired from conversion via
+      zarr_processing_error ("split into N demos ..."; the schema has no
+      status column), which launch() already skips. Until then every step is
+      idempotent, so a failure part-way is simply redone on the next run.
+    """
+    prefix = f"{processed_remote_prefix}/{parent.episode_hash}"
+    siblings = _demo_rows_of(engine, parent, processed_remote_prefix)
+    done, live, clashes = [], [], []
+    for demo in demos:
+        frames = int(demo["frames"])
+        existing = episode_hash_to_table_row(engine, demo["episode_hash"])
+        if existing is not None and existing.episode_hash not in siblings:
+            clashes.append(demo["episode_hash"])
+            print(
+                f"[ERR] demo hash {demo['episode_hash']} of {parent.episode_hash} "
+                "belongs to another episode; not written",
+                flush=True,
+            )
+            continue
+        if existing is not None and existing.is_deleted:
+            print(f"[SKIP] demo {existing.episode_hash} was deleted", flush=True)
+            done.append(existing.episode_hash)
+            continue
+        row = existing or TableRow(
+            episode_hash=demo["episode_hash"],
+            operator=parent.operator,
+            lab=parent.lab,
+            task=parent.task,
+            embodiment=parent.embodiment,
+            rig_name=parent.rig_name,
+            task_description=parent.task_description,
+            scene=parent.scene,
+            objects=parent.objects,
+            is_eval=parent.is_eval,
+        )
+        row.num_frames = frames
+        if frames > 0:
+            row.zarr_processed_path = f"{prefix}/{Path(demo['ds_path']).name}"
+            row.zarr_mp4_path = (
+                f"{prefix}/{Path(demo['mp4_path']).name}"
+                if demo["mp4_path"] and demo["mp4_path"] != "None"
+                else ""
+            )
+            row.zarr_processing_error = ""
+            done.append(row.episode_hash)
+            live.append(row.episode_hash)
+        else:
+            row.zarr_processed_path = ""
+            row.zarr_mp4_path = ""
+            reason = "Upload Failed" if frames == -2 else "Zero Frames"
+            row.zarr_processing_error = (
+                f"{reason} {_demo_error_marker(parent.episode_hash)}"
+            )
+        if existing is None:
+            add_episode(engine, row)
+        else:
+            update_episode(engine, row)
+        print(
+            f"[OK] demo {row.episode_hash} of {parent.episode_hash}: "
+            f"num_frames={frames}, zarr_processed_path={row.zarr_processed_path}",
+            flush=True,
+        )
+
+    current = {d["episode_hash"] for d in demos}
+    _retire(
+        engine,
+        [r for h, r in siblings.items() if h not in current],
+        parent.episode_hash,
+    )
+
+    parent.num_frames = sum(
+        int(d["frames"]) for d in demos if d["episode_hash"] in live
+    )
+    parent.zarr_processed_path = ""
+    parent.zarr_mp4_path = ""
+    if clashes:
+        parent.zarr_processing_error = f"Demo hash clash: {', '.join(clashes)}"
+    elif len(done) == len(demos):
+        parent.zarr_processing_error = (
+            f"split into {len(demos)} demos: {demos[0]['episode_hash']} .. "
+            f"{demos[-1]['episode_hash']}"
+        )
+    else:
+        parent.zarr_processing_error = ""
+    update_episode(engine, parent)
+
+
 def _is_oom_exception(e: Exception) -> bool:
     if isinstance(e, OutOfMemoryError):
         return True
@@ -224,12 +376,19 @@ def launch(
     dry: bool = False,
     skip_if_done: bool = False,
     episode_hashes: list[str] | None = None,
+    gen2_source: str = "mps",
+    split_demos: bool = True,
+    gen2_filter: dict | None = None,
 ):
     embodiment_ray = None
-    if embodiment == "aria":
+    if embodiment in ("aria", "aria_gen2"):
         embodiment_ray = AriaRay(
             PROCESSED_LOCAL_ROOT,
             LOG_ROOT,
+            device=embodiment,
+            gen2_source=gen2_source,
+            split_demos=split_demos,
+            gen2_filter=gen2_filter,
         )
     elif embodiment == "eva":
         embodiment_ray = EvaRay(
@@ -366,9 +525,28 @@ def launch(
             continue
 
         try:
-            ds_path, mp4_path, frames = ray.get(
-                ref
-            )  # can throw (OOM, index error, etc.)
+            result = ray.get(ref)  # can throw (OOM, index error, etc.)
+            if isinstance(result, list):
+                try:
+                    _record_demo_rows(
+                        engine, row, result, embodiment_ray.processed_remote_prefix
+                    )
+                except Exception as e:  # idempotent: redone on the next run
+                    print(
+                        f"[ERR] demo rows for {episode_key} incomplete, will be "
+                        f"redone: {type(e).__name__}: {e}",
+                        flush=True,
+                    )
+                continue
+            ds_path, mp4_path, frames = result
+            if embodiment == "aria_gen2":
+                _retire_demos_after_single_episode(
+                    engine,
+                    row,
+                    embodiment_ray.processed_remote_prefix,
+                    split_demos=embodiment_ray.split_demos,
+                    frames=frames,
+                )
 
             row.num_frames = int(frames) if frames is not None else -1
             if row.num_frames > 0:
@@ -478,7 +656,9 @@ def launch(
 # --- CLI ---------------------------------------------------------------------
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--embodiment", type=str, required=True, choices=["aria", "eva"])
+    p.add_argument(
+        "--embodiment", type=str, required=True, choices=["aria", "aria_gen2", "eva"]
+    )
     p.add_argument("--dry-run", action="store_true")
     p.add_argument(
         "--skip-if-done",
@@ -496,6 +676,26 @@ def main():
     )
     p.add_argument("--debug", action="store_true")
     p.add_argument(
+        "--gen2-source",
+        choices=["mps", "on_device"],
+        default="mps",
+        help="aria_gen2 only: convert from MPS outputs (mps_*_vrs/ next to the "
+        "VRS, required) or from the VRS's on-device hand tracking / VIO / gaze.",
+    )
+    p.add_argument(
+        "--split-demos",
+        type=str2bool,
+        default=True,
+        help="aria_gen2 only: one episode (zarr + SQL row) per demo, split at "
+        "resets and the opening calibration.",
+    )
+    p.add_argument(
+        "--gen2-filter-config",
+        type=Path,
+        default=None,
+        help="aria_gen2 only: YAML of Gen2FilterConfig overrides.",
+    )
+    p.add_argument(
         "--working-dir",
         default="/home/ubuntu/EgoVerse",
         help="Repo checkout shipped to ray workers as runtime_env working_dir "
@@ -511,6 +711,13 @@ def main():
         "keypoint conversion).",
     )
     args = p.parse_args()
+    # Validate the Gen 2 filter config here: an error inside a Ray task would
+    # be recorded as a failed conversion and never retried.
+    gen2_filter = (
+        dataclasses.asdict(Gen2FilterConfig.from_yaml(args.gen2_filter_config))
+        if args.gen2_filter_config
+        else None
+    )
 
     env_vars = {}
     load_env()
@@ -547,6 +754,9 @@ def main():
         dry=args.dry_run,
         skip_if_done=args.skip_if_done,
         episode_hashes=args.episode_hashes,
+        gen2_source=args.gen2_source,
+        split_demos=args.split_demos,
+        gen2_filter=gen2_filter,
     )
 
 

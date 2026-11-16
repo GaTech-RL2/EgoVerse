@@ -35,7 +35,12 @@ import re
 import uuid
 from dataclasses import dataclass
 
-from egomimic.rldb.zarr.episode_rules import EMBODIMENTS, QUAT_UNIT_TOL, arm_sides
+from egomimic.rldb.zarr.episode_rules import (
+    EMBODIMENTS,
+    HUMAN_EMBODIMENT_PREFIXES,
+    QUAT_UNIT_TOL,
+    arm_sides,
+)
 from egomimic.rldb.zarr.required_metadata import (
     REQUIRED_METADATA_FIELDS,
     WAIVABLE_FIELDS,
@@ -356,7 +361,7 @@ LABEL_TOPICS = frozenset({"/task", "/subtask-annotation"})
 
 
 def profile_for(embodiment: str) -> Profile:
-    return HUMAN if embodiment.startswith("human_") else ROBOT
+    return HUMAN if embodiment.startswith(HUMAN_EMBODIMENT_PREFIXES) else ROBOT
 
 
 def topics_for(embodiment: str) -> tuple[Topic, ...]:

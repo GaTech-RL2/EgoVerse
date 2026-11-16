@@ -1,0 +1,42 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Aria Gen 2 human data (cartesian), mirroring human.yaml but as its own
+# embodiment (ARIA_GEN2_BIMANUAL, id 9) with its own normalization stats:
+# Gen 2 episodes have no MANO fit and a different head-camera frame, so they
+# are kept apart from HUMAN_* (Gen 1). SQL rows carry embodiment 'aria_gen2'
+# (resolves to ARIA_GEN2_BIMANUAL) and zarr attrs aria_gen2_bimanual.
+# obs_keypoints (MANO) is absent - raw Aria keypoints are in
+# obs_aria_keypoints - so only the cartesian keymap applies.
+train_datasets:
+  aria_gen2_bimanual: &a2
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_6d
+        # 18 -> 20-D ee_pose proprio (zero grip slots at 9/19) so the pi0.5
+        # State: prompt bins align with the robot 20-D layout on every config.
+        pad_proprio_gripper: true
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'aria_gen2' and row['zarr_processed_path'] != ''"
+    mode: total
+
+valid_datasets:
+  aria_gen2_bimanual: *a2
+
+train_dataloader_params:
+  aria_gen2_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  aria_gen2_bimanual:
+    batch_size: 32
+    num_workers: 10

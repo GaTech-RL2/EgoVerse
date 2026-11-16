@@ -1,0 +1,20 @@
+# Aria Gen 2 (separate ARIA_GEN2_BIMANUAL embodiment): pi0.5_bc_aria.yaml with the
+# dataset key aria_gen2_bimanual; pair with data=aria_gen2.
+defaults:
+  - pi0.5_base
+  - _self_
+
+robomimic_model:
+  camera_transforms: {}
+  ac_keys:
+    aria_gen2_bimanual: "actions_cartesian"
+  domains: ["aria_gen2_bimanual"]
+
+  action_converters:
+    rules:
+      ARIA_GEN2_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter
+

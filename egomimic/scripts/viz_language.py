@@ -32,6 +32,9 @@ _EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
     "human_bimanual": Human,
     "human_right_arm": Human,
     "human_left_arm": Human,
+    "aria_gen2_bimanual": Human,
+    "aria_gen2_right_arm": Human,
+    "aria_gen2_left_arm": Human,
 }
 
 

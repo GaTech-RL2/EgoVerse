@@ -33,7 +33,13 @@ EMBODIMENTS = (
     "eva_right_arm",
     "eva_left_arm",
     "eva_bimanual",
+    "aria_gen2_right_arm",
+    "aria_gen2_left_arm",
+    "aria_gen2_bimanual",
 )
+# Human demonstration embodiments (training re-expresses poses relative to the
+# head, so these need obs_head_pose).
+HUMAN_EMBODIMENT_PREFIXES = ("human_", "aria_gen2_")
 
 
 def embodiment_error(embodiment: Any) -> str | None:

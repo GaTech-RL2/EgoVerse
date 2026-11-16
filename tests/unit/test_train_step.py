@@ -31,7 +31,7 @@ from egomimic.algo.hpt import HPT
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 
-VENDOR_NAMES = ["eva", "aria", "mecka", "scale"]
+VENDOR_NAMES = ["eva", "aria", "mecka", "scale", "aria_gen2"]
 STEPS = 2
 
 
@@ -73,9 +73,9 @@ def test_hpt_train_step(tmp_path, monkeypatch, vendor):
             "observations.images.right_wrist_img",
             "observations.images.left_wrist_img",
         }
-    assert (
-        expected <= seen
-    ), f"{vendor}/hpt missing {expected - seen}; saw {sorted(seen)}"
+    assert expected <= seen, (
+        f"{vendor}/hpt missing {expected - seen}; saw {sorted(seen)}"
+    )
 
 
 @pytest.mark.parametrize("vendor", VENDOR_NAMES)
@@ -125,6 +125,6 @@ def test_pi_train_step(tmp_path, monkeypatch, vendor):
             "observations.images.left_wrist_img",
             "observations.images.right_wrist_img",
         }
-    assert (
-        expected <= seen
-    ), f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
+    assert expected <= seen, (
+        f"{vendor}/pi missing {expected - seen}; saw {sorted(seen)}"
+    )

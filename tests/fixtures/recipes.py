@@ -9,6 +9,7 @@ LOCAL_RESOLVER = "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver"
 HPT_CAMERAS = {
     "eva_bimanual": ("front_img_1", "right_wrist_img", "left_wrist_img"),
     "human_bimanual": ("front_img_1",),
+    "aria_gen2_bimanual": ("front_img_1",),
 }
 
 
@@ -44,6 +45,12 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ("scale", "hpt"): Recipe(
         "train_zarr_cartesian", "scale", "hpt_bc_flow_scale", "human_bimanual"
     ),
+    ("aria_gen2", "hpt"): Recipe(
+        "train_zarr_cartesian",
+        "aria_gen2",
+        "hpt_bc_flow_aria_gen2",
+        "aria_gen2_bimanual",
+    ),
     # Pi trains on the same per-vendor data configs as HPT: datasets emit one
     # camera naming and the Pi wrapper renames onto openpi's slots. The plain
     # vendor configs load no language field (that is a data choice the *_lang
@@ -53,6 +60,7 @@ RECIPES: dict[tuple[str, str], Recipe] = {
     ("aria", "pi"): _pi("aria", "pi0.5_bc_aria", "human_bimanual"),
     ("mecka", "pi"): _pi("mecka", "pi0.5_bc_mecka", "human_bimanual"),
     ("scale", "pi"): _pi("scale", "pi0.5_bc_scale", "human_bimanual"),
+    ("aria_gen2", "pi"): _pi("aria_gen2", "pi0.5_bc_aria_gen2", "aria_gen2_bimanual"),
 }
 
 
