@@ -18,7 +18,10 @@ A local root uses `fcntl.flock` on the same file instead: the kernel drops it wh
 holder exits, so it needs no expiry. It only excludes writers on one machine.
 
 The lock is re-entrant within a process: nested `writer_lock(root)` calls (the committer's
-run, then commit_batch, then append) share one hold.
+run, then commit_batch, then append) share one hold. That is per process, not per thread:
+a second thread calling `writer_lock(root)` while another holds it joins the hold instead
+of waiting. The writers here are single-threaded; key `_held` by thread before adding one
+that is not.
 """
 
 from __future__ import annotations
@@ -62,7 +65,10 @@ def _env_seconds(name: str, default: float) -> float:
 
 
 def _key(root) -> str:
-    return str(root).rstrip("/")
+    """One spelling per root: a local root is its real path, so `./lance` and
+    `/abs/lance` share a hold instead of the second flock blocking its own process."""
+    key = str(root).rstrip("/")
+    return key if _is_remote(key) else os.path.realpath(key)
 
 
 def lock_uri(root) -> str:
