@@ -1,6 +1,7 @@
 import logging
 import shutil
 import subprocess
+from collections.abc import Iterable
 from pathlib import Path
 
 import cv2
@@ -9,32 +10,25 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def save_preview_mp4(
-    images_tchw: np.ndarray,
+def write_mp4_frames(
+    frames_hwc: Iterable[np.ndarray],
     output_path: Path,
+    width: int,
+    height: int,
     fps: int,
     *,
-    half_res: bool = True,
     crf: int = 23,
     preset: str = "fast",
 ) -> None:
+    """Stream uint8 HxWx3 RGB frames into an H.264 mp4 via ffmpeg.
+
+    Frames whose size differs from (height, width) are resized; width and
+    height must be even.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    arr = np.asarray(images_tchw)
-    if arr.ndim != 4 or arr.shape[0] == 0:
-        return
-
-    T, C, H, W = arr.shape
-
-    if half_res:
-        outW, outH = W // 2, H // 2
-    else:
-        outW, outH = W, H
-    outW -= outW % 2
-    outH -= outH % 2
-    if outW <= 0 or outH <= 0:
-        raise ValueError(f"Invalid output size: {outW}x{outH}")
+    if width <= 0 or height <= 0 or width % 2 or height % 2:
+        raise ValueError(f"Invalid output size: {width}x{height}")
 
     ffmpeg = shutil.which("ffmpeg")
     if ffmpeg is None:
@@ -50,7 +44,7 @@ def save_preview_mp4(
         "-pix_fmt",
         "rgb24",
         "-s",
-        f"{outW}x{outH}",
+        f"{width}x{height}",
         "-r",
         str(fps),
         "-i",
@@ -73,25 +67,14 @@ def save_preview_mp4(
         assert proc.stdin is not None
         assert proc.stderr is not None
 
-        for t in range(T):
-            frame_chw = arr[t]
-
-            if frame_chw.dtype != np.uint8:
-                frame_chw = frame_chw.astype(np.uint8, copy=False)
-
-            if frame_chw.shape[0] == 1:
-                frame_chw = np.repeat(frame_chw, 3, axis=0)
-            elif frame_chw.shape[0] == 4:
-                frame_chw = frame_chw[:3]
-
-            frame_hwc = np.transpose(frame_chw, (1, 2, 0))  # view
-
-            if frame_hwc.shape[0] != outH or frame_hwc.shape[1] != outW:
+        for frame_hwc in frames_hwc:
+            if frame_hwc.dtype != np.uint8:
+                frame_hwc = frame_hwc.astype(np.uint8, copy=False)
+            if frame_hwc.shape[0] != height or frame_hwc.shape[1] != width:
                 frame_hwc = cv2.resize(
-                    frame_hwc, (outW, outH), interpolation=cv2.INTER_AREA
+                    frame_hwc, (width, height), interpolation=cv2.INTER_AREA
                 )
-
-            proc.stdin.write(frame_hwc.tobytes())
+            proc.stdin.write(np.ascontiguousarray(frame_hwc).tobytes())
 
         proc.stdin.close()
 
@@ -107,6 +90,43 @@ def save_preview_mp4(
                 proc.kill()
         except Exception:
             pass
+
+
+def save_preview_mp4(
+    images_tchw: np.ndarray,
+    output_path: Path,
+    fps: int,
+    *,
+    half_res: bool = True,
+    crf: int = 23,
+    preset: str = "fast",
+) -> None:
+    arr = np.asarray(images_tchw)
+    if arr.ndim != 4 or arr.shape[0] == 0:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        return
+
+    T, C, H, W = arr.shape
+
+    if half_res:
+        outW, outH = W // 2, H // 2
+    else:
+        outW, outH = W, H
+    outW -= outW % 2
+    outH -= outH % 2
+    if outW <= 0 or outH <= 0:
+        raise ValueError(f"Invalid output size: {outW}x{outH}")
+
+    def frames():
+        for t in range(T):
+            frame_chw = arr[t]
+            if frame_chw.shape[0] == 1:
+                frame_chw = np.repeat(frame_chw, 3, axis=0)
+            elif frame_chw.shape[0] == 4:
+                frame_chw = frame_chw[:3]
+            yield np.transpose(frame_chw, (1, 2, 0))  # view
+
+    write_mp4_frames(frames(), output_path, outW, outH, fps, crf=crf, preset=preset)
 
 
 def resize_video_thwc(video: np.ndarray) -> np.ndarray:
