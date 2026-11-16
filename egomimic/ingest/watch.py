@@ -367,9 +367,10 @@ def _follow(store: Store, ref: Ref, status: dict, summary) -> None:
     dst = status["handed_off"]
     files = commit.list_files(dst)
     if REJECTED in files:
-        note = json.loads(commit.get_bytes(commit.join(dst, REJECTED)))
-        _set(store, ref, status, state="commit_rejected", problems=note["errors"])
-        summary.commit_rejected.append(_key(ref))
+        if status.get("state") != "commit_rejected":
+            note = json.loads(commit.get_bytes(commit.join(dst, REJECTED)))
+            _set(store, ref, status, state="commit_rejected", problems=note["errors"])
+            summary.commit_rejected.append(_key(ref))
     elif not files:  # the committer removes what it committed
         _set(store, ref, status, state="committed")
         summary.committed.append(_key(ref))
@@ -450,7 +451,11 @@ def run_pass(
                     store, ref, status, raw_root, lance_staging, summary, lance_root
                 )
         for ref, status in sorted(store.statuses().items()):
-            if status.get("state") == "approved":
+            # A refused delivery is still followed: lance_commit --replace by hand
+            # commits it later, and the folder then empties.
+            if status.get("state") in ("approved", "commit_rejected") and status.get(
+                "handed_off"
+            ):
                 _follow(store, ref, status, summary)
     return summary
 
