@@ -87,8 +87,11 @@ def create_app(
         return cache["accounts"]
 
     def password_mark(account: dict) -> str:
-        """Changes with the password, so a reset ends the account's sessions."""
-        return account["password"]["scrypt"]["hash"][:16]
+        """Changes with the password, so a reset ends the account's sessions. Keyed by
+        the app secret: the session cookie is signed but readable, so it must not carry
+        part of the password hash itself."""
+        digest = account["password"]["scrypt"]["hash"].encode()
+        return hmac.new(secret_key.encode(), digest, "sha256").hexdigest()[:32]
 
     @app.before_request
     def who():

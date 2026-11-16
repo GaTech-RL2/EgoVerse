@@ -35,9 +35,12 @@ def run_job(
     fingerprint: str,
     lance_root,
     work: Path,
+    labs: list[str] | None = None,
     **settings,
 ) -> dict:
-    """Convert `ref` as it was at `fingerprint` and record the outcome; returns it."""
+    """Convert `ref` as it was at `fingerprint` and record the outcome; returns it.
+    `labs` are the vendor's registered labs, as the watcher passes them; None reads the
+    registry (pipeline/vendors.json), which the jobs' own key need not reach."""
     work = Path(work) / ref.vendor / ref.delivery_id / fingerprint[:16]
     local, staged = work / "delivery", work / "staged"
     try:
@@ -58,7 +61,8 @@ def run_job(
                     # `lab` comes from the vendor's own file. Decided before anything is
                     # stored: the diff would show the vendor another lab's recording.
                     lab = read_pin(p.staged)["lab"]
-                    if lab not in store.vendor_labs(ref.vendor):
+                    allowed = store.vendor_labs(ref.vendor) if labs is None else labs
+                    if lab not in allowed:
                         p = Prepared(
                             "rejected",
                             problems=[
@@ -119,6 +123,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--vendor", required=True)
     ap.add_argument("--delivery", required=True)
     ap.add_argument("--fingerprint", required=True)
+    ap.add_argument(
+        "--labs",
+        type=lambda s: [x for x in s.split(",") if x],
+        help="the vendor's registered labs, comma-separated (the watcher passes them)",
+    )
     ap.add_argument("--lance", required=True, help="Lance root, read for the diff")
     ap.add_argument("--work", type=Path, required=True, help="local scratch")
     add_store_args(ap)
@@ -130,6 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         args.fingerprint,
         args.lance,
         args.work,
+        labs=args.labs,
         **convert_settings(args),
     )
     print(json.dumps({k: outcome.get(k) for k in ("status", "stage", "error")}))

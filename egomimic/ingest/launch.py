@@ -19,8 +19,9 @@ RUNNING, ENDED = "running", "ended"
 
 class Launcher(ABC):
     @abstractmethod
-    def submit(self, ref: Ref, fingerprint: str) -> str:
-        """Start converting `ref` at `fingerprint`; returns a job id."""
+    def submit(self, ref: Ref, fingerprint: str, labs: list[str] | None = None) -> str:
+        """Start converting `ref` at `fingerprint`; returns a job id. `labs` (the
+        vendor's registered labs) is passed to the job, so it never reads the registry."""
 
     @abstractmethod
     def state(self, job_id: str) -> str:
@@ -34,11 +35,17 @@ class LocalLauncher(Launcher):
         self.store, self.lance_root, self.work = store, lance_root, work
         self.settings = settings
 
-    def submit(self, ref: Ref, fingerprint: str) -> str:
+    def submit(self, ref: Ref, fingerprint: str, labs: list[str] | None = None) -> str:
         from egomimic.ingest.convert_job import run_job
 
         run_job(
-            self.store, ref, fingerprint, self.lance_root, self.work, **self.settings
+            self.store,
+            ref,
+            fingerprint,
+            self.lance_root,
+            self.work,
+            labs=labs,
+            **self.settings,
         )
         return f"local-{uuid.uuid4().hex[:12]}"
 
@@ -59,14 +66,17 @@ class BatchLauncher(Launcher):
         self.batch, self.queue, self.definition = client, queue, definition
         self.job_args = list(job_args)
 
-    def command(self, ref: Ref, fingerprint: str) -> list[str]:
+    def command(
+        self, ref: Ref, fingerprint: str, labs: list[str] | None = None
+    ) -> list[str]:
         return [
             "python", "-m", "egomimic.ingest.convert_job",
             "--vendor", ref.vendor, "--delivery", ref.delivery_id,
             "--fingerprint", fingerprint, *self.job_args,
+            *(["--labs", ",".join(labs)] if labs is not None else []),
         ]  # fmt: skip
 
-    def submit(self, ref: Ref, fingerprint: str) -> str:
+    def submit(self, ref: Ref, fingerprint: str, labs: list[str] | None = None) -> str:
         # Batch job names: letters, digits, hyphens and underscores, up to 128.
         name = f"convert-{ref.vendor}-{ref.delivery_id}"[:110]
         name = "".join(c if c.isalnum() or c in "-_" else "-" for c in name)
@@ -74,7 +84,7 @@ class BatchLauncher(Launcher):
             jobName=f"{name}-{fingerprint[:12]}",
             jobQueue=self.queue,
             jobDefinition=self.definition,
-            containerOverrides={"command": self.command(ref, fingerprint)},
+            containerOverrides={"command": self.command(ref, fingerprint, labs)},
             tags={"vendor": ref.vendor},
         )
         return r["jobId"]

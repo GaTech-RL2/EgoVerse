@@ -39,11 +39,13 @@ At ~$0.35-0.5/h for a Spot g6/g5.2xlarge that is roughly $1.4-2k of compute per
    | Key | Write | Read |
    |---|---|---|
    | Box | `ingest`, `egoverse-ingest-jobs`, every `ingest-*`, `rldb` | the same |
-   | Jobs (`--env-secret`) | `egoverse-ingest-jobs` | `ingest`, every `ingest-*`, `rldb` |
+   | Jobs (`--env-secret`) | `egoverse-ingest-jobs` | every `ingest-*`, `rldb` |
 
-   A compromised job can't reach accounts, staff decisions or Lance. It can still read every
-   vendor's deliveries and tamper with other jobs' stages and outcomes; staff still have to
-   approve a stage, its digest has to match, and hand-off re-checks the vendor's labs.
+   The watcher passes each job its vendor's labs (`--labs`), so a job never reads the
+   `ingest` bucket (accounts, staff decisions, statuses). A compromised job still can't
+   write Lance. It can read every vendor's deliveries and tamper with other jobs' stages
+   and outcomes; staff still have to approve a stage, the hand-off checks every file
+   against the approved pin, and it re-checks the vendor's labs.
 3. **Batch**: the Spot vCPU quota for G instances (`L-3819A6DF`, "All G and VT Spot
    Instance Requests") must cover `--max-vcpus`. In the lab account (us-east-2) it was 0
    on 2026-10-21, as was the On-Demand one (`L-DB2E81BA`), so request it first:

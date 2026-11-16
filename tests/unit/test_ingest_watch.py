@@ -237,7 +237,7 @@ class Held(Launcher):
     def __init__(self, env, ended=False):
         self.env, self.jobs, self.ended = env, {}, ended
 
-    def submit(self, ref, fingerprint):
+    def submit(self, ref, fingerprint, labs=None):
         self.jobs[f"j{len(self.jobs)}"] = (ref, fingerprint)
         return f"j{len(self.jobs) - 1}"
 
@@ -360,12 +360,13 @@ def test_batch_launcher_submits_the_job_command():
 
     fake = FakeBatch()
     launcher = BatchLauncher("q", "d", ["--lance", "s3://rldb/lance"], client=fake)
-    assert launcher.submit(Ref("acme", "ep.1"), "f" * 64) == "abc"
+    assert launcher.submit(Ref("acme", "ep.1"), "f" * 64, labs=["rl2", "x"]) == "abc"
     (job,) = fake.submitted
     assert job["jobQueue"] == "q" and job["jobName"] == "convert-acme-ep-1-ffffffffffff"
     cmd = job["containerOverrides"]["command"]
     assert cmd[:3] == ["python", "-m", "egomimic.ingest.convert_job"]
     assert cmd[cmd.index("--fingerprint") + 1] == "f" * 64
+    assert cmd[cmd.index("--labs") + 1] == "rl2,x"  # the job never reads vendors.json
     assert launcher.state("abc") == RUNNING
 
 
@@ -599,3 +600,13 @@ def test_a_short_raw_copy_keeps_the_delivery(env, monkeypatch):
     assert env.run().failed == ["acme/episode_0001"]
     assert "raw copy" in env.status(A)["error"]
     assert env.store.get_delivery(A) is not None
+
+
+def test_a_job_checks_the_lab_against_the_labs_it_was_given(env):
+    ep = write_mcap_episode(env.tmp / "src")
+    env.store.upload_delivery(A, ep, {})
+    fp = env.store.get_delivery(A).fingerprint
+    out = run_job(
+        env.store, A, fp, str(env.root), env.tmp / "w", labs=["x"], **SETTINGS
+    )
+    assert out["status"] == "rejected" and "not registered" in out["problems"][0]

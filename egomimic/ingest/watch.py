@@ -429,7 +429,9 @@ def run_pass(
                 summary.queued.append(_key(ref))
                 continue
             try:
-                job = launcher.submit(ref, d.fingerprint)
+                job = launcher.submit(
+                    ref, d.fingerprint, labs=store.vendor_labs(ref.vendor)
+                )
             except Exception as e:
                 statuses[ref] = _set(
                     store, ref, status, state="queued", fingerprint="",

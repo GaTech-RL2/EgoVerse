@@ -362,3 +362,11 @@ def test_nested_values_read_as_text():
     assert fmt({"head": 0.9918055, "left": 0.4176}) == "head: 0.992, left: 0.418"
     assert fmt({"new": {"head": 0.5}}) == "new: head: 0.5"
     assert fmt([]) == "none" and fmt(None) == "none" and fmt(True) == "true"
+
+
+def test_the_session_cookie_carries_no_part_of_the_password_hash(app, store):
+    c, _ = login(app, "simar")
+    with c.session_transaction() as sess:
+        mark = sess["mark"]
+    digest = store.get_accounts()["simar"]["password"]["scrypt"]["hash"]
+    assert len(mark) == 32 and mark not in digest and digest[:16] not in mark
