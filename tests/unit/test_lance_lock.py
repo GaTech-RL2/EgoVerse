@@ -83,6 +83,13 @@ def test_the_lock_is_reentrant_within_a_process(tmp_path):
         pass
 
 
+def test_two_spellings_of_one_local_root_share_the_hold(tmp_path):
+    other = f"{tmp_path}/../{tmp_path.name}/"
+    with writer_lock(tmp_path, wait=0) as outer:
+        with writer_lock(other, wait=0) as inner:  # would block on its own flock
+            assert inner is outer
+
+
 # --- R2 backend, on a fake client ------------------------------------------------------
 
 
