@@ -35,6 +35,16 @@ def test_unknown_exit_code_does_not_become_retryable():
     assert not init_interruption_proven(state,EVENTS)
 
 
+def test_pod_deleted_during_binding_is_retryable_only_before_execution():
+    events='BindingError: pod example is being deleted, cannot be assigned to a host'
+    assert init_interruption_proven(startup_failure(),events)
+    assert not init_interruption_proven(startup_failure(),'BindingError: unknown scheduling failure')
+    assert not init_interruption_proven(startup_failure(),events+'\nStarted container osmo-main')
+    for key in ['start_time','input_download_start_time']:
+        state=deepcopy(startup_failure());state['groups'][0]['tasks'][0][key]='2026-11-16T23:02:00'
+        assert not init_interruption_proven(state,events)
+
+
 def test_new_quota_restores_high_priority_then_low_fallback():
     policy={'current_priority':'HIGH','fallback_priority':'LOW','updated_utc':'2026-11-14T01:40:00+00:00'}
     assert submission_priority({},policy)=='HIGH'

@@ -648,6 +648,24 @@ function embodiedStudy(){
     table('efe-published-examples',['Published example','Native result','Interface evidence','Use in this study'],(a.examples||[]).map(e=>{const link=node('a',e.task);link.href=e.source_url;link.target='_blank';link.rel='noopener';return[link,e.outcome,e.finding,e.admission];}));
   }
   const diagnosis=study.trace_diagnosis;
+  const scaled=study.pear_scaled;
+  if(scaled?.plan?.arms&&el('efe-pear-scaled-summary')){
+    const p=scaled.plan,s=scaled.status||{},e=p.environments||{},r=p.recipe||{};
+    el('efe-pear-scaled-summary').textContent=`Two PEAR++ arms are being prepared alongside LeAct. ${e.task_variants??0} EFE training variants across ${Object.keys(e.suite_counts||{}).length} candidate suites; ${p.admitted_tasks??0} tasks admitted to RL so far. Shared runtime: ${(s.phase||p.status).replaceAll('_',' ')}. No PEAR++ robot-success result is available yet.`;
+    table('efe-pear-scaled-arms',['Run','Initialization / nearest baseline','Updates','What it tests'],p.arms.map(a=>{
+      const baseline=node('a',a.warmstart_step?`MoE warmstart · step ${a.warmstart_step}`:'Base Qwen3.8-27B · evaluation pending');
+      baseline.href=a.warmstart_step?'#efe-coverage-expansion-results':'https://huggingface.co/Qwen/Qwen3.8-27B';
+      return [a.model+' + PEAR++',baseline,`${a.rl_updates??0} · full fine-tuning`,a.warmstart_step?'Can native-reward RL improve our existing warmstart across a broader task set?':'Can the paper’s dense base model learn directly on the same expanded task set?'];
+    }));
+    el('efe-pear-scaled-recipe').textContent=`${r.retained_groups_per_update} retained groups × ${r.rollouts_per_group} rollouts per update; AdamW LR ${r.learning_rate}; score centering; one update using generated-token mean loss. LoRA disabled in both arms. The total update budget scales with admitted task identities; the final count is pending environment qualification. Constant-reward groups are discarded and still count toward compute cost.`;
+    table('efe-pear-scaled-suites',['Candidate simulator suite','Training variants','Admission'],Object.entries(e.suite_counts||{}).map(([suite,count])=>[suite,count,'Action, native reward and scene checks pending']));
+    el('efe-pear-scaled-note').textContent='Existing simulator holdouts stay protected. GR00T YAM is additional to EFE YAMLab; the broader GR00T catalog still needs authenticated repository access. These arms differ in architecture and initialization, so their comparison does not isolate warmstart alone.';
+    if(scaled.native_bridge?.worker?.success)el('efe-pear-scaled-note').textContent+=' Native EFE transport check passed: one action, fresh observation and official grade. This was a scripted API check, not a model success evaluation.';
+    const names=scaled.checkpoint_names;
+    if(names?.checkpoint_count)el('efe-pear-scaled-note').textContent+=` ${names.checkpoint_count} existing checkpoints have rp_jhh_ names; new committed checkpoints receive the same prefix.`;
+    if(names?.checkpoints)table('efe-checkpoint-names',['Checkpoint name','Update','Contents','Cluster path'],Object.entries(names.checkpoints).map(([name,c])=>[node('code',name),c.step,c.kind.replaceAll('_',' '),node('code',c.path)]));
+    if(s.workflow)el('efe-pear-scaled-workflow').href='https://us-west-2-aws.osmo.nvidia.com/workflows/'+encodeURIComponent(s.workflow);
+  }
   const pear=study.pear_comparison;
   if(pear?.plan?.conditions&&el('efe-pear-summary')){
     const p=pear.plan,s=pear.status||{},q=pear.qualification||{},u=p.optimizer_update_qualification||{};
