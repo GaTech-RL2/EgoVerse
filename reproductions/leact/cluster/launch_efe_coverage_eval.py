@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 
 import yaml
@@ -11,9 +12,37 @@ import yaml
 from .scale_efe import BASE,ROOT,BUILD_ROOT,read,write,submit,command
 from .launch_efe_training import freeze_sources
 from .compute_budget import reserved_nodes,node_limit
-from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks
+from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks,reviewed_preflight_retry
 
 PREFIX='leact-efe-coverage-eval-'
+
+
+def register_intermediates(frozen,queue,registry,panel_sha256):
+    """Add separately named fixed-update screens only on the frozen panel."""
+    ready={}
+    for run in registry.get('runs',[]):
+        model=run['id'];step=run['step']
+        if model!=f'warmstart-step{step}' or type(step) is not int or step<1:
+            raise ValueError('Invalid intermediate checkpoint identity')
+        if run.get('panel_sha256')!=panel_sha256 or run.get('planned_tasks')!=len(frozen['tasks']):
+            raise ValueError('Intermediate evaluation panel differs from the frozen baselines')
+        for index in range(0,len(frozen['tasks']),4):
+            ident=f'b{index//4+1:02d}';tasks=frozen['tasks'][index:index+4]
+            existing=next((b for b in queue['batches'] if (b['model'],b['id'])==(model,ident)),None)
+            if existing is None:queue['batches'].append({'id':ident,'model':model,'tasks':tasks,'attempts':[]})
+            elif existing['tasks']!=tasks:raise ValueError('Intermediate batch tasks changed')
+        value=run.get('ready')
+        if value is None:continue
+        replay=value.get('loss_replay',{});error=replay.get('absolute_error')
+        if not (value.get('step')==step and value.get('final') is False
+                and value.get('pin_sha256')==run.get('pin_sha256')
+                and isinstance(run.get('pin_sha256'),str) and re.fullmatch('[0-9a-f]{64}',run['pin_sha256'])
+                and value.get('additional_optimizer_updates')==0 and replay.get('passed') is True
+                and replay.get('optimizer_updates')==0 and isinstance(error,(int,float)) and 0<=error<=.0005
+                and all(value.get(k) for k in ['checkpoint','manifest','revision'])):
+            raise ValueError('Intermediate checkpoint has not passed exact export verification')
+        ready[model]=value
+    return ready
 
 
 def balanced(rows,count):
@@ -73,10 +102,16 @@ def build(model,batch,ready,retry):
     spec.pop('training_parent',None)
     if model!='astra':
         spec.update(student_checkpoint=ready['checkpoint'],student_manifest=ready['manifest'],student_revision=ready['revision'])
+        if ready.get('final') is False:
+            spec['intermediate_checkpoint']={k:ready[k] for k in ['step','final','selection','pin_sha256','additional_optimizer_updates']}
         boot=(folder/'native-bootstrap.py').read_text()
         line="subprocess.run([python, '-u', str(lane / 'efe_prepare_qualification_student.py')], env=env, check=True)\n"
         if boot.count(line)!=1:raise ValueError('Qualification bootstrap changed')
         (folder/'native-bootstrap.py').write_text(boot.replace(line,''))
+        student=folder/'native-student.py';text=student.read_text()
+        marker="    calls=[x for x in first.get('output',[]) if x['type']=='function_call']"
+        if text.count(marker)!=1:raise ValueError('Synthetic preflight diagnostic hook changed')
+        student.write_text(text.replace(marker,"    runtime.write('student-preflight-response.json',first)\n"+marker))
     write(folder/'spec.json',spec)
     shutil.copyfile(BASE/'cluster/efe_coverage_teacher.py',folder/'native-worker.py')
     shutil.copyfile(BASE/'cluster/efe_action_artifacts.py',folder/'efe_action_artifacts.py')
@@ -105,6 +140,8 @@ def tick(plan,evidence,active):
                     'tasks':frozen['tasks'][index:index+4],'attempts':[]})
     training=evidence.get('training',{})
     ready={'astra':{},'base':evidence.get('base_ready')}
+    ready.update(register_intermediates(frozen,queue,read(DEST/'intermediate-evaluations.json',{}),
+        hashlib.sha256((DEST/'evaluation-panel.json').read_bytes()).hexdigest()))
     for stage in ['warmstart','leact-r1']:
         if training.get(stage,{}).get('complete',{}).get('success') and training[stage].get('ready'):
             ready[stage]=training[stage]['ready']
@@ -145,7 +182,11 @@ def tick(plan,evidence,active):
             state=scheduler['status'];write(Path(attempt['build'])/'scheduler.json',scheduler)
             ended=scheduler.get('end_time')
             after_end=ended and evidence.get('captured_utc') and datetime.fromisoformat(evidence['captured_utc']).timestamp()>=datetime.fromisoformat(ended).replace(tzinfo=timezone.utc).timestamp()
-            if bool(after_end) and infra_retryable(scheduler):
+            review=read(DEST/'preflight-reviews'/(attempt['workflow']+'.json'),{})
+            if bool(after_end) and reviewed_preflight_retry(scheduler,results.get(attempt['workflow'],{}),review,
+                    hashlib.sha256((Path(attempt['build'])/'spec.json').read_bytes()).hexdigest()):
+                retry=True;state='WAITING_FOR_PREFLIGHT_RETRY'
+            elif bool(after_end) and infra_retryable(scheduler):
                 retry=retry_due(batch,attempt['workflow'])
                 if not retry:state='RETRY_BACKOFF'
             elif bool(after_end) and state=='COMPLETED':

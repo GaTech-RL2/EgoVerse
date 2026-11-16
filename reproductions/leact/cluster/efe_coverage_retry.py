@@ -111,6 +111,26 @@ def cuda_unavailable_before_training(scheduler, evidence):
         and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable' in message)
 
 
+def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
+    """One explicit diagnostic retry before any benchmark episode; no inferred cause."""
+    name=scheduler.get('name')
+    marker='Student vision/function-call preflight failed; do not run benchmark tasks'
+    if (scheduler.get('status')!='FAILED' or not name or review.get('workflow')!=name
+        or review.get('action')!='retry_original_preflight_once'
+        or review.get('source_spec_sha256')!=spec_sha256):return False
+    if review.get('evidence_sha256')!=hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest():return False
+    progress=evidence.get('progress',{});worker=evidence.get('worker_complete',{})
+    return (progress.get('workflow')==name and progress.get('benchmark_rollouts_started') is False
+        and progress.get('phase')=='qwen_baseline_needs_review'
+        and evidence.get('preflight',{}).get('status')=='failed'
+        and evidence['preflight'].get('error')==marker
+        and evidence.get('complete',{}).get('completed_trials')==0
+        and evidence['complete'].get('error')==marker
+        and worker.get('workflow')==name and worker.get('success') is False and worker.get('error')==marker
+        and not evidence.get('results',{}).get('trials')
+        and not evidence.get('public_manifest',{}).get('episodes'))
+
+
 def retry_due(record, workflow, at=None):
     """Call only after the scheduler failure has been classified as infrastructure."""
     at=at or datetime.now(timezone.utc)

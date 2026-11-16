@@ -1,6 +1,8 @@
 from copy import deepcopy
+import hashlib
+import json
 
-from reproductions.leact.cluster.efe_coverage_retry import init_interruption_proven,submission_priority,native_disconnect_retry_tasks,cuda_unavailable_before_training
+from reproductions.leact.cluster.efe_coverage_retry import init_interruption_proven,submission_priority,native_disconnect_retry_tasks,cuda_unavailable_before_training,reviewed_preflight_retry
 
 
 def startup_failure():
@@ -93,3 +95,23 @@ def test_initial_device_unavailability_can_retry_without_bypassing_training_guar
         assert not cuda_unavailable_before_training(scheduler,evidence)
     assert not cuda_unavailable_before_training({'name':'allocation-2','status':'FAILED'},cuda_startup_evidence())
     assert not cuda_unavailable_before_training({'name':'allocation-1','status':'RUNNING'},cuda_startup_evidence())
+
+
+def test_reviewed_preflight_retry_never_repeats_a_benchmark_attempt():
+    name='failed-preflight';marker='Student vision/function-call preflight failed; do not run benchmark tasks'
+    scheduler={'name':name,'status':'FAILED'}
+    evidence={'progress':{'workflow':name,'phase':'qwen_baseline_needs_review','benchmark_rollouts_started':False},
+        'preflight':{'status':'failed','error':marker},'worker_complete':{'workflow':name,'success':False,'error':marker},
+        'complete':{'completed_trials':0,'error':marker},'results':{},'public_manifest':{}}
+    review={'workflow':name,'action':'retry_original_preflight_once','source_spec_sha256':'source',
+        'evidence_sha256':hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest()}
+    assert reviewed_preflight_retry(scheduler,evidence,review,'source')
+    assert not reviewed_preflight_retry(scheduler,evidence,{},'source')
+    assert not reviewed_preflight_retry(scheduler,evidence,review,'changed')
+    assert not reviewed_preflight_retry({'name':'retry-failed','status':'FAILED'},evidence,review,'source')
+    for field,changed in [('results',{'trials':[{'status':'graded','score':0}]}),
+                           ('public_manifest',{'episodes':[{'score':0}]}),
+                           ('progress',{'workflow':name,'phase':'qwen_baseline_needs_review','benchmark_rollouts_started':True})]:
+        current=deepcopy(evidence);current[field]=changed
+        current_review={**review,'evidence_sha256':hashlib.sha256(json.dumps(current,sort_keys=True).encode()).hexdigest()}
+        assert not reviewed_preflight_retry(scheduler,current,current_review,'source')

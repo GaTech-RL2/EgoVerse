@@ -28,7 +28,7 @@ def mirror_evidence(archive, spec, workflow, name, value):
         return
     durable = Path(spec['action_durable_root'])/workflow
     if name in {'results.json','complete.json','progress.json','setup-error.json','native-config.json','spec.json',
-                'student-preflight.json','student-serving.json','student-serving-failure.json'}:
+                'student-preflight.json','student-preflight-response.json','student-serving.json','student-serving-failure.json'}:
         write(durable/name,value)
     if name not in {'results.json','complete.json'}:
         return
