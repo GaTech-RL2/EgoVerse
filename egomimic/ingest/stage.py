@@ -128,7 +128,7 @@ def _rows(root, table: str, rid: str, columns=None) -> list[dict]:
     )
 
 
-def diff(root, converted) -> dict:
+def diff(root, converted, vendor: str | None = None) -> dict:
     """What committing `converted` would change in Lance, for the reviewer."""
     from egomimic.rldb.lance import commit
 
@@ -169,7 +169,10 @@ def diff(root, converted) -> dict:
     )
     have = {r["annotation_id"] for r in committed}
     new_ids = {r["annotation_id"] for r in converted.labels}
-    vendors = {converted.vendor, *(r["annotation_vendor"] for r in converted.labels)}
+    # The sources the committer lets this delivery drop labels of: the lab, and this
+    # vendor if it names itself; never another source it names (lance_commit).
+    named = {converted.vendor, *(r["annotation_vendor"] for r in converted.labels)}
+    vendors = named & {converted.vendor, vendor}
     return {
         "recording_id": rid,
         "action": "replace" if old else "new",
@@ -249,10 +252,12 @@ def prepare(
     mano_model_dir: str | None = None,
     ffmpeg: str = "ffmpeg",
     codec: str = "libsvtav1",
+    vendor: str | None = None,
 ) -> Prepared:
     """Validate and convert a downloaded delivery into `staged` (replacing whatever was
     staged there before, only once the new result is complete). Lance is only read, for
-    the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint)."""
+    the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint);
+    `vendor` is who delivered it, whose own labels the delivery replaces."""
     from egomimic.rldb.lance import commit
     from egomimic.rldb.mcap.validate import validate_episode
     from egomimic.scripts.mcap_process.mcap_to_lance import (
@@ -299,7 +304,7 @@ def prepare(
             return Prepared("rejected", d.recording_id, problems=problems)
         # Where the hand-off places the MP4s, and the frame counts it hands the committer.
         placed = commit.describe_videos(tmp, lance_root)[0]
-        change = diff(lance_root, c)
+        change = diff(lance_root, c, vendor)
         (tmp / DIFF).write_text(json.dumps(change, indent=1, sort_keys=True))
         files = {
             p.name: {"sha256": _sha256(p), "size": p.stat().st_size}

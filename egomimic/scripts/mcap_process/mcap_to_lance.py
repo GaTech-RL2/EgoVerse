@@ -932,8 +932,8 @@ def convert_and_stage(
         except Rejected as e:
             res.problems = e.problems
             return res
-        vendors = {vendor, *(r["annotation_vendor"] for r in rows)}
-        changes = _label_changes(lance_root, v.recording_id, rows, vendors)
+        # Only the episode's lab is authoritative: annotation_source is the vendor's word.
+        changes = _label_changes(lance_root, v.recording_id, rows, {vendor})
         if changes:
             with tempfile.TemporaryDirectory(dir=work_dir) as tmp:
                 f = Path(tmp) / f"{v.recording_id}-labels.parquet"
