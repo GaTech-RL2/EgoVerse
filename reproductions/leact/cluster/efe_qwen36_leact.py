@@ -1,6 +1,7 @@
 """Constrained-action LeAct on the verified Qwen3.6 warmstart."""
 import argparse
 import copy
+import errno
 from datetime import datetime,timezone
 import gzip
 import hashlib
@@ -56,6 +57,20 @@ def physical_positions(tokenizer,ids,start):
     return positions
 
 
+def link_immutable(source,destination,expected_sha256=None):
+    """Share frozen replay files across mounts without copying their visual payloads."""
+    source=Path(source).resolve(strict=True);destination=Path(destination)
+    if expected_sha256 and sha(source)!=expected_sha256:raise ValueError('Replay source checksum changed')
+    destination.parent.mkdir(parents=True,exist_ok=True)
+    if destination.exists():
+        if destination.resolve()!=source and sha(destination)!=sha(source):raise ValueError('Replay destination differs')
+        return
+    try:os.link(source,destination)
+    except OSError as error:
+        if error.errno!=errno.EXDEV:raise
+        destination.symlink_to(source)
+
+
 def select(spec,root):
     import torch
     from transformers import AutoProcessor
@@ -66,6 +81,11 @@ def select(spec,root):
     states=balanced_order([json.loads(s) for s in gzip.decompress(source.read_bytes()).splitlines()],spec['seed'])
     if len(states)!=spec.get('expected_teacher_states',43):raise ValueError('The frozen teacher-state count changed')
     states=states[:spec.get('max_balanced_states',len(states))]
+    if spec.get('reuse_parent_visual_blobs'):
+        parent=Path(spec['parent_corpus'])
+        if sha(parent/'dataset-manifest.json')!=spec['parent_dataset_sha256']:raise ValueError('Warmstart replay corpus changed')
+        for blob in (parent/'tensor-blobs').glob('*.pt'):
+            link_immutable(blob,root/'tensor-blobs'/blob.name)
     for state in states:
         if tuple(state['action'])!=('action_type','action','repeat','summary') or state['tools']:
             raise ValueError('Unexpected constrained command interface')
@@ -170,14 +190,13 @@ def select(spec,root):
     if sha(parent/'dataset-manifest.json')!=spec['parent_dataset_sha256']:raise ValueError('Warmstart replay corpus changed')
     for row in manifest['examples']:
         source=parent/row['tensor_file'];dest=root/row['tensor_file']
-        if sha(source)!=row['tensor_sha256']:raise ValueError('Warmstart replay tensor changed')
-        if not dest.exists():os.link(source,dest)
+        link_immutable(source,dest,row['tensor_sha256'])
         rows.append(dict(row,source='warmstart'))
     if spec.get('tensor_storage')=='shared-visual-tensors-v1':
         (root/'tensor-blobs').mkdir(exist_ok=True)
         for source in (parent/'tensor-blobs').glob('*.pt'):
             destination=root/'tensor-blobs'/source.name
-            if not destination.exists():os.link(source,destination)
+            link_immutable(source,destination)
     write(root/'dataset-manifest.json',{'examples':rows,'selection':selection,'replay_fraction':.5,'target_truncation':False,
         'teacher_episodes':spec.get('teacher_episodes',3),'native_episodes':0,'parent_dataset_sha256':spec['parent_dataset_sha256'],
         'source_sha256':spec['decisions_sha256'],'private_reasoning_exported':False})

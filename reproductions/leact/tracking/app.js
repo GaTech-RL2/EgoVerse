@@ -5,7 +5,7 @@ const runColors=new Map();
 const chartState={category:'efe-expanded',hidden:new Set(),only:null,selected:null,pinned:false};
 const lossCategories=[
   {id:'efe-expanded',name:'Expanded EFE warmstart',current:true,note:'256 successful Astra episodes, 40 tasks. Qwen3.6 35B, 737 planned updates.'},
-  {id:'efe-expanded-leact',name:'Expanded EFE LeAct',upcoming:true,note:'Student reasoning selected by expert-action likelihood, with 50% warmstart replay. Starts from the final expanded warmstart.'},
+  {id:'efe-expanded-leact',name:'Expanded EFE LeAct',note:'Student reasoning selected by expert-action likelihood, with 50% warmstart replay. The checkpoint-496 branch and final-737 branch are reported separately.'},
   {id:'efe-curated',name:'EFE · Curated direct control',note:'New successful-execution-filtered corpus with 64K histories. Memory-test updates are discarded and excluded from this curve; native outcomes are training-task diagnostics.'},
   {id:'efe-warmstart',name:'EFE · Earlier warmstarts',note:'Earlier small-corpus warmstarts, learning-rate comparisons and the 32-to-96-update continuation. These use different data from the expanded run.'},
   {id:'efe-leact',name:'EFE · Earlier LeAct runs',note:'Earlier small-corpus LeAct studies. These are separate from the upcoming expanded-corpus LeAct run.'},
@@ -70,8 +70,8 @@ function lossHistories(snapshot){
   const study=snapshot.status?.experiment_plan?.embodied_first_exam?.dashboard;
   for(const t of study?.training_runs||[]){
     const expanded=t.id==='efe-qwen36-coverage-warmstart';
-    const expandedLeact=t.id==='efe-qwen36-coverage-leact-r1';
-    const job=expanded||expandedLeact?study.coverage_expansion?.training?.jobs?.find(j=>j.stage===(expanded?'warmstart':'leact-r1')):null;
+    const expandedLeact=t.id?.startsWith('efe-qwen36-coverage-leact-');
+    const job=expanded||expandedLeact?study.coverage_expansion?.training?.jobs?.find(j=>j.stage===(expanded?'warmstart':t.id.replace('efe-qwen36-coverage-',''))):null;
     const recovery=expanded?study.coverage_expansion?.training_recovery:null;
     const status=job?.status||recovery?.status;
     result.push({label:t.id||t.name,name:expanded?'Expanded Astra warmstart':t.name,phase:t.phase||'EFE student training',
@@ -141,9 +141,11 @@ function currentStudyStatus(){
   el('updated').title=`Last dashboard fetch: ${new Date().toISOString()}`;
   el('loss-run-state').textContent=state;el('loss-run-state').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const leact=exp.training?.jobs?.find(j=>j.stage==='leact-r1'),pear=study.pear_comparison?.plan?.optimizer_update_qualification;
-  const pending=leact?.status==='WAITING_FOR_WARMSTART'?'LeAct starts from the final warmstart.':`LeAct: ${workflowLabel(leact?.status)}.`;
+  const branches=exp.branch_runs?.runs||[];
+  const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}.`;}).join(' ');
+  const pending=branchText+' '+(leact?.status==='WAITING_FOR_WARMSTART'?'The final-737 LeAct branch still waits for warmstart completion.':`Final-737 LeAct: ${workflowLabel(leact?.status)}.`);
   const pearText=pear?.result?.success?'PEAR’s optimizer check passed.':pear?.error||pear?.phase?.includes('needs_review')?'PEAR’s optimizer check needs review.':pear?.phase==='fresh_process_restart_verification'?'PEAR is verifying its saved checkpoint.':pear?.accumulation?.microbatches?`PEAR’s update check: ${pear.accumulation.microbatches}/${pear.accumulation.total_microbatches} batches.`:pear?.workflow?`PEAR’s optimizer check is ${workflowLabel(pear.scheduler_status).toLowerCase()}.`:'PEAR’s optimizer check is pending.';
-  el('loss-next-stage').textContent=pending+' '+pearText+' Primary comparisons use the same final warmstart.';
+  el('loss-next-stage').textContent=pending+' '+pearText+' The PEAR comparison uses the final warmstart.';
 }
 function chart(){
   const histories=lossHistories(data),category=lossCategories.find(c=>c.id===chartState.category)||lossCategories[0];
@@ -675,11 +677,12 @@ function embodiedStudy(){
     const baselines=['astra','base'].map(model=>(expansion.evaluation?.scores||[]).filter(r=>r.model===model).reduce((v,r)=>({graded:v.graded+r.graded,successes:v.successes+r.successes}),{graded:0,successes:0}));
     const baselineSummary=panelSize&&baselines.every(r=>r.graded===panelSize)?`The matched baseline panel is complete: Astra succeeded on ${baselines[0].successes}/${panelSize} tasks (${(100*baselines[0].successes/panelSize).toFixed(1)}%); base Qwen succeeded on ${baselines[1].successes}/${panelSize} (${(100*baselines[1].successes/panelSize).toFixed(1)}%). This is one rollout per task on our frozen screen, not the official full EFE score.`:'';
     const recovery=expansion.training_recovery||{};
-    const intermediates=expansion.intermediate_evaluations?.runs||[];
+    const intermediates=expansion.intermediate_evaluations?.runs||[],branches=expansion.branch_runs?.runs||[];
     const studentGraded=(expansion.evaluation?.scores||[]).filter(r=>!['astra','base'].includes(r.model)).reduce((n,r)=>n+r.graded,0);
     el('efe-coverage-expansion-summary').textContent=[baselineSummary,admittedSummary,
       recovery.last_recorded_update?`Expanded warmstart: ${recovery.last_recorded_update}/${recovery.planned_optimizer_updates} updates recorded; ${workflowLabel(recovery.status).toLowerCase()}. Latest saved checkpoint: ${recovery.committed_restart_step}. ${studentGraded?`${studentGraded} expanded-student rollouts graded; see the results below.`:'No expanded student robot-success result yet.'}`:s.summary||'Expanded teacher collection is queued.',
-      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the final 737-update comparison remains separate.`;})].filter(Boolean).join(' ');
+      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the final 737-update comparison remains separate.`;}),
+      ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}. Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
     table('efe-coverage-expansion-counts',['Eligible / candidate tasks','Native outcomes','Native successes','Candidate usable successes','Distinct successful tasks','Scene audit'],[[
       `${s.eligible_tasks??p.candidate_tasks}/${p.candidate_tasks}`,s.graded_episodes||0,s.native_successes||0,`${s.candidate_successful_episodes||0}/${p.target_successful_episodes}`,
       `${s.candidate_successful_tasks||0}/${p.minimum_distinct_successful_tasks} minimum`,s.scene_audit_complete?'Complete':'Pending']]);
@@ -695,6 +698,7 @@ function embodiedStudy(){
     if(el('efe-coverage-expansion-results')){
       const labels={astra:'Astra',base:'Base Qwen3.6',warmstart:'Expanded warmstart','leact-r1':'Expanded warmstart + LeAct'},baseline={base:'astra',warmstart:'base','leact-r1':'warmstart'};
       for(const r of intermediates){labels[r.id]=r.label+' (intermediate)';baseline[r.id]=r.baseline;}
+      for(const r of branches){labels[r.id]=r.label;baseline[r.id]=r.baseline;}
       table('efe-coverage-expansion-results',['Condition','Evaluation cohort','Native success','Nearest baseline','Interpretation'],(expansion.evaluation?.scores||[]).map(r=>{
         const label=node('span',labels[r.model]||r.model);label.id=`efe-coverage-score-${r.model}-${r.cohort}`;
         const reference=baseline[r.model]?node('a',labels[baseline[r.model]]):node('span','Teacher reference');
