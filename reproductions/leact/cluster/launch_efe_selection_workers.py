@@ -46,15 +46,15 @@ def prepare_benchmark(source,version=1,fixed_scores=False):
         **({'score_reference_root':spec['archive_root']+'/performance/selection-20261116-v1/seq1'} if fixed_scores else {})})
 
 
-def prepare_coordinator(source):
-    source=Path(source);folder=BUILD_ROOT/'efe-coverage-leact496-parallel-v1'
+def prepare_coordinator(source,name='efe-coverage-leact496-parallel-v1'):
+    source=Path(source);folder=BUILD_ROOT/name
     if (folder/'source-manifest.json').exists():return folder
     folder.mkdir(exist_ok=True)
     for filename in read(source/'source-manifest.json'):
         shutil.copyfile(source/filename,folder/filename)
     shutil.copyfile(BASE/'cluster/efe_qwen36_leact.py',folder/'leact.py')
     workflow=yaml.safe_load((source/'workflow.yaml').read_text())
-    workflow['workflow']['name']='leact-efe-coverage-leact496-parallel-v1'
+    workflow['workflow']['name']='leact-'+name
     (folder/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False))
     freeze_sources(folder)
     original=read(source/'source-manifest.json');updated=read(folder/'source-manifest.json')
@@ -93,9 +93,10 @@ def tick():
             state=command(['osmo','workflow','query',previous['workflow'],'--format-type','json'])
             job['status']=state['status']
             if not state['status'].startswith('FAILED'):continue
-            if not infra_retryable(state):
+            upgrade=(state['status']=='FAILED_CANCELED' and job.get('reviewed_execution_upgrade_from_workflow')==previous['workflow'])
+            if not upgrade and not infra_retryable(state):
                 job['status']='NEEDS_REVIEW';continue
-            if not retry_due(job,previous['workflow']):continue
+            if not upgrade and not retry_due(job,previous['workflow']):continue
         if slots<=0:break
         folder=Path(job['build'])
         if job['attempts']:

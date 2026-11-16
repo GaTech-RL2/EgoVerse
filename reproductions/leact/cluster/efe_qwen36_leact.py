@@ -169,6 +169,16 @@ def select(spec,root,execution=None):
             'full_json_mean_logp':sum(values.values())/len(values),'full_json_tokens':len(values),
             'complete_prompt_tokens':len(ids)}
         return result,batch
+    if not producer or execution.get('shared_candidates'):
+        # First-call variation was observed even with the original one-sequence
+        # engine. Keep these requests outside candidate admission and record them.
+        first=states[0]
+        warm_seed=int(hashlib.sha256((str(spec['seed'])+'/'+first['id']).encode()).hexdigest()[:8],16)%(2**31)
+        cold,_=score(first,'',warm_seed);warm,_=score(first,'',warm_seed)
+        error=abs(cold['mean_target_logp']-warm['mean_target_logp'])
+        if error>.05:raise ValueError('Inference warmup exceeds existing selection/training likelihood tolerance')
+        write(worker_root/'inference-warmup.json',{'state_id':first['id'],'cold':cold,'warm':warm,
+            'absolute_error':error,'tolerance':.05,'used_for_admission':False,'max_num_seqs':max_sequences})
     rows=[];reports=[];probes=[]
     for index,state in enumerate(states):
         if index not in indices:continue
