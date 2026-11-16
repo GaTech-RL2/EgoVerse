@@ -512,6 +512,16 @@ def commit_staged(
                     if name != REJECTED:
                         commit.get_file(commit.join(src, name), local[vid] / name)
             deliveries, rejected = _load(source, list(local.values()))
+            if source.startswith(MCAP_PREFIX):
+                # The folder's lab is what was checked against the vendor; meta.json's
+                # must be the same one, or the rows would land in another lab's table.
+                lab = source[len(MCAP_PREFIX) :]
+                for d in [d for d in deliveries if d.recording["lab"] != lab]:
+                    deliveries.remove(d)
+                    rejected[d.recording["vendor_recording_id"]] = [
+                        f"meta.json lab {d.recording['lab']!r} is not {lab!r}, the "
+                        f"lab it was staged under"
+                    ]
             for d in [d for d in deliveries if d.placed]:
                 if errs := commit.check_placed(lance_root, d.recording_id, d.placed):
                     deliveries.remove(d)

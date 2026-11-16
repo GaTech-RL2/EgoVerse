@@ -180,6 +180,15 @@ def _canary_room(statuses: dict, vendor: str, revision: str, canary: int) -> int
 # ---------------------------------------------------------------- hand-off
 
 
+def _sha256(uri: str) -> str:
+    from egomimic.rldb.lance import commit
+
+    h = hashlib.sha256()
+    for block in commit.read_chunks(uri):
+        h.update(block)
+    return h.hexdigest()
+
+
 def _place_videos(store: Store, ref: Ref, digest: str, pin: dict, lance_root, dst):
     """Hand an approved stage's files over, checking every byte against the pin: the MP4s
     are copied server-side to their final place under the Lance root (videos/<recording
@@ -283,13 +292,19 @@ def _hand_off(
     if direct:
         placed = _place_videos(store, ref, digest, pin, lance_root, dst)
     else:
-        for name in pin["files"]:
+        for name, f in pin["files"].items():
             if name != META:
-                store.copy_out(ref.staged_prefix(digest) + name, commit.join(dst, name))
+                to = commit.join(dst, name)
+                store.copy_out(ref.staged_prefix(digest) + name, to)
+                if _sha256(to) != f["sha256"]:
+                    raise StageCorrupt(f"{name} does not match its pin")
     raw_meta = store.get_staged_file(ref, digest, META)
-    if direct and hashlib.sha256(raw_meta).hexdigest() != pin["files"][META]["sha256"]:
+    if hashlib.sha256(raw_meta).hexdigest() != pin["files"][META]["sha256"]:
         raise StageCorrupt(f"{META} does not match its pin")
     meta = json.loads(raw_meta)
+    for key in ("recording_id", "vendor_recording_id", "lab"):
+        if meta.get(key) != pin[key]:
+            raise StageCorrupt(f"{META} {key} {meta.get(key)!r} is not the pin's")
     if direct:
         meta["lance_videos"] = placed
     meta["provenance"] = {

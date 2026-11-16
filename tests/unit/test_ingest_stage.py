@@ -190,3 +190,14 @@ def test_a_deployed_copy_pins_its_revision_file(tmp_path, monkeypatch):
     monkeypatch.setattr(st, "__file__", str(copy / "stage.py"))
     monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))  # no repo above
     assert st.converter_revision() == {"revision": "abc123", "dirty": False}
+
+
+def test_the_committer_refuses_a_meta_json_lab_other_than_its_folder(tmp_path):
+    p = stage(tmp_path)
+    meta = json.loads((p.staged / "meta.json").read_text())
+    meta["lab"] = "other_lab"
+    (p.staged / "meta.json").write_text(json.dumps(meta))
+    report = land(tmp_path, p.staged)
+    (errs,) = report["rejected"].values()
+    assert "is not 'rl2'" in errs[0]
+    assert not report["batches"]

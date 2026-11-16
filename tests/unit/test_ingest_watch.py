@@ -537,3 +537,29 @@ def test_without_a_lance_root_the_committer_still_places_the_mp4s(env):
     env.commit()
     assert env.run().committed == ["acme/episode_0001"]
     assert len(list((env.root / "videos").rglob("*.mp4"))) == 2
+
+
+def test_a_staged_file_changed_after_approval_is_refused_on_the_old_path(env):
+    env.deliver(A)
+    env.run()
+    path = _staged_mp4(env, A)
+    data = bytearray(path.read_bytes())
+    data[-1] ^= 0xFF
+    path.write_bytes(bytes(data))
+    env.approve(A)
+    assert env.run(lance_root=None).failed == ["acme/episode_0001"]
+    assert "does not match its pin" in env.status(A)["error"]
+    assert not (env.staging / "mcap-rl2" / "acme-rec-0" / "meta.json").exists()
+
+
+def test_a_meta_json_that_names_another_lab_than_the_pin_is_refused(env):
+    env.deliver(A)
+    env.run()
+    st = env.status(A)
+    key = A.staged_prefix(st["stage"]) + "meta.json"
+    meta = json.loads(env.store._get(key))
+    meta["lab"] = "other"
+    env.store._put(key, json.dumps(meta).encode())
+    env.approve(A)
+    assert env.run().failed == ["acme/episode_0001"]
+    assert "meta.json" in env.status(A)["error"]
