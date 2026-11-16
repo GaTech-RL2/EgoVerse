@@ -7,6 +7,7 @@ process: Lance is not fork-safe (https://lance.org/integrations/pytorch/), so lo
 over these datasets must use a forkserver or spawn worker context.
 """
 
+import collections
 import concurrent.futures as cf
 import copy
 import functools
@@ -809,10 +810,14 @@ class LanceEpisodeResolver:
     def split_keys(self, names) -> dict[str, str]:
         """{recording_id: its zarr episode_hash} for recordings with exactly one
         aliased clip, so the train/valid split matches a zarr run's. Recordings with
-        several clips or none split on their recording_id."""
+        several clips or none split on their recording_id, and so do recordings whose
+        hash another of `names` shares (an MCAP alias is its start time to the ms, which
+        two recordings can share): no zarr episode stands for either of them."""
         a = self._aliases[self._aliases.recording_id.isin(set(names))]
         one = a.groupby("recording_id").episode_hash.agg(list)
-        return {r: h[0] for r, h in one.items() if len(h) == 1}
+        keys = {r: h[0] for r, h in one.items() if len(h) == 1}
+        n = collections.Counter(keys.values())
+        return {r: k for r, k in keys.items() if n[k] == 1}
 
     def _annotation_rows(self) -> dict[str, pd.DataFrame]:
         """{recording_id: rows passing the `annotations` filters, sorted by start}."""

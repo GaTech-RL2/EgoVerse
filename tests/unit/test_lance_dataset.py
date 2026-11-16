@@ -490,6 +490,14 @@ def test_recordings_with_several_clips_or_none_split_on_their_id(segmented):
     assert b not in keys and "not_aliased" not in keys
 
 
+def test_recordings_sharing_an_alias_hash_split_on_their_id(tmp_path, monkeypatch):
+    hashes = ["same", "same", "other"]  # two MCAP recordings started in one ms
+    resolver, leaves = _many_recordings(tmp_path, monkeypatch, hashes)
+    keys = resolver.split_keys(leaves)
+    assert keys == {"rec_02": "other"}
+    MultiDataset(datasets=leaves, mode="total", split_keys=keys)  # no ValueError
+
+
 def test_two_datasets_with_one_split_key_raise():
     leaves = {"a": _FakeLeaf(), "b": _FakeLeaf()}
     with pytest.raises(ValueError, match="same split key"):
