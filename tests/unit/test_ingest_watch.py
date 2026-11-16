@@ -211,6 +211,8 @@ def test_restaging_a_committed_recording_waits_for_replace(env):
 
     commit_staged(str(env.staging), "mcap-rl2", str(env.root), env.work, replace=True)
     assert [a["text"] for a in env.rows("annotations.lance")] == ["pick up the shirt"]
+    assert env.run().committed == ["acme/episode_0001"]  # the dashboard catches up
+    assert env.status(A)["state"] == "committed"
 
 
 def test_one_failing_delivery_does_not_stop_the_pass(env, monkeypatch):
