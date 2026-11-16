@@ -196,6 +196,37 @@ def test_s3_two_racing_acquirers_get_it_one_at_a_time():
     assert overlap == [1] * 6
 
 
+class LostResponses(FakeS3):
+    """Applies the next `n` PUTs, then answers each with a 412: what the client sees when
+    a PUT's response is lost and its automatic retry conflicts with the first attempt."""
+
+    def __init__(self):
+        super().__init__()
+        self.n_lost = 0
+
+    def put_object(self, **kw):
+        out = super().put_object(**kw)
+        if self.n_lost:
+            self.n_lost -= 1
+            raise _Err(412)
+        return out
+
+
+def test_s3_a_put_that_landed_but_answered_412_still_counts_as_ours():
+    fake = LostResponses()
+    fake.n_lost = 1
+    a = _s3lock(fake)
+    a.acquire(wait=0)  # the create landed; the client saw a conflict
+    assert fake.body()["token"] == a.token
+    fake.n_lost = 1
+    a.renew()  # the renewal landed; the client saw a conflict
+    assert not a.lost and fake.objs[("b", "r/_writer.lock")][0] == a.etag
+    a.check()
+    fake.n_lost = 1
+    a.release()
+    assert fake.body()["released"]
+
+
 # --- the committer races the R2 test found -----------------------------------------------
 
 

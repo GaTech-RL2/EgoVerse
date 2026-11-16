@@ -171,17 +171,28 @@ class _S3Lock(_Lock):
             info = {}
         return resp["ETag"], info
 
+    def _ours(self) -> str | None:
+        """Our record's ETag if the lock object still carries our token. A conditional
+        PUT that reports a conflict may have landed anyway: the client retries a PUT
+        whose response was lost, and the retry then conflicts with the first attempt."""
+        seen = self._read()
+        return seen[0] if seen and seen[1].get("token") == self.token else None
+
     def acquire(self, wait: float) -> None:
         deadline = time.monotonic() + wait
         while True:
             self.acquired_at = time.time()
             seen = self._read()
             if seen is None:
-                etag = self._put(self.info(), IfNoneMatch="*")
+                etag = self._put(self.info(), IfNoneMatch="*") or self._ours()
             else:
                 etag_seen, other = seen
                 free = other.get("released") or other.get("expires_at", 0) < time.time()
-                etag = self._put(self.info(), IfMatch=etag_seen) if free else None
+                etag = (
+                    self._put(self.info(), IfMatch=etag_seen) or self._ours()
+                    if free
+                    else None
+                )
                 if not free and time.monotonic() >= deadline:
                     raise LockHeld(f"{self.root} is locked by {_describe(other)}")
                 if not free:
@@ -202,7 +213,7 @@ class _S3Lock(_Lock):
         with self._io:
             if self.lost:
                 return
-            etag = self._put(self.info(), IfMatch=self.etag)
+            etag = self._put(self.info(), IfMatch=self.etag) or self._ours()
             if etag is None:
                 self.lost = True
                 log.error("lost the writer lock on %s", self.root)
@@ -235,6 +246,7 @@ class _S3Lock(_Lock):
             if (
                 not self.lost
                 and self._put(self.info(released=True), IfMatch=self.etag) is None
+                and self._ours() is None
             ):
                 log.warning(
                     "writer lock on %s was taken over before release", self.root
