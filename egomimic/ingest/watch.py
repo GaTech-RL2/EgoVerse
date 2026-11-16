@@ -263,7 +263,13 @@ def _place_videos(store: Store, ref: Ref, digest: str, pin: dict, lance_root, ds
 
 
 def _hand_off(
-    store: Store, ref: Ref, status: dict, raw_root, lance_staging, lance_root=None
+    store: Store,
+    ref: Ref,
+    status: dict,
+    raw_root,
+    lance_staging,
+    lance_root=None,
+    current: Listed | None = None,
 ) -> str:
     """Copy an approved stage and its raw delivery out of the ingest buckets; returns
     where the committer will find it. With `lance_root` and a stage that pins its content
@@ -281,10 +287,15 @@ def _hand_off(
     # Checked by the job too, but a job's own output shouldn't be the only guard.
     if pin["lab"] not in store.vendor_labs(ref.vendor):
         raise StageCorrupt(f"lab {pin['lab']!r} is not registered to {ref.vendor!r}")
-    current = store.get_delivery(ref)
+    # The snapshot the decision was checked against, so the raw copy is that version.
+    current = current or store.get_delivery(ref)
     raw = commit.join(raw_root, ref.vendor, ref.delivery_id, digest)
-    for name in current.files:
-        store.copy_out(ref.file_key(name), commit.join(raw, name))
+    for name, (size, _) in current.files.items():
+        to = commit.join(raw, name)
+        store.copy_out(ref.file_key(name), to)
+        # The raw copy is what a reconversion starts from; the original goes next.
+        if commit._size(to) != size:
+            raise StageCorrupt(f"raw copy {to} is not {size} bytes")
     dst = commit.join(
         lance_staging, mcap_source(pin["lab"]), pin["vendor_recording_id"]
     )
@@ -348,7 +359,9 @@ def _decide(
     ):
         return
     try:
-        dst = _hand_off(store, ref, status, raw_root, lance_staging, lance_root)
+        dst = _hand_off(
+            store, ref, status, raw_root, lance_staging, lance_root, current
+        )
     except Exception as e:  # stays ready and approved: retried next pass
         _set(
             store, ref, status,
@@ -357,7 +370,10 @@ def _decide(
         )  # fmt: skip
         summary.failed.append(name)
         return
-    store.delete_delivery(ref)
+    # Re-uploaded during the hand-off: leave the new version for the next pass to convert.
+    again = store.get_delivery(ref)
+    if again is not None and again.fingerprint == current.fingerprint:
+        store.delete_delivery(ref, only=current.files)
     _drop_stage(store, ref, stage)
     store.delete_jobs(ref)
     _set(store, ref, status, state="approved", decision=last, handed_off=dst, error="")
