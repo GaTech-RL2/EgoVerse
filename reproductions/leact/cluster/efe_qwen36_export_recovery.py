@@ -70,6 +70,9 @@ def verify(spec,root):
         config=LoraConfig.from_pretrained(spec['checkpoint']);config.inference_mode=False
         model=get_peft_model(model,config)
     model.config.use_cache=False
+    if spec.get('adapter_gather_qualification'):
+        from efe_qwen36_adapter_io import parameter_shapes
+        expected_adapter=parameter_shapes(model)
     decoder_types={type(m) for m in model.modules() if type(m).__name__.endswith('DecoderLayer')}
     wrapped=FSDP(model,auto_wrap_policy=partial(transformer_auto_wrap_policy,transformer_layer_cls=decoder_types),
         sharding_strategy=ShardingStrategy.FULL_SHARD,use_orig_params=True,
@@ -93,6 +96,21 @@ def verify(spec,root):
     if rank==0:write(root/(mode+'-loss-replay.json' if 'verification_mode' in spec else 'loss-replay.json'),{'expected_ce':expected,'reloaded_ce':value,'absolute_error':error,
         'tolerance':0.0005,'passed':error<=0.0005,'optimizer_updates':0,'examples':8,'completed_utc':stamp()})
     if not torch.isfinite(loss) or error>0.0005:raise ValueError('Reloaded adapter does not reproduce the final training score')
+    if spec.get('adapter_gather_qualification'):
+        from efe_qwen36_restart import qualify_adapter_gather
+        from efe_qwen36_adapter_io import save_exact
+        state,qualification=qualify_adapter_gather(wrapped,expected_adapter)
+        with torch.no_grad():after=target_loss(wrapped,batch)
+        dist.all_reduce(after);after/=8
+        change=abs(after.item()-value)
+        if not torch.isfinite(after) or change>0.0005:
+            raise ValueError('Full-model loss changed during adapter-gather qualification')
+        if rank==0:
+            audit=save_exact(model,state,expected_adapter,root/'gathered-adapter')
+            qualification.update(before_ce=value,after_ce=after.item(),loss_change=change,
+                loss_tolerance=0.0005,serialization=audit,optimizer_updates=0,completed_utc=stamp())
+            write(root/'adapter-gather-qualification.json',qualification)
+        del state
     dist.barrier();dist.destroy_process_group()
 
 
