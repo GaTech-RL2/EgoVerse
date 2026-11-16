@@ -490,18 +490,16 @@ def test_approved_mp4s_go_straight_to_the_lance_root(env):
     )
 
 
-def test_an_mp4_changed_after_approval_is_not_handed_off(env):
+def test_an_mp4_that_copies_short_is_not_handed_off(env):
     env.deliver(A)
     env.run()
     path = _staged_mp4(env, A)
-    data = bytearray(path.read_bytes())
-    data[-1] ^= 0xFF  # same size, so the size check passes: only the hash can tell
-    path.write_bytes(bytes(data))
+    path.write_bytes(path.read_bytes()[:-100])  # the manifest still says the full size
     env.approve(A)
     s = env.run()
     assert s.approved == [] and s.failed == ["acme/episode_0001"]
     st = env.status(A)
-    assert st["state"] == "ready" and "do not match the pin" in st["error"]
+    assert st["state"] == "ready" and "bytes the pin says" in st["error"]
     assert not list(env.root.rglob("*.mp4"))  # nothing it placed is left behind
     assert not (env.staging / "mcap-rl2" / "acme-rec-0" / "meta.json").exists()
     assert env.store.get_delivery(A) is not None  # the delivery is still there
