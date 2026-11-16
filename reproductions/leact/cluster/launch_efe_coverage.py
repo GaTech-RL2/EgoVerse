@@ -161,6 +161,8 @@ def capture(host):
     old = read(DEST/'evidence.json', {'runs':{}})
     known = {name:hashlib.sha256(json.dumps(row,sort_keys=True,separators=(',',':')).encode()).hexdigest()
              for name,row in old.get('runs',{}).items()}
+    stages={stage:DURABLE+'/'+stage for stage in ['warmstart','leact-r1']}
+    stages.update({arm['id']:arm['archive_root'] for arm in read(DEST/'branch-runs.json',{}).get('runs',[])})
     value = remote(host, """from pathlib import Path
 import base64,hashlib,json,zlib
 root=Path(ROOT_LITERAL)
@@ -188,11 +190,12 @@ for d in (root/'evaluation').glob('*/*'):
   'public_manifest':read(d/'public-episodes/manifest.json') or {},
   'progress':read(d/'progress.json') or {},'preflight':read(d/'student-preflight.json') or {},
   'worker_complete':read(d/'worker-complete.json') or {}}
-for stage in ['warmstart','leact-r1']:
- d=root/stage
+for stage,stage_root in STAGES_LITERAL.items():
+ d=Path(stage_root)
  data={'progress':read(d/'progress.json') or {},'complete':read(d/'complete.json') or {},
        'waiting_for_corpus':read(d/'waiting-for-corpus.json') or {},'error':read(d/'worker-error.json') or {},
-       'ready':read(d/('warmstart-ready.json' if stage=='warmstart' else 'leact-ready.json')) or {}}
+       'ready':read(d/('warmstart-ready.json' if stage=='warmstart' else 'leact-ready.json')) or {},
+       'selection':read(d/'selection.json') or {},'membership':read(d/'membership.json') or {}}
  worker=read(d/'worker-start.json') or {}
  data['worker_start']=worker
  states=[read(p) for p in (d/'restart-states').glob('checkpoint-*/training-state.json')]
@@ -216,7 +219,7 @@ payload={'runs':runs,'scene_audit':read(root/'scene-audit/result.json'),
 raw=json.dumps(payload,separators=(',',':')).encode()
 print('EFE_CAPTURE '+json.dumps({'capture_encoding':'zlib-base64','sha256':hashlib.sha256(raw).hexdigest(),
  'payload':base64.b64encode(zlib.compress(raw)).decode()}),flush=True)
-""".replace('ROOT_LITERAL', repr(DURABLE)).replace('KNOWN_LITERAL',repr(known)))
+""".replace('ROOT_LITERAL', repr(DURABLE)).replace('KNOWN_LITERAL',repr(known)).replace('STAGES_LITERAL',repr(stages)))
     if value.get('capture_encoding')=='zlib-base64':
         raw=zlib.decompress(base64.b64decode(value['payload']))
         if hashlib.sha256(raw).hexdigest()!=value['sha256']:raise ValueError('Capture transport checksum mismatch')
@@ -234,7 +237,7 @@ print('EFE_CAPTURE '+json.dumps({'capture_encoding':'zlib-base64','sha256':hashl
             (destination/'train').mkdir(exist_ok=True)
             (destination/'train/metrics.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in data['metrics']))
         if data.get('train_complete'):write(destination/'train/complete.json',data['train_complete'])
-        for key in ['progress','complete','dataset','ready']:
+        for key in ['progress','complete','dataset','ready','selection','membership']:
             if data.get(key):write(destination/(key+'.json'),data[key])
     return old
 

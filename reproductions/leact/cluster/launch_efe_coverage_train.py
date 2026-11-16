@@ -18,23 +18,25 @@ def retry_build(source,number):
     """An allocation retry preserves all model/data/optimizer code and inputs."""
     source=Path(source)
     spec=read(source/'spec.json')
-    folder=source.parent/('efe-coverage-20261105-v1-'+spec['stage']+f'-p{PAYLOAD_VERSION}-allocation-retry-{number}')
+    run_id=spec.get('run_id',spec['stage'])
+    folder=source.parent/('efe-coverage-20261105-v1-'+run_id+f'-p{PAYLOAD_VERSION}-allocation-retry-{number}')
     if (folder/'source-manifest.json').exists():return folder
     folder.mkdir(exist_ok=True)
     for name in read(source/'source-manifest.json'):
         shutil.copyfile(source/name,folder/name)
     workflow=yaml.safe_load((folder/'workflow.yaml').read_text())
     # A short deterministic name avoids growing the retry ancestry in OSMO IDs.
-    workflow['workflow']['name']='leact-efe-coverage-'+spec['stage']+f'-v1-p{PAYLOAD_VERSION}-r{number}'
+    workflow['workflow']['name']='leact-efe-coverage-'+run_id+f'-v1-p{PAYLOAD_VERSION}-r{number}'
     (folder/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False))
     freeze_sources(folder)
     return folder
 
 
-def build(stage,plan,parent=None,retry=0):
+def build(stage,plan,parent=None,retry=0,*,arm=None):
     from .launch_efe_coverage import DEST,DURABLE,TEMPLATE
     suffix=f'-r{retry}' if retry else ''
-    folder=BUILD_ROOT/('efe-coverage-20261105-v1-'+stage+f'-p{PAYLOAD_VERSION}'+suffix)
+    run_id=arm['id'] if arm else stage
+    folder=BUILD_ROOT/('efe-coverage-20261105-v1-'+run_id+f'-p{PAYLOAD_VERSION}'+suffix)
     if (folder/'source-manifest.json').exists():return folder
     folder.mkdir(exist_ok=True)
     mapping={
@@ -80,6 +82,12 @@ def build(stage,plan,parent=None,retry=0):
             decisions_sha256=admission['decisions_sha256'],expected_teacher_states=admission['decisions'],
             teacher_episodes=admission['successful_episodes'],max_balanced_states=2048,
             candidate_tokens=4096,candidates_per_state=8,top_positive=2,replay_fraction=.5)
+    if arm:
+        if stage!='leact-r1':raise ValueError('A warmstart branch must use the LeAct pipeline')
+        spec.update(run_id=run_id,archive_root=arm['archive_root'],
+            local_results_directory=arm['local_results_directory'],
+            checkpoint_revision_prefix='efe-qwen36-coverage-v1-'+run_id,
+            reuse_parent_visual_blobs=True,parent_step=arm['parent_step'],scope=arm['scope'])
     write(folder/'spec.json',spec)
     bootstrap='''from pathlib import Path
 import json,os,re,subprocess,sys
@@ -102,7 +110,7 @@ os.execve(sys.executable,[sys.executable,'-u',str(lane/'pipeline.py'),'--spec',s
 '''
     (folder/'bootstrap.py').write_text(bootstrap)
     workflow=yaml.safe_load((TEMPLATE/'workflow.yaml').read_text())
-    workflow['workflow']['name']='leact-efe-coverage-'+stage+f'-v1-p{PAYLOAD_VERSION}'+suffix
+    workflow['workflow']['name']='leact-efe-coverage-'+run_id+f'-v1-p{PAYLOAD_VERSION}'+suffix
     workflow['workflow']['resources']['default'].update(cpu=48,memory='512Gi',storage='800Gi')
     workflow['workflow']['timeout']={'queue_timeout':'20m','exec_timeout':'30m' if stage=='restart-probe' else '72h'}
     task=workflow['workflow']['tasks'][0]
@@ -114,12 +122,12 @@ os.execve(sys.executable,[sys.executable,'-u',str(lane/'pipeline.py'),'--spec',s
     freeze_sources(folder)
     if stage!='restart-probe':
         path=ROOT/'training-pilot/additional-runs.json';registry=read(path,{'runs':[]})
-        ident='efe-qwen36-coverage-'+stage
+        ident='efe-qwen36-coverage-'+run_id
         if not any(r['id']==ident for r in registry['runs']):
-            registry['runs'].append({'id':ident,'name':'Qwen3.6 expanded coverage · '+stage,
+            registry['runs'].append({'id':ident,'name':arm['label'] if arm else 'Qwen3.6 expanded coverage · '+stage,
                 'category':'efe-warmstart' if stage=='warmstart' else 'efe-leact',
                 'local_results_directory':spec['local_results_directory'],
-                'evaluation_partition':'coverage_panel','baseline':'efe-qwen36-coverage-base' if stage=='warmstart' else 'efe-qwen36-coverage-warmstart',
+                'evaluation_partition':'coverage_panel','baseline':arm['baseline'] if arm else 'efe-qwen36-coverage-base' if stage=='warmstart' else 'efe-qwen36-coverage-warmstart',
                 'phase':'256-episode coverage expansion','build':str(folder),
                 'description':spec['scope']})
             write(path,registry)
@@ -140,8 +148,9 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
     available=node_limit()-reserved_nodes(active)
     remote=evidence.get('training',{})
     complete_warm=remote.get('warmstart',{}).get('complete',{}).get('success')
+    branches={r['id']:r for r in read(DEST/'branch-runs.json',{}).get('runs',[])}
     jobs=[]
-    for stage in ['restart-probe','warmstart','leact-r1']:
+    for stage in ['restart-probe','warmstart','leact-r1',*branches]:
         data=remote.get(stage,{})
         stage_done = bool(data.get('success')) if stage=='restart-probe' else bool(data.get('complete',{}).get('success'))
         record=stages.setdefault(stage,{'attempts':[]})
@@ -177,12 +186,14 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                 record['status']='WAITING_FOR_CORPUS' if data.get('waiting_for_corpus') else 'WAITING_FOR_RECEIPT'
                 record['retry']=bool(data.get('waiting_for_corpus') and collection_gate)
         if not stage_done and (not record['attempts'] or record.get('retry')):
-            dependency = stage=='restart-probe' or (stage=='warmstart' and (collection_gate or preparation_ready) and remote.get('restart-probe',{}).get('success')) or (stage=='leact-r1' and complete_warm)
+            dependency = stage=='restart-probe' or (stage=='warmstart' and (collection_gate or preparation_ready) and remote.get('restart-probe',{}).get('success')) or (stage=='leact-r1' and complete_warm) or (stage in branches and branches[stage].get('authorized') is True)
             if dependency and available>0:
                 parent=None
                 if stage=='leact-r1':
                     parent={**remote['warmstart'],'admission':evidence['admission']}
-                folder=retry_build(record['attempts'][-1]['build'],len(record['attempts'])) if record['attempts'] else build(stage,plan,parent)
+                if record['attempts']:folder=retry_build(record['attempts'][-1]['build'],len(record['attempts']))
+                elif stage in branches:folder=Path(branches[stage]['build'])
+                else:folder=build(stage,plan,parent)
                 priority=submission_priority(record)
                 receipt=submit(folder,priority=priority)
                 record['attempts'].append({'workflow':receipt['name'],'build':str(folder),'submitted_utc':now(),'priority':priority})

@@ -45,6 +45,27 @@ def register_intermediates(frozen,queue,registry,panel_sha256):
     return ready
 
 
+def register_branches(frozen,queue,runs,training,panel_sha256):
+    ready={}
+    for run in runs:
+        model=run['id']
+        if not re.fullmatch(r'leact-from-step[1-9][0-9]*-r[1-9][0-9]*',model):raise ValueError('Invalid LeAct branch identity')
+        if run['panel_sha256']!=panel_sha256 or run['planned_tasks']!=len(frozen['tasks']):
+            raise ValueError('LeAct branch panel differs from its warmstart comparison')
+        for index in range(0,len(frozen['tasks']),4):
+            ident=f'b{index//4+1:02d}';tasks=frozen['tasks'][index:index+4]
+            old=next((b for b in queue['batches'] if (b['model'],b['id'])==(model,ident)),None)
+            if old is None:queue['batches'].append({'id':ident,'model':model,'tasks':tasks,'attempts':[]})
+            elif old['tasks']!=tasks:raise ValueError('LeAct branch tasks changed')
+        stage=training.get(model,{})
+        if stage.get('complete',{}).get('success') and not stage['complete'].get('no_admissions'):
+            value=stage.get('ready',{})
+            if value.get('final') is not True or value.get('checkpoint')!=run['archive_root']+'/model':
+                raise ValueError('LeAct branch export does not match its completed training run')
+            ready[model]=value
+    return ready
+
+
 def balanced(rows,count):
     groups={}
     for r in sorted(rows,key=lambda r:hashlib.sha256(('coverage-eval-v1/'+r['task']).encode()).hexdigest()):
@@ -142,6 +163,9 @@ def tick(plan,evidence,active):
     ready={'astra':{},'base':evidence.get('base_ready')}
     ready.update(register_intermediates(frozen,queue,read(DEST/'intermediate-evaluations.json',{}),
         hashlib.sha256((DEST/'evaluation-panel.json').read_bytes()).hexdigest()))
+    branches=read(DEST/'branch-runs.json',{}).get('runs',[])
+    ready.update(register_branches(frozen,queue,branches,training,
+        hashlib.sha256((DEST/'evaluation-panel.json').read_bytes()).hexdigest()))
     for stage in ['warmstart','leact-r1']:
         if training.get(stage,{}).get('complete',{}).get('success') and training[stage].get('ready'):
             ready[stage]=training[stage]['ready']
@@ -155,7 +179,7 @@ def tick(plan,evidence,active):
     aggregate={}
     for batch in queue['batches']:
         model=batch['model']
-        if model=='leact-r1' and training.get('leact-r1',{}).get('complete',{}).get('no_admissions'):
+        if (model=='leact-r1' or model in {r['id'] for r in branches}) and training.get(model,{}).get('complete',{}).get('no_admissions'):
             states.append({'model':model,'id':batch['id'],'status':'NO_ADMISSIONS_USE_WARMSTART',
                            'graded':0,'planned':len(batch['tasks']),'workflow':None})
             continue
