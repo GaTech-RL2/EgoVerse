@@ -13,7 +13,9 @@ the MP4s, and meta.json with its catalog fields and labels), plus:
 stage_digest (the pin's sha256) is what an approval records, so the approval applies to
 exactly that result. On approval the watcher copies the staged delivery to the
 committer's staging prefix (egomimic.scripts.lance_commit, the only Lance writer), which
-commits it unless the recording is already committed (that needs --replace).
+commits it unless the recording is already committed (that needs --replace). The MP4s
+skip the staging prefix: they are copied server-side to their final place under the Lance
+root, and the committer only checks their sizes (watch._place_videos).
 """
 
 from __future__ import annotations
@@ -232,6 +234,7 @@ def prepare(
     """Validate and convert a downloaded delivery into `staged` (replacing whatever was
     staged there before, only once the new result is complete). Lance is only read, for
     the reviewer's diff. `fingerprint` is the delivery's (store.Listed.fingerprint)."""
+    from egomimic.rldb.lance import commit
     from egomimic.rldb.mcap.validate import validate_episode
     from egomimic.scripts.mcap_process.mcap_to_lance import (
         Rejected,
@@ -271,6 +274,9 @@ def prepare(
             c,
             {"converter": converter, "settings": pinned, "fingerprint": fingerprint},
         ).rename(tmp)
+        # What commit.content_digest says of this delivery: the hand-off places the MP4s
+        # under that name and checks the bytes it placed against it (watch._place_videos).
+        content = commit.describe_videos(tmp, lance_root)[0]["content_digest"]
         change = diff(lance_root, c)
         (tmp / DIFF).write_text(json.dumps(change, indent=1, sort_keys=True))
         files = {
@@ -294,6 +300,7 @@ def prepare(
             "fingerprint": fingerprint,
             "converter": converter,
             "settings": pinned,
+            "content_digest": content,
             "files": files,
             "report": report,
             "staged_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
