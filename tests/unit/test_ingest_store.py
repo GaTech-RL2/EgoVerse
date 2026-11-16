@@ -790,3 +790,22 @@ def test_r2_copy_out_to_another_bucket_stays_server_side():
         ref.file_key("episode.mcap"), "s3://rldb/raw_v2/acme/c/x/episode.mcap"
     )
     assert s3.objects["rldb/raw_v2/acme/c/x/episode.mcap"] == b"payload"
+
+
+def test_deleting_a_snapshot_keeps_files_reuploaded_since(tmp_path):
+    store = LocalStore(tmp_path)
+    ref = Ref("acme", "d1")
+    folder = tmp_path / "src"
+    folder.mkdir()
+    (folder / "a.bin").write_bytes(b"a")
+    (folder / "b.bin").write_bytes(b"b")
+    store.upload_delivery(ref, folder, {})
+    snapshot = store.get_delivery(ref).files
+    (folder / "b.bin").write_bytes(b"b2")
+    store.upload_file(ref, folder / "b.bin")  # a correction of one file
+    store.delete_delivery(ref, only=snapshot)
+    left = store.get_delivery(ref)
+    assert set(left.files) == {"b.bin"}
+    store.delete_delivery(ref, only=left.files)
+    assert store.get_delivery(ref) is None
+    assert not store._list(ref.prefix)  # the markers went with the last file

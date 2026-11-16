@@ -563,3 +563,39 @@ def test_a_meta_json_that_names_another_lab_than_the_pin_is_refused(env):
     env.approve(A)
     assert env.run().failed == ["acme/episode_0001"]
     assert "meta.json" in env.status(A)["error"]
+
+
+def test_a_reupload_during_the_hand_off_is_not_deleted(env, monkeypatch):
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    real = env.store.copy_out
+
+    def reupload_midway(key, dst):
+        real(key, dst)
+        if key.endswith("episode.mcap"):  # the vendor starts a correction meanwhile
+            env.store._upload_file(A.file_key("notes.txt"), _staged_mp4(env, A))
+
+    monkeypatch.setattr(env.store, "copy_out", reupload_midway)
+    assert env.run().approved == ["acme/episode_0001"]
+    left = env.store.get_delivery(A)
+    assert left is not None and "notes.txt" in left.files
+    assert "episode.mcap" in left.files  # part of the new version too
+
+
+def test_a_short_raw_copy_keeps_the_delivery(env, monkeypatch):
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    real = env.store.copy_out
+
+    def truncate_raw(key, dst):
+        real(key, dst)
+        if key.endswith("episode.mcap"):
+            with open(dst, "r+b") as f:
+                f.truncate(10)
+
+    monkeypatch.setattr(env.store, "copy_out", truncate_raw)
+    assert env.run().failed == ["acme/episode_0001"]
+    assert "raw copy" in env.status(A)["error"]
+    assert env.store.get_delivery(A) is not None

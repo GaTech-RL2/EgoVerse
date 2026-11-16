@@ -518,12 +518,26 @@ class Store(ABC):
             raise UploadsInProgress(ref, self.uploads_in_progress(ref))
         return files
 
-    def delete_delivery(self, ref: Ref) -> None:
-        """Remove every file of the delivery, its completion marker first."""
-        for marker in MARKERS:
-            self._delete(ref.prefix + marker)
-        for key in self._list(ref.prefix):
-            self._delete(key)
+    def delete_delivery(
+        self, ref: Ref, only: dict[str, tuple[int, str]] | None = None
+    ) -> None:
+        """Remove every file of the delivery, its completion marker first. With `only`
+        (a Listed.files snapshot), remove just those files that are still exactly as
+        they were, and the markers once nothing else is left: a file re-uploaded since
+        the snapshot is the vendor's new version and stays."""
+        if only is None:
+            for marker in MARKERS:
+                self._delete(ref.prefix + marker)
+            for key in self._list(ref.prefix):
+                self._delete(key)
+            return
+        files = self._files(ref)
+        for name, meta in only.items():
+            if name in files and tuple(files[name]) == tuple(meta):
+                self._delete(ref.file_key(name))
+        if not self._files(ref):
+            for marker in MARKERS:
+                self._delete(ref.prefix + marker)
 
     def get_delivery(self, ref: Ref) -> Listed | None:
         """One delivery as it is now (a fresh listing of just its folder), or None."""
