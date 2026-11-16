@@ -2,6 +2,9 @@
 import argparse
 import copy
 import errno
+import fcntl
+from contextlib import contextmanager
+from collections import defaultdict
 from datetime import datetime,timezone
 import gzip
 import hashlib
@@ -71,17 +74,59 @@ def link_immutable(source,destination,expected_sha256=None):
         destination.symlink_to(source)
 
 
-def select(spec,root):
+@contextmanager
+def candidate_guard(root,state_id):
+    """One writer per immutable state, including across selection nodes."""
+    if len(state_id)!=64 or any(c not in '0123456789abcdef' for c in state_id):
+        raise ValueError('Invalid candidate state identifier')
+    folder=Path(root)/'candidate-locks';folder.mkdir(parents=True,exist_ok=True)
+    with (folder/(state_id+'.lock')).open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        try:yield
+        finally:fcntl.flock(lock,fcntl.LOCK_UN)
+
+
+def selection_indices(count,execution):
+    indices=execution.get('indices',list(range(count)))
+    if len(indices)!=len(set(indices)) or any(type(i) is not int or not 0<=i<count for i in indices):
+        raise ValueError('Invalid selection worker membership')
+    return set(indices)
+
+
+def select(spec,root,execution=None):
     import torch
     from transformers import AutoProcessor
     from vllm import LLM,SamplingParams
     from efe_leact_vl import prompt,images_of
+    root=Path(root);root.mkdir(parents=True,exist_ok=True)
+    config=root/'selection-execution.json'
+    execution=execution if execution is not None else json.loads(config.read_text()) if config.exists() else {}
+    producer=execution.get('candidate_only',False)
+    max_sequences=execution.get('max_num_seqs',1)
+    if max_sequences not in (1,8):raise ValueError('Unreviewed selection concurrency')
+    worker_root=Path(execution.get('worker_root',str(root)))
+    worker_root.mkdir(parents=True,exist_ok=True)
+    timings=defaultdict(float)
     source=Path(spec['parent_corpus'])/'decisions.jsonl.gz'
     if sha(source)!=spec['decisions_sha256']:raise ValueError('Teacher state membership changed')
     states=balanced_order([json.loads(s) for s in gzip.decompress(source.read_bytes()).splitlines()],spec['seed'])
     if len(states)!=spec.get('expected_teacher_states',43):raise ValueError('The frozen teacher-state count changed')
     states=states[:spec.get('max_balanced_states',len(states))]
-    if spec.get('reuse_parent_visual_blobs'):
+    indices=selection_indices(len(states),execution)
+    if not producer and indices!=set(range(len(states))):raise ValueError('Only producers may select a partial membership')
+    spec_digest=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()
+    protocol=root/'selection-lock-protocol.json'
+    if producer and execution.get('shared_candidates'):
+        deadline=time.monotonic()+900
+        while not protocol.exists():
+            if time.monotonic()>deadline:raise TimeoutError('Coordinated selector has not started')
+            time.sleep(5)
+        receipt=json.loads(protocol.read_text())
+        if receipt.get('version')!=1 or receipt.get('spec_sha256')!=spec_digest:
+            raise ValueError('Shared candidate coordinator protocol differs')
+    elif not producer:
+        write(protocol,{'version':1,'spec_sha256':spec_digest,'workflow':os.environ.get('EFE_WORKFLOW_ID'),'utc':now()})
+    if spec.get('reuse_parent_visual_blobs') and not producer:
         parent=Path(spec['parent_corpus'])
         if sha(parent/'dataset-manifest.json')!=spec['parent_dataset_sha256']:raise ValueError('Warmstart replay corpus changed')
         for blob in (parent/'tensor-blobs').glob('*.pt'):
@@ -93,20 +138,23 @@ def select(spec,root):
     processor.image_processor.size.update(shortest_edge=65536,longest_edge=1048576)
     llm=LLM(model=spec['base_model'],tokenizer=spec['base_model'],dtype='bfloat16',tensor_parallel_size=8,
         distributed_executor_backend='mp',disable_custom_all_reduce=True,enforce_eager=True,
-        max_model_len=spec['context'],max_num_seqs=1,max_num_batched_tokens=2048,gpu_memory_utilization=.75,
+        max_model_len=spec['context'],max_num_seqs=max_sequences,max_num_batched_tokens=2048,gpu_memory_utilization=.75,
         enable_prefix_caching=False,limit_mm_per_prompt={'image':40,'video':0},
         mm_processor_kwargs={'size':dict(processor.image_processor.size)},seed=spec['seed'])
     for name in ['candidates','probes','tensors']:(root/name).mkdir(exist_ok=True)
-    write(root/'membership.json',{'states':[s['id'] for s in states],'source':'Balanced subset of verified warmstart teacher states; no evaluation trajectory enters training.',
+    write((worker_root if producer else root)/'membership.json',{'states':[s['id'] for i,s in enumerate(states) if i in indices],'source':'Balanced subset of verified warmstart teacher states; no evaluation trajectory enters training.',
         'candidates_per_state':8,'top_positive':2,'candidate_tokens':spec['candidate_tokens'],
         'admission_target':'Every token through the complete action_type, action vector, and repeat fields. Free-text summary excluded; full JSON likelihood also retained as a diagnostic.'})
     def score(state,rationale,seed):
+        started=time.monotonic()
         target={'role':'assistant','reasoning_content':rationale,'content':json.dumps(state['action'],ensure_ascii=False)}
         batch,meta=encode_example(processor,state['messages'],[],target,spec['context'],action_only=True)
         if batch is None:return None,None
         ids=batch['input_ids'][0].tolist();start=meta['target_start_token'];positions=physical_positions(processor.tokenizer,ids,start)
         request=prompt(processor,state['messages'],[],target=target)
+        timings['score_preprocessing_seconds']+=time.monotonic()-started;started=time.monotonic()
         response=llm.generate([request],SamplingParams(temperature=0,max_tokens=1,prompt_logprobs=1,seed=seed),use_tqdm=False)[0]
+        timings['score_engine_seconds']+=time.monotonic()-started;timings['score_calls']+=1
         if list(response.prompt_token_ids)!=ids:raise ValueError('Scoring HF/vLLM image-token parity failed')
         values={}
         for i in range(start,len(ids)):
@@ -121,45 +169,81 @@ def select(spec,root):
             'full_json_mean_logp':sum(values.values())/len(values),'full_json_tokens':len(values),
             'complete_prompt_tokens':len(ids)}
         return result,batch
+    if not producer or execution.get('shared_candidates'):
+        # First-call variation was observed even with the original one-sequence
+        # engine. Keep these requests outside candidate admission and record them.
+        first=states[0]
+        warm_seed=int(hashlib.sha256((str(spec['seed'])+'/'+first['id']).encode()).hexdigest()[:8],16)%(2**31)
+        cold,_=score(first,'',warm_seed);warm,_=score(first,'',warm_seed)
+        error=abs(cold['mean_target_logp']-warm['mean_target_logp'])
+        if error>.05:raise ValueError('Inference warmup exceeds existing selection/training likelihood tolerance')
+        write(worker_root/'inference-warmup.json',{'state_id':first['id'],'cold':cold,'warm':warm,
+            'absolute_error':error,'tolerance':.05,'used_for_admission':False,'max_num_seqs':max_sequences})
     rows=[];reports=[];probes=[]
     for index,state in enumerate(states):
+        if index not in indices:continue
         path=root/'candidates'/(state['id']+'.json')
         condition=hashlib.sha256(json.dumps({'spec':spec,'state':state},sort_keys=True).encode()).hexdigest()
         seed=int(hashlib.sha256((str(spec['seed'])+'/'+state['id']).encode()).hexdigest()[:8],16)%(2**31)
-        if path.exists():
-            record=json.loads(path.read_text())
-            if record['condition_sha256']!=condition:raise ValueError('Existing candidate provenance differs')
-        else:
-            tick=time.monotonic();base,base_batch=score(state,'',seed)
-            if base is None:raise ValueError('Teacher command no longer fits complete scoring context')
-            messages=backward(state);request=prompt(processor,messages,[])
-            expected=processor(text=[request['prompt']],images=images_of(messages),return_tensors='pt')['input_ids'][0].tolist()
-            if len(expected)+spec['candidate_tokens']>spec['context']:raise ValueError('Complete candidate budget does not fit')
-            output=llm.generate([request],SamplingParams(n=8,temperature=1.,top_p=.95,top_k=20,repetition_penalty=1.,
-                max_tokens=spec['candidate_tokens'],seed=seed),use_tqdm=False)[0]
-            if list(output.prompt_token_ids)!=expected:raise ValueError('Generation HF/vLLM image-token parity failed')
-            candidates=[];seen=set()
-            for answer in output.outputs:
-                rationale,reason=candidate_reasoning(answer.text,answer.finish_reason)
-                candidate={'candidate':answer.index,'text':answer.text,'tokens':len(answer.token_ids),'finish_reason':answer.finish_reason,'eligible':False,'reason':reason}
-                if rationale is not None:
-                    if rationale in seen:candidate['reason']='duplicate_explanation'
-                    else:
-                        seen.add(rationale);conditioned,_=score(state,rationale,seed)
-                        if conditioned is None:candidate['reason']='complete_example_exceeds_context'
+        if producer and execution.get('score_reference_root'):
+            reference=json.loads((Path(execution['score_reference_root'])/'candidates'/(state['id']+'.json')).read_text())
+            if reference['condition_sha256']!=condition:raise ValueError('Fixed scoring reference provenance differs')
+            values={};started=time.monotonic()
+            for name,rationale in [('base_first',''),('base_repeat','')]+[
+                    ('candidate_'+str(c['candidate']),c['rationale']) for c in reference['candidates'] if c.get('rationale')]:
+                value,_=score(state,rationale,seed)
+                if value is None:raise ValueError('Fixed reference does not fit scoring context')
+                values[name]=value
+            reports.append({'state_id':state['id'],'scores':values,'seconds':time.monotonic()-started})
+            write(worker_root/'fixed-scores.json',{'states':reports,'execution':execution})
+            progress(worker_root,'fixed_scoring_check',f'{len(reports)}/{len(indices)} fixed states rescored.',training_started=False)
+            continue
+        with candidate_guard(root,state['id']):
+            if path.exists():
+                record=json.loads(path.read_text())
+                if record['condition_sha256']!=condition:raise ValueError('Existing candidate provenance differs')
+            else:
+                timings.clear()
+                tick=time.monotonic();base,base_batch=score(state,'',seed)
+                if base is None:raise ValueError('Teacher command no longer fits complete scoring context')
+                prep_started=time.monotonic()
+                messages=backward(state);request=prompt(processor,messages,[])
+                expected=processor(text=[request['prompt']],images=images_of(messages),return_tensors='pt')['input_ids'][0].tolist()
+                if len(expected)+spec['candidate_tokens']>spec['context']:raise ValueError('Complete candidate budget does not fit')
+                timings['generation_preprocessing_seconds']=time.monotonic()-prep_started
+                generated_started=time.monotonic()
+                output=llm.generate([request],SamplingParams(n=8,temperature=1.,top_p=.95,top_k=20,repetition_penalty=1.,
+                    max_tokens=spec['candidate_tokens'],seed=seed),use_tqdm=False)[0]
+                timings['generation_engine_seconds']=time.monotonic()-generated_started
+                if list(output.prompt_token_ids)!=expected:raise ValueError('Generation HF/vLLM image-token parity failed')
+                candidates=[];seen=set()
+                for answer in output.outputs:
+                    rationale,reason=candidate_reasoning(answer.text,answer.finish_reason)
+                    candidate={'candidate':answer.index,'text':answer.text,'tokens':len(answer.token_ids),'finish_reason':answer.finish_reason,'eligible':False,'reason':reason}
+                    if rationale is not None:
+                        if rationale in seen:candidate['reason']='duplicate_explanation'
                         else:
-                            if any(conditioned[k]!=base[k] for k in ['target_tokens','target_ids_sha256']):raise ValueError('Conditional and baseline command tokens differ')
-                            delta=conditioned['mean_target_logp']-base['mean_target_logp']
-                            candidate.update(rationale=rationale,score=conditioned,delta=delta,
-                                full_json_delta=conditioned['full_json_mean_logp']-base['full_json_mean_logp'],
-                                eligible=delta>0,reason=None if delta>0 else 'nonpositive_command_delta')
-                candidates.append(candidate)
-            if len(candidates)!=8:raise ValueError('Incomplete candidate set')
-            chosen=sorted([c for c in candidates if c['eligible']],key=lambda c:(-c['delta'],c['candidate']))[:2]
-            record={'state_id':state['id'],'task':state['task'],'suite':state['suite'],'condition_sha256':condition,
-                'base':base,'candidates':candidates,'selected':[c['candidate'] for c in chosen],'seconds':time.monotonic()-tick,
-                'generation_prompt_tokens':len(expected),'exact_generation_tokens_verified':True}
-            write(path,record)
+                            seen.add(rationale);conditioned,_=score(state,rationale,seed)
+                            if conditioned is None:candidate['reason']='complete_example_exceeds_context'
+                            else:
+                                if any(conditioned[k]!=base[k] for k in ['target_tokens','target_ids_sha256']):raise ValueError('Conditional and baseline command tokens differ')
+                                delta=conditioned['mean_target_logp']-base['mean_target_logp']
+                                candidate.update(rationale=rationale,score=conditioned,delta=delta,
+                                    full_json_delta=conditioned['full_json_mean_logp']-base['full_json_mean_logp'],
+                                    eligible=delta>0,reason=None if delta>0 else 'nonpositive_command_delta')
+                    candidates.append(candidate)
+                if len(candidates)!=8:raise ValueError('Incomplete candidate set')
+                chosen=sorted([c for c in candidates if c['eligible']],key=lambda c:(-c['delta'],c['candidate']))[:2]
+                record={'state_id':state['id'],'task':state['task'],'suite':state['suite'],'condition_sha256':condition,
+                    'base':base,'candidates':candidates,'selected':[c['candidate'] for c in chosen],'seconds':time.monotonic()-tick,
+                    'generation_prompt_tokens':len(expected),'exact_generation_tokens_verified':True,
+                    'timings':dict(timings),'execution':{'max_num_seqs':max_sequences,'workflow':os.environ.get('EFE_WORKFLOW_ID')}}
+                write(path,record)
+        if producer:
+            reports.append({'state_id':state['id'],'seconds':record['seconds'],'timings':record.get('timings',{}),'selected':len(record['selected'])})
+            progress(worker_root,'selection_worker',f'{len(reports)}/{len(indices)} assigned states available.',completed=len(reports),total=len(indices),training_started=False)
+            write(worker_root/'timings.json',{'states':reports,'execution':execution})
+            continue
         if index<2:
             base,batch=score(state,'',seed);p=root/'probes'/f'base-{index}.pt';torch.save(batch,p)
             probes.append({'condition':'base-'+str(index),'tensor_file':str(p.relative_to(root)),'tensor_sha256':sha(p),'mean_target_logp':base['mean_target_logp']})
@@ -181,6 +265,9 @@ def select(spec,root):
         write(root/'candidate-report.json',{'states':reports,'completed':len(reports),'total':len(states)})
         progress(root,'leact_generation',f'{index+1}/{len(states)} states scored; {sum(bool(r["selected"]) for r in reports)} have admitted explanations.',
             completed=index+1,total=len(states),admitted_states=sum(bool(r['selected']) for r in reports),training_started=False)
+    if producer:
+        write(worker_root/'complete.json',{'success':True,'states':len(reports),'candidate_only':True,'completed_utc':now()})
+        return
     selection={'states_attempted':len(states),'candidate_count':8,'max_positive_candidates':2,
         'admitted_candidates':len(rows)//2,'admitted_states':len({r['decision_id'] for r in rows}),
         'rule':'Strictly positive mean log-likelihood gain on identical executable-command tokens; top two per state. Summary tokens cannot determine admission.'}

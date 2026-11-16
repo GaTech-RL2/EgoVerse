@@ -145,7 +145,9 @@ function currentStudyStatus(){
   const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}.`;}).join(' ');
   const pending=branchText+' '+(leact?.status==='WAITING_FOR_WARMSTART'?'The final-737 LeAct branch still waits for warmstart completion.':`Final-737 LeAct: ${workflowLabel(leact?.status)}.`);
   const pearText=pear?.result?.success?'PEAR’s optimizer check passed.':pear?.error||pear?.phase?.includes('needs_review')?'PEAR’s optimizer check needs review.':pear?.phase==='fresh_process_restart_verification'?'PEAR is verifying its saved checkpoint.':pear?.accumulation?.microbatches?`PEAR’s update check: ${pear.accumulation.microbatches}/${pear.accumulation.total_microbatches} batches.`:pear?.workflow?`PEAR’s optimizer check is ${workflowLabel(pear.scheduler_status).toLowerCase()}.`:'PEAR’s optimizer check is pending.';
-  el('loss-next-stage').textContent=pending+' '+pearText+' The PEAR comparison uses the final warmstart.';
+  const selection=exp.selection_workers;
+  const workerText=selection?.enabled?`Parallel selection: ${(selection.jobs||[]).filter(j=>j.status==='RUNNING').length}/${(selection.jobs||[]).length} additional H100 nodes running. `:'';
+  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+' '+pearText+' The PEAR comparison uses the final warmstart.';
 }
 function chart(){
   const histories=lossHistories(data),category=lossCategories.find(c=>c.id===chartState.category)||lossCategories[0];

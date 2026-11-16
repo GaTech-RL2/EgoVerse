@@ -170,6 +170,10 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
             if stage!='restart-probe':write(DEST/stage/'scheduler.json',state)
             record['status']=state['status']
             if state['status'].startswith('FAILED'):
+                upgrade=branches.get(stage,{})
+                reviewed_upgrade=(state['status']=='FAILED_CANCELED'
+                    and upgrade.get('execution_upgrade_from_workflow')==attempt['workflow']
+                    and upgrade.get('selection_execution_build'))
                 cuda_startup=cuda_unavailable_before_training(state,data)
                 if cuda_startup:
                     review={'workflow':attempt['workflow'],'utc':now(),
@@ -178,7 +182,9 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                         'recipe_changed':False,'error':data['error']['error']}
                     write(Path(attempt['build'])/'cuda-startup-review.json',review)
                     record['infrastructure_review']=review
-                if infra_retryable(state) or cuda_startup:
+                if reviewed_upgrade:
+                    record.update(retry=True,status='EXECUTION_UPGRADE')
+                elif infra_retryable(state) or cuda_startup:
                     record['retry']=retry_due(record,attempt['workflow'])
                     if not record['retry']:record['status']='RETRY_BACKOFF'
                 else:record.update(retry=False,status='NEEDS_REVIEW')
@@ -191,10 +197,14 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                 parent=None
                 if stage=='leact-r1':
                     parent={**remote['warmstart'],'admission':evidence['admission']}
-                if record['attempts']:folder=retry_build(record['attempts'][-1]['build'],len(record['attempts']))
+                upgrade=branches.get(stage,{}).get('selection_execution_build')
+                applied=any(a['build']==upgrade for a in record['attempts']) if upgrade else False
+                if upgrade and not applied:folder=Path(upgrade)
+                elif record['attempts']:folder=retry_build(record['attempts'][-1]['build'],len(record['attempts']))
                 elif stage in branches:folder=Path(branches[stage]['build'])
                 else:folder=build(stage,plan,parent)
                 priority=submission_priority(record)
+                if upgrade and not applied:priority=branches[stage].get('execution_upgrade_priority',priority)
                 receipt=submit(folder,priority=priority)
                 record['attempts'].append({'workflow':receipt['name'],'build':str(folder),'submitted_utc':now(),'priority':priority})
                 record.update(status='PENDING',retry=False)

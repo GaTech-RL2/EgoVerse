@@ -196,6 +196,14 @@ for stage,stage_root in STAGES_LITERAL.items():
        'waiting_for_corpus':read(d/'waiting-for-corpus.json') or {},'error':read(d/'worker-error.json') or {},
        'ready':read(d/('warmstart-ready.json' if stage=='warmstart' else 'leact-ready.json')) or {},
        'selection':read(d/'selection.json') or {},'membership':read(d/'membership.json') or {}}
+ if (d/'selection-lock-protocol.json').exists():
+  cached=sum(1 for _ in (d/'candidates').glob('*.json'))
+  parallel={p.parent.name:read(p) for p in (d/'selection-workers').glob('*/progress.json')}
+  data['selection_parallel']={'cached_states':cached,'workers':parallel}
+  if data['progress'].get('phase')=='leact_generation':
+   assembled=data['progress'].get('completed',0);total=data['progress'].get('total',2048)
+   data['progress'].update(cached_states=cached,parallel_workers=parallel,
+    detail=f'{cached}/{total} states generated and scored across selection workers; {assembled} assembled into training data.')
  worker=read(d/'worker-start.json') or {}
  data['worker_start']=worker
  states=[read(p) for p in (d/'restart-states').glob('checkpoint-*/training-state.json')]
@@ -447,6 +455,8 @@ def tick():
     preparation_ready=(len(eligible)>=min(128,plan['target_successful_episodes'])
                        and task_count>=plan['minimum_distinct_successful_tasks'] and audit.get('complete'))
     training=training_tick(plan,evidence,collection_gate,active,preparation_ready=preparation_ready)
+    from .launch_efe_selection_workers import tick as selection_workers_tick
+    selection_workers_tick()
     from .launch_efe_coverage_eval import tick as eval_tick
     # Include allocations submitted by training_tick before assigning eval slots.
     active=command(['osmo','workflow','list','--name','leact','--status','RUNNING','PENDING','WAITING','--format-type','json'])['workflows']

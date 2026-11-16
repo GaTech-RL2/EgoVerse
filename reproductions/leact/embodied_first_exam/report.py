@@ -538,6 +538,8 @@ def build():
                 'training':read(ROOT/'fixed-action-v1/coverage-scale-v1/training-status.json',{}),
                 'intermediate_evaluations':read(ROOT/'fixed-action-v1/coverage-scale-v1/intermediate-evaluations.json',{}),
                 'branch_runs':read(ROOT/'fixed-action-v1/coverage-scale-v1/branch-runs.json',{}),
+                'selection_workers':read(ROOT/'fixed-action-v1/coverage-scale-v1/selection-workers.json',{}),
+                'performance':read(ROOT/'fixed-action-v1/coverage-scale-v1/performance-analysis.json',{}),
                 'evaluation':read(ROOT/'fixed-action-v1/coverage-scale-v1/evaluation-status.json',{})},
             'pear_comparison':{'plan':read(ROOT/'pear-v1/plan.json',{}),
                                'status':read(ROOT/'pear-v1/status.json',{}),
