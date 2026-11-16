@@ -536,6 +536,7 @@ def build():
                 'storage_recovery':read(ROOT/'fixed-action-v1/coverage-scale-v1/storage-recovery-status.json',{}),
                 'training_recovery':read(ROOT/'fixed-action-v1/coverage-scale-v1/training-recovery-status.json',{}),
                 'training':read(ROOT/'fixed-action-v1/coverage-scale-v1/training-status.json',{}),
+                'intermediate_evaluations':read(ROOT/'fixed-action-v1/coverage-scale-v1/intermediate-evaluations.json',{}),
                 'evaluation':read(ROOT/'fixed-action-v1/coverage-scale-v1/evaluation-status.json',{})},
             'pear_comparison':{'plan':read(ROOT/'pear-v1/plan.json',{}),
                                'status':read(ROOT/'pear-v1/status.json',{}),

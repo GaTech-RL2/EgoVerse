@@ -4,6 +4,7 @@ from datetime import datetime,timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 
 import yaml
@@ -14,6 +15,34 @@ from .compute_budget import reserved_nodes,node_limit
 from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks
 
 PREFIX='leact-efe-coverage-eval-'
+
+
+def register_intermediates(frozen,queue,registry,panel_sha256):
+    """Add separately named fixed-update screens only on the frozen panel."""
+    ready={}
+    for run in registry.get('runs',[]):
+        model=run['id'];step=run['step']
+        if model!=f'warmstart-step{step}' or type(step) is not int or step<1:
+            raise ValueError('Invalid intermediate checkpoint identity')
+        if run.get('panel_sha256')!=panel_sha256 or run.get('planned_tasks')!=len(frozen['tasks']):
+            raise ValueError('Intermediate evaluation panel differs from the frozen baselines')
+        for index in range(0,len(frozen['tasks']),4):
+            ident=f'b{index//4+1:02d}';tasks=frozen['tasks'][index:index+4]
+            existing=next((b for b in queue['batches'] if (b['model'],b['id'])==(model,ident)),None)
+            if existing is None:queue['batches'].append({'id':ident,'model':model,'tasks':tasks,'attempts':[]})
+            elif existing['tasks']!=tasks:raise ValueError('Intermediate batch tasks changed')
+        value=run.get('ready')
+        if value is None:continue
+        replay=value.get('loss_replay',{});error=replay.get('absolute_error')
+        if not (value.get('step')==step and value.get('final') is False
+                and value.get('pin_sha256')==run.get('pin_sha256')
+                and isinstance(run.get('pin_sha256'),str) and re.fullmatch('[0-9a-f]{64}',run['pin_sha256'])
+                and value.get('additional_optimizer_updates')==0 and replay.get('passed') is True
+                and replay.get('optimizer_updates')==0 and isinstance(error,(int,float)) and 0<=error<=.0005
+                and all(value.get(k) for k in ['checkpoint','manifest','revision'])):
+            raise ValueError('Intermediate checkpoint has not passed exact export verification')
+        ready[model]=value
+    return ready
 
 
 def balanced(rows,count):
@@ -73,6 +102,8 @@ def build(model,batch,ready,retry):
     spec.pop('training_parent',None)
     if model!='astra':
         spec.update(student_checkpoint=ready['checkpoint'],student_manifest=ready['manifest'],student_revision=ready['revision'])
+        if ready.get('final') is False:
+            spec['intermediate_checkpoint']={k:ready[k] for k in ['step','final','selection','pin_sha256','additional_optimizer_updates']}
         boot=(folder/'native-bootstrap.py').read_text()
         line="subprocess.run([python, '-u', str(lane / 'efe_prepare_qualification_student.py')], env=env, check=True)\n"
         if boot.count(line)!=1:raise ValueError('Qualification bootstrap changed')
@@ -105,6 +136,8 @@ def tick(plan,evidence,active):
                     'tasks':frozen['tasks'][index:index+4],'attempts':[]})
     training=evidence.get('training',{})
     ready={'astra':{},'base':evidence.get('base_ready')}
+    ready.update(register_intermediates(frozen,queue,read(DEST/'intermediate-evaluations.json',{}),
+        hashlib.sha256((DEST/'evaluation-panel.json').read_bytes()).hexdigest()))
     for stage in ['warmstart','leact-r1']:
         if training.get(stage,{}).get('complete',{}).get('success') and training[stage].get('ready'):
             ready[stage]=training[stage]['ready']

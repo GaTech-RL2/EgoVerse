@@ -60,7 +60,8 @@ def main():
         'full_parameters':False,'merged_adapter':True,'adapter_reload_verified':True,'merged_weight_update_verified':witness[0],
         'loss_replay':replay,'dataset_sha256':sha(root/'dataset-manifest.json')})
     write(root/spec.get('export_ready_name','warmstart-ready.json'),{'checkpoint':str(destination),'manifest':str(destination/'checkpoint-manifest.json'),
-        'revision':revision,'step':steps,'final':True,'selection':f'Fixed {steps}-update pilot budget; no selection on evaluation results.'})
+        'revision':revision,'step':steps,'final':spec.get('export_final',True),
+        'selection':spec.get('export_selection',f'Fixed {steps}-update pilot budget; no selection on evaluation results.')})
 
 
 if __name__=='__main__':main()
