@@ -190,75 +190,55 @@ def _sha256(uri: str) -> str:
 
 
 def _place_videos(store: Store, ref: Ref, digest: str, pin: dict, lance_root, dst):
-    """Hand an approved stage's files over, checking every byte against the pin: the MP4s
-    are copied server-side to their final place under the Lance root (videos/<recording
-    id>/<content digest>/<cam>.mp4), the other files to the committer's folder `dst`, and
-    the meta.json "lance_videos" entry that tells the committer the videos are in place
-    is returned. Nothing but a copy and a read leaves R2, so it costs no transfer.
+    """Hand an approved stage's files over: the MP4s are copied server-side to their final
+    place under the Lance root (videos/<recording id>/<content digest>/<cam>.mp4), the
+    other files to the committer's folder `dst`, and the meta.json "lance_videos" entry
+    that tells the committer the videos are in place is returned. Only copies inside R2
+    and small reads: no video passes through this machine.
 
-    The job's key cannot write the Lance root, and the bytes read back from where they now
-    sit must hash to what staff approved: the pin's per-file sha256 and its content
-    digest. Videos this call created are removed again if they do not."""
-    import io
-
-    import pyarrow.parquet as pq
-
+    The videos were checked where they were made (stage.committer_problems; the pin
+    carries their content digest and frame counts). Here each copy's size is checked, and
+    the small files' bytes against the pin. Videos this call created are removed again
+    if a check fails."""
     from egomimic.rldb.lance import commit
-    from egomimic.rldb.lance.dataset import read_range
-    from egomimic.rldb.lance.mp4_ranges import read_index
 
     rid = pin["recording_id"]
     want = {n: f for n, f in pin["files"].items() if n != META}
     cams = sorted(n[: -len(".mp4")] for n in want if n.endswith(".mp4"))
-    uris = {
-        c: commit.join(lance_root, commit.video_path(rid, pin["content_digest"], c))
-        for c in cams
-    }
-    made = []
-    try:
-        steps = None
-        for name, f in want.items():
-            if name.endswith(".mp4"):
-                continue
+    if not cams or "steps.parquet" not in want:
+        raise StageCorrupt("the stage has no steps.parquet or no MP4s")
+    for name, f in want.items():
+        if not name.endswith(".mp4"):
             to = commit.join(dst, name)
             store.copy_out(ref.staged_prefix(digest) + name, to)
-            data = commit.get_bytes(to)  # what the committer will read
-            if hashlib.sha256(data).hexdigest() != f["sha256"]:
+            if _sha256(to) != f["sha256"]:
                 raise StageCorrupt(f"{name} does not match its pin")
-            if name == "steps.parquet":
-                steps = pq.read_table(io.BytesIO(data))
-        if steps is None or not cams:
-            raise StageCorrupt("the stage has no steps.parquet or no MP4s")
-        for cam, uri in uris.items():
-            size = want[cam + ".mp4"]["size"]
+    paths = {c: commit.video_path(rid, pin["content_digest"], c) for c in cams}
+    made = []
+    try:
+        for cam, rel in paths.items():
+            uri, size = commit.join(lance_root, rel), want[cam + ".mp4"]["size"]
             if commit._size(uri) == size:
                 commit._touch(uri)  # there already; fresh for orphan_videos
-            else:
-                made.append(uri)
-                store.copy_out(ref.staged_prefix(digest) + cam + ".mp4", uri)
-        got, shas = commit.placed_digest(steps, uris)
-        bad = [c for c in cams if shas[c] != want[c + ".mp4"]["sha256"]]
-        if bad or got != pin["content_digest"]:
-            raise StageCorrupt(
-                f"placed videos {bad or 'together'} do not match the pin"
-            )
-        videos = {
-            c: {
-                "path": commit.video_path(rid, got, c),
-                "size": want[c + ".mp4"]["size"],
-                "num_frames": read_index(
-                    lambda a, b, u=uris[c]: read_range(u, a, b)
-                ).num_frames,
-            }
-            for c in cams
-        }
+                continue
+            made.append(uri)
+            store.copy_out(ref.staged_prefix(digest) + cam + ".mp4", uri)
+            if commit._size(uri) != size:
+                raise StageCorrupt(f"{rel} is not the {size} bytes the pin says")
     except BaseException:
         commit.remove(made)
         raise
     return {
         "root": str(lance_root).rstrip("/"),
-        "content_digest": got,
-        "videos": videos,
+        "content_digest": pin["content_digest"],
+        "videos": {
+            c: {
+                "path": paths[c],
+                "size": want[c + ".mp4"]["size"],
+                "num_frames": pin["video_frames"][c],
+            }
+            for c in cams
+        },
     }
 
 
@@ -299,7 +279,7 @@ def _hand_off(
     dst = commit.join(
         lance_staging, mcap_source(pin["lab"]), pin["vendor_recording_id"]
     )
-    direct = bool(lance_root) and "content_digest" in pin
+    direct = bool(lance_root) and "video_frames" in pin
     if direct:
         placed = _place_videos(store, ref, digest, pin, lance_root, dst)
     else:

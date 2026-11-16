@@ -22,6 +22,7 @@ if not (
 from egomimic.ingest.stage import (  # noqa: E402
     REVIEW_ONLY,
     StageCorrupt,
+    committer_problems,
     prepare,
     read_pin,
     stage_digest,
@@ -201,3 +202,16 @@ def test_the_committer_refuses_a_meta_json_lab_other_than_its_folder(tmp_path):
     (errs,) = report["rejected"].values()
     assert "is not 'rl2'" in errs[0]
     assert not report["batches"]
+
+
+def test_the_job_runs_the_committers_checks_and_pins_frame_counts(tmp_path):
+    p = stage(tmp_path)
+    pin = read_pin(p.staged)
+    assert pin["video_frames"] and set(pin["video_frames"].values()) == {60}
+    assert committer_problems(p.staged) == []
+    meta = json.loads((p.staged / "meta.json").read_text())
+    meta["num_frames"] += 1
+    (p.staged / "meta.json").write_text(json.dumps(meta))
+    problems = committer_problems(p.staged)
+    assert any("!= num_frames" in x for x in problems)
+    assert any("frames, steps has 61" in x for x in problems)

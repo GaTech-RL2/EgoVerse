@@ -399,17 +399,12 @@ def table_uris(root) -> list[str]:
     ]
 
 
-def _steps_hasher(steps: pa.Table):
+def content_digest(steps: pa.Table, videos: dict[str, Path]) -> str:
     h = hashlib.sha256()
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, steps.schema) as w:
         w.write_table(steps.combine_chunks())
     h.update(sink.getvalue())
-    return h
-
-
-def content_digest(steps: pa.Table, videos: dict[str, Path]) -> str:
-    h = _steps_hasher(steps)
     for cam in sorted(videos):
         h.update(cam.encode() + b"\0")
         with open(videos[cam], "rb") as f:
@@ -427,20 +422,6 @@ def read_chunks(uri: str):
     bucket, key = _split(uri)
     body = _s3_client().get_object(Bucket=bucket, Key=key)["Body"]
     yield from body.iter_chunks(1 << 20)
-
-
-def placed_digest(steps: pa.Table, uris: dict[str, str]) -> tuple[str, dict[str, str]]:
-    """`content_digest` of a delivery whose MP4s are at `uris` ({cam: local path or s3://
-    URI}), and each MP4's sha256, from one pass over the bytes."""
-    h, files = _steps_hasher(steps), {}
-    for cam in sorted(uris):
-        h.update(cam.encode() + b"\0")
-        f = hashlib.sha256()
-        for block in read_chunks(uris[cam]):
-            h.update(block)
-            f.update(block)
-        files[cam] = f.hexdigest()
-    return h.hexdigest(), files
 
 
 def _exists(uri: str) -> bool:

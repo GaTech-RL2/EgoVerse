@@ -15,7 +15,9 @@ exactly that result. On approval the watcher copies the staged delivery to the
 committer's staging prefix (egomimic.scripts.lance_commit, the only Lance writer), which
 commits it unless the recording is already committed (that needs --replace). The MP4s
 skip the staging prefix: they are copied server-side to their final place under the Lance
-root, and the committer only checks their sizes (watch._place_videos).
+root, and the committer only checks their sizes (watch._place_videos). prepare() runs the
+committer's checks on the local files first (committer_problems), so nothing downstream
+has to download a video to check it.
 """
 
 from __future__ import annotations
@@ -207,6 +209,23 @@ def diff(root, converted) -> dict:
 # ---------------------------------------------------------------- prepare
 
 
+def committer_problems(folder: Path) -> list[str]:
+    """Why the committer would refuse the delivery written to `folder`, or []: the same
+    checks lance_commit runs (row and frame counts, timestamps, every MP4's frames,
+    required fields, the steps schema), run where the files are local."""
+    from egomimic.rldb.lance import commit
+    from egomimic.scripts.lance_commit import load_meta_deliveries
+
+    ok, bad = load_meta_deliveries([Path(folder)])
+    if bad:
+        return [p for errs in bad.values() for p in errs]
+    try:
+        commit.check_required(ok[0])
+    except ValueError as e:
+        return [str(e)]
+    return []
+
+
 def mano_model_digest(model_dir: str | None = None) -> str:
     """sha256 over MANO_LEFT.pkl and MANO_RIGHT.pkl in model_dir (default: where the
     converter looks), so a stage records which model fitted its hands."""
@@ -274,9 +293,12 @@ def prepare(
             c,
             {"converter": converter, "settings": pinned, "fingerprint": fingerprint},
         ).rename(tmp)
-        # What commit.content_digest says of this delivery: the hand-off places the MP4s
-        # under that name and checks the bytes it placed against it (watch._place_videos).
-        content = commit.describe_videos(tmp, lance_root)[0]["content_digest"]
+        # The committer's own checks, here: a stage staff can approve is one the
+        # committer takes without reading its videos (the hand-off places them).
+        if problems := committer_problems(tmp):
+            return Prepared("rejected", d.recording_id, problems=problems)
+        # Where the hand-off places the MP4s, and the frame counts it hands the committer.
+        placed = commit.describe_videos(tmp, lance_root)[0]
         change = diff(lance_root, c)
         (tmp / DIFF).write_text(json.dumps(change, indent=1, sort_keys=True))
         files = {
@@ -300,7 +322,10 @@ def prepare(
             "fingerprint": fingerprint,
             "converter": converter,
             "settings": pinned,
-            "content_digest": content,
+            "content_digest": placed["content_digest"],
+            "video_frames": {
+                cam: v["num_frames"] for cam, v in sorted(placed["videos"].items())
+            },
             "files": files,
             "report": report,
             "staged_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
