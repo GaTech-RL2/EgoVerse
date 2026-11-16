@@ -147,7 +147,9 @@ function currentStudyStatus(){
   const pearText=pear?.result?.success?'PEAR’s optimizer check passed.':pear?.error||pear?.phase?.includes('needs_review')?'PEAR’s optimizer check needs review.':pear?.phase==='fresh_process_restart_verification'?'PEAR is verifying its saved checkpoint.':pear?.accumulation?.microbatches?`PEAR’s update check: ${pear.accumulation.microbatches}/${pear.accumulation.total_microbatches} batches.`:pear?.workflow?`PEAR’s optimizer check is ${workflowLabel(pear.scheduler_status).toLowerCase()}.`:'PEAR’s optimizer check is pending.';
   const selection=exp.selection_workers;
   const workerText=selection?.enabled?`Parallel selection: ${(selection.jobs||[]).filter(j=>j.status==='RUNNING').length}/${(selection.jobs||[]).length} additional H100 nodes running. `:'';
-  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+' '+pearText+' The PEAR comparison uses the final warmstart.';
+  const checkpoint=exp.performance?.checkpoint_optimization;
+  const checkpointText=checkpoint?` Checkpoint-saving validation: ${workflowLabel(checkpoint.status).toLowerCase()}. ${checkpoint.production_enabled?'Enabled in training.':'The current training save path is unchanged.'}`:'';
+  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+checkpointText+' '+pearText+' The PEAR comparison uses the final warmstart.';
 }
 function chart(){
   const histories=lossHistories(data),category=lossCategories.find(c=>c.id===chartState.category)||lossCategories[0];
