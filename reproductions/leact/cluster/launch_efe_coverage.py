@@ -182,10 +182,12 @@ for path in (root/'collection').glob('*/spec.json'):
  if known.get(d.name)==digest:del runs[d.name]
 training={'restart-probe':read(root/'restart-probe/result.json') or {}}
 evaluations={}
-for path in (root/'evaluation').glob('*/*/spec.json'):
- d=path.parent
+for d in (root/'evaluation').glob('*/*'):
+ if not d.is_dir():continue
  evaluations[d.name]={'results':read(d/'results.json') or {},'complete':read(d/'complete.json') or {},
-  'public_manifest':read(d/'public-episodes/manifest.json') or {}}
+  'public_manifest':read(d/'public-episodes/manifest.json') or {},
+  'progress':read(d/'progress.json') or {},'preflight':read(d/'student-preflight.json') or {},
+  'worker_complete':read(d/'worker-complete.json') or {}}
 for stage in ['warmstart','leact-r1']:
  d=root/stage
  data={'progress':read(d/'progress.json') or {},'complete':read(d/'complete.json') or {},

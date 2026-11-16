@@ -12,7 +12,7 @@ import yaml
 from .scale_efe import BASE,ROOT,BUILD_ROOT,read,write,submit,command
 from .launch_efe_training import freeze_sources
 from .compute_budget import reserved_nodes,node_limit
-from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks
+from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks,reviewed_preflight_retry
 
 PREFIX='leact-efe-coverage-eval-'
 
@@ -108,6 +108,10 @@ def build(model,batch,ready,retry):
         line="subprocess.run([python, '-u', str(lane / 'efe_prepare_qualification_student.py')], env=env, check=True)\n"
         if boot.count(line)!=1:raise ValueError('Qualification bootstrap changed')
         (folder/'native-bootstrap.py').write_text(boot.replace(line,''))
+        student=folder/'native-student.py';text=student.read_text()
+        marker="    calls=[x for x in first.get('output',[]) if x['type']=='function_call']"
+        if text.count(marker)!=1:raise ValueError('Synthetic preflight diagnostic hook changed')
+        student.write_text(text.replace(marker,"    runtime.write('student-preflight-response.json',first)\n"+marker))
     write(folder/'spec.json',spec)
     shutil.copyfile(BASE/'cluster/efe_coverage_teacher.py',folder/'native-worker.py')
     shutil.copyfile(BASE/'cluster/efe_action_artifacts.py',folder/'efe_action_artifacts.py')
@@ -178,7 +182,11 @@ def tick(plan,evidence,active):
             state=scheduler['status'];write(Path(attempt['build'])/'scheduler.json',scheduler)
             ended=scheduler.get('end_time')
             after_end=ended and evidence.get('captured_utc') and datetime.fromisoformat(evidence['captured_utc']).timestamp()>=datetime.fromisoformat(ended).replace(tzinfo=timezone.utc).timestamp()
-            if bool(after_end) and infra_retryable(scheduler):
+            review=read(DEST/'preflight-reviews'/(attempt['workflow']+'.json'),{})
+            if bool(after_end) and reviewed_preflight_retry(scheduler,results.get(attempt['workflow'],{}),review,
+                    hashlib.sha256((Path(attempt['build'])/'spec.json').read_bytes()).hexdigest()):
+                retry=True;state='WAITING_FOR_PREFLIGHT_RETRY'
+            elif bool(after_end) and infra_retryable(scheduler):
                 retry=retry_due(batch,attempt['workflow'])
                 if not retry:state='RETRY_BACKOFF'
             elif bool(after_end) and state=='COMPLETED':
