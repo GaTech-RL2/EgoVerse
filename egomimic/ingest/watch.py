@@ -11,8 +11,10 @@ Each pass:
 3. Act on staff decisions given for a delivery's current stage: decline drops the stage;
    approve hands it off. The raw files go to <raw_root>/<vendor>/<delivery>/<stage>/ and
    the staged delivery to <lance_staging>/mcap-<lab>/<vendor recording id>/ (meta.json last,
-   carrying the provenance), both copied server-side; then the delivery and its stage
-   are deleted from the ingest buckets.
+   carrying the provenance), both copied server-side. The stage's MP4s go to their final
+   place under the Lance root instead, after their bytes are checked against the stage's
+   pin, and meta.json names them ("lance_videos"), so the committer places nothing. Then
+   the delivery and its stage are deleted from the ingest buckets.
 4. Follow handed-off deliveries: `committed` once the committer took them, or
    `commit_rejected` with its errors (e.g. the recording is already committed, which
    needs lance_commit --replace).
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import sys
 import traceback
@@ -177,11 +180,86 @@ def _canary_room(statuses: dict, vendor: str, revision: str, canary: int) -> int
 # ---------------------------------------------------------------- hand-off
 
 
-def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> str:
-    """Copy an approved stage and its raw delivery out of the ingest buckets; returns
-    where the committer will find it."""
-    import hashlib
+def _place_videos(store: Store, ref: Ref, digest: str, pin: dict, lance_root, dst):
+    """Hand an approved stage's files over, checking every byte against the pin: the MP4s
+    are copied server-side to their final place under the Lance root (videos/<recording
+    id>/<content digest>/<cam>.mp4), the other files to the committer's folder `dst`, and
+    the meta.json "lance_videos" entry that tells the committer the videos are in place
+    is returned. Nothing but a copy and a read leaves R2, so it costs no transfer.
 
+    The job's key cannot write the Lance root, and the bytes read back from where they now
+    sit must hash to what staff approved: the pin's per-file sha256 and its content
+    digest. Videos this call created are removed again if they do not."""
+    import io
+
+    import pyarrow.parquet as pq
+
+    from egomimic.rldb.lance import commit
+    from egomimic.rldb.lance.dataset import read_range
+    from egomimic.rldb.lance.mp4_ranges import read_index
+
+    rid = pin["recording_id"]
+    want = {n: f for n, f in pin["files"].items() if n != META}
+    cams = sorted(n[: -len(".mp4")] for n in want if n.endswith(".mp4"))
+    uris = {
+        c: commit.join(lance_root, commit.video_path(rid, pin["content_digest"], c))
+        for c in cams
+    }
+    made = []
+    try:
+        steps = None
+        for name, f in want.items():
+            if name.endswith(".mp4"):
+                continue
+            to = commit.join(dst, name)
+            store.copy_out(ref.staged_prefix(digest) + name, to)
+            data = commit.get_bytes(to)  # what the committer will read
+            if hashlib.sha256(data).hexdigest() != f["sha256"]:
+                raise StageCorrupt(f"{name} does not match its pin")
+            if name == "steps.parquet":
+                steps = pq.read_table(io.BytesIO(data))
+        if steps is None or not cams:
+            raise StageCorrupt("the stage has no steps.parquet or no MP4s")
+        for cam, uri in uris.items():
+            size = want[cam + ".mp4"]["size"]
+            if commit._size(uri) == size:
+                commit._touch(uri)  # there already; fresh for orphan_videos
+            else:
+                made.append(uri)
+                store.copy_out(ref.staged_prefix(digest) + cam + ".mp4", uri)
+        got, shas = commit.placed_digest(steps, uris)
+        bad = [c for c in cams if shas[c] != want[c + ".mp4"]["sha256"]]
+        if bad or got != pin["content_digest"]:
+            raise StageCorrupt(
+                f"placed videos {bad or 'together'} do not match the pin"
+            )
+        videos = {
+            c: {
+                "path": commit.video_path(rid, got, c),
+                "size": want[c + ".mp4"]["size"],
+                "num_frames": read_index(
+                    lambda a, b, u=uris[c]: read_range(u, a, b)
+                ).num_frames,
+            }
+            for c in cams
+        }
+    except BaseException:
+        commit.remove(made)
+        raise
+    return {
+        "root": str(lance_root).rstrip("/"),
+        "content_digest": got,
+        "videos": videos,
+    }
+
+
+def _hand_off(
+    store: Store, ref: Ref, status: dict, raw_root, lance_staging, lance_root=None
+) -> str:
+    """Copy an approved stage and its raw delivery out of the ingest buckets; returns
+    where the committer will find it. With `lance_root` and a stage that pins its content
+    digest, the MP4s go straight to the Lance root (`_place_videos`); older stages, and
+    runs without a root, copy them to the staging folder for the committer to place."""
     from egomimic.rldb.lance import commit
     from egomimic.scripts.lance_commit import mcap_source
 
@@ -201,10 +279,19 @@ def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> 
     dst = commit.join(
         lance_staging, mcap_source(pin["lab"]), pin["vendor_recording_id"]
     )
-    for name in pin["files"]:
-        if name != META:
-            store.copy_out(ref.staged_prefix(digest) + name, commit.join(dst, name))
-    meta = json.loads(store.get_staged_file(ref, digest, META))
+    direct = bool(lance_root) and "content_digest" in pin
+    if direct:
+        placed = _place_videos(store, ref, digest, pin, lance_root, dst)
+    else:
+        for name in pin["files"]:
+            if name != META:
+                store.copy_out(ref.staged_prefix(digest) + name, commit.join(dst, name))
+    raw_meta = store.get_staged_file(ref, digest, META)
+    if direct and hashlib.sha256(raw_meta).hexdigest() != pin["files"][META]["sha256"]:
+        raise StageCorrupt(f"{META} does not match its pin")
+    meta = json.loads(raw_meta)
+    if direct:
+        meta["lance_videos"] = placed
     meta["provenance"] = {
         **meta.get("provenance", {}),
         "stage": digest,
@@ -216,7 +303,15 @@ def _hand_off(store: Store, ref: Ref, status: dict, raw_root, lance_staging) -> 
     return dst
 
 
-def _decide(store: Store, ref: Ref, status: dict, raw_root, lance_staging, summary):
+def _decide(
+    store: Store,
+    ref: Ref,
+    status: dict,
+    raw_root,
+    lance_staging,
+    summary,
+    lance_root=None,
+):
     stage = status.get("stage", "")
     decisions = [x for x in store.decisions(ref) if x.get("stage") == stage]
     if not stage or not decisions:
@@ -238,7 +333,7 @@ def _decide(store: Store, ref: Ref, status: dict, raw_root, lance_staging, summa
     ):
         return
     try:
-        dst = _hand_off(store, ref, status, raw_root, lance_staging)
+        dst = _hand_off(store, ref, status, raw_root, lance_staging, lance_root)
     except Exception as e:  # stays ready and approved: retried next pass
         _set(
             store, ref, status,
@@ -282,8 +377,10 @@ def run_pass(
     revision: str,
     max_in_flight: int = 56,
     canary: int = 3,
+    lance_root=None,
 ) -> Summary:
-    """One pass over the ingest buckets. Raises Busy if another pass is running."""
+    """One pass over the ingest buckets. Raises Busy if another pass is running. With
+    `lance_root`, an approved stage's MP4s go straight there (`_place_videos`)."""
     summary = Summary()
     with _flock(Path(work) / ".watch.lock"):
 
@@ -338,7 +435,9 @@ def run_pass(
         collect()  # jobs that ran in-process are already done
         for ref, status in sorted(store.statuses().items()):
             if status.get("state") == "ready":
-                _decide(store, ref, status, raw_root, lance_staging, summary)
+                _decide(
+                    store, ref, status, raw_root, lance_staging, summary, lance_root
+                )
         for ref, status in sorted(store.statuses().items()):
             if status.get("state") == "approved":
                 _follow(store, ref, status, summary)
@@ -417,6 +516,7 @@ def pass_from_args(args, store: Store) -> Summary:
         args.work,
         raw_root=args.raw_root,
         lance_staging=args.lance_staging,
+        lance_root=args.lance,
         revision=converter_revision()["revision"],
         max_in_flight=args.max_in_flight,
         canary=args.canary,

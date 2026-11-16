@@ -45,7 +45,7 @@ class Env:
         )
 
     def run(self, launcher=None, **kw):
-        kw = {"revision": "r1", **kw}
+        kw = {"revision": "r1", "lance_root": str(self.root), **kw}
         return run_pass(
             self.store, launcher or self.launcher, self.work,
             raw_root=str(self.raw), lance_staging=str(self.staging), **kw,
@@ -448,3 +448,92 @@ def test_a_conversion_job_writes_only_to_the_jobs_bucket(env):
     assert new
     buckets = {p.relative_to(env.tmp / "buckets").parts[0] for p in new}
     assert buckets == {"egoverse-ingest-jobs"}
+
+
+def _staged_mp4(env, ref):
+    """The converted MP4 `front_1.mp4` as the jobs bucket holds it."""
+    st = env.status(ref)
+    return env.store._path(ref.staged_prefix(st["stage"]) + "front_1.mp4")
+
+
+def test_approved_mp4s_go_straight_to_the_lance_root(env):
+    env.deliver(A)
+    env.run()
+    st = env.status(A)
+    pin = json.loads(env.store.get_staged_file(A, st["stage"], "stage.json").decode())
+    env.approve(A)
+    assert env.run().approved == ["acme/episode_0001"]
+
+    # The committer's folder holds no video: only what it reads, and meta.json last.
+    folder = env.staging / "mcap-rl2" / "acme-rec-0"
+    assert sorted(p.name for p in folder.iterdir()) == ["meta.json", "steps.parquet"]
+    meta = json.loads((folder / "meta.json").read_text())
+    placed = meta["lance_videos"]
+    assert placed["root"] == str(env.root)
+    assert placed["content_digest"] == pin["content_digest"]
+    for cam, v in placed["videos"].items():
+        mp4 = env.root / v["path"]
+        assert mp4.is_file() and mp4.stat().st_size == v["size"]
+        assert v["path"].startswith(f"videos/{st['recording_id']}/")
+        assert v["num_frames"] == 60
+
+    env.commit()
+    assert env.run().committed == ["acme/episode_0001"]
+    (rec,) = env.rows("recordings.lance")
+    assert rec["content_digest"] == pin["content_digest"]
+    assert dict(rec["video_path"]) == {
+        c: v["path"] for c, v in placed["videos"].items()
+    }
+    # The committer placed nothing itself.
+    assert sorted(p.name for p in (env.root / "videos").rglob("*.mp4")) == sorted(
+        f"{c}.mp4" for c in placed["videos"]
+    )
+
+
+def test_an_mp4_changed_after_approval_is_not_handed_off(env):
+    env.deliver(A)
+    env.run()
+    path = _staged_mp4(env, A)
+    data = bytearray(path.read_bytes())
+    data[-1] ^= 0xFF  # same size, so the size check passes: only the hash can tell
+    path.write_bytes(bytes(data))
+    env.approve(A)
+    s = env.run()
+    assert s.approved == [] and s.failed == ["acme/episode_0001"]
+    st = env.status(A)
+    assert st["state"] == "ready" and "do not match the pin" in st["error"]
+    assert not list(env.root.rglob("*.mp4"))  # nothing it placed is left behind
+    assert not (env.staging / "mcap-rl2" / "acme-rec-0" / "meta.json").exists()
+    assert env.store.get_delivery(A) is not None  # the delivery is still there
+
+
+def test_a_failed_copy_is_cleaned_up_and_retried(env, monkeypatch):
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    real, calls = env.store.copy_out, []
+
+    def flaky(key, dst):
+        if key.endswith("front_1_480.mp4") and not calls:
+            calls.append(key)
+            raise OSError("connection reset")
+        return real(key, dst)
+
+    monkeypatch.setattr(env.store, "copy_out", flaky)
+    assert env.run().failed == ["acme/episode_0001"]
+    assert not list(env.root.rglob("*.mp4"))
+    assert env.run().approved == ["acme/episode_0001"]
+    assert len(list(env.root.rglob("*.mp4"))) == 2
+
+
+def test_without_a_lance_root_the_committer_still_places_the_mp4s(env):
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    assert env.run(lance_root=None).approved == ["acme/episode_0001"]
+    folder = env.staging / "mcap-rl2" / "acme-rec-0"
+    assert {p.name for p in folder.glob("*.mp4")} == {"front_1.mp4", "front_1_480.mp4"}
+    assert "lance_videos" not in json.loads((folder / "meta.json").read_text())
+    env.commit()
+    assert env.run().committed == ["acme/episode_0001"]
+    assert len(list((env.root / "videos").rglob("*.mp4"))) == 2

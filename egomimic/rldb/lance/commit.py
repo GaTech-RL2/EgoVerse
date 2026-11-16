@@ -297,23 +297,35 @@ def _local_cams(delivery: Path, meta: dict) -> list[str]:
     return meta.get("videos") or sorted(p.stem for p in delivery.glob("*.mp4"))
 
 
-def place_videos(delivery: Path, root) -> dict:
-    """Upload a delivery's MP4s to their final place under the Lance root `root` (`_place`)
-    and return the meta.json "lance_videos" entry naming them:
-    {"root", "content_digest", "videos": {cam: {"path", "size", "num_frames"}}}."""
+def describe_videos(delivery: Path, root) -> tuple[dict, dict[str, Path]]:
+    """The meta.json "lance_videos" entry for a delivery's local MP4s as they would sit
+    under the Lance root `root`, without uploading them, and the MP4s by camera:
+    ({"root", "content_digest", "videos": {cam: {"path", "size", "num_frames"}}}, {cam: path})."""
     delivery = Path(delivery)
     meta = json.loads((delivery / "meta.json").read_text())
     videos = {cam: delivery / f"{cam}.mp4" for cam in _local_cams(delivery, meta)}
     digest = content_digest(pq.read_table(delivery / "steps.parquet"), videos)
     out = {}
     for cam, src in sorted(videos.items()):
-        rel = video_path(meta["recording_id"], digest, cam)
-        _place(src, join(root, rel))
         frames = mp4_ranges.read_index(
             lambda a, b, p=str(src): read_range(p, a, b)
         ).num_frames
-        out[cam] = {"path": rel, "size": src.stat().st_size, "num_frames": frames}
-    return {"root": str(root).rstrip("/"), "content_digest": digest, "videos": out}
+        out[cam] = {
+            "path": video_path(meta["recording_id"], digest, cam),
+            "size": src.stat().st_size,
+            "num_frames": frames,
+        }
+    entry = {"root": str(root).rstrip("/"), "content_digest": digest, "videos": out}
+    return entry, videos
+
+
+def place_videos(delivery: Path, root) -> dict:
+    """Upload a delivery's MP4s to their final place under the Lance root `root` (`_place`)
+    and return the meta.json "lance_videos" entry naming them (`describe_videos`)."""
+    entry, videos = describe_videos(delivery, root)
+    for cam, src in sorted(videos.items()):
+        _place(src, join(root, entry["videos"][cam]["path"]))
+    return entry
 
 
 def stage_direct(delivery: Path, dst, root) -> None:
@@ -387,18 +399,48 @@ def table_uris(root) -> list[str]:
     ]
 
 
-def content_digest(steps: pa.Table, videos: dict[str, Path]) -> str:
+def _steps_hasher(steps: pa.Table):
     h = hashlib.sha256()
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, steps.schema) as w:
         w.write_table(steps.combine_chunks())
     h.update(sink.getvalue())
+    return h
+
+
+def content_digest(steps: pa.Table, videos: dict[str, Path]) -> str:
+    h = _steps_hasher(steps)
     for cam in sorted(videos):
         h.update(cam.encode() + b"\0")
         with open(videos[cam], "rb") as f:
             for block in iter(lambda: f.read(1 << 20), b""):
                 h.update(block)
     return h.hexdigest()
+
+
+def read_chunks(uri: str):
+    """The bytes of a local file or s3:// object, in blocks."""
+    if not _is_remote(uri):
+        with open(uri, "rb") as f:
+            yield from iter(lambda: f.read(1 << 20), b"")
+        return
+    bucket, key = _split(uri)
+    body = _s3_client().get_object(Bucket=bucket, Key=key)["Body"]
+    yield from body.iter_chunks(1 << 20)
+
+
+def placed_digest(steps: pa.Table, uris: dict[str, str]) -> tuple[str, dict[str, str]]:
+    """`content_digest` of a delivery whose MP4s are at `uris` ({cam: local path or s3://
+    URI}), and each MP4's sha256, from one pass over the bytes."""
+    h, files = _steps_hasher(steps), {}
+    for cam in sorted(uris):
+        h.update(cam.encode() + b"\0")
+        f = hashlib.sha256()
+        for block in read_chunks(uris[cam]):
+            h.update(block)
+            f.update(block)
+        files[cam] = f.hexdigest()
+    return h.hexdigest(), files
 
 
 def _exists(uri: str) -> bool:
