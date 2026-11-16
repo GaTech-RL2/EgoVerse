@@ -24,6 +24,7 @@ run, then commit_batch, then append) share one hold.
 from __future__ import annotations
 
 import contextlib
+import email.utils
 import fcntl
 import getpass
 import json
@@ -94,6 +95,7 @@ class _Lock:
             "token": self.token,
             "acquired_at": getattr(self, "acquired_at", now),
             "expires_at": 0.0 if released else now + self.ttl,
+            "ttl": self.ttl,
             "released": released,
         }
 
@@ -169,6 +171,7 @@ class _S3Lock(_Lock):
             info = json.loads(resp["Body"].read())
         except ValueError:
             info = {}
+        info["_age"] = _server_age(resp)
         return resp["ETag"], info
 
     def _ours(self) -> str | None:
@@ -187,7 +190,7 @@ class _S3Lock(_Lock):
                 etag = self._put(self.info(), IfNoneMatch="*") or self._ours()
             else:
                 etag_seen, other = seen
-                free = other.get("released") or other.get("expires_at", 0) < time.time()
+                free = other.get("released") or _expired(other)
                 etag = (
                     self._put(self.info(), IfMatch=etag_seen) or self._ours()
                     if free
@@ -251,6 +254,25 @@ class _S3Lock(_Lock):
                 log.warning(
                     "writer lock on %s was taken over before release", self.root
                 )
+
+
+def _server_age(resp: dict) -> float | None:
+    """Seconds since the object was last written, by R2's clock alone (its Last-Modified
+    and the response's Date), so holders and waiters on different hosts need not agree
+    on the time. None when the response lacks either."""
+    modified = resp.get("LastModified")
+    date = resp.get("ResponseMetadata", {}).get("HTTPHeaders", {}).get("date")
+    if modified is None or not date:
+        return None
+    return (email.utils.parsedate_to_datetime(date) - modified).total_seconds()
+
+
+def _expired(info: dict) -> bool:
+    """A holder's record is expired once it went unrenewed for longer than its ttl. By
+    the server's clock when known; else by the holder's expires_at against ours."""
+    if info.get("_age") is not None and info.get("ttl"):
+        return info["_age"] > info["ttl"]
+    return info.get("expires_at", 0) < time.time()
 
 
 def _status(e: Exception) -> int | None:
