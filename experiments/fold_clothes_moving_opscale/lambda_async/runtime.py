@@ -85,6 +85,107 @@ def need(condition, message):
         raise RuntimeError(message)
 
 
+def evaluation_settings(values):
+    campaign = values.get(
+        "evaluation_campaign", "fold-moving-opscale-async-eval-20261107"
+    )
+    need(
+        isinstance(campaign, str)
+        and re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", campaign),
+        "evaluation_campaign must be a lowercase W&B-safe tag",
+    )
+    metrics_only = values.get("metrics_only", False)
+    need(isinstance(metrics_only, bool), "metrics_only must be boolean")
+    return campaign, metrics_only
+
+
+def evaluation_wandb_id(campaign, cell):
+    """Return one stable W&B identity for a campaign cell on every cluster."""
+    need(cell in CELLS, "Unknown evaluation cell")
+    campaign, _ = evaluation_settings({"evaluation_campaign": campaign})
+    identity = hashlib.sha256(f"{campaign}:{cell}".encode()).hexdigest()[:12]
+    return f"reeval{identity}"
+
+
+def validate_split_cohorts(splits, original_splits, episodes):
+    """Validate the corrected campaign memberships before any launch state exists."""
+    need(
+        set(splits) == set(original_splits) == set(CELLS),
+        "Need corrected and original splits for the exact 36-cell grid",
+    )
+    all_train_ops = set().union(*(set(split["operators"]) for split in splits.values()))
+    all_train_eps = set().union(*(set(split["train"]) for split in splits.values()))
+    shared_unseen = None
+    shared_seen_matched = None
+    seen_perlevel_by_operator = {}
+    for cell in CELLS:
+        split = splits[cell]
+        original = original_splits[cell]
+        for key in PRESERVED_SPLIT_KEYS:
+            need(split[key] == original[key], f"{cell}: original {key} changed")
+        unseen = split["unseen"]
+        need(
+            len(unseen) == len(set(unseen)) == 400,
+            "Need 400 distinct unseen episodes",
+        )
+        unseen_ops = {episodes[episode]["user_id"] for episode in unseen}
+        need(
+            len(unseen_ops) == 20
+            and all(
+                sum(episodes[episode]["user_id"] == operator for episode in unseen)
+                == 20
+                for operator in unseen_ops
+            ),
+            "Need 20 unseen operators x20 episodes",
+        )
+        need(
+            not unseen_ops & all_train_ops and not set(unseen) & all_train_eps,
+            "Unseen cohort intersects the training union",
+        )
+        need(
+            shared_unseen is None or unseen == shared_unseen,
+            "Unseen membership must match all cells",
+        )
+        shared_unseen = unseen
+        need(
+            len(set(unseen) & set(original["unseen"])) == 240
+            and len(set(unseen) - set(original["unseen"])) == 160
+            and len(set(original["unseen"]) - set(unseen)) == 160,
+            "Corrected unseen must retain 240 episodes and replace 160",
+        )
+        original_unseen_ops = {
+            episodes[episode]["user_id"] for episode in original["unseen"]
+        }
+        need(
+            len(unseen_ops - original_unseen_ops) == 8
+            and len(original_unseen_ops - unseen_ops) == 8,
+            "Corrected unseen must replace exactly eight operators",
+        )
+        seen_matched = split["seen_matched"]
+        need(
+            len(seen_matched) == len(set(seen_matched)) == 40,
+            "Need 40 distinct seen-matched episodes",
+        )
+        need(
+            shared_seen_matched is None or seen_matched == shared_seen_matched,
+            "Seen-matched membership must match all cells",
+        )
+        shared_seen_matched = seen_matched
+        operator_count = int(cell.split("op")[1])
+        seen_perlevel = split["seen_perlevel"]
+        need(
+            len(seen_perlevel) == len(set(seen_perlevel)) == operator_count * 3,
+            f"Need {operator_count * 3} distinct seen-per-level episodes",
+        )
+        previous_seen_perlevel = seen_perlevel_by_operator.setdefault(
+            operator_count, seen_perlevel
+        )
+        need(
+            seen_perlevel == previous_seen_perlevel,
+            "Seen-per-level membership must match across budgets",
+        )
+
+
 def entry(manifest_path, cell):
     manifest = manifest_path if isinstance(manifest_path, dict) else read(manifest_path)
     need(manifest.get("schema_version") == 1, "Unknown manifest schema")
@@ -104,17 +205,15 @@ def entry(manifest_path, cell):
     need(
         manifest["source_repository_commit"] == BASE_COMMIT, "Unexpected source recipe"
     )
+    wandb_ids = [run["evaluation_wandb_id"], run["source_wandb_id"]]
+    if not manifest.get("evaluation_only", False):
+        wandb_ids.append(run["training_wandb_id"])
     need(
-        len(
-            {
-                run["training_wandb_id"],
-                run["evaluation_wandb_id"],
-                run["source_wandb_id"],
-            }
-        )
-        == 3,
-        "Training, evaluation and source W&B IDs must be separate",
+        all(isinstance(wandb_id, str) and wandb_id for wandb_id in wandb_ids)
+        and len(set(wandb_ids)) == len(wandb_ids),
+        "Evaluation, source and optional training W&B IDs must be separate",
     )
+    evaluation_settings(manifest)
     return manifest, run
 
 
@@ -133,9 +232,14 @@ def prepare(args):
     splits = {
         cell: read(private / "splits" / f"fold_moving_{cell}.json") for cell in CELLS
     }
-    all_train_ops = set().union(*(set(x["operators"]) for x in splits.values()))
-    all_train_eps = set().union(*(set(x["train"]) for x in splits.values()))
-    shared_unseen = None
+    original_splits = {
+        cell: read(source_private / "splits" / f"fold_moving_{cell}.json")
+        for cell in CELLS
+    }
+    validate_split_cohorts(splits, original_splits, episodes)
+    campaign, metrics_only = evaluation_settings(inputs)
+    evaluation_only = inputs.get("evaluation_only", False)
+    need(isinstance(evaluation_only, bool), "evaluation_only must be boolean")
     manifest = {
         "schema_version": 1,
         "created_at": now(),
@@ -148,61 +252,41 @@ def prepare(args):
         "checkpoint_every_updates": 5000,
         "target_global_step": 400000,
         "validation_batch_limit": 800,
+        "evaluation_campaign": campaign,
+        "metrics_only": metrics_only,
+        "evaluation_only": evaluation_only,
         "r2_sources": inputs.get("r2_sources", []),
     }
     for cell in CELLS:
         source = inputs["cells"][cell]
-        split = splits[cell]
-        original = read(source_private / "splits" / f"fold_moving_{cell}.json")
-        for key in PRESERVED_SPLIT_KEYS:
-            need(split[key] == original[key], f"{cell}: original {key} changed")
-        unseen = split["unseen"]
-        need(
-            len(unseen) == len(set(unseen)) == 400, "Need 400 distinct unseen episodes"
-        )
-        unseen_ops = {episodes[x]["user_id"] for x in unseen}
-        need(
-            len(unseen_ops) == 20
-            and all(
-                sum(episodes[x]["user_id"] == op for x in unseen) == 20
-                for op in unseen_ops
-            ),
-            "Need 20 unseen operators x20 episodes",
-        )
-        need(
-            not unseen_ops & all_train_ops and not set(unseen) & all_train_eps,
-            "Unseen cohort intersects the training union",
-        )
-        need(
-            shared_unseen is None or unseen == shared_unseen,
-            "Unseen membership must match all cells",
-        )
-        shared_unseen = unseen
         norm = Path(source["norm_stats_dir"]).resolve()
         need((norm / "norm_stats.json").is_file(), f"{cell}: normalization missing")
-        resume = Path(source["resume_checkpoint"]["local_path"]).resolve()
-        need(resume.is_file(), f"{cell}: resume checkpoint missing")
-        need(
-            re.fullmatch(r"[0-9a-f]{64}", source["resume_checkpoint"]["sha256"]),
-            "Invalid resume SHA",
-        )
+        resume_checkpoint = None
+        if not evaluation_only:
+            resume = Path(source["resume_checkpoint"]["local_path"]).resolve()
+            need(resume.is_file(), f"{cell}: resume checkpoint missing")
+            need(
+                re.fullmatch(r"[0-9a-f]{64}", source["resume_checkpoint"]["sha256"]),
+                "Invalid resume SHA",
+            )
+            resume_checkpoint = {
+                "local_path": str(resume),
+                "sha256": source["resume_checkpoint"]["sha256"],
+            }
         identity = hashlib.sha256((str(root) + cell).encode()).hexdigest()[:10]
         run = {
             "budget_hours": int(cell.split("_")[0][1:]),
             "operator_count": int(cell.split("op")[1]),
             "source_wandb_id": source["source_wandb_id"],
-            "training_wandb_id": f"lat{identity}",
-            "evaluation_wandb_id": f"lae{identity}",
+            "training_wandb_id": None if evaluation_only else f"lat{identity}",
+            "evaluation_wandb_id": evaluation_wandb_id(campaign, cell),
             "split_sha256": digest(private / "splits" / f"fold_moving_{cell}.json"),
             "original_split_sha256": digest(
                 source_private / "splits" / f"fold_moving_{cell}.json"
             ),
             "norm_stats_dir": str(norm),
             "norm_stats_sha256": digest(norm / "norm_stats.json"),
-            "resume_checkpoint": {
-                "local_path": str(resume),
-                "sha256": source["resume_checkpoint"]["sha256"],
-            },
+            "resume_checkpoint": resume_checkpoint,
             "source_stop_receipt": source.get("source_stop_receipt"),
             "directory": str(root / cell),
             "queue_dir": str(root / cell / "queue"),
@@ -216,20 +300,20 @@ def prepare(args):
 
     prepared = {}
     for cell in CELLS:
-        train_cfg = compose(manifest, cell, "train")
         eval_cfg = compose(
             manifest,
             cell,
             "eval",
-            checkpoint=manifest["cells"][cell]["resume_checkpoint"]["local_path"],
+            checkpoint="/checkpoint-supplied-at-runtime.ckpt",
             metadata={"epoch_zero_based": 0, "global_step": 100},
         )
         eval_cfg.trainer.checkpoint_epoch = "???"
         eval_cfg.trainer.checkpoint_step = "???"
-        prepared[cell] = (
-            OmegaConf.to_yaml(train_cfg, resolve=False),
-            OmegaConf.to_yaml(eval_cfg, resolve=False),
-        )
+        train_yaml = None
+        if not evaluation_only:
+            train_cfg = compose(manifest, cell, "train")
+            train_yaml = OmegaConf.to_yaml(train_cfg, resolve=False)
+        prepared[cell] = (train_yaml, OmegaConf.to_yaml(eval_cfg, resolve=False))
     root.parent.mkdir(parents=True, exist_ok=True)
     stage = root.with_name(root.name + f".prepare-{os.getpid()}")
     stage.mkdir(mode=0o700)
@@ -238,9 +322,11 @@ def prepare(args):
         atomic(stage / "manifest.json", manifest)
         for cell, (train_yaml, eval_yaml) in prepared.items():
             (stage / cell).mkdir()
-            (stage / cell / "train.yaml").write_text(train_yaml)
             (stage / cell / "eval_reference.yaml").write_text(eval_yaml)
-            for role in ("train", "worker"):
+            roles = ("evaluate-final",) if evaluation_only else ("train", "worker")
+            if train_yaml is not None:
+                (stage / cell / "train.yaml").write_text(train_yaml)
+            for role in roles:
                 command = [
                     sys.executable,
                     "-u",
@@ -252,7 +338,8 @@ def prepare(args):
                     "--cell",
                     cell,
                 ]
-                path = stage / cell / f"{role}.sh"
+                script_name = role.replace("-", "_")
+                path = stage / cell / f"{script_name}.sh"
                 path.write_text(
                     "#!/usr/bin/env bash\nset -euo pipefail\ncd "
                     + shlex.quote(str(REPO))
@@ -271,7 +358,7 @@ def prepare(args):
         json.dumps(
             {
                 "manifest": str(target),
-                "training_configs": 36,
+                "training_configs": 0 if evaluation_only else 36,
                 "evaluation_configs": 36,
                 "launched": False,
             }
@@ -333,18 +420,34 @@ def compose(
         cfg.logger.wandb.id = (
             run["training_wandb_id"] if role == "train" else run["evaluation_wandb_id"]
         )
-        cfg.logger.wandb.name = f"lambda_{role}_{cell}"
+        campaign = manifest.get(
+            "evaluation_campaign", "fold-moving-opscale-async-eval-20261107"
+        )
         cfg.logger.wandb.resume = "allow"
-        cfg.logger.wandb.group = "fold_clothes_moving_opscale_lambda_async_v1"
         cfg.logger.wandb.job_type = (
             "training" if role == "train" else "checkpoint_evaluation"
         )
-        cfg.logger.wandb.tags = list(cfg.logger.wandb.tags) + [
-            "lambda_async_v1",
-            "fold-moving-opscale-async-20261107",
-            "fold-moving-opscale-async-train-20261107"
-            if role == "train"
-            else "fold-moving-opscale-async-eval-20261107",
+        if role == "train":
+            cfg.logger.wandb.name = f"lambda_{role}_{cell}"
+            cfg.logger.wandb.group = "fold_clothes_moving_opscale_lambda_async_v1"
+            role_tags = [
+                "lambda_async_v1",
+                "fold-moving-opscale-async-20261107",
+                "fold-moving-opscale-async-train-20261107",
+            ]
+        else:
+            cfg.logger.wandb.name = f"{campaign}-{cell}"
+            cfg.logger.wandb.group = campaign.replace("-", "_")
+            role_tags = [
+                campaign,
+                "corrected-unseen-no-scene-leakage",
+                (
+                    "metrics-only"
+                    if manifest.get("metrics_only", False)
+                    else "metrics-and-video"
+                ),
+            ]
+        cfg.logger.wandb.tags = list(cfg.logger.wandb.tags) + role_tags + [
             f"source_run={run['source_wandb_id']}",
             f"cell={cell}",
             f"role={role}",
@@ -356,6 +459,17 @@ def compose(
             "split_sha256": run["split_sha256"],
             "cell": cell,
         }
+        if role == "eval":
+            cfg.async_lineage.update(
+                {
+                    "evaluation_campaign": campaign,
+                    "evaluation_mode": (
+                        "metrics_only"
+                        if manifest.get("metrics_only", False)
+                        else "metrics_and_video"
+                    ),
+                }
+            )
         cfg.logger.wandb.config = dict(cfg.async_lineage)
         if role == "train":
             cfg.mode = "train"
@@ -407,6 +521,8 @@ def compose(
                 "split_sha256": run["split_sha256"],
                 "source_wandb_id": run["source_wandb_id"],
             }
+            if manifest.get("metrics_only", False):
+                cfg.data.video_episodes = {}
             # No training optimizer is created by validate(); its checkpoint
             # weights are loaded strictly by the existing trainHydra path.
         need(
@@ -627,7 +743,7 @@ def execute(cfg):
 
 def evaluate(args):
     """One checkpoint subprocess; completion is committed after W&B finishes."""
-    _, run = entry(args.manifest, args.cell)
+    manifest, run = entry(args.manifest, args.cell)
     original = read(args.record)
     need(
         original["cell"] == args.cell
@@ -692,7 +808,13 @@ def evaluate(args):
         metrics and all(math.isfinite(float(x)) for x in metrics.values()),
         "Non-finite metrics",
     )
-    render_due = record["checkpoint"]["completed_epochs"] % 200 == 0 or step == 400000
+    render_due = (
+        not manifest.get("metrics_only", False)
+        and (
+            record["checkpoint"]["completed_epochs"] % 200 == 0
+            or step == 400000
+        )
+    )
     expected_videos = (
         sum(
             len(split[f"video_{c}"])
@@ -723,6 +845,14 @@ def evaluate(args):
         "training_wandb_id": run["training_wandb_id"],
         "evaluation_wandb_id": run["evaluation_wandb_id"],
         "validation_batch_limit": 800,
+        "evaluation_campaign": manifest.get(
+            "evaluation_campaign", "fold-moving-opscale-async-eval-20261107"
+        ),
+        "evaluation_mode": (
+            "metrics_only"
+            if manifest.get("metrics_only", False)
+            else "metrics_and_video"
+        ),
         "ema": False,
         "metrics": metrics,
         "coverage": evidence["coverage"],
@@ -733,7 +863,7 @@ def evaluate(args):
     atomic(receipt_path, receipt)
 
 
-def sync_r2_sources(manifest_path, cell):
+def sync_r2_sources(manifest_path, cell, *, global_step=None):
     """Consume immutable R2 READY records; full local SHA gates every download.
 
     Explicit R2 environment credentials take precedence over boto3's provider
@@ -785,6 +915,10 @@ def sync_r2_sources(manifest_path, cell):
                 key = item["Key"]
                 if not key.endswith(".json"):
                     continue
+                if global_step is not None and not Path(key).name.startswith(
+                    f"{global_step:09d}-"
+                ):
+                    continue
                 need(item["Size"] <= 1024 * 1024, "Oversized READY metadata")
                 source_key = hashlib.sha256((bucket + "/" + key).encode()).hexdigest()
                 import_receipt = imported_dir / f"{source_key}.json"
@@ -807,6 +941,11 @@ def sync_r2_sources(manifest_path, cell):
                     and remote.get("cell") == cell
                     and remote.get("ready_after_verification") is True,
                     "Invalid remote READY record",
+                )
+                need(
+                    global_step is None
+                    or remote["checkpoint"]["global_step"] == global_step,
+                    "Remote READY filename and checkpoint step differ",
                 )
                 need(
                     remote.get("wandb_id", remote.get("source_wandb_id"))
@@ -857,6 +996,8 @@ def sync_r2_sources(manifest_path, cell):
                         "imported_at": now(),
                     },
                 )
+        if global_step is not None:
+            continue
         complete_key = source.get("complete_key")
         if not complete_key:
             all_complete = False
@@ -907,6 +1048,50 @@ def sync_r2_sources(manifest_path, cell):
         if set(imported_shas) != set(source_cell["checkpoint_sha256s"]):
             all_complete = False
     return all_complete and covered_by_source
+
+
+def evaluate_final(args):
+    """Download and score exactly one final checkpoint, then exit."""
+    manifest, run = entry(args.manifest, args.cell)
+    need(
+        manifest.get("evaluation_only", False),
+        "evaluate-final requires an evaluation-only manifest",
+    )
+    need(manifest.get("r2_sources"), "evaluate-final requires an R2 source")
+    sync_r2_sources(args.manifest, args.cell, global_step=400000)
+    ready_dir = Path(run["queue_dir"]) / "ready"
+    records = []
+    for path in ready_dir.glob("*.json"):
+        record = read(path)
+        if record["checkpoint"]["global_step"] == 400000:
+            records.append((record, path))
+    need(len(records) == 1, "Need exactly one READY step-400000 checkpoint")
+    record, path = records[0]
+    need(
+        record["checkpoint"]["completed_epochs"] == 4000,
+        "Final checkpoint is not epoch 4000",
+    )
+    args.record = str(path)
+    evaluate(args)
+    output = (
+        Path(run["directory"])
+        / "eval/checkpoints"
+        / f"{record['checkpoint']['global_step']:09d}-{record['sha256']}"
+    )
+    receipt = read(output / "evaluation_receipt.json")
+    print(
+        json.dumps(
+            {
+                "completed": receipt["completed"],
+                "cell": args.cell,
+                "global_step": record["checkpoint"]["global_step"],
+                "checkpoint_sha256": record["sha256"],
+                "evaluation_wandb_id": run["evaluation_wandb_id"],
+                "evaluation_campaign": manifest["evaluation_campaign"],
+                "receipt": str(output / "evaluation_receipt.json"),
+            }
+        )
+    )
 
 
 def worker(args):
@@ -1135,6 +1320,7 @@ def main():
         "inspect",
         "train",
         "worker",
+        "evaluate-final",
         "import-ready",
         "seal-imports",
         "_evaluate",
@@ -1166,6 +1352,8 @@ def main():
         import_ready(args)
     elif args.command == "_evaluate":
         evaluate(args)
+    elif args.command == "evaluate-final":
+        evaluate_final(args)
     elif args.command == "seal-imports":
         _, run = entry(args.manifest, args.cell)
         queue = Path(run["queue_dir"])

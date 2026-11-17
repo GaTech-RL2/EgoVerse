@@ -33,18 +33,32 @@ Create a private input JSON outside Git (all36cells are mandatory):
   "private_dir": "/local/private_corrected",
   "source_private_dir": "/local/private_original",
   "run_root": "/local/runs/opscale_lambda_async_v1",
+  "evaluation_campaign": "fold-moving-opscale-leakagefixed-reeval-20261117",
+  "metrics_only": true,
+  "evaluation_only": true,
+  "r2_sources": [{
+    "bucket": "private-mecka",
+    "endpoint_env": "R2_ENDPOINT_URL",
+    "ready_prefix": "private_opscale/_training_artifacts/fold-clothes-moving-opscale-tracking-valid-20261103/lambda-async-20261107/checkpoints/ready",
+    "object_prefix": "private_opscale/_training_artifacts/fold-clothes-moving-opscale-tracking-valid-20261103/lambda-async-20261107/objects/sha256"
+  }],
   "cells": {
     "b24_op4": {
       "source_wandb_id": "SOURCE_ID",
-      "norm_stats_dir": "/local/norms/b24_op4",
-      "resume_checkpoint": {
-        "local_path": "/local/checkpoints/b24_op4/full.ckpt",
-        "sha256": "FULL_SHA256"
-      }
+      "norm_stats_dir": "/local/norms/b24_op4"
     }
   }
 }
 ```
+
+`evaluation_campaign` is used as both the common W&B tag and group (with
+underscores in the group name), so the 36 evaluations can be selected exactly.
+Set `metrics_only` to `true` for score-only reevaluations; this clears all pinned
+video episodes and requires zero rendered videos while preserving every metric
+and coverage check. Set `evaluation_only` to `true` for a final-checkpoint
+campaign: preparation no longer requires training resume checkpoints or stop
+receipts, writes no training launchers, and gives each campaign/cell pair one
+deterministic W&B run ID shared across clusters.
 
 The abbreviated example shows one entry; provide all36. Add each cell’s `source_stop_receipt` from the required stop-proof section before training. The complete36-cell template `INPUTS.example.json` includes this field. From the activated environment and repository root:
 
@@ -53,6 +67,14 @@ python -m experiments.fold_clothes_moving_opscale.lambda_async.runtime prepare -
 ```
 
 This writes `manifest.json`,36`train.yaml`,36`eval_reference.yaml`, and72executable scripts. It allocates no GPU and starts no worker. Evaluation reference YAML deliberately contains missing checkpoint-clock placeholders; the worker supplies verified values at execution. `inspect --manifest ... --cell b24_op4` prints the training configuration without instantiating datasets/models or contacting W&B.
+
+For an evaluation-only manifest, preparation instead writes 36
+`eval_reference.yaml` files and 36 `evaluate_final.sh` scripts. Each final
+script reads only that cell's immutable step-400000 READY record, downloads and
+SHA-verifies only that checkpoint, validates epoch 4000, evaluates all three
+cohorts, writes the normal durable receipt, and exits. It is safe to statically
+shard those 36 scripts across clusters because W&B identity depends only on the
+campaign and cell, not the cluster-local run root.
 
 ## Import available source checkpoints before starting workers
 
