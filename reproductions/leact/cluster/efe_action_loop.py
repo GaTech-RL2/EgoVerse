@@ -34,6 +34,15 @@ PARSER_VERSION = 'single-json-fence-v4'
 def native_contract(spec, max_repeat=25):
     """Expose supported native vectors without inventing a robot-independent space."""
     dt = spec.get('control_dt')
+    hz = spec.get('control_hz')
+    if hz is not None:
+        if type(hz) not in (int,float) or not math.isfinite(hz) or hz<=0:
+            raise ValueError('Native control_hz must be finite and positive.')
+        if dt is None:
+            # eai-standard/2.2 (including ABC-Sim) publishes Hz, not seconds.
+            dt=1./hz
+        elif type(dt) not in (int,float) or not math.isclose(dt*hz,1.,rel_tol=1e-6):
+            raise ValueError('Native control_dt and control_hz disagree.')
     horizon = spec.get('max_chunk_s')
     if any(type(x) not in (int, float) or not math.isfinite(x) or x <= 0 for x in [dt, horizon]):
         raise ValueError('Native control_dt and max_chunk_s must be finite and positive.')
@@ -57,13 +66,21 @@ def native_contract(spec, max_repeat=25):
         if type(dim) is not int or dim <= 0 or len(entry.get('layout', [])) != dim:
             raise ValueError('Missing native action dimension/layout: '+name)
         lower, upper = entry.get('lower'), entry.get('upper')
+        limits=entry.get('limits',{})
+        if isinstance(limits,dict):
+            if lower is not None and 'low' in limits and lower!=limits['low']:
+                raise ValueError('Conflicting native lower bounds: '+name)
+            if upper is not None and 'high' in limits and upper!=limits['high']:
+                raise ValueError('Conflicting native upper bounds: '+name)
+            if lower is None:lower=limits.get('low')
+            if upper is None:upper=limits.get('high')
         if any(not isinstance(x, list) or len(x) != dim for x in [lower, upper]):
             raise ValueError('Missing native component bounds: '+name)
         if any(type(x) not in (int, float) or not math.isfinite(x) for x in lower+upper):
             raise ValueError('Unsupported nonfinite native action bounds: '+name)
         if any(lo > hi for lo, hi in zip(lower, upper)):
             raise ValueError('Inverted native action bounds: '+name)
-        supported[name] = entry
+        supported[name] = {**entry,'lower':lower,'upper':upper}
     if not supported:
         raise ValueError('No supported native vector actions.')
     cameras = spec['cameras']

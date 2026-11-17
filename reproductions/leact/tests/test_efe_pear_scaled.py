@@ -4,6 +4,44 @@ import pytest
 
 from reproductions.leact.cluster.efe_pear_bridge import NativeInfrastructureError, native_reward, observation_payload
 from reproductions.leact.cluster.launch_efe_pear_scaled import candidates, update_budget
+from reproductions.leact.cluster.efe_action_loop import native_contract, parse_action
+
+
+def test_standard22_bimanual_timing_and_joint_bounds_are_preserved():
+    lower=[-2.61799,0.,0.,-1.5708,-1.5708,-2.0944,0.]*2
+    upper=[3.05433,3.66519,3.66519,1.5708,1.5708,2.0944,1.0421052631578949]*2
+    spec={'protocol':'eai-standard/2.2','control_hz':29.41176470588235,'max_chunk_s':10.,
+          'cameras':{'top':{'rgb':True}},'action_types':{'joint_position':{'dim':14,
+              'layout':[f'joint{i}' for i in range(14)],'limits':{'low':lower,'high':upper}},
+              'not_yet':['ee_pose','joint_delta']}}
+    contract=native_contract(spec)
+    assert contract['control_dt']==pytest.approx(.034)
+    assert contract['action_types']['joint_position']['lower']==lower
+    assert contract['action_types']['joint_position']['upper']==upper
+    action={'action_type':'joint_position','action':[0.]*14,'repeat':1,'summary':'fixture'}
+    import json
+    assert parse_action(json.dumps(action),contract=contract,allow_stop=True)==action
+    with pytest.raises(ValueError,match='disagree'):native_contract({**spec,'control_dt':.02})
+    bad=deepcopy(spec);bad['action_types']['joint_position']['lower']=[-1.]*14
+    with pytest.raises(ValueError,match='Conflicting'):native_contract(bad)
+
+
+@pytest.mark.parametrize('kind',['runtime','bridge'])
+def test_user_pause_prevents_preparation_launch_and_retry(tmp_path,monkeypatch,kind):
+    import json
+    from reproductions.leact.cluster import launch_efe_pear_scaled as launcher
+    monkeypatch.setattr(launcher,'DEST',tmp_path)
+    (tmp_path/'control.json').write_text(json.dumps({'paused':True,'reason':'revise curriculum'}))
+    def unexpected(*args,**kwargs):
+        pytest.fail('A paused campaign must not contact the scheduler or submit jobs')
+    monkeypatch.setattr(launcher,'command',unexpected)
+    monkeypatch.setattr(launcher,'submit',unexpected)
+    done,state=launcher.tick(kind)
+    assert done and state['phase']=='paused_by_user'
+    for operation in [launcher.prepare_plan,launcher.prepare_runtime,launcher.prepare_bridge,
+                      lambda:launcher.launch(kind)]:
+        with pytest.raises(RuntimeError,match='paused by the user'):
+            operation()
 
 
 def trial(success=0):

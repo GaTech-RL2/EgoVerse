@@ -19,16 +19,24 @@ DEST=ROOT/'pear-scaled-v1'
 REMOTE='/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1'
 PEAR_REVISION='d604856a1b16fdccd47e22a27d4dd935e3a62014'
 EFE_REVISION='b88c450c46de8a96bba83bf9606b66396cccfff5'
+RUNTIME_VERSION=6
 MOE_PARENT='/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-coverage-20261105-v1/intermediate/warmstart-step496/model'
 TEMPLATE=BUILD_ROOT/'efe-coverage-20261105-v1-warmstart-p7-allocation-retry-24/workflow.yaml'
 SUITE_STAGES={
     **{s:'first' for s in ['metaworldplus','libero-max','robocasa','robocasa365','robocasa-gr1']},
     **{s:'broader' for s in ['roboarc','dexjoco','abc-sim','autobio','vlabench','molmospaces','mujoco-playground']},
-    **{s:'isaac' for s in ['robodojo','robolab','yamlab','labutopia','behavior-1k','maniguard','ambench']},
+    # BEHAVIOR is excluded by the study owner because of simulator reliability.
+    **{s:'isaac' for s in ['robodojo','robolab','yamlab','labutopia','maniguard','ambench']},
 }
 
 
 def now():return datetime.now(timezone.utc).isoformat()
+
+
+def require_unpaused():
+    control=read(DEST/'control.json',{})
+    if control.get('paused'):
+        raise RuntimeError('PEAR++ is paused by the user: '+control.get('reason','recipe revision'))
 
 
 def candidates(inventory,splits):
@@ -53,7 +61,14 @@ def update_budget(unique_tasks):
 
 
 def prepare_plan():
+    require_unpaused()
     DEST.mkdir(parents=True,exist_ok=True)
+    existing=read(DEST/'plan.json',{})
+    if existing.get('proposal',{}).get('id')=='efe-pearplusplus-multitask-v2':
+        # Resuming infrastructure must not overwrite the user's revised curriculum.
+        existing.update(updated_utc=now(),status='implementation_and_runtime_preparation')
+        write(DEST/'plan.json',existing)
+        return existing
     inventory=read(ROOT/'generalization-v2/inventory.json')
     splits=read(ROOT/'generalization-v2/splits.json')
     rows=candidates(inventory,splits)
@@ -110,7 +125,8 @@ def prepare_plan():
 
 
 def prepare_runtime(index=0):
-    build=BUILD_ROOT/('efe-pear-scaled-runtime-20261116-v4'+(f'-r{index}' if index else ''))
+    require_unpaused()
+    build=BUILD_ROOT/(f'efe-pear-scaled-runtime-20261117-v{RUNTIME_VERSION}'+(f'-r{index}' if index else ''))
     if (build/'source-manifest.json').exists():return build
     build.mkdir(parents=True,exist_ok=True)
     source=read(DEST/'sources/pear-source.json')
@@ -119,8 +135,9 @@ def prepare_runtime(index=0):
         'source_sha256':source['sha256'],'source_url':source['url'],
         'role':'shared_runtime_preparation','primary_rl_updates':0})
     workflow=yaml.safe_load(TEMPLATE.read_text())
-    workflow['workflow']['name']='leact-efe-pear-scaled-runtime-v4'+(f'-r{index}' if index else '')
+    workflow['workflow']['name']=f'leact-efe-pear-scaled-runtime-v{RUNTIME_VERSION}'+(f'-r{index}' if index else '')
     workflow['workflow']['timeout']={'queue_timeout':'20m','exec_timeout':'6h'}
+    workflow['workflow']['resources']['default'].update(gpu=8,cpu=48,memory='512Gi',storage='200Gi')
     task=workflow['workflow']['tasks'][0];task.pop('credentials',None)
     task['args']=['-u','/tmp/efe-pear-scaled/worker.py']
     task['files']=[{'localpath':n,'path':'/tmp/efe-pear-scaled/'+n}
@@ -131,6 +148,7 @@ def prepare_runtime(index=0):
 
 
 def prepare_bridge(index=0):
+    require_unpaused()
     build=BUILD_ROOT/('efe-pear-expanded-bridge-20261116-v2'+(f'-r{index}' if index else ''))
     if (build/'source-manifest.json').exists():return build
     build.mkdir(parents=True,exist_ok=True)
@@ -167,13 +185,22 @@ def launch(kind='runtime'):
         fcntl.flock(lock,fcntl.LOCK_EX)
         queue=read(DEST/(kind+'-queue.json'),{'attempts':[]})
         if not queue['attempts']:
-            build=(prepare_runtime if kind=='runtime' else prepare_bridge)();receipt=submit(build,priority='HIGH')
-            queue['attempts'].append({'workflow':receipt['name'],'build':str(build),'priority':'HIGH','submitted_utc':now()})
+            build=(prepare_runtime if kind=='runtime' else prepare_bridge)()
+            require_unpaused()
+            pool='groot-h100-02' if kind=='runtime' else 'groot-h100-01'
+            receipt=submit(build,priority='HIGH',pool=pool)
+            queue['attempts'].append({'workflow':receipt['name'],'build':str(build),'pool':pool,
+                                     'priority':'HIGH','submitted_utc':now()})
             write(DEST/(kind+'-queue.json'),queue)
     return queue
 
 
 def tick(kind='runtime'):
+    control=read(DEST/'control.json',{})
+    if control.get('paused'):
+        state=read(DEST/('status.json' if kind=='runtime' else kind+'-status.json'),{})
+        return True,{**state,'phase':'paused_by_user','paused':True,'reason':control.get('reason'),
+                     'primary_rl_updates':0}
     from .launch_efe_coverage import infra_retryable
     from .efe_coverage_retry import retry_due
     queue=read(DEST/(kind+'-queue.json'));attempt=queue['attempts'][-1]
@@ -200,13 +227,28 @@ def tick(kind='runtime'):
             state['phase']=kind+'_ready';terminal=True
         elif scheduler['status']=='COMPLETED':
             state['phase']=kind+'_receipt_missing';terminal=True
-    if scheduler['status'].startswith('FAILED') and infra_retryable(scheduler):
+    known_probe_repair=(kind=='runtime' and scheduler['status'].startswith('FAILED')
+                        and 'efe-pear-scaled-runtime-20261117-v5' in str(attempt['build']))
+    if known_probe_repair:
+        # v5 imports a class attribute as a module attribute after installation.
+        # Keep its frozen payload intact and retry once from corrected v6 source.
+        build=prepare_runtime(len(queue['attempts']));require_unpaused()
+        pool=attempt.get('pool',scheduler.get('pool','groot-h100-02'))
+        receipt=submit(build,priority='LOW',pool=pool)
+        queue['attempts'].append({'workflow':receipt['name'],'build':str(build),'pool':pool,
+            'priority':'LOW','submitted_utc':now(),'source_repair':'Read MODEL_TYPES from Qwen3_5TrainingKernels'})
+        state.update(phase='runtime_source_repair_queued',workflow=receipt['name'],scheduler_status='PENDING')
+        terminal=False
+    elif scheduler['status'].startswith('FAILED') and infra_retryable(scheduler):
         terminal=False
         due=retry_due(queue,attempt['workflow'])
         state.update(phase=kind+'_retry_backoff',retry_not_before=queue['retry_not_before'])
         if due:
-            build=(prepare_runtime if kind=='runtime' else prepare_bridge)(len(queue['attempts']));receipt=submit(build,priority='LOW')
-            queue['attempts'].append({'workflow':receipt['name'],'build':str(build),'priority':'LOW','submitted_utc':now()})
+            build=(prepare_runtime if kind=='runtime' else prepare_bridge)(len(queue['attempts']))
+            require_unpaused()
+            pool=attempt.get('pool','groot-h100-01')
+            receipt=submit(build,priority='LOW',pool=pool)
+            queue['attempts'].append({'workflow':receipt['name'],'build':str(build),'priority':'LOW','pool':pool,'submitted_utc':now()})
             state.update(phase=kind+'_retry_queued',workflow=receipt['name'],scheduler_status='PENDING')
     write(DEST/(kind+'-queue.json'),queue);write(DEST/('status.json' if kind=='runtime' else kind+'-status.json'),state)
     from ..embodied_first_exam.report import publish

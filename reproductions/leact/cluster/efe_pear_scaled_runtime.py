@@ -71,7 +71,8 @@ def main():
                                stdout=log,stderr=subprocess.STDOUT,check=True,timeout=14400)
             python=root/'runtime/envs/verl/bin/python'
             probe='''import json, torch, transformers, vllm
-from pear.models.qwen3_5.trainer.training_kernels import MODEL_TYPES
+from pear.models.qwen3_5.trainer.training_kernels import Qwen3_5TrainingKernels
+MODEL_TYPES = Qwen3_5TrainingKernels.MODEL_TYPES
 assert torch.cuda.device_count()==8
 assert 'qwen3_5_moe' in MODEL_TYPES and 'qwen3_5' in MODEL_TYPES
 x=torch.arange(16,device='cuda'); assert x.sum().item()==120
@@ -84,6 +85,7 @@ print(json.dumps({'torch':torch.__version__,'transformers':transformers.__versio
             details=json.loads(result.stdout.strip().splitlines()[-1])
             value=record('runtime_ready',success=True,details=details,
                 model_replay_validated=False,environment_bridge_validated=False,
+                dense_gpu_backend_supported=True,moe_gpu_backend_supported=False,
                 scope='Upstream runtime installed and CUDA import probe passed. No policy qualification or RL update.')
             (root/'runtime-ready.json').write_text(json.dumps(value,indent=2)+'\n')
     except Exception as exc:
