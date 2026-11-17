@@ -39,8 +39,10 @@ existing experiment tracker imports or duplicate historical rollout traces.
 VM creation request 2164050 requested `rpunamiya.nvidia.com`, Ubuntu 24.04, 2 vCPUs,
 6 GB RAM, TLV01 and a three-month initial lifetime. It is a CPU dashboard host.
 
-First complete the SSH/Silverfort login using `auth_reasoning_itss.command` in
-Terminal. The helper records no password and uses its own connection socket.
+First complete Entra SSO through Teleport using `auth_reasoning_itss.command` in
+Terminal. The helper uses `tsh login --proxy=nv-prd-it.teleport.sh --auth=entra`
+and a separate OpenSSH connection socket. The VM must finish provisioning and
+register in Teleport first. Direct password SSH is not part of this helper.
 Then, from the repository root:
 
 ```bash
