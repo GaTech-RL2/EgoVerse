@@ -26,6 +26,27 @@ def test_standard22_bimanual_timing_and_joint_bounds_are_preserved():
     with pytest.raises(ValueError,match='Conflicting'):native_contract(bad)
 
 
+def test_dexjoco_named_joint_limits_preserve_both_arms_and_finger_order():
+    import json
+    from pathlib import Path
+    spec=json.loads((Path(__file__).parent/'fixtures/dexjoco-native-action-spec.json').read_text())['native_spec']
+    # The unbounded Cartesian pose interface is deliberately not assigned
+    # invented bounds. Both students can use the same explicit joint interface.
+    with pytest.raises(ValueError,match='component bounds'):native_contract(spec)
+    contract=native_contract(spec,allowed_action_types=['joint_position'])
+    joint=contract['action_types']['joint_position']
+    assert joint['dim']==46 and set(contract['action_types'])=={'joint_position'}
+    assert joint['layout']==spec['action_types']['joint_position']['layout']
+    assert joint['layout'][7]=='ffj0_right' and joint['layout'][30]=='rfj0_left'
+    for i,name in enumerate(joint['layout']):
+        assert [joint['lower'][i],joint['upper'][i]]==joint['limits'][name]
+    action={'action_type':'joint_position','action':[(lo+hi)/2 for lo,hi in zip(joint['lower'],joint['upper'])],
+            'repeat':1,'summary':'fixture'}
+    assert parse_action(json.dumps(action),contract=contract,allow_stop=True)==action
+    for selection in [[],['ee_delta'],['joint_position','joint_position']]:
+        with pytest.raises(ValueError,match='missing or invalid'):native_contract(spec,allowed_action_types=selection)
+
+
 @pytest.mark.parametrize('kind',['runtime','bridge'])
 def test_user_pause_prevents_preparation_launch_and_retry(tmp_path,monkeypatch,kind):
     import json

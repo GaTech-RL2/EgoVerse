@@ -16,7 +16,8 @@ from .launch_efe_training import freeze_sources
 
 SHARDS=[['metaworldplus','libero-max','abc-sim'],
         ['robocasa','dexjoco','vlabench'],['robodojo'],['robolab'],['yamlab']]
-BUILD_VERSION=2
+BUILD_VERSION=3
+CORRECTED_ADAPTERS={'native22-cdi-v1','native22-cdi-named-joints-v2'}
 
 
 def prepare(shard,index=0,only_suites=None):
@@ -40,8 +41,10 @@ def prepare(shard,index=0,only_suites=None):
     spec={k:template[k] for k in ['repository','revision','podman','compose','fixed_action_config']}
     if not selected:raise ValueError('No native tasks selected')
     spec.update(tasks=selected,archive_root=REMOTE+'/catalog-checks',primary_rl_updates=0,
-                enable_gpu_cdi=True,adapter_revision='native22-cdi-v1')
-    spec['fixed_action_config']={**spec['fixed_action_config'],'model':'external-pear-policy'}
+                enable_gpu_cdi=True,adapter_revision='native22-cdi-named-joints-v2',podman_storage_driver='overlay')
+    spec['fixed_action_config']={**spec['fixed_action_config'],'model':'external-pear-policy',
+        'allowed_action_types_by_robot':{robot:['joint_position'] for robot in
+            ['franka-allegro-bimanual','franka-robotiq-2f85','i2rt-yam-bimanual']}}
     write(build/'spec.json',spec)
     for name in ['efe_pear_bridge.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py','efe_pear_gpu_cdi.py']:
         shutil.copyfile(BASE/'cluster'/name,build/name)
@@ -106,7 +109,7 @@ def tick():
                         and 'local ephemeral storage limit' in json.dumps(scheduler)
                         and '400Gi' in json.dumps(scheduler))
         source_repair=(scheduler['status'].startswith('FAILED') and state.get('worker')
-                       and previous_spec.get('adapter_revision')!='native22-cdi-v1')
+                       and previous_spec.get('adapter_revision') not in CORRECTED_ADAPTERS)
         if source_repair or storage_repair:
             terminal=False
             # A terminated shard may never have reached its last suite. Keep
@@ -137,7 +140,7 @@ def tick():
         corrected_attempts=set()
         for old in queue['attempts']:
             old_spec=read(Path(old['build'])/'spec.json')
-            if old_spec.get('adapter_revision')=='native22-cdi-v1':
+            if old_spec.get('adapter_revision') in CORRECTED_ADAPTERS:
                 corrected_attempts.update(r['suite'] for r in old_spec['tasks'])
         missing=[s for s in SHARDS[int(shard)] if s not in corrected_attempts
                  and not contracts.get(s,{}).get('success')]

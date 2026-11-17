@@ -1,0 +1,451 @@
+{
+  "source": "Public Robot.spec() from EFE dexjoco-bimanual-assembly-i00-standard",
+  "efe_revision": "b88c450c46de8a96bba83bf9606b66396cccfff5",
+  "native_spec": {
+    "protocol": "eai-standard/2.2",
+    "robot": "franka-allegro-bimanual",
+    "control_hz": 50.0,
+    "max_chunk_s": 10.0,
+    "action_types": {
+      "ee_pose": {
+        "dim": 46,
+        "layout": [
+          "tcp_right_target_x",
+          "tcp_right_target_y",
+          "tcp_right_target_z",
+          "tcp_right_target_qw",
+          "tcp_right_target_qx",
+          "tcp_right_target_qy",
+          "tcp_right_target_qz",
+          "ffj0_right_target",
+          "ffj1_right_target",
+          "ffj2_right_target",
+          "ffj3_right_target",
+          "mfj0_right_target",
+          "mfj1_right_target",
+          "mfj2_right_target",
+          "mfj3_right_target",
+          "rfj0_right_target",
+          "rfj1_right_target",
+          "rfj2_right_target",
+          "rfj3_right_target",
+          "thj0_right_target",
+          "thj1_right_target",
+          "thj2_right_target",
+          "thj3_right_target",
+          "tcp_left_target_x",
+          "tcp_left_target_y",
+          "tcp_left_target_z",
+          "tcp_left_target_qw",
+          "tcp_left_target_qx",
+          "tcp_left_target_qy",
+          "tcp_left_target_qz",
+          "rfj0_left_target",
+          "rfj1_left_target",
+          "rfj2_left_target",
+          "rfj3_left_target",
+          "mfj0_left_target",
+          "mfj1_left_target",
+          "mfj2_left_target",
+          "mfj3_left_target",
+          "ffj0_left_target",
+          "ffj1_left_target",
+          "ffj2_left_target",
+          "ffj3_left_target",
+          "thj0_left_target",
+          "thj1_left_target",
+          "thj2_left_target",
+          "thj3_left_target"
+        ],
+        "units": "per arm (right first): tcp target position (m, world frame), tcp target orientation (quaternion wxyz), 16 Allegro joint targets (rad)",
+        "frame": "world",
+        "quaternion_order": "wxyz",
+        "ee_frames": [
+          "tcp_right",
+          "tcp_left"
+        ],
+        "hand_limits": {
+          "ffj0_right": [
+            -0.47,
+            0.47
+          ],
+          "ffj1_right": [
+            -0.196,
+            1.61
+          ],
+          "ffj2_right": [
+            -0.174,
+            1.709
+          ],
+          "ffj3_right": [
+            -0.227,
+            1.618
+          ],
+          "mfj0_right": [
+            -0.47,
+            0.47
+          ],
+          "mfj1_right": [
+            -0.196,
+            1.61
+          ],
+          "mfj2_right": [
+            -0.174,
+            1.709
+          ],
+          "mfj3_right": [
+            -0.227,
+            1.618
+          ],
+          "rfj0_right": [
+            -0.47,
+            0.47
+          ],
+          "rfj1_right": [
+            -0.196,
+            1.61
+          ],
+          "rfj2_right": [
+            -0.174,
+            1.709
+          ],
+          "rfj3_right": [
+            -0.227,
+            1.618
+          ],
+          "thj0_right": [
+            0.263,
+            1.396
+          ],
+          "thj1_right": [
+            -0.105,
+            1.163
+          ],
+          "thj2_right": [
+            -0.189,
+            1.644
+          ],
+          "thj3_right": [
+            -0.162,
+            1.719
+          ],
+          "rfj0_left": [
+            -0.47,
+            0.47
+          ],
+          "rfj1_left": [
+            -0.196,
+            1.61
+          ],
+          "rfj2_left": [
+            -0.174,
+            1.709
+          ],
+          "rfj3_left": [
+            -0.227,
+            1.618
+          ],
+          "mfj0_left": [
+            -0.47,
+            0.47
+          ],
+          "mfj1_left": [
+            -0.196,
+            1.61
+          ],
+          "mfj2_left": [
+            -0.174,
+            1.709
+          ],
+          "mfj3_left": [
+            -0.227,
+            1.618
+          ],
+          "ffj0_left": [
+            -0.47,
+            0.47
+          ],
+          "ffj1_left": [
+            -0.196,
+            1.61
+          ],
+          "ffj2_left": [
+            -0.174,
+            1.709
+          ],
+          "ffj3_left": [
+            -0.227,
+            1.618
+          ],
+          "thj0_left": [
+            0.263,
+            1.396
+          ],
+          "thj1_left": [
+            -0.105,
+            1.163
+          ],
+          "thj2_left": [
+            -0.189,
+            1.644
+          ],
+          "thj3_left": [
+            -0.162,
+            1.719
+          ]
+        },
+        "semantics": "DexJoCo's own action row. The arm tracks the tcp target through DexJoCo's operational-space controller (it lags a moving target and stops where contact blocks it); the hand joints are position-controlled. Rows are `dt` apart (a whole multiple of 1/50 s, at most 0.5 s); between rows positions and joints move linearly and orientations by slerp (`linear`) or jump (`hold`); a row's own values land exactly on its last control step. Hand targets outside the ranges are clamped by the simulator and reported in `clipped`; a zero quaternion is a 400."
+      },
+      "joint_position": {
+        "dim": 46,
+        "layout": [
+          "joint1_right",
+          "joint2_right",
+          "joint3_right",
+          "joint4_right",
+          "joint5_right",
+          "joint6_right",
+          "joint7_right",
+          "ffj0_right",
+          "ffj1_right",
+          "ffj2_right",
+          "ffj3_right",
+          "mfj0_right",
+          "mfj1_right",
+          "mfj2_right",
+          "mfj3_right",
+          "rfj0_right",
+          "rfj1_right",
+          "rfj2_right",
+          "rfj3_right",
+          "thj0_right",
+          "thj1_right",
+          "thj2_right",
+          "thj3_right",
+          "joint1_left",
+          "joint2_left",
+          "joint3_left",
+          "joint4_left",
+          "joint5_left",
+          "joint6_left",
+          "joint7_left",
+          "rfj0_left",
+          "rfj1_left",
+          "rfj2_left",
+          "rfj3_left",
+          "mfj0_left",
+          "mfj1_left",
+          "mfj2_left",
+          "mfj3_left",
+          "ffj0_left",
+          "ffj1_left",
+          "ffj2_left",
+          "ffj3_left",
+          "thj0_left",
+          "thj1_left",
+          "thj2_left",
+          "thj3_left"
+        ],
+        "units": "rad",
+        "limits": {
+          "joint1_right": [
+            -2.8973,
+            2.8973
+          ],
+          "joint2_right": [
+            -1.7628,
+            1.7628
+          ],
+          "joint3_right": [
+            -2.8973,
+            2.8973
+          ],
+          "joint4_right": [
+            -3.0718,
+            -0.0698
+          ],
+          "joint5_right": [
+            -2.8973,
+            2.8973
+          ],
+          "joint6_right": [
+            -0.0175,
+            3.7525
+          ],
+          "joint7_right": [
+            -2.8973,
+            2.8973
+          ],
+          "ffj0_right": [
+            -0.47,
+            0.47
+          ],
+          "ffj1_right": [
+            -0.196,
+            1.61
+          ],
+          "ffj2_right": [
+            -0.174,
+            1.709
+          ],
+          "ffj3_right": [
+            -0.227,
+            1.618
+          ],
+          "mfj0_right": [
+            -0.47,
+            0.47
+          ],
+          "mfj1_right": [
+            -0.196,
+            1.61
+          ],
+          "mfj2_right": [
+            -0.174,
+            1.709
+          ],
+          "mfj3_right": [
+            -0.227,
+            1.618
+          ],
+          "rfj0_right": [
+            -0.47,
+            0.47
+          ],
+          "rfj1_right": [
+            -0.196,
+            1.61
+          ],
+          "rfj2_right": [
+            -0.174,
+            1.709
+          ],
+          "rfj3_right": [
+            -0.227,
+            1.618
+          ],
+          "thj0_right": [
+            0.263,
+            1.396
+          ],
+          "thj1_right": [
+            -0.105,
+            1.163
+          ],
+          "thj2_right": [
+            -0.189,
+            1.644
+          ],
+          "thj3_right": [
+            -0.162,
+            1.719
+          ],
+          "joint1_left": [
+            -2.8973,
+            2.8973
+          ],
+          "joint2_left": [
+            -1.7628,
+            1.7628
+          ],
+          "joint3_left": [
+            -2.8973,
+            2.8973
+          ],
+          "joint4_left": [
+            -3.0718,
+            -0.0698
+          ],
+          "joint5_left": [
+            -2.8973,
+            2.8973
+          ],
+          "joint6_left": [
+            -0.0175,
+            3.7525
+          ],
+          "joint7_left": [
+            -2.8973,
+            2.8973
+          ],
+          "rfj0_left": [
+            -0.47,
+            0.47
+          ],
+          "rfj1_left": [
+            -0.196,
+            1.61
+          ],
+          "rfj2_left": [
+            -0.174,
+            1.709
+          ],
+          "rfj3_left": [
+            -0.227,
+            1.618
+          ],
+          "mfj0_left": [
+            -0.47,
+            0.47
+          ],
+          "mfj1_left": [
+            -0.196,
+            1.61
+          ],
+          "mfj2_left": [
+            -0.174,
+            1.709
+          ],
+          "mfj3_left": [
+            -0.227,
+            1.618
+          ],
+          "ffj0_left": [
+            -0.47,
+            0.47
+          ],
+          "ffj1_left": [
+            -0.196,
+            1.61
+          ],
+          "ffj2_left": [
+            -0.174,
+            1.709
+          ],
+          "ffj3_left": [
+            -0.227,
+            1.618
+          ],
+          "thj0_left": [
+            0.263,
+            1.396
+          ],
+          "thj1_left": [
+            -0.105,
+            1.163
+          ],
+          "thj2_left": [
+            -0.189,
+            1.644
+          ],
+          "thj3_left": [
+            -0.162,
+            1.719
+          ]
+        },
+        "semantics": "per arm (right first): 7 Panda joint targets, then the 16 Allegro joint targets. The arm's targets are turned into a tcp target by forward kinematics (as POST /kinematics fk) and the arm tracks that pose through the same operational-space controller as ee_pose, whose null space pulls towards DexJoCo's home posture: the tcp reaches FK(q), the measured joints may differ from q in the arm's redundant direction. Rows `dt` apart, `linear` (in joint space) or `hold`; values outside the limits are clipped and reported."
+      },
+      "not_yet": [
+        "joint_delta",
+        "joint_velocity",
+        "ee_delta",
+        "joint_torque"
+      ]
+    },
+    "cameras": {
+      "back": {
+        "rgb": true
+      }
+    }
+  }
+}

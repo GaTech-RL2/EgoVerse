@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -28,6 +29,21 @@ def record(root, phase, **extra):
            'primary_rl_updates':0,**extra}
     write(root/'status.json',value)
     print('PEAR_MODEL_CHECK '+json.dumps(value),flush=True)
+
+
+def rank_error_context(text):
+    """Keep the original rank traceback instead of only torchrun's wrapper."""
+    by_rank={}
+    for line in text.splitlines():
+        match=re.match(r'\[rank(\d+)\]:\s?(.*)',line)
+        if match:by_rank.setdefault(match[1],[]).append(match[2])
+    result={}
+    for rank,lines in by_rank.items():
+        starts=[i for i,line in enumerate(lines) if line.startswith('Traceback (')]
+        if starts:
+            excerpt='\n'.join(lines[starts[-1]:])[-5000:]
+            result.setdefault(excerpt,[]).append(int(rank))
+    return [{'ranks':ranks,'traceback':trace} for trace,ranks in list(result.items())[:4]]
 
 
 def make_engine(spec):
@@ -67,10 +83,15 @@ def loaded_weight_check(engine, model):
     import torch
     import torch.distributed as dist
     from safetensors import safe_open
+    from torch.distributed.tensor import DTensor
     index=json.loads((Path(model)/'model.safetensors.index.json').read_text())['weight_map']
-    weights,_=engine.get_per_tensor_param()
+    # get_per_tensor_param is the *rollout export*: it intentionally unfuses
+    # packed MoE weights into individual experts. Audit the native FSDP state
+    # against the native checkpoint, before any such export transformation.
+    weights=engine.module.state_dict()
     seen=set();maximum=0.;count=0
-    for name,value in weights:
+    for name,shard in weights.items():
+        value=shard.full_tensor() if isinstance(shard,DTensor) else shard
         if dist.get_rank()!=0:continue
         if name not in index:raise ValueError('Engine weight is absent from parent: '+name)
         with safe_open(str(Path(model)/index[name]),framework='pt',device='cpu') as stream:
@@ -86,7 +107,7 @@ def loaded_weight_check(engine, model):
     return {'loaded_weight_max_error':maximum,'checked_parameters':count,'checked_tensors':len(seen)}
 
 
-def probe_batch(engine, spec):
+def probe_batch(engine, spec, *, processor=None):
     import torch
     from tensordict import TensorDict
     from verl.utils import tensordict_utils as tu
@@ -98,7 +119,7 @@ def probe_batch(engine, spec):
     blocks=image_blocks(content)
     response='```json\n{"action_type":"ee_delta","action":[0.0,0.0,0.0,0.0],"repeat":1,"summary":"Discarded numerical probe, never a policy demonstration."}\n```'
     messages=[{'role':'user','content':blocks},{'role':'assistant','content':response}]
-    processor=engine.model_config.get_processor()
+    processor=processor or engine.model_config.get_processor()
     encoded=processor.apply_chat_template(messages,tokenize=True,return_dict=True,return_tensors='pt',
                                           add_generation_prompt=False,enable_thinking=False)
     ids=encoded.pop('input_ids');attention=encoded.pop('attention_mask')
@@ -212,10 +233,22 @@ def distributed(spec, phase, root):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--phase',choices=['update','verify'])
+    parser=argparse.ArgumentParser();parser.add_argument('--phase',choices=['preflight','update','verify'])
     args=parser.parse_args();lane=Path(__file__).resolve().parent
     spec=json.loads((lane/'spec.json').read_text());root=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID']
     root.mkdir(parents=True,exist_ok=True)
+    if args.phase=='preflight':
+        from verl.workers.config import HFModelConfig
+        if spec.get('model_repository'):
+            from huggingface_hub import hf_hub_download
+            # The original snapshot glob omitted the official Jinja template.
+            # Fetch only that pinned auxiliary file; parent weights stay intact.
+            hf_hub_download(spec['model_repository'],'chat_template.jinja',
+                            revision=spec['model_revision'],local_dir=spec['model'])
+        processor=HFModelConfig(path=spec['model'],trust_remote_code=True).get_processor()
+        batch=probe_batch(None,spec,processor=processor)
+        record(root,'processor_preflight_passed',probe_tokens=int(batch['input_ids'].values().numel()))
+        return
     if args.phase:
         distributed(spec,args.phase,root);return
     try:
@@ -227,18 +260,21 @@ def main():
              'TOKENIZERS_PARALLELISM':'false','PYTHONUNBUFFERED':'1',
              'PYTHONPATH':str(lane)+':'+str(source)+':'+str(source/'3rdparty/verl/src'),
              'OMP_NUM_THREADS':'4'}
-        for phase in ['update','verify']:
+        for phase in ['preflight','update','verify']:
             record(root,'engine_'+phase,model=spec['model'],model_revision=spec['model_revision'])
             with (root/(phase+'.log')).open('a') as log:
-                subprocess.run([str(python),'-m','torch.distributed.run','--standalone','--nproc_per_node=8',
-                    str(Path(__file__).resolve()),'--phase',phase],env=env,cwd=source,
+                command=([str(python)] if phase=='preflight' else
+                    [str(python),'-m','torch.distributed.run','--standalone','--nproc_per_node=8'])
+                subprocess.run([*command,str(Path(__file__).resolve()),'--phase',phase],env=env,cwd=source,
                     stdout=log,stderr=subprocess.STDOUT,check=True,timeout=14400)
         # These are explicitly discarded diagnostic updates, never run parents.
         shutil.rmtree(root/'rp_jhh_discarded_engine_step1')
         record(root,'model_engine_check_passed',result=json.loads((root/'result.json').read_text()))
     except Exception as exc:
-        tails={p.name:p.read_text(errors='replace')[-3500:] for p in root.glob('*.log')}
-        record(root,'model_engine_check_failed',error=repr(exc),traceback=traceback.format_exc(),log_tails=tails)
+        logs={p.name:p.read_text(errors='replace') for p in root.glob('*.log')}
+        record(root,'model_engine_check_failed',error=repr(exc),traceback=traceback.format_exc(),
+               log_tails={k:v[-3500:] for k,v in logs.items()},
+               rank_errors={k:rank_error_context(v) for k,v in logs.items()})
         raise
 
 

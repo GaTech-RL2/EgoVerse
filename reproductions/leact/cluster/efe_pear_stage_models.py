@@ -27,7 +27,7 @@ def main():
         record('downloading_dense_base',repository='Qwen/Qwen3.8-27B',revision=BASE_REVISION)
         target=ROOT/'models/Qwen3.8-27B'
         snapshot_download('Qwen/Qwen3.8-27B',revision=BASE_REVISION,local_dir=target,max_workers=8,
-                          allow_patterns=['*.json','*.safetensors','*.txt','*.model','*.tiktoken'])
+                          allow_patterns=['*.json','*.safetensors','*.txt','*.model','*.tiktoken','*.jinja'])
         models=[]
         for kind,path,expected in [('dense_base',target,'qwen3_5'),('moe_warmstart496',MOE,'qwen3_5_moe')]:
             config=json.loads((path/'config.json').read_text())

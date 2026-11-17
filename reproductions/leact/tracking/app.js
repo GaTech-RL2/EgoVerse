@@ -656,6 +656,7 @@ function embodiedStudy(){
     el('efe-pear-scaled-summary').textContent=proposal
       ?`PEAR++ launch preparation is authorized. Shared runtime: ${(s.phase||p.status).replaceAll('_',' ')}. ${e.task_variants??0} eligible EFE variants (${e.semantic_tasks??0} semantic tasks) across ${Object.keys(e.suite_counts||{}).length} candidate suites, plus the full native GR00T YAM catalog and eight generated reasoning families. These are catalog candidates; ${p.admitted_tasks??0} tasks are admitted to RL and ${primaryUpdates} primary updates are recorded across both runs. The target is 16 H100 nodes per arm, with a 34-node campaign limit; this is not an allocated GPU count.`
       :`Two PEAR++ arms are being prepared alongside LeAct. ${e.task_variants??0} EFE training variants across ${Object.keys(e.suite_counts||{}).length} candidate suites; ${p.admitted_tasks??0} tasks admitted to RL so far. Shared runtime: ${(s.phase||p.status).replaceAll('_',' ')}. No PEAR++ robot-success result is available yet.`;
+    if(p.implementation?.current_summary)el('efe-pear-scaled-summary').textContent+=' '+p.implementation.current_summary;
     const modelChecks=scaled.model_checks?.arms||[];
     table('efe-pear-scaled-arms',['Run','Initialization / nearest baseline','Updates','Model engine check','What it tests'],p.arms.map(a=>{
       const baseline=node('a',a.warmstart_step?`MoE warmstart · step ${a.warmstart_step}`:'Base Qwen3.8-27B · evaluation pending');

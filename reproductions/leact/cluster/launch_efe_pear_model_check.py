@@ -15,7 +15,7 @@ from .scale_efe import BASE, BUILD_ROOT, command, read, submit, write
 
 
 ARMS=('dense_base','moe_warmstart496')
-VERSION=2
+VERSION=3
 
 
 def prepare(arm,index=0):
@@ -28,6 +28,7 @@ def prepare(arm,index=0):
     if not observation.get('sha256'):raise ValueError('Frozen public observation is not staged')
     build.mkdir(parents=True,exist_ok=True)
     spec={'model':model['path'],'model_revision':model['revision'],'model_type':model['model_type'],
+          'model_repository':'Qwen/Qwen3.8-27B' if arm=='dense_base' else None,
           'observation':observation,'remote_root':REMOTE,'pear_source':REMOTE+'/sources/pear-'+PEAR_REVISION,
           'output':REMOTE+'/model-checks/'+arm,'primary_rl_updates':0,
           'parameter_update':'full_finetuning','lora_rank':0,

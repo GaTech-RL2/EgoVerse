@@ -31,7 +31,7 @@ PROTOCOL = 'efe-constrained-action-v3'
 PARSER_VERSION = 'single-json-fence-v4'
 
 
-def native_contract(spec, max_repeat=25):
+def native_contract(spec, max_repeat=25, *, allowed_action_types=None):
     """Expose supported native vectors without inventing a robot-independent space."""
     dt = spec.get('control_dt')
     hz = spec.get('control_hz')
@@ -51,8 +51,16 @@ def native_contract(spec, max_repeat=25):
     limit = min(max_repeat, math.floor(horizon / dt + 1e-9))
     if limit < 1:
         raise ValueError('Native chunk budget cannot hold one control step.')
+    if allowed_action_types is not None:
+        if (not isinstance(allowed_action_types,list) or not allowed_action_types or
+            any(not isinstance(x,str) for x in allowed_action_types) or
+            len(set(allowed_action_types))!=len(allowed_action_types) or
+            any(x not in spec['action_types'] or x in {'not_yet','done'} for x in allowed_action_types)):
+            raise ValueError('Requested native action types are missing or invalid.')
     supported = {}
     for name, entry in spec['action_types'].items():
+        if allowed_action_types is not None and name not in allowed_action_types:
+            continue
         if name == 'not_yet':
             continue
         if not isinstance(entry, dict):
@@ -74,6 +82,17 @@ def native_contract(spec, max_repeat=25):
                 raise ValueError('Conflicting native upper bounds: '+name)
             if lower is None:lower=limits.get('low')
             if upper is None:upper=limits.get('high')
+            # DexJoCo declares joint bounds by joint name. Preserve its exact
+            # asymmetric right/left Allegro ordering from layout, never dict order.
+            if all(joint in limits for joint in entry['layout']):
+                pairs=[limits[joint] for joint in entry['layout']]
+                if any(not isinstance(pair,list) or len(pair)!=2 for pair in pairs):
+                    raise ValueError('Malformed named native joint limits: '+name)
+                named_lower=[pair[0] for pair in pairs];named_upper=[pair[1] for pair in pairs]
+                if ((lower is not None and lower!=named_lower) or
+                    (upper is not None and upper!=named_upper)):
+                    raise ValueError('Conflicting named native joint limits: '+name)
+                lower,upper=named_lower,named_upper
         if any(not isinstance(x, list) or len(x) != dim for x in [lower, upper]):
             raise ValueError('Missing native component bounds: '+name)
         if any(type(x) not in (int, float) or not math.isfinite(x) for x in lower+upper):
@@ -223,7 +242,8 @@ def main():
     robot = Robot()
     spec = robot.spec()
     write(args.logs/'native-spec.json',spec)
-    contract = native_contract(spec, config.get('max_repeat', 25))
+    allowed=config.get('allowed_action_types_by_robot',{}).get(spec.get('robot'))
+    contract = native_contract(spec, config.get('max_repeat', 25),allowed_action_types=allowed)
     cameras = contract['cameras']
     contract_sha = hashlib.sha256(json.dumps(contract, sort_keys=True).encode()).hexdigest()
     write(args.logs/'action-contract.json', {'contract':contract, 'sha256':contract_sha,
