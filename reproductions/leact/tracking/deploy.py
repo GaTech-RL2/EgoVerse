@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import tarfile
 
@@ -43,6 +44,18 @@ def main():
             bundle.add(ASSETS/name, arcname=name)
         bundle.add(snapshot_path, arcname='snapshot.json')
         bundle.add(records_path, arcname='records.jsonl')
+        if reasoning:
+            media=ASSETS.parent/'artifacts/reasoning-workspace/media'
+            added=set()
+            for family in data['status']['reasoning_workspace'].get('simulators',{}).get('families',[]):
+                preview=family.get('image')
+                if not preview:continue
+                name=preview['file'];path=media/name
+                if not re.fullmatch(r'[a-f0-9]{64}\.(jpg|png)',name)or not path.resolve().is_relative_to(media.resolve()):
+                    raise ValueError('Invalid simulator preview path')
+                if hashlib.sha256(path.read_bytes()).hexdigest()!=preview['sha256']:
+                    raise ValueError('Simulator preview checksum mismatch')
+                if name not in added:bundle.add(path,arcname='reasoning-media/'+name);added.add(name)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     record = {'host': args.host, 'archive': str(archive), 'sha256': digest,
               'bytes': archive.stat().st_size, 'runs': len(data['runs']),

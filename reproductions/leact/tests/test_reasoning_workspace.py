@@ -1,15 +1,19 @@
 import json
+import base64
+import hashlib
 from pathlib import Path
 import shutil
 import subprocess
 import threading
 from urllib.request import urlopen
+from urllib.error import HTTPError
 
 import pytest
 
 from reproductions.leact.tracking.reasoning import allocation,estimate
 from reproductions.leact.tracking.export import snapshot
 from reproductions.leact.tracking.reasoning import inventory
+from reproductions.leact.tracking.reasoning_media import simulator_families
 from reproductions.leact.tracking.server import ThreadingHTTPServer,handler,ingest
 
 
@@ -66,6 +70,49 @@ def test_catalog_rejects_training_membership_in_reserved_splits(tmp_path,reserve
     (general/'splits.json').write_text(json.dumps({'train_candidates':['scene'],reserved:['scene']}))
     (scaled/'proposed-candidate-membership-v2.json').write_text(json.dumps({'rows':[{'task':'scene'}]}))
     with pytest.raises(ValueError,match='reserved splits'):inventory(tmp_path)
+
+
+def test_family_lists_follow_task_novelty_and_keep_native_splits_pending():
+    def row(ident,suite,role='core evaluation',source='EFE',semantic=None):
+        return {'id':ident,'suite':suite,'role':role,'source':source,
+            'semantic_task':semantic or ident,'description':ident}
+    catalog={'entries':[row('train','alpha','PEAR training candidate'),row('new-task','alpha'),
+        row('same-task-variant','alpha'),row('unseen-task','beta'),
+        row('yam/a','native-gr00t-yam','native candidate; split pending','Native GR00T','pick'),
+        row('yam/b','native-gr00t-yam','native candidate; split pending','Native GR00T','pick')]}
+    review={'core_entries':[{'task':'new-task','suite':'alpha','cohort':'same_sim_new_task'},
+        {'task':'same-task-variant','suite':'alpha','cohort':'same_sim_same_task_new_variant'}],
+        'unseen_reserve_entries':[{'task':'unseen-task','suite':'beta'}]}
+    result=simulator_families(catalog,review);families={r['id']:r for r in result['families']}
+    assert result['counts']=={'train':1,'eval_seen':1,'eval_unseen':1,'pending':1}
+    assert [r['id']for r in families['alpha']['eval_seen']]==['new-task']
+    assert families['beta']['train']==[]and families['beta']['eval_seen']==[]
+    assert families['native-gr00t-yam']['train']==[]and families['native-gr00t-yam']['eval_seen']==[]
+    assert [r['id']for r in families['native-gr00t-yam']['pending']]==['pick']
+    assert catalog['entries'][2]['role']=='core evaluation'
+    review['unseen_reserve_entries'].append({'task':'train','suite':'alpha'})
+    with pytest.raises(ValueError,match='simulator categories'):simulator_families(catalog,review)
+
+
+def test_preview_route_serves_only_content_named_images_inside_media_root(tmp_path):
+    media=tmp_path/'media';media.mkdir()
+    png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==')
+    name=hashlib.sha256(png).hexdigest()+'.png';(media/name).write_bytes(png)
+    private=tmp_path/'private.txt';private.write_text('not a preview')
+    linked='a'*64+'.jpg';(media/linked).symlink_to(private)
+    server=ThreadingHTTPServer(('127.0.0.1',0),handler(tmp_path/'db.sqlite3',media_root=media))
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    root=f'http://127.0.0.1:{server.server_port}/reasoning-media/'
+    try:
+        with urlopen(root+name)as response:
+            assert response.read()==png
+            assert response.headers['Content-Type']=='image/png'
+            assert 'immutable'in response.headers['Cache-Control']
+        for path in [linked,'../private.txt','%2e%2e/private.txt','not-content-named.png']:
+            with pytest.raises(HTTPError)as error:urlopen(root+path)
+            assert error.value.code==404
+    finally:
+        server.shutdown();server.server_close();thread.join()
 
 
 @pytest.mark.skipif(shutil.which('node')is None,reason='JavaScript validation requires Node')

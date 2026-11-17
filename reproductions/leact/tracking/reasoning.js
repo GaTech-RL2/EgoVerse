@@ -17,7 +17,43 @@ if(typeof document!=='undefined'){
   function duration(h){return h>=48?fmt(h/24)+' days':fmt(h)+' hours';}
   function table(target,heads,rows){const t=node('table'),thead=node('thead'),hr=node('tr');heads.forEach(h=>hr.append(node('th',h)));thead.append(hr);t.append(thead);const body=node('tbody');rows.forEach(row=>{const tr=node('tr');row.forEach(value=>{const td=node('td');td.append(value instanceof Node?value:document.createTextNode(value??'—'));tr.append(td);});body.append(tr);});t.append(body);$(target).replaceChildren(t);}
   function textCell(title,detail){const n=node('div',title);if(detail)n.append(node('small',detail));return n;}
-  function stats(){const c=data.inventory.counts,u=data.compute_usage;const rows=[[u.allocated_gpus??'—','GPUs in current allocation'],[32,'additional H100s estimated · not launched'],[c.efe_pear_training_candidates,'EFE training candidates · not admitted'],[c.native_yam_graph_files,'native YAM graph files · '+c.native_yam_unique_env_names+' declared names']];$('summary').replaceChildren(...rows.map(([value,label])=>{const n=node('article',undefined,'stat');n.append(node('strong',fmt(value)),node('span',label));return n;}));}
+  function embodiedReasoning(){
+    const r=data.embodied_reasoning||{},families=r.families||[],admitted=families.reduce((n,f)=>n+(f.admitted_tasks||0),0);
+    $('reasoning-status').textContent=`${families.length} planned families · ${admitted} admitted tasks`;
+    table('reasoning-task-table',['Training family','Tasks and output','Evaluation targets'],families.map(f=>{
+      const name=textCell(f.name,f.status==='planned_adapter_and_generator_not_implemented'?'Generator not implemented':f.status);
+      const tasks=node('div'),example=node('p',f.example,'reasoning-example');tasks.append(node('div',f.output),example);
+      const details=node('details'),summary=node('summary','Task list and scene sources'),list=node('ul');f.tasks.forEach(t=>list.append(node('li',t)));details.append(summary,list,node('p',f.training_environment));tasks.append(details);
+      return [name,tasks,(f.transfer_targets||[]).join(', ')];
+    }));
+    $('reasoning-benchmarks').replaceChildren(...(r.evaluation_benchmarks||[]).map(name=>node('span',name,'tag eval')));
+    $('reasoning-bbox-status').textContent=(r.box_output_planned?'Bounding-box outputs are specified in the proposal.':'Pointing uses normalized image points. Separate bounding-box prediction is not yet specified in the training proposal.')+' Named benchmark datasets remain evaluation-only; generator implementation and scene admission are pending.';
+  }
+  function taskGroup(title,tasks,suite,kind){
+    const group=node('section',undefined,'task-group '+kind);group.append(node('h4',title+' · '+fmt(tasks.length)));
+    const list=node('ul');list.tabIndex=0;list.setAttribute('aria-label',title+' tasks');
+    for(const task of tasks){const label=task.id.replace(suite+'-','').replace(/-(standard-realtime|standard|privileged)$/,'').replace(/-i(\d+)$/,' · variant $1').replaceAll('_',' ').replaceAll('-',' '),item=node('li',label);item.title=task.id;item.dataset.taskId=task.id;list.append(item);}
+    group.append(list);return group;
+  }
+  function simulatorFamilies(){
+    const all=data.simulators?.families||[],query=$('sim-search').value.trim().toLowerCase(),split=$('sim-split').value;
+    const families=all.filter(f=>(split==='all'||f[split]?.length)&&(!query||[f.name,f.id,...['train','eval_seen','eval_unseen','pending'].flatMap(k=>(f[k]||[]).map(t=>t.id+' '+(t.description||'')))].join(' ').toLowerCase().includes(query)));
+    const counts=data.simulators?.counts||{};
+    $('mixture-summary').textContent=`${fmt(counts.train||0)} train candidates · ${fmt(counts.eval_seen||0)} seen-sim / unseen-task eval tasks · ${fmt(counts.eval_unseen||0)} unseen-sim / unseen-task eval tasks`;
+    $('simulator-count').textContent=fmt(families.length)+' families';
+    const cards=families.map(f=>{
+      const card=node('article',undefined,'family-card');
+      if(f.image){const figure=node('figure'),img=node('img');img.src=f.image.url;img.alt=f.name+' simulator preview';img.loading='lazy';img.decoding='async';figure.append(img);const caption=node('figcaption'),source=node('a',f.image.caption);source.href=f.image.source_url;source.target='_blank';source.rel='noreferrer';caption.append(source);figure.append(caption);card.append(figure);}
+      const body=node('div',undefined,'family-body'),heading=node('div',undefined,'family-heading');heading.append(node('h3',f.name),node('span',f.split_status,'tag '+(f.eval_unseen.length?'eval':f.pending.length?'pending':'train')));body.append(heading);
+      if(!f.pending.length)body.append(taskGroup('Train',f.train,f.id,'training'));
+      if(f.eval_seen.length)body.append(taskGroup('Eval · seen sim, unseen task',f.eval_seen,f.id,'evaluation'));
+      if(f.eval_unseen.length)body.append(taskGroup('Eval · unseen sim, unseen task',f.eval_unseen,f.id,'evaluation'));
+      if(f.pending.length)body.append(taskGroup('Catalog · train/eval split pending',f.pending,f.id,'pending'));
+      if(!f.eval_seen.length&&!f.eval_unseen.length&&!f.pending.length)body.append(node('p','No eval tasks in these two categories.','meta'));
+      card.append(body);return card;
+    });
+    $('simulator-families').replaceChildren(...cards);if(!cards.length)$('simulator-families').append(node('p','No matching simulator families.','meta'));
+  }
   function estimates(){
     if(!data)return;
     try{
@@ -39,19 +75,18 @@ if(typeof document!=='undefined'){
   function inventory(){const query=$('search').value.trim().toLowerCase(),source=$('source').value,role=$('role').value;filtered=data.inventory.entries.filter(r=>(!source||r.source===source)&&(!role||r.role===role)&&(!query||[r.id,r.suite,r.description,r.embodiment,r.semantic_task].join(' ').toLowerCase().includes(query)));page=Math.max(0,Math.min(page,Math.ceil(filtered.length/PAGE)-1));const rows=filtered.slice(page*PAGE,(page+1)*PAGE);table('environment-table',['Environment / task','Suite / source','Membership','Readiness'],rows.map(r=>{const tag=node('span',r.role,'tag '+(r.role.includes('evaluation')?'eval':r.role==='PEAR training candidate'?'train':'pending'));return [textCell(r.id,r.description),textCell(r.suite,r.source),tag,textCell(r.status,r.runtime)];}));$('inventory-count').textContent=fmt(filtered.length)+' matching catalog entries. No catalog row is automatically an RL admission.';$('page').textContent=filtered.length?`${page+1} / ${Math.ceil(filtered.length/PAGE)}`:'0 / 0';$('previous').disabled=page===0;$('next').disabled=(page+1)*PAGE>=filtered.length;}
   function render(value){
     data=value;if(!data.inventory)throw Error('No reasoning workspace snapshot has been imported yet.');
-    $('freshness').textContent='Inventory built '+new Date(data.updated_utc).toLocaleString()+'. GPU allocation has its own timestamp below.';
-    stats();estimates();
+    $('freshness').textContent='Updated '+new Date(data.updated_utc).toLocaleString();
+    embodiedReasoning();simulatorFamilies();estimates();
     for(const [id,key]of [['source','source'],['role','role']]){const select=$(id),old=select.value;while(select.options.length>1)select.remove(1);[...new Set(data.inventory.entries.map(r=>r[key]))].sort().forEach(v=>select.append(new Option(v,v)));select.value=old;}
     inventory();table('suite-table',['Simulator suite','Catalog entries','PEAR candidates','Evaluation entries','Interface status'],data.inventory.suites.map(r=>[r.suite,r.catalog_entries,r.pear_training_candidates,r.evaluation_entries,r.interface_status]));
     $('inventory-limits').replaceChildren(...data.inventory.limitations.map(text=>node('p',text)));
-    const u=data.compute_usage;$('compute-time').textContent=u.observed_utc?new Date(u.observed_utc).toLocaleString():'No allocation snapshot';
-    table('compute-table',['Workflow','Pool','Allocated GPUs','State'],(u.workflows||[]).map(r=>{const link=node('a',r.name);link.href='https://us-west-2-aws.osmo.nvidia.com/workflows/'+encodeURIComponent(r.name);link.target='_blank';link.rel='noreferrer';return [link,r.pool,r.allocated_gpus??0,r.status];}));
     table('timing-table',['Existing evaluation','Episodes','Median tokens / episode','Median episode wall time','Seconds / action'],Object.entries(data.timing_proxies).map(([key,r])=>[key,`${r.episodes} (${r.successes} successes)`,fmt(r.median_episode_generated_tokens),fmt(r.median_episode_seconds/60)+' minutes',fmt(r.seconds_per_action)]));
     const ul=node('ul');data.pear.estimate_limitations.forEach(s=>ul.append(node('li',s)));$('estimate-assumptions').replaceChildren(ul);$('error').hidden=true;
   }
   async function load(){try{const r=await fetch('/api/reasoning',{cache:'no-store'});if(!r.ok)throw Error('Snapshot request failed: '+r.status);render(await r.json());}catch(e){$('error').hidden=false;$('error').textContent=e.message;}}
   for(const id of ['updates','gpu-budget','profile','retention','throughput','availability','moe-tokens','dense-tokens','reasoning-tokens'])$(id).addEventListener('input',estimates);
   for(const id of ['search','source','role'])$(id).addEventListener('input',()=>{page=0;inventory();});
+  for(const id of ['sim-search','sim-split'])$(id).addEventListener('input',simulatorFamilies);
   $('previous').onclick=()=>{page--;inventory();};$('next').onclick=()=>{page++;inventory();};
   $('download').onclick=()=>{const fields=['id','source','suite','role','status','runtime','semantic_task','description','source_path'];const csv=[fields,...filtered.map(r=>fields.map(k=>r[k]??''))].map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=node('a');a.href=url;a.download='rpunamiya-environments.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   load();setInterval(load,60000);

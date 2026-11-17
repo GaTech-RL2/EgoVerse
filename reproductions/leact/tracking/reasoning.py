@@ -14,6 +14,8 @@ import subprocess
 
 import yaml
 
+from .reasoning_media import simulator_families
+
 BASE=Path(__file__).resolve().parents[1]
 PAPER='https://mit-han-lab.github.io/pear-blog/#appendix'
 
@@ -204,9 +206,17 @@ def inventory(root):
 def build(base=BASE):
     root=base/'artifacts/embodied-first-exam';scaled=root/'pear-scaled-v1'
     plan=read(scaled/'plan.json',{})
+    catalog=inventory(root)
+    proposal=read(base/'proposals/efe_pearplusplus_multitask_v2.json',{})
+    reasoning=proposal.get('reasoning_training',{})
     result={'title':'rpunamiya reasoning','updated_utc':datetime.now(timezone.utc).isoformat(),
-        'inventory':inventory(root),'timing_proxies':timing_proxies(root),
+        'inventory':catalog,'timing_proxies':timing_proxies(root),
         'compute_usage':read(base/'artifacts/reasoning-workspace/compute-usage.json',{}),
+        'simulators':simulator_families(catalog,read(scaled/'holdout-review-v2.json',{}),
+            read(base/'artifacts/reasoning-workspace/family-images.json',{})),
+        'embodied_reasoning':{**reasoning,'evaluation_benchmarks':proposal.get('holdouts',{}).get('benchmarks',[]),
+            'box_output_planned':any('bounding box'in f.get('output','').lower()or'bbox'in f.get('output','').lower()
+                for f in reasoning.get('families',[]))},
         'pear':{'arms':plan.get('arms',[]),'primary_updates':plan.get('primary_rl_updates',0),
             'recipe':plan.get('recipe',{}),'interface_context':plan.get('interface_context',{}),
             'planned_extra_h100_gpus_total':32,'planned_h100_gpus_per_arm':16,

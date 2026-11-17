@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, urlparse
 
 ASSETS = Path(__file__).resolve().parent
 EFE_ROLLOUT_VIEWER = ASSETS.parent / 'artifacts/embodied-first-exam/efe-rollouts.html'
+REASONING_MEDIA = ASSETS/'reasoning-media'
+if not REASONING_MEDIA.is_dir():REASONING_MEDIA=ASSETS.parent/'artifacts/reasoning-workspace/media'
 COMPRESSED_PAYLOAD = b'LEACT_ZLIB_V1\0'
 SNAPSHOT_RETENTION = 32
 
@@ -143,7 +145,8 @@ def trace_api(database, path, query):
         return {'total': total, 'offset': offset, 'limit': limit, 'rows': [dict(r) for r in rows]}
 
 
-def handler(database,home_page='experiments'):
+def handler(database,home_page='experiments',*,media_root=None):
+    media_root=Path(media_root or REASONING_MEDIA).resolve()
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             parsed = urlparse(self.path)
@@ -188,6 +191,14 @@ def handler(database,home_page='experiments'):
                        "; style-src " + hashes(b'style') +
                        "; img-src data:; media-src blob: data:; object-src 'none'; "
                        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+            elif path.startswith('/reasoning-media/'):
+                name=path.removeprefix('/reasoning-media/')
+                source=media_root/name
+                if not re.fullmatch(r'[a-f0-9]{64}\.(jpg|png)',name)or not source.is_file()or not source.resolve().is_relative_to(media_root):
+                    self.send_error(404)
+                    return
+                data=source.read_bytes()
+                content_type='image/jpeg'if name.endswith('.jpg')else'image/png'
             elif path in {'/', '/experiments', '/app.js', '/traces.js', '/leaderboards.js', '/style.css',
                           '/rpunamiya-reasoning','/reasoning','/reasoning.js','/reasoning.css'}:
                 names={'/':'reasoning.html'if home_page=='reasoning'else'index.html',
@@ -202,9 +213,9 @@ def handler(database,home_page='experiments'):
                 self.send_error(404)
                 return
             self.send_response(200)
-            self.send_header('Content-Type', content_type+'; charset=utf-8')
+            self.send_header('Content-Type', content_type+(''if content_type.startswith('image/')else'; charset=utf-8'))
             self.send_header('Content-Length', str(len(data)))
-            self.send_header('Cache-Control', 'no-store')
+            self.send_header('Cache-Control', 'public, max-age=31536000, immutable'if content_type.startswith('image/')else'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Content-Security-Policy', csp)
             self.end_headers()
