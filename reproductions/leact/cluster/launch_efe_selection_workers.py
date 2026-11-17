@@ -109,8 +109,10 @@ def tick():
                 (retry/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False));freeze_sources(retry)
             folder=retry
         priority=submission_priority(job)
-        receipt=submit(folder,priority=priority)
+        pool=read(DEST/'execution-pools.json',{}).get('selection_pool','groot-h100-01')
+        receipt=submit(folder,priority=priority,pool=pool)
         job['attempts'].append({'workflow':receipt['name'],'build':str(folder),'priority':priority,
+            'pool':pool,
             'submitted_utc':datetime.now(timezone.utc).isoformat()})
         job['status']='PENDING';slots-=1
         write(path,registry)

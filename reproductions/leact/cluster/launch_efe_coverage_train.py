@@ -205,8 +205,10 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                 else:folder=build(stage,plan,parent)
                 priority=submission_priority(record)
                 if upgrade and not applied:priority=branches[stage].get('execution_upgrade_priority',priority)
-                receipt=submit(folder,priority=priority)
-                record['attempts'].append({'workflow':receipt['name'],'build':str(folder),'submitted_utc':now(),'priority':priority})
+                pool=read(DEST/'execution-pools.json',{}).get('training_pool','groot-h100-01')
+                receipt=submit(folder,priority=priority,pool=pool)
+                record['attempts'].append({'workflow':receipt['name'],'build':str(folder),
+                    'submitted_utc':now(),'priority':priority,'pool':pool})
                 record.update(status='PENDING',retry=False)
                 available-=1
         if not record['attempts']:
