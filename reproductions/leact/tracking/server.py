@@ -143,7 +143,7 @@ def trace_api(database, path, query):
         return {'total': total, 'offset': offset, 'limit': limit, 'rows': [dict(r) for r in rows]}
 
 
-def handler(database):
+def handler(database,home_page='experiments'):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             parsed = urlparse(self.path)
@@ -160,6 +160,10 @@ def handler(database):
                     return
                 data = json.dumps(value, allow_nan=False).encode()
                 content_type = 'application/json'
+            elif path=='/api/reasoning':
+                value=latest(database).get('status',{}).get('reasoning_workspace',{})
+                data=json.dumps(value,allow_nan=False).encode()
+                content_type='application/json'
             elif path in {'/api/snapshot', '/export.json'}:
                 data = json.dumps(latest(database), allow_nan=False).encode()
                 content_type = 'application/json'
@@ -184,9 +188,15 @@ def handler(database):
                        "; style-src " + hashes(b'style') +
                        "; img-src data:; media-src blob: data:; object-src 'none'; "
                        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-            elif path in {'/', '/app.js', '/traces.js', '/leaderboards.js', '/style.css'}:
-                name = {'/': 'index.html', '/app.js': 'app.js', '/traces.js': 'traces.js', '/leaderboards.js': 'leaderboards.js', '/style.css': 'style.css'}[path]
-                content_type = {'/': 'text/html', '/app.js': 'text/javascript', '/traces.js': 'text/javascript', '/leaderboards.js': 'text/javascript', '/style.css': 'text/css'}[path]
+            elif path in {'/', '/experiments', '/app.js', '/traces.js', '/leaderboards.js', '/style.css',
+                          '/rpunamiya-reasoning','/reasoning','/reasoning.js','/reasoning.css'}:
+                names={'/':'reasoning.html'if home_page=='reasoning'else'index.html',
+                    '/experiments':'index.html','/app.js':'app.js','/traces.js':'traces.js',
+                    '/leaderboards.js':'leaderboards.js','/style.css':'style.css',
+                    '/rpunamiya-reasoning':'reasoning.html','/reasoning':'reasoning.html',
+                    '/reasoning.js':'reasoning.js','/reasoning.css':'reasoning.css'}
+                name=names[path]
+                content_type={'.html':'text/html','.js':'text/javascript','.css':'text/css'}[Path(name).suffix]
                 data = (ASSETS / name).read_bytes()
             else:
                 self.send_error(404)
@@ -209,6 +219,7 @@ def main():
     parser.add_argument('--snapshot', help='JSON file or - for standard input')
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8126)
+    parser.add_argument('--home-page',choices=['experiments','reasoning'],default='experiments')
     args = parser.parse_args()
     args.db.parent.mkdir(parents=True, exist_ok=True)
     if args.command == 'import-records':
@@ -234,7 +245,7 @@ def main():
         print(json.dumps(ingest(args.db, json.loads(raw))))
     else:
         connect(args.db).close()
-        server = ThreadingHTTPServer((args.host, args.port), handler(args.db))
+        server = ThreadingHTTPServer((args.host, args.port), handler(args.db,args.home_page))
         print(f'LeAct tracker listening on {args.host}:{args.port}', flush=True)
         server.serve_forever()
 
