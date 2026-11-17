@@ -23,6 +23,14 @@ families, concrete queries, output formats, scene sources and transfer targets.
 Its ten named benchmark datasets are evaluation-only. Generator implementation
 and scene admission are still pending; no separate bounding-box output is
 specified in the current proposal. Normalized point outputs are specified.
+Existing training releases are tracked separately in
+`proposals/efe_reasoning_training_sources_v1.json` and shown in the reasoning
+section. RoboPoint's synthetic namespaces, Open Images train annotations,
+SpatialRGPT's Open Spatial Dataset, SAT train and CLEVRER train are candidates.
+The registry records actual access probes and missing integration; it does not
+admit them to training or relax named benchmark exclusions. Annotation samples
+are available for inspection, while full image staging and reward adapters are
+still pending. Existing releases should precede new generators where suitable.
 
 Refresh the 14 image previews with `python -m reproductions.leact.tracking.reasoning_media`. This downloads public EFE reference
 images and copies the native scene authoring preview from the pinned GR00T source.

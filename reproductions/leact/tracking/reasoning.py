@@ -215,6 +215,7 @@ def build(base=BASE):
         'simulators':simulator_families(catalog,read(scaled/'holdout-review-v2.json',{}),
             read(base/'artifacts/reasoning-workspace/family-images.json',{})),
         'embodied_reasoning':{**reasoning,'evaluation_benchmarks':proposal.get('holdouts',{}).get('benchmarks',[]),
+            'existing_training_sources':read(base/'proposals/efe_reasoning_training_sources_v1.json',{}).get('sources',[]),
             'box_output_planned':any('bounding box'in f.get('output','').lower()or'bbox'in f.get('output','').lower()
                 for f in reasoning.get('families',[]))},
         'pear':{'arms':plan.get('arms',[]),'primary_updates':plan.get('primary_rl_updates',0),

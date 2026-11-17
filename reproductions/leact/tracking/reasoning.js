@@ -18,16 +18,17 @@ if(typeof document!=='undefined'){
   function table(target,heads,rows){const t=node('table'),thead=node('thead'),hr=node('tr');heads.forEach(h=>hr.append(node('th',h)));thead.append(hr);t.append(thead);const body=node('tbody');rows.forEach(row=>{const tr=node('tr');row.forEach(value=>{const td=node('td');td.append(value instanceof Node?value:document.createTextNode(value??'—'));tr.append(td);});body.append(tr);});t.append(body);$(target).replaceChildren(t);}
   function textCell(title,detail){const n=node('div',title);if(detail)n.append(node('small',detail));return n;}
   function embodiedReasoning(){
-    const r=data.embodied_reasoning||{},families=r.families||[],admitted=families.reduce((n,f)=>n+(f.admitted_tasks||0),0);
+    const r=data.embodied_reasoning||{},families=r.families||[],sources=r.existing_training_sources||[],admitted=families.reduce((n,f)=>n+(f.admitted_tasks||0),0),covered=new Set(sources.flatMap(s=>s.families));
     $('reasoning-status').textContent=`${families.length} planned families · ${admitted} admitted tasks`;
     table('reasoning-task-table',['Training family','Tasks and output','Evaluation targets'],families.map(f=>{
-      const name=textCell(f.name,f.status==='planned_adapter_and_generator_not_implemented'?'Generator not implemented':f.status);
+      const name=textCell(f.name,covered.has(f.id)?'Existing training source identified; integration pending':f.status==='planned_adapter_and_generator_not_implemented'?'Generator or additional training source needed':f.status);
       const tasks=node('div'),example=node('p',f.example,'reasoning-example');tasks.append(node('div',f.output),example);
       const details=node('details'),summary=node('summary','Task list and scene sources'),list=node('ul');f.tasks.forEach(t=>list.append(node('li',t)));details.append(summary,list,node('p',f.training_environment));tasks.append(details);
       return [name,tasks,(f.transfer_targets||[]).join(', ')];
     }));
+    table('reasoning-source-table',['Training dataset','Tasks / labels','Preparation status'],sources.map(s=>{const link=node('a',s.name);link.href=s.url;link.target='_blank';link.rel='noreferrer';const source=node('div');source.append(link,node('small',s.partition));return [source,s.skills,s.status];}));
     $('reasoning-benchmarks').replaceChildren(...(r.evaluation_benchmarks||[]).map(name=>node('span',name,'tag eval')));
-    $('reasoning-bbox-status').textContent=(r.box_output_planned?'Bounding-box outputs are specified in the proposal.':'Pointing uses normalized image points. Separate bounding-box prediction is not yet specified in the training proposal.')+' Named benchmark datasets remain evaluation-only; generator implementation and scene admission are pending.';
+    $('reasoning-bbox-status').textContent=(r.box_output_planned?'Bounding-box outputs are specified in the proposal.':sources.some(s=>s.available_labels?.includes('bounding boxes'))?'Existing bounding-box annotations are available; our box-output task and reward adapter are not implemented.':'Pointing uses normalized image points. Separate bounding-box prediction is not yet specified in the training proposal.')+' Named benchmark datasets remain evaluation-only; data integration and admission are pending.';
   }
   function taskGroup(title,tasks,suite,kind){
     const group=node('section',undefined,'task-group '+kind);group.append(node('h4',title+' · '+fmt(tasks.length)));
