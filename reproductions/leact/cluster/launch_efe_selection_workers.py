@@ -78,6 +78,29 @@ def prepare_workers(source,start=200,total=2048,count=3,max_sequences=1,version=
     return jobs
 
 
+def helper_assignments(missing_indices,total,count):
+    """Partition unfinished fixed states; existing state locks prevent duplicates."""
+    if type(count) is not int or count<1 or type(total) is not int or total<1:
+        raise ValueError('Positive worker and state counts required')
+    indices=sorted(missing_indices)
+    if len(indices)!=len(set(indices)) or any(type(i) is not int or not 0<=i<total for i in indices):
+        raise ValueError('Invalid unfinished state membership')
+    return [indices[offset::count] for offset in range(count) if indices[offset::count]]
+
+
+def prepare_helpers(source,missing_indices,*,total=2048,count=4,version=1):
+    source=Path(source);spec=read(source/'spec.json');root=spec['archive_root']
+    jobs=[]
+    for worker,indices in enumerate(helper_assignments(missing_indices,total,count),1):
+        ident=f'helper-{version}-{worker}'
+        worker_root=root+'/selection-workers/'+ident
+        execution={'candidate_only':True,'shared_candidates':True,'indices':indices,
+            'max_num_seqs':8,'output_root':root,'worker_root':worker_root}
+        folder=build(source,f'coverage-select-{ident}-20261117',execution)
+        jobs.append({'id':ident,'build':str(folder),'worker_root':worker_root,'attempts':[]})
+    return jobs
+
+
 def tick():
     from .scale_efe import command,submit
     from .launch_efe_coverage import DEST,infra_retryable

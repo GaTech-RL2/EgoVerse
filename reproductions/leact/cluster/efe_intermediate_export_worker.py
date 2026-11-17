@@ -56,7 +56,7 @@ def main(lane):
             'transformers==5.11.0','peft==0.21.0','accelerate==1.11.0'],900)
         runtime=json.loads((Path(pin['training_root'])/'spec.json').read_text())
         spec={**runtime,**pin,'archive_root':str(root),'local_base_model':cache['local_model'],
-            'checkpoint_revision_prefix':'efe-coverage-warmstart-intermediate',
+            'checkpoint_revision_prefix':request.get('checkpoint_revision_prefix','efe-coverage-warmstart-intermediate'),
             'export_final':False,'export_selection':pin['selection'],'ready_name':'adapter-ready.json'}
         spec_path=attempt/'verify-spec.json';write(spec_path,spec)
         progress('verifying_checkpoint',expected_post_update_ce=pin['expected_post_update_ce'])

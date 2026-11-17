@@ -17,12 +17,33 @@ from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_
 PREFIX='leact-efe-coverage-eval-'
 
 
+def ordered_batches(batches, model_order):
+    """Change allocation order only, preserving every frozen task and result."""
+    if len(model_order)!=len(set(model_order)):
+        raise ValueError('Duplicate evaluation model priority')
+    priority={model:index for index,model in enumerate(model_order)}
+    return sorted(batches,key=lambda batch:priority.get(batch['model'],len(priority)))
+
+
+def constrained_preflight_source(text):
+    """Use the existing direct-action probe for this direct-action evaluation."""
+    old="        return vision_tool_preflight({**spec,'upstream':'http://127.0.0.1:19862/v1'},token)"
+    if text.count(old)!=1:raise ValueError('Constrained preflight insertion point changed')
+    text=text.replace(old,"        from efe_constrained_preflight import check\n        return check({**spec,'upstream':'http://127.0.0.1:19862/v1'},token,response)")
+    text=text.replace('Exercise the same HTTP gateway and tool events used by native Codex.',
+        'Exercise the same streamed image/action interface used by the constrained policy.')
+    return text.replace('Qwen server ready; testing streamed image recognition and tool-result continuation.',
+        'Qwen server ready; testing the streamed constrained image/action interface.')
+
+
 def register_intermediates(frozen,queue,registry,panel_sha256):
     """Add separately named fixed-update screens only on the frozen panel."""
     ready={}
     for run in registry.get('runs',[]):
         model=run['id'];step=run['step']
-        if model!=f'warmstart-step{step}' or type(step) is not int or step<1:
+        stage=run.get('training_stage','warmstart')
+        if (type(step) is not int or step<1 or model!=f'{stage}-step{step}'
+            or (stage!='warmstart' and not re.fullmatch(r'leact-from-step[1-9][0-9]*-r[1-9][0-9]*',stage))):
             raise ValueError('Invalid intermediate checkpoint identity')
         if run.get('panel_sha256')!=panel_sha256 or run.get('planned_tasks')!=len(frozen['tasks']):
             raise ValueError('Intermediate evaluation panel differs from the frozen baselines')
@@ -123,6 +144,9 @@ def build(model,batch,ready,retry):
     spec.pop('training_parent',None)
     if model!='astra':
         spec.update(student_checkpoint=ready['checkpoint'],student_manifest=ready['manifest'],student_revision=ready['revision'])
+        spec.update(preflight_protocol='constrained-image-action-preflight-v1',
+            preflight_semantics_policy='record_and_evaluate',
+            preflight_change='Use the established direct-action transport probe. Record synthetic command/color errors; native tasks determine policy success. HTTP and incomplete-stream failures remain blocking.')
         if ready.get('final') is False:
             spec['intermediate_checkpoint']={k:ready[k] for k in ['step','final','selection','pin_sha256','additional_optimizer_updates']}
         boot=(folder/'native-bootstrap.py').read_text()
@@ -132,7 +156,8 @@ def build(model,batch,ready,retry):
         student=folder/'native-student.py';text=student.read_text()
         marker="    calls=[x for x in first.get('output',[]) if x['type']=='function_call']"
         if text.count(marker)!=1:raise ValueError('Synthetic preflight diagnostic hook changed')
-        student.write_text(text.replace(marker,"    runtime.write('student-preflight-response.json',first)\n"+marker))
+        student.write_text(constrained_preflight_source(text.replace(marker,"    runtime.write('student-preflight-response.json',first)\n"+marker)))
+        shutil.copyfile(BASE/'cluster/efe_constrained_preflight.py',folder/'efe_constrained_preflight.py')
     write(folder/'spec.json',spec)
     shutil.copyfile(BASE/'cluster/efe_coverage_teacher.py',folder/'native-worker.py')
     shutil.copyfile(BASE/'cluster/efe_action_artifacts.py',folder/'efe_action_artifacts.py')
@@ -141,7 +166,10 @@ def build(model,batch,ready,retry):
     workflow=yaml.safe_load((folder/'workflow.yaml').read_text())
     workflow['workflow']['name']=PREFIX+model+'-'+batch['id']+'-v1'+suffix
     workflow['workflow']['timeout']={'queue_timeout':'20m','exec_timeout':'12h'}
-    if model!='astra':workflow['workflow']['tasks'][0].pop('credentials',None)
+    if model!='astra':
+        task=workflow['workflow']['tasks'][0];task.pop('credentials',None)
+        task['files'].append({'localpath':'efe_constrained_preflight.py',
+            'path':LANE+'/efe_constrained_preflight.py'})
     (folder/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False))
     for path in folder.glob('*.py'):compile(path.read_text(),str(path),'exec')
     freeze_sources(folder)
@@ -177,7 +205,8 @@ def tick(plan,evidence,active):
     results=evidence.get('evaluations',{})
     states=[]
     aggregate={}
-    for batch in queue['batches']:
+    priorities=read(DEST/'execution-priorities.json',{})
+    for batch in ordered_batches(queue['batches'],priorities.get('evaluation_model_order',[])):
         model=batch['model']
         if (model=='leact-r1' or model in {r['id'] for r in branches}) and training.get(model,{}).get('complete',{}).get('no_admissions'):
             states.append({'model':model,'id':batch['id'],'status':'NO_ADMISSIONS_USE_WARMSTART',

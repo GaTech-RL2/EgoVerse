@@ -135,6 +135,11 @@ function currentStudyStatus(){
   const state=workflowLabel(warm?.status||recovery.status),stamp=recovery.evidence_captured_utc;
   const link=node('a','Open current loss curves');link.href='#loss-efe-expanded';
   el('status').replaceChildren(node('span',`EFE warmstart: ${state.toLowerCase()}. ${last?.step??0} of ${run?.steps??737} updates recorded.`),link);
+  const priorities=exp.execution_priorities;
+  if(priorities?.primary_deliverable){
+    const r1=exp.training?.jobs?.find(j=>j.stage==='leact-from-step496-r1');
+    el('status').replaceChildren(node('span',`Priority: LeAct R1 robot evals. ${r1?.progress?.detail||workflowLabel(r1?.status)}. Target: ${priorities.target_local}.`),link);
+  }
   el('status').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const format=value=>value?new Date(value).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'not available';
   el('updated').textContent=`Training records: ${format(stamp)}. Auto-refresh every 15 seconds.`;
@@ -149,7 +154,8 @@ function currentStudyStatus(){
   const workerText=selection?.enabled?`Parallel selection: ${(selection.jobs||[]).filter(j=>j.status==='RUNNING').length}/${(selection.jobs||[]).length} additional H100 nodes running. `:'';
   const checkpoint=exp.performance?.checkpoint_optimization;
   const checkpointText=checkpoint?` Checkpoint-saving validation: ${workflowLabel(checkpoint.status).toLowerCase()}. ${checkpoint.production_enabled?'Enabled in training.':'The current training save path is unchanged.'}`:'';
-  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+checkpointText+' '+pearText+' The PEAR comparison uses the final warmstart.';
+  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+checkpointText+' '+
+    (priorities?.defer_additional_pear_launches?'Further PEAR++ launches are deferred while LeAct R1 training and its frozen 36-task evaluation panel take priority.':pearText);
 }
 function chart(){
   const histories=lossHistories(data),category=lossCategories.find(c=>c.id===chartState.category)||lossCategories[0];
@@ -721,9 +727,9 @@ function embodiedStudy(){
     const recovery=expansion.training_recovery||{};
     const intermediates=expansion.intermediate_evaluations?.runs||[],branches=expansion.branch_runs?.runs||[];
     const studentGraded=(expansion.evaluation?.scores||[]).filter(r=>!['astra','base'].includes(r.model)).reduce((n,r)=>n+r.graded,0);
-    el('efe-coverage-expansion-summary').textContent=[baselineSummary,admittedSummary,
+    el('efe-coverage-expansion-summary').textContent=[expansion.execution_priorities?.primary_deliverable?`Priority: ${expansion.execution_priorities.primary_deliverable}. Target: ${expansion.execution_priorities.target_local}.`:null,baselineSummary,admittedSummary,
       recovery.last_recorded_update?`Expanded warmstart: ${recovery.last_recorded_update}/${recovery.planned_optimizer_updates} updates recorded; ${workflowLabel(recovery.status).toLowerCase()}. Latest saved checkpoint: ${recovery.committed_restart_step}. ${studentGraded?`${studentGraded} expanded-student rollouts graded; see the results below.`:'No expanded student robot-success result yet.'}`:s.summary||'Expanded teacher collection is queued.',
-      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the final 737-update comparison remains separate.`;}),
+      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the full training run continues independently.`;}),
       ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}. Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
     table('efe-coverage-expansion-counts',['Eligible / candidate tasks','Native outcomes','Native successes','Candidate usable successes','Distinct successful tasks','Scene audit'],[[
       `${s.eligible_tasks??p.candidate_tasks}/${p.candidate_tasks}`,s.graded_episodes||0,s.native_successes||0,`${s.candidate_successful_episodes||0}/${p.target_successful_episodes}`,

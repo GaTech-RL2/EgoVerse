@@ -119,8 +119,11 @@ def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
     """One explicit diagnostic retry before any benchmark episode; no inferred cause."""
     name=scheduler.get('name')
     marker='Student vision/function-call preflight failed; do not run benchmark tasks'
+    approved=(review.get('action')=='retry_original_preflight_once' or (
+        review.get('action')=='retry_with_matched_constrained_preflight'
+        and review.get('target_preflight_protocol')=='constrained-image-action-preflight-v1'))
     if (scheduler.get('status')!='FAILED' or not name or review.get('workflow')!=name
-        or review.get('action')!='retry_original_preflight_once'
+        or not approved
         or review.get('source_spec_sha256')!=spec_sha256):return False
     if review.get('evidence_sha256')!=hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest():return False
     progress=evidence.get('progress',{});worker=evidence.get('worker_complete',{})

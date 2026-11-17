@@ -1,6 +1,7 @@
 from copy import deepcopy
 import hashlib
 import json
+import pytest
 
 from reproductions.leact.cluster.efe_coverage_retry import init_interruption_proven,submission_priority,native_disconnect_retry_tasks,cuda_unavailable_before_training,reviewed_preflight_retry
 
@@ -118,13 +119,15 @@ def test_initial_device_unavailability_can_retry_without_bypassing_training_guar
     assert not cuda_unavailable_before_training({'name':'allocation-1','status':'RUNNING'},cuda_startup_evidence())
 
 
-def test_reviewed_preflight_retry_never_repeats_a_benchmark_attempt():
+@pytest.mark.parametrize('action',['retry_original_preflight_once','retry_with_matched_constrained_preflight'])
+def test_reviewed_preflight_retry_never_repeats_a_benchmark_attempt(action):
     name='failed-preflight';marker='Student vision/function-call preflight failed; do not run benchmark tasks'
     scheduler={'name':name,'status':'FAILED'}
     evidence={'progress':{'workflow':name,'phase':'qwen_baseline_needs_review','benchmark_rollouts_started':False},
         'preflight':{'status':'failed','error':marker},'worker_complete':{'workflow':name,'success':False,'error':marker},
         'complete':{'completed_trials':0,'error':marker},'results':{},'public_manifest':{}}
-    review={'workflow':name,'action':'retry_original_preflight_once','source_spec_sha256':'source',
+    review={'workflow':name,'action':action,'source_spec_sha256':'source',
+        'target_preflight_protocol':'constrained-image-action-preflight-v1',
         'evidence_sha256':hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest()}
     assert reviewed_preflight_retry(scheduler,evidence,review,'source')
     assert not reviewed_preflight_retry(scheduler,evidence,{},'source')
