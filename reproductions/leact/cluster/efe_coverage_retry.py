@@ -39,8 +39,10 @@ def init_interruption_proven(scheduler,events):
                     events.find('osmo/init-container:')>=0)
     deleted_during_binding=('BindingError' in events
         and 'is being deleted, cannot be assigned to a host' in events)
+    preempted_before_start=('Evict: Pod ' in events
+        and ' was preempted by higher priority workload ' in events)
     return (never_started_init_failure(scheduler)
-        and (deleted_during_binding or ('osmo/init-container:' in events
+        and (deleted_during_binding or preempted_before_start or ('osmo/init-container:' in events
             and ('Stopping container osmo-init' in events or readiness_lost)))
         and 'Started container osmo-main' not in events)
 
@@ -54,16 +56,16 @@ def reviewed_init_interruption(scheduler):
     record=directory/(key+'.json')
     if record.exists():
         value=json.loads(record.read_text())
-        if value.get('rule_version')==3:
+        if value.get('rule_version')==4:
             return value['workflow']==name and value.get('retryable',False)
     result=subprocess.run(['osmo','workflow','events',name],capture_output=True,text=True,timeout=30)
     if result.returncode:return False
     events=result.stdout
     (directory/(key+'.events.txt')).write_text(events)
-    value={'workflow':name,'utc':datetime.now(timezone.utc).isoformat(),'rule_version':3,
+    value={'workflow':name,'utc':datetime.now(timezone.utc).isoformat(),'rule_version':4,
         'retryable':init_interruption_proven(scheduler,events),
         'events_sha256':hashlib.sha256(events.encode()).hexdigest(),
-        'rule':'No workflow/task/input download start; exit 4000; events confirm interrupted OSMO init or pod deletion during binding before task execution.'}
+        'rule':'No workflow/task/input download start; exit 4000; events confirm interrupted OSMO init, pod deletion during binding, or explicit higher-priority preemption before task execution.'}
     temporary=record.with_suffix('.tmp');temporary.write_text(json.dumps(value,indent=2)+'\n');temporary.replace(record)
     return value['retryable']
 

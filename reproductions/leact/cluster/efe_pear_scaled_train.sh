@@ -54,6 +54,7 @@ case "$MODEL_TYPE" in
   qwen3_5) ;;
   qwen3_5_moe)
     ARCHITECTURE_ARGS=(actor_rollout_ref.actor.fsdp_config.use_gpu_backend=false
+                       +actor_rollout_ref.actor.optim.override_optimizer_config.foreach=false
                        actor_rollout_ref.rollout.kernels=null)
     ;;
   *) echo "Unsupported primary model architecture: $MODEL_TYPE" >&2; exit 1 ;;

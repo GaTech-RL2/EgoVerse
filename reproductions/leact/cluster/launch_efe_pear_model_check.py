@@ -15,7 +15,7 @@ from .scale_efe import BASE, BUILD_ROOT, command, read, submit, write
 
 
 ARMS=('dense_base','moe_warmstart496')
-VERSION=3
+VERSION=4
 
 
 def prepare(arm,index=0):

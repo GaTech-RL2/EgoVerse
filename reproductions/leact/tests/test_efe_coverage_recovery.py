@@ -52,6 +52,17 @@ def test_new_quota_restores_high_priority_then_low_fallback():
     assert submission_priority({'attempts':[{'submitted_utc':'2026-11-14T01:41:00+00:00'}]},policy)=='LOW'
 
 
+def test_explicit_preemption_before_start_retries_without_guessing_other_exit_4000_causes():
+    events='Pipelined: Pod example\nEvict: Pod example was preempted by higher priority workload other'
+    assert init_interruption_proven(startup_failure(),events)
+    assert not init_interruption_proven(startup_failure(),'Pipelined: Pod example')
+    assert not init_interruption_proven(startup_failure(),'Evict: Pod example unknown reason')
+    assert not init_interruption_proven(startup_failure(),events+'\nStarted container osmo-main')
+    for key in ['start_time','input_download_start_time']:
+        state=deepcopy(startup_failure());state['groups'][0]['tasks'][0][key]='2026-11-17T04:00:00'
+        assert not init_interruption_proven(state,events)
+
+
 def native_interruption():
     marker='Native episode infrastructure/resource verification failed; inspect the recorded trial before expansion'
     return {'results':{'setup_error':marker,'trials':[

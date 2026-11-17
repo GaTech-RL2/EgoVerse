@@ -46,6 +46,20 @@ def rank_error_context(text):
     return [{'ranks':ranks,'traceback':trace} for trace,ranks in list(result.items())[:4]]
 
 
+def unused_checkpoint_auxiliaries(checkpoint_names, loaded_names, ignored_patterns):
+    """Allow only MTP auxiliaries explicitly omitted by the installed model class.
+
+    Qwen's autoregressive Transformers model declares ^mtp.* as unexpected
+    checkpoint keys. Vision, language and expert weights must still all load.
+    """
+    missing=set(checkpoint_names)-set(loaded_names)
+    allowed={name for name in missing if name.startswith('mtp.')
+             and any(re.match(pattern,name) for pattern in ignored_patterns)}
+    if missing-allowed:
+        raise ValueError('Parent weights omitted: '+str(sorted(missing-allowed)[:10]))
+    return sorted(allowed)
+
+
 def make_engine(spec):
     import torch
     import torch.distributed as dist
@@ -71,7 +85,10 @@ def make_engine(spec):
         kernels='pear.models.qwen3_5.trainer.training_kernels.Qwen3_5TrainingKernels',
         use_gpu_backend=dense,use_torch_compile=False)
     optimizer=FSDPOptimizerConfig(lr=1e-6,total_training_steps=1,lr_warmup_steps=0,
-                                  weight_decay=.01,betas=(.9,.999),clip_grad=1.)
+        weight_decay=.01,betas=(.9,.999),clip_grad=1.,
+        # The portable MoE path has no streamed AdamW backend. Avoid the
+        # parameter-sized foreach temporary while retaining ordinary FP32 AdamW.
+        override_optimizer_config=None if dense else {'foreach':False})
     engine=PearFSDPEngine(model,config,optimizer,CheckpointConfig())
     engine.initialize()
     if any(not p.requires_grad for p in engine.module.parameters()):
@@ -101,10 +118,14 @@ def loaded_weight_check(engine, model):
         error=float((actual-expected.float()).abs().max())
         if not math.isfinite(error) or error>5e-4:raise ValueError(f'Parent replay differs for {name}: {error}')
         maximum=max(maximum,error);count+=actual.numel();seen.add(name)
-    if dist.get_rank()==0 and seen!=set(index):
-        raise ValueError('Parent weights omitted: '+str(sorted(set(index)-seen)[:10]))
+    ignored=[]
+    if dist.get_rank()==0:
+        ignored=unused_checkpoint_auxiliaries(index,seen,
+            getattr(engine.module,'_keys_to_ignore_on_load_unexpected',()) or ())
     dist.barrier()
-    return {'loaded_weight_max_error':maximum,'checked_parameters':count,'checked_tensors':len(seen)}
+    return {'loaded_weight_max_error':maximum,'checked_parameters':count,'checked_tensors':len(seen),
+            'unused_checkpoint_auxiliary_tensors':ignored,
+            'audit_scope':'Every active model weight; only model-declared unused MTP auxiliaries are excluded.'}
 
 
 def probe_batch(engine, spec, *, processor=None):
