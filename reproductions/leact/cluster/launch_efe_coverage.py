@@ -208,12 +208,17 @@ for stage,stage_root in STAGES_LITERAL.items():
  recovery=d/'hf-rescore-v1'
  if recovery.exists():
   corrected=sum(1 for _ in(recovery/'candidates').glob('*.json'))
+  assembly=read(recovery/'assembly/status.json') or {}
+  preparation=read(Path(assembly['preparation_root'])/'progress.json') if assembly.get('preparation_root') else None
   data['scoring_recovery_progress']={'states_rescored':corrected,'total_states':2048,
    'workers':{p.parent.name:read(p) for p in recovery.glob('worker-*/progress.json')},
-   'assembly':read(recovery/'assembly/status.json') or {}}
+   'assembly':assembly,'tensor_preparation':preparation or {}}
   if not data['scoring_recovery']:
    data['progress'].update(phase='hf_scoring_recovery',training_started=False,
     detail=f'{corrected}/2048 fixed states rescored with the training implementation; production R1 optimizer updates remain zero.')
+   if preparation:
+    data['progress'].update(phase='training_tensor_preparation',
+     detail=f"All scores ready. Training tensors prepared for {preparation.get('completed',0)}/2048 states; production R1 optimizer updates remain zero.")
  worker=read(d/'worker-start.json') or {}
  data['worker_start']=worker
  states=[read(p) for p in (d/'restart-states').glob('checkpoint-*/training-state.json')]

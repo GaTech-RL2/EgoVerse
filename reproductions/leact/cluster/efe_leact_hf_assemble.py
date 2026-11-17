@@ -78,7 +78,10 @@ def main():
     from leact import select
     lane=Path(__file__).parent;request=json.loads((lane/'assembly.json').read_text())
     spec=json.loads((lane/'scientific-spec.json').read_text());root=Path(spec['archive_root'])
-    scores=Path(request['scores']);prepared=scores/'prepared';prepared.mkdir(parents=True,exist_ok=True)
+    scores=Path(request['scores']);prepared_name=request.get('prepared_directory','prepared')
+    if Path(prepared_name).name!=prepared_name or not prepared_name.startswith('prepared'):
+        raise ValueError('Invalid preparation directory')
+    prepared=scores/prepared_name;prepared.mkdir(parents=True,exist_ok=True)
     out=scores/'assembly';out.mkdir(exist_ok=True)
     def status(phase,**extra):
         row={'phase':phase,'updated_utc':datetime.now(timezone.utc).isoformat(),'workflow':os.environ['EFE_WORKFLOW_ID'],
@@ -121,10 +124,12 @@ def main():
         guard_untrained(root)
         if sha(root/'dataset-manifest.json')!=request['original_dataset_sha256']:
             raise ValueError('Original stopped-run dataset changed before recovery')
-        status('assembling_frozen_hf_admission',states=len(members))
+        status('assembling_frozen_hf_admission',states=len(members),preparation_root=str(prepared))
         if not(prepared/'selection-complete.json').exists():
             select(spec,prepared,{'frozen_training_scores_only':True,'scored_candidates_root':str(scores/'candidates'),
-                'original_training_root':str(root),'max_num_seqs':8})
+                'original_training_root':str(root),'max_num_seqs':8,
+                'reuse_original_tensors':request.get('reuse_original_tensors',False),
+                'original_dataset_sha256':request['original_dataset_sha256']})
         result=json.loads((prepared/'selection-complete.json').read_text())
         if not(result.get('success')and not result.get('no_admissions')):raise ValueError('HF assembly did not produce admitted training examples')
         manifest=json.loads((prepared/'dataset-manifest.json').read_text())

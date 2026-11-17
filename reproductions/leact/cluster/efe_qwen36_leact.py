@@ -66,7 +66,7 @@ def link_immutable(source,destination,expected_sha256=None):
     if expected_sha256 and sha(source)!=expected_sha256:raise ValueError('Replay source checksum changed')
     destination.parent.mkdir(parents=True,exist_ok=True)
     if destination.exists():
-        if destination.resolve()!=source and sha(destination)!=sha(source):raise ValueError('Replay destination differs')
+        if not destination.samefile(source) and destination.resolve()!=source and sha(destination)!=sha(source):raise ValueError('Replay destination differs')
         return
     try:os.link(source,destination)
     except OSError as error:
@@ -91,6 +91,15 @@ def selection_indices(count,execution):
     if len(indices)!=len(set(indices)) or any(type(i) is not int or not 0<=i<count for i in indices):
         raise ValueError('Invalid selection worker membership')
     return set(indices)
+
+
+def reuse_encoded_row(original_root,prepared_root,row,decision_id,pair,direction):
+    """Reuse bytes only for an identical frozen candidate and training direction."""
+    if(row.get('id')!=pair+'-'+direction or row.get('decision_id')!=decision_id
+       or row.get('direction')!=direction or row.get('state_id')!=pair):
+        raise ValueError('Cached explanation tensor identity differs')
+    link_immutable(Path(original_root)/row['tensor_file'],Path(prepared_root)/row['tensor_file'],row['tensor_sha256'])
+    return dict(row)
 
 
 def select(spec,root,execution=None):
@@ -132,6 +141,13 @@ def select(spec,root,execution=None):
         parent=Path(spec['parent_corpus'])
         if sha(parent/'dataset-manifest.json')!=spec['parent_dataset_sha256']:raise ValueError('Warmstart replay corpus changed')
         for blob in (parent/'tensor-blobs').glob('*.pt'):
+            link_immutable(blob,root/'tensor-blobs'/blob.name)
+    cached_rows={};reused_tensors=0;encoded_tensors=0
+    if frozen_scores and execution.get('reuse_original_tensors'):
+        original=Path(execution['original_training_root']);manifest=original/'dataset-manifest.json'
+        if sha(manifest)!=execution['original_dataset_sha256']:raise ValueError('Original training tensor manifest changed')
+        cached_rows={row['id']:row for row in json.loads(manifest.read_text())['examples']if row.get('source')=='leact'}
+        for blob in(original/'tensor-blobs').glob('*.pt'):
             link_immutable(blob,root/'tensor-blobs'/blob.name)
     for state in states:
         if tuple(state['action'])!=('action_type','action','repeat','summary') or state['tools']:
@@ -264,6 +280,10 @@ def select(spec,root,execution=None):
             if candidate['candidate'] not in record['selected']:continue
             pair=state['id']+'-leact-'+str(candidate['candidate']);rationale=candidate['rationale']
             for direction,messages,answer in [('forward',state['messages'],json.dumps(state['action'],ensure_ascii=False)),('backward',backward(state),'DONE')]:
+                ident=pair+'-'+direction;cached=cached_rows.get(ident)
+                if cached is not None:
+                    rows.append(reuse_encoded_row(execution['original_training_root'],root,cached,state['id'],pair,direction))
+                    reused_tensors+=1;continue
                 batch,meta=encode_example(processor,messages,[],{'role':'assistant','reasoning_content':rationale,'content':answer},spec['context'])
                 if batch is None:raise ValueError('Admitted complete training pair exceeds context')
                 name='tensors/'+pair+'-'+direction+'.pt'
@@ -271,6 +291,7 @@ def select(spec,root,execution=None):
                     from efe_visual_tensor_store import save
                     save(batch,root/name)
                 else:torch.save(batch,root/name)
+                encoded_tensors+=1
                 rows.append({'id':pair+'-'+direction,'state_id':pair,'decision_id':state['id'],'direction':direction,
                     'suite':state['suite'],'task':state['task'],'episode':state['episode'],'source':'leact','tensor_file':name,
                     'tensor_sha256':sha(root/name),**meta})
@@ -285,6 +306,8 @@ def select(spec,root,execution=None):
         'admitted_candidates':len(rows)//2,'admitted_states':len({r['decision_id'] for r in rows}),
         'rule':'Strictly positive mean log-likelihood gain on identical executable-command tokens; top two per state. Summary tokens cannot determine admission.'}
     if frozen_scores:selection['score_backend']='exact_training_fsdp_fp32_master_bf16_forward'
+    if cached_rows:selection['tensor_preparation']={'verified_existing_tensors_reused':reused_tensors,
+        'new_tensors_encoded':encoded_tensors,'original_dataset_sha256':execution['original_dataset_sha256']}
     write(root/'selection.json',selection)
     if not rows:write(root/'selection-complete.json',{'success':True,'no_admissions':True});return
     parent=Path(spec['parent_corpus']);manifest=json.loads((parent/'dataset-manifest.json').read_text())
