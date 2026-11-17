@@ -191,6 +191,27 @@ def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
         and not evidence.get('public_manifest',{}).get('episodes'))
 
 
+def inference_cuda_unavailable_before_rollouts(scheduler,evidence):
+    """Recognize initial device acquisition failure before any native trial."""
+    name=scheduler.get('name');marker='Qwen serving exited; inspect logs/student-vllm.log'
+    progress=evidence.get('progress',{});worker=evidence.get('worker_complete',{})
+    complete=evidence.get('complete',{});preflight=evidence.get('preflight',{})
+    failure=evidence.get('serving_failure',{});message=failure.get('log_tail','')
+    return bool(name and scheduler.get('status')=='FAILED'
+        and progress.get('workflow')==name and worker.get('workflow')==name
+        and progress.get('benchmark_rollouts_started')is False
+        and progress.get('phase')=='qwen_baseline_needs_review'
+        and preflight.get('status')=='failed' and preflight.get('error')==marker
+        and complete.get('success',False)is False and bool(complete.get('completed_utc'))
+        and complete.get('completed_trials')==0
+        and complete.get('error')==marker and worker.get('success')is False and worker.get('error')==marker
+        and not evidence.get('results',{}).get('trials')
+        and not evidence.get('public_manifest',{}).get('episodes')
+        and failure.get('returncode')is not None and failure['returncode']!=0
+        and 'torch.accelerator.set_device_index(self.device)'in message
+        and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable'in message)
+
+
 def retry_due(record, workflow, at=None):
     """Call only after the scheduler failure has been classified as infrastructure."""
     at=at or datetime.now(timezone.utc)

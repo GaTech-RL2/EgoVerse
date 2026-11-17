@@ -190,6 +190,8 @@ for d in (root/'evaluation').glob('*/*'):
   'public_manifest':read(d/'public-episodes/manifest.json') or {},
   'progress':read(d/'progress.json') or {},'preflight':read(d/'student-preflight.json') or {},
   'worker_complete':read(d/'worker-complete.json') or {}}
+ failure=read(d/'student-serving-failure.json')
+ if failure:evaluations[d.name]['serving_failure']=failure
 for stage,stage_root in STAGES_LITERAL.items():
  d=Path(stage_root)
  data={'progress':read(d/'progress.json') or {},'complete':read(d/'complete.json') or {},
@@ -215,9 +217,13 @@ for stage,stage_root in STAGES_LITERAL.items():
    'assembly':assembly,'tensor_preparation':preparation or {}}
   if not data['scoring_recovery']:
    data['progress'].update(phase='hf_scoring_recovery',training_started=False,
+    updated_utc=assembly.get('updated_utc',data['progress'].get('updated_utc')),
+    workflow=assembly.get('workflow',data['progress'].get('workflow')),
     detail=f'{corrected}/2048 fixed states rescored with the training implementation; production R1 optimizer updates remain zero.')
    if preparation:
     data['progress'].update(phase='training_tensor_preparation',
+     updated_utc=preparation.get('updated_utc',assembly.get('updated_utc')),
+     workflow=preparation.get('workflow',assembly.get('workflow')),
      detail=f"All scores ready. Training tensors prepared for {preparation.get('completed',0)}/2048 states; production R1 optimizer updates remain zero.")
  worker=read(d/'worker-start.json') or {}
  data['worker_start']=worker

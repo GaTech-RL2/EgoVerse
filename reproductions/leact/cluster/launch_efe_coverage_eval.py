@@ -12,7 +12,7 @@ import yaml
 from .scale_efe import BASE,ROOT,BUILD_ROOT,read,write,submit,command
 from .launch_efe_training import freeze_sources
 from .compute_budget import reserved_nodes,node_limit
-from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks,reviewed_preflight_retry
+from .efe_coverage_retry import retry_due,submission_priority,native_disconnect_retry_tasks,reviewed_preflight_retry,inference_cuda_unavailable_before_rollouts
 
 PREFIX='leact-efe-coverage-eval-'
 
@@ -239,6 +239,13 @@ def tick(plan,evidence,active):
             if bool(after_end) and reviewed_preflight_retry(scheduler,results.get(attempt['workflow'],{}),review,
                     hashlib.sha256((Path(attempt['build'])/'spec.json').read_bytes()).hexdigest()):
                 retry=True;state='WAITING_FOR_PREFLIGHT_RETRY'
+            elif bool(after_end) and inference_cuda_unavailable_before_rollouts(scheduler,results.get(attempt['workflow'],{})):
+                row=results[attempt['workflow']]
+                batch['inference_startup_review']={'workflow':attempt['workflow'],'reviewed_utc':now(),
+                    'evidence_sha256':hashlib.sha256(json.dumps(row,sort_keys=True).encode()).hexdigest(),
+                    'reason':'CUDA device busy/unavailable at initial set_device_index; zero native trials or public episodes.'}
+                retry=retry_due(batch,attempt['workflow'])
+                if not retry:state='RETRY_BACKOFF'
             elif bool(after_end) and infra_retryable(scheduler):
                 retry=retry_due(batch,attempt['workflow'])
                 if not retry:state='RETRY_BACKOFF'
