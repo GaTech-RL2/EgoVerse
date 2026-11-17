@@ -1,5 +1,6 @@
 """Dependency-gated launches for the expanded corpus, warmstart, and LeAct."""
 import json
+import hashlib
 from pathlib import Path
 import shutil
 
@@ -8,7 +9,7 @@ import yaml
 from .scale_efe import BASE,ROOT,BUILD_ROOT,read,write,submit,command
 from .compute_budget import reserved_nodes,node_limit
 from .launch_efe_training import freeze_sources
-from .efe_coverage_retry import retry_due,submission_priority,cuda_unavailable_before_training
+from .efe_coverage_retry import retry_due,submission_priority,cuda_unavailable_before_training,reviewed_hf_scoring_recovery
 
 LANE='/tmp/efe-coverage-training'
 PAYLOAD_VERSION=7
@@ -154,6 +155,7 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
         data=remote.get(stage,{})
         stage_done = bool(data.get('success')) if stage=='restart-probe' else bool(data.get('complete',{}).get('success'))
         record=stages.setdefault(stage,{'attempts':[]})
+        repair=read(DEST/stage/'source-recovery.json',{})
         quality_hold=read(DEST/stage/'quality-hold.json',{})
         if quality_hold.get('active'):
             record.update(status='QUALITY_HOLD',retry=False)
@@ -175,6 +177,8 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                     and upgrade.get('execution_upgrade_from_workflow')==attempt['workflow']
                     and upgrade.get('selection_execution_build'))
                 cuda_startup=cuda_unavailable_before_training(state,data)
+                scoring_recovery=reviewed_hf_scoring_recovery(state,data,repair,
+                    hashlib.sha256((Path(attempt['build'])/'spec.json').read_bytes()).hexdigest())
                 if cuda_startup:
                     review={'workflow':attempt['workflow'],'utc':now(),
                         'classification':'CUDA device unavailable at initial set_device before restart-probe computation or training',
@@ -182,7 +186,9 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                         'recipe_changed':False,'error':data['error']['error']}
                     write(Path(attempt['build'])/'cuda-startup-review.json',review)
                     record['infrastructure_review']=review
-                if reviewed_upgrade:
+                if scoring_recovery:
+                    record.update(retry=True,status='SCORING_RECOVERY_READY')
+                elif reviewed_upgrade:
                     record.update(retry=True,status='EXECUTION_UPGRADE')
                 elif infra_retryable(state) or cuda_startup:
                     record['retry']=retry_due(record,attempt['workflow'])
@@ -199,11 +205,14 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
                     parent={**remote['warmstart'],'admission':evidence['admission']}
                 upgrade=branches.get(stage,{}).get('selection_execution_build')
                 applied=any(a['build']==upgrade for a in record['attempts']) if upgrade else False
-                if upgrade and not applied:folder=Path(upgrade)
+                repaired=repair.get('build') and not any(a['build']==repair['build']for a in record['attempts'])
+                if repaired and record['status']=='SCORING_RECOVERY_READY':folder=Path(repair['build'])
+                elif upgrade and not applied:folder=Path(upgrade)
                 elif record['attempts']:folder=retry_build(record['attempts'][-1]['build'],len(record['attempts']))
                 elif stage in branches:folder=Path(branches[stage]['build'])
                 else:folder=build(stage,plan,parent)
                 priority=submission_priority(record)
+                if record['status']=='SCORING_RECOVERY_READY':priority='HIGH'
                 if upgrade and not applied:priority=branches[stage].get('execution_upgrade_priority',priority)
                 pool=read(DEST/'execution-pools.json',{}).get('training_pool','groot-h100-01')
                 receipt=submit(folder,priority=priority,pool=pool)

@@ -74,6 +74,15 @@ def target_loss(model, batch):
     return loss
 
 
+def selection_reference_required(mode,start_step,require_full_model_replay):
+    """Compare selection scores to the untouched parent; replay resumed weights."""
+    if mode=='train' and start_step:
+        if not require_full_model_replay:
+            raise ValueError('Resumed LeAct must verify its committed full-model loss')
+        return False
+    return True
+
+
 def presample(rows, steps, seed):
     """Uniform suite/task/episode/decision and exactly equal forward/backward mass."""
     groups = {}
@@ -134,7 +143,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--spec', type=Path, required=True)
     parser.add_argument('--root', type=Path, required=True)
-    parser.add_argument('--mode', choices=['smoke', 'train'], required=True)
+    parser.add_argument('--mode', choices=['smoke', 'train', 'scoring-check', 'hf-rescore'], required=True)
     args = parser.parse_args(); spec = json.loads(args.spec.read_text()); root = args.root
     continuation=spec.get('continuation')
     durable=spec.get('durable_restart') if args.mode=='train' else None
@@ -208,6 +217,10 @@ def main():
                    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16, reduce_dtype=torch.float32, buffer_dtype=torch.float32),
                    param_init_fn=lambda module: module.to_empty(device=device, recurse=False),
                    device_id=device, sync_module_states=True, limit_all_gathers=True)
+    if args.mode=='hf-rescore':
+        from efe_leact_hf_rescore import run
+        run(wrapped,spec,root)
+        dist.barrier();dist.destroy_process_group();return
     optimizer = torch.optim.AdamW([p for p in wrapped.parameters() if p.requires_grad], lr=spec['lr'],
                                  betas=(0.9, 0.999), weight_decay=.01, foreach=False)
     if restart_policy and start_step:restart.restore_optimizer(wrapped,optimizer,spec,root)
@@ -245,7 +258,8 @@ def main():
               'continuation':continuation,'durable_restart':durable,'resumed_from_step':start_step})
     save_steps = planned_saves
     warmup = max(1, math.ceil(steps*.05)); checkpoints=[]; metrics=[]
-    if (root/'scoring-probes.json').exists():
+    if (root/'scoring-probes.json').exists() and selection_reference_required(
+            args.mode,start_step,spec.get('require_full_model_replay',False)):
         wrapped.eval();checks=[]
         with torch.no_grad():
             for probe in json.loads((root/'scoring-probes.json').read_text()):
@@ -253,9 +267,28 @@ def main():
                 if sha(path)!=probe['tensor_sha256']:raise ValueError('Scoring probe changed')
                 batch={k:v.to(device) for k,v in load_tensor(path).items()}
                 actual=-target_loss(wrapped,batch).item();error=abs(actual-probe['mean_target_logp'])
-                checks.append({'condition':probe['condition'],'vllm_logp':probe['mean_target_logp'],'hf_logp':actual,'absolute_error':error})
-                if error>.05:raise ValueError('Training/selection complete-target likelihood differs by over 0.05 nats/token')
-        if rank==0:write(directory/'scoring-parity.json',checks)
+                limit=.0005 if probe.get('score_backend')=='training_hf_fsdp' else .05
+                checks.append({'condition':probe['condition'],'vllm_logp':probe['mean_target_logp'],
+                    'hf_logp':actual,'absolute_error':error,'rank':rank,
+                    'target_tokens':int((batch['labels']!=-100).sum()),
+                    'finite':math.isfinite(actual),'tolerance':limit,'passed':math.isfinite(actual) and error<=limit})
+        # Persist the failure before raising; otherwise an overnight stopped
+        # allocation leaves no numerical evidence to diagnose the mismatch.
+        gathered=[None]*world;dist.all_gather_object(gathered,checks)
+        result={'checks_by_rank':gathered,'tolerance':max(c['tolerance']for values in gathered for c in values),
+            'passed':all(c['passed'] for values in gathered for c in values),
+            'maximum_absolute_error':max(c['absolute_error'] for values in gathered for c in values),
+            'optimizer_updates_before_check':0,'model':model_path,
+            'workflow':os.environ.get('EFE_WORKFLOW_ID')}
+        if rank==0:
+            write(directory/'scoring-parity.json',result)
+            print('EFE_SCORING_PARITY '+json.dumps(result),flush=True)
+        if args.mode=='scoring-check':
+            dist.barrier();dist.destroy_process_group();return
+        if not result['passed']:
+            raise ValueError('Training/selection complete-target likelihood differs by over 0.05 nats/token; see '+str(directory/'scoring-parity.json'))
+    elif args.mode=='scoring-check':
+        raise ValueError('No frozen scoring probes for the numerical diagnostic')
     for step in range(start_step,steps):
         tick = time.monotonic(); optimizer.zero_grad(set_to_none=True)
         factor = (step+1)/warmup if step<warmup else .5*(1+math.cos(math.pi*(step-warmup)/max(1,steps-warmup)))
@@ -279,13 +312,10 @@ def main():
             del batch,loss
         grad_norm=wrapped.clip_grad_norm_(1.0)
         if not torch.isfinite(grad_norm) or grad_norm<=0: raise ValueError('Non-finite or zero gradients')
-        witness=None
-        for parameter in wrapped.parameters():
-            if parameter.grad is None or not parameter.numel():continue
-            gradient=parameter.grad.detach().flatten()
-            indices=gradient.abs().argmax().reshape(1)
-            if gradient[indices].abs().item()>0:
-                witness=(parameter,indices,parameter.detach().flatten()[indices].clone());break
+        # At the cosine tail a chosen scalar can round to the same FP32 value
+        # while other adapter parameters update. Compare every optimizer shard.
+        witnesses=[(parameter,parameter.detach().clone())for parameter in wrapped.parameters()
+            if parameter.requires_grad and parameter.grad is not None and parameter.numel()]
         dist.all_reduce(stats)
         if spec.get('loss_jump_guard'):
             from efe_qwen36_health import suspicious_loss,check_training_reference
@@ -296,7 +326,9 @@ def main():
             if suspicious_loss(current,previous):
                 raise ValueError('Loss jump guard stopped before optimizer update: '+json.dumps({'step':step+1,'current':current,'previous':previous}))
         optimizer.step();torch.cuda.synchronize()
-        changed=torch.tensor(int(witness is not None and not witness[0].detach().flatten()[witness[1]].equal(witness[2])),device=device)
+        changed_shards=sum(not parameter.detach().equal(before)for parameter,before in witnesses)
+        changed=torch.tensor(int(changed_shards>0),device=device)
+        del witnesses
         dist.all_reduce(changed)
         if not changed.item():raise ValueError('Optimizer did not change any witnessed parameter')
         peak=torch.tensor([torch.cuda.max_memory_allocated(),torch.cuda.max_memory_reserved()],device=device,dtype=torch.float64)

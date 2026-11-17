@@ -138,7 +138,7 @@ function currentStudyStatus(){
   const priorities=exp.execution_priorities;
   if(priorities?.primary_deliverable){
     const r1=exp.training?.jobs?.find(j=>j.stage==='leact-from-step496-r1');
-    el('status').replaceChildren(node('span',`Priority: LeAct R1 robot evals. ${r1?.progress?.detail||workflowLabel(r1?.status)}. Target: ${priorities.target_local}.`),link);
+    el('status').replaceChildren(node('span',`Priority: LeAct R1 robot evals. ${workflowLabel(r1?.status)}. ${r1?.progress?.detail||''} Target: ${priorities.target_local}.`),link);
   }
   el('status').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const format=value=>value?new Date(value).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'not available';
@@ -147,14 +147,16 @@ function currentStudyStatus(){
   el('loss-run-state').textContent=state;el('loss-run-state').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const leact=exp.training?.jobs?.find(j=>j.stage==='leact-r1'),pear=study.pear_comparison?.plan?.optimizer_update_qualification;
   const branches=exp.branch_runs?.runs||[];
-  const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}.`;}).join(' ');
+  const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${workflowLabel(job?.status)}. ${job?.progress?.detail||''}`;}).join(' ');
   const pending=branchText+' '+(leact?.status==='WAITING_FOR_WARMSTART'?'The final-737 LeAct branch still waits for warmstart completion.':`Final-737 LeAct: ${workflowLabel(leact?.status)}.`);
   const pearText=pear?.result?.success?'PEAR’s optimizer check passed.':pear?.error||pear?.phase?.includes('needs_review')?'PEAR’s optimizer check needs review.':pear?.phase==='fresh_process_restart_verification'?'PEAR is verifying its saved checkpoint.':pear?.accumulation?.microbatches?`PEAR’s update check: ${pear.accumulation.microbatches}/${pear.accumulation.total_microbatches} batches.`:pear?.workflow?`PEAR’s optimizer check is ${workflowLabel(pear.scheduler_status).toLowerCase()}.`:'PEAR’s optimizer check is pending.';
   const selection=exp.selection_workers;
   const workerText=selection?.enabled?`Parallel selection: ${(selection.jobs||[]).filter(j=>j.status==='RUNNING').length}/${(selection.jobs||[]).length} additional H100 nodes running. `:'';
+  const rescoreJobs=exp.hf_scoring_recovery?.rescore_jobs||[];
+  const rescoreText=rescoreJobs.length?`Training scorer recovery: ${rescoreJobs.filter(j=>j.status==='RUNNING').length}/${rescoreJobs.length} H100 nodes running; production R1 optimization follows verified readmission. `:'';
   const checkpoint=exp.performance?.checkpoint_optimization;
   const checkpointText=checkpoint?` Checkpoint-saving validation: ${workflowLabel(checkpoint.status).toLowerCase()}. ${checkpoint.production_enabled?'Enabled in training.':'The current training save path is unchanged.'}`:'';
-  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+checkpointText+' '+
+  el('loss-next-stage').textContent=pending+' '+workerText+rescoreText+(exp.performance?.summary||'')+checkpointText+' '+
     (priorities?.defer_additional_pear_launches?'Further PEAR++ launches are deferred while LeAct R1 training and its frozen 36-task evaluation panel take priority.':pearText);
 }
 function chart(){
@@ -730,7 +732,7 @@ function embodiedStudy(){
     el('efe-coverage-expansion-summary').textContent=[expansion.execution_priorities?.primary_deliverable?`Priority: ${expansion.execution_priorities.primary_deliverable}. Target: ${expansion.execution_priorities.target_local}.`:null,baselineSummary,admittedSummary,
       recovery.last_recorded_update?`Expanded warmstart: ${recovery.last_recorded_update}/${recovery.planned_optimizer_updates} updates recorded; ${workflowLabel(recovery.status).toLowerCase()}. Latest saved checkpoint: ${recovery.committed_restart_step}. ${studentGraded?`${studentGraded} expanded-student rollouts graded; see the results below.`:'No expanded student robot-success result yet.'}`:s.summary||'Expanded teacher collection is queued.',
       ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the full training run continues independently.`;}),
-      ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}. Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
+      ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${workflowLabel(job?.status)}. ${job?.progress?.detail||''} Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
     table('efe-coverage-expansion-counts',['Eligible / candidate tasks','Native outcomes','Native successes','Candidate usable successes','Distinct successful tasks','Scene audit'],[[
       `${s.eligible_tasks??p.candidate_tasks}/${p.candidate_tasks}`,s.graded_episodes||0,s.native_successes||0,`${s.candidate_successful_episodes||0}/${p.target_successful_episodes}`,
       `${s.candidate_successful_tasks||0}/${p.minimum_distinct_successful_tasks} minimum`,s.scene_audit_complete?'Complete':'Pending']]);

@@ -70,6 +70,43 @@ def reviewed_init_interruption(scheduler):
     return value['retryable']
 
 
+def backend_node_interruption_proven(scheduler,events):
+    """Require the scheduler's backend error and explicit unhealthy-node eviction."""
+    tasks=[t for g in scheduler.get('groups',[]) for t in g.get('tasks',[])]
+    return (scheduler.get('status')=='FAILED' and len(tasks)==1
+        and tasks[0].get('status')=='FAILED_BACKEND_ERROR' and tasks[0].get('exit_code')==3001
+        and 'NodeNotReady: Node is not ready' in events
+        and 'TaintManagerEviction: Marking for deletion Pod ' in events
+        and 'deleting due to NoExecute taint' in events)
+
+
+def reviewed_backend_node_interruption(scheduler):
+    tasks=[t for g in scheduler.get('groups',[]) for t in g.get('tasks',[])]
+    if not (scheduler.get('status')=='FAILED' and len(tasks)==1
+            and tasks[0].get('status')=='FAILED_BACKEND_ERROR' and tasks[0].get('exit_code')==3001):
+        return False
+    name=scheduler['name'];directory=ROOT/'fixed-action-v1/coverage-scale-v1/backend-node-reviews'
+    directory.mkdir(parents=True,exist_ok=True)
+    key=hashlib.sha256(name.encode()).hexdigest()[:16];path=directory/(key+'.json')
+    if path.exists():
+        value=json.loads(path.read_text())
+        if value.get('rule_version')==1 and value.get('workflow')==name:return value.get('retryable',False)
+    try:
+        result=subprocess.run(['osmo','workflow','events',name],capture_output=True,text=True,timeout=12)
+        if result.returncode:return False
+        events=result.stdout
+    except subprocess.TimeoutExpired as error:
+        events=error.stdout or '';events=events.decode(errors='replace') if isinstance(events,bytes) else events
+        if not backend_node_interruption_proven(scheduler,events):return False
+    (directory/(key+'.events.txt')).write_text(events)
+    value={'workflow':name,'rule_version':1,'utc':datetime.now(timezone.utc).isoformat(),
+        'retryable':backend_node_interruption_proven(scheduler,events),
+        'events_sha256':hashlib.sha256(events.encode()).hexdigest(),
+        'rule':'Single task FAILED_BACKEND_ERROR/3001 plus NodeNotReady and explicit NoExecute-taint eviction.'}
+    pending=path.with_suffix('.tmp');pending.write_text(json.dumps(value,indent=2)+'\n');pending.replace(path)
+    return value['retryable']
+
+
 def native_disconnect_retry_tasks(spec,evidence):
     """Only a recorded disconnect and the untouched suffix may be retried.
 
@@ -113,6 +150,22 @@ def cuda_unavailable_before_training(scheduler, evidence):
         and 'torch.cuda.set_device(local)' in message
         and 'torch._C._cuda_setDevice(device)' in message
         and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable' in message)
+
+
+def reviewed_hf_scoring_recovery(scheduler,evidence,review,source_spec_sha256):
+    """Release one reviewed R1 repair only after exact-score data promotion."""
+    error=evidence.get('error',{});activation=evidence.get('scoring_recovery',{})
+    if not(scheduler.get('status')=='FAILED' and scheduler.get('name')==review.get('workflow')
+           and review.get('action')=='resume_with_training_backend_admissions'
+           and review.get('source_spec_sha256')==source_spec_sha256
+           and error.get('workflow')==scheduler['name']
+           and error.get('error','').startswith('smoke exited 1:')
+           and 'Training/selection complete-target likelihood differs' in error['error']):return False
+    return (activation.get('success')is True and activation.get('production_optimizer_updates_before_recovery')==0
+        and activation.get('original_dataset_sha256')==review.get('original_dataset_sha256')
+        and activation.get('dataset_sha256')==evidence.get('dataset',{}).get('sha256')
+        and activation.get('selection',{}).get('score_backend')=='exact_training_fsdp_fp32_master_bf16_forward'
+        and evidence.get('committed_restart_step',0)==0 and not evidence.get('train_complete'))
 
 
 def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
