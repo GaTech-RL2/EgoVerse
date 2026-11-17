@@ -14,6 +14,7 @@ import yaml
 from .scale_efe import BASE, BUILD_ROOT, read, write, submit, command
 from .launch_efe_training import freeze_sources
 from ..embodied_first_exam.report import ROOT
+from .efe_pear_context import DEFAULT_PROMPT_BUDGET, context_policy
 
 DEST=ROOT/'pear-scaled-v1'
 REMOTE='/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1'
@@ -31,6 +32,16 @@ SUITE_STAGES={
 
 
 def now():return datetime.now(timezone.utc).isoformat()
+
+
+def update_interface_plan(plan):
+    """Carry the requested conditioning into resumed plans without losing results."""
+    plan['interface_context']=context_policy()
+    plan.setdefault('recipe',{})['prompt_budget']=DEFAULT_PROMPT_BUDGET
+    if plan.get('proposal'):
+        plan['proposal'].setdefault('interface',{})['language_context']=context_policy()
+        plan['proposal'].setdefault('optimizer',{})['prompt_budget_initial']=DEFAULT_PROMPT_BUDGET
+    return plan
 
 
 def require_unpaused():
@@ -67,6 +78,7 @@ def prepare_plan():
     if existing.get('proposal',{}).get('id')=='efe-pearplusplus-multitask-v2':
         # Resuming infrastructure must not overwrite the user's revised curriculum.
         existing.update(updated_utc=now(),status='implementation_and_runtime_preparation')
+        update_interface_plan(existing)
         write(DEST/'plan.json',existing)
         return existing
     inventory=read(ROOT/'generalization-v2/inventory.json')
@@ -96,7 +108,7 @@ def prepare_plan():
             'optimizer':'AdamW','learning_rate':1e-6,'updates_per_batch':1,'loss_aggregation':'generated_token_mean',
             'score_centering':True,'sampler_top_logprobs':32,'group_filter':'discard_zero_reward_variance',
             'temperature':1.,'top_p':1.,'top_k':-1,'ppo_clipping':False,'kl_penalty':0.,'entropy_bonus':0.,
-            'response_budget':160000,'prompt_budget':4096,'budget_increase_target':256000,
+            'response_budget':160000,'prompt_budget':DEFAULT_PROMPT_BUDGET,'budget_increase_target':256000,
             'budget_increase_gate':'Memory qualification and measured truncation; apply the same stage to both arms.',
             'batch_scaling':'Keep 128x8 initially; scale total updates with admitted unique tasks.',
             'total_update_rule':'ceil(225 * admitted_unique_semantic_tasks / 40)',
@@ -120,6 +132,7 @@ def prepare_plan():
         arm['run_directory']=REMOTE+'/runs/'+arm['id']
         arm['checkpoint_name_prefix']='rp_jhh_'+('qwen36_moe_warmstart496_pearplusplus'
             if arm.get('warmstart_step') is not None else 'qwen38_27b_base_pearplusplus')
+    update_interface_plan(plan)
     write(DEST/'plan.json',plan)
     return plan
 
@@ -163,7 +176,7 @@ def prepare_bridge(index=0):
                 archive_root=REMOTE+'/bridge-qualification',primary_rl_updates=0)
     spec['fixed_action_config']={**spec['fixed_action_config'],'model':'external-pear-policy'}
     write(build/'spec.json',spec)
-    for name in ['efe_pear_bridge.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']:
+    for name in ['efe_pear_bridge.py','efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']:
         shutil.copyfile(BASE/'cluster'/name,build/name)
     shutil.copyfile(BASE/'cluster/efe_pear_bridge_qualification.py',build/'worker.py')
     shutil.copyfile(prior/'scene_identity.py',build/'scene_identity.py')

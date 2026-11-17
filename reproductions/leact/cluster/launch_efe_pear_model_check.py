@@ -36,6 +36,7 @@ def prepare(arm,index=0):
     write(build/'spec.json',spec)
     shutil.copyfile(BASE/'cluster/efe_pear_model_check.py',build/'worker.py')
     shutil.copyfile(BASE/'cluster/efe_pear_bridge.py',build/'efe_pear_bridge.py')
+    shutil.copyfile(BASE/'cluster/efe_pear_context.py',build/'efe_pear_context.py')
     workflow=yaml.safe_load(TEMPLATE.read_text())
     slug=arm.replace('_','-')
     workflow['workflow']['name']=f'leact-efe-pear-model-check-{slug}-v{VERSION}-r{index}'

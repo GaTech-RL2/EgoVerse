@@ -42,7 +42,38 @@
     "bimanual": "Both arms are included in the same synchronized action record; Allegro hands use explicit finger joints.",
     "reasoning_tasks": "Reasoning followed by typed JSON answer: point/set/label/count/pose/prediction. Active perception can issue permitted observation actions before its answer.",
     "policy_inputs": "Public RGB/proprioception/calibration and declared robot specification only; simulator labels and reset state stay in the generator/grader.",
-    "execution": "Deterministic IK/control and schema validation only; no task-level planner, code execution, skill library or teacher action repair."
+    "execution": "Deterministic IK/control and schema validation only; no task-level planner, code execution, skill library or teacher action repair.",
+    "language_context": {
+      "version": "pear-public-interface-language-v1",
+      "enabled": true,
+      "same_for_both_arms": true,
+      "per_observation": true,
+      "format": "Natural-language guide alongside the unchanged native schema and sensor values.",
+      "action_fields": [
+        "component_order",
+        "dimensions",
+        "bounds",
+        "units",
+        "frames",
+        "axis_directions",
+        "gripper_and_hand_semantics",
+        "action_duration"
+      ],
+      "observation_fields": [
+        "delivered_sensor_names_and_order",
+        "RGB_resolution",
+        "image_axis_convention",
+        "declared_camera_mount_motion_and_calibration",
+        "proprioception_layout",
+        "public_observation_template"
+      ],
+      "metadata_rule": "Use public adapter declarations only; omitted conventions remain explicitly unspecified. Never infer world/base/camera axes from each other.",
+      "provenance": [
+        "interface_context_version",
+        "interface_context_sha256"
+      ],
+      "implementation_scope": "Shared EFE native PEAR tool. Additional YAM/reasoning adapters must supply their own verified public metadata through the same context contract."
+    }
   },
   "control_training": {
     "scope": "Nine EFE candidate families plus the full native GR00T YAM catalog. This replaces the earlier five-family-only proposal.",
@@ -350,7 +381,8 @@
     "long_sequence_gate": "Model context and full-model numerical/memory checks; record actual truncation per family.",
     "reasoning_single_answer_budget_initial": 8192,
     "reasoning_single_answer_extension": 16384,
-    "reasoning_budget_note": "Development-driven proposals; distinguish total episode budget from tokens per action. No length reward."
+    "reasoning_budget_note": "Development-driven proposals; distinguish total episode budget from tokens per action. No length reward.",
+    "prompt_budget_initial": 16384
   },
   "mixture": [
     {

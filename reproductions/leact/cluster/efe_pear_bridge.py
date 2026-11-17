@@ -56,6 +56,8 @@ def observation_payload(body):
 
 def image_blocks(content):
     from PIL import Image
+    try:from .efe_pear_context import interface_context
+    except ImportError:from efe_pear_context import interface_context
     blocks=[]
     for part in content:
         if part['type']=='input_text':blocks.append({'type':'text','text':part['text']})
@@ -65,7 +67,14 @@ def image_blocks(content):
                 raise ValueError('Only inline native PNG frames are allowed')
             with Image.open(io.BytesIO(base64.b64decode(url.split(',',1)[1],validate=True))) as im:
                 blocks.append({'type':'image','image':im.convert('RGB').copy()})
-    return blocks
+    visible=json.loads(content[0]['text'])
+    images=[block['image']for block in blocks if block['type']=='image']
+    labels=[part['text'].removeprefix('Current camera: ')for part in content
+            if part.get('type')=='input_text'and part['text'].startswith('Current camera: ')]
+    if labels!=visible['action_contract'].get('cameras'):
+        raise ValueError('RGB sensor labels differ from the action contract camera order')
+    guide=interface_context(visible,image_sizes=[image.size for image in images])
+    return [{'type':'text','text':guide['text']},*blocks]
 
 
 class HarborEpisode:

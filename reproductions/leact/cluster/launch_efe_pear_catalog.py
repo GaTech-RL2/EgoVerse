@@ -46,7 +46,7 @@ def prepare(shard,index=0,only_suites=None):
         'allowed_action_types_by_robot':{robot:['joint_position'] for robot in
             ['franka-allegro-bimanual','franka-robotiq-2f85','i2rt-yam-bimanual']}}
     write(build/'spec.json',spec)
-    for name in ['efe_pear_bridge.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py','efe_pear_gpu_cdi.py']:
+    for name in ['efe_pear_bridge.py','efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py','efe_pear_gpu_cdi.py']:
         shutil.copyfile(BASE/'cluster'/name,build/name)
     shutil.copyfile(BASE/'cluster/efe_pear_catalog_probe.py',build/'worker.py')
     workflow=yaml.safe_load(TEMPLATE.read_text())

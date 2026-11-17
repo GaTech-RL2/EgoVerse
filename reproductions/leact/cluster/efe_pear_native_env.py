@@ -14,6 +14,7 @@ from pear.sim.process import SimulatorProcess
 
 from efe_action_loop import SYSTEM, parse_action
 from efe_pear_bridge import HarborEpisode, NativeInfrastructureError, image_blocks, observation_payload
+from efe_pear_context import VERSION as INTERFACE_CONTEXT_VERSION
 
 
 class NativeEfeEnv(StatefulEnv):
@@ -24,7 +25,8 @@ class NativeEfeEnv(StatefulEnv):
     SCHEMA={}
     CAMERAS=()
     ENVIRONMENT_PROMPT=''
-    LOG_KEYS=('native_trial_path','action_contract_sha256','requested_control_steps','executed_control_steps')
+    LOG_KEYS=('native_trial_path','action_contract_sha256','requested_control_steps','executed_control_steps',
+              'interface_context_version','interface_context_sha256')
 
     @classmethod
     def setup_env(cls,context):
@@ -57,12 +59,13 @@ class NativeEfeEnv(StatefulEnv):
         self.contract=None;self.contract_sha=None;self.last_action=None;self.instruction=''
 
     def _result(self,value):
-        images=None;blocks=None;state=None;executed_controls=None
+        images=None;blocks=None;state=None;executed_controls=None;context_sha=None
         if not value['done']:
             visible,content=observation_payload(value['body'])
             self.contract=visible['action_contract'];self.instruction=visible['objective']
             self.contract_sha=hashlib.sha256(json.dumps(self.contract,sort_keys=True).encode()).hexdigest()
             blocks=image_blocks(content);images=[b['image'] for b in blocks if b['type']=='image']
+            context_sha=hashlib.sha256(blocks[0]['text'].encode()).hexdigest()
             state={'public_observation':visible['observation']}
             feedback=visible.get('recent_actions_and_feedback',[])
             if self.last_action and feedback:
@@ -76,6 +79,7 @@ class NativeEfeEnv(StatefulEnv):
             'done':value['done'],'executed':len(actions),'outcome':'done' if value['done'] else 'observed',
             'instruction':self.instruction,'public_blocks':blocks,'action_contract':self.contract,
             'action_contract_sha256':self.contract_sha,'native_trial_path':value.get('native_trial_path'),
+            'interface_context_version':INTERFACE_CONTEXT_VERSION,'interface_context_sha256':context_sha,
             'requested_control_steps':action.get('repeat',0) if action else 0,
             'executed_control_steps':executed_controls}
 
@@ -107,7 +111,9 @@ class NativeEfeTool(EnvironmentTool):
         # The action schema and controller are unchanged; PEAR stores the model's
         # reasoning separately and its parser expects the final fenced JSON.
         return SYSTEM.replace('Return only one JSON object with action_type',
-            'End your response with one json code block containing action_type')
+            'End your response with one json code block containing action_type')+(
+            '\nGround your reasoning in the action and observation guide supplied with each observation, '
+            'including its coordinate frames, units and named sensor layout.')
 
     def _observation(self,result):return result['public_blocks']
 
