@@ -99,7 +99,7 @@ def launch(profile=0):
         return state
 
 
-def native_builds(model_build):
+def native_builds(model_build,model_workflow):
     from .launch_efe_pear_warmstart import prepare_native_yam_check
     from .launch_efe_pear_rtx import FILES as RTX_FILES
     model=read(Path(model_build)/'spec.json');run=model['run'];membership=read(Path(model_build)/'native-membership.json')
@@ -111,7 +111,7 @@ def native_builds(model_build):
         {'abc-sim','dexjoco','libero-max','metaworldplus','robocasa','vlabench'}]
     setup={k:native_setup[k]for k in ['repository','revision','podman','compose']}
     setup.update(tasks=rows,podman_storage_driver='overlay')
-    spec={'kind':'efe','output':run+'/native-efe','native_setup':setup,
+    spec={'kind':'efe','owner_model_workflow':model_workflow,'output':run+'/native-efe','native_setup':setup,
         'native_config':{'qualification_only':False,'membership_file':run+'/native-membership.json',
             'action_config':{**native_setup['fixed_action_config'],'model':'external-pear-policy',
                 'allowed_action_types_by_robot':{r:['joint_position']for r in
@@ -128,7 +128,7 @@ def native_builds(model_build):
         source=read(Path(matching['build'])/'spec.json')
         for index in range(count):
             spec={k:source[k]for k in ['payload','payload_sha256','files','suite','native_tool_relative']}
-            spec.update(kind='rtx',replica=index,output=run+'/native-rtx/'+suite,transport_root=run+'/transport',
+            spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=run+'/native-rtx/'+suite,transport_root=run+'/transport',
                 finished=run+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
                 '/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python',
@@ -137,7 +137,8 @@ def native_builds(model_build):
     names=sorted(read(DEST/'native-yam-generated-resets/generation-report.json')['tasks'])
     for offset in range(0,len(names),2):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)
-        spec=read(old/'spec.json');spec.update(output=run+'/native-yam',transport_root=run+'/transport',finished=run+'/finished.json')
+        spec=read(old/'spec.json');spec.update(owner_model_workflow=model_workflow,
+            output=run+'/native-yam',transport_root=run+'/transport',finished=run+'/finished.json')
         # Production uses AMLFS07 alongside the H100 workers; validation on
         # AMLFS05 did not imply cross-filesystem IPC.
         spec['source_archive_path']=REMOTE+'/sources/'+Path(spec['source_archive_path']).name
@@ -171,6 +172,20 @@ def worker_build(spec,files,worker,image,python,**resources):
     return build
 
 
+def cancel_native_workers(model_workflow):
+    queue=read(DEST/'primary-native-queue.json',{})
+    for item in queue.values():
+        if item.get('owner_model_workflow')!=model_workflow:continue
+        if item.get('cancel_requested')or item.get('scheduler_status')=='COMPLETED'or str(item.get('scheduler_status','')).startswith('FAILED'):continue
+        workflow=item['workflow']
+        if not workflow.startswith('leact-rp-jhh-pear-worker-'):
+            raise ValueError('Refusing to cancel a workflow outside this primary native-worker ledger')
+        result=subprocess.run(['osmo','workflow','cancel',workflow,'--message',
+            'Release simulator workers owned by the terminated primary model attempt'],capture_output=True,text=True,timeout=30)
+        if result.returncode:raise RuntimeError('Native-worker cancellation needs reconciliation')
+        item['cancel_requested']=True;write(DEST/'primary-native-queue.json',queue)
+
+
 def tick():
     state=read(DEST/'primary-launch.json',{})
     if not state:
@@ -182,13 +197,13 @@ def tick():
     state['scheduler_status']=query['status'];write(DEST/'primary-launch.json',state)
     if query.get('start_time')and not state.get('native_workers_launched'):
         worker_queue=read(DEST/'primary-native-queue.json',{})
-        for build in native_builds(state['build']):
+        for build in native_builds(state['build'],state['workflow']):
             if build.name in worker_queue:continue
             spec=read(build/'spec.json')
             pool='groot-h100-01'if spec.get('kind')=='efe'else'groot-l40-03'
             receipt=submit_reconciled(build,priority=state['priority'],pool=pool,nodes=1)
             worker_queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),
-                'pool':pool,'priority':state['priority']}
+                'pool':pool,'priority':state['priority'],'owner_model_workflow':state['workflow']}
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
@@ -198,6 +213,7 @@ def tick():
         rows=command(['osmo','workflow','list','--name','rp-jhh-pear-worker','--count','100','--format-type','json'])['workflows']
         lookup={v['name']:v for v in rows}
         for item in queue.values():
+            if item.get('owner_model_workflow')!=state['workflow']:continue
             worker=lookup.get(item['workflow'],{});status=worker.get('status')
             item['scheduler_status']=status
             if status and status.startswith('FAILED')and item.get('attempt',0)<8:
@@ -209,6 +225,7 @@ def tick():
                 if time.time()-first>180 and item.get('attempt',0)<8:retry(item)
         write(DEST/'primary-native-queue.json',queue)
     if query['status'].startswith('FAILED'):
+        cancel_native_workers(state['workflow'])
         from .launch_efe_coverage import infra_retryable
         if infra_retryable(query):
             state['terminal_confirmed']=True;write(DEST/'primary-launch.json',state)

@@ -22,14 +22,25 @@ from .efe_pear_submission import submit_reconciled
 
 def download(remote,target,*,native_yam=False):
     target=Path(target);target.mkdir(parents=True,exist_ok=True)
-    # These are read-only transfers through existing mounts. No settings or
+    candidates=[]
+    if not native_yam:
+        for name in ['native-rtx-publication','checkpoint-storage']:
+            status=read(DEST/(name+'-status.json'),{})
+            if status.get('scheduler_status')=='RUNNING':
+                candidates.append((status['workflow'],'preflight'))
+    for item in read(DEST/'rtx-transport-queue.json',{}).values():
+        if item.get('scheduler_status')=='RUNNING'and(item.get('filesystem')=='amlfs05')==native_yam:
+            candidates.append((item['workflow'],'preflight'))
+    # Read-only fallbacks through existing mounted filesystems. No settings or
     # processes in either independent experiment are changed.
-    wf,task=(('pear-tgen-l40-20261118-v3-1','node')if native_yam else
+    candidates.append(('pear-tgen-l40-20261118-v3-1','node')if native_yam else
         ('leact-efe-coverage-leact-from-step496-r1-v1-p7-r54-1','preflight'))
-    result=subprocess.run(['osmo','workflow','rsync','download',wf,task,
-        remote+':'+str(target)+'/', '--no-progress'],capture_output=True,text=True,timeout=90)
-    if result.returncode:raise RuntimeError('Read-only receipt transfer failed')
-    return target/Path(remote.rstrip('/')).name
+    for wf,task in dict.fromkeys(candidates):
+        result=subprocess.run(['osmo','workflow','rsync','download',wf,task,
+            remote+':'+str(target)+'/', '--no-progress'],capture_output=True,text=True,timeout=60)
+        if not result.returncode:return target/Path(remote.rstrip('/')).name
+        if 'No such file or directory'in result.stderr+result.stdout:break
+    raise RuntimeError('Read-only receipt transfer failed')
 
 
 def retry(item):
