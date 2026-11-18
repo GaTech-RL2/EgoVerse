@@ -16,6 +16,18 @@ import yaml
 from efe_pear_file_rpc import atomic_json
 
 
+def prepare_system_packages(sources=Path('/etc/apt/sources.list.d'),
+    retries=Path('/etc/apt/apt.conf.d/99rp_jhh_retries')):
+    # The optional Python PPA returned HTTP 503 during a real model-node
+    # startup. None of the required Ubuntu Git/GL packages comes from it.
+    for path in sources.iterdir():
+        if'deadsnakes'in path.name and path.suffix in {'.list','.sources'}:
+            path.rename(path.with_name(path.name+'.disabled'))
+    retries.write_text('Acquire::Retries "5";\n')
+    subprocess.run(['apt-get','update','-qq'],check=True,timeout=300)
+    subprocess.run(['apt-get','install','-y','-qq','git','perl','libosmesa6','libgl1','libglib2.0-0'],check=True,timeout=300)
+
+
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
     role=os.environ['EFE_ROLE'];head=role=='trainer';run=Path(spec['run'])
@@ -103,8 +115,7 @@ def main():
         'NCCL_ALGO':'Ring','NCCL_PROTO':'Simple','NCCL_P2P_DISABLE':'1','RAY_DEDUP_LOGS':'0',
         'TOKENIZERS_PARALLELISM':'false','MUJOCO_GL':'osmesa','OPENBLAS_NUM_THREADS':'1','OMP_NUM_THREADS':'2','MKL_NUM_THREADS':'2'}
     env.pop('PEAR_DRIVER_PREFLIGHT_ONLY',None)
-    subprocess.run(['apt-get','update','-qq'],check=True,timeout=300)
-    subprocess.run(['apt-get','install','-y','-qq','git','perl','libosmesa6','libgl1','libglib2.0-0'],check=True,timeout=300)
+    prepare_system_packages()
     # The storage client is absent from some pinned training environments. Use
     # an isolated target overlay instead of changing the qualified shared venv.
     if head:
@@ -122,7 +133,8 @@ def main():
     command='cd "$PEAR_SOURCE"\nsource "$PEAR_SOURCE/scripts/gpu_process_variables.sh" "$WORK_DIR/envs/verl"\nexec "$WORK_DIR/envs/verl/bin/ray" "$@"'
     resources=({'trainer':8,'pear_driver':1}if head else
         {'rollout':8,'reasoning':8,'native_proxy':16,'native_yam_proxy':32})
-    args=['start','--block','--disable-usage-stats','--num-cpus=56','--num-gpus=8',
+    ray_cpus=spec['trainer_ray_cpus']if head else spec['rollout_ray_cpus']
+    args=['start','--block','--disable-usage-stats','--num-cpus='+str(ray_cpus),'--num-gpus=8',
         '--resources='+json.dumps(resources),'--object-store-memory='+str(16<<30),
         '--min-worker-port=3000','--max-worker-port=5999','--temp-dir=/tmp/rp-jhh-pear-primary/ray']
     args+=['--head','--port=6379','--include-dashboard=false']if head else['--address='+address]

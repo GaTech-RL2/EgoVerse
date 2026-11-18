@@ -50,3 +50,14 @@ def test_verified_source_repair_still_waits_for_all_prelaunch_gates(tmp_path,mon
     value=primary.tick()
     assert attempted==[0]and value['primary_rl_updates']==0
     assert value['phase']=='awaiting_primary_qualification'
+
+
+def test_trainer_cpu_reservations_fit_queue_controller_driver_and_all_gpu_ranks():
+    with pytest.raises(ValueError,match='cannot fit'):
+        primary.validate_trainer_cpu_capacity(56)
+    assert primary.validate_trainer_cpu_capacity(64)==58
+
+
+def test_primary_model_rejects_a_pool_without_the_qualified_shared_volume():
+    with pytest.raises(ValueError,match='qualified AMLFS07 H100 pool'):
+        primary.launch(pool='groot-l40s-01')

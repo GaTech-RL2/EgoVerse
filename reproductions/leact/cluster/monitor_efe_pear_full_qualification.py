@@ -58,6 +58,10 @@ def retry(item):
                 spec['adapter_digests'][name]=hashlib.sha256((target/name).read_bytes()).hexdigest()
             spec['resumed_checks']=item['resumed_checks'];write(target/'spec.json',spec)
         value=yaml.safe_load((target/'workflow.yaml').read_text());value['workflow']['name']='leact-'+target.name
+        if value['workflow'].get('labels',{}).get('pear_phase')=='primary_native_workers':
+            # Measured cold Isaac image pulls can exceed the former 20-minute
+            # queue window even after a GPU has been assigned.
+            value['workflow']['timeout']['queue_timeout']='45m'
         if item.get('resumed_checks'):
             task=value['workflow']['tasks'][0];name='efe_pear_validation_resume.py'
             if not any(f['localpath']==name for f in task['files']):

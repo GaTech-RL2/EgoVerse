@@ -26,10 +26,20 @@ from .efe_pear_worker_bundle import FORMAT as BUNDLE_FORMAT,bootstrap
 
 ARM='moe-warmstart496-pearplusplus'
 PROFILES=[(6,'HIGH'),(4,'HIGH'),(6,'LOW'),(4,'LOW')]
+NATIVE_QUEUE_TIMEOUT='45m'
 EXTRA=['efe_pear_primary_worker.py','efe_pear_primary_native.py','efe_pear_primary_rtx.py',
     'efe_pear_native_entry.py','efe_pear_rtx_env.py','efe_pear_remote_worker.py','efe_pear_gpu_cdi.py',
     'efe_pear_yam_server.py','efe_pear_yam_session_policy.py','efe_pear_yam_api_policy.py',
     'efe_pear_yam_probe_entry.py','efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py']
+
+
+def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):
+    # Each storage unit and its controller reserve a CPU; the driver reserves
+    # one, and verl's colocated worker placement reserves three per GPU rank.
+    required=storage_units+1+1+3*ranks
+    if cpus<required:
+        raise ValueError(f'Trainer Ray capacity {cpus} CPUs cannot fit queue, driver and rank reservations ({required})')
+    return required
 
 
 def prepare(profile=0):
@@ -48,11 +58,13 @@ def prepare(profile=0):
     spec={'run_id':ARM,'run':run,'model':parent['path'],'model_revision':parent['revision'],
         'runtime':REMOTE+'/runtime','pear_source':REMOTE+'/sources/pear-'+PEAR_REVISION,
         'rollout_nodes':rollout_nodes,'training_steps':32,'primary_training':True,
+        'trainer_ray_cpus':64,'rollout_ray_cpus':56,
         'checkpoint_archive':'s3://rp-jhh-pear-checkpoints/rpunamiya/rp_jhh_pear_moe_warmstart496_full_'+identity,
         'adapter_digests':{name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()},
         'data_digests':{name:hashlib.sha256(raw).hexdigest()for name,raw in serialized.items()},
         'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
         'worker_bundle_format':BUNDLE_FORMAT}
+    validate_trainer_cpu_capacity(spec['trainer_ray_cpus'])
     digest=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-primary-'+digest)
     if not(build/'source-manifest.json').exists():
@@ -85,18 +97,20 @@ def prepare(profile=0):
     return build
 
 
-def launch(profile=0):
+def launch(profile=0,*,pool='groot-h100-02'):
+    if pool not in {'groot-h100-01','groot-h100-02'}:
+        raise ValueError('Primary model requires a qualified AMLFS07 H100 pool')
     with(DEST/'primary-submit.lock').open('a')as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         state=read(DEST/'primary-launch.json',{})
         if state.get('workflow')and not state.get('terminal_confirmed'):
             return state
         build=prepare(profile);spec=read(build/'spec.json')
-        result=submit_reconciled(build,priority=spec['priority'],pool='groot-h100-02',nodes=1+spec['rollout_nodes'])
+        result=submit_reconciled(build,priority=spec['priority'],pool=pool,nodes=1+spec['rollout_nodes'])
         history=state.get('history',[])
         if state.get('workflow'):history.append({k:state[k]for k in ['workflow','profile','scheduler_status']if k in state})
         state={**result,'workflow':result['name'],'build':str(build),'profile':profile,'history':history,
-            'pool':'groot-h100-02','priority':spec['priority'],'run':spec['run'],'run_id':ARM,
+            'pool':pool,'priority':spec['priority'],'run':spec['run'],'run_id':ARM,
             'gpu':8*(1+spec['rollout_nodes']),'primary_rl_updates':0,'native_workers_launched':False,
             'phase':'primary_submitted'}
         write(DEST/'primary-launch.json',state)
@@ -156,7 +170,7 @@ def native_builds(model_build,model_workflow):
 
 def worker_build(spec,files,worker,image,python,**resources):
     privileged=resources.pop('privileged',False)
-    key=hashlib.sha256(json.dumps([spec,worker,image,resources,privileged,BUNDLE_FORMAT,
+    key=hashlib.sha256(json.dumps([spec,worker,image,resources,privileged,BUNDLE_FORMAT,NATIVE_QUEUE_TIMEOUT,
         {n:hashlib.sha256(p.read_bytes()).hexdigest()for n,p in files.items()}],sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-worker-'+key)
     if(build/'source-manifest.json').exists():return build
@@ -172,7 +186,7 @@ def worker_build(spec,files,worker,image,python,**resources):
         task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
     if privileged:task['privileged']=True
     value={'workflow':{'name':'leact-'+build.name,'resources':{'default':resources},
-        'timeout':{'queue_timeout':'20m','exec_timeout':'48h'},
+        'timeout':{'queue_timeout':NATIVE_QUEUE_TIMEOUT,'exec_timeout':'48h'},
         'labels':{'pear_run_id':ARM,'pear_phase':'primary_native_workers'},'tasks':[task]}}
     (build/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False));freeze_sources(build)
     return build
@@ -239,7 +253,7 @@ def tick():
         from .efe_pear_submission import infrastructure_failure as infra_retryable
         if infra_retryable(query):
             state['terminal_confirmed']=True;write(DEST/'primary-launch.json',state)
-            return launch(state['profile']+1)
+            return launch(state['profile']+1,pool=state.get('pool','groot-h100-02'))
         state['phase']='primary_source_failure_requires_review'
     write(DEST/'primary-status.json',state);return state
 
