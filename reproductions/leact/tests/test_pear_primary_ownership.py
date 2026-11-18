@@ -104,3 +104,14 @@ def test_simulator_pool_follows_the_explicit_l40s01_override():
     from reproductions.leact.cluster.efe_pear_submission import simulator_pool
     assert simulator_pool('groot-l40-02',{'l40_pool':'groot-l40s-01'})=='groot-l40s-01'
     with pytest.raises(ValueError):simulator_pool('groot-l40-02',{'l40_pool':'arbitrary-pool'})
+
+
+def test_renderer_migration_check_cannot_inherit_the_primary_training_flag(tmp_path,monkeypatch):
+    import yaml
+    monkeypatch.setattr(primary,'BUILD_ROOT',tmp_path)
+    source=tmp_path/'efe_pear_rtx_check.py';source.write_text('pass\n')
+    build=primary.worker_build({'qualification_only':True},{source.name:source},source.name,
+        'pinned-renderer-image','python3',gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform='ovx-l40s')
+    task=yaml.safe_load((build/'workflow.yaml').read_text())['workflow']['tasks'][0]
+    assert task['environment']['PEAR_PRIMARY_TRAINING']=='0'
+    assert 'credentials'not in task

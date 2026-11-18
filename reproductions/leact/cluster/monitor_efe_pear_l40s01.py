@@ -40,6 +40,22 @@ def verified_readiness(probe,assets,sources,rtx,transport_sha256):
 
 def tick():
     live=read(DEST/'l40s01-cross-pool-probe.json');rtx=read(DEST/'l40s01-rtx-smokes.json',{})
+    restoration=read(DEST/'l40s01-restore-status.json',{})
+    if restoration.get('workflow'):
+        state=command(['osmo','workflow','query',restoration['workflow'],'--format-type','json'])
+        if state.get('start_time'):
+            rows=records(read_logs(['osmo','workflow','logs',restoration['workflow'],'-n','100'],timeout=8),'PEAR_L40S_RESTORE ')
+            spec=read(Path(restoration['build'])/'spec.json')
+            for row in rows:
+                if row.get('phase')not in {'assets_restored','pool_local_assets_and_sources_verified'}:continue
+                if not(row.get('passed')and row.get('assets_root')==spec['assets_root']
+                    and row.get('release_manifest_sha256')==spec['release']['release_manifest_sha256']):
+                    raise ValueError('Pool-local restore receipt differs from the frozen input release')
+                folder=DEST/'l40s01-storage-receipts';folder.mkdir(exist_ok=True)
+                write(folder/'asset-restore-receipt.json',{**row,'workflow':restoration['workflow']})
+                if row['phase']=='pool_local_assets_and_sources_verified':
+                    write(folder/'source-restore-receipt.json',{'passed':True,'files':spec['sources'],
+                        'workflow':restoration['workflow']})
     jobs={**live['jobs'],**rtx}
     def query(item):
         role,row=item

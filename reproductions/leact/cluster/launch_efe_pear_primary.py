@@ -223,7 +223,7 @@ def worker_build(spec,files,worker,image,python,**resources):
     (build/'bootstrap.py').write_text(bootstrap(build,[*files,'spec.json'],worker))
     task={'name':'native','image':image,'command':[python],'args':['-u','/tmp/pear-native/bootstrap.py'],
         'environment':{'EFE_WORKFLOW_ID':'{{workflow_id}}','PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1',
-            'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'1','OMP_NUM_THREADS':'2'},
+            'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'0'if spec.get('qualification_only')is True else'1','OMP_NUM_THREADS':'2'},
         'files':[{'localpath':'bootstrap.py','path':'/tmp/pear-native/bootstrap.py'}]}
     if worker in {'efe_pear_primary_native.py','efe_pear_primary_rtx.py',
         'efe_pear_object_transport.py','efe_pear_object_probe.py'}:

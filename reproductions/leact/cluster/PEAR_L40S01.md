@@ -81,3 +81,19 @@ The focused research suite passes 603 tests, with 3 skips and 8 passing
 subtests. The required repository-wide unit command was also attempted;
 collection is blocked by the local environment's missing `lightning` package.
 The dashboard deployment was verified after renewing Entra authentication.
+
+### 2026-11-18 22:04 UTC: fresh fallback checks
+
+Renderer migration checks must clear inherited shard receipts and set
+`qualification_only: true`. The validation guard correctly rejected the
+initial checks because their worker wrapper inherited the primary-training
+flag. Fresh one-task checks are queued with separate validation metadata.
+The research suite now passes 604 tests, with 3 skips and 8 passing subtests.
+
+The expanded asset copy's fresh AMLFS05 mount repeatedly failed with Lustre
+I/O errors before the script started. Its zero-GPU source job was replaced
+with a zero-GPU job using the already qualified AMLFS07 asset replica; the
+same release, patch and per-file checks apply. The L40S-01 restore waits for
+the committed private archive. A fresh native cross-pool check and migration
+observer are queued, so fallback admission can complete independently of
+the primary HIGH-priority H100 allocation request.
