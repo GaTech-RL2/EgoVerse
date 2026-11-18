@@ -132,8 +132,7 @@ def native_builds(model_build,model_workflow):
                 finished=run+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
                 '/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python',
-                gpu=1,cpu=8 if suite=='robolab'else 12,
-                memory='64Gi'if suite=='robolab'else'96Gi',storage='150Gi',platform='ovx-l40'))
+                gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform='ovx-l40'))
     names=sorted(read(DEST/'native-yam-generated-resets/generation-report.json')['tasks'])
     for offset in range(0,len(names),2):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)

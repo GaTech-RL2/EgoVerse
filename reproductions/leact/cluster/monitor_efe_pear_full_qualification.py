@@ -115,7 +115,7 @@ def images():
         if suite not in published:
             available=(progress.get('phase')=='private_image_publication_completed'or
                 '/'+suite+'/'in progress.get('receipt','')or
-                suite=='robodojo'and progress.get('image_index',0)>=1)
+                any('/'+suite+'/'in receipt for receipt in progress.get('receipts',[])))
             if not available:continue
             remote=REMOTE+'/native-image-cache/'+suite+'/private-registry-publication/registry-image.json'
             try:

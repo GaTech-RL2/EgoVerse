@@ -97,3 +97,31 @@ def test_ambiguous_empty_upload_status_starts_a_fresh_session(tmp_path):
         'size':len(payload),'offset':1,'location':'https://nvcr.io/v2/'+REPOSITORY+'/blobs/uploads/empty'}))
     push_blob(registry,io.BytesIO(payload),len(payload),'sha256:'+hashlib.sha256(payload).hexdigest(),state,chunk_bytes=128)
     assert registry.uploaded==payload and registry.committed and'POST'in registry.methods
+
+
+def test_large_layer_streams_once_and_renews_authorization_for_commit(tmp_path,monkeypatch):
+    monkeypatch.setattr('efe_pear_registry_http.STREAM_THRESHOLD',2048)
+    class StreamingRegistry(RegistryDouble):
+        stream_calls=0
+        def request(self,method,location,body=b'',headers=None,*,content_length=None):
+            if content_length is not None:
+                assert method=='PATCH'and hasattr(body,'read')
+                body=body.read();assert len(body)==content_length
+                self.stream_calls+=1
+            return super().request(method,location,body,headers)
+    payload=bytes(range(255))*37;registry=StreamingRegistry()
+    push_blob(registry,io.BytesIO(payload),len(payload),'sha256:'+hashlib.sha256(payload).hexdigest(),
+        tmp_path/'pending.json',chunk_bytes=1024)
+    assert registry.committed and registry.uploaded==payload and registry.stream_calls==1
+    assert registry.methods[-2:]==['PUT','HEAD']
+
+
+def test_fully_uploaded_large_layer_commits_without_resending(tmp_path,monkeypatch):
+    monkeypatch.setattr('efe_pear_registry_http.STREAM_THRESHOLD',2048)
+    payload=bytes(range(255))*37;registry=RegistryDouble();registry.uploaded=payload
+    state=tmp_path/'pending.json';digest='sha256:'+hashlib.sha256(payload).hexdigest()
+    state.write_text(json.dumps({'digest':digest,'size':len(payload),'offset':len(payload),
+        'location':'https://nvcr.io/v2/'+REPOSITORY+'/blobs/uploads/complete'}))
+    push_blob(registry,io.BytesIO(payload),len(payload),digest,state,chunk_bytes=1024)
+    assert registry.committed and registry.uploaded==payload
+    assert'PATCH'not in registry.methods and'POST'not in registry.methods

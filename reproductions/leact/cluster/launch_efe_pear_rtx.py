@@ -67,9 +67,10 @@ def prepare(suite,*,lanes=4):
         if result.returncode:raise RuntimeError('Native RTX payload staging failed: '+result.stderr[-500:])
         write(upload,{'remote':remote_archive,'bytes':archive.stat().st_size})
     builds=[]
+    resources={'gpu':1,'cpu':8,'memory':'64Gi','storage':'150Gi','platform':'ovx-l40'}
     for index in range(min(lanes,len(rows))):
         subset=rows[index::lanes]
-        spec={'suite':suite,'tasks':subset,'image':image['image'],'primary_rl_updates':0,
+        spec={'suite':suite,'tasks':subset,'image':image['image'],'primary_rl_updates':0,'resources':resources,
             'source_revision':read(DEST/'proposed-candidate-membership-v2.json').get('source_revision'),
             'output':REMOTE+'/native-rtx-transport-checks/'+suite,
             'payload':remote_archive,'payload_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
@@ -84,7 +85,7 @@ def prepare(suite,*,lanes=4):
             for name in FILES:shutil.copyfile(BASE/'cluster'/name,build/name)
             python='/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python'
             workflow={'workflow':{'name':'leact-'+build.name,
-                'resources':{'default':{'gpu':1,'cpu':12,'memory':'96Gi','storage':'150Gi','platform':'ovx-l40'}},
+                'resources':{'default':resources},
                 'timeout':{'queue_timeout':'20m','exec_timeout':'6h'},
                 'labels':{'pear_run_id':'moe-warmstart496-pearplusplus','pear_phase':'rtx_transport_'+suite},
                 'tasks':[{'name':'preflight','image':image['image'],'command':[python],

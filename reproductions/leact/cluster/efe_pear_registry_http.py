@@ -19,6 +19,7 @@ from efe_pear_file_rpc import atomic_json
 REPOSITORY='nvidian/lpr/pear-efe-rtx-rp-jhh'
 ORIGIN='https://nvcr.io'
 CHUNK_BYTES=512<<20
+STREAM_THRESHOLD=5<<30
 
 
 class RegistryError(RuntimeError):pass
@@ -54,10 +55,11 @@ class Registry:
             raise ValueError('Registry upload location left the authorized private repository')
         return result
 
-    def request(self,method,location,body=b'',headers=None):
+    def request(self,method,location,body=b'',headers=None,*,content_length=None):
         parsed=urlsplit(self.location(location));target=parsed.path+('?'+parsed.query if parsed.query else'')
-        if self.connection is None:self.connection=http.client.HTTPSConnection('nvcr.io',timeout=180)
-        supplied={'Authorization':'Bearer '+self.token(),'Content-Length':str(len(body)),**(headers or{})}
+        if self.connection is None:self.connection=http.client.HTTPSConnection('nvcr.io',timeout=180,blocksize=8<<20)
+        supplied={'Authorization':'Bearer '+self.token(),
+            'Content-Length':str(len(body)if content_length is None else content_length),**(headers or{})}
         try:
             self.connection.request(method,target,body=body,headers=supplied)
             response=self.connection.getresponse();raw=response.read()
@@ -133,6 +135,11 @@ def _push_blob_once(registry,stream,size,digest,state_file,*,chunk_bytes):
                 # removes this ambiguous, uncommitted session from the path.
                 location=None;offset=0
         elif code!=404:raise RegistryError('Registry upload status returned '+str(code))
+    if location is not None and size>STREAM_THRESHOLD and offset<size:
+        # The registry's backing store cannot append beyond its single-copy
+        # limit of about 5 GiB. Large layers need one streamed request instead
+        # of repeated appends. A fully uploaded layer can still commit in place.
+        location=None;offset=0
     if location is None:
         code,headers,_=registry.request('POST','/v2/'+REPOSITORY+'/blobs/uploads/')
         if code!=202:raise RegistryError('Registry upload creation returned '+str(code))
@@ -146,6 +153,19 @@ def _push_blob_once(registry,stream,size,digest,state_file,*,chunk_bytes):
         if offset:raise ValueError('Unexpected partial upload of a monolithic small blob')
         code,headers,_=registry.request('PUT',digest_location(location,digest),stream.read(),
             {'Content-Type':'application/octet-stream'})
+    elif offset==size:
+        code,headers,_=registry.request('PUT',digest_location(location,digest))
+    elif size>STREAM_THRESHOLD:
+        code,headers,_=registry.request('PATCH',location,stream,
+            {'Content-Type':'application/octet-stream','Content-Range':f'0-{size-1}'},content_length=size)
+        if code!=202:raise RegistryError('Registry streamed layer upload returned '+str(code))
+        if headers.get('range','').removeprefix('bytes=')!=f'0-{size-1}':
+            raise ValueError('Registry acknowledged a different streamed native byte range')
+        location=registry.location(headers['location'])
+        state.update(location=location,offset=size);atomic_json(state_file,state)
+        # Read the current scoped token again here. Streaming a large layer
+        # can outlive the token that authorized the initial request.
+        code,headers,_=registry.request('PUT',digest_location(location,digest))
     else:
         while offset<size:
             block=stream.read(min(chunk_bytes,size-offset))
