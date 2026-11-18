@@ -136,3 +136,44 @@ job and zero-GPU pool-local restore are submitted under new immutable
 paths. They do not release or restart any model GPU. The updated research
 suite passes 611 tests, with 3 skips and 8 passing subtests; native fallback
 admission still requires the subsequent real reset/action/verdict probe.
+
+### 2026-11-18 23:30 UTC: keep the model running and broaden graphics placement
+
+The startup barrier cleared at 22:55:26 UTC after removing the interfering
+trainer exec polling. The five-node driver entered its full-mixture command
+at 22:58:21 UTC. The model subsequently loaded and the first eight student
+episodes returned one positive reward and one parse failure. These are tiny
+rollout diagnostics, not an evaluation result or a completed optimizer step.
+The first training batch is still filling; a heartbeat's current step of one
+does not establish that an update finished.
+
+L40-03 worker cancellations were issued by `groot-idle-job-shutdown` for GPU
+quota reclamation. H100 allocation remains 40 model GPUs plus the separate
+8-GPU native EFE host. All three L40S-01 renderer migration checks passed,
+and 1,027 native assets plus the five source archives were restored and
+verified. A fresh native YAM reset/action/verdict check uses those inputs.
+
+The user explicitly authorized any HIGH/LOW L40/L40S placement that can keep
+the run going. Retain running lanes; use LOW on the compatible AMLFS07
+L40-02/03 pools and HIGH on the allocated L40S-01 pool. Extra LOW L40-02 lanes
+reuse the same frozen harness, input hashes and episode queue. Renderer
+resource requests match the successful 64-GiB migration smokes. Allocation
+retries can alternate only the two explicitly compatible AMLFS07 pools.
+
+`efe_pear_file_relay.py` adds an external relay for the current model's file
+RPC; it does not change or restart the model adapters. It transfers exact
+native observation bytes, JSON actions, binary rewards and original worker
+heartbeat timestamps. Tests cover restarts, infrastructure failures, expired
+native workers and ownership changes. Before production routing, its real
+native check must also return camera frames, one executed action and the
+official finalized verdict. `recover_efe_pear_graphics.py` then reconnects
+all 16 graphics lanes (24 GPUs) without reallocating the model or EFE host.
+Existing working graphics lanes also keep serving; atomic episode ownership
+allows the added pool to operate alongside them without duplicating episodes.
+The observer waits for matching source hashes and the complete input/renderer
+receipts; it keeps the dense arm paused and does not omit simulator families.
+
+The research suite passes 625 tests, with 3 skips and 8 passing subtests.
+The repository unit command was attempted and still fails collection because
+the local environment lacks `lightning`. Current run metrics remain the
+authority for completed updates; no primary RL improvement is claimed yet.

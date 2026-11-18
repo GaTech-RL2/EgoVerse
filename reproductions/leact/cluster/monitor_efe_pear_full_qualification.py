@@ -75,7 +75,7 @@ def retry(item):
     pool=item['pool']
     # Primary worker paths are frozen for the model's selected pool. Preserve
     # that selection; qualification-only probes can alternate compatible pools.
-    if(pool in {'groot-l40-02','groot-l40-03'}and not item.get('owner_model_workflow')
+    if(pool in {'groot-l40-02','groot-l40-03'}and(not item.get('owner_model_workflow')or item.get('allow_amlfs07_pool_fallback'))
         and item.get('filesystem','amlfs07')=='amlfs07'):
         pool='groot-l40-03'if pool=='groot-l40-02'else'groot-l40-02'
     priority=scheduling_priority(pool,priority,read(DEST/'control.json',{}))

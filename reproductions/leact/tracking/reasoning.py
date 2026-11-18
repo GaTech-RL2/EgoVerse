@@ -255,6 +255,13 @@ def build(base=BASE):
     yam_readback=read(scaled/'native-yam-bank-readback.json',{})
     full_qualification=read(scaled/'full-qualification-status.json',{})
     primary_state=read(scaled/'primary-status.json',{})
+    graphics_recovery=read(scaled/'graphics-recovery-state.json',{})
+    if graphics_recovery.get('workflow')==primary_state.get('workflow')and graphics_recovery.get('phase'):
+        primary_state['graphics_recovery']={key:graphics_recovery[key]for key in
+            ['phase','model_allocation_preserved','graphics_gpus']if key in graphics_recovery}
+        primary_state['reason']=('Additional simulator workers are submitted; the current model and working simulators are preserved.'
+            if graphics_recovery['phase']=='graphics_replacement_submitted'else
+            'Simulator capacity is being restored while the current model allocation continues.')
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
     pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
     pool_ready=read(scaled/'l40s01-storage-ready.json',{})

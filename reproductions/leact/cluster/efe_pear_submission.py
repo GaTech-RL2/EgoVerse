@@ -12,6 +12,8 @@ def scheduling_priority(pool,default,control):
     key=('l40_priority'if pool.startswith('groot-l40')else
          'h100_priority'if pool.startswith('groot-h100')else None)
     priority=control.get(key,default)if key else default
+    if pool.startswith('groot-l40'):
+        priority=control.get('l40_priority_by_pool',{}).get(pool,priority)
     if priority not in {'HIGH','NORMAL','LOW'}:
         raise ValueError('Unsupported requested scheduling priority')
     return priority

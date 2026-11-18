@@ -113,3 +113,97 @@ def test_malformed_episode_key_cannot_escape_the_private_filesystem(transport):
     store,bridge=transport
     store.put_json('pending/../escape.json',{'kind':'task','env_args':{}})
     with pytest.raises(ValueError,match='Unexpected episode object key'):bridge.tick()
+
+
+def test_file_model_relay_preserves_native_control_and_leaves_other_families_local(transport,tmp_path):
+    from efe_pear_file_rpc import FileEpisodeClient,claim_episode,publish_result,wait_command,atomic_json
+    from reproductions.leact.cluster.efe_pear_file_relay import FileModelRelay,RelayNativeBridge
+    store,_=transport;native=RelayNativeBridge(tmp_path/'graphics',store)
+    model=FileModelRelay(tmp_path/'model',store,{'native_yam/task'})
+    client=FileEpisodeClient(model.root,'native_yam/task',{'task':'task'},timeout=3)
+    other=FileEpisodeClient(model.root,'efe/libero',{},timeout=3)
+    atomic_json(model.root/'pending'/(other.uid+'.json'),{'kind':other.kind,'env_args':{}})
+    def cycle():model.tick();native.tick()
+    def until(predicate):
+        deadline=time.monotonic()+3
+        while not predicate()and time.monotonic()<deadline:cycle();time.sleep(.005)
+        assert predicate()
+    initial={'done':False,'rewards':[0.],'rgb':bytes(range(255))}
+    terminal={'done':True,'rewards':[1.],'native_termination_terms':{'success':True}}
+    try:
+        with ThreadPoolExecutor(max_workers=1)as pool:
+            opening=pool.submit(client.open)
+            until(lambda:(native.root/'pending'/(client.uid+'.json')).exists())
+            folder,request=claim_episode(native.root,'actual-worker',{'native_yam/task'})
+            assert request['env_args']=={'task':'task'}
+            heartbeat_time=time.time()-20
+            atomic_json(native.root/'workers/actual-worker.json',{'worker_id':'actual-worker','updated_unix':heartbeat_time})
+            publish_result(folder,0,initial);until(opening.done)
+            assert opening.result()==initial
+            assert json.loads((model.root/'workers/actual-worker.json').read_text())['updated_unix']==heartbeat_time
+            action={'action_type':'joint_position','action':[.1,.2],'repeat':1}
+            stepping=pool.submit(client.step,action)
+            until(lambda:(folder/'request-000001.json').exists())
+            assert wait_command(folder,1,timeout=1)==action
+            publish_result(folder,1,terminal);until(stepping.done)
+            assert stepping.result()==terminal
+        assert(model.root/'pending'/(other.uid+'.json')).exists()
+        client.close();cycle();assert(folder/'cancel.json').exists()
+        assert client.uid not in model.active
+    finally:model.close()
+
+
+def test_file_relay_recovers_an_atomic_claim_before_progress_is_saved(transport,tmp_path):
+    from efe_pear_file_rpc import FileEpisodeClient,atomic_json,claim_episode
+    from reproductions.leact.cluster.efe_pear_file_relay import FileModelRelay,RelayNativeBridge
+    store,_=transport;root=tmp_path/'model';native=RelayNativeBridge(tmp_path/'graphics',store)
+    relay=FileModelRelay(root,store,{'native_yam/task'})
+    client=FileEpisodeClient(root,'native_yam/task',{})
+    # A crash can happen just after atomic ownership moves off the local queue.
+    atomic_json(relay.owned/(client.uid+'.json'),{'kind':client.kind,'env_args':{}})
+    relay.close();restored=FileModelRelay(root,store,{'native_yam/task'})
+    try:
+        restored.tick();native.tick()
+        assert claim_episode(native.root,'worker',{'native_yam/task'})is not None
+        restored.tick();native.tick()
+        assert claim_episode(native.root,'other',{'native_yam/task'})is None
+    finally:restored.close()
+
+
+def test_file_relay_propagates_infrastructure_errors_without_an_outcome(transport,tmp_path):
+    from efe_pear_file_rpc import FileEpisodeClient,RemoteEpisodeLost,atomic_json
+    from reproductions.leact.cluster.efe_pear_file_relay import FileModelRelay
+    store,_=transport;relay=FileModelRelay(tmp_path/'model',store,{'native_yam/task'})
+    client=FileEpisodeClient(relay.root,'native_yam/task',{})
+    atomic_json(relay.root/'pending'/(client.uid+'.json'),{'kind':client.kind,'env_args':{}})
+    store.put_json('errors/'+client.uid+'.json',{'error':'native renderer failed'})
+    try:
+        relay.tick()
+        with pytest.raises(RemoteEpisodeLost,match='renderer failed'):client._receive()
+        assert not list(client.folder.glob('response-*.pkl'))
+    finally:relay.close()
+
+
+def test_file_relay_does_not_refresh_an_expired_native_heartbeat(transport,tmp_path):
+    from efe_pear_file_rpc import FileEpisodeClient,RemoteEpisodeLost,atomic_json
+    from reproductions.leact.cluster.efe_pear_file_relay import FileModelRelay
+    store,_=transport;relay=FileModelRelay(tmp_path/'model',store,{'native_yam/task'})
+    client=FileEpisodeClient(relay.root,'native_yam/task',{})
+    atomic_json(relay.owned/(client.uid+'.json'),{'kind':client.kind,'env_args':{}})
+    relay.active[client.uid]={'index':0,'request':1,'sent':False}
+    store.put_json('claims/'+client.uid+'.json',{'worker_id':'native-worker'})
+    store.put_json('workers/native-worker.json',{'worker_id':'native-worker','updated_unix':1.})
+    try:
+        relay.tick()
+        with pytest.raises(RemoteEpisodeLost,match='heartbeat expired'):client._receive()
+    finally:relay.close()
+
+
+def test_file_relay_refuses_to_resume_with_a_different_remote_owner(transport,tmp_path):
+    from reproductions.leact.cluster.efe_pear_file_relay import FileModelRelay
+    store,_=transport;root=tmp_path/'model'
+    relay=FileModelRelay(root,store,{'native_yam/task'});relay.close()
+    with pytest.raises(ValueError,match='ownership differs'):
+        FileModelRelay(root,Store('s3://private/other/attempt',store.client),{'native_yam/task'})
+    with pytest.raises(ValueError,match='ownership differs'):
+        FileModelRelay(root,store,{'native_yam/held-out-task'})

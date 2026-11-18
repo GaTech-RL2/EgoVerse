@@ -228,7 +228,7 @@ def worker_build(spec,files,worker,image,python,**resources):
             'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'0'if spec.get('qualification_only')is True else'1','OMP_NUM_THREADS':'2'},
         'files':[{'localpath':'bootstrap.py','path':'/tmp/pear-native/bootstrap.py'}]}
     if worker in {'efe_pear_primary_native.py','efe_pear_primary_rtx.py',
-        'efe_pear_object_transport.py','efe_pear_object_probe.py'}:
+        'efe_pear_object_transport.py','efe_pear_object_probe.py','efe_pear_file_relay.py'}:
         task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
     if privileged:task['privileged']=True
     value={'workflow':{'name':'leact-'+build.name,'resources':{'default':resources},
@@ -280,22 +280,27 @@ def tick():
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
+        from .recover_efe_pear_graphics import tick as recover_graphics
+        recover_graphics(state)
         from .efe_pear_submission import infrastructure_failure as infra_retryable
         from .monitor_efe_pear_full_qualification import retry
         queue=read(DEST/'primary-native-queue.json',{})
-        rows=command(['osmo','workflow','list','--name','rp-jhh-pear-worker','--count','100','--format-type','json'])['workflows']
+        rows=command(['osmo','workflow','list','--name','rp-jhh-pear-worker','--count','1000','--format-type','json'])['workflows']
         lookup={v['name']:v for v in rows}
+        attempt_limit=read(DEST/'control.json',{}).get('primary_native_allocation_attempts',8)
+        if type(attempt_limit)is not int or not 1<=attempt_limit<=64:
+            raise ValueError('Native allocation retry budget must be between 1 and 64')
         for item in queue.values():
             if item.get('owner_model_workflow')!=state['workflow']or item.get('superseded'):continue
             worker=lookup.get(item['workflow'],{});status=worker.get('status')
             item['scheduler_status']=status
-            if status and status.startswith('FAILED')and item.get('attempt',0)<8:
+            if status and status.startswith('FAILED')and item.get('attempt',0)<attempt_limit:
                 detail=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
                 if infra_retryable(detail):retry(item)
                 else:item['source_failure']=True
             elif status=='COMPLETED':
                 first=item.setdefault('unexpected_completion_checked_unix',time.time())
-                if time.time()-first>180 and item.get('attempt',0)<8:retry(item)
+                if time.time()-first>180 and item.get('attempt',0)<attempt_limit:retry(item)
         write(DEST/'primary-native-queue.json',queue)
     if query['status'].startswith('FAILED'):
         cancel_native_workers(state['workflow'])

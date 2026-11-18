@@ -18,7 +18,7 @@ def main():
     fd=os.open(credential,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,'w')as stream:stream.write(raw)
     os.environ['PEAR_OBJECTSTORE_CREDENTIAL_FILE']=str(credential)
-    stopped=threading.Event();store=None;client=None;passed=False
+    stopped=threading.Event();store=None;client=None;passed=False;file_relay=None;relay_thread=None
     try:
         deps=Path('/tmp/rp_jhh_probe_packages')
         subprocess.run([sys.executable,'-m','pip','install','--quiet','--target',str(deps),'boto3==1.44.5'],check=True,timeout=300)
@@ -32,7 +32,19 @@ def main():
                 store.put_json('control/head-heartbeat.json',{'updated_unix':time.time(),'phase':'cross_pool_native_probe'})
                 stopped.wait(10)
         thread=threading.Thread(target=heartbeat,daemon=True);thread.start()
-        client=ObjectEpisodeClient(store,'native_yam/'+spec['task'],{'task':spec['task'],'reset_id':spec['reset_id']},timeout=1800)
+        kind='native_yam/'+spec['task'];env_args={'task':spec['task'],'reset_id':spec['reset_id']}
+        if spec.get('file_relay_root'):
+            from efe_pear_file_relay import FileModelRelay
+            from efe_pear_file_rpc import FileEpisodeClient
+            file_relay=FileModelRelay(spec['file_relay_root'],store,{kind})
+            client=FileEpisodeClient(file_relay.root,kind,env_args,timeout=1800)
+            def forward():
+                try:
+                    while not stopped.is_set():file_relay.tick();stopped.wait(.05)
+                except Exception as exc:
+                    atomic_json(client.folder/'infrastructure-error.json',{'error':'File relay failed: '+type(exc).__name__})
+            relay_thread=threading.Thread(target=forward,daemon=True);relay_thread.start()
+        else:client=ObjectEpisodeClient(store,kind,env_args,timeout=1800)
         started=time.monotonic();opened=client.open();open_seconds=time.monotonic()-started
         if opened['done']or not opened.get('images'):raise ValueError('Native training reset lacks live images')
         cameras=[]
@@ -59,11 +71,17 @@ def main():
             'native_trial_path':terminal.get('native_trial_path'),'open_seconds':open_seconds,
             'action_seconds':action_seconds,'model_side_filesystem':spec['model_side_filesystem'],
             'simulator_side_filesystem':spec['simulator_side_filesystem'],'updated_unix':time.time()}
+        if file_relay is not None:
+            receipt.update(model_file_relay_passed=True,relay_sha256=spec['relay_sha256'])
         atomic_json(root/'receipt.json',receipt)
         print('PEAR_CROSS_POOL_PROBE '+json.dumps(receipt),flush=True)
     finally:
         if client:client.close()
         stopped.set()
+        if relay_thread:relay_thread.join(timeout=10)
+        if file_relay:
+            try:file_relay.tick()
+            finally:file_relay.close()
         if store:store.put_json('control/finished.json',{'completed':passed,'validation':True})
         credential.unlink(missing_ok=True)
 

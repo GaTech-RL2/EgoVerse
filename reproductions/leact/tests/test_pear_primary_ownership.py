@@ -122,3 +122,13 @@ def test_explicit_h100_priority_retains_quota_eligibility_after_a_low_capacity_f
     from reproductions.leact.cluster.efe_pear_submission import scheduling_priority
     assert scheduling_priority(pool,'LOW',{'h100_priority':'HIGH'})=='HIGH'
     assert scheduling_priority(pool,'LOW',{'l40_priority':'HIGH'})=='LOW'
+
+
+def test_compatible_graphics_pools_can_use_low_while_the_allocated_pool_and_h100_stay_high():
+    from reproductions.leact.cluster.efe_pear_submission import scheduling_priority
+    control={'h100_priority':'HIGH','l40_priority':'HIGH','l40_priority_by_pool':{
+        'groot-l40-02':'LOW','groot-l40-03':'LOW','groot-l40s-01':'HIGH'}}
+    assert scheduling_priority('groot-l40-02','HIGH',control)=='LOW'
+    assert scheduling_priority('groot-l40-03','HIGH',control)=='LOW'
+    assert scheduling_priority('groot-l40s-01','LOW',control)=='HIGH'
+    assert scheduling_priority('groot-h100-01','LOW',control)=='HIGH'
