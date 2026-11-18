@@ -22,6 +22,7 @@ from .launch_efe_pear_scaled import DEST,REMOTE,PEAR_REVISION,TEMPLATE,prepare_t
 from .launch_efe_training import freeze_sources
 from .scale_efe import BASE,BUILD_ROOT,read,write,submit,command
 from .efe_pear_submission import submit_reconciled
+from .efe_pear_worker_bundle import FORMAT as BUNDLE_FORMAT,bootstrap
 
 ARM='moe-warmstart496-pearplusplus'
 PROFILES=[(6,'HIGH'),(4,'HIGH'),(6,'LOW'),(4,'LOW')]
@@ -50,7 +51,8 @@ def prepare(profile=0):
         'checkpoint_archive':'s3://rp-jhh-pear-checkpoints/rpunamiya/rp_jhh_pear_moe_warmstart496_full_'+identity,
         'adapter_digests':{name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()},
         'data_digests':{name:hashlib.sha256(raw).hexdigest()for name,raw in serialized.items()},
-        'admitted_counts':admission['counts'],'profile':profile,'priority':priority}
+        'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
+        'worker_bundle_format':BUNDLE_FORMAT}
     digest=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-primary-'+digest)
     if not(build/'source-manifest.json').exists():
@@ -58,15 +60,16 @@ def prepare(profile=0):
         for name,path in sources.items():shutil.copyfile(path,build/name)
         for name,raw in serialized.items():(build/name).write_bytes(raw)
         write(build/'spec.json',spec)
+        (build/'bootstrap.py').write_text(bootstrap(build,[*sources,*data,'spec.json'],'efe_pear_primary_worker.py'))
         resources={'trainer':{'gpu':8,'cpu':64,'memory':'1536Gi','storage':'300Gi','platform':'dgx-h100'},
             'rollout':{'gpu':8,'cpu':64,'memory':'512Gi','storage':'250Gi','platform':'dgx-h100'}}
         tasks=[]
         for role in ['trainer',*['rollout-'+str(i)for i in range(rollout_nodes)]]:
             task={'name':role,'resource':'trainer'if role=='trainer'else'rollout','image':native_image,
-                'command':['python3'],'args':['-u','/tmp/rp-jhh-pear-primary/efe_pear_primary_worker.py'],
+                'command':['python3'],'args':['-u','/tmp/rp-jhh-pear-primary/bootstrap.py'],
                 'environment':{'EFE_ROLE':role,'EFE_WORKFLOW_ID':'{{workflow_id}}','EFE_HEAD_HOST':'{{host:trainer}}',
                     'PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1','NVIDIA_DRIVER_CAPABILITIES':'all'},
-                'files':[{'localpath':name,'path':'/tmp/rp-jhh-pear-primary/'+name}for name in [*sources,*data,'spec.json']]}
+                'files':[{'localpath':'bootstrap.py','path':'/tmp/rp-jhh-pear-primary/bootstrap.py'}]}
             if role=='trainer':
                 task['lead']=True
                 task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
@@ -94,8 +97,10 @@ def launch(profile=0):
         if state.get('workflow'):history.append({k:state[k]for k in ['workflow','profile','scheduler_status']if k in state})
         state={**result,'workflow':result['name'],'build':str(build),'profile':profile,'history':history,
             'pool':'groot-h100-02','priority':spec['priority'],'run':spec['run'],'run_id':ARM,
-            'gpu':8*(1+spec['rollout_nodes']),'primary_rl_updates':0,'native_workers_launched':False}
+            'gpu':8*(1+spec['rollout_nodes']),'primary_rl_updates':0,'native_workers_launched':False,
+            'phase':'primary_submitted'}
         write(DEST/'primary-launch.json',state)
+        write(DEST/'primary-status.json',state)
         return state
 
 
@@ -151,17 +156,18 @@ def native_builds(model_build,model_workflow):
 
 def worker_build(spec,files,worker,image,python,**resources):
     privileged=resources.pop('privileged',False)
-    key=hashlib.sha256(json.dumps([spec,worker,image,resources,privileged,
+    key=hashlib.sha256(json.dumps([spec,worker,image,resources,privileged,BUNDLE_FORMAT,
         {n:hashlib.sha256(p.read_bytes()).hexdigest()for n,p in files.items()}],sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-worker-'+key)
     if(build/'source-manifest.json').exists():return build
     build.mkdir()
     for name,path in files.items():shutil.copyfile(path,build/name)
     write(build/'spec.json',spec)
-    task={'name':'native','image':image,'command':[python],'args':['-u','/tmp/pear-native/'+worker],
+    (build/'bootstrap.py').write_text(bootstrap(build,[*files,'spec.json'],worker))
+    task={'name':'native','image':image,'command':[python],'args':['-u','/tmp/pear-native/bootstrap.py'],
         'environment':{'EFE_WORKFLOW_ID':'{{workflow_id}}','PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1',
             'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'1','OMP_NUM_THREADS':'2'},
-        'files':[{'localpath':name,'path':'/tmp/pear-native/'+name}for name in [*files,'spec.json']]}
+        'files':[{'localpath':'bootstrap.py','path':'/tmp/pear-native/bootstrap.py'}]}
     if worker!='efe_pear_yam_server.py':
         task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
     if privileged:task['privileged']=True
@@ -195,6 +201,7 @@ def tick():
             write(DEST/'primary-status.json',value);return value
     query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
     state['scheduler_status']=query['status'];write(DEST/'primary-launch.json',state)
+    write(DEST/'primary-status.json',state)
     if query.get('start_time')and not state.get('native_workers_launched'):
         worker_queue=read(DEST/'primary-native-queue.json',{})
         for build in native_builds(state['build'],state['workflow']):
