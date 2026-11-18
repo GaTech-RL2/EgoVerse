@@ -152,6 +152,12 @@ def compile_admission(root):
 
 def model_qualification(root):
     root=Path(root)
+    driver=read(root/'primary-driver-check-status.json',{})
+    command=driver.get('worker',{})
+    if(driver.get('scheduler_status')!='COMPLETED'or command.get('passed')is not True
+        or command.get('source_check_passed')is not True or command.get('rollout_nodes')!=[6,4]
+        or command.get('script_sha256')!=sha(Path(__file__).with_name('efe_pear_scaled_train.sh'))):
+        raise PendingAdmission('Exact primary training command has not passed source and CPU configuration checks')
     queue=read(root/'queue-checkpoint-status.json',{})
     queue_result=queue.get('worker',{})
     if(queue.get('scheduler_status')!='COMPLETED'or queue_result.get('passed')is not True
@@ -188,4 +194,5 @@ def model_qualification(root):
         'durable_on_policy_checkpoint_archived':False,
         'durable_storage_qualification':storage,
         'distributed_queue_checkpoint_qualification':queue_result,
+        'driver_command_qualification':command,
         'scope':'Composed independent evidence: full-weight/fresh-process numerical restart, real discarded on-policy optimizer update and API reload, multipart/restore plus model-sized private archive readback, and two-node fresh-process rollout-queue restore. The discarded RL state was not retained.'}

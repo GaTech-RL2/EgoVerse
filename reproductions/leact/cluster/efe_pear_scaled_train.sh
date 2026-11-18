@@ -91,7 +91,7 @@ source scripts/gpu_process_variables.sh "$VERL_ENV"
 export RAY_ADDRESS=${RAY_ADDRESS:-auto}
 export VERL_USE_EXTERNAL_MODULES=pear.rollout.server,$MODEL_MODULES
 export PYTHONPATH=$ADAPTER_ROOT:$PEAR_SOURCE/pear/utils/sitecustomize:$PEAR_SOURCE:$PEAR_SOURCE/3rdparty/verl/src${PYTHONPATH:+:$PYTHONPATH}
-ENV_VAR=+ray_kwargs.ray_init.runtime_env.env_vars
+ENV_VAR=++ray_kwargs.ray_init.runtime_env.env_vars
 bash 3rdparty/verl/scripts/checkout_verl.sh --check
 # EpisodeDataset accepts multiple files, one per native or reasoning tool.
 TRAIN_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(json.dumps(json.loads(v) if v.startswith("[") else [v]))' "$EPISODES")

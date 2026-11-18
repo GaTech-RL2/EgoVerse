@@ -15,6 +15,7 @@ from .launch_efe_training import freeze_sources
 from .scale_efe import command,read,write,submit
 
 CHECKS={
+    'primary-driver-check':('groot-l40-02','PEAR_DRIVER_CHECK '),
     'queue-checkpoint':('groot-l40-03','PEAR_QUEUE_CHECK '),
     'receipt-relay':('groot-l40-02','PEAR_RECEIPT_RELAY '),
     'native-robolab-rtx':('groot-l40-02','PEAR_NATIVE_RTX_CHECK '),

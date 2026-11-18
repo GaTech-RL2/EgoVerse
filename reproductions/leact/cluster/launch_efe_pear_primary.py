@@ -207,7 +207,10 @@ def tick():
         for build in native_builds(state['build'],state['workflow']):
             if build.name in worker_queue:continue
             spec=read(build/'spec.json')
-            pool='groot-h100-01'if spec.get('kind')=='efe'else'groot-l40-03'
+            # Split the two renderer workloads across compatible shared-volume
+            # pools; one pool rejected its single-GPU placements before startup.
+            pool=('groot-h100-01'if spec.get('kind')=='efe'else
+                'groot-l40-02'if spec.get('kind')=='rtx'else'groot-l40-03')
             receipt=submit_reconciled(build,priority=state['priority'],pool=pool,nodes=1)
             worker_queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),
                 'pool':pool,'priority':state['priority'],'owner_model_workflow':state['workflow']}
