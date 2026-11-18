@@ -6,7 +6,7 @@ import pytest
 from reproductions.leact.cluster.efe_pear_telemetry import Telemetry, WorkerDiagnostics, reward_metrics
 from reproductions.leact.cluster.efe_pear_yam_split import build, task_group
 from reproductions.leact.tracking.server import ingest,ingest_pear,reasoning_workspace
-from reproductions.leact.tracking.reasoning_live import compact_telemetry,telemetry_readers
+from reproductions.leact.tracking.reasoning_live import compact_telemetry,telemetry_readers,telemetry_roots
 
 
 def test_collection_never_execs_into_primary_startup_or_a_different_filesystem():
@@ -17,6 +17,13 @@ def test_collection_never_execs_into_primary_startup_or_a_different_filesystem()
     reader={'name':'leact-rp-jhh-pear-worker-reader-1','pool':'groot-h100-01'}
     assert telemetry_readers([primary,labelled,lfs,reader])==[reader]
     assert telemetry_readers([primary,labelled,lfs])==[]
+
+
+def test_live_collection_tracks_the_admitted_run_instead_of_the_plan_placeholder():
+    arms=[{'id':'warm','run_directory':'/runs/warm'},{'id':'base','run_directory':'/runs/base'}]
+    primary={'run_id':'warm','run':'/runs/rp_jhh_curriculum_hash'}
+    assert telemetry_roots(arms,primary)=={'warm':'/runs/rp_jhh_curriculum_hash','base':'/runs/base'}
+    assert telemetry_roots(arms,{'run_id':'unregistered','run':'/other'})==telemetry_roots(arms,{})
 
 
 def test_unfiltered_macro_reward_includes_rejected_groups_but_not_infrastructure():

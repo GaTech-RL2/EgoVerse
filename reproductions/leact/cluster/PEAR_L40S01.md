@@ -122,3 +122,17 @@ requires observing the trainer's bootstrap and actual optimizer metrics.
 The research suite passes 608 tests, with 3 skips and 8 passing subtests.
 The required repository unit command was attempted again and still fails
 collection because the local environment lacks `lightning`.
+
+The telemetry reader also now resolves the current primary run directory
+from its accepted launch receipt. The preparation plan retains placeholder
+paths, which previously hid the content-addressed curriculum run's files.
+
+The L40S-01 native reset exposed a separate missing input: the task-owned
+`asset_manifest.json` is not a USD reference. Asset packaging now includes
+all regular files inside the 16 selected task directories, including JSON
+manifests and runtime sidecars; unselected task directories remain excluded.
+Link rejection and per-file checksums still apply. A fresh zero-GPU source
+job and zero-GPU pool-local restore are submitted under new immutable
+paths. They do not release or restart any model GPU. The updated research
+suite passes 611 tests, with 3 skips and 8 passing subtests; native fallback
+admission still requires the subsequent real reset/action/verdict probe.

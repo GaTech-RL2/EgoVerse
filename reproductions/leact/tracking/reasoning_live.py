@@ -79,6 +79,15 @@ def telemetry_readers(workflows):
         and w.get('labels',{}).get('pear_phase')!='primary_training']
 
 
+def telemetry_roots(arms,primary):
+    roots={a['id']:a['run_directory']for a in arms if a.get('run_directory')}
+    # The final admitted curriculum gives the primary run a content-addressed
+    # directory. The preparation plan can still contain its older placeholder.
+    if primary.get('run_id')in roots and primary.get('run'):
+        roots[primary['run_id']]=primary['run']
+    return roots
+
+
 def pear():
     from ..cluster.monitor_efe_preflight import remote
     path=BASE/'artifacts/reasoning-workspace/live/pear.json';old=read(path,{})
@@ -90,7 +99,8 @@ def pear():
     # running worker that mounts AMLFS07; never allocate a GPU for collection.
     candidates=telemetry_readers(workflows)
     if not candidates:return {**old,'collector_state':'waiting for a running shared-volume reader; primary startup is never probed with exec'}
-    roots={a['id']:a.get('run_directory')for a in arms if a.get('run_directory')}
+    primary=read(BASE/'artifacts/embodied-first-exam/pear-scaled-v1/primary-launch.json',{})
+    roots=telemetry_roots(arms,primary)
     if not roots:return {**old,'collector_state':'waiting for registered run directories'}
     script='''from pathlib import Path
 import json

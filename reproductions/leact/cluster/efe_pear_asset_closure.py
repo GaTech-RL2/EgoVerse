@@ -18,6 +18,26 @@ def sha(path):
     return value.hexdigest()
 
 
+def task_owned_files(root,roots):
+    """Include task manifests and runtime sidecars absent from USD references."""
+    root=Path(root).resolve();prefix=('scenes','YAM','eval_flywheel','T_gen')
+    directories={Path(*Path(name).parts[:5])for name in roots
+        if Path(name).parts[:4]==prefix and len(Path(name).parts)>=5}
+    files=set()
+    for relative in sorted(directories):
+        if '..'in relative.parts:raise ValueError('Task directory escapes the pinned asset root')
+        directory=root/relative
+        if not directory.resolve().is_relative_to(root):
+            raise ValueError('Task directory escapes the pinned asset root')
+        if not directory.is_dir():raise FileNotFoundError('Required task directory is missing: '+str(relative))
+        for path in directory.rglob('*'):
+            if path.is_symlink():raise ValueError('Task-owned assets must be regular files or directories: '+str(path))
+            if path.is_dir():continue
+            if not path.is_file():raise ValueError('Task-owned asset is not a regular file: '+str(path))
+            files.add(str(path.relative_to(root)))
+    return files
+
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--spec',type=Path,required=True);a=p.parse_args()
     spec=json.loads(a.spec.read_text());output=Path(spec['output']);output.mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -36,7 +56,8 @@ def main():
         raise ValueError('Source native asset release changed')
     for name,row in release['patched_files'].items():
         if sha(root/name)!=row['sha256_after']:raise ValueError('Source native asset patch changed')
-    files={release['release_manifest'],*release['patched_files'],*spec['roots']};unresolved=set()
+    files={release['release_manifest'],*release['patched_files'],*spec['roots'],
+        *task_owned_files(root,spec['roots'])};unresolved=set()
     for i,name in enumerate(sorted(spec['roots'])):
         path=root/name
         if not path.is_file():raise FileNotFoundError('Required asset root is missing: '+name)
