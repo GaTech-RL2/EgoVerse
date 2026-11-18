@@ -6,7 +6,17 @@ import pytest
 from reproductions.leact.cluster.efe_pear_telemetry import Telemetry, WorkerDiagnostics, reward_metrics
 from reproductions.leact.cluster.efe_pear_yam_split import build, task_group
 from reproductions.leact.tracking.server import ingest,ingest_pear,reasoning_workspace
-from reproductions.leact.tracking.reasoning_live import compact_telemetry
+from reproductions.leact.tracking.reasoning_live import compact_telemetry,telemetry_readers
+
+
+def test_collection_never_execs_into_primary_startup_or_a_different_filesystem():
+    primary={'name':'leact-rp-jhh-pear-primary-current-1','pool':'groot-h100-01'}
+    labelled={'name':'renamed-pear-cluster','pool':'groot-h100-02',
+              'labels':{'pear_phase':'primary_training'}}
+    lfs={'name':'leact-rp-jhh-pear-worker-lfs-1','pool':'groot-l40s-01'}
+    reader={'name':'leact-rp-jhh-pear-worker-reader-1','pool':'groot-h100-01'}
+    assert telemetry_readers([primary,labelled,lfs,reader])==[reader]
+    assert telemetry_readers([primary,labelled,lfs])==[]
 
 
 def test_unfiltered_macro_reward_includes_rejected_groups_but_not_infrastructure():

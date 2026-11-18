@@ -67,6 +67,18 @@ def compact_telemetry(rows,*,limit=512):
             'checkpoints':[r for _,r in sorted(checkpoints.items())][-limit:]}
 
 
+def telemetry_readers(workflows):
+    # A task can be RUNNING while osmo-user still waits for the group barrier.
+    # Exec requests then block osmo-ctrl's action reader for five minutes and
+    # delay barrier release. Read the shared files through single-task workers.
+    compatible={'groot-h100-01','groot-h100-02','groot-l40-02','groot-l40-03'}
+    return [w for w in workflows
+        if ('pear'in w['name']or'realworldqa'in w['name'])
+        and w.get('pool')in compatible
+        and 'pear-primary-'not in w['name']
+        and w.get('labels',{}).get('pear_phase')!='primary_training']
+
+
 def pear():
     from ..cluster.monitor_efe_preflight import remote
     path=BASE/'artifacts/reasoning-workspace/live/pear.json';old=read(path,{})
@@ -76,12 +88,8 @@ def pear():
                                    '--count','200','--format-type','json']))['workflows']
     # Graphics workers on L40S-01 use LFS. Read model telemetry only through a
     # running worker that mounts AMLFS07; never allocate a GPU for collection.
-    compatible={'groot-h100-01','groot-h100-02','groot-l40-02','groot-l40-03'}
-    candidates=[w for w in workflows if('pear'in w['name']or'realworldqa'in w['name'])
-        and w.get('pool')in compatible]
-    primary=read(BASE/'artifacts/embodied-first-exam/pear-scaled-v1/primary-launch.json',{})
-    candidates.sort(key=lambda w:w['name']!=primary.get('workflow'))
-    if not candidates:return {**old,'collector_state':'waiting for a running PEAR or retention worker'}
+    candidates=telemetry_readers(workflows)
+    if not candidates:return {**old,'collector_state':'waiting for a running shared-volume reader; primary startup is never probed with exec'}
     roots={a['id']:a.get('run_directory')for a in arms if a.get('run_directory')}
     if not roots:return {**old,'collector_state':'waiting for registered run directories'}
     script='''from pathlib import Path
@@ -112,7 +120,7 @@ for arm,root in roots.items():
 print('EFE_CAPTURE '+json.dumps(result),flush=True)
 '''.replace('ROOTS',repr(json.dumps(roots)))
     candidate=candidates[0];name=candidate['name']
-    task='trainer'if'pear-primary-'in name else'native'if'pear-worker-'in name else'preflight'
+    task='native'if'pear-worker-'in name else'preflight'
     capture=remote(name,script,task=task)
     result={'observed_utc':datetime.now(timezone.utc).isoformat(),'collector_state':'connected','runs':{}}
     cache=path.parent;cache.mkdir(parents=True,exist_ok=True)

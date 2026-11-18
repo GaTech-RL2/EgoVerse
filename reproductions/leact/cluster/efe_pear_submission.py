@@ -9,7 +9,9 @@ from .scale_efe import command,read,write,submit,ROOT
 
 
 def scheduling_priority(pool,default,control):
-    priority=control.get('l40_priority',default)if pool.startswith('groot-l40')else default
+    key=('l40_priority'if pool.startswith('groot-l40')else
+         'h100_priority'if pool.startswith('groot-h100')else None)
+    priority=control.get(key,default)if key else default
     if priority not in {'HIGH','NORMAL','LOW'}:
         raise ValueError('Unsupported requested scheduling priority')
     return priority

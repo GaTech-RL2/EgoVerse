@@ -115,3 +115,10 @@ def test_renderer_migration_check_cannot_inherit_the_primary_training_flag(tmp_p
     task=yaml.safe_load((build/'workflow.yaml').read_text())['workflow']['tasks'][0]
     assert task['environment']['PEAR_PRIMARY_TRAINING']=='0'
     assert 'credentials'not in task
+
+
+@pytest.mark.parametrize('pool',['groot-h100-01','groot-h100-02'])
+def test_explicit_h100_priority_retains_quota_eligibility_after_a_low_capacity_fallback(pool):
+    from reproductions.leact.cluster.efe_pear_submission import scheduling_priority
+    assert scheduling_priority(pool,'LOW',{'h100_priority':'HIGH'})=='HIGH'
+    assert scheduling_priority(pool,'LOW',{'l40_priority':'HIGH'})=='LOW'

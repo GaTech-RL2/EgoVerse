@@ -71,7 +71,9 @@ def prepare(profile=0):
     sources.update({name:BASE/'cluster'/name for name in EXTRA})
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
     rollout_nodes,priority=allocation_profile(profile)
-    l40_pool=simulator_pool('groot-l40-02',read(DEST/'control.json',{}))
+    control=read(DEST/'control.json',{})
+    priority=scheduling_priority('groot-h100',priority,control)
+    l40_pool=simulator_pool('groot-l40-02',control)
     if l40_pool=='groot-l40s-01':
         ready=read(DEST/'l40s01-storage-ready.json',{})
         if(not ready.get('passed')or not ready.get('transport_roundtrip_passed')

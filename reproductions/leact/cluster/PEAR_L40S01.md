@@ -49,8 +49,9 @@ a real cross-pool YAM reset/RGB/action/finalized-verdict receipt matching the
 current transport SHA256, and one completed migration smoke for each of
 RoboDojo, RoboLab and YAMLab. It then writes `l40s01-storage-ready.json`.
 The separate primary observer waits for that gate before resubmission.
-Graphics retries retain HIGH priority and L40S-01; model priority fallback
-is unchanged. Only ledger-owned validation jobs are retried.
+Graphics retries retain HIGH priority and L40S-01. Explicit H100 HIGH priority
+also overrides capacity fallback profiles to retain quota eligibility.
+Only ledger-owned validation jobs are retried.
 
 These migration checks complement the original complete task admission;
 they do not establish that the student can solve the tasks. Primary training
@@ -97,3 +98,27 @@ same release, patch and per-file checks apply. The L40S-01 restore waits for
 the committed private archive. A fresh native cross-pool check and migration
 observer are queued, so fallback admission can complete independently of
 the primary HIGH-priority H100 allocation request.
+
+### 2026-11-18 22:50 UTC: preserve the allocation and stop startup exec polling
+
+The primary workflow `leact-rp-jhh-pear-primary-48775f967d9b-1` has five
+RUNNING model tasks (40 H100s) on H100-01 at HIGH priority. The separate
+eight-H100 native worker is also reported RUNNING. H100 quota belongs to
+Pretrain Extension; the L40S allocation belongs to Beyond BC. The current
+model allocation must remain in place during recovery.
+
+The trainer has not entered its Python bootstrap: its last user-visible
+startup phase is OSMO's group barrier, while the four rollout tasks passed
+that barrier. Inspecting the official runtime code identified an interfering
+collector: an exec request before the initial ExecStart is ignored by the
+user process, while the control process blocks waiting for its exec socket
+for five minutes. The local collector repeatedly selected the trainer.
+Collection now excludes the primary group and reads its shared telemetry
+through a compatible single-task worker. A regression test covers primary
+names, renamed primary labels, and the incompatible LFS mount. The publisher
+was reloaded; no model allocation was canceled or resized. Recovery still
+requires observing the trainer's bootstrap and actual optimizer metrics.
+
+The research suite passes 608 tests, with 3 skips and 8 passing subtests.
+The required repository unit command was attempted again and still fails
+collection because the local environment lacks `lightning`.
