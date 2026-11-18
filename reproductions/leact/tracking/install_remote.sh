@@ -31,7 +31,7 @@ with socket.socket() as listener:
         listener.bind(('0.0.0.0', 8126))
     except OSError:
         with urllib.request.urlopen('http://127.0.0.1:8126/api/health', timeout=3) as response:
-            if json.load(response).get('service') != 'leact-tracker':
+            if json.load(response).get('service') not in {'leact-tracker','reasoning-tracker'}:
                 raise SystemExit('Port 8126 belongs to a different service')
 PY
 ln -sfn "$release" "$base/current"

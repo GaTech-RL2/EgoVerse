@@ -29,18 +29,23 @@ from verl.utils import tensordict_utils as tu
 
 from efe_pear_curriculum import retained_selection, token_mean_factors
 from efe_pear_curriculum_state import CurriculumState, identity
+from efe_pear_telemetry import Telemetry, reward_metrics
 
 
 class MultitaskReplayBuffer(PearReplayBuffer):
-    def __init__(self, *, curriculum, **kwargs):
+    def __init__(self, *, curriculum, telemetry, **kwargs):
         self.curriculum=curriculum
+        self.telemetry=telemetry
         super().__init__(**kwargs)
         if self.rollout_n!=8 or self.filter_groups_metric!='reward':
             raise ValueError('The curriculum requires eight-rollout binary-reward groups')
 
     def _on_group_judged(self, partition_id, uid, values):
         super()._on_group_judged(partition_id,uid,values)
-        if partition_id=='train':self.curriculum.observe(uid,values)
+        if partition_id=='train':
+            self.curriculum.observe(uid,values)
+            g=self.curriculum.groups[uid]
+            self.telemetry.group(g,self.curriculum.configs[g['config_id']])
 
     def _selection(self, keys):
         return retained_selection([self.curriculum.groups[uid] for uid in keys],self.curriculum.quotas)
@@ -90,6 +95,18 @@ class MultitaskTrainer(PearTrainer):
     def __init__(self, config):
         manifest=json.loads(Path(os.environ['EFE_PEAR_CURRICULUM']).read_text())
         self.curriculum=CurriculumState(manifest,seed=int(config.data.get('seed',1701)))
+        self.telemetry=Telemetry(os.environ['EFE_PEAR_METRICS_DIR'],
+                                 str(config.trainer.experiment_name),heartbeat=True)
+        self.telemetry.metadata({'model_revision':os.environ.get('MODEL_REVISION'),
+            'router_policy':'frozen_expert_selection_router'if str(config.actor_rollout_ref.actor.fsdp_config.kernels).endswith('FrozenRouterTrainingKernels')else'not_applicable',
+            'retained_groups':int(config.data.train_batch_size),'rollouts_per_group':int(config.actor_rollout_ref.rollout.n),
+            'learning_rate':float(config.actor_rollout_ref.actor.optim.lr),'parameter_update':'full_finetuning',
+            'ppo_epochs':int(config.actor_rollout_ref.actor.ppo_epochs),
+            'score_centering':bool(config.actor_rollout_ref.actor.policy_loss.rollout_correction.score_centering),
+            'entropy_coefficient':float(config.actor_rollout_ref.actor.entropy_coeff),
+            'kl_penalty':bool(config.actor_rollout_ref.actor.use_kl_loss or config.algorithm.use_kl_in_reward),
+            'family_quotas':self.curriculum.quotas,'curriculum_sha256':self.curriculum.manifest_sha256,
+            'workflow':os.environ.get('EFE_WORKFLOW_ID'),'sgs_uniform_fraction':.2})
         self._row_by_config=None
         super().__init__(config)
         if (int(config.data.train_batch_size)!=128 or int(config.actor_rollout_ref.rollout.n)!=8 or
@@ -102,7 +119,7 @@ class MultitaskTrainer(PearTrainer):
         return MultitaskReplayBuffer
 
     def _replay_buffer_kwargs(self, kwargs):
-        return {**super()._replay_buffer_kwargs(kwargs),'curriculum':self.curriculum}
+        return {**super()._replay_buffer_kwargs(kwargs),'curriculum':self.curriculum,'telemetry':self.telemetry}
 
     def _index_rows(self):
         expected={identity(c['env_class'],c['env_args']):key for key,c in self.curriculum.configs.items()}
@@ -126,7 +143,8 @@ class MultitaskTrainer(PearTrainer):
         ready,inflight=self.replay_buffer.family_counts()
         key=self.curriculum.draw(ready,inflight,step=self.global_steps)
         row=self.train_dataset[self._row_by_config[key]]
-        row['extra_info']={**row['extra_info'],'curriculum_config_id':key}
+        row['extra_info']={**row['extra_info'],'curriculum_config_id':key,
+                           'curriculum_dispatch':self.curriculum.last_draw}
         return collate_fn([row])
 
     def _prompt_tags(self,batch):
@@ -135,6 +153,8 @@ class MultitaskTrainer(PearTrainer):
         for uid,extra,tag in zip(list(batch['uid']),extras,tags,strict=True):
             key=extra['curriculum_config_id']
             self.curriculum.register(str(uid),key,self.global_steps)
+            self.telemetry.step=int(self.global_steps)
+            self.telemetry.dispatch(str(uid),extra['curriculum_dispatch'])
             tag.update(curriculum_config_id=key,curriculum_family=self.curriculum.configs[key]['family'])
         return tags
 
@@ -161,6 +181,12 @@ class MultitaskTrainer(PearTrainer):
         return tq.kv_batch_put(keys=batch.keys,partition_id=batch.partition_id,
             fields=TensorDict({'advantages':advantages},batch_size=len(batch)))
 
+    def _compute_metrics(self,batch,metrics,timing_raw,global_steps,epoch):
+        result=super()._compute_metrics(batch,metrics,timing_raw,global_steps,epoch)
+        metrics.update(reward_metrics(self.curriculum.groups,self.curriculum.configs))
+        self.telemetry.metrics(global_steps,metrics)
+        return result
+
     def _save_checkpoint(self):
         folder=Path(self.config.trainer.default_local_dir)/f'global_step_{self.global_steps}'
         folder.mkdir(parents=True,exist_ok=True)
@@ -169,6 +195,15 @@ class MultitaskTrainer(PearTrainer):
         # The upstream completion pointer is written only after this state and
         # the model/optimizer/TransferQueue are saved.
         super()._save_checkpoint()
+        self.telemetry.emit('checkpoint','checkpoint/'+str(self.global_steps),step=int(self.global_steps),
+            name='rp_jhh_'+self.telemetry.run_id.replace('-','_')+'_step'+str(self.global_steps),complete=True)
+
+    def _validate(self):
+        metrics=super()._validate()
+        from efe_pear_telemetry import scalars
+        self.telemetry.emit('evaluation','evaluation/'+str(self.global_steps),step=int(self.global_steps),
+                            metrics=scalars(metrics))
+        return metrics
 
     def _load_checkpoint(self):
         super()._load_checkpoint()

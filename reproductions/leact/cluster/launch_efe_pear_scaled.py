@@ -3,6 +3,7 @@ import argparse
 from collections import Counter
 from datetime import datetime, timezone
 import fcntl
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -192,6 +193,31 @@ def prepare_bridge(index=0):
     return build
 
 
+def prepare_training_bundle():
+    """Package the complete future trainer without enabling paused launches."""
+    names=['efe_pear_scaled_train.sh','efe_pear_multitask_train.py','efe_pear_curriculum.py',
+        'efe_pear_curriculum_state.py','efe_pear_telemetry.py','efe_pear_agent_metrics.py',
+        'efe_pear_router.py','efe_pear_moe_kernels.py',
+        'efe_pear_agent_metrics.yaml','efe_pear_native_env.py','efe_pear_bridge.py',
+        'efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']
+    sources={name:BASE/'cluster'/name for name in names}
+    sources['scene_identity.py']=BUILD_ROOT/'efe-pear-native-qualification-20261114-v1/scene_identity.py'
+    digests={name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()}
+    digest=hashlib.sha256(json.dumps(digests,sort_keys=True).encode()).hexdigest()
+    build=BUILD_ROOT/('efe-pear-training-adapters-'+digest[:16]);build.mkdir(exist_ok=True)
+    if not (build/'source-manifest.json').exists():
+        for name,path in sources.items():shutil.copyfile(path,build/name)
+        freeze_sources(build)
+    record={'bundle':str(build),'content_sha256':digest,'files':digests,'primary_launched':False,
+        'qualification':'CPU packaging only; all model and scene admission gates remain required',
+        'telemetry':{'directory':'$RUN/telemetry','heartbeat_seconds':10,'driver_metrics':'events.jsonl',
+                     'rollout_counters':'rollout-workers/*.json','raw_upstream_metrics':'$RUN/metrics.jsonl',
+                     'hosted_collector':'tracking/pear_collect.py','workflow_label':'pear_run_id=<arm id>',
+                     'mac_required_for_run_tracking':False}}
+    write(DEST/'training-adapters.json',record)
+    return record
+
+
 def launch(kind='runtime'):
     prepare_plan()
     with (DEST/(kind+'-launch.lock')).open('a') as lock:
@@ -283,10 +309,11 @@ def monitor(kind='runtime'):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action',choices=['prepare','launch','monitor','status'])
+    parser.add_argument('action',choices=['prepare','launch','monitor','status','package'])
     parser.add_argument('--kind',choices=['runtime','bridge'],default='runtime')
     args=parser.parse_args()
-    if args.action=='prepare':print(json.dumps(prepare_plan(),indent=2))
+    if args.action=='package':print(json.dumps(prepare_training_bundle(),indent=2))
+    elif args.action=='prepare':print(json.dumps(prepare_plan(),indent=2))
     elif args.action=='launch':print(json.dumps(launch(args.kind),indent=2))
     elif args.action=='monitor':monitor(args.kind)
     else:print(json.dumps(tick(args.kind)[1],indent=2))

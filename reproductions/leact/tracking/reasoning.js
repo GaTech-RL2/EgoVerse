@@ -37,23 +37,64 @@ if(typeof document!=='undefined'){
     group.append(list);return group;
   }
   function simulatorFamilies(){
+    if(!data)return;
     const all=data.simulators?.families||[],query=$('sim-search').value.trim().toLowerCase(),split=$('sim-split').value;
     const families=all.filter(f=>(split==='all'||f[split]?.length)&&(!query||[f.name,f.id,...['train','eval_seen','eval_unseen','pending'].flatMap(k=>(f[k]||[]).map(t=>t.id+' '+(t.description||'')))].join(' ').toLowerCase().includes(query)));
     const counts=data.simulators?.counts||{};
     $('mixture-summary').textContent=`${fmt(counts.train||0)} train candidates · ${fmt(counts.eval_seen||0)} seen-sim / unseen-task eval tasks · ${fmt(counts.eval_unseen||0)} unseen-sim / unseen-task eval tasks`;
     $('simulator-count').textContent=fmt(families.length)+' families';
+    const yam=data.native_yam_split||{},countsYam=yam.counts||{},groupsYam=yam.semantic_groups||{};
+    $('yam-split-note').textContent=yam.entries?`Native GR00T YAM: ${countsYam.train} train names (${groupsYam.train} task groups), ${countsYam.development} development names and ${countsYam.test} test names (${groupsYam.test} task groups). All saved layouts remain evaluation-only; training requires independent scenes. Native GR00T YAM is separate from EFE YAMLab. Scene and exposure audits remain pending.`:'Native GR00T YAM membership has not been imported yet.';
     const cards=families.map(f=>{
       const card=node('article',undefined,'family-card');
       if(f.image){const figure=node('figure'),img=node('img');img.src=f.image.url;img.alt=f.name+' simulator preview';img.loading='lazy';img.decoding='async';figure.append(img);const caption=node('figcaption'),source=node('a',f.image.caption);source.href=f.image.source_url;source.target='_blank';source.rel='noreferrer';caption.append(source);figure.append(caption);card.append(figure);}
       const body=node('div',undefined,'family-body'),heading=node('div',undefined,'family-heading');heading.append(node('h3',f.name),node('span',f.split_status,'tag '+(f.eval_unseen.length?'eval':f.pending.length?'pending':'train')));body.append(heading);
       if(!f.pending.length)body.append(taskGroup('Train',f.train,f.id,'training'));
       if(f.eval_seen.length)body.append(taskGroup('Eval · seen sim, unseen task',f.eval_seen,f.id,'evaluation'));
+      if(f.development?.length)body.append(taskGroup('Development · held-out tasks',f.development,f.id,'development'));
       if(f.eval_unseen.length)body.append(taskGroup('Eval · unseen sim, unseen task',f.eval_unseen,f.id,'evaluation'));
       if(f.pending.length)body.append(taskGroup('Catalog · train/eval split pending',f.pending,f.id,'pending'));
       if(!f.eval_seen.length&&!f.eval_unseen.length&&!f.pending.length)body.append(node('p','No eval tasks in these two categories.','meta'));
       card.append(body);return card;
     });
     $('simulator-families').replaceChildren(...cards);if(!cards.length)$('simulator-families').append(node('p','No matching simulator families.','meta'));
+  }
+  function liveExperiments(){
+    const r=data.warmstart_retention||{},p=r.progress||{};
+    $('retention-status').replaceChildren();
+    const text=r.scheduler_status?`Warmstart-496 retention · RealWorldQA · ${r.scheduler_status}${p.model?' · '+p.model:''}${p.completed!==undefined?' · '+p.completed+'/765 questions':''}${p.phase?' · '+p.phase.replaceAll('_',' '):''}`:'Warmstart-496 retention · RealWorldQA · waiting for submission';
+    const a=node(r.url?'a':'span',text);if(r.url){a.href=r.url;a.target='_blank';a.rel='noreferrer';}$('retention-status').append(a);
+    const result=r.result;if(result)table('retention-results',['Checkpoint','Accuracy','Format failures','Truncations'],['base','warmstart496'].map(k=>[k,fmt(result[k].accuracy*100)+'%',result[k].format_failures,result[k].truncated]));
+    $('retention-explanation').textContent=result?`Warmstart minus base: ${fmt(result.warm_minus_base*100)} percentage points; paired 95% interval [${result.paired_95ci.map(n=>fmt(n*100)).join(', ')}]. This checks one visual-QA benchmark; coding and other language capabilities remain unmeasured.`:'All 765 questions are paired between base and warmstart-496. The comparison will report accuracy, a paired confidence interval, formatting failures and truncation. No result yet.';
+    const live=data.live_pear||{},runs=live.runs||{},entries=Object.entries(runs),latest=entries.map(([,v])=>v.heartbeat?.updated_utc).filter(Boolean).sort().at(-1);
+    const collector=data.hosted_collector;
+    $('live-status').textContent=collector?`Hosted collector · ${collector.success?'online':'needs attention'} · ${new Date(collector.updated_utc).toLocaleTimeString()}`:r.observed_utc?'Evaluation checked '+new Date(r.observed_utc).toLocaleTimeString():'';
+    $('pear-live-status').textContent=latest?'PEAR heartbeat '+new Date(latest).toLocaleString()+' · '+(Date.now()-Date.parse(latest)>120000?'stale; check collector or workflow':'receiving metrics'):'PEAR is on hold. Training charts populate when an authorized run starts.';
+    const arms=data.pear.arms||[];
+    table('pear-run-table',['Run','Initialization / baseline','Updates observed','Explanation'],arms.map(arm=>{const run=runs[arm.id],step=run?.optimizer_steps_observed||0,active=run?.heartbeat?.updated_utc&&Date.now()-Date.parse(run.heartbeat.updated_utc)<=120000;return [arm.id,arm.warmstart_step?'MoE · warmstart step '+arm.warmstart_step:'Qwen3.8-27B · base',step,step?'Training metrics below show observed updates; held-out evaluation is reported separately.':active?'Run is reporting; the first optimizer update is pending.':'On hold; no primary optimizer update or evaluation result yet.'];}));
+    table('pear-recipe',['Run','Recipe status','LR','Group batch','Rollouts / group','Score centering','Parameter update','Router policy'],arms.map(arm=>{const m=runs[arm.id]?.metadata;return [arm.id,m?.run_id?'Recorded configuration':'Planned configuration',m?.learning_rate??1e-6,m?.retained_groups??128,m?.rollouts_per_group??8,m?.score_centering===false?'off':'on',m?.parameter_update??'full finetuning',(m?.router_policy??arm.router_policy??'not applicable').replaceAll('_',' ')];}));
+    table('pear-checkpoints',['Run','Completed checkpoint','Step','Recorded'],entries.flatMap(([key,v])=>(v.checkpoints||[]).map(c=>[key,c.name,c.step,new Date(c.updated_utc).toLocaleString()])));
+    table('pear-evaluations',['Run','Evaluation step','Metric','Value'],entries.flatMap(([key,v])=>(v.evaluations||[]).flatMap(e=>Object.entries(e.metrics).map(([metric,n])=>[key,e.step,metric,fmt(n)]))));
+    const select=$('metric-run'),old=select.value;while(select.options.length>1)select.remove(1);entries.forEach(([key])=>select.append(new Option(key,key)));select.value=[...select.options].some(o=>o.value===old)?old:'all';
+    const metric=$('metric-name'),previous=metric.value,names=new Set(['policy_loss','grad_norm','learning_rate','entropy','rollout_policy_kl','response_tokens','truncation_rate','step_seconds','gpu_memory_gb','reward_unfiltered_cumulative/all','reward_unfiltered_cumulative/macro_task']);
+    entries.forEach(([,v])=>v.history.forEach(row=>Object.keys(row.metrics).forEach(k=>names.add(k))));metric.replaceChildren(...[...names].map(k=>new Option(k.replaceAll('_',' '),k)));metric.value=names.has(previous)?previous:'policy_loss';
+    table('live-task-rewards',['Run','Task','Cumulative raw success rate'],entries.flatMap(([key,v])=>Object.entries(v.latest_task_rewards).map(([task,value])=>[key,task,fmt(value*100)+'%'])));
+    table('live-metrics',['Run','Metric','Latest value'],entries.flatMap(([key,v])=>Object.entries({...v.latest_metrics,...Object.fromEntries(Object.entries(v.rollout_diagnostics||{}).map(([k,n])=>['rollout_diagnostics/'+k,n]))}).map(([name,value])=>[key,name,fmt(value)])));
+    metricChart();
+  }
+  function metricChart(){
+    if(!data)return;
+    const target=$('metric-chart'),name=$('metric-name').value,filter=$('metric-run').value,colors=['#2563eb','#d97706'];target.replaceChildren();$('metric-legend').replaceChildren();
+    const entries=Object.entries(data.live_pear?.runs||{}),series=entries.map(([run,v],i)=>({run,color:colors[i%colors.length],points:v.history.map(row=>({step:row.step,value:row[name]??row.metrics[name]})).filter(p=>typeof p.value==='number'&&Number.isFinite(p.value))})).filter(s=>(filter==='all'||s.run===filter)&&s.points.length);
+    if(!series.length){target.append(node('p','No measurements for this metric yet.','chart-empty'));return;}
+    const points=series.flatMap(s=>s.points),minX=Math.min(...points.map(p=>p.step)),maxX=Math.max(minX+1,...points.map(p=>p.step)),lo=Math.min(...points.map(p=>p.value)),hi=Math.max(...points.map(p=>p.value)),pad=(hi-lo||Math.max(Math.abs(hi),1))*.08,minY=lo-pad,maxY=hi+pad;
+    const width=Math.max(360,Math.min(1100,target.clientWidth)),right=width-20;
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox',`0 0 ${width} 240`);svg.setAttribute('role','img');svg.setAttribute('aria-label',name+' by optimizer step');
+    function el(tag,attrs,text){const e=document.createElementNS(svg.namespaceURI,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(text)e.textContent=text;svg.append(e);return e;}
+    const x=p=>65+(p.step-minX)/(maxX-minX)*(right-65),y=p=>205-(p.value-minY)/(maxY-minY)*185;
+    for(let i=0;i<4;i++){const value=minY+(maxY-minY)*i/3,pos=y({value});el('line',{x1:65,x2:right,y1:pos,y2:pos,stroke:'#dbe3ee'});el('text',{x:58,y:pos+4,'text-anchor':'end','font-size':12,fill:'#526174'},Number(value.toPrecision(4)).toString());}
+    el('text',{x:65,y:228,'font-size':12,fill:'#526174'},'Step '+minX);el('text',{x:right,y:228,'font-size':12,'text-anchor':'end',fill:'#526174'},'Step '+(maxX===minX+1?minX:maxX));
+    series.forEach(s=>{const label=node('span',s.run,'metric-run-label metric-color-'+colors.indexOf(s.color));$('metric-legend').append(label);el('polyline',{points:s.points.map(p=>x(p)+','+y(p)).join(' '),fill:'none',stroke:s.color,'stroke-width':2});s.points.forEach(p=>{const circle=el('circle',{cx:x(p),cy:y(p),r:4,fill:s.color,tabindex:0,'aria-label':s.run+', step '+p.step+', '+name+': '+p.value});const show=()=>{$('metric-value').textContent=s.run+' · step '+p.step+' · '+name+' = '+p.value;};circle.addEventListener('mouseenter',show);circle.addEventListener('focus',show);});});target.append(svg);
   }
   function estimates(){
     if(!data)return;
@@ -76,8 +117,8 @@ if(typeof document!=='undefined'){
   function inventory(){const query=$('search').value.trim().toLowerCase(),source=$('source').value,role=$('role').value;filtered=data.inventory.entries.filter(r=>(!source||r.source===source)&&(!role||r.role===role)&&(!query||[r.id,r.suite,r.description,r.embodiment,r.semantic_task].join(' ').toLowerCase().includes(query)));page=Math.max(0,Math.min(page,Math.ceil(filtered.length/PAGE)-1));const rows=filtered.slice(page*PAGE,(page+1)*PAGE);table('environment-table',['Environment / task','Suite / source','Membership','Readiness'],rows.map(r=>{const tag=node('span',r.role,'tag '+(r.role.includes('evaluation')?'eval':r.role==='PEAR training candidate'?'train':'pending'));return [textCell(r.id,r.description),textCell(r.suite,r.source),tag,textCell(r.status,r.runtime)];}));$('inventory-count').textContent=fmt(filtered.length)+' matching catalog entries. No catalog row is automatically an RL admission.';$('page').textContent=filtered.length?`${page+1} / ${Math.ceil(filtered.length/PAGE)}`:'0 / 0';$('previous').disabled=page===0;$('next').disabled=(page+1)*PAGE>=filtered.length;}
   function render(value){
     data=value;if(!data.inventory)throw Error('No reasoning workspace snapshot has been imported yet.');
-    $('freshness').textContent='Updated '+new Date(data.updated_utc).toLocaleString();
-    embodiedReasoning();simulatorFamilies();estimates();
+    $('freshness').textContent='Catalog updated '+new Date(data.updated_utc).toLocaleString();
+    embodiedReasoning();simulatorFamilies();estimates();liveExperiments();
     for(const [id,key]of [['source','source'],['role','role']]){const select=$(id),old=select.value;while(select.options.length>1)select.remove(1);[...new Set(data.inventory.entries.map(r=>r[key]))].sort().forEach(v=>select.append(new Option(v,v)));select.value=old;}
     inventory();table('suite-table',['Simulator suite','Catalog entries','PEAR candidates','Evaluation entries','Interface status'],data.inventory.suites.map(r=>[r.suite,r.catalog_entries,r.pear_training_candidates,r.evaluation_entries,r.interface_status]));
     $('inventory-limits').replaceChildren(...data.inventory.limitations.map(text=>node('p',text)));
@@ -88,7 +129,9 @@ if(typeof document!=='undefined'){
   for(const id of ['updates','gpu-budget','profile','retention','throughput','availability','moe-tokens','dense-tokens','reasoning-tokens'])$(id).addEventListener('input',estimates);
   for(const id of ['search','source','role'])$(id).addEventListener('input',()=>{page=0;inventory();});
   for(const id of ['sim-search','sim-split'])$(id).addEventListener('input',simulatorFamilies);
+  for(const id of ['metric-run','metric-name'])$(id).addEventListener('input',metricChart);
+  window.addEventListener('resize',metricChart);
   $('previous').onclick=()=>{page--;inventory();};$('next').onclick=()=>{page++;inventory();};
   $('download').onclick=()=>{const fields=['id','source','suite','role','status','runtime','semantic_task','description','source_path'];const csv=[fields,...filtered.map(r=>fields.map(k=>r[k]??''))].map(row=>row.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=node('a');a.href=url;a.download='rpunamiya-environments.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-  load();setInterval(load,60000);
+  load();setInterval(load,15000);
 }

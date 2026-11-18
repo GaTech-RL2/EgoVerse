@@ -56,6 +56,7 @@ class CurriculumState:
         self.dispatches=Counter()
         self.family_outcomes=defaultdict(list)
         self.adaptations=[]
+        self.last_draw=None
 
     @property
     def loss_weights(self):
@@ -126,6 +127,13 @@ class CurriculumState:
         probabilities=sgs_probabilities(rates)
         chosen=self.rng.choices(sorted(probabilities),
             weights=[probabilities[k] for k in sorted(probabilities)],k=1)[0]
+        self.last_draw={'family':family,'suite':suite,'task':task,'stratum':stratum,
+            'selected_config_id':chosen,'selected_probability':probabilities[chosen],
+            'estimated_success':rates[chosen],'reset_pool_size':len(probabilities),
+            'effective_sample_size':1/sum(p*p for p in probabilities.values()),
+            'uniform_fraction':.2,'history_horizon':self.history.horizon,
+            'ready_groups':dict(ready),'inflight_groups':dict(inflight),
+            'quotas':dict(self.quotas),'full_start_target_fraction':full_fraction}
         return chosen
 
     def adapt(self, quotas, *, step, evidence):

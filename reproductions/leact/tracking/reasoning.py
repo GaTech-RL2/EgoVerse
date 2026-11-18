@@ -9,6 +9,7 @@ from pathlib import Path
 import argparse
 import json
 import math
+import re
 import statistics
 import subprocess
 
@@ -18,6 +19,18 @@ from .reasoning_media import simulator_families
 
 BASE=Path(__file__).resolve().parents[1]
 PAPER='https://mit-han-lab.github.io/pear-blog/#appendix'
+
+
+def public_workspace(value):
+    """Exclude unrelated experiment provenance from this independent site."""
+    def private(text):
+        return re.search(r'leact|yam-coverage-rpunamiya',text,re.I)is not None
+    if isinstance(value,dict):
+        return {k:public_workspace(v)for k,v in value.items()
+                if k!='compute_usage'and not private(k)
+                and not (isinstance(v,str)and private(v))}
+    if isinstance(value,list):return [public_workspace(v)for v in value if not(isinstance(v,str)and private(v))]
+    return value
 
 
 def read(path,default=None):
@@ -155,16 +168,23 @@ def inventory(root):
             'rl_admitted':False})
     source=read(scaled/'sources/gr00t-sim-source.json',{})
     native=Path(source.get('source','/nonexistent'))
+    yam_split=read(scaled/'native-yam-split-v1.json',{})
+    yam_by_name={r['env_name']:r for r in yam_split.get('entries',[])}
     names=set();native_files=[]
     for path in sorted((native/'gr00t_sim/tasks/env_graphs/yam').rglob('*.yaml')):
         data=yaml.safe_load(path.read_text());name=data.get('env_name',path.stem);names.add(name)
+        membership=yam_by_name.get(name,{})
+        role={'train':'PEAR training candidate','test':'seen simulator unseen task evaluation',
+              'development':'development'}.get(membership.get('split'),'native candidate; split pending')
         task=data.get('task',{});embodiment=data.get('embodiment',{})
         item={'id':'gr00t-yam/'+str(path.relative_to(native/'gr00t_sim/tasks/env_graphs/yam')),
-            'source':'Native GR00T','suite':'native-gr00t-yam','role':'native candidate; split pending',
+            'source':'Native GR00T','suite':'native-gr00t-yam','role':role,
+            'task_partition':membership.get('split'),'semantic_group':membership.get('semantic_group'),
             'semantic_task':name,'description':task.get('description',name),
             'runtime':'native GR00T simulator; adapter qualification pending',
             'source_path':str(path.relative_to(native)),'source_revision':source.get('revision'),
-            'embodiment':embodiment.get('registry_name'),'status':'source present; PEAR bridge and scene split pending',
+            'embodiment':embodiment.get('registry_name'),
+            'status':'task split frozen; independent training resets and bridge qualification pending'if membership else'split pending',
             'rl_admitted':False}
         result.append(item);native_files.append(item)
     proposal=read(BASE/'proposals/efe_pearplusplus_multitask_v2.json',{})
@@ -197,7 +217,7 @@ def inventory(root):
         'rl_admitted_tasks':0},'limitations':[
         'Catalog entries, semantic tasks, scene variants and admitted environments are different counts.',
         'The native YAM catalog contains repeated env_name declarations; source YAML count is not a count of independently verified environments.',
-        'Native YAM scenes need a frozen train/evaluation split; eval_flywheel filenames are not reassigned to training.',
+        'Native YAM task membership is frozen. All existing saved layouts stay evaluation-only; train tasks require independent scenes before admission.',
         'Seen-task/new-variant and seen-simulator/new-task cohorts remain provisional until actual scene/exposure audits.',
         'Six example interfaces passed; this does not qualify every task in their simulator families.'],
         'holdout_review':{k:review.get(k)for k in ['core_cohort_counts','development_cohort_counts','unseen_simulator_counts']}}
@@ -218,10 +238,17 @@ def build(base=BASE):
             'existing_training_sources':read(base/'proposals/efe_reasoning_training_sources_v1.json',{}).get('sources',[]),
             'box_output_planned':any('bounding box'in f.get('output','').lower()or'bbox'in f.get('output','').lower()
                 for f in reasoning.get('families',[]))},
+        'warmstart_retention':read(base/'artifacts/reasoning-workspace/retention-496/live.json',{}),
+        'native_yam_split':read(scaled/'native-yam-split-v1.json',{}),
+        'live_pear':read(base/'artifacts/reasoning-workspace/live/pear.json',{}),
+        'live_collectors':{key:read(base/f'artifacts/reasoning-workspace/live/{key}-collector.json',{})for key in ['pear','retention']},
         'pear':{'arms':plan.get('arms',[]),'primary_updates':plan.get('primary_rl_updates',0),
+            'moe_router_policy':proposal.get('moe_router_policy',{}),
+            'sgs':proposal.get('sgs',{}),'optimizer':proposal.get('optimizer',{}),
+            'balance':proposal.get('multitask_balancing',proposal.get('multitask',{})),
             'recipe':plan.get('recipe',{}),'interface_context':plan.get('interface_context',{}),
             'planned_extra_h100_gpus_total':32,'planned_h100_gpus_per_arm':16,
-            'launch_authorized':False,'allocation_note':'Estimate only. Keep both current LeAct runs; do not launch PEAR.',
+            'launch_authorized':False,'allocation_note':'Estimate only. Existing experiments remain independent; do not launch PEAR.',
             'paper_reference':{'url':PAPER,'h100_node_generated_tokens_second':[2000,3000],
                 'mean_episode_generated_tokens':92000,'total_training_h100_equivalent_hours':50000,
                 'note':'Published dense-model baseline; not our measured PEAR rate. The paper uses more concurrent sessions than our initial recipe.'},
@@ -241,6 +268,7 @@ def build(base=BASE):
                 'No valid end-to-end full-model PEAR timing exists yet. Engine, environment, curriculum and long-context checks remain prerequisites.']}}
     for key,assumptions in result['pear']['arm_assumptions'].items():
         result['pear'].setdefault('default_estimates',{})[key]=estimate(**result['pear']['default_inputs'],**assumptions)
+    result=public_workspace(result)
     write(base/'artifacts/reasoning-workspace/workspace.json',result)
     return result
 

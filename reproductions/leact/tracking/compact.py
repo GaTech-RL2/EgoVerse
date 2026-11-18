@@ -15,7 +15,15 @@ import sqlite3
 from .server import connect, pack_payload, unpack_payload, SNAPSHOT_RETENTION
 
 TABLES = {'snapshots': ('id', 3, 1), 'experts': ('oracle_sha,state_id', 4, 3),
-          'trace_versions': ('id', 2, 1), 'traces': ('run,state_id,seed', None, None)}
+          'trace_versions': ('id', 2, 1), 'traces': ('run,state_id,seed', None, None),
+          'pear_runs': ('run_id', 2, None)}
+
+
+def table_counts(value):
+    required=set(TABLES)-{'pear_runs'}
+    if value.keys()-TABLES.keys() or required-value.keys():
+        raise ValueError('Unexpected backup tables; review before restoring')
+    return {table:value.get(table,0) for table in TABLES}
 
 
 def line(value):
@@ -26,7 +34,7 @@ def normalized(table, row):
     values=list(row); _, payload, digest=TABLES[table]
     if payload is not None:
         values[payload]=unpack_payload(values[payload])
-        if hashlib.sha256(values[payload].encode()).hexdigest()!=values[digest]:
+        if digest is not None and hashlib.sha256(values[payload].encode()).hexdigest()!=values[digest]:
             raise ValueError('Payload checksum mismatch: '+table)
     return values
 
@@ -38,19 +46,21 @@ def backup(source, archive, keep=SNAPSHOT_RETENTION, progress=None):
     with closing(sqlite3.connect(source.resolve().as_uri()+'?mode=ro',uri=True)) as db:
         db.execute('BEGIN')
         names={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if names!=set(TABLES):raise ValueError('Unexpected database tables; review before compacting')
+        if names-set(TABLES) or set(TABLES)-{'pear_runs'}-names:
+            raise ValueError('Unexpected database tables; review before compacting')
         header={'format':'leact-tracker-backup-v1','keep_snapshots':keep,
                 'source':str(source.resolve()),'source_bytes':source.stat().st_size,
-                'source_counts':{t:db.execute('SELECT COUNT(*) FROM '+t).fetchone()[0] for t in TABLES}}
+                'source_counts':{t:db.execute('SELECT COUNT(*) FROM '+t).fetchone()[0] if t in names else 0 for t in TABLES}}
         with archive.open('xb') as output:
             with lzma.LZMAFile(output,'wb',preset=3) as compressed:
                 compressed.write(line({'header':header}))
                 for table,(order,_,_) in TABLES.items():
+                    counts[table]=0
+                    if table not in names:continue
                     query='SELECT * FROM '+table
                     params=()
                     if table=='snapshots':
                         query+=' WHERE id IN (SELECT id FROM snapshots ORDER BY id DESC LIMIT ?)';params=(keep,)
-                    counts[table]=0
                     for row in db.execute(query+' ORDER BY '+order,params):
                         raw=line([table,normalized(table,row)])
                         digest.update(raw);compressed.write(raw);counts[table]+=1
@@ -77,9 +87,9 @@ def records(archive):
             normalized(table,row)
             digest.update(raw);counts[table]+=1
             yield table,row
-    if manifest!={'counts':counts,'sha256':digest.hexdigest()}:
+    if manifest is None or table_counts(manifest['counts'])!=counts or manifest['sha256']!=digest.hexdigest():
         raise ValueError('Backup is incomplete or its content checksum changed')
-    expected=dict(header['source_counts'])
+    expected=table_counts(header['source_counts'])
     expected['snapshots']=min(expected['snapshots'],header['keep_snapshots'])
     if counts!=expected:raise ValueError('Backup lost records')
 

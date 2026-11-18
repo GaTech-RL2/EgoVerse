@@ -40,7 +40,7 @@ def main():
     archive = args.output/'tracker.tar.gz'
     with tarfile.open(archive, 'w:gz') as bundle:
         for name in ['server.py', 'index.html', 'app.js', 'traces.js', 'leaderboards.js', 'style.css',
-                     'reasoning.html','reasoning.js','reasoning.css','install_remote.sh']:
+                     'reasoning.html','reasoning.js','reasoning.css','install_remote.sh','pear_collect.py']:
             bundle.add(ASSETS/name, arcname=name)
         bundle.add(snapshot_path, arcname='snapshot.json')
         bundle.add(records_path, arcname='records.jsonl')
@@ -97,7 +97,7 @@ bash "releases/DIGEST/install_remote.sh" "$base/releases/DIGEST"
                                    capture_output=True, text=True, timeout=20, check=True)
     health = json.loads(health_result.stdout)
     canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if health.get('service') != 'leact-tracker' or health['snapshot']['sha256'] != hashlib.sha256(canonical).hexdigest():
+    if health.get('service') != ('reasoning-tracker'if reasoning else'leact-tracker') or health['snapshot']['sha256'] != hashlib.sha256(canonical).hexdigest():
         raise ValueError('ITSS health or imported snapshot checksum did not match')
     record.update(deployed=True, verified_utc=datetime.now(timezone.utc).isoformat(), health=health,
                   url='http://'+args.host.split('@')[-1]+':8126/')

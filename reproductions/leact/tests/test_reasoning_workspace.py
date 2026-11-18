@@ -1,16 +1,17 @@
 import json
 import base64
 import hashlib
+import gzip
 from pathlib import Path
 import shutil
 import subprocess
 import threading
-from urllib.request import urlopen
+from urllib.request import Request,urlopen
 from urllib.error import HTTPError
 
 import pytest
 
-from reproductions.leact.tracking.reasoning import allocation,estimate
+from reproductions.leact.tracking.reasoning import allocation,estimate,public_workspace
 from reproductions.leact.tracking.export import snapshot
 from reproductions.leact.tracking.reasoning import inventory
 from reproductions.leact.tracking.reasoning_media import simulator_families
@@ -128,18 +129,37 @@ def test_browser_calculator_matches_server_estimates():
             assert client[key]==pytest.approx(server[key])
 
 
-def test_new_home_page_and_inventory_endpoint_preserve_existing_tracker(tmp_path):
-    db=tmp_path/'tracker.sqlite3';payload={'title':'rpunamiya reasoning','inventory':{'entries':[]}}
+def test_reasoning_instance_serves_only_its_own_pages_and_data(tmp_path):
+    db=tmp_path/'tracker.sqlite3';payload={'title':'rpunamiya reasoning','inventory':{'entries':[]},'notes':'x'*20000}
     ingest(db,{'schema_version':1,'runs':[],'training':[],'status':{'reasoning_workspace':payload}})
     server=ThreadingHTTPServer(('127.0.0.1',0),handler(db,'reasoning'))
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     root=f'http://127.0.0.1:{server.server_port}'
     try:
         with urlopen(root+'/')as response:assert b'<title>rpunamiya reasoning</title>'in response.read()
-        with urlopen(root+'/experiments')as response:assert b'LeAct experiment tracker'in response.read()
+        for route in ['/experiments','/api/snapshot','/api/traces','/app.js','/efe-rollouts.html']:
+            with pytest.raises(HTTPError)as error:urlopen(root+route)
+            assert error.value.code==404
+        with urlopen(root+'/api/health')as response:assert json.load(response)['service']=='reasoning-tracker'
         with urlopen(root+'/api/reasoning')as response:assert json.load(response)==payload
+        with urlopen(Request(root+'/api/reasoning',headers={'Accept-Encoding':'gzip'}))as response:
+            assert response.headers['Content-Encoding']=='gzip'
+            assert json.loads(gzip.decompress(response.read()))==payload
+        with urlopen(Request(root+'/api/reasoning',headers={'Accept-Encoding':'gzip;q=0'}))as response:
+            assert response.headers.get('Content-Encoding')is None
         with urlopen(root+'/reasoning.js')as response:
             assert b'pearEstimate'in response.read()
             assert "script-src 'self'"in response.headers['Content-Security-Policy']
     finally:
         server.shutdown();server.server_close();thread.join()
+
+
+def test_public_workspace_excludes_private_crosslinks_and_unrelated_provenance():
+    raw={'title':'rpunamiya reasoning','compute_usage':{'private_allocation':8},
+         'run':{'id':'moe-warmstart496','revision':'fixed-496','model_path':'/private/leact/model',
+                'url':'http://yam-coverage-rpunamiya.nvidia.com:8126/'},
+         'notes':['PEAR run','private LeAct lineage'],'reward':.5}
+    result=public_workspace(raw)
+    assert result['run']=={'id':'moe-warmstart496','revision':'fixed-496'}
+    assert result['reward']==.5 and result['notes']==['PEAR run']
+    assert 'compute_usage'not in result

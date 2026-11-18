@@ -15,7 +15,15 @@
       "revision": "efe-coverage-warmstart-intermediate-step496",
       "rl_updates": 0,
       "run_directory": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1/runs/moe-warmstart496-pearplusplus",
-      "warmstart_step": 496
+      "warmstart_step": 496,
+      "router_policy": "frozen_expert_selection_router",
+      "frozen_components": [
+        "expert_selection_routers"
+      ],
+      "router_replay": false,
+      "workflow_labels": {
+        "pear_run_id": "moe-warmstart496-pearplusplus"
+      }
     },
     {
       "checkpoint_name_prefix": "rp_jhh_qwen38_27b_base_pearplusplus",
@@ -26,7 +34,10 @@
       "parameter_update": "full_finetuning",
       "revision": "37561816e66b5b9153b1b64c10968c18c1e6f4a0",
       "rl_updates": 0,
-      "run_directory": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1/runs/qwen38-27b-base-pearplusplus"
+      "run_directory": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1/runs/qwen38-27b-base-pearplusplus",
+      "workflow_labels": {
+        "pear_run_id": "qwen38-27b-base-pearplusplus"
+      }
     }
   ],
   "comparison_note": "Different model architectures and initialization histories; this is not an isolated warmstart ablation.",
@@ -106,8 +117,8 @@
       "priority": "primary pillar; enumerate all working manipulation environments",
       "user_confirmation": "The user confirms these simulator environments work.",
       "catalog_count": null,
-      "catalog_access": "GitLab API HTTP 401: expired token, checked 2026-11-17T00:25:29.378100+00:00",
-      "local_fixture": "YamSimPickRedCubeEnv is only the locally available fixture; do not treat it as the full gr00t-sim catalog.",
+      "catalog_access": "Pinned native source catalog is present.",
+      "local_fixture": "Full native catalog is indexed locally; task metadata is kept outside the public repository.",
       "catalog_fields": [
         "task_id",
         "source_revision",
@@ -123,7 +134,11 @@
         "scene_asset_ancestry",
         "split"
       ],
-      "integration_checks": "Map observations, typed JSON actions and native rewards to our learner. Preserve working environment definitions."
+      "integration_checks": "Map observations, typed JSON actions and native rewards to our learner. Preserve working environment definitions.",
+      "task_split_manifest": "Private local artifact: native-yam-split-v1.json",
+      "scene_policy": "All existing saved layouts remain evaluation-only. Independent generated training scenes are required.",
+      "rl_admitted": 0,
+      "catalog_count_note": "Counts and private task metadata are stored in the local source index and ITSS inventory."
     },
     "other_scene_sources": [
       "robocasa365",
@@ -344,7 +359,10 @@
       "Scene, asset and capture ancestry separation",
       "No render of a protected scene through another camera"
     ],
-    "foundation_model_note": "This controls the new training data only; prior exposure of pretrained or warmstarted checkpoints to these benchmarks has not been established."
+    "foundation_model_note": "This controls the new training data only; prior exposure of pretrained or warmstarted checkpoints to these benchmarks has not been established.",
+    "capability_retention_benchmarks": [
+      "RealWorldQA"
+    ]
   },
   "excluded_everywhere": [
     "behavior-1k"
@@ -630,5 +648,66 @@
     "sgs": "https://sgs-rl.github.io/",
     "efe_revision": "b88c450c46de8a96bba83bf9606b66396cccfff5"
   },
-  "implementation_status": "Runtime installed and CUDA probe passed. Native checks, model checks, model staging, retained-family quotas, SGS dispatch state and family loss reduction are implemented. No primary RL updates. Full native YAM catalog access, generated reasoning scenes, reset/scene admission, adaptive progress measurement and primary multi-node orchestration remain pending."
+  "implementation_status": "Runtime installed and CUDA probe passed. Native checks, model checks, model staging, retained-family quotas, SGS dispatch state and family loss reduction are implemented. No primary RL updates. Full native YAM catalog access, generated reasoning scenes, reset/scene admission, adaptive progress measurement and primary multi-node orchestration remain pending.",
+  "telemetry": {
+    "driver_entrypoint": "cluster/efe_pear_multitask_train.py",
+    "recipe": "cluster/efe_pear_scaled_train.sh",
+    "immutable_package_command": "python -m reproductions.leact.cluster.launch_efe_pear_scaled package",
+    "raw_metrics": "$RUN/metrics.jsonl",
+    "durable_events": "$RUN/telemetry/events.jsonl",
+    "rollout_diagnostics": "$RUN/telemetry/rollout-workers/*.json",
+    "heartbeat_seconds": 10,
+    "dashboard_poll_seconds": 15,
+    "collection": "Hosted OSMO log collector on ITSS; own authenticated session; fixed read-only workflow operations.",
+    "reference_policy_kl": "Unmeasured; no reference-model forward or KL penalty. Rollout-current sampled KL and entropy are logged.",
+    "validation": "CPU telemetry and resume tests; GPU instrumentation qualification pending.",
+    "hosted_collector": "tracking/pear_collect.py",
+    "hosted_poll_seconds": 20,
+    "mac_required_for_run_tracking": false
+  },
+  "prelaunch_retention": {
+    "benchmark": "RealWorldQA",
+    "questions_per_checkpoint": 765,
+    "checkpoints": [
+      "Qwen3.6-35B-A3B base",
+      "exact warmstart update 496"
+    ],
+    "primary_reference": "https://arxiv.org/html/2611.18562#A6",
+    "status": "separately authorized evaluation submitted; no result yet",
+    "training_remains_paused": true
+  },
+  "moe_router_policy": {
+    "default": "frozen_expert_selection_router",
+    "scope": "Future MoE post-training only. Keep the current retention checkpoints and evaluations unchanged.",
+    "trainable": "Experts, backbone and other previously trainable weights; no LoRA.",
+    "frozen": "Only expert-selection mlp.gate weight/bias; not gate_proj, GatedDeltaNet gates or the shared-expert mixing gate.",
+    "qualification": [
+      "exact_router_parameter_names_and_count",
+      "routers_have_no_gradients",
+      "router_weights_unchanged_after_update_and_reload",
+      "expert_and_backbone_updates_present",
+      "same_weight_train_rollout_logprob_and_route_checks"
+    ],
+    "comparison": {
+      "method": "R3",
+      "status": "planned_not_implemented_or_launched",
+      "details": "Record rollout top-k expert IDs for every layer/token, including multimodal prefill and multi-turn prefixes. Replay these IDs in training and recompute current gating weights with gradients. Preserve token/packing/mask and policy-version alignment."
+    },
+    "caveat": "Frozen weights do not guarantee identical top-k routes across numerical engines or after hidden-state changes. R3 Appendix D reports a frozen-router run still collapsing; freezing is not evidence of capability retention.",
+    "required_metrics": [
+      "expert_load_cv_by_layer",
+      "expert_peak_load_over_mean",
+      "cold_expert_fraction_below_0.1_mean",
+      "router_weight_drift",
+      "same_weight_train_rollout_route_disagreement",
+      "same_weight_train_rollout_logprob_kl",
+      "task_macro_reward",
+      "heldout_capability_delta"
+    ],
+    "sources": [
+      "https://arxiv.org/html/2610.11959#S5.SS4",
+      "https://proceedings.mlr.press/v306/ma26aw.html",
+      "https://arxiv.org/html/2510.11370#A4"
+    ]
+  }
 }

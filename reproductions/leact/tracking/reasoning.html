@@ -1,12 +1,24 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>rpunamiya reasoning</title><link rel="stylesheet" href="/reasoning.css"></head>
-<body><header><a class="wordmark" href="/reasoning">rpunamiya <span>reasoning</span></a><nav aria-label="Workspace"><a href="#embodied-reasoning">Reasoning</a><a href="#simulators">Simulators</a><a href="#planning">PEAR estimates</a><a href="http://yam-coverage-rpunamiya.nvidia.com:8126/">Experiment tracker ↗</a></nav></header>
+<body><header><a class="wordmark" href="/reasoning">rpunamiya <span>reasoning</span></a><nav aria-label="Workspace"><a href="#live-experiments">Experiments</a><a href="#embodied-reasoning">Reasoning</a><a href="#simulators">Simulators</a><a href="#planning">PEAR estimates</a></nav></header>
 <main>
 <p id="freshness" class="meta freshness" role="status">Loading the latest recorded snapshot…</p>
 <div id="error" class="notice" hidden></div>
+<section id="live-experiments" class="panel">
+<div class="section-heading"><h2>Experiments</h2><span id="live-status" class="meta"></span></div>
+<p id="retention-status"></p><div id="retention-results" class="table-wrap"></div><p id="retention-explanation" class="meta"></p>
+<p id="pear-live-status" class="meta"></p>
+<div id="pear-run-table" class="table-wrap"></div>
+<div class="filters"><label>Run<select id="metric-run"><option value="all">Both PEAR runs</option></select></label><label>Metric<select id="metric-name"><option value="policy_loss">Policy loss</option></select></label></div>
+<div id="metric-legend" class="benchmark-list"></div><div id="metric-chart" class="metric-chart"></div><p id="metric-value" class="meta" aria-live="polite">Hover or focus a point for its run, step and value.</p><p class="meta">Policy loss is the RL update objective. Assess capability with rewards and held-out evaluations; its numerical value is not comparable to supervised cross-entropy.</p>
+<details><summary>Latest task rewards and recorded metrics</summary><div id="live-task-rewards" class="table-wrap"></div><div id="live-metrics" class="table-wrap"></div></details>
+<details><summary>Checkpoints and evaluations</summary><div id="pear-checkpoints" class="table-wrap"></div><div id="pear-evaluations" class="table-wrap"></div></details>
+<details><summary>Training recipe and task balance</summary><div id="pear-recipe" class="table-wrap"></div><p class="meta">128 retained groups × 8 rollouts, after constant-reward filtering. Quotas: native YAM 32; broader bimanual 24; general manipulation 24; language following 16; each of eight reasoning families 4. SGS selects resets within a task and start stratum, with a 20% uniform coverage floor. Full starts and assisted starts are reported separately. Evaluation uses fixed full starts.</p></details>
+<p class="meta">Raw rewards include constant-reward groups discarded by GRPO. Task averages weight tasks equally. Approximate rollout-policy KL measures policy drift; reference-policy KL is not measured by the PEAR recipe. This instance owns the run tracking and keeps its history separately from catalog updates. Timestamps show stale connections.</p>
+</section>
 <section id="embodied-reasoning" class="panel">
 <div class="section-heading"><h2>Embodied reasoning</h2><span id="reasoning-status" class="pill"></span></div>
-<p class="meta">Reasoning task families and existing training-source candidates. Named benchmark datasets stay reserved for evaluation. Eight families describe skill groups, not eight collected tasks.</p>
+<p class="meta">Each task uses observations and public context → reasoning → one typed JSON answer. Control tasks use the robot’s EEF or joint action schema; reasoning tasks use point, set, count, label or pose answers. Existing source data still needs conversion and reward qualification. Named benchmark datasets stay reserved for evaluation.</p>
 <div id="reasoning-task-table" class="table-wrap"></div>
 <h3 class="reasoning-eval-heading">Existing training datasets</h3><p class="meta">Published training sources are available. The entries below are candidates being inspected; they are not yet staged or admitted to our training mixture.</p><div id="reasoning-source-table" class="table-wrap"></div>
 <h3 class="reasoning-eval-heading">Held-out evaluation benchmarks</h3><div id="reasoning-benchmarks" class="benchmark-list"></div>
@@ -17,10 +29,10 @@
 <p id="mixture-summary" class="meta"></p>
 <div class="filters simulator-filters"><label>Family or task<input id="sim-search" type="search" placeholder="Search simulator or task"></label><label>Task split<select id="sim-split"><option value="all">All families</option><option value="train">Train</option><option value="eval_seen">Eval · seen sim, unseen task</option><option value="eval_unseen">Eval · unseen sim, unseen task</option><option value="pending">Split pending</option></select></label></div>
 <div id="simulator-families" class="family-grid"></div>
-<p class="meta">Images illustrate each family; task lists use the frozen PEAR proposal. Native GR00T YAM is separate from EFE YAMLab and still needs its train/eval split. Scene and exposure audits remain provisional.</p>
+<p id="yam-split-note" class="meta"></p>
 </section>
 <section id="planning" class="panel"><div class="section-heading"><h2>PEAR compute estimates</h2><span class="pill">32 additional H100s · 16 per run</span></div>
-<p>Keep both LeAct runs. The proposed PEAR allocation is additional compute, divided equally between the existing MoE warmstart and base Qwen3.8-27B. Values below describe scenarios after qualification and allocation; they are not measured PEAR completion times.</p>
+<p>The proposed PEAR allocation is additional compute, divided equally between the existing MoE warmstart and base Qwen3.8-27B. Values below describe scenarios after qualification and allocation; they are not measured PEAR completion times.</p>
 <p class="meta">The proposal uses 512 updates as a planning milestone, with continuation driven by coverage and learning. The calculator opens at the earlier 32-update checkpoint; select 512 to price the longer schedule.</p>
 <div class="controls"><label>Planning milestone<select id="updates"><option value="1">1 retained update</option><option value="8">8 retained updates</option><option value="32" selected>32 retained updates</option><option value="128">128 retained updates</option><option value="512">512 retained updates · planning milestone</option></select></label>
 <label>Extra H100 GPUs, both runs<select id="gpu-budget"><option value="32" selected>32 · 16 per run</option><option value="64">64 · 32 per run</option><option value="128">128 · 64 per run</option><option value="256">256 · 128 per run</option></select></label>

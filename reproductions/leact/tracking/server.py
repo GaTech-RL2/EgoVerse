@@ -6,6 +6,7 @@ import base64
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
+import gzip
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -39,11 +40,63 @@ def connect(path):
     db = sqlite3.connect(path, timeout=15)
     db.execute('PRAGMA journal_mode=WAL')
     db.execute('CREATE TABLE IF NOT EXISTS snapshots (id INTEGER PRIMARY KEY, sha256 TEXT UNIQUE NOT NULL, imported_utc TEXT NOT NULL, payload TEXT NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS pear_runs (run_id TEXT PRIMARY KEY, updated_utc TEXT NOT NULL, payload TEXT NOT NULL)')
     db.execute('CREATE TABLE IF NOT EXISTS experts (oracle_sha TEXT, state_id TEXT, info TEXT, sha256 TEXT, payload TEXT, PRIMARY KEY(oracle_sha,state_id))')
     db.execute('CREATE TABLE IF NOT EXISTS trace_versions (id INTEGER PRIMARY KEY, sha256 TEXT UNIQUE, payload TEXT)')
     db.execute('CREATE TABLE IF NOT EXISTS traces (run TEXT, state_id TEXT, seed INTEGER, oracle_sha TEXT, label TEXT, method TEXT, scope TEXT, candidates INTEGER, selected INTEGER, truncated INTEGER, version_id INTEGER, PRIMARY KEY(run,state_id,seed))')
     db.commit()
     return db
+
+
+def public_reasoning(value):
+    private=lambda text:re.search('leact|yam-coverage-rpunamiya',text,re.I)is not None
+    if isinstance(value,dict):return {k:public_reasoning(v)for k,v in value.items()
+        if not private(k)and not(isinstance(v,str)and private(v))}
+    if isinstance(value,list):return [public_reasoning(v)for v in value if not(isinstance(v,str)and private(v))]
+    return value
+
+
+def ingest_pear(path,value):
+    workspace=latest(path).get('status',{}).get('reasoning_workspace',{})
+    allowed={r['id']for r in workspace.get('pear',{}).get('arms',[])}
+    run_id=value.get('run_id');data=value.get('data')
+    if value.get('schema_version')!=1 or run_id not in allowed or not isinstance(data,dict):
+        raise ValueError('Only registered PEAR runs may upload telemetry')
+    fields={'history','latest_metrics','optimizer_steps_observed','latest_task_rewards','evaluations',
+            'checkpoints','recent_graded_groups','heartbeat','metadata','rollout_diagnostics'}
+    if data.keys()-fields:raise ValueError('Telemetry cannot modify catalog or run registration')
+    data=public_reasoning(data);json.dumps(data,allow_nan=False)
+    if value.get('dry_run'):return {'accepted':True,'dry_run':True,'run_id':run_id}
+    now=datetime.now(timezone.utc).isoformat()
+    with closing(connect(path))as db,db:
+        previous=db.execute('SELECT payload FROM pear_runs WHERE run_id=?',(run_id,)).fetchone()
+        old=json.loads(unpack_payload(previous[0]))if previous else {}
+        for key in ['history','evaluations','checkpoints']:
+            records={row['step']:row for row in [*old.get(key,[]),*data.get(key,[])]}
+            if any(type(k)is not int or k<0 for k in records):raise ValueError('Invalid optimizer step')
+            data[key]=[row for _,row in sorted(records.items())][-512:]
+        merged={**old,**data}
+        db.execute('INSERT OR REPLACE INTO pear_runs VALUES(?,?,?)',(run_id,now,pack_payload(json.dumps(merged,allow_nan=False))))
+    return {'accepted':True,'run_id':run_id,'updated_utc':now}
+
+
+def reasoning_workspace(path):
+    value=latest(path).get('status',{}).get('reasoning_workspace',{})
+    with closing(connect(path))as db:
+        rows=db.execute('SELECT run_id,updated_utc,payload FROM pear_runs').fetchall()
+    if rows:
+        live=value.setdefault('live_pear',{});live['collector_state']='hosted run history';runs=live.setdefault('runs',{})
+        for run_id,updated,payload in rows:
+            if run_id=='__retention496__':value['warmstart_retention']=json.loads(unpack_payload(payload))
+            else:runs[run_id]=json.loads(unpack_payload(payload))
+        live['observed_utc']=max(r[1]for r in rows)
+    status=Path(path).parent/'collector-status.json'
+    if status.is_file():
+        try:
+            record=json.loads(status.read_text())
+            value['hosted_collector']={k:v for k,v in record.items()if k in {'success','updated_utc','read_only','workflows_checked'}}
+        except (ValueError,OSError):pass
+    return public_reasoning(value)
 
 
 def ingest(path, value):
@@ -152,6 +205,10 @@ def handler(database,home_page='experiments',*,media_root=None):
             parsed = urlparse(self.path)
             path = parsed.path
             csp = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+            if home_page=='reasoning' and not (path in {'/','/reasoning','/rpunamiya-reasoning',
+                '/reasoning.js','/reasoning.css','/api/reasoning','/api/health'}or path.startswith('/reasoning-media/')):
+                self.send_error(404)
+                return
             if path in {'/api/traces/groups', '/api/traces', '/api/trace', '/api/experts'}:
                 try:
                     value = trace_api(database, path, parse_qs(parsed.query))
@@ -164,7 +221,7 @@ def handler(database,home_page='experiments',*,media_root=None):
                 data = json.dumps(value, allow_nan=False).encode()
                 content_type = 'application/json'
             elif path=='/api/reasoning':
-                value=latest(database).get('status',{}).get('reasoning_workspace',{})
+                value=reasoning_workspace(database)
                 data=json.dumps(value,allow_nan=False).encode()
                 content_type='application/json'
             elif path in {'/api/snapshot', '/export.json'}:
@@ -172,7 +229,7 @@ def handler(database,home_page='experiments',*,media_root=None):
                 content_type = 'application/json'
             elif path == '/api/health':
                 value = latest(database)
-                data = json.dumps({'service': 'leact-tracker', 'status': 'ok',
+                data = json.dumps({'service': 'reasoning-tracker'if home_page=='reasoning'else'leact-tracker', 'status': 'ok',
                                    'snapshot': value.get('storage'),
                                    'runs': len(value.get('runs', []))}).encode()
                 content_type = 'application/json'
@@ -212,9 +269,16 @@ def handler(database,home_page='experiments',*,media_root=None):
             else:
                 self.send_error(404)
                 return
+            accepts_gzip=any(part.split(';')[0].strip()=='gzip'and
+                not re.search(r';\s*q=0(?:\.0*)?(?:;|$)',part)
+                for part in self.headers.get('Accept-Encoding','').lower().split(','))
+            compressed=home_page=='reasoning'and path=='/api/reasoning'and len(data)>16384 and accepts_gzip
+            if compressed:data=gzip.compress(data,compresslevel=3)
             self.send_response(200)
             self.send_header('Content-Type', content_type+(''if content_type.startswith('image/')else'; charset=utf-8'))
             self.send_header('Content-Length', str(len(data)))
+            if path=='/api/reasoning':self.send_header('Vary','Accept-Encoding')
+            if compressed:self.send_header('Content-Encoding','gzip')
             self.send_header('Cache-Control', 'public, max-age=31536000, immutable'if content_type.startswith('image/')else'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Content-Security-Policy', csp)
@@ -225,7 +289,7 @@ def handler(database,home_page='experiments',*,media_root=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['serve', 'import', 'import-records'])
+    parser.add_argument('command', choices=['serve', 'import', 'import-records','import-pear'])
     parser.add_argument('--db', type=Path, required=True)
     parser.add_argument('--snapshot', help='JSON file or - for standard input')
     parser.add_argument('--host', default='127.0.0.1')
@@ -247,13 +311,13 @@ def main():
         finally:
             if stream is not sys.stdin:
                 stream.close()
-    elif args.command == 'import':
+    elif args.command in {'import','import-pear'}:
         if not args.snapshot:
             parser.error('import requires --snapshot')
         raw = sys.stdin.read(8_000_001) if args.snapshot == '-' else Path(args.snapshot).read_text()
         if len(raw) > 8_000_000:
             raise ValueError('Snapshot exceeds size limit')
-        print(json.dumps(ingest(args.db, json.loads(raw))))
+        print(json.dumps((ingest_pear if args.command=='import-pear'else ingest)(args.db,json.loads(raw))))
     else:
         connect(args.db).close()
         server = ThreadingHTTPServer((args.host, args.port), handler(args.db,args.home_page))

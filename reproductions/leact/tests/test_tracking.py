@@ -34,17 +34,23 @@ def test_snapshot_compression_retention_and_legacy_payloads(tmp_path):
 
 def test_compaction_keeps_all_trace_versions_and_checksums(tmp_path):
     from reproductions.leact.tracking.compact import backup,verify,restore
+    from reproductions.leact.tracking.server import connect,pack_payload,unpack_payload
     # Reuse a fixture that creates two versions and verifies immutable experts.
     test_trace_provenance_join_rollback_and_version_history(tmp_path)
     source=tmp_path/'tracker.sqlite3'
     for i in range(4):ingest(source,{'schema_version':1,'runs':[],'training':[{'step':i}]})
+    telemetry={'history':[{'step':1,'reward':.25}], 'optimizer_steps_observed':1}
+    with connect(source)as db:
+        db.execute('INSERT INTO pear_runs VALUES(?,?,?)',('moe','2026-11-18',pack_payload(json.dumps(telemetry))))
     old=trace_api(source,'/api/trace',{'id':['1']})
     archive=tmp_path/'archive.xz';destination=tmp_path/'compact.sqlite3'
     exported=backup(source,archive,keep=2);checked=verify(archive)
     assert {k:exported[k] for k in checked}==checked
     restored=restore(archive,destination)
     assert {k:restored[k] for k in checked}==checked
-    assert checked['counts']=={'snapshots':2,'experts':1,'trace_versions':2,'traces':1}
+    assert checked['counts']=={'snapshots':2,'experts':1,'trace_versions':2,'traces':1,'pear_runs':1}
+    with connect(destination)as db:
+        assert json.loads(unpack_payload(db.execute('SELECT payload FROM pear_runs WHERE run_id=?',('moe',)).fetchone()[0]))==telemetry
     assert latest(source)==latest(destination)
     assert trace_api(destination,'/api/trace',{'id':['1']})==old
     assert trace_api(destination,'/api/traces',{'run':['run/seed-0']})['rows'][0]['id']==2
@@ -71,6 +77,21 @@ def test_export_preserves_training_records_and_links_actual_initial_checkpoint(t
     assert row['initial_checkpoint'] == '/measured/round-1/checkpoint-256'
     assert row['stage'] == 'leact/round-2'
     assert row['complete'] and row['total_steps'] == 600
+
+
+def test_old_backup_without_a_live_pear_table_still_restores(tmp_path):
+    import lzma
+    from reproductions.leact.tracking.compact import backup,line,restore,verify
+    source=tmp_path/'source.sqlite3'
+    ingest(source,{'schema_version':1,'runs':[],'training':[]})
+    current=tmp_path/'current.xz';backup(source,current)
+    values=[json.loads(raw)for raw in lzma.decompress(current.read_bytes()).splitlines()]
+    values[0]['header']['source_counts'].pop('pear_runs')
+    values[-1]['manifest']['counts'].pop('pear_runs')
+    old=tmp_path/'legacy.xz';old.write_bytes(lzma.compress(b''.join(line(value)for value in values)))
+    assert verify(old)['counts']['pear_runs']==0
+    destination=tmp_path/'restored.sqlite3';restore(old,destination)
+    assert latest(destination)==latest(source)
 
 
 def test_trace_provenance_join_rollback_and_version_history(tmp_path):

@@ -22,7 +22,7 @@ def simulator_families(inventory,review,images=None):
     images=images or {};entries=inventory['entries'];by_id={r['id']:r for r in entries}
     train=defaultdict(list);seen=defaultdict(list);unseen=defaultdict(list)
     for row in entries:
-        if row['role']=='PEAR training candidate':train[row['suite']].append(row)
+        if row['role']=='PEAR training candidate'and row['source']!='Native GR00T':train[row['suite']].append(row)
     for row in review.get('core_entries',[]):
         if row['cohort']=='same_sim_new_task':seen[row['suite']].append(by_id[row['task']])
     for row in review.get('unseen_reserve_entries',[]):
@@ -44,18 +44,23 @@ def simulator_families(inventory,review,images=None):
     native={}
     for row in entries:
         if row['source']=='Native GR00T':
-            native.setdefault(row['semantic_task'],{'id':row['semantic_task'],'description':row['description']})
+            native.setdefault(row['semantic_task'],{'id':row['semantic_task'],'description':row['description'],
+                'partition':row.get('task_partition'),'semantic_group':row.get('semantic_group')})
     if native:
         families.append({'id':'native-gr00t-yam','name':NAMES['native-gr00t-yam'],
-            'image':images.get('native-gr00t-yam'),'train':[],'eval_seen':[],'eval_unseen':[],
-            'pending':[native[key]for key in sorted(native)],'split_status':'split pending'})
+            'image':images.get('native-gr00t-yam'),
+            'train':[v for _,v in sorted(native.items())if v['partition']=='train'],
+            'eval_seen':[v for _,v in sorted(native.items())if v['partition']=='test'],'eval_unseen':[],
+            'development':[v for _,v in sorted(native.items())if v['partition']=='development'],
+            'pending':[v for _,v in sorted(native.items())if not v['partition']],
+            'split_status':'task split frozen'if all(v['partition']for v in native.values())else'split pending'})
     families.sort(key=lambda r:(bool(r['eval_unseen']),r['name'].lower()))
     return {'families':families,'counts':{'train':sum(len(r['train'])for r in families),
         'eval_seen':sum(len(r['eval_seen'])for r in families),
         'eval_unseen':sum(len(r['eval_unseen'])for r in families),
         'pending':sum(len(r['pending'])for r in families)},
         'basis':'Proposed PEAR training membership; seen-simulator evaluation uses core same_sim_new_task entries; unseen evaluation uses the frozen simulator reserve.',
-        'note':'Family images are illustrative. Native GR00T YAM is distinct from EFE YAMLab and awaits a frozen train/eval split. Scene and exposure audits remain provisional.'}
+        'note':'Family images are illustrative. Native GR00T YAM is distinct from EFE YAMLab. Native task membership is frozen; independent training scenes and exposure audits remain pending.'}
 
 
 def main():

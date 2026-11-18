@@ -5,6 +5,7 @@ set -euo pipefail
 : "${PEAR_SOURCE:?}" "${WORK_DIR:?}" "${RUN:?}" "${MODEL:?}" "${MODEL_REVISION:?}"
 : "${EPISODES:?}" "${VALIDATION_EPISODES:?}" "${EFE_PEAR_NATIVE_CONFIG:?}"
 : "${MODEL_QUALIFICATION:?}" "${TRAINING_STEPS:?}" "${EFE_PEAR_CURRICULUM:?}" "${TOOL_CONFIG:?}"
+export RAY_DEDUP_LOGS=0
 GPU=h100
 TRAINER_NNODES=${TRAINER_NNODES:-1}
 ROLLOUT_NNODES=${ROLLOUT_NNODES:-1}
@@ -54,8 +55,16 @@ case "$MODEL_TYPE" in
   qwen3_5) ;;
   qwen3_5_moe)
     ARCHITECTURE_ARGS=(actor_rollout_ref.actor.fsdp_config.use_gpu_backend=false
+                       actor_rollout_ref.actor.fsdp_config.kernels=efe_pear_moe_kernels.FrozenRouterTrainingKernels
                        +actor_rollout_ref.actor.optim.override_optimizer_config.foreach=false
                        actor_rollout_ref.rollout.kernels=null)
+    "$VERL_ENV/bin/python" - <<'PY'
+import json,os
+from pathlib import Path
+q=json.loads(Path(os.environ['MODEL_QUALIFICATION']).read_text())
+assert q.get('router_policy')=='frozen_expert_selection_router'
+assert q.get('router_unchanged_after_update_and_reload')is True
+PY
     ;;
   *) echo "Unsupported primary model architecture: $MODEL_TYPE" >&2; exit 1 ;;
 esac
@@ -66,6 +75,7 @@ MODEL_ROLLOUT_ARGS=(actor_rollout_ref.rollout.tensor_model_parallel_size="$TP"
   "${TRTLLM_ARGS[@]}" "${LMCACHE_ARGS[@]}" actor_rollout_ref.rollout.standalone_gpu_memory_utilization=0.85)
 mkdir -p "$RUN"
 export PEAR_LOG_DIR=$RUN/sim
+export EFE_PEAR_METRICS_DIR=$RUN/telemetry
 export NCCL_ALGO=Ring NCCL_PROTO=Simple NCCL_P2P_DISABLE=1
 export LOCAL_DIR=${LOCAL_DIR:-/tmp/efe-pear-local}
 source scripts/gpu_process_variables.sh "$VERL_ENV"
@@ -81,11 +91,13 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   "${MODEL_ARGS[@]}" "${MODEL_ROLLOUT_ARGS[@]}" "${MODEL_TRAINING_ARGS[@]}" \
   "${ARCHITECTURE_ARGS[@]}" \
   actor_rollout_ref.model.lora_rank=0 \
+  actor_rollout_ref.actor.calculate_entropy=true \
   "data.train_files=$TRAIN_FILES" "data.val_files=$VAL_FILES" \
   data.max_prompt_length="$MAX_PROMPT" data.max_response_length="$MAX_RESPONSE" data.train_batch_size="$BATCH" \
   actor_rollout_ref.rollout.nnodes="$ROLLOUT_NNODES" actor_rollout_ref.rollout.n_gpus_per_node=8 \
   actor_rollout_ref.rollout.n="$N" actor_rollout_ref.rollout.max_model_len="$MAX_MODEL_LEN" \
   actor_rollout_ref.rollout.multi_turn.tool_config_path="$TOOL_CONFIG" \
+  actor_rollout_ref.rollout.agent.agent_loop_config_path="$ADAPTER_ROOT/efe_pear_agent_metrics.yaml" \
   +actor_rollout_ref.rollout.limit_images="$((MAX_MODEL_LEN / 256))" \
   actor_rollout_ref.actor.ppo_mini_batch_size="$BATCH" \
   trainer.n_gpus_per_node=8 trainer.nnodes="$TRAINER_NNODES" \
@@ -96,6 +108,9 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   "$ENV_VAR.VERL_USE_EXTERNAL_MODULES='$VERL_USE_EXTERNAL_MODULES'" \
   "$ENV_VAR.PYTHONPATH='$PYTHONPATH'" "$ENV_VAR.EFE_PEAR_NATIVE_CONFIG=$EFE_PEAR_NATIVE_CONFIG" \
   "$ENV_VAR.EFE_PEAR_CURRICULUM=$EFE_PEAR_CURRICULUM" \
+  "$ENV_VAR.EFE_PEAR_METRICS_DIR=$EFE_PEAR_METRICS_DIR" \
+  "$ENV_VAR.MODEL_REVISION=$MODEL_REVISION" \
+  "$ENV_VAR.RAY_DEDUP_LOGS=0" \
   "$ENV_VAR.PEAR_PRIMARY_TRAINING=1" "$ENV_VAR.VERL_FILE_LOGGER_PATH=$RUN/metrics.jsonl" \
   "$ENV_VAR.NCCL_ALGO=Ring" "$ENV_VAR.NCCL_PROTO=Simple" "$ENV_VAR.NCCL_P2P_DISABLE=1" \
   "$@" 2>&1 | tee -a "$RUN/train.log"

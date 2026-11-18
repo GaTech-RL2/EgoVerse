@@ -73,7 +73,7 @@ def main():
                          ' --state '+shlex.quote(str(state)))
     if args.reasoning_only:
         script=script.replace('exec python -m reproductions.leact.tracking.sync',
-            'python -m reproductions.leact.tracking.reasoning --refresh-compute\nexec python -m reproductions.leact.tracking.sync')
+            'python -m reproductions.leact.tracking.reasoning_live\npython -m reproductions.leact.tracking.reasoning\nexec python -m reproductions.leact.tracking.sync')
         script+=' --reasoning-only\n'
     else:script+=' --watch --interval 30 --prune-uploaded-chunks\n'
     publisher.write_text(script)
@@ -82,7 +82,7 @@ def main():
     plist = Path.home()/'Library/LaunchAgents'/f'{label}.plist'
     plist.parent.mkdir(parents=True, exist_ok=True)
     spec = {'Label': label, 'ProgramArguments': ['/bin/bash', str(publisher)], 'RunAtLoad': True,
-            'KeepAlive': True, 'ThrottleInterval': 300 if args.reasoning_only else 30, 'WorkingDirectory': str(repo),
+            'KeepAlive': True, 'ThrottleInterval': 15 if args.reasoning_only else 30, 'WorkingDirectory': str(repo),
             'StandardOutPath': str(args.output/'sync.log'), 'StandardErrorPath': str(args.output/'sync-error.log'),
             'EnvironmentVariables': {'PATH': '/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'}}
     plist.write_bytes(plistlib.dumps(spec))
@@ -91,9 +91,10 @@ def main():
     subprocess.run(['launchctl', 'bootstrap', domain, str(plist)], check=True)
     record = {'host': args.host, 'key': str(args.identity), 'key_scope': 'forced tracker import commands; no shell/forwarding',
               'restricted_command_test': 'passed', 'health': health, 'launch_agent': str(plist),
-              'label': label, 'publisher': str(publisher), 'interval_seconds': 300 if args.reasoning_only else 30,
+              'label': label, 'publisher': str(publisher), 'interval_seconds': 15 if args.reasoning_only else 30,
               'rollout_buffers': 'not exported'if args.reasoning_only else 'pruned only after checksum-acknowledged import',
-              'logging_requires': 'Mac publisher and the OSMO result collector must be running; dashboard remains hosted on ITSS'}
+              'logging_requires': 'Hosted read-only OSMO collector; Mac publisher refreshes the catalog only'if args.reasoning_only else
+                                  'Mac publisher and the OSMO result collector must be running; dashboard remains hosted on ITSS'}
     (args.output/'sync-configuration.json').write_text(json.dumps(record, indent=2)+'\n')
     print(json.dumps(record))
 
