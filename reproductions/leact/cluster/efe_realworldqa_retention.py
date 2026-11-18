@@ -35,6 +35,15 @@ def protocol_digest(spec):
     return hashlib.sha256(json.dumps(spec,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 
+def question_indices(spec,population=765):
+    """A fixed subset is chosen before scoring and shared by both checkpoints."""
+    indices=spec.get('question_ids',list(range(population)))
+    if not isinstance(indices,list)or not indices or any(type(i)is not int or not 0<=i<population for i in indices):
+        raise ValueError('Question panel must contain valid integer dataset indices')
+    if len(indices)!=len(set(indices)):raise ValueError('Question panel contains duplicates')
+    return indices
+
+
 def save_row(path,row):
     path=Path(path);temporary=path.with_suffix('.partial')
     with gzip.open(temporary,'wt')as stream:json.dump(row,stream,allow_nan=False)
@@ -111,10 +120,12 @@ def run_model(spec,ident):
     from efe_model_cache import stage
     root=Path(spec['shared_root']);root.mkdir(parents=True,exist_ok=True)
     model=next(m for m in spec['models']if m['id']==ident)
+    panel=question_indices(spec)
     digest_protocol=protocol_digest(spec)
     def progress(phase,**extra):
         value={'phase':phase,'model':ident,'updated_utc':datetime.now(timezone.utc).isoformat(),
-            'workflow':os.environ['EFE_WORKFLOW_ID'],'optimizer_updates':0,**extra}
+            'workflow':os.environ['EFE_WORKFLOW_ID'],'optimizer_updates':0,
+            'total':len(panel),'population_questions':765,'preliminary':len(panel)<765,**extra}
         write(root/'progress.json',value);print('EFE_RETENTION_PROGRESS '+json.dumps(value),flush=True)
     progress('staging_model')
     write(root/'environment.json',{name:importlib.metadata.version(name)for name in ['torch','vllm','transformers','datasets']})
@@ -138,10 +149,12 @@ def run_model(spec,ident):
         mm_processor_kwargs={'size':spec['image_processor_size']},generation_config='auto',seed=spec['seed'])
     destination=root/'responses'/ident;destination.mkdir(parents=True,exist_ok=True)
     rows=cached_rows(destination,protocol_sha256=digest_protocol,model_revision=model['revision'])
-    progress('evaluating',completed=len(rows),total=len(dataset),correct=sum(r['correct']for r in rows.values()))
-    for start in range(0,len(dataset),spec['batch_size']):
+    expected={f'{index:04d}'for index in panel}
+    if rows.keys()-expected:raise ValueError('Cached answers fall outside the frozen question panel')
+    progress('evaluating',completed=len(rows),correct=sum(r['correct']for r in rows.values()))
+    for start in range(0,len(panel),spec['batch_size']):
         inputs=[];parameters=[];metadata=[]
-        for index in range(start,min(start+spec['batch_size'],len(dataset))):
+        for index in panel[start:start+spec['batch_size']]:
             row=dataset[index];key=f'{index:04d}';path=destination/(key+'.json.gz')
             if path.exists():continue
             image=row['image']
@@ -172,11 +185,11 @@ def run_model(spec,ident):
                     'protocol_sha256':digest_protocol,'batch_seconds':time.monotonic()-before}
                 save_row(destination/(meta['id']+'.json.gz'),result)
                 rows[meta['id']]=result
-        progress('evaluating',completed=len(rows),total=len(dataset),correct=sum(r['correct']for r in rows.values()),
+        progress('evaluating',completed=len(rows),correct=sum(r['correct']for r in rows.values()),
             truncated=sum(r['finish_reason']=='length'for r in rows.values()))
     rows=cached_rows(destination)
-    if len(rows)!=765:raise RuntimeError('Incomplete evaluation panel')
-    write(root/(ident+'-complete.json'),{'success':True,'questions':765,'revision':model['revision'],
+    if set(rows)!=expected:raise RuntimeError('Incomplete evaluation panel')
+    write(root/(ident+'-complete.json'),{'success':True,'questions':len(panel),'preliminary':len(panel)<765,'revision':model['revision'],
         'optimizer_updates':0,'versions':{'torch':torch.__version__,'datasets':datasets.__version__}})
 
 
@@ -191,13 +204,23 @@ def main():
         subprocess.run([sys.executable,'-m','pip','install','datasets==4.4.1'],check=True,timeout=600)
     write(root/'protocol.json',spec)
     try:
-        for model in spec['models']:
-            subprocess.run([sys.executable,'-u',__file__,'--spec',str(args.spec),'--model',model['id']],
+        order=spec.get('execution_order',[m['id']for m in spec['models']])
+        if len(order)!=len(spec['models'])or set(order)!={m['id']for m in spec['models']}:
+            raise ValueError('Every checkpoint must be evaluated exactly once')
+        for ident in order:
+            subprocess.run([sys.executable,'-u',__file__,'--spec',str(args.spec),'--model',ident],
                 env=cuda_environment(spec['gpu_count']),check=True)
         base,warm=[cached_rows(root/'responses'/m['id'])for m in spec['models']]
         result=compare(base,warm);result['completed_utc']=datetime.now(timezone.utc).isoformat()
+        panel=question_indices(spec)
+        if len(base)!=len(panel):raise ValueError('Result differs from the frozen question panel')
+        result.update(preliminary=len(panel)<765,population_questions=765,
+                      question_ids=panel,question_subset_seed=spec.get('question_subset_seed'),
+                      sampling_method=spec.get('sampling_method','full_test_split'))
+        if result['preliminary']:result['scope']='Preliminary paired screening on a fixed question subset; not the full benchmark score.'
         result['models']=spec['models'];result['dataset']=spec['dataset'];write(root/'results.json',result)
-        write(root/'progress.json',{'phase':'completed','updated_utc':result['completed_utc'],'optimizer_updates':0})
+        write(root/'progress.json',{'phase':'completed','updated_utc':result['completed_utc'],'optimizer_updates':0,
+                                   'total':len(panel),'preliminary':result['preliminary']})
         print('EFE_RETENTION_RESULT '+json.dumps(result),flush=True)
     except Exception as exc:
         write(root/'error.json',{'error':str(exc),'updated_utc':datetime.now(timezone.utc).isoformat(),'optimizer_updates':0})

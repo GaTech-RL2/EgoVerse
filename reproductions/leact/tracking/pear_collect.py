@@ -88,8 +88,11 @@ def tick(database,binary):
             state=states.setdefault('__retention496__',{})
             source_id=workflow.get('workflow_uuid',workflow.get('uuid',hashlib.sha256(name.encode()).hexdigest()))
             if state.get('source_id')!=source_id:state.clear()
+            labels=workflow.get('labels',{})
             state.update(source_id=source_id,scheduler_status=workflow['status'],benchmark='RealWorldQA',
-                         questions_per_model=765,observed_utc=datetime.now(timezone.utc).isoformat())
+                         questions_per_model=int(labels.get('reasoning_eval_questions',765)),
+                         preliminary=labels.get('reasoning_eval_scope')=='preliminary',
+                         observed_utc=datetime.now(timezone.utc).isoformat())
             for marker,row in parse_records(logs):
                 if marker=='EFE_RETENTION_PROGRESS':state['progress']=row
                 elif marker=='EFE_RETENTION_RESULT':state['result']=row

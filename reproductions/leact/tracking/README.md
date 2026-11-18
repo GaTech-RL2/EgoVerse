@@ -95,24 +95,29 @@ Prepare the immutable future trainer payload with
 not change the pause state or launch training. GPU integration of this new
 instrumentation is a prelaunch qualification check, not a completed result.
 
-The separately authorized retention experiment compares exact base and
-warmstart-496 checkpoints on all 765 RealWorldQA questions. Its runner uses the
-EvalScope 1.13.0 prompt and exact answer extraction, paper sampling, BF16 and
-paired question bootstrap. The local 32,768-output / 65,536-context ceilings are
-explicit deviations not specified in Appendix F. Item files retain full outputs,
-token counts, input hashes, seeds, model manifest hashes and format/truncation flags.
+The currently authorized retention screen compares exact base and warmstart-496
+checkpoints on 40 RealWorldQA questions, uniformly sampled without replacement
+with seed 20261118 before scoring. Both models receive the same frozen questions,
+prompts and inference budget. Warmstart is evaluated first. Results are marked
+preliminary and include the selected IDs, accuracy difference, paired bootstrap
+interval, formatting failures and truncations. This small screen can reveal large
+regressions; it does not establish retention of all general capabilities.
+
+The runner uses the EvalScope 1.13.0 prompt and exact answer extraction, paper
+sampling and BF16. The local 32,768-output / 65,536-context ceilings are explicit
+choices not specified in Appendix F. Item files retain full outputs, token counts,
+input hashes, seeds, model manifest hashes and format/truncation flags. Omitting
+`question_ids` selects all 765 test questions; the superseded full runs are stopped.
 
 Serial synchronous inference avoids the earlier batched asynchronous CUDA error,
 but measured about 14 output tokens/second. A single base-model answer consumed
-13,519 tokens and 985.5 seconds. The v3 alternative first qualifies two batches of
-eight on the same node using a separate 512-token throughput probe. The probe
-never produces a benchmark score. If both batches exceed 20 aggregate tokens/s
-and preserve multimodal prompt-token parity, the node automatically evaluates
-both checkpoints on all 765 questions with the original 32,768-token limit and
-the same sampling. Cached serial answers remain separate because the serving
-profile changed. A bounded guard releases only the redundant serial evaluation
-after the batched evaluation persists at least eight answers. Both primary PEAR
-training arms remain paused; this bootstrap cannot start training.
+13,519 tokens and 985.5 seconds. Two separate batches of eight, capped at 512 tokens
+for serving qualification only, achieved 67.1 and 93.8 aggregate output tokens/s
+and preserved multimodal prompt-token parity. The 40-question screen uses this
+qualified batched profile with the original 32,768-token limit. Probe outputs are
+excluded from accuracy; cached serial answers remain separate because the serving
+profile changed. Primary PEAR training remains paused. Infrastructure retries
+reuse the frozen 40-question payload rather than reverting to the full panel.
 
 The calculator counts retained groups after constant-reward filtering, accounts for
 rejected groups, and takes the maximum of asynchronous generation, environment

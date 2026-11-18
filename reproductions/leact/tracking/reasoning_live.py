@@ -26,7 +26,8 @@ def retention():
     if result.get('scheduler_status')=='COMPLETED'and result.get('result'):return result
     state=json.loads(command(['osmo','workflow','query',launch['name'],'--format-type','json']))
     result.update(workflow=launch['name'],url=launch['overview'],scheduler_status=state['status'],
-        observed_utc=datetime.now(timezone.utc).isoformat(),benchmark='RealWorldQA',questions_per_model=765)
+        observed_utc=datetime.now(timezone.utc).isoformat(),benchmark='RealWorldQA',
+        questions_per_model=launch.get('questions_per_model',765),preliminary=launch.get('preliminary',False))
     if state.get('start_time'):
         logs=command(['osmo','workflow','logs',launch['name'],'-n','1000'],timeout=5)
         for line in logs.splitlines():

@@ -31,7 +31,7 @@ def remote(workflow, script,task='preflight'):
     child = pexpect.spawn('osmo', ['workflow','exec',workflow,task,'--entry',entry],
                           encoding='utf-8', timeout=35, maxread=65536, echo=False)
     try:
-        child.expect(r'EFE_CAPTURE (\{[^\r\n]+\})\r?\n')
+        child.expect(r'EFE_CAPTURE (\{[^\r\n]*\})\r?\n')
         record = json.loads(child.match.group(1))
         child.expect(pexpect.EOF, timeout=10)
         return record

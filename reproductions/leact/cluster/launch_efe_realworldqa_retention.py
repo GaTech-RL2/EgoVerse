@@ -132,7 +132,8 @@ def monitor():
                     priority='LOW'if state['status']=='FAILED_QUEUE_TIMEOUT'else launch.get('priority','LOW')
                     receipt=submit(build,priority=priority,pool=pool,nodes=1)
                     write(ROOT/'launch.json',{'build':str(build),'attempt':attempt,'pool':pool,'priority':priority,
-                        'scope':'retention evaluation only','pear_launched':False,**receipt})
+                        'scope':launch.get('scope','retention evaluation only'),'pear_launched':False,
+                        **{key:launch[key]for key in ['questions_per_model','preliminary']if key in launch},**receipt})
                     progress.update(workflow=receipt['name'],scheduler_status='PENDING',phase='infrastructure_retry_submitted')
                 write(ROOT/'monitor.json',progress)
             except Exception as exc:
