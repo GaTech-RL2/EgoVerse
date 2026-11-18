@@ -40,7 +40,18 @@ def locked_venv_repair(dockerfile):
         restore_editables('/opt/venv',saved_directory,editable_artifacts)
         actual=subprocess.check_output(['uv','pip','freeze','--python','/opt/venv/bin/python','--exclude-editable'],text=True)
         expected=pathlib.Path('/opt/requirements.lock').read_text()
-        if actual.splitlines()!=expected.splitlines():raise ValueError('Repaired environment differs from the native release lock')
+        corrections=exact_lock_corrections(expected,actual)
+        if corrections:
+            print('NATIVE_EXACT_LOCK_PRIMARY_INDEX '+json.dumps(corrections),flush=True)
+            subprocess.run(['uv','pip','install','--python','/opt/venv/bin/python','--no-deps',
+                '--force-reinstall','--index-url','https://pypi.org/simple',*corrections],check=True)
+            actual=subprocess.check_output(['uv','pip','freeze','--python','/opt/venv/bin/python','--exclude-editable'],text=True)
+        if actual.splitlines()!=expected.splitlines():
+            import difflib
+            difference=''.join(difflib.unified_diff(expected.splitlines(True),actual.splitlines(True),
+                fromfile='native-requirements.lock',tofile='repaired-freeze'))
+            print('NATIVE_LOCK_DIFFERENCE\\n'+difference,flush=True)
+            raise ValueError('Repaired environment differs from the native release lock: '+difference[-5000:])
         print('environment == requirements.lock; fresh venv; editable source checkouts preserved',flush=True)
     ''')
     command='RUN python -c "import base64;exec(base64.b64decode(\''+base64.b64encode(script.encode()).decode()+'\'))"\n'

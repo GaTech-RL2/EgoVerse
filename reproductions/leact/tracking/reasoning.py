@@ -251,6 +251,7 @@ def build(base=BASE):
     task_receipts={}
     for path in(scaled/'validation-receipts').glob('*/checks.json'):
         task_receipts.update(read(path,{}))
+    yam_bank=read(scaled/'native-yam-generated-resets/generation-report.json',{})
     result={'title':'rpunamiya reasoning','updated_utc':datetime.now(timezone.utc).isoformat(),
         'inventory':catalog,'timing_proxies':timing_proxies(root),
         'compute_usage':read(base/'artifacts/reasoning-workspace/compute-usage.json',{}),
@@ -277,7 +278,14 @@ def build(base=BASE):
             'preflight':{'router':read(scaled/'warmstart-router-check.json',{}),
                 'native_bridge':read(scaled/'bridge-status.json',{}),
                 'reasoning':reasoning_check,'controls':control_validation,
-                'native_yam':read(scaled/'warmstart-yam-check.json',{}),
+                'native_yam':read(scaled/'native-yam-bank-status.json',read(scaled/'warmstart-yam-check.json',{})),
+                'ray_servers':read(scaled/'ray-server-check-status.json',read(scaled/'ray-server-check-launch.json',{})),
+                'native_robolab_rtx':read(scaled/'native-robolab-rtx-status.json',read(scaled/'native-robolab-rtx-launch.json',{})),
+                'native_yam_generated_resets':{'tasks':len(yam_bank.get('tasks',{})),
+                    'generated_reset_inputs':sum(v['generated_resets']for v in yam_bank.get('tasks',{}).values()),
+                    'qualification':yam_bank.get('qualification','not generated'),
+                    'protected_input_pose_overlaps':sum(v['protected_pose_overlap']for v in yam_bank.get('tasks',{}).values()),
+                    'native_simulation_admitted_resets':0},
                 'on_policy':read(scaled/'onpolicy-check-status.json',read(scaled/'onpolicy-check-launch.json',{})),
                 'camera_observations':read(scaled/'control-observation-audit.json',{}),
                 'protected_scene_collisions':sum(not r['source_scene_check_passed']for r in read(scaled/'source-scene-audit.json',{}).get('tasks',{}).values()),

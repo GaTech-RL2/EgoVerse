@@ -23,6 +23,7 @@ ENV_VAR=+ray_kwargs.ray_init.runtime_env.env_vars
   actor_rollout_ref.rollout.standalone_gpu_memory_utilization=0.8 \
   '+actor_rollout_ref.rollout.custom.lmcache={enable: false}' \
   "data.train_files=[\"$RUN/train.json\"]" "data.val_files=[\"$RUN/development.json\"]" \
+  "data.custom_cls.path=$PEAR_SOURCE/pear/agent_loop/dataset.py" \
   data.max_prompt_length=8192 data.max_response_length=8192 data.train_batch_size=8 \
   actor_rollout_ref.rollout.nnodes=1 actor_rollout_ref.rollout.n_gpus_per_node=8 \
   actor_rollout_ref.rollout.n=8 actor_rollout_ref.rollout.max_model_len=16384 \

@@ -1,9 +1,13 @@
-"""PEAR's unchanged agent loop with per-episode diagnostic counters."""
+"""PEAR's agent loop with compatible JSON framing and diagnostic counters."""
 import os
 import time
 
 from pear.agent_loop.agent_loop import PearAgentLoop
 from efe_pear_telemetry import WorkerDiagnostics
+from efe_pear_action_json import final_action_json
+from pear.agent_loop.tool_parser import JsonBlockToolParser,NoToolCall
+from verl.experimental.agent_loop.tool_parser import FunctionCall
+from verl.utils.ray_utils import get_event_loop
 
 _DIAGNOSTICS=None
 
@@ -14,7 +18,21 @@ def diagnostics():
     return _DIAGNOSTICS
 
 
+class CompatibleActionParser(JsonBlockToolParser):
+    async def parse(self,responses_ids,tools):
+        text=await get_event_loop().run_in_executor(None,self.tokenizer.decode,responses_ids)
+        try:payload=final_action_json(text)
+        except (ValueError,TypeError)as exc:raise NoToolCall(str(exc),text,text.rpartition('</think>')[2])from exc
+        return text,[FunctionCall(name=tools[0].function.name,arguments=payload)]
+
+
 class MeasuredPearAgentLoop(PearAgentLoop):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        # Keep the configured parser instance and its tokenizer/configuration;
+        # change framing only. The normal tool still validates the full schema.
+        self.tool_parser.parse=CompatibleActionParser.parse.__get__(self.tool_parser)
+
     async def run(self,sampling_params,**kwargs):
         start=time.monotonic();self._generated=0;self._thought=0;self._thought_measured=True;self._turns=0
         try:output=await super().run(sampling_params,**kwargs)

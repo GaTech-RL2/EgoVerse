@@ -28,7 +28,8 @@ def parse_records(logs):
     decoder=json.JSONDecoder()
     for line in logs.splitlines():
         for marker in ['PEAR_RUN ','PEAR_EVENT ','PEAR_HEARTBEAT ','PEAR_MODEL_CHECK ','PEAR_ADMISSION_CHECK ','PEAR_REASONING_CHECK ',
-                       'PEAR_NATIVE_YAM_CHECK ','PEAR_ONPOLICY_CHECK ',
+                       'PEAR_NATIVE_YAM_CHECK ','PEAR_ONPOLICY_CHECK ','PEAR_SERVER_CHECK ',
+                       'PEAR_NATIVE_RTX_CHECK ','PEAR_NATIVE_IMAGE_PUBLISH ',
                        'EFE_RETENTION_PROGRESS ','EFE_RETENTION_RESULT ']:
             if marker not in line:continue
             try:row=decoder.raw_decode(line.split(marker,1)[1])[0]
@@ -77,12 +78,25 @@ def fold_launch_check(state,workflow,records):
                  observed_utc=datetime.now(timezone.utc).isoformat())
     for marker,row in records:
         if marker in {'PEAR_MODEL_CHECK','PEAR_ADMISSION_CHECK','PEAR_REASONING_CHECK',
-                      'PEAR_NATIVE_YAM_CHECK','PEAR_ONPOLICY_CHECK'}:
+                      'PEAR_NATIVE_YAM_CHECK','PEAR_ONPOLICY_CHECK','PEAR_SERVER_CHECK',
+                      'PEAR_NATIVE_RTX_CHECK','PEAR_NATIVE_IMAGE_PUBLISH'}:
             value.update({key:row[key]for key in ['phase','updated_utc','checked','total','passed','counts','families']if key in row})
+            if any(word in str(row.get('phase',''))for word in ['completed','passed','failed']):
+                value['terminal_log_captured']=True
     checks[component]=value
     metadata['run_id']=workflow['labels']['pear_run_id']
     if not metadata.get('model_revision'):metadata['qualification_only']=True
     return True
+
+
+def needs_qualification_poll(state,workflow):
+    phase=workflow['labels']['pear_phase']
+    previous=state.get('metadata',{}).get('launch_checks',{}).get(phase,{})
+    if previous.get('submit_time','')>workflow['submit_time']:return False
+    terminal=workflow['status']in {'COMPLETED','CANCELED','CANCELLED'}or workflow['status'].startswith('FAILED')
+    return not(terminal and previous.get('submit_time')==workflow['submit_time']
+               and previous.get('scheduler_status')==workflow['status']
+               and(workflow['status']!='COMPLETED'or previous.get('terminal_log_captured')))
 
 
 def tick(database,binary):
@@ -107,7 +121,11 @@ def tick(database,binary):
         qualification=(phase in {'router_optimizer_qualification','training_reset_admission',
                                   'reasoning_scene_and_transport_qualification',
                                   'native_yam_runtime_api_qualification',
+                                  'ray_server_startup_qualification','native_robolab_rtx_api_check',
+                                  'native_image_cpu_publication',
                                   'on_policy_score_centering_qualification'}or phase.startswith('all_tasks_'))
+        if qualification and not needs_qualification_poll(states.get(workflow['labels'].get('pear_run_id'),{}),workflow):
+            continue
         if not workflow.get('start_time'):
             logs=''
         else:

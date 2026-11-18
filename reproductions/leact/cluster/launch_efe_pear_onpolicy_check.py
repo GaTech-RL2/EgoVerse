@@ -29,9 +29,10 @@ def prepare():
     membership_sha=read(DEST/'reasoning-qualified-membership.json',{}).get('sha256')
     if not membership_sha:raise RuntimeError('Missing exact qualified remote membership checksum')
     names=['efe_pear_onpolicy_check.py','efe_pear_onpolicy_check.sh','efe_pear_optimizer_check.py',
-        'efe_pear_moe_kernels.py','efe_pear_router.py','efe_pear_reasoning_env.py','efe_pear_reasoning_scenes.py',
+        'efe_pear_moe_kernels.py','efe_pear_router.py','efe_pear_reasoning_env.py','efe_pear_reasoning_tool.py','efe_pear_reasoning_scenes.py',
         'efe_pear_checkpoint_archive.py','efe_pear_agent_metrics.py','efe_pear_agent_metrics.yaml',
-        'efe_pear_telemetry.py','efe_pear_curriculum.py']
+        'efe_pear_telemetry.py','efe_pear_curriculum.py','efe_pear_launch_contract.py','efe_pear_action_json.py',
+        'efe_pear_child.py','efe_pear_sim_process.py','efe_pear_process_check.py']
     digests={n:hashlib.sha256((BASE/'cluster'/n).read_bytes()).hexdigest()for n in names}
     worker_name='efe_pear_ray_check_worker.py'
     spec={'remote_root':REMOTE,'output':REMOTE+'/onpolicy-checks','pear_source':REMOTE+'/sources/pear-'+PEAR_REVISION,

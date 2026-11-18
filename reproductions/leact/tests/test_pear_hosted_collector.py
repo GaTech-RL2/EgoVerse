@@ -1,6 +1,6 @@
 import json
 
-from reproductions.leact.tracking.pear_collect import fold,fold_launch_check,parse_records
+from reproductions.leact.tracking.pear_collect import fold,fold_launch_check,parse_records,needs_qualification_poll
 
 
 def test_hosted_collector_handles_prefixes_repeated_steps_and_separate_measurements():
@@ -31,3 +31,16 @@ def test_qualification_never_creates_primary_steps_and_old_attempts_cannot_repla
     fold(state,'PEAR_RUN',{'run_id':'arm','model_revision':'pinned','retained_groups':128})
     fold_launch_check(state,workflow,[])
     assert not state['metadata'].get('qualification_only',False)
+
+
+def test_finished_qualification_does_not_delay_polling_the_live_run():
+    workflow={'labels':{'pear_run_id':'arm','pear_phase':'all_tasks_sim'},
+              'submit_time':'2026-11-18T06:00:00','status':'COMPLETED'}
+    state={}
+    assert needs_qualification_poll(state,workflow)
+    fold_launch_check(state,workflow,[])
+    assert needs_qualification_poll(state,workflow)
+    fold_launch_check(state,workflow,[('PEAR_ADMISSION_CHECK',{'phase':'control_admission_completed','checked':3,'passed':3})])
+    assert not needs_qualification_poll(state,workflow)
+    assert needs_qualification_poll(state,{**workflow,'status':'RUNNING'})
+    assert needs_qualification_poll(state,{**workflow,'submit_time':'2026-11-18T07:00:00'})

@@ -5,6 +5,26 @@ from pathlib import Path
 import shutil
 
 
+def exact_lock_corrections(expected,actual):
+    """Return lock pins whose installed version differs, including local tags.
+
+    Python's ==2.7.0 requirement also accepts 2.7.0+cu128. The simulator's
+    reference lock records the wheel without that tag, so freeze equality
+    requires reinstalling that pin from the primary index explicitly.
+    """
+    def pins(text):
+        result={}
+        for line in text.splitlines():
+            if not line.strip():continue
+            name,separator,version=line.partition('==')
+            if not separator or not name or not version:raise ValueError('Native lock must contain exact version pins')
+            result[name.lower().replace('_','-')]=line
+        return result
+    wanted,current=pins(expected),pins(actual)
+    if wanted.keys()!=current.keys():raise ValueError('Fresh native venv has missing or unexpected packages')
+    return [wanted[name]for name in wanted if wanted[name]!=current[name]]
+
+
 def capture_editables(prefix, distributions, destination):
     prefix=Path(prefix).absolute();destination=Path(destination);saved={}
     for distribution in distributions:

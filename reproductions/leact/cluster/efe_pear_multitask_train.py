@@ -231,7 +231,9 @@ class MultitaskRunner(PearTaskRunner):
 
 @hydra.main(config_path=str(Path(pear.__file__).resolve().parent/'configs'),config_name='training',version_base=None)
 def main(config):
-    RunConfig(config).prepare();auto_set_device(config)
+    RunConfig(config).prepare()
+    from efe_pear_launch_contract import validate_driver_files
+    validate_driver_files(config);auto_set_device(config)
     validate_config(config=config,use_reference_policy=need_reference_policy(config),use_critic=need_critic(config))
     run_ppo(config,task_runner_class=MultitaskRunner)
 

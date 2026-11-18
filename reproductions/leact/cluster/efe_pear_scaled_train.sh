@@ -5,6 +5,7 @@ set -euo pipefail
 : "${PEAR_SOURCE:?}" "${WORK_DIR:?}" "${RUN:?}" "${MODEL:?}" "${MODEL_REVISION:?}"
 : "${EPISODES:?}" "${VALIDATION_EPISODES:?}" "${EFE_PEAR_NATIVE_CONFIG:?}"
 : "${MODEL_QUALIFICATION:?}" "${TRAINING_STEPS:?}" "${EFE_PEAR_CURRICULUM:?}" "${TOOL_CONFIG:?}"
+: "${EFE_PEAR_REASONING_MEMBERSHIP:?}" "${EFE_PEAR_REMOTE_ROOT:?}"
 export RAY_DEDUP_LOGS=0
 GPU=h100
 TRAINER_NNODES=${TRAINER_NNODES:-1}
@@ -95,6 +96,7 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   actor_rollout_ref.model.lora_rank=0 \
   actor_rollout_ref.actor.calculate_entropy=true \
   "data.train_files=$TRAIN_FILES" "data.val_files=$VAL_FILES" \
+  "data.custom_cls.path=$PEAR_SOURCE/pear/agent_loop/dataset.py" \
   data.max_prompt_length="$MAX_PROMPT" data.max_response_length="$MAX_RESPONSE" data.train_batch_size="$BATCH" \
   actor_rollout_ref.rollout.nnodes="$ROLLOUT_NNODES" actor_rollout_ref.rollout.n_gpus_per_node=8 \
   actor_rollout_ref.rollout.n="$N" actor_rollout_ref.rollout.max_model_len="$MAX_MODEL_LEN" \
@@ -110,6 +112,8 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   "$ENV_VAR.VERL_USE_EXTERNAL_MODULES='$VERL_USE_EXTERNAL_MODULES'" \
   "$ENV_VAR.PYTHONPATH='$PYTHONPATH'" "$ENV_VAR.EFE_PEAR_NATIVE_CONFIG=$EFE_PEAR_NATIVE_CONFIG" \
   "$ENV_VAR.EFE_PEAR_CURRICULUM=$EFE_PEAR_CURRICULUM" \
+  "$ENV_VAR.EFE_PEAR_REASONING_MEMBERSHIP=$EFE_PEAR_REASONING_MEMBERSHIP" \
+  "$ENV_VAR.EFE_PEAR_REMOTE_ROOT=$EFE_PEAR_REMOTE_ROOT" \
   "$ENV_VAR.EFE_PEAR_METRICS_DIR=$EFE_PEAR_METRICS_DIR" \
   "$ENV_VAR.MODEL_REVISION=$MODEL_REVISION" \
   "$ENV_VAR.RAY_DEDUP_LOGS='0'" \

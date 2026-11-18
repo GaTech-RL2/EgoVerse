@@ -105,8 +105,8 @@ def start_monitor(kind):
 def prepare_reasoning_check():
     if ARM not in read(DEST/'control.json',{}).get('enabled_training_arms',[]):
         raise RuntimeError('Warmstart RL is not enabled')
-    files=['efe_pear_reasoning_scenes.py','efe_pear_reasoning_qualify.py','efe_pear_reasoning_env.py',
-           'efe_pear_curriculum.py','efe_pear_reasoning_cluster_check.py']
+    files=['efe_pear_reasoning_scenes.py','efe_pear_reasoning_qualify.py','efe_pear_reasoning_env.py','efe_pear_reasoning_tool.py',
+           'efe_pear_curriculum.py','efe_pear_reasoning_cluster_check.py','efe_pear_sim_process.py','efe_pear_child.py']
     digests={name:hashlib.sha256((BASE/'cluster'/name).read_bytes()).hexdigest()for name in files}
     key=hashlib.sha256(json.dumps(digests,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-reasoning-check-'+key)
@@ -127,11 +127,12 @@ def prepare_reasoning_check():
     return build
 
 
-def prepare_native_yam_check(task_names=None):
+def prepare_native_yam_check(task_names=None,generated_resets=False,native_transport_probe=False):
     if ARM not in read(DEST/'control.json',{}).get('enabled_training_arms',[]):
         raise RuntimeError('Warmstart RL is not enabled')
     metadata=read(DEST/'sources/gr00t-sim-source.json');source=Path(metadata['source'])
     runtime=read(DEST/'native-yam-runtime-config.json')
+    remote_root=runtime.get('validation_remote_root',REMOTE)
     archive=DEST/'sources'/('rp_jhh_native_yam_runtime_'+metadata['revision']+'.tar.gz')
     if not archive.exists():
         def package(info):
@@ -140,30 +141,65 @@ def prepare_native_yam_check(task_names=None):
             for name in ['gr00t_sim','configs','pyproject.toml','uv.lock']:
                 stream.add(source/name,arcname=name,filter=package)
     digests={name:hashlib.sha256((BASE/'cluster'/name).read_bytes()).hexdigest()for name in
-        ['efe_pear_yam_api_policy.py','efe_pear_yam_api_check.py','efe_pear_yam_probe_entry.py']}
+        ['efe_pear_yam_api_policy.py','efe_pear_yam_api_check.py','efe_pear_yam_probe_entry.py',
+         'efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py']}
+    extra_sources=['efe_pear_yam_session_policy.py','efe_pear_file_rpc.py','efe_action_loop.py',
+        'efe_pear_bridge.py','efe_pear_context.py']if native_transport_probe else[]
+    digests.update({name:hashlib.sha256((BASE/'cluster'/name).read_bytes()).hexdigest()for name in extra_sources})
     tasks=[x for x in read(DEST/'native-yam-split-v1.json')['entries']if x['split']=='train']
     if task_names and set(task_names)-{row['env_name']for row in tasks}:
         raise ValueError('Native API diagnostics must remain inside the training task catalog')
-    spec={'output':REMOTE+'/native-yam-api-checks','source_revision':metadata['revision'],
-        'required_gpu_class':'RTX-capable L40','pool':runtime['pool'],
+    bank=read(DEST/'native-yam-generated-resets/generation-report.json',{})if generated_resets else{}
+    if generated_resets:
+        if not bank.get('tasks'):raise ValueError('Independent native reset generation has not completed')
+        if task_names and set(task_names)-set(bank['tasks']):raise ValueError('Requested task has no independent reset bank')
+        task_names=task_names or list(bank['tasks'])
+    release=read(source/'configs/fidelity/asset_release.json')
+    if runtime.get('validated_portable_assets_root'):release={**release,'assets_root':runtime['validated_portable_assets_root']}
+    gpu_limit=runtime.get('validation_gpus',8)
+    if type(gpu_limit)is not int or not 1<=gpu_limit<=8:raise ValueError('Native validation GPU count must be 1..8')
+    gpu_count=min(gpu_limit,len(task_names or tasks))
+    spec={'output':remote_root+'/native-yam-api-checks','source_revision':metadata['revision'],
+        'required_gpu_class':'RTX-capable L40 or L40S','pool':runtime['pool'],'platform':runtime.get('platform','ovx-l40'),
+        'runtime_image':runtime['image'],
         'source_archive_sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'payload_format':'shared_gzip_tar',
-        'source_archive_path':REMOTE+'/sources/'+archive.name,
-        'assets_release':read(source/'configs/fidelity/asset_release.json'),
+        'source_archive_path':remote_root+'/sources/'+archive.name,
+        'assets_release':release,
         'tasks':[x for x in tasks if not task_names or x['env_name']in task_names],
-        'catalog_task_count':len(tasks),
+        'catalog_task_count':len(tasks),'gpu':gpu_count,
+        'cpu':6*gpu_count,'memory_gib':64*gpu_count,
         'primary_rl_updates':0,'scope':'Existing native fixture API qualification; training reset admission remains separate.'}
+    if generated_resets:
+        bank_key=hashlib.sha256(json.dumps({k:v['manifest_sha256']for k,v in bank['tasks'].items()},sort_keys=True).encode()).hexdigest()[:16]
+        bank_archive=DEST/'sources'/('rp_jhh_native_yam_independent_resets_'+bank_key+'.tar.gz')
+        if not bank_archive.exists():
+            with tarfile.open(bank_archive,'w:gz')as stream:
+                for name,row in bank['tasks'].items():
+                    path=Path(row['manifest'])
+                    if hashlib.sha256(path.read_bytes()).hexdigest()!=row['manifest_sha256']:raise ValueError('Generated reset inputs changed')
+                    stream.add(path,arcname=name+'.json')
+        spec.update(generated_reset_archive=remote_root+'/sources/'+bank_archive.name,
+            generated_reset_archive_sha256=hashlib.sha256(bank_archive.read_bytes()).hexdigest(),
+            generated_reset_tasks={k:v for k,v in bank['tasks'].items()if k in task_names},
+            scope='Independent generated training reset bank qualification; native reward/production transport admission remains separate.')
+    if native_transport_probe:
+        if not generated_resets:raise ValueError('Native transport checks require an independent reset bank')
+        spec['native_transport_probe']=True
     key=hashlib.sha256(json.dumps([spec,digests],sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-native-yam-api-'+key)
     if (build/'source-manifest.json').exists():return build
     build.mkdir(exist_ok=True);write(build/'spec.json',spec)
     for src,dst in [('efe_pear_yam_api_policy.py','efe_pear_yam_api_policy.py'),('efe_pear_yam_api_check.py','worker.py'),
-                    ('efe_pear_yam_probe_entry.py','efe_pear_yam_probe_entry.py')]:
+                    ('efe_pear_yam_probe_entry.py','efe_pear_yam_probe_entry.py'),('efe_pear_yam_contract.py','efe_pear_yam_contract.py'),
+                    ('efe_pear_arena_compat.py','efe_pear_arena_compat.py'),('efe_pear_yam_reset_bank.py','efe_pear_yam_reset_bank.py')]:
         shutil.copyfile(BASE/'cluster'/src,build/dst)
+    for name in extra_sources:shutil.copyfile(BASE/'cluster'/name,build/name)
     w=yaml.safe_load(TEMPLATE.read_text());w['workflow']['name']='leact-'+build.name
     w['workflow']['labels']={'pear_run_id':ARM,'pear_phase':'native_yam_runtime_api_qualification'}
     w['workflow']['timeout']={'queue_timeout':'20m','exec_timeout':'8h'}
-    w['workflow']['resources']['default'].update(gpu=8,cpu=48,memory='512Gi',storage='300Gi')
-    if runtime['pool']=='groot-l40-01':w['workflow']['resources']['default']['platform']='ovx-l40'
+    w['workflow']['resources']['default'].update(gpu=spec['gpu'],cpu=spec['cpu'],
+        memory=str(spec['memory_gib'])+'Gi',storage='300Gi')
+    w['workflow']['resources']['default']['platform']=spec['platform']
     task=w['workflow']['tasks'][0];task.pop('credentials',None);task.pop('privileged',None)
     task['image']=runtime['image'];task['command']=['/opt/gr00t-sim/venv/bin/python']
     task['args']=['-u','/tmp/efe-pear-model-check/worker.py']
@@ -178,17 +214,23 @@ def main():
     parser.add_argument('--kind',choices=['router','admission','reasoning','yam'],default='router')
     parser.add_argument('--monitor',action='store_true')
     parser.add_argument('--task-names',nargs='+')
+    parser.add_argument('--generated-resets',action='store_true')
+    parser.add_argument('--priority',choices=['HIGH','LOW'],default='HIGH')
     args=parser.parse_args()
     if args.monitor:return monitor(args.kind)
     if args.task_names and args.kind!='yam':raise ValueError('Task filtering is only for native YAM diagnostics')
-    build=(prepare_native_yam_check(args.task_names)if args.kind=='yam'else
+    if args.generated_resets and args.kind!='yam':raise ValueError('Independent reset checks require native YAM')
+    build=(prepare_native_yam_check(args.task_names,args.generated_resets)if args.kind=='yam'else
            {'router':prepare_router_check,'admission':prepare_control_admission,'reasoning':prepare_reasoning_check}[args.kind]())
     result={'build':str(build),'arm':ARM,'phase':args.kind+'_qualification','primary_rl_updates':0}
     pool=(read(DEST/'native-yam-runtime-config.json')['pool']if args.kind=='yam'else
           'groot-h100-01'if args.kind=='admission'else'groot-h100-02')
     result['pool']=pool
-    if args.submit:result.update(submit(build,priority='HIGH',pool=pool,nodes=1))
-    write(DEST/('warmstart-'+args.kind+'-check-launch.json'),result);print(json.dumps(result))
+    if args.submit:
+        result.update(submit(build,priority=args.priority,pool=pool,nodes=1));result['priority']=args.priority
+        write(DEST/('warmstart-'+args.kind+'-check-launch.json'),result)
+    else:write(DEST/('warmstart-'+args.kind+'-check-prepared.json'),result)
+    print(json.dumps(result))
     if args.submit:start_monitor(args.kind)
 
 

@@ -42,7 +42,7 @@ def main():
             rows=[v for v in bank['scenes'].values()if v['partition']==partition]
             atomic(root/(partition+'.json'),{'env_class':'efe_pear_reasoning_env.'+env_name,'data_source':'family',
                 'env':[{k:[v[k]]for k in ['family','seed','partition']}for v in rows]})
-        tools={'tools':[{'class_name':'efe_pear_reasoning_env.ReasoningTool','config':{
+        tools={'tools':[{'class_name':'efe_pear_reasoning_tool.ReasoningTool','config':{
             'type':'native','env_class':'efe_pear_reasoning_env.'+name,'server_n':count,
             'log_dir':str(root/'sim')}}for name,count in [('ReasoningEnv',6),('ReasoningDevelopmentEnv',2)]]}
         (root/'tools.yaml').write_text(yaml.safe_dump(tools,sort_keys=False))
@@ -66,7 +66,9 @@ def main():
         'OPENBLAS_NUM_THREADS':'1','OMP_NUM_THREADS':'2','MKL_NUM_THREADS':'2'}
     # Configure the very same runtime libraries/caches that the training driver
     # uses before Ray starts its native children.
-    command='source "$PEAR_SOURCE/scripts/gpu_process_variables.sh" "$WORK_DIR/envs/verl"\nexec "$WORK_DIR/envs/verl/bin/ray" "$@"'
+    if role=='rollout':
+        subprocess.run([str(python),'-u','-m','efe_pear_process_check'],env=env,check=True,timeout=600)
+    command='cd "$PEAR_SOURCE"\nsource "$PEAR_SOURCE/scripts/gpu_process_variables.sh" "$WORK_DIR/envs/verl"\nexec "$WORK_DIR/envs/verl/bin/ray" "$@"'
     ray_args=['start','--block','--disable-usage-stats','--num-cpus=56','--num-gpus=8',
         '--resources='+json.dumps({role:8,**({'reasoning':8}if role=='rollout'else{})}),
         '--object-store-memory='+str(16<<30),'--min-worker-port=3000','--max-worker-port=5999',
@@ -107,6 +109,10 @@ ray.shutdown()
                 if time.monotonic()>deadline:raise TimeoutError('Qualification exceeded four hours')
                 time.sleep(5)
     finally:
+        diagnostics=root/(role+'-ray-diagnostics');diagnostics.mkdir(exist_ok=True)
+        logs=Path('/tmp/rp-jhh-pear-check/ray/session_latest/logs')
+        for path in [*logs.glob('worker-*.err'),*logs.glob('raylet.err'),*logs.glob('raylet.out'),*logs.glob('debug_state.txt')]:
+            (diagnostics/path.name).write_text(path.read_text(errors='replace')[-100000:])
         if ray_process.poll()is None:
             os.killpg(ray_process.pid,signal.SIGTERM)
             try:ray_process.wait(timeout=20)

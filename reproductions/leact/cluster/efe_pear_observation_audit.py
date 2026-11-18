@@ -25,8 +25,7 @@ def audit(item):
     except Exception as exc:return item['task'],{'passed':False,'error':repr(exc)}
 
 
-def main():
-    lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+def run(spec):
     tasks={};unavailable=[]
     for name in spec['check_files']:
         path=Path(name)
@@ -47,6 +46,12 @@ def main():
     output=Path(spec['output']);temporary=output.with_suffix('.tmp')
     temporary.write_text(json.dumps(value,indent=2)+'\n');temporary.replace(output)
     print('PEAR_OBSERVATION_AUDIT '+json.dumps({k:v for k,v in value.items()if k!='tasks'}),flush=True)
+    return value
+
+
+def main():
+    lane=Path(__file__).resolve().parent
+    run(json.loads((lane/'spec.json').read_text()))
 
 
 if __name__=='__main__':main()

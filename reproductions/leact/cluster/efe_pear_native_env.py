@@ -4,15 +4,12 @@ import json
 import os
 from pathlib import Path
 import sys
-import time
 from uuid import uuid4
 
-from pear.agent_loop.protocol import InvalidAction
-from pear.envs.tool import EnvironmentTool
 from pear.sim.env import EpisodeLost, StatefulEnv
-from pear.sim.process import SimulatorProcess
+from efe_pear_sim_process import SpawnedSimulatorProcess as SimulatorProcess
 
-from efe_action_loop import SYSTEM, parse_action
+from efe_action_loop import parse_action
 from efe_pear_bridge import HarborEpisode, NativeInfrastructureError, image_blocks, observation_payload
 from efe_pear_context import VERSION as INTERFACE_CONTEXT_VERSION
 from efe_pear_observation_check import validate_frames
@@ -105,34 +102,10 @@ class NativeEfeEnv(StatefulEnv):
     def close(self):self.bridge.close()
 
 
-class NativeEfeTool(EnvironmentTool):
-    def __init__(self,*args,**kwargs):
-        self.contracts={}
-        super().__init__(*args,**kwargs)
-
-    async def open(self,episode):
-        content,result=await super().open(episode)
-        self.contracts[episode.uid]=result['action_contract']
-        return content,result
-
-    def system_prompt(self,result):
-        # The action schema and controller are unchanged; PEAR stores the model's
-        # reasoning separately and its parser expects the final fenced JSON.
-        return SYSTEM.replace('Return only one JSON object with action_type',
-            'End your response with one json code block containing action_type')+(
-            '\nGround your reasoning in the action and observation guide supplied with each observation, '
-            'including its coordinate frames, units and named sensor layout.')
-
-    def _observation(self,result):return result['public_blocks']
-
-    async def step(self,episode,action):
-        try:parse_action(json.dumps(action),contract=self.contracts[episode.uid],allow_stop=True)
-        except (ValueError,TypeError,KeyError) as exc:raise InvalidAction(str(exc)) from exc
-        before,start=len(episode.actions),time.monotonic()
-        result=await self.client.step(episode.uid,action)
-        self._log_call(episode,before,action,result,time.monotonic()-start)
-        return self._observation(result),result
-
-    async def close(self,episode):
-        try:await super().close(episode)
-        finally:self.contracts.pop(episode.uid,None)
+def __getattr__(name):
+    # Keep older tool configurations readable without importing training libraries
+    # into simulator children. Tool lookup is model-side only.
+    if name == 'NativeEfeTool':
+        from efe_pear_native_tool import NativeEfeTool
+        return NativeEfeTool
+    raise AttributeError(name)

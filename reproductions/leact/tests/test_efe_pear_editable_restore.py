@@ -37,3 +37,11 @@ def test_editable_capture_rejects_an_escape(tmp_path):
     prefix=tmp_path/'venv';prefix.mkdir();(tmp_path/'outside').write_text('outside')
     with pytest.raises(ValueError,match='escapes'):
         capture_editables(prefix,[Distribution(prefix,['../outside'])],tmp_path/'saved')
+
+
+def test_native_lock_requires_the_recorded_wheel_version_including_local_tag():
+    from reproductions.leact.cluster.efe_pear_editable_restore import exact_lock_corrections
+    expected='torch==2.7.0+cu128\ntorchaudio==2.7.0\n'
+    actual='torch==2.7.0+cu128\ntorchaudio==2.7.0+cu128\n'
+    assert exact_lock_corrections(expected,actual)==['torchaudio==2.7.0']
+    assert exact_lock_corrections(expected,expected)==[]

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase,PolicyCfg
+from efe_pear_yam_contract import termination_snapshot
 
 
 def array(value):
@@ -19,6 +20,9 @@ def array(value):
 @dataclass
 class YamApiProbePolicyCfg(PolicyCfg):
     report_path:str=''
+    reset_count:int=1
+    training_reset_manifest:str=''
+    expected_pose_fingerprints:list[str]|None=None
 
 
 @register_policy
@@ -26,7 +30,7 @@ class YamApiProbePolicy(PolicyBase[YamApiProbePolicyCfg]):
     name='rp_jhh_yam_api_probe'
 
     def __init__(self,config):
-        super().__init__(config);self.config=config;self.calls=0;self.initial=None
+        super().__init__(config);self.config=config;self.calls=0;self.initial=None;self.resets={}
 
     def get_action(self,env,observation):
         from PIL import Image
@@ -73,14 +77,35 @@ class YamApiProbePolicy(PolicyBase[YamApiProbePolicyCfg]):
         elif digest!=self.initial['action_contract_sha256']:raise ValueError('Native action contract changed after one control step')
         self.calls+=1
         if self.calls>=32:
-            terms={}
-            for name,value in getattr(base.termination_manager,'_term_dones',{}).items():terms[name]=bool(array(value).reshape(-1)[0])
+            terms=termination_snapshot(base.termination_manager)
+            if any(terms.values()):raise ValueError('The held native reset terminated during its stability probe')
             result={**self.initial,'api_reset_action_observation_passed':True,'native_termination_terms':terms,
                 'policy_model_inference_calls':0,'primary_rl_updates':0,'training_admitted':False,'hold_control_steps':self.calls-1,
                 'scope':'Authored fixture API probe only. Independent training reset generation and reward qualification remain separate.'}
+            if self.config.training_reset_manifest:
+                from efe_pear_yam_reset_bank import pose_fingerprint
+                layout=base._tgen_reset_layouts[0];reset_id=layout['initialization_id']
+                fingerprint=pose_fingerprint(layout['object_init_poses'])
+                if reset_id in self.resets:raise ValueError('A training reset repeated before the bank was checked')
+                if fingerprint not in self.config.expected_pose_fingerprints:raise ValueError('Native reset differs from the independent bank')
+                states={}
+                for name,asset in {**base.scene.articulations,**base.scene.rigid_objects}.items():
+                    value=array(asset.data.root_state_w)
+                    if not value.size or not np.isfinite(value).all():raise ValueError('Native reset physical state is empty or nonfinite')
+                    states[name]=hashlib.sha256(value.round(7).tobytes()).hexdigest()
+                self.resets[reset_id]={'input_pose_fingerprint':fingerprint,'native_state_sha256':states,
+                    'cameras':cameras,'nonterminal_after_hold':True,'hold_control_steps':self.calls-1}
+                progress=Path(self.config.report_path).with_name('reset-progress.json')
+                progress.write_text(json.dumps({'checked':len(self.resets),'required':self.config.reset_count,
+                    'primary_rl_updates':0})+'\n')
+                if len(self.resets)<self.config.reset_count:
+                    fresh,_=env.reset();self.calls=0;self.initial=None
+                    return self.get_action(env,fresh)
+                result.update(resets=self.resets,independent_training_reset_api_passed=True,
+                    training_admitted=False,native_success_verifier_positive_control=False,
+                    scope='Independent training reset bank: native assignment, RGB, bounded hold action, finite physical state and nonterminal checks. Reward and production transport admission remain separate.')
             target=Path(self.config.report_path);target.parent.mkdir(parents=True,exist_ok=True)
             target.write_text(json.dumps(result,indent=2)+'\n')
-            raise SystemExit(0)
         return torch.tensor([values],dtype=torch.float32,device=base.device)
 
     def reset(self,env_ids=None):pass
