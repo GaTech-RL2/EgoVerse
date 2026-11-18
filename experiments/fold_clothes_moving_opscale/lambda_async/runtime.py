@@ -323,7 +323,11 @@ def prepare(args):
         for cell, (train_yaml, eval_yaml) in prepared.items():
             (stage / cell).mkdir()
             (stage / cell / "eval_reference.yaml").write_text(eval_yaml)
-            roles = ("evaluate-final",) if evaluation_only else ("train", "worker")
+            roles = (
+                ("evaluate-final", "evaluate-all")
+                if evaluation_only
+                else ("train", "worker")
+            )
             if train_yaml is not None:
                 (stage / cell / "train.yaml").write_text(train_yaml)
             for role in roles:
@@ -447,11 +451,15 @@ def compose(
                     else "metrics-and-video"
                 ),
             ]
-        cfg.logger.wandb.tags = list(cfg.logger.wandb.tags) + role_tags + [
-            f"source_run={run['source_wandb_id']}",
-            f"cell={cell}",
-            f"role={role}",
-        ]
+        cfg.logger.wandb.tags = (
+            list(cfg.logger.wandb.tags)
+            + role_tags
+            + [
+                f"source_run={run['source_wandb_id']}",
+                f"cell={cell}",
+                f"role={role}",
+            ]
+        )
         cfg.async_lineage = {
             "source_wandb_id": run["source_wandb_id"],
             "training_wandb_id": run["training_wandb_id"],
@@ -808,12 +816,8 @@ def evaluate(args):
         metrics and all(math.isfinite(float(x)) for x in metrics.values()),
         "Non-finite metrics",
     )
-    render_due = (
-        not manifest.get("metrics_only", False)
-        and (
-            record["checkpoint"]["completed_epochs"] % 200 == 0
-            or step == 400000
-        )
+    render_due = not manifest.get("metrics_only", False) and (
+        record["checkpoint"]["completed_epochs"] % 200 == 0 or step == 400000
     )
     expected_videos = (
         sum(
@@ -863,7 +867,7 @@ def evaluate(args):
     atomic(receipt_path, receipt)
 
 
-def sync_r2_sources(manifest_path, cell, *, global_step=None):
+def sync_r2_sources(manifest_path, cell, *, global_step=None, steps=None):
     """Consume immutable R2 READY records; full local SHA gates every download.
 
     Explicit R2 environment credentials take precedence over boto3's provider
@@ -922,7 +926,7 @@ def sync_r2_sources(manifest_path, cell, *, global_step=None):
                 need(item["Size"] <= 1024 * 1024, "Oversized READY metadata")
                 source_key = hashlib.sha256((bucket + "/" + key).encode()).hexdigest()
                 import_receipt = imported_dir / f"{source_key}.json"
-                if import_receipt.exists():
+                if steps is None and import_receipt.exists():
                     saved = read(import_receipt)
                     need(
                         saved["etag"] == item["ETag"],
@@ -947,11 +951,16 @@ def sync_r2_sources(manifest_path, cell, *, global_step=None):
                     or remote["checkpoint"]["global_step"] == global_step,
                     "Remote READY filename and checkpoint step differ",
                 )
-                need(
+                # ponytail: other lineages under one cell prefix (b48_op8's
+                # corrupted historical run) are skipped, not fatal.
+                if (
                     remote.get("wandb_id", remote.get("source_wandb_id"))
-                    == run["source_wandb_id"],
-                    "Remote READY belongs to a different source run",
-                )
+                    != run["source_wandb_id"]
+                ):
+                    continue
+                if steps is not None:
+                    steps.add(remote["checkpoint"]["global_step"])
+                    continue
                 checksum = remote["sha256"]
                 need(re.fullmatch(r"[0-9a-f]{64}", checksum), "Invalid checkpoint SHA")
                 object_prefix = source["object_prefix"].strip("/") + "/"
@@ -1092,6 +1101,58 @@ def evaluate_final(args):
             }
         )
     )
+
+
+def evaluate_all(args):
+    """Score every READY checkpoint of one cell in step order, one at a time.
+
+    W&B needs increasing steps, so checkpoints run ascending. Each local copy is
+    deleted after its receipt is written; reruns skip receipted steps.
+    """
+    manifest, run = entry(args.manifest, args.cell)
+    need(
+        manifest.get("evaluation_only", False),
+        "evaluate-all requires an evaluation-only manifest",
+    )
+    steps = set()
+    sync_r2_sources(args.manifest, args.cell, steps=steps)
+    need(400000 in steps, "Final step-400000 checkpoint missing from R2")
+    print(json.dumps({"cell": args.cell, "checkpoints": len(steps)}), flush=True)
+    ready = Path(run["queue_dir"]) / "ready"
+    for step in sorted(steps):
+        sync_r2_sources(args.manifest, args.cell, global_step=step)
+        records = [(read(p), p) for p in ready.glob(f"{step:09d}-*.json")]
+        need(len(records) == 1, f"Need exactly one READY checkpoint at step {step}")
+        record, path = records[0]
+        output = (
+            Path(run["directory"])
+            / "eval/checkpoints"
+            / f"{step:09d}-{record['sha256']}"
+        )
+        if not (output / "evaluation_receipt.json").exists():
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "experiments.fold_clothes_moving_opscale.lambda_async.runtime",
+                    "_evaluate",
+                    "--manifest",
+                    str(Path(args.manifest).resolve()),
+                    "--cell",
+                    args.cell,
+                    "--record",
+                    str(path.resolve()),
+                ],
+                cwd=REPO,
+                check=True,
+            )
+        need(
+            (output / "evaluation_receipt.json").exists(), "Evaluation left no receipt"
+        )
+        Path(record["local_path"]).unlink(missing_ok=True)
+        print(json.dumps({"cell": args.cell, "evaluated_step": step}), flush=True)
+    print(json.dumps({"cell": args.cell, "completed": True}), flush=True)
 
 
 def worker(args):
@@ -1321,6 +1382,7 @@ def main():
         "train",
         "worker",
         "evaluate-final",
+        "evaluate-all",
         "import-ready",
         "seal-imports",
         "_evaluate",
@@ -1354,6 +1416,8 @@ def main():
         evaluate(args)
     elif args.command == "evaluate-final":
         evaluate_final(args)
+    elif args.command == "evaluate-all":
+        evaluate_all(args)
     elif args.command == "seal-imports":
         _, run = entry(args.manifest, args.cell)
         queue = Path(run["queue_dir"])
