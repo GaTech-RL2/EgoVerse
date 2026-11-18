@@ -155,6 +155,13 @@ def tick(plan,evidence,collection_gate,active,preparation_ready=False):
         data=remote.get(stage,{})
         stage_done = bool(data.get('success')) if stage=='restart-probe' else bool(data.get('complete',{}).get('success'))
         record=stages.setdefault(stage,{'attempts':[]})
+        pause=read(DEST/stage/'pause.json',{})
+        if pause.get('active'):
+            record.update(status='PAUSED_BY_USER',retry=False,pause_reason=pause.get('reason'))
+            jobs.append({'stage':stage,'status':'PAUSED_BY_USER',
+                'workflow':record['attempts'][-1]['workflow']if record['attempts']else None,
+                'progress':data.get('progress',{}),'complete':data.get('complete',{}),'user_pause':pause})
+            continue
         repair=read(DEST/stage/'source-recovery.json',{})
         quality_hold=read(DEST/stage/'quality-hold.json',{})
         if quality_hold.get('active'):
