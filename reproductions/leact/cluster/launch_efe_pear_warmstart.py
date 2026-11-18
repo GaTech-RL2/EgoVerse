@@ -127,11 +127,11 @@ def prepare_reasoning_check():
     return build
 
 
-def prepare_native_yam_check(task_names=None,generated_resets=False,native_transport_probe=False):
+def prepare_native_yam_check(task_names=None,generated_resets=False,native_transport_probe=False,*,runtime_override=None):
     if ARM not in read(DEST/'control.json',{}).get('enabled_training_arms',[]):
         raise RuntimeError('Warmstart RL is not enabled')
     metadata=read(DEST/'sources/gr00t-sim-source.json');source=Path(metadata['source'])
-    runtime=read(DEST/'native-yam-runtime-config.json')
+    runtime={**read(DEST/'native-yam-runtime-config.json'),**(runtime_override or{})}
     remote_root=runtime.get('validation_remote_root',REMOTE)
     archive=DEST/'sources'/('rp_jhh_native_yam_runtime_'+metadata['revision']+'.tar.gz')
     if not archive.exists():
@@ -144,7 +144,8 @@ def prepare_native_yam_check(task_names=None,generated_resets=False,native_trans
         ['efe_pear_yam_api_policy.py','efe_pear_yam_api_check.py','efe_pear_yam_probe_entry.py',
          'efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py']}
     extra_sources=['efe_pear_yam_session_policy.py','efe_pear_file_rpc.py','efe_action_loop.py',
-        'efe_pear_bridge.py','efe_pear_context.py']if native_transport_probe else[]
+        'efe_pear_bridge.py','efe_pear_context.py','efe_pear_public_observation.py',
+        'efe_pear_observation_check.py']if native_transport_probe else[]
     digests.update({name:hashlib.sha256((BASE/'cluster'/name).read_bytes()).hexdigest()for name in extra_sources})
     tasks=[x for x in read(DEST/'native-yam-split-v1.json')['entries']if x['split']=='train']
     if task_names and set(task_names)-{row['env_name']for row in tasks}:

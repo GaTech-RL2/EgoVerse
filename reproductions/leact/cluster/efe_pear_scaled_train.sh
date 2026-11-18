@@ -6,6 +6,7 @@ set -euo pipefail
 : "${EPISODES:?}" "${VALIDATION_EPISODES:?}" "${EFE_PEAR_NATIVE_CONFIG:?}"
 : "${MODEL_QUALIFICATION:?}" "${TRAINING_STEPS:?}" "${EFE_PEAR_CURRICULUM:?}" "${TOOL_CONFIG:?}"
 : "${EFE_PEAR_REASONING_MEMBERSHIP:?}" "${EFE_PEAR_REMOTE_ROOT:?}"
+: "${PEAR_CHECKPOINT_ARCHIVE:?}" "${PEAR_OBJECTSTORE_CREDENTIAL_FILE:?}"
 export RAY_DEDUP_LOGS=0
 GPU=h100
 TRAINER_NNODES=${TRAINER_NNODES:-1}
@@ -74,6 +75,11 @@ esac
 # Override host-memory sizing, retaining the paper's optimizer batch and kernels.
 LMCACHE_ARGS=("+actor_rollout_ref.rollout.custom.lmcache={enable: true, log_dir: $RUN/lmcache, l1_size_gb: 96}"
               +actor_rollout_ref.rollout.custom.lmcache.chunk_size=784)
+if [ "$MODEL_TYPE" = qwen3_5_moe ]; then
+  # Preserve the MoE rollout path that passed actual on-policy qualification.
+  # The paper's dense-model host cache is a separate performance experiment.
+  LMCACHE_ARGS=("+actor_rollout_ref.rollout.custom.lmcache={enable: false}")
+fi
 MODEL_ROLLOUT_ARGS=(actor_rollout_ref.rollout.tensor_model_parallel_size="$TP"
   "${TRTLLM_ARGS[@]}" "${LMCACHE_ARGS[@]}" actor_rollout_ref.rollout.standalone_gpu_memory_utilization=0.85)
 mkdir -p "$RUN"
@@ -106,8 +112,9 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   actor_rollout_ref.actor.ppo_mini_batch_size="$BATCH" \
   trainer.n_gpus_per_node=8 trainer.nnodes="$TRAINER_NNODES" \
   trainer.total_training_steps="$TRAINING_STEPS" trainer.total_epochs=10000 \
+  trainer.save_freq=4 trainer.max_actor_ckpt_to_keep=1 \
   trainer.experiment_name="${PEAR_RUN_ID:-$(basename "$RUN")}" trainer.default_local_dir="${PEAR_CHECKPOINT_SCRATCH:-$RUN/ckpt}" \
-  trainer.validation_data_dir="$RUN/eval" trainer.logger='["console","file","tensorboard"]' \
+  trainer.validation_data_dir="$RUN/eval" trainer.logger='["console","file"]' \
   run_dir="$RUN" run_sizes.sessions_per_replica="$SESSIONS_PER_REPLICA" \
   "$ENV_VAR.VERL_USE_EXTERNAL_MODULES='$VERL_USE_EXTERNAL_MODULES'" \
   "$ENV_VAR.PYTHONPATH='$PYTHONPATH'" "$ENV_VAR.EFE_PEAR_NATIVE_CONFIG=$EFE_PEAR_NATIVE_CONFIG" \
@@ -115,6 +122,10 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   "$ENV_VAR.EFE_PEAR_REASONING_MEMBERSHIP=$EFE_PEAR_REASONING_MEMBERSHIP" \
   "$ENV_VAR.EFE_PEAR_REMOTE_ROOT=$EFE_PEAR_REMOTE_ROOT" \
   "$ENV_VAR.EFE_PEAR_METRICS_DIR=$EFE_PEAR_METRICS_DIR" \
+  "$ENV_VAR.RUN=$RUN" \
+  "$ENV_VAR.PEAR_LOG_DIR=$PEAR_LOG_DIR" "$ENV_VAR.PEAR_TRACE_FRAMES='1'" \
+  "$ENV_VAR.PEAR_CHECKPOINT_ARCHIVE=$PEAR_CHECKPOINT_ARCHIVE" \
+  "$ENV_VAR.PEAR_OBJECTSTORE_CREDENTIAL_FILE=$PEAR_OBJECTSTORE_CREDENTIAL_FILE" \
   "$ENV_VAR.MODEL_REVISION=$MODEL_REVISION" \
   "$ENV_VAR.RAY_DEDUP_LOGS='0'" \
   "$ENV_VAR.PEAR_PRIMARY_TRAINING='1'" "$ENV_VAR.VERL_FILE_LOGGER_PATH=$RUN/metrics.jsonl" \

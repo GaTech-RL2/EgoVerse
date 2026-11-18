@@ -1,5 +1,6 @@
 """Model-side PEAR process proxies for independently allocated native workers."""
 import os
+import json
 from pathlib import Path
 import sys
 
@@ -13,7 +14,7 @@ class RemoteNativeEnv(StatefulEnv):
     START_TIMEOUT_S=180.;OPEN_TIMEOUT_S=1800.;STEP_TIMEOUT_S=1800.
     SERVER_RESOURCES={'num_cpus':1,'resources':{'native_proxy':1}}
     LOG_KEYS=('native_trial_path','action_contract_sha256','requested_control_steps','executed_control_steps',
-              'interface_context_version','interface_context_sha256','scene_sha256','native_termination_terms')
+              'interface_context_version','interface_context_sha256')
     KIND='efe'
 
     @classmethod
@@ -31,8 +32,14 @@ class RemoteNativeEnv(StatefulEnv):
     def task_name(cls,env_args):return env_args['task']
 
     def __init__(self,**env_args):
-        kind=self.KIND+('/'+env_args['task']if self.KIND=='native_yam'else'')
-        self.client=FileEpisodeClient(os.environ['EFE_PEAR_REMOTE_ROOT'],kind,env_args)
+        if self.KIND=='native_yam':kind='native_yam/'+env_args['task']
+        else:
+            config=json.loads(Path(os.environ['EFE_PEAR_NATIVE_CONFIG']).read_text())
+            membership=json.loads(Path(config['membership_file']).read_text())
+            item=membership['training_tasks'][env_args['task']]
+            if item['qualification']!='passed':raise ValueError('Remote native task is not admitted')
+            kind='efe/'+item['row']['suite']
+        self.client=FileEpisodeClient(os.environ['EFE_PEAR_REMOTE_ROOT'],kind,env_args,timeout=self.OPEN_TIMEOUT_S)
 
     def open(self):
         try:return self.client.open()
@@ -47,4 +54,6 @@ class RemoteNativeEnv(StatefulEnv):
 
 class NativeYamEnv(RemoteNativeEnv):
     KIND='native_yam'
+    OPEN_TIMEOUT_S=14400.
     SERVER_RESOURCES={'num_cpus':1,'resources':{'native_yam_proxy':1}}
+    LOG_KEYS=RemoteNativeEnv.LOG_KEYS+('scene_sha256','native_termination_terms')

@@ -100,7 +100,8 @@ class HarborEpisode:
                     if not 0<size<=32*1024*1024:raise ValueError('Invalid request size')
                     body=json.loads(self.rfile.read(size));observation_payload(body)
                     bridge.calls+=1
-                    (bridge.root/f'observation-{bridge.calls:04d}.json').write_text(json.dumps(body)+'\n')
+                    if bridge.config.get('retain_transport_observations',True):
+                        (bridge.root/f'observation-{bridge.calls:04d}.json').write_text(json.dumps(body)+'\n')
                     bridge.requests.put(body,timeout=5)
                     action=bridge.actions.get(timeout=900)
                     response={'type':'response.completed','response':{

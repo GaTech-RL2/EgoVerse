@@ -63,6 +63,25 @@ def fold(state,marker,row):
         elif kind=='group':
             records={r['event_id']:r for r in state.get('recent_graded_groups',[])};records[row['event_id']]=row
             state['recent_graded_groups']=list(records.values())[-30:]
+            rewards=row.get('rewards',[])
+            if(row.get('partition')=='train'and row.get('infrastructure_ok')and len(rewards)==8
+                and all(v in(0,1)for v in rewards)):
+                seen=state.setdefault('graded_group_ids',{})
+                if row['event_id']not in seen:
+                    seen[row['event_id']]=True
+                    totals=state.setdefault('group_reward_totals',{})
+                    for scope in ['all','family/'+row['family'],'suite/'+row['suite'],
+                        'task/'+row['suite']+'/'+row['task']]:
+                        value=totals.setdefault(scope,{'episodes':0,'successes':0})
+                        value['episodes']+=8;value['successes']+=sum(rewards)
+                    state['latest_task_rewards']={key.removeprefix('task/'):v['successes']/v['episodes']
+                        for key,v in totals.items()if key.startswith('task/')}
+                    metrics=state.setdefault('latest_metrics',{})
+                    for key,value in totals.items():
+                        metrics['reward_unfiltered_cumulative/'+key]=value['successes']/value['episodes']
+                        metrics['episodes_cumulative/'+key]=value['episodes']
+                    metrics['groups_cumulative/judged']=len(seen)
+                    metrics['reward_unfiltered_cumulative/macro_task']=sum(state['latest_task_rewards'].values())/len(state['latest_task_rewards'])
     return state
 
 
@@ -118,12 +137,17 @@ def tick(database,binary):
             states[ident]=json.loads(unpack_payload(payload))
     for name,workflow in workflows.items():
         phase=workflow.get('labels',{}).get('pear_phase','')
+        if phase=='primary_native_workers':
+            # Actions, reasoning, rewards and simulator errors are reported by
+            # the primary tools. Avoid polling every Kit startup log here.
+            continue
         qualification=(phase in {'router_optimizer_qualification','training_reset_admission',
                                   'reasoning_scene_and_transport_qualification',
                                   'native_yam_runtime_api_qualification',
                                   'ray_server_startup_qualification','native_robolab_rtx_api_check',
                                   'native_image_cpu_publication',
-                                  'on_policy_score_centering_qualification'}or phase.startswith('all_tasks_'))
+                                  'on_policy_score_centering_qualification'}or phase.startswith('all_tasks_')
+                                  or phase.startswith('rtx_transport_'))
         if qualification and not needs_qualification_poll(states.get(workflow['labels'].get('pear_run_id'),{}),workflow):
             continue
         if not workflow.get('start_time'):

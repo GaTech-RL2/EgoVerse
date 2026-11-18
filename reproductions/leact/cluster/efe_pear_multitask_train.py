@@ -200,9 +200,18 @@ class MultitaskTrainer(PearTrainer):
         super()._save_checkpoint()
         archive_root=os.environ.get('PEAR_CHECKPOINT_ARCHIVE')
         if archive_root:
-            from efe_pear_checkpoint_archive import archive
             name='rp_jhh_qwen36_moe_warmstart496_pear_expanded_step'+f'{self.global_steps:06d}'
-            manifest=archive(folder,Path(archive_root)/name)
+            if archive_root.startswith('s3://'):
+                from efe_pear_object_archive import archive
+                destination=archive_root.rstrip('/')+'/'+name
+            else:
+                from efe_pear_checkpoint_archive import archive
+                destination=str(Path(archive_root)/name)
+            manifest=archive(folder,destination)
+            pointer=Path(os.environ['RUN'])/'checkpoint-latest.json'
+            temporary=pointer.with_suffix('.tmp')
+            temporary.write_text(json.dumps({'step':int(self.global_steps),'archive':destination,
+                'readback_verified':True,'name':name})+'\n');temporary.replace(pointer)
             self.telemetry.emit('checkpoint_archive','archive/'+str(self.global_steps),step=int(self.global_steps),
                                 name=name,bytes=manifest['bytes'],readback_verified=True)
         self.telemetry.emit('checkpoint','checkpoint/'+str(self.global_steps),step=int(self.global_steps),
@@ -224,7 +233,7 @@ class MultitaskTrainer(PearTrainer):
             self.curriculum.restore(json.loads((folder/'curriculum.json').read_text()))
 
 
-@ray.remote
+@ray.remote(resources={'pear_driver':1})
 class MultitaskRunner(PearTaskRunner):
     def build_trainer(self,config):return MultitaskTrainer(config)
 

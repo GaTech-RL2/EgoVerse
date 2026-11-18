@@ -23,6 +23,8 @@ class YamApiProbePolicyCfg(PolicyCfg):
     reset_count:int=1
     training_reset_manifest:str=''
     expected_pose_fingerprints:list[str]|None=None
+    save_frames:bool=True
+    joint_hold_only:bool=False
 
 
 @register_policy
@@ -56,6 +58,8 @@ class YamApiProbePolicy(PolicyBase[YamApiProbePolicyCfg]):
             if len(names)!=term.action_dim or not np.isfinite(np.r_[raw,lo,hi]).all():raise ValueError('Native action layout/bounds are invalid')
             if np.any(raw<lo-.005)or np.any(raw>hi+.005):raise ValueError('Native reset lies outside declared joint limits')
             layout.extend(names);values.extend(np.clip(raw,lo,hi).tolist());lower.extend(lo.tolist());upper.extend(hi.tolist())
+        if self.config.joint_hold_only:
+            return torch.tensor([values],dtype=torch.float32,device=base.device)
         cameras={}
         for name,image in (observation.get('camera_obs')or{}).items():
             rgb=array(image)
@@ -64,7 +68,7 @@ class YamApiProbePolicy(PolicyBase[YamApiProbePolicyCfg]):
             if not np.isfinite(rgb).all():raise ValueError('Native RGB contains nonfinite values')
             if rgb.dtype!=np.uint8:rgb=(np.clip(rgb,0,1)*255).astype(np.uint8)if rgb.max()<=1 else np.clip(rgb,0,255).astype(np.uint8)
             rgb=rgb[...,:3];cameras[name]={'shape':list(rgb.shape),'std':float(rgb.std())}
-            if self.calls==0:
+            if self.calls==0 and self.config.save_frames:
                 output=Path(self.config.report_path).parent/'frames';output.mkdir(exist_ok=True)
                 Image.fromarray(rgb).save(output/(name.replace('/','_')+'.png'))
         if not cameras or all(v['std']<1 for v in cameras.values()):raise ValueError('Native reset has no usable rendered camera')

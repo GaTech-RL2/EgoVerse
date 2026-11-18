@@ -63,7 +63,8 @@ def ingest_pear(path,value):
     if value.get('schema_version')!=1 or run_id not in allowed or not isinstance(data,dict):
         raise ValueError('Only registered PEAR runs may upload telemetry')
     fields={'history','latest_metrics','optimizer_steps_observed','latest_task_rewards','evaluations',
-            'checkpoints','recent_graded_groups','heartbeat','metadata','rollout_diagnostics'}
+            'checkpoints','recent_graded_groups','heartbeat','metadata','rollout_diagnostics',
+            'graded_group_ids','group_reward_totals'}
     if data.keys()-fields:raise ValueError('Telemetry cannot modify catalog or run registration')
     data=public_reasoning(data);json.dumps(data,allow_nan=False)
     if value.get('dry_run'):return {'accepted':True,'dry_run':True,'run_id':run_id}
@@ -88,7 +89,11 @@ def reasoning_workspace(path):
         live=value.setdefault('live_pear',{});live['collector_state']='hosted run history';runs=live.setdefault('runs',{})
         for run_id,updated,payload in rows:
             if run_id=='__retention496__':value['warmstart_retention']=json.loads(unpack_payload(payload))
-            else:runs[run_id]=json.loads(unpack_payload(payload))
+            else:
+                record=json.loads(unpack_payload(payload))
+                record.pop('graded_group_ids',None)
+                record.pop('group_reward_totals',None)
+                runs[run_id]=record
         live['observed_utc']=max(r[1]for r in rows)
     status=Path(path).parent/'collector-status.json'
     if status.is_file():

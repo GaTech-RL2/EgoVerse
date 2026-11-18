@@ -93,8 +93,18 @@ class QualificationTrainer(PearTrainer):
         folder=Path(self.config.trainer.default_local_dir)/f'global_step_{self.global_steps}'
         self.actor_rollout_wg.load_checkpoint(str(folder/'actor'),del_local_after_load=False)
         self.checkpoint_reloaded=True
-        from efe_pear_checkpoint_archive import archive
-        saved=archive(folder,Path(os.environ['EFE_PEAR_QUALIFICATION_DIR'])/'rp_jhh_discarded_sc_step000001')
+        # Preserve small algorithm/reload receipts before the independent
+        # durability step, so a storage failure is not misreported as an RL or
+        # distributed reload failure.
+        record('score_centering_checkpoint_api_reload_passed',discarded_optimizer_updates=1,
+            checkpoint_api_reload_returned=True,durable_readback_verified=False)
+        object_root=os.environ.get('PEAR_CHECKPOINT_ARCHIVE')
+        if object_root and object_root.startswith('s3://'):
+            from efe_pear_object_archive import archive
+            saved=archive(folder,object_root.rstrip('/')+'/rp_jhh_discarded_sc_step000001')
+        else:
+            from efe_pear_checkpoint_archive import archive
+            saved=archive(folder,Path(os.environ['EFE_PEAR_QUALIFICATION_DIR'])/'rp_jhh_discarded_sc_step000001')
         record('score_centering_checkpoint_reload_passed',discarded_optimizer_updates=1,
             durable_readback_verified=True,checkpoint_bytes=saved['bytes'],
             reload_scope='Actual saved actor/optimizer loaded through the distributed engine API in the same workers; fresh-process NLL reload was checked separately.')

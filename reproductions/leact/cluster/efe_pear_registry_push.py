@@ -12,7 +12,7 @@ import tarfile
 import time
 
 
-def publish(archive,expected_sha256,destination,token_file,receipt):
+def publish(archive,expected_sha256,destination,token_file,receipt,*,archive_verified=False):
     archive,token_file,receipt=map(Path,[archive,token_file,receipt])
     if not destination.startswith('docker://nvcr.io/nvidian/lpr/pear-efe-rtx-rp-jhh:'):
         raise ValueError('Unexpected private experiment repository')
@@ -25,10 +25,11 @@ def publish(archive,expected_sha256,destination,token_file,receipt):
     repository=destination.removeprefix('docker://nvcr.io/').rsplit(':',1)[0]
     if not any(v.get('name')==repository and'push'in v.get('actions',[])for v in claims.get('access',[])):
         raise ValueError('The scoped token does not authorize this private image')
-    digest=hashlib.sha256()
-    with archive.open('rb')as stream:
-        while chunk:=stream.read(16<<20):digest.update(chunk)
-    if digest.hexdigest()!=expected_sha256:raise ValueError('Cached simulator OCI checksum changed')
+    if not archive_verified:
+        digest=hashlib.sha256()
+        with archive.open('rb')as stream:
+            while chunk:=stream.read(16<<20):digest.update(chunk)
+        if digest.hexdigest()!=expected_sha256:raise ValueError('Cached simulator OCI checksum changed')
     help_text=subprocess.check_output(['skopeo','copy','--help'],text=True)
     if '--dest-registry-token'not in help_text:raise ValueError('Installed skopeo lacks scoped bearer-token support')
     with tarfile.open(archive)as stream:

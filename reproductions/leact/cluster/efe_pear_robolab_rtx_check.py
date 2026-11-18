@@ -13,6 +13,7 @@ import signal
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 
 from efe_action_loop import native_contract,parse_action
@@ -23,6 +24,8 @@ from efe_pear_observation_check import validate_frames
 def main():
     from PIL import Image
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+    suite=spec.get('suite','robolab')
+    tool_relative=spec.get('native_tool_relative','rcb_robolab.py');tool_name=Path(tool_relative).name
     root=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];root.mkdir(parents=True,exist_ok=True)
     archive=Path(spec['payload']);raw=archive.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=spec['payload_sha256']:raise ValueError('Native file/instance payload changed')
@@ -37,15 +40,16 @@ def main():
     results={}
     for row in spec['tasks']:
         target=root/row['task'];target.mkdir();srv=target/'srv';srv.mkdir();data=target/'data';data.mkdir()
-        for name in ['server.py','live_video.py','rcb_robolab.py','finalize.sh']:
-            original=source/'robolab'/('sim/'+name if name!='rcb_robolab.py'else name)
+        for name in ['server.py','live_video.py',tool_name,'finalize.sh']:
+            original=source/suite/('sim/'+name if name!=tool_name else tool_relative)
             shutil.copyfile(original,srv/name)
         for name in ['rcb1.py','rcb_limited.py']:shutil.copyfile(source/'standard'/name,srv/name)
         task=source/row['path'];instance=task/'environment/sim/instance.json'
         import yaml
         native=yaml.safe_load((task/'environment/docker-compose.yaml').read_text())['services']['sim']['environment']
-        env={**os.environ,**{k:str(v)for k,v in native.items()},'PYTHONPATH':str(srv),
-            'RCB_INSTANCE':str(instance),'RCB_DATA':str(data),'RCB_TOOL':str(srv/'rcb_robolab.py'),
+        env={**os.environ,**{k:str(v)for k,v in native.items()},
+            'PYTHONPATH':str(srv)+':'+os.environ.get('PYTHONPATH',''),
+            'RCB_INSTANCE':str(instance),'RCB_DATA':str(data),'RCB_TOOL':str(srv/tool_name),
             'RCB_SRV':str(srv),'RCB_SERVER':str(srv/'server.py'),'SIM_URL':'http://127.0.0.1:8000',
             'NVIDIA_DRIVER_CAPABILITIES':'all','OMNI_KIT_ALLOW_ROOT':'1'}
         value={'task':row['task'],'native_rtx_api_passed':False,'training_admitted':False,
@@ -53,8 +57,12 @@ def main():
         process=None
         try:
             with(target/'native.log').open('w')as log:
-                process=subprocess.Popen([sys.executable,'-u',str(srv/'server.py')],env=env,
+                process=subprocess.Popen([sys.executable,'-u',str(lane/'efe_pear_native_entry.py'),str(srv/'server.py')],env=env,
                     cwd=srv,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            # The unchanged collect hook waits for the simulator PID to vanish.
+            # Reap it while that hook runs, rather than leaving an exited child
+            # visible as a zombie until the hook times out.
+            threading.Thread(target=process.wait,daemon=True).start()
             robot=Robot(base='http://127.0.0.1:8000',timeout=1000)
             raw_spec=robot.spec()
             (target/'native-spec.json').write_text(json.dumps(raw_spec,indent=2)+'\n')

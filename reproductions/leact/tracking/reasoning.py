@@ -252,6 +252,22 @@ def build(base=BASE):
     for path in(scaled/'validation-receipts').glob('*/checks.json'):
         task_receipts.update(read(path,{}))
     yam_bank=read(scaled/'native-yam-generated-resets/generation-report.json',{})
+    yam_readback=read(scaled/'native-yam-bank-readback.json',{})
+    full_qualification=read(scaled/'full-qualification-status.json',{})
+    transport_rows=full_qualification.get('checks',[])
+    summary_by_suite={}
+    for value in transport_rows:
+        suite=value.get('suite','native_gr00t_yam')
+        row=summary_by_suite.setdefault(suite,{'suite':suite,'total':0,'checked':0,'passed':0,'states':[],'source_failure':False})
+        receipt=value.get('receipt',{});worker=value.get('worker',{})
+        row['total']+=len(value.get('tasks',[]));row['checked']+=receipt.get('checked',worker.get('checked',0))
+        row['passed']+=receipt.get('checked',0)if receipt.get('passed')else worker.get('passed',0)
+        row['states'].append(value.get('scheduler_status','PENDING'))
+        row['source_failure']|=value.get('source_failure',False)
+    for row in summary_by_suite.values():
+        states=row.pop('states')
+        row['status']='COMPLETED'if all(v=='COMPLETED'for v in states)else'RUNNING'if'RUNNING'in states else'PENDING'
+    transport_summary=list(summary_by_suite.values())
     result={'title':'rpunamiya reasoning','updated_utc':datetime.now(timezone.utc).isoformat(),
         'inventory':catalog,'timing_proxies':timing_proxies(root),
         'compute_usage':read(base/'artifacts/reasoning-workspace/compute-usage.json',{}),
@@ -281,10 +297,18 @@ def build(base=BASE):
                 'native_yam':read(scaled/'native-yam-bank-status.json',read(scaled/'warmstart-yam-check.json',{})),
                 'ray_servers':read(scaled/'ray-server-check-status.json',read(scaled/'ray-server-check-launch.json',{})),
                 'native_robolab_rtx':read(scaled/'native-robolab-rtx-status.json',read(scaled/'native-robolab-rtx-launch.json',{})),
+                'checkpoint_storage':read(scaled/'checkpoint-storage-status.json',read(scaled/'checkpoint-storage-launch.json',{})),
+                'on_policy_update_evidence':read(scaled/'onpolicy-update-evidence.json',{}),
+                'production_transport_sweeps':transport_summary,
+                'full_native_mix_passed':full_qualification.get('all_production_transports_passed',False),
+                'native_yam_production_volume':read(scaled/'native-yam-07-transport-status.json',{}),
+                'primary_launch':read(scaled/'primary-status.json',{}),
                 'native_yam_generated_resets':{'tasks':len(yam_bank.get('tasks',{})),
                     'generated_reset_inputs':sum(v['generated_resets']for v in yam_bank.get('tasks',{}).values()),
                     'qualification':yam_bank.get('qualification','not generated'),
                     'protected_input_pose_overlaps':sum(v['protected_pose_overlap']for v in yam_bank.get('tasks',{}).values()),
+                    'native_reset_checks_verified':yam_readback.get('resets',0),
+                    'native_reset_readback_passed':yam_readback.get('passed',False),
                     'native_simulation_admitted_resets':0},
                 'on_policy':read(scaled/'onpolicy-check-status.json',read(scaled/'onpolicy-check-launch.json',{})),
                 'camera_observations':read(scaled/'control-observation-audit.json',{}),

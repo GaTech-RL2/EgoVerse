@@ -18,10 +18,10 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase,PolicyCfg
 
 from efe_action_loop import parse_action
-from efe_pear_bridge import image_blocks
+from efe_pear_public_observation import public_blocks
 from efe_pear_file_rpc import atomic_json,claim_episode,publish_result,wait_command
 from efe_pear_yam_api_policy import YamApiProbePolicy,YamApiProbePolicyCfg,array
-from efe_pear_yam_contract import termination_snapshot,observe_termination_computes
+from efe_pear_yam_contract import termination_snapshot,observe_termination_computes,terminal_result
 from efe_pear_yam_reset_bank import pose_fingerprint
 
 
@@ -69,9 +69,12 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
         self.bound=True
 
     def _public_result(self,env,observation,*,done=False,action=None,executed=0):
+        if done:
+            return terminal_result(self.contract,self.instruction,self.scene_sha256,self.terms,
+                action,executed,self.folder/'native-verdict.json')
         from PIL import Image
         turn=self.folder/'observations'/f'{self.steps:08d}';turn.mkdir(parents=True,exist_ok=True)
-        view=YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(turn/'api-check.json')))
+        view=YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(turn/'api-check.json'),save_frames=False))
         hold=view.get_action(env,observation);contract=view.initial['action_contract']
         images=[]
         for name in contract['cameras']:
@@ -91,14 +94,8 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                 'units':'Arm angles in radians; mirrored prismatic finger targets in meters.'}},
             'recent_actions_and_feedback':[]if action is None else[{'action':action,'execution_completed':True,
                 'control_steps_before':self.steps-executed,'control_steps_after':self.steps}]}
-        content=[{'type':'input_text','text':json.dumps(visible)}]
-        import base64,io
-        for name,image in zip(contract['cameras'],images,strict=True):
-            encoded=io.BytesIO();image.save(encoded,format='PNG')
-            content.extend([{'type':'input_text','text':'Current camera: '+name},
-                {'type':'input_image','image_url':'data:image/png;base64,'+base64.b64encode(encoded.getvalue()).decode()}])
-        blocks=image_blocks(content)
-        self.contract=contract
+        blocks,context_sha=public_blocks(visible,images)
+        self.contract=contract;self.instruction=visible['objective']
         reward=float(bool(self.terms and self.terms.get('success')))if done else 0.
         return {'images':None if done else images,'state':None if done else visible['observation'],
             'public_blocks':None if done else blocks,'action_contract':contract,
@@ -107,7 +104,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             'outcome':'done'if done else'observed','native_trial_path':str(self.folder/'native-verdict.json'),
             'scene_sha256':self.scene_sha256,'native_termination_terms':self.terms,
             'interface_context_version':'pear-public-interface-language-v1',
-            'interface_context_sha256':hashlib.sha256(blocks[0]['text'].encode()).hexdigest(),
+            'interface_context_sha256':context_sha,
             'requested_control_steps':0 if action is None else action.get('repeat',0),
             'executed_control_steps':executed,'action_contract_sha256':view.initial['action_contract_sha256']}
 
@@ -117,7 +114,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             claimed=claim_episode(self.root,self.config.worker_id,kinds={'native_yam/'+self.config.task})
             if claimed:break
             time.sleep(.1)
-        self.folder,request=claimed;self.steps=0
+        self.folder,request=claimed;self.steps=0;committed=False
         try:
             args=request['env_args']
             if set(args)!={'task','reset_id'}or args['task']!=self.config.task:
@@ -138,7 +135,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             # Recompute official termination buffers through one ordinary hold
             # step after reset. A preceding episode's latched buffers must not
             # be mistaken for the new reset's result.
-            hold=YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(self.folder/'reset-hold.json'))).get_action(env,observation)
+            hold=YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(self.folder/'reset-hold.json'),save_frames=False)).get_action(env,observation)
             observation,_,terminated,truncated,_=env.step(hold)
             if bool(terminated.any()or truncated.any()):raise ValueError('Native reset terminated during its initial hold')
             self.terms=termination_snapshot(base.termination_manager)
@@ -152,7 +149,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                     value=self._public_result(env,observation,done=True,action=action)
                     atomic_json(self.folder/'native-verdict.json',{'native_termination_terms':self.terms,
                         'control_steps':self.steps,'policy_stop':True,'success':bool(value['rewards'][0])})
-                    publish_result(self.folder,index,value);break
+                    publish_result(self.folder,index,value);committed=True;break
                 executed=0;done=False
                 target=torch.tensor([action['action']],dtype=torch.float32,device=base.device)
                 for _ in range(action['repeat']):
@@ -163,10 +160,12 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                 if done:atomic_json(self.folder/'native-verdict.json',{'native_termination_terms':self.terms,
                     'control_steps':self.steps,'policy_stop':False,'success':bool(value['rewards'][0])})
                 publish_result(self.folder,index,value)
-                if done:break
-            return YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(self.folder/'hold.json'))).get_action(env,observation)
+                if done:committed=True;break
+            return YamApiProbePolicy(YamApiProbePolicyCfg(report_path=str(self.folder/'hold.json'),
+                save_frames=False,joint_hold_only=True)).get_action(env,observation)
         except Exception as exc:
-            atomic_json(self.folder/'infrastructure-error.json',{'error':repr(exc)})
+            if not committed:atomic_json(self.folder/'infrastructure-error.json',{'error':repr(exc)})
+            else:print('PEAR_NATIVE_POST_VERDICT_ERROR '+type(exc).__name__,flush=True)
             raise
 
     def close(self):

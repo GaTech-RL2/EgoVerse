@@ -18,6 +18,8 @@ CHECKS={
     'native-robolab-rtx':('groot-l40-02','PEAR_NATIVE_RTX_CHECK '),
     'native-yam-transport':('groot-l40s-03','PEAR_NATIVE_YAM_CHECK '),
     'native-rtx-publication':('groot-l40-02','PEAR_NATIVE_IMAGE_PUBLISH '),
+    'checkpoint-storage':('groot-l40-02','PEAR_ARCHIVE_CHECK '),
+    'native-yam-07-transport':('groot-l40-03','PEAR_NATIVE_YAM_CHECK '),
 }
 
 
@@ -63,6 +65,7 @@ def main():
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         finished={}
         while ARM in read(DEST/'control.json',{}).get('enabled_training_arms',[]):
+            if read(DEST/'control.json',{}).get('paused'):return
             for name,(pool,marker)in CHECKS.items():
                 launch=read(DEST/(name+'-launch.json'),{});identity=launch.get('name',launch.get('workflow'))
                 if finished.get(name)==identity:continue
