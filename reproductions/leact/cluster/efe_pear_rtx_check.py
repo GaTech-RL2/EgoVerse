@@ -12,6 +12,7 @@ import time
 from efe_pear_catalog_probe import probe_action
 from efe_pear_file_rpc import FileEpisodeClient,claim_episode,serve_episode
 from efe_pear_rtx_env import NativeRtxEpisode
+from efe_pear_validation_resume import passed_checks
 
 
 def main():
@@ -30,8 +31,15 @@ def main():
     names=subprocess.check_output(['nvidia-smi','--query-gpu=name','--format=csv,noheader'],text=True).splitlines()
     if len(names)!=1 or not any(k in names[0]for k in ['L40','RTX','L4']):
         raise ValueError('One allocated RTX GPU is required for native camera qualification')
-    sys.path.insert(0,str(source/'standard'));results={}
+    sys.path.insert(0,str(source/'standard'))
+    inherited=spec.get('resumed_checks',{});results=passed_checks(spec,inherited)
+    if len(results)!=len(inherited):raise ValueError('An inherited native result lacks its completed controls')
+    if results:
+        (root/'checks.json').write_text(json.dumps(results,indent=2,allow_nan=False)+'\n')
+        print('PEAR_NATIVE_RTX_CHECK '+json.dumps({'checked':len(results),'total':len(spec['tasks']),
+            'passed':len(results),'resumed_checks':len(results),'primary_rl_updates':0,'training_admitted':False}),flush=True)
     for row in spec['tasks']:
+        if row['task']in results:continue
         task=root/row['task'];task.mkdir();transport=task/'transport';transport.mkdir(mode=0o700)
         config={'source':str(source),'suite':spec['suite'],'native_tool_relative':spec['native_tool_relative'],
             'episode_root':str(task/'episodes'),'qualification_only':True,

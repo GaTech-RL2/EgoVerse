@@ -260,8 +260,9 @@ def build(base=BASE):
         suite=value.get('suite','native_gr00t_yam')
         row=summary_by_suite.setdefault(suite,{'suite':suite,'total':0,'checked':0,'passed':0,'states':[],'source_failure':False})
         receipt=value.get('receipt',{});worker=value.get('worker',{})
-        row['total']+=len(value.get('tasks',[]));row['checked']+=receipt.get('checked',worker.get('checked',0))
-        row['passed']+=receipt.get('checked',0)if receipt.get('passed')else worker.get('passed',0)
+        cached=len(value.get('resumed_checks',{}))
+        row['total']+=len(value.get('tasks',[]));row['checked']+=max(cached,receipt.get('checked',worker.get('checked',0)))
+        row['passed']+=max(cached,receipt.get('checked',0)if receipt.get('passed')else worker.get('passed',0))
         row['states'].append(value.get('scheduler_status','PENDING'))
         row['source_failure']|=value.get('source_failure',False)
     for row in summary_by_suite.values():
@@ -298,6 +299,7 @@ def build(base=BASE):
                 'ray_servers':read(scaled/'ray-server-check-status.json',read(scaled/'ray-server-check-launch.json',{})),
                 'native_robolab_rtx':read(scaled/'native-robolab-rtx-status.json',read(scaled/'native-robolab-rtx-launch.json',{})),
                 'checkpoint_storage':read(scaled/'checkpoint-storage-status.json',read(scaled/'checkpoint-storage-launch.json',{})),
+                'queue_checkpoint':read(scaled/'queue-checkpoint-status.json',read(scaled/'queue-checkpoint-launch.json',{})),
                 'on_policy_update_evidence':read(scaled/'onpolicy-update-evidence.json',{}),
                 'production_transport_sweeps':transport_summary,
                 'full_native_mix_passed':full_qualification.get('all_production_transports_passed',False),

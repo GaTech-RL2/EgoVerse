@@ -152,6 +152,13 @@ def compile_admission(root):
 
 def model_qualification(root):
     root=Path(root)
+    queue=read(root/'queue-checkpoint-status.json',{})
+    queue_result=queue.get('worker',{})
+    if(queue.get('scheduler_status')!='COMPLETED'or queue_result.get('passed')is not True
+        or queue_result.get('ray_nodes')!=2 or queue_result.get('storage_units')!=2
+        or queue_result.get('fresh_process_restore')is not True or queue_result.get('tensors_equal')is not True
+        or queue_result.get('head_local_path_invisible_on_other_node')is not True):
+        raise PendingAdmission('Two-node rollout-queue save and fresh-process restore are not yet verified')
     numerical=read(root/'warmstart-router-check.json',{}).get('worker',{}).get('result',{})
     update=read(root/'onpolicy-update-evidence.json',{})
     storage=read(root/'checkpoint-storage-status.json',{}).get('worker',{})
@@ -180,4 +187,5 @@ def model_qualification(root):
         'on_policy_router_checks':update['ranks'],'discarded_policy_gradient_norm':update['gradient_norm'],
         'durable_on_policy_checkpoint_archived':False,
         'durable_storage_qualification':storage,
-        'scope':'Composed independent evidence: full-weight/fresh-process numerical restart, real discarded on-policy optimizer update and API reload, and multipart/restore plus model-sized private archive readback. The discarded RL state was not retained.'}
+        'distributed_queue_checkpoint_qualification':queue_result,
+        'scope':'Composed independent evidence: full-weight/fresh-process numerical restart, real discarded on-policy optimizer update and API reload, multipart/restore plus model-sized private archive readback, and two-node fresh-process rollout-queue restore. The discarded RL state was not retained.'}

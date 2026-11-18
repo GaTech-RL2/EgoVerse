@@ -53,6 +53,9 @@ def main():
             for folder in(transport/'episodes').glob('*'):
                 if folder.is_dir():atomic_json(folder/'cancel.json',{'cancelled_after_model_restart':True})
             for pending in(transport/'pending').glob('*.json'):pending.unlink(missing_ok=True)
+            # Only disposable staging copies from the terminated attempt live
+            # here. Committed checkpoints remain in private object storage.
+            shutil.rmtree(run/'queue-checkpoint-staging',ignore_errors=True)
         atomic_json(run/'native-config.json',{'qualification_only':False,'membership_file':str(run/'native-membership.json')})
         curriculum=json.loads((run/'curriculum.json').read_text())
         datasets=[]
@@ -123,7 +126,8 @@ def main():
         '--min-worker-port=3000','--max-worker-port=5999','--temp-dir=/tmp/rp-jhh-pear-primary/ray']
     args+=['--head','--port=6379','--include-dashboard=false']if head else['--address='+address]
     record('starting_ray_node',gpus=8)
-    ray_process=subprocess.Popen(['bash','-c',command,'ray-start',*args],env=env,start_new_session=True)
+    ray_env=dict(env);ray_env.pop('RAY_ADDRESS',None)
+    ray_process=subprocess.Popen(['bash','-c',command,'ray-start',*args],env=ray_env,start_new_session=True)
     try:
         if head:
             code='''import ray,time

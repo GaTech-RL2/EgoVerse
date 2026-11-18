@@ -128,6 +128,7 @@ def native_builds(model_build,model_workflow):
         source=read(Path(matching['build'])/'spec.json')
         for index in range(count):
             spec={k:source[k]for k in ['payload','payload_sha256','files','suite','native_tool_relative']}
+            spec['payload']=REMOTE+'/sources/'+Path(spec['payload']).name
             spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=run+'/native-rtx/'+suite,transport_root=run+'/transport',
                 finished=run+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
@@ -206,7 +207,7 @@ def tick():
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
-        from .launch_efe_coverage import infra_retryable
+        from .efe_pear_submission import infrastructure_failure as infra_retryable
         from .monitor_efe_pear_full_qualification import retry
         queue=read(DEST/'primary-native-queue.json',{})
         rows=command(['osmo','workflow','list','--name','rp-jhh-pear-worker','--count','100','--format-type','json'])['workflows']
@@ -225,7 +226,7 @@ def tick():
         write(DEST/'primary-native-queue.json',queue)
     if query['status'].startswith('FAILED'):
         cancel_native_workers(state['workflow'])
-        from .launch_efe_coverage import infra_retryable
+        from .efe_pear_submission import infrastructure_failure as infra_retryable
         if infra_retryable(query):
             state['terminal_confirmed']=True;write(DEST/'primary-launch.json',state)
             return launch(state['profile']+1)

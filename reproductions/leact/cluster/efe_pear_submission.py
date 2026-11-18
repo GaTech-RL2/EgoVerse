@@ -8,6 +8,15 @@ import yaml
 from .scale_efe import command,read,write,submit,ROOT
 
 
+def infrastructure_failure(scheduler):
+    from .launch_efe_coverage import infra_retryable
+    details=str(scheduler).lower()
+    device_rejection=(str(scheduler.get('status','')).startswith('FAILED')
+        and'allocate failed'in details and'requested number of devices unavailable'in details
+        and'nvidia.com/gpu'in details)
+    return bool(device_rejection or infra_retryable(scheduler))
+
+
 def submit_reconciled(build,*,priority,pool,nodes=1):
     build=Path(build)
     intent=read(build/'submission-intent.json',{})

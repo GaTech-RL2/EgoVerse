@@ -18,6 +18,7 @@ from .efe_pear_submission import submit_reconciled
 SOURCES=DEST/'sources/efe-validation-pinned'
 SUITES=('robolab','robodojo','yamlab')
 FILES=['efe_pear_rtx_check.py','efe_pear_rtx_env.py','efe_pear_native_entry.py',
+    'efe_pear_validation_resume.py',
     'efe_pear_public_observation.py','efe_pear_file_rpc.py','efe_action_loop.py',
     'efe_pear_catalog_probe.py','efe_pear_bridge.py','efe_pear_observation_check.py','efe_pear_context.py',
     'efe_pear_episode_archive.py','efe_pear_object_archive.py']
@@ -105,8 +106,11 @@ def launch(suite,*,lanes=4):
         queue=read(DEST/'rtx-transport-queue.json',{})
         for build in prepare(suite,lanes=lanes):
             if build.name in queue:continue
+            spec=read(build/'spec.json');tasks={r['task']for r in spec['tasks']}
+            owned={task for item in queue.values()if item['suite']==suite for task in item['tasks']}
+            if tasks<=owned:continue
+            if tasks&owned:raise ValueError('A changed shard overlaps existing native task ownership')
             receipt=submit_reconciled(build,priority='HIGH',pool='groot-l40-02',nodes=1)
-            spec=read(build/'spec.json')
             queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),'suite':suite,
                 'tasks':[r['task']for r in spec['tasks']],'pool':'groot-l40-02','priority':'HIGH','gpu':1}
             write(DEST/'rtx-transport-queue.json',queue)

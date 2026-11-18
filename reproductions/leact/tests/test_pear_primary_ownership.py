@@ -28,3 +28,10 @@ def test_cancellation_rejects_an_unrelated_workflow_even_with_a_bad_owner_tag(tm
     monkeypatch.setattr(primary.subprocess,'run',lambda *a,**k:pytest.fail('Unrelated workflow was touched'))
     with pytest.raises(ValueError,match='outside this primary'):
         primary.cancel_native_workers('model-a')
+
+
+def test_gpu_device_plugin_rejection_is_retried_but_cuda_oom_is_not():
+    from reproductions.leact.cluster.efe_pear_submission import infrastructure_failure
+    assert infrastructure_failure({'status':'FAILED','failure_message':
+        'Pod was rejected: Allocate failed due to requested number of devices unavailable for nvidia.com/gpu'})
+    assert not infrastructure_failure({'status':'FAILED','failure_message':'CUDA out of memory while allocating model tensors'})

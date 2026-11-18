@@ -51,7 +51,18 @@ def retry(item):
         for name,digest in read(old/'source-manifest.json').items():
             if hashlib.sha256((old/name).read_bytes()).hexdigest()!=digest:raise ValueError('Frozen worker source changed')
             shutil.copyfile(old/name,target/name)
+        if item.get('resumed_checks'):
+            source=Path(__file__).resolve().parent;spec=read(target/'spec.json')
+            for name in ['efe_pear_rtx_check.py','efe_pear_validation_resume.py']:
+                shutil.copyfile(source/name,target/name)
+                spec['adapter_digests'][name]=hashlib.sha256((target/name).read_bytes()).hexdigest()
+            spec['resumed_checks']=item['resumed_checks'];write(target/'spec.json',spec)
         value=yaml.safe_load((target/'workflow.yaml').read_text());value['workflow']['name']='leact-'+target.name
+        if item.get('resumed_checks'):
+            task=value['workflow']['tasks'][0];name='efe_pear_validation_resume.py'
+            if not any(f['localpath']==name for f in task['files']):
+                parent=str(Path(task['files'][0]['path']).parent)
+                task['files'].append({'localpath':name,'path':parent+'/'+name})
         (target/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False));freeze_sources(target)
     # A quota reclaim can prevent even native startup. Alternate the two
     # compatible AMLFS07 pools rather than retrying the same quota repeatedly;
@@ -69,7 +80,7 @@ def retry(item):
 
 
 def tick_queue(filename,*,native_yam=False):
-    from .launch_efe_coverage import infra_retryable
+    from .efe_pear_submission import infrastructure_failure as infra_retryable
     from ..tracking.reasoning_live import command as logs
     queue=read(DEST/filename,{})
     marker='PEAR_NATIVE_YAM_CHECK 'if native_yam else'PEAR_NATIVE_RTX_CHECK '
@@ -83,6 +94,17 @@ def tick_queue(filename,*,native_yam=False):
                     try:item['worker']=json.JSONDecoder().raw_decode(line.split(marker,1)[1])[0]
                     except ValueError:pass
         if state['status'].startswith('FAILED') and infra_retryable(state) and item.get('attempt',0)<32:
+            if not native_yam and state.get('start_time'):
+                spec=read(Path(item['build'])/'spec.json')
+                try:
+                    path=download(spec['output']+'/'+item['workflow']+'/checks.json',
+                        DEST/'production-transport-partial-receipts'/item['workflow'],
+                        native_yam=item.get('filesystem')=='amlfs05')
+                    from .efe_pear_validation_resume import passed_checks
+                    sha=hashlib.sha256(path.read_bytes()).hexdigest()
+                    retained=passed_checks(spec,read(path),sha)
+                    item.setdefault('resumed_checks',{}).update(retained)
+                except (RuntimeError,subprocess.TimeoutExpired,ValueError,FileNotFoundError):pass
             retry(item)
         elif state['status']=='COMPLETED' or state['status'].startswith('FAILED'):
             spec=read(Path(item['build'])/'spec.json')

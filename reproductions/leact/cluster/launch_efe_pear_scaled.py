@@ -198,7 +198,7 @@ def prepare_training_bundle():
     names=['efe_pear_scaled_train.sh','efe_pear_multitask_train.py','efe_pear_curriculum.py',
         'efe_pear_curriculum_state.py','efe_pear_telemetry.py','efe_pear_agent_metrics.py',
         'efe_pear_router.py','efe_pear_moe_kernels.py',
-        'efe_pear_checkpoint_archive.py','efe_pear_object_archive.py','efe_pear_episode_archive.py',
+        'efe_pear_checkpoint_archive.py','efe_pear_queue_checkpoint.py','efe_pear_object_archive.py','efe_pear_episode_archive.py',
         'efe_pear_public_observation.py','efe_pear_observation_check.py','efe_pear_launch_contract.py','efe_pear_action_json.py',
         'efe_pear_reasoning_env.py','efe_pear_reasoning_tool.py','efe_pear_reasoning_scenes.py','efe_pear_child.py','efe_pear_sim_process.py',
         'efe_pear_agent_metrics.yaml','efe_pear_native_env.py','efe_pear_native_episode.py','efe_pear_native_tool.py','efe_pear_bridge.py',

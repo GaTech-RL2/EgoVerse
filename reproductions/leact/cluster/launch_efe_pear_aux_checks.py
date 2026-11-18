@@ -15,6 +15,7 @@ from .launch_efe_training import freeze_sources
 from .scale_efe import command,read,write,submit
 
 CHECKS={
+    'queue-checkpoint':('groot-l40-03','PEAR_QUEUE_CHECK '),
     'receipt-relay':('groot-l40-02','PEAR_RECEIPT_RELAY '),
     'native-robolab-rtx':('groot-l40-02','PEAR_NATIVE_RTX_CHECK '),
     'native-yam-transport':('groot-l40s-03','PEAR_NATIVE_YAM_CHECK '),
@@ -25,7 +26,7 @@ CHECKS={
 
 
 def tick(name,pool,marker):
-    from .launch_efe_coverage import infra_retryable
+    from .efe_pear_submission import infrastructure_failure as infra_retryable
     from ..tracking.reasoning_live import command as logs
     launch_path=DEST/(name+'-launch.json');launch=read(launch_path,{})
     if not launch:return True
@@ -40,7 +41,14 @@ def tick(name,pool,marker):
             if marker in line:
                 try:value['worker']=json.JSONDecoder().raw_decode(line.split(marker,1)[1])[0]
                 except ValueError:pass
-    if state['status']=='COMPLETED':write(target,value);return True
+    if state['status']=='COMPLETED':
+        if name=='queue-checkpoint':
+            from .monitor_efe_pear_full_qualification import download
+            spec=read(Path(launch['build'])/'spec.json')
+            path=download(spec['output']+'/'+workflow+'/checks.json',DEST/'queue-checkpoint-receipts')
+            value['worker']=read(path)
+            value['receipt_sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+        write(target,value);return True
     if state['status'].startswith('FAILED'):
         attempt=launch.get('attempt',0)
         if not infra_retryable(state)or attempt>=8:
@@ -53,7 +61,7 @@ def tick(name,pool,marker):
                 shutil.copyfile(original/filename,target_build/filename)
             spec=yaml.safe_load((target_build/'workflow.yaml').read_text());spec['workflow']['name']='leact-'+target_build.name
             (target_build/'workflow.yaml').write_text(yaml.safe_dump(spec,sort_keys=False));freeze_sources(target_build)
-        receipt=submit(target_build,priority='LOW',pool=launch.get('pool',pool),nodes=1)
+        receipt=submit(target_build,priority='LOW',pool=launch.get('pool',pool),nodes=launch.get('nodes',1))
         launch.setdefault('history',[]).append({'workflow':workflow,'scheduler_status':state['status']})
         launch.update(**receipt,build=str(target_build),priority='LOW',attempt=attempt+1)
         write(launch_path,launch);value.update(workflow=receipt['name'],scheduler_status='PENDING',phase='infrastructure_retry_submitted')

@@ -30,6 +30,7 @@ from verl.utils import tensordict_utils as tu
 from efe_pear_curriculum import retained_selection, token_mean_factors
 from efe_pear_curriculum_state import CurriculumState, identity
 from efe_pear_telemetry import Telemetry, reward_metrics
+from efe_pear_queue_checkpoint import shared_queue_checkpoint
 
 
 class MultitaskReplayBuffer(PearReplayBuffer):
@@ -197,7 +198,8 @@ class MultitaskTrainer(PearTrainer):
         temporary.write_text(json.dumps(self.curriculum.state_dict())+'\n');temporary.replace(target)
         # The upstream completion pointer is written only after this state and
         # the model/optimizer/TransferQueue are saved.
-        super()._save_checkpoint()
+        with shared_queue_checkpoint(tq,Path(os.environ['RUN'])/'queue-checkpoint-staging'):
+            super()._save_checkpoint()
         archive_root=os.environ.get('PEAR_CHECKPOINT_ARCHIVE')
         if archive_root:
             name='rp_jhh_qwen36_moe_warmstart496_pear_expanded_step'+f'{self.global_steps:06d}'
@@ -225,7 +227,8 @@ class MultitaskTrainer(PearTrainer):
         return metrics
 
     def _load_checkpoint(self):
-        super()._load_checkpoint()
+        with shared_queue_checkpoint(tq,Path(os.environ['RUN'])/'queue-checkpoint-staging'):
+            super()._load_checkpoint()
         if self.global_steps:
             if self.config.trainer.resume_mode=='resume_path':
                 folder=Path(self.config.trainer.resume_from_path)

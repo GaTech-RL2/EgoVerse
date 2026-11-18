@@ -15,7 +15,7 @@ def digest(path):
     return value.hexdigest()
 
 
-def archive(source,destination,*,reserve_bytes=80*1024**3):
+def archive(source,destination,*,reserve_bytes=80*1024**3,record_manifest=True):
     source=Path(source).resolve();destination=Path(destination)
     files={}
     for path in sorted(source.rglob('*')):
@@ -23,6 +23,7 @@ def archive(source,destination,*,reserve_bytes=80*1024**3):
         if path.is_file():files[str(path.relative_to(source))]={'bytes':path.stat().st_size}
     if not files:raise ValueError('Refusing to publish an empty checkpoint')
     if destination.exists():
+        if not record_manifest:raise ValueError('Verified copy destination already exists')
         manifest=json.loads((destination/'rp_jhh_archive_manifest.json').read_text())
         if set(files)!=set(manifest['files']):raise ValueError('Checkpoint source differs from the published checkpoint')
         for name,value in manifest['files'].items():
@@ -49,8 +50,9 @@ def archive(source,destination,*,reserve_bytes=80*1024**3):
             value['sha256']=h.hexdigest()
         manifest={'files':files,'bytes':sum(v['bytes']for v in files.values()),
                   'completed_utc':datetime.now(timezone.utc).isoformat(),'readback_verified':True}
-        with (temporary/'rp_jhh_archive_manifest.json').open('x')as stream:
-            stream.write(json.dumps(manifest,sort_keys=True)+'\n');stream.flush();os.fsync(stream.fileno())
+        if record_manifest:
+            with (temporary/'rp_jhh_archive_manifest.json').open('x')as stream:
+                stream.write(json.dumps(manifest,sort_keys=True)+'\n');stream.flush();os.fsync(stream.fileno())
         temporary.replace(destination)
     except BaseException:
         shutil.rmtree(temporary,ignore_errors=True)
