@@ -16,10 +16,10 @@ MANIFEST = 'rp_jhh_archive_manifest.json'
 PART_BYTES = 64 << 20
 
 
-def configured_client():
+def configured_client(credential_file=None):
     import boto3
     from botocore.config import Config
-    path = Path(os.environ['PEAR_OBJECTSTORE_CREDENTIAL_FILE'])
+    path = Path(credential_file or os.environ['PEAR_OBJECTSTORE_CREDENTIAL_FILE'])
     if path.stat().st_mode & 0o077:
         raise ValueError('Object-store credentials must be in a private node-local file')
     value = json.loads(path.read_text())

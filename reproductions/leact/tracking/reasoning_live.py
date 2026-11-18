@@ -74,9 +74,13 @@ def pear():
     arms=plan.get('arms',[])
     workflows=json.loads(command(['osmo','workflow','list','--name','leact','--status','RUNNING',
                                    '--count','200','--format-type','json']))['workflows']
-    # Every study worker has the same shared filesystem. A running collector is
-    # sufficient; never allocate a GPU just to read files.
-    candidates=[w['name']for w in workflows if 'pear'in w['name']or'realworldqa'in w['name']]
+    # Graphics workers on L40S-01 use LFS. Read model telemetry only through a
+    # running worker that mounts AMLFS07; never allocate a GPU for collection.
+    compatible={'groot-h100-01','groot-h100-02','groot-l40-02','groot-l40-03'}
+    candidates=[w for w in workflows if('pear'in w['name']or'realworldqa'in w['name'])
+        and w.get('pool')in compatible]
+    primary=read(BASE/'artifacts/embodied-first-exam/pear-scaled-v1/primary-launch.json',{})
+    candidates.sort(key=lambda w:w['name']!=primary.get('workflow'))
     if not candidates:return {**old,'collector_state':'waiting for a running PEAR or retention worker'}
     roots={a['id']:a.get('run_directory')for a in arms if a.get('run_directory')}
     if not roots:return {**old,'collector_state':'waiting for registered run directories'}
@@ -107,7 +111,9 @@ for arm,root in roots.items():
  result[arm]={'events':events,'heartbeat':heartbeat,'rollout_diagnostics':diagnostics,'metadata':metadata}
 print('EFE_CAPTURE '+json.dumps(result),flush=True)
 '''.replace('ROOTS',repr(json.dumps(roots)))
-    capture=remote(candidates[0],script)
+    candidate=candidates[0];name=candidate['name']
+    task='trainer'if'pear-primary-'in name else'native'if'pear-worker-'in name else'preflight'
+    capture=remote(name,script,task=task)
     result={'observed_utc':datetime.now(timezone.utc).isoformat(),'collector_state':'connected','runs':{}}
     cache=path.parent;cache.mkdir(parents=True,exist_ok=True)
     for arm,value in capture.items():

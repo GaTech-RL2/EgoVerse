@@ -255,6 +255,9 @@ def build(base=BASE):
     yam_readback=read(scaled/'native-yam-bank-readback.json',{})
     full_qualification=read(scaled/'full-qualification-status.json',{})
     primary_state=read(scaled/'primary-status.json',{})
+    pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
+    pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
+    pool_ready=read(scaled/'l40s01-storage-ready.json',{})
     transport_rows=full_qualification.get('checks',[])
     summary_by_suite={}
     for value in transport_rows:
@@ -307,6 +310,10 @@ def build(base=BASE):
                 'full_native_mix_passed':full_qualification.get('all_production_transports_passed',False),
                 'native_yam_production_volume':read(scaled/'native-yam-07-transport-status.json',{}),
                 'primary_launch':primary_state,
+                'graphics_storage':{'assets_verified':pool_assets.get('passed',False),
+                    'asset_files':pool_assets.get('files',0),'sources_verified':pool_sources.get('passed',False),
+                    'transport_verified':pool_ready.get('transport_roundtrip_passed',False),
+                    'passed':pool_ready.get('passed',False)},
                 'native_yam_generated_resets':{'tasks':len(yam_bank.get('tasks',{})),
                     'generated_reset_inputs':sum(v['generated_resets']for v in yam_bank.get('tasks',{}).values()),
                     'qualification':yam_bank.get('qualification','not generated'),

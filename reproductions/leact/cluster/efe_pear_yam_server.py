@@ -28,6 +28,16 @@ def unpack(path,expected,target):
 
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+    if spec.get('owner_model_workflow'):
+        from efe_pear_primary_native import wait_for_model_head
+        wait_for_model_head(spec)
+    if spec.get('staging_receipt'):
+        receipt=Path(spec['staging_receipt']);deadline=time.monotonic()+1800
+        while not receipt.exists():
+            if time.monotonic()>deadline:raise TimeoutError('Pinned pool-local inputs were not staged')
+            time.sleep(2)
+        if json.loads(receipt.read_text()).get('passed')is not True:
+            raise ValueError('Pool-local input staging did not pass verification')
     root=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];root.mkdir(parents=True,exist_ok=True)
     transport=Path(spec['transport_root']);transport.mkdir(mode=0o700,parents=True,exist_ok=True)
     if transport.stat().st_mode&0o077:raise ValueError('Native YAM transport root must be private')
@@ -36,6 +46,11 @@ def main():
     release=spec['assets_release'];assets=Path(release['assets_root'])
     if hashlib.sha256((assets/release['release_manifest']).read_bytes()).hexdigest()!=release['release_manifest_sha256']:
         raise ValueError('Native asset release changed')
+    for name in spec.get('asset_aliases',[]):
+        alias=Path(name)
+        if not alias.exists()and not alias.is_symlink():
+            alias.parent.mkdir(parents=True,exist_ok=True);alias.symlink_to(assets,target_is_directory=True)
+        if alias.resolve()!=assets.resolve():raise ValueError('Native absolute asset alias differs from the qualified copy')
     (source/'assets').symlink_to(assets,target_is_directory=True)
     image_assets=Path('/opt/gr00t-sim/source/assets')
     if not image_assets.exists()and not image_assets.is_symlink():image_assets.symlink_to(assets,target_is_directory=True)

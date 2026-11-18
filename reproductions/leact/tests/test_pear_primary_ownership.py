@@ -68,3 +68,39 @@ def test_allocation_retries_keep_the_smaller_layout_after_the_initial_sweep():
     retries=[primary.allocation_profile(i)for i in range(4,24)]
     assert{nodes for nodes,_ in retries}=={4}
     assert{priority for _,priority in retries}=={'HIGH','LOW'}
+
+
+@pytest.mark.parametrize('pool',['groot-l40-02','groot-l40-03','groot-l40s-01','groot-l40s-03'])
+def test_explicit_l40_high_priority_overrides_the_previous_low_fallback(pool):
+    from reproductions.leact.cluster.efe_pear_submission import scheduling_priority
+    assert scheduling_priority(pool,'LOW',{'l40_priority':'HIGH'})=='HIGH'
+    assert scheduling_priority('groot-h100-01','LOW',{'l40_priority':'HIGH'})=='LOW'
+    assert scheduling_priority(pool,'LOW',{})=='LOW'
+
+
+def test_four_rollout_nodes_have_room_for_the_full_proxy_pools_and_inference():
+    with pytest.raises(ValueError,match='cannot fit inference and simulator proxies'):
+        primary.validate_rollout_cpu_capacity(4,56)
+    assert primary.validate_rollout_cpu_capacity(4,64)==248
+    assert primary.validate_rollout_cpu_capacity(6,56)==288
+
+
+def test_queue_failure_rechecks_admission_and_preserves_the_next_allocation_profile(tmp_path,monkeypatch):
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'timed-out-model',
+        'profile':6,'pool':'groot-h100-01','native_workers_launched':False}))
+    monkeypatch.setattr(primary,'command',lambda *a,**k:{'status':'FAILED_QUEUE_TIMEOUT'})
+    monkeypatch.setattr(primary,'cancel_native_workers',lambda workflow:None)
+    attempted=[]
+    def launch(profile,*,pool):
+        attempted.append((profile,pool));raise primary.PendingAdmission('Pool migration remains pending')
+    monkeypatch.setattr(primary,'launch',launch)
+    assert primary.tick()['phase']=='awaiting_primary_qualification'
+    assert primary.tick()['phase']=='awaiting_primary_qualification'
+    assert attempted==[(7,'groot-h100-01'),(7,'groot-h100-01')]
+
+
+def test_simulator_pool_follows_the_explicit_l40s01_override():
+    from reproductions.leact.cluster.efe_pear_submission import simulator_pool
+    assert simulator_pool('groot-l40-02',{'l40_pool':'groot-l40s-01'})=='groot-l40s-01'
+    with pytest.raises(ValueError):simulator_pool('groot-l40-02',{'l40_pool':'arbitrary-pool'})

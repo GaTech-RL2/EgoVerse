@@ -11,9 +11,24 @@ import time
 from efe_pear_file_rpc import atomic_json
 
 
+def wait_for_model_head(spec,timeout=1800):
+    """A prior attempt's completion marker must not stop a new allocation."""
+    finished=Path(spec['finished']);heartbeat=Path(spec.get('head_heartbeat',finished.with_name('head-heartbeat.json')))
+    deadline=time.monotonic()+timeout
+    print('PEAR_PRIMARY_NATIVE_WAITING_FOR_OWNER '+spec['owner_model_workflow'],flush=True)
+    while True:
+        try:value=json.loads(heartbeat.read_text())
+        except(FileNotFoundError,ValueError):value={}
+        if(value.get('workflow')==spec['owner_model_workflow']
+            and time.time()-value.get('updated_unix',0)<120 and not finished.exists()):return
+        if time.monotonic()>=deadline:raise TimeoutError('Current model head has not initialized its run')
+        time.sleep(2)
+
+
 def main():
     import efe_native_pilot as native
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+    wait_for_model_head(spec)
     output=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];output.mkdir(parents=True,exist_ok=True)
     (output/'logs').mkdir();native.ROOT=Path('/tmp/efe-native');native.ARCHIVE=output
     service=None;log=None;children=[]

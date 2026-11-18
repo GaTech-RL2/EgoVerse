@@ -17,7 +17,7 @@ import yaml
 from .launch_efe_pear_scaled import DEST,REMOTE
 from .launch_efe_training import freeze_sources
 from .scale_efe import command,read,write,submit
-from .efe_pear_submission import submit_reconciled
+from .efe_pear_submission import submit_reconciled,scheduling_priority
 
 
 def download(remote,target,*,native_yam=False):
@@ -73,9 +73,12 @@ def retry(item):
     # return to HIGH every third attempt and otherwise use LOW.
     priority='HIGH'if attempt%3==0 else'LOW'
     pool=item['pool']
-    if(pool in {'groot-l40-02','groot-l40-03'}
+    # Primary worker paths are frozen for the model's selected pool. Preserve
+    # that selection; qualification-only probes can alternate compatible pools.
+    if(pool in {'groot-l40-02','groot-l40-03'}and not item.get('owner_model_workflow')
         and item.get('filesystem','amlfs07')=='amlfs07'):
         pool='groot-l40-03'if pool=='groot-l40-02'else'groot-l40-02'
+    priority=scheduling_priority(pool,priority,read(DEST/'control.json',{}))
     result=submit_reconciled(target,priority=priority,pool=pool,nodes=1)
     item.setdefault('history',[]).append({'workflow':item['workflow'],'status':item.get('scheduler_status')})
     item.update(**result,workflow=result['name'],build=str(target),priority=priority,pool=pool,attempt=attempt)

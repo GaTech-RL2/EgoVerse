@@ -35,6 +35,7 @@ def main():
     attempt=run/'attempts'/os.environ['EFE_WORKFLOW_ID'];attempt.mkdir(parents=True,exist_ok=True)
     bundle=run/'adapters';source=Path(spec['pear_source']);runtime=Path(spec['runtime']);python=runtime/'envs/verl/bin/python'
     deadline=time.monotonic()+48*3600;stopped=threading.Event();phase={'phase':'initializing'}
+    object_transport={'store':None}
     def record(stage,**fields):
         phase['phase']=stage
         value={'phase':stage,'role':role,'updated_unix':time.time(),**fields}
@@ -42,10 +43,14 @@ def main():
         print('PEAR_PRIMARY_STATUS '+json.dumps(value),flush=True)
     def heartbeat():
         while not stopped.is_set():
-            atomic_json(run/'head-heartbeat.json',{'updated_unix':time.time(),
-                'workflow':os.environ['EFE_WORKFLOW_ID'],**phase})
+            value={'updated_unix':time.time(),'workflow':os.environ['EFE_WORKFLOW_ID'],**phase}
+            atomic_json(run/'head-heartbeat.json',value)
+            if object_transport['store']is not None:
+                try:object_transport['store'].put_json('control/head-heartbeat.json',value)
+                except Exception as exc:
+                    print('PEAR_OBJECT_HEARTBEAT_RETRY '+json.dumps({'error_type':type(exc).__name__}),flush=True)
             stopped.wait(10)
-    credential=None
+    credential=None;shared_credential=None
     if head:
         threading.Thread(target=heartbeat,daemon=True).start()
         (run/'finished.json').unlink(missing_ok=True)
@@ -91,6 +96,12 @@ def main():
         credential=Path('/dev/shm/rp_jhh_pear_archive_credentials.json')
         descriptor=os.open(credential,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         with os.fdopen(descriptor,'w')as stream:stream.write(os.environ.pop('RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION'))
+        if spec.get('object_transport_uri'):
+            shared_credential=attempt/'objectstore-credentials.json'
+            descriptor=os.open(shared_credential,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+            with os.fdopen(descriptor,'w')as stream:stream.write(credential.read_text())
+            atomic_json(run/'l40-transport.json',{'uri':spec['object_transport_uri'],
+                'credential_file':str(shared_credential)})
         auth=attempt/'ray-auth';auth.write_text(os.urandom(32).hex());auth.chmod(0o600)
         atomic_json(attempt/'launch.json',{'head_host':os.environ['EFE_HEAD_HOST'],'train_files':datasets,'auth':str(auth)})
     else:
@@ -114,6 +125,9 @@ def main():
         'PYTHONPATH':':'.join(map(str,[bundle,source/'pear/utils/sitecustomize',source,source/'3rdparty/verl/src'])),
         'NCCL_ALGO':'Ring','NCCL_PROTO':'Simple','NCCL_P2P_DISABLE':'1','RAY_DEDUP_LOGS':'0',
         'TOKENIZERS_PARALLELISM':'false','MUJOCO_GL':'osmesa','OPENBLAS_NUM_THREADS':'1','OMP_NUM_THREADS':'2','MKL_NUM_THREADS':'2'}
+    if spec.get('object_transport_uri'):
+        env['EFE_PEAR_OBJECT_TRANSPORT_CONFIG']=str(run/'l40-transport.json')
+        env['PYTHONPATH']=str(attempt/'object-store-packages')+':'+env['PYTHONPATH']
     env.pop('PEAR_DRIVER_PREFLIGHT_ONLY',None)
     prepare_system_packages()
     # The storage client is absent from some pinned training environments. Use
@@ -123,6 +137,11 @@ def main():
         subprocess.run([sys.executable,'-m','pip','install','--quiet','--target',str(dependencies),'boto3==1.44.5'],check=True,timeout=300)
         sys.path.insert(0,str(dependencies))
         env['PYTHONPATH']=str(dependencies)+':'+env['PYTHONPATH']
+        if spec.get('object_transport_uri'):
+            shutil.copytree(dependencies,attempt/'object-store-packages')
+            from efe_pear_object_archive import configured_client
+            from efe_pear_object_transport import Store
+            object_transport['store']=Store(spec['object_transport_uri'],configured_client(credential))
     if not head:
         while True:
             try:
@@ -132,7 +151,7 @@ def main():
                 time.sleep(2)
     command='cd "$PEAR_SOURCE"\nsource "$PEAR_SOURCE/scripts/gpu_process_variables.sh" "$WORK_DIR/envs/verl"\nexec "$WORK_DIR/envs/verl/bin/ray" "$@"'
     resources=({'trainer':8,'pear_driver':1}if head else
-        {'rollout':8,'reasoning':8,'native_proxy':16,'native_yam_proxy':32})
+        {'rollout':8,'reasoning':8,'native_proxy':16,'native_yam_proxy':spec['rollout_ray_cpus']})
     ray_cpus=spec['trainer_ray_cpus']if head else spec['rollout_ray_cpus']
     args=['start','--block','--disable-usage-stats','--num-cpus='+str(ray_cpus),'--num-gpus=8',
         '--resources='+json.dumps(resources),'--object-store-memory='+str(16<<30),
@@ -167,6 +186,9 @@ ray.shutdown()
             result=subprocess.run(['bash',str(bundle/'efe_pear_scaled_train.sh'),*resume,
                 'trainer.rollout_data_dir='+str(run/'rollout-records')],env=env,timeout=47*3600)
             atomic_json(run/'finished.json',{'returncode':result.returncode,'completed':result.returncode==0})
+            if object_transport['store']is not None:
+                object_transport['store'].put_json('control/finished.json',
+                    {'returncode':result.returncode,'completed':result.returncode==0})
             if result.returncode:raise RuntimeError('Primary PEAR driver failed')
         else:
             while not(run/'finished.json').exists():
@@ -180,6 +202,7 @@ ray.shutdown()
             try:ray_process.wait(timeout=20)
             except subprocess.TimeoutExpired:os.killpg(ray_process.pid,signal.SIGKILL);ray_process.wait()
         if credential:credential.unlink(missing_ok=True)
+        if shared_credential:shared_credential.unlink(missing_ok=True)
 
 
 if __name__=='__main__':main()

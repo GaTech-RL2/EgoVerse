@@ -39,15 +39,24 @@ class RemoteNativeEnv(StatefulEnv):
             item=membership['training_tasks'][env_args['task']]
             if item['qualification']!='passed':raise ValueError('Remote native task is not admitted')
             kind='efe/'+item['row']['suite']
-        self.client=FileEpisodeClient(os.environ['EFE_PEAR_REMOTE_ROOT'],kind,env_args,timeout=self.OPEN_TIMEOUT_S)
+        transport=os.environ.get('EFE_PEAR_OBJECT_TRANSPORT_CONFIG')
+        self.lost_exceptions=(RemoteEpisodeLost,)
+        if transport and(self.KIND=='native_yam'or kind in {'efe/robodojo','efe/robolab','efe/yamlab'}):
+            from efe_pear_object_archive import configured_client
+            from efe_pear_object_transport import ObjectEpisodeClient,Store,LostEpisode
+            config=json.loads(Path(transport).read_text())
+            self.client=ObjectEpisodeClient(Store(config['uri'],configured_client(config['credential_file'])),
+                kind,env_args,timeout=self.OPEN_TIMEOUT_S)
+            self.lost_exceptions=(RemoteEpisodeLost,LostEpisode)
+        else:self.client=FileEpisodeClient(os.environ['EFE_PEAR_REMOTE_ROOT'],kind,env_args,timeout=self.OPEN_TIMEOUT_S)
 
     def open(self):
         try:return self.client.open()
-        except RemoteEpisodeLost as exc:raise EpisodeLost(str(exc))from exc
+        except self.lost_exceptions as exc:raise EpisodeLost(str(exc))from exc
 
     def step(self,action):
         try:return self.client.step(action)
-        except RemoteEpisodeLost as exc:raise EpisodeLost(str(exc))from exc
+        except self.lost_exceptions as exc:raise EpisodeLost(str(exc))from exc
 
     def close(self):self.client.close()
 

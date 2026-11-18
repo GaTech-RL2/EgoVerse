@@ -8,6 +8,20 @@ import yaml
 from .scale_efe import command,read,write,submit,ROOT
 
 
+def scheduling_priority(pool,default,control):
+    priority=control.get('l40_priority',default)if pool.startswith('groot-l40')else default
+    if priority not in {'HIGH','NORMAL','LOW'}:
+        raise ValueError('Unsupported requested scheduling priority')
+    return priority
+
+
+def simulator_pool(default,control):
+    pool=control.get('l40_pool',default)
+    if pool not in {'groot-l40-02','groot-l40-03','groot-l40s-01'}:
+        raise ValueError('Unqualified simulator pool requested')
+    return pool
+
+
 def infrastructure_failure(scheduler):
     from .launch_efe_coverage import infra_retryable
     details=str(scheduler).lower()

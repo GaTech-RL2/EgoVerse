@@ -15,6 +15,8 @@ from efe_pear_rtx_env import NativeRtxEpisode
 
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+    from efe_pear_primary_native import wait_for_model_head
+    wait_for_model_head(spec)
     root=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];root.mkdir(parents=True,exist_ok=True)
     archive=Path(spec['payload']);digest=hashlib.sha256()
     with archive.open('rb')as stream:

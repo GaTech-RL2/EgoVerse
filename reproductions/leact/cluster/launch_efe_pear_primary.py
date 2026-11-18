@@ -21,10 +21,11 @@ from .efe_pear_full_admission import compile_admission,model_qualification,Pendi
 from .launch_efe_pear_scaled import DEST,REMOTE,PEAR_REVISION,TEMPLATE,prepare_training_bundle,require_unpaused
 from .launch_efe_training import freeze_sources
 from .scale_efe import BASE,BUILD_ROOT,read,write,submit,command
-from .efe_pear_submission import submit_reconciled
+from .efe_pear_submission import submit_reconciled,scheduling_priority,simulator_pool
 from .efe_pear_worker_bundle import FORMAT as BUNDLE_FORMAT,bootstrap
 
 ARM='moe-warmstart496-pearplusplus'
+LFS_ROOT='/mnt/lfs/shared/rpunamiya/rp_jhh_pear_scaled_20261116_v1'
 PROFILES=[(6,'HIGH'),(4,'HIGH'),(6,'LOW'),(4,'LOW')]
 NATIVE_QUEUE_TIMEOUT='45m'
 EXTRA=['efe_pear_primary_worker.py','efe_pear_primary_native.py','efe_pear_primary_rtx.py',
@@ -39,6 +40,17 @@ def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):
     required=storage_units+1+1+3*ranks
     if cpus<required:
         raise ValueError(f'Trainer Ray capacity {cpus} CPUs cannot fit queue, driver and rank reservations ({required})')
+    return required
+
+
+def validate_rollout_cpu_capacity(nodes,cpus,*,inference_cpus_per_node=20):
+    # These actors reserve a full CPU although the physics/rendering workers
+    # run separately. Include both reasoning pools and conservative TP4
+    # inference reservations; the four-node/56-CPU layout started only 152 of
+    # 160 native proxies, leaving eight YAM proxies permanently unscheduled.
+    required=32+128+6+2+nodes*inference_cpus_per_node
+    if nodes*cpus<required:
+        raise ValueError(f'Rollout Ray capacity {nodes*cpus} CPUs cannot fit inference and simulator proxies ({required})')
     return required
 
 
@@ -59,6 +71,12 @@ def prepare(profile=0):
     sources.update({name:BASE/'cluster'/name for name in EXTRA})
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
     rollout_nodes,priority=allocation_profile(profile)
+    l40_pool=simulator_pool('groot-l40-02',read(DEST/'control.json',{}))
+    if l40_pool=='groot-l40s-01':
+        ready=read(DEST/'l40s01-storage-ready.json',{})
+        if(not ready.get('passed')or not ready.get('transport_roundtrip_passed')
+            or ready.get('transport_sha256')!=hashlib.sha256((BASE/'cluster/efe_pear_object_transport.py').read_bytes()).hexdigest()):
+            raise PendingAdmission('L40S-01 pinned asset staging and cross-filesystem transport verification are pending')
     native_image=yaml.safe_load(TEMPLATE.read_text())['workflow']['tasks'][0]['image']
     data={'curriculum.json':admission['curriculum'],'native-membership.json':admission['native_membership'],
         'model-qualification.json':qualification,'reasoning-membership.json':read(DEST/'reasoning-remote-qualified/membership.json')}
@@ -68,13 +86,19 @@ def prepare(profile=0):
     spec={'run_id':ARM,'run':run,'model':parent['path'],'model_revision':parent['revision'],
         'runtime':REMOTE+'/runtime','pear_source':REMOTE+'/sources/pear-'+PEAR_REVISION,
         'rollout_nodes':rollout_nodes,'training_steps':32,'primary_training':True,
-        'trainer_ray_cpus':64,'rollout_ray_cpus':56,
+        'trainer_ray_cpus':64,'rollout_ray_cpus':64,
         'checkpoint_archive':'s3://rp-jhh-pear-checkpoints/rpunamiya/rp_jhh_pear_moe_warmstart496_full_'+identity,
         'adapter_digests':{name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()},
         'data_digests':{name:hashlib.sha256(raw).hexdigest()for name,raw in serialized.items()},
         'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
         'worker_bundle_format':BUNDLE_FORMAT}
+    spec['l40_pool']=l40_pool
+    if l40_pool=='groot-l40s-01':
+        wire=hashlib.sha256(json.dumps([spec['adapter_digests'],profile,l40_pool],sort_keys=True).encode()).hexdigest()[:16]
+        spec.update(object_transport_uri=spec['checkpoint_archive']+'/transport/'+wire,
+            l40_native_root=LFS_ROOT+'/runs/'+wire,l40_assets=ready['assets_root'])
     validate_trainer_cpu_capacity(spec['trainer_ray_cpus'])
+    validate_rollout_cpu_capacity(rollout_nodes,spec['rollout_ray_cpus'])
     digest=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-primary-'+digest)
     if not(build/'source-manifest.json').exists():
@@ -151,30 +175,39 @@ def native_builds(model_build,model_workflow):
     base=yaml.safe_load(TEMPLATE.read_text())['workflow']['tasks'][0]['image']
     builds.append(worker_build(spec,files,'efe_pear_primary_native.py',base,'python3',
         gpu=8,cpu=64,memory='512Gi',storage='400Gi',platform='dgx-h100',privileged=True))
+    l40_pool=model.get('l40_pool','groot-l40-02');cross_pool=l40_pool=='groot-l40s-01'
+    l40_root=model['l40_native_root']if cross_pool else run
+    platform='ovx-l40s'if cross_pool else'ovx-l40'
     images=read(DEST/'native-rtx-images.json')
     for suite,count in [('robodojo',4),('robolab',2),('yamlab',2)]:
         matching=next(v for v in read(DEST/'rtx-transport-queue.json').values()if v['suite']==suite)
         source=read(Path(matching['build'])/'spec.json')
         for index in range(count):
             spec={k:source[k]for k in ['payload','payload_sha256','files','suite','native_tool_relative']}
-            spec['payload']=REMOTE+'/sources/'+Path(spec['payload']).name
-            spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=run+'/native-rtx/'+suite,transport_root=run+'/transport',
-                finished=run+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
+            spec['payload']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['payload']).name
+            spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=l40_root+'/native-rtx/'+suite,transport_root=l40_root+'/transport',
+                finished=l40_root+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
                 '/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python',
-                gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform='ovx-l40'))
+                gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform=platform))
     names=sorted(read(DEST/'native-yam-generated-resets/generation-report.json')['tasks'])
     for offset in range(0,len(names),2):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)
         spec=read(old/'spec.json');spec.update(owner_model_workflow=model_workflow,
-            output=run+'/native-yam',transport_root=run+'/transport',finished=run+'/finished.json')
-        # Production uses AMLFS07 alongside the H100 workers; validation on
-        # AMLFS05 did not imply cross-filesystem IPC.
-        spec['source_archive_path']=REMOTE+'/sources/'+Path(spec['source_archive_path']).name
-        spec['generated_reset_archive']=REMOTE+'/sources/'+Path(spec['generated_reset_archive']).name
-        spec['assets_release']['assets_root']='/mnt/amlfs-07/shared/datasets/gear_sim/assets'
+            output=l40_root+'/native-yam',transport_root=l40_root+'/transport',finished=l40_root+'/finished.json')
+        # Pool-local assets and inputs are byte-verified before admission;
+        # L40S-01 uses the object bridge to reach the AMLFS07 model cluster.
+        spec['source_archive_path']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['source_archive_path']).name
+        spec['generated_reset_archive']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['generated_reset_archive']).name
+        spec['assets_release']['assets_root']=model['l40_assets']if cross_pool else'/mnt/amlfs-07/shared/datasets/gear_sim/assets'
+        if cross_pool:spec['asset_aliases']=['/mnt/amlfs-07/shared/datasets/gear_sim/assets']
         builds.append(worker_build(spec,files,'efe_pear_yam_server.py',spec['runtime_image'],
-            '/opt/gr00t-sim/venv/bin/python',gpu=2,cpu=12,memory='128Gi',storage='300Gi',platform='ovx-l40'))
+            '/opt/gr00t-sim/venv/bin/python',gpu=2,cpu=12,memory='128Gi',storage='300Gi',platform=platform))
+    if cross_pool:
+        bridge={'kind':'object_bridge','owner_model_workflow':model_workflow,'root':l40_root+'/transport',
+            'uri':model['object_transport_uri']}
+        builds.append(worker_build(bridge,files,'efe_pear_object_transport.py',base,'python3',
+            gpu=0,cpu=4,memory='24Gi',storage='10Gi',platform='ovx-l40s'))
     return builds
 
 
@@ -192,7 +225,8 @@ def worker_build(spec,files,worker,image,python,**resources):
         'environment':{'EFE_WORKFLOW_ID':'{{workflow_id}}','PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1',
             'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'1','OMP_NUM_THREADS':'2'},
         'files':[{'localpath':'bootstrap.py','path':'/tmp/pear-native/bootstrap.py'}]}
-    if worker!='efe_pear_yam_server.py':
+    if worker in {'efe_pear_primary_native.py','efe_pear_primary_rtx.py',
+        'efe_pear_object_transport.py','efe_pear_object_probe.py'}:
         task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
     if privileged:task['privileged']=True
     value={'workflow':{'name':'leact-'+build.name,'resources':{'default':resources},
@@ -219,7 +253,7 @@ def cancel_native_workers(model_workflow):
 def tick():
     state=read(DEST/'primary-launch.json',{})
     if not state or(state.get('terminal_confirmed')and state.get('source_repair_ready')):
-        try:return launch(state.get('profile',0),pool=state.get('pool','groot-h100-02'))
+        try:return launch(state.get('next_profile',state.get('profile',0)),pool=state.get('pool','groot-h100-02'))
         except PendingAdmission as exc:
             value={'phase':'awaiting_primary_qualification','reason':str(exc),'primary_rl_updates':0}
             write(DEST/'primary-status.json',value);return value
@@ -235,9 +269,12 @@ def tick():
             # pools; one pool rejected its single-GPU placements before startup.
             pool=('groot-h100-01'if spec.get('kind')=='efe'else
                 'groot-l40-02'if spec.get('kind')=='rtx'else'groot-l40-03')
-            receipt=submit_reconciled(build,priority=state['priority'],pool=pool,nodes=1)
+            if spec.get('kind')!='efe':
+                pool=read(Path(state['build'])/'spec.json').get('l40_pool',pool)
+            priority=scheduling_priority(pool,state['priority'],read(DEST/'control.json',{}))
+            receipt=submit_reconciled(build,priority=priority,pool=pool,nodes=1)
             worker_queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),
-                'pool':pool,'priority':state['priority'],'owner_model_workflow':state['workflow']}
+                'pool':pool,'priority':priority,'owner_model_workflow':state['workflow']}
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
@@ -247,7 +284,7 @@ def tick():
         rows=command(['osmo','workflow','list','--name','rp-jhh-pear-worker','--count','100','--format-type','json'])['workflows']
         lookup={v['name']:v for v in rows}
         for item in queue.values():
-            if item.get('owner_model_workflow')!=state['workflow']:continue
+            if item.get('owner_model_workflow')!=state['workflow']or item.get('superseded'):continue
             worker=lookup.get(item['workflow'],{});status=worker.get('status')
             item['scheduler_status']=status
             if status and status.startswith('FAILED')and item.get('attempt',0)<8:
@@ -262,8 +299,9 @@ def tick():
         cancel_native_workers(state['workflow'])
         from .efe_pear_submission import infrastructure_failure as infra_retryable
         if infra_retryable(query):
-            state['terminal_confirmed']=True;write(DEST/'primary-launch.json',state)
-            return launch(state['profile']+1,pool=state.get('pool','groot-h100-02'))
+            state.update(terminal_confirmed=True,source_repair_ready=True,next_profile=state['profile']+1)
+            write(DEST/'primary-launch.json',state)
+            return tick()
         state['phase']='primary_source_failure_requires_review'
     write(DEST/'primary-status.json',state);return state
 

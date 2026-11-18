@@ -202,7 +202,7 @@ def prepare_training_bundle():
         'efe_pear_public_observation.py','efe_pear_observation_check.py','efe_pear_launch_contract.py','efe_pear_action_json.py',
         'efe_pear_reasoning_env.py','efe_pear_reasoning_tool.py','efe_pear_reasoning_scenes.py','efe_pear_child.py','efe_pear_sim_process.py',
         'efe_pear_agent_metrics.yaml','efe_pear_native_env.py','efe_pear_native_episode.py','efe_pear_native_tool.py','efe_pear_bridge.py',
-        'efe_pear_remote_env.py','efe_pear_file_rpc.py',
+        'efe_pear_remote_env.py','efe_pear_file_rpc.py','efe_pear_object_transport.py',
         'efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']
     sources={name:BASE/'cluster'/name for name in names}
     sources['scene_identity.py']=BASE/'cluster/efe_pear_scene_audit.py'
