@@ -194,10 +194,10 @@ def cancel_native_workers(model_workflow):
 
 def tick():
     state=read(DEST/'primary-launch.json',{})
-    if not state:
-        try:return launch()
+    if not state or(state.get('terminal_confirmed')and state.get('source_repair_ready')):
+        try:return launch(state.get('profile',0))
         except PendingAdmission as exc:
-            value={'phase':'awaiting_full_native_admission','reason':str(exc),'primary_rl_updates':0}
+            value={'phase':'awaiting_primary_qualification','reason':str(exc),'primary_rl_updates':0}
             write(DEST/'primary-status.json',value);return value
     query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
     state['scheduler_status']=query['status'];write(DEST/'primary-launch.json',state)

@@ -35,3 +35,18 @@ def test_gpu_device_plugin_rejection_is_retried_but_cuda_oom_is_not():
     assert infrastructure_failure({'status':'FAILED','failure_message':
         'Pod was rejected: Allocate failed due to requested number of devices unavailable for nvidia.com/gpu'})
     assert not infrastructure_failure({'status':'FAILED','failure_message':'CUDA out of memory while allocating model tensors'})
+
+
+def test_verified_source_repair_still_waits_for_all_prelaunch_gates(tmp_path,monkeypatch):
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'terminated-attempt',
+        'terminal_confirmed':True,'source_repair_ready':True,'profile':0}))
+    attempted=[]
+    def launch(profile):
+        attempted.append(profile)
+        raise primary.PendingAdmission('Exact primary command remains pending')
+    monkeypatch.setattr(primary,'launch',launch)
+    monkeypatch.setattr(primary,'command',lambda *a,**k:pytest.fail('Old terminated job was queried instead of checking new admission'))
+    value=primary.tick()
+    assert attempted==[0]and value['primary_rl_updates']==0
+    assert value['phase']=='awaiting_primary_qualification'
