@@ -42,13 +42,23 @@ def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):
     return required
 
 
+def allocation_profile(attempt):
+    if type(attempt)is not int or attempt<0:
+        raise ValueError('Allocation attempt must be a nonnegative integer')
+    if attempt<len(PROFILES):return PROFILES[attempt]
+    # Once both layouts and priorities have been tried, keep the smaller
+    # qualified layout. Wrapping the initial sweep requested 56 model GPUs
+    # again immediately after a 40-GPU allocation suffered a startup failure.
+    return 4,'HIGH'if attempt%3==0 else'LOW'
+
+
 def prepare(profile=0):
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     package=prepare_training_bundle();common=Path(package['bundle'])
     sources={name:common/name for name in package['files']}
     sources.update({name:BASE/'cluster'/name for name in EXTRA})
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
-    rollout_nodes,priority=PROFILES[profile%len(PROFILES)]
+    rollout_nodes,priority=allocation_profile(profile)
     native_image=yaml.safe_load(TEMPLATE.read_text())['workflow']['tasks'][0]['image']
     data={'curriculum.json':admission['curriculum'],'native-membership.json':admission['native_membership'],
         'model-qualification.json':qualification,'reasoning-membership.json':read(DEST/'reasoning-remote-qualified/membership.json')}
@@ -209,7 +219,7 @@ def cancel_native_workers(model_workflow):
 def tick():
     state=read(DEST/'primary-launch.json',{})
     if not state or(state.get('terminal_confirmed')and state.get('source_repair_ready')):
-        try:return launch(state.get('profile',0))
+        try:return launch(state.get('profile',0),pool=state.get('pool','groot-h100-02'))
         except PendingAdmission as exc:
             value={'phase':'awaiting_primary_qualification','reason':str(exc),'primary_rl_updates':0}
             write(DEST/'primary-status.json',value);return value

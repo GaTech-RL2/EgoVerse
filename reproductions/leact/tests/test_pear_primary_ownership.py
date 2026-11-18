@@ -40,15 +40,15 @@ def test_gpu_device_plugin_rejection_is_retried_but_cuda_oom_is_not():
 def test_verified_source_repair_still_waits_for_all_prelaunch_gates(tmp_path,monkeypatch):
     monkeypatch.setattr(primary,'DEST',tmp_path)
     (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'terminated-attempt',
-        'terminal_confirmed':True,'source_repair_ready':True,'profile':0}))
+        'terminal_confirmed':True,'source_repair_ready':True,'profile':0,'pool':'groot-h100-01'}))
     attempted=[]
-    def launch(profile):
-        attempted.append(profile)
+    def launch(profile,*,pool):
+        attempted.append((profile,pool))
         raise primary.PendingAdmission('Exact primary command remains pending')
     monkeypatch.setattr(primary,'launch',launch)
     monkeypatch.setattr(primary,'command',lambda *a,**k:pytest.fail('Old terminated job was queried instead of checking new admission'))
     value=primary.tick()
-    assert attempted==[0]and value['primary_rl_updates']==0
+    assert attempted==[(0,'groot-h100-01')]and value['primary_rl_updates']==0
     assert value['phase']=='awaiting_primary_qualification'
 
 
@@ -61,3 +61,10 @@ def test_trainer_cpu_reservations_fit_queue_controller_driver_and_all_gpu_ranks(
 def test_primary_model_rejects_a_pool_without_the_qualified_shared_volume():
     with pytest.raises(ValueError,match='qualified AMLFS07 H100 pool'):
         primary.launch(pool='groot-l40s-01')
+
+
+def test_allocation_retries_keep_the_smaller_layout_after_the_initial_sweep():
+    assert[primary.allocation_profile(i)for i in range(4)]==primary.PROFILES
+    retries=[primary.allocation_profile(i)for i in range(4,24)]
+    assert{nodes for nodes,_ in retries}=={4}
+    assert{priority for _,priority in retries}=={'HIGH','LOW'}
