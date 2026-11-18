@@ -31,6 +31,7 @@ from efe_pear_curriculum import retained_selection, token_mean_factors
 from efe_pear_curriculum_state import CurriculumState, identity
 from efe_pear_telemetry import Telemetry, reward_metrics
 from efe_pear_queue_checkpoint import shared_queue_checkpoint
+from efe_pear_multitask_config import configuration as multitask_configuration
 
 
 class MultitaskReplayBuffer(PearReplayBuffer):
@@ -95,28 +96,13 @@ class MultitaskReplayBuffer(PearReplayBuffer):
 class MultitaskTrainer(PearTrainer):
     def __init__(self, config):
         manifest=json.loads(Path(os.environ['EFE_PEAR_CURRICULUM']).read_text())
-        self.curriculum=CurriculumState(manifest,seed=int(config.data.get('seed',1701)))
-        if self.curriculum.stage!='expanded_full':
-            raise ValueError('Primary RL requires every authorized control and reasoning family')
+        self.curriculum,metadata=multitask_configuration(config,manifest,
+            model_revision=os.environ.get('MODEL_REVISION'),workflow=os.environ.get('EFE_WORKFLOW_ID'))
         self.telemetry=Telemetry(os.environ['EFE_PEAR_METRICS_DIR'],
                                  str(config.trainer.experiment_name),heartbeat=True)
-        self.telemetry.metadata({'model_revision':os.environ.get('MODEL_REVISION'),
-            'router_policy':'frozen_expert_selection_router'if str(config.actor_rollout_ref.actor.fsdp_config.kernels).endswith('FrozenRouterTrainingKernels')else'not_applicable',
-            'retained_groups':int(config.data.train_batch_size),'rollouts_per_group':int(config.actor_rollout_ref.rollout.n),
-            'learning_rate':float(config.actor_rollout_ref.actor.optim.lr),'parameter_update':'full_finetuning',
-            'ppo_epochs':int(config.actor_rollout_ref.actor.ppo_epochs),
-            'score_centering':bool(config.actor_rollout_ref.actor.policy_loss.rollout_correction.score_centering),
-            'entropy_coefficient':float(config.actor_rollout_ref.actor.entropy_coeff),
-            'kl_penalty':bool(config.actor_rollout_ref.actor.use_kl_loss or config.algorithm.use_kl_in_reward),
-            'family_quotas':self.curriculum.quotas,'curriculum_sha256':self.curriculum.manifest_sha256,
-            'curriculum_stage':self.curriculum.stage,
-            'workflow':os.environ.get('EFE_WORKFLOW_ID'),'sgs_uniform_fraction':.2})
+        self.telemetry.metadata(metadata)
         self._row_by_config=None
         super().__init__(config)
-        if (int(config.data.train_batch_size)!=128 or int(config.actor_rollout_ref.rollout.n)!=8 or
-            int(config.actor_rollout_ref.actor.ppo_epochs)!=1 or
-            config.actor_rollout_ref.actor.loss_agg_mode!='token-mean'):
-            raise ValueError('Curriculum reduction requires one update of the full 128x8 token-mean batch')
 
     def _replay_buffer_class(self, sampler_cls):
         super()._replay_buffer_class(sampler_cls)
@@ -245,7 +231,15 @@ class MultitaskRunner(PearTaskRunner):
 def main(config):
     RunConfig(config).prepare()
     from efe_pear_launch_contract import validate_driver_files
-    validate_driver_files(config);auto_set_device(config)
+    validate_driver_files(config)
+    if os.environ.get('PEAR_DRIVER_PREFLIGHT_ONLY')=='1':
+        manifest=json.loads(Path(os.environ['EFE_PEAR_CURRICULUM']).read_text())
+        curriculum,metadata=multitask_configuration(config,manifest,model_revision=os.environ.get('MODEL_REVISION'))
+        print('PEAR_DRIVER_VALIDATED '+json.dumps({'configs':len(curriculum.configs),
+            'families':len(curriculum.quotas),'custom_trainer_config_passed':True,
+            'primary_rl_updates':0,'metadata':metadata}),flush=True)
+        return
+    auto_set_device(config)
     validate_config(config=config,use_reference_policy=need_reference_policy(config),use_critic=need_critic(config))
     run_ppo(config,task_runner_class=MultitaskRunner)
 

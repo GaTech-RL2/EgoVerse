@@ -102,6 +102,7 @@ def main():
         'PYTHONPATH':':'.join(map(str,[bundle,source/'pear/utils/sitecustomize',source,source/'3rdparty/verl/src'])),
         'NCCL_ALGO':'Ring','NCCL_PROTO':'Simple','NCCL_P2P_DISABLE':'1','RAY_DEDUP_LOGS':'0',
         'TOKENIZERS_PARALLELISM':'false','MUJOCO_GL':'osmesa','OPENBLAS_NUM_THREADS':'1','OMP_NUM_THREADS':'2','MKL_NUM_THREADS':'2'}
+    env.pop('PEAR_DRIVER_PREFLIGHT_ONLY',None)
     subprocess.run(['apt-get','update','-qq'],check=True,timeout=300)
     subprocess.run(['apt-get','install','-y','-qq','git','perl','libosmesa6','libgl1','libglib2.0-0'],check=True,timeout=300)
     # The storage client is absent from some pinned training environments. Use

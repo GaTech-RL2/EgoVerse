@@ -156,7 +156,10 @@ def model_qualification(root):
     command=driver.get('worker',{})
     if(driver.get('scheduler_status')!='COMPLETED'or command.get('passed')is not True
         or command.get('source_check_passed')is not True or command.get('rollout_nodes')!=[6,4]
-        or command.get('script_sha256')!=sha(Path(__file__).with_name('efe_pear_scaled_train.sh'))):
+        or command.get('script_sha256')!=sha(Path(__file__).with_name('efe_pear_scaled_train.sh'))
+        or command.get('custom_trainer_config_passed')is not True
+        or command.get('driver_entry_sha256')!=sha(Path(__file__).with_name('efe_pear_multitask_train.py'))
+        or command.get('multitask_config_sha256')!=sha(Path(__file__).with_name('efe_pear_multitask_config.py'))):
         raise PendingAdmission('Exact primary training command has not passed source and CPU configuration checks')
     queue=read(root/'queue-checkpoint-status.json',{})
     queue_result=queue.get('worker',{})

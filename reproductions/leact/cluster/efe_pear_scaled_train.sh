@@ -103,7 +103,7 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   actor_rollout_ref.actor.calculate_entropy=true \
   "data.train_files=$TRAIN_FILES" "data.val_files=$VAL_FILES" \
   "data.custom_cls.path=$PEAR_SOURCE/pear/agent_loop/dataset.py" \
-  data.max_prompt_length="$MAX_PROMPT" data.max_response_length="$MAX_RESPONSE" data.train_batch_size="$BATCH" \
+  data.max_prompt_length="$MAX_PROMPT" data.max_response_length="$MAX_RESPONSE" data.train_batch_size="$BATCH" data.seed=1701 \
   actor_rollout_ref.rollout.nnodes="$ROLLOUT_NNODES" actor_rollout_ref.rollout.n_gpus_per_node=8 \
   actor_rollout_ref.rollout.n="$N" actor_rollout_ref.rollout.max_model_len="$MAX_MODEL_LEN" \
   actor_rollout_ref.rollout.multi_turn.tool_config_path="$TOOL_CONFIG" \
