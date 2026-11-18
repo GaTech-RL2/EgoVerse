@@ -15,6 +15,7 @@ from .launch_efe_training import freeze_sources
 from .scale_efe import command,read,write,submit
 
 CHECKS={
+    'receipt-relay':('groot-l40-02','PEAR_RECEIPT_RELAY '),
     'native-robolab-rtx':('groot-l40-02','PEAR_NATIVE_RTX_CHECK '),
     'native-yam-transport':('groot-l40s-03','PEAR_NATIVE_YAM_CHECK '),
     'native-rtx-publication':('groot-l40-02','PEAR_NATIVE_IMAGE_PUBLISH '),

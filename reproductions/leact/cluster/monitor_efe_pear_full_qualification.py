@@ -24,7 +24,7 @@ def download(remote,target,*,native_yam=False):
     target=Path(target);target.mkdir(parents=True,exist_ok=True)
     candidates=[]
     if not native_yam:
-        for name in ['native-rtx-publication','checkpoint-storage']:
+        for name in ['receipt-relay','native-rtx-publication','checkpoint-storage']:
             status=read(DEST/(name+'-status.json'),{})
             if status.get('scheduler_status')=='RUNNING':
                 candidates.append((status['workflow'],'preflight'))
@@ -53,12 +53,12 @@ def retry(item):
             shutil.copyfile(old/name,target/name)
         value=yaml.safe_load((target/'workflow.yaml').read_text());value['workflow']['name']='leact-'+target.name
         (target/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False));freeze_sources(target)
-    # Repeated LOW control-pod evictions can prevent even a native startup.
-    # Try a HIGH slot on the other compatible AMLFS07 RTX pool after two such
-    # retries, then return to LOW if that allocation is unavailable.
+    # A quota reclaim can prevent even native startup. Alternate the two
+    # compatible AMLFS07 pools rather than retrying the same quota repeatedly;
+    # return to HIGH every third attempt and otherwise use LOW.
     priority='HIGH'if attempt%3==0 else'LOW'
     pool=item['pool']
-    if(priority=='HIGH'and item.get('suite')in {'robolab','robodojo','yamlab'}
+    if(pool in {'groot-l40-02','groot-l40-03'}
         and item.get('filesystem','amlfs07')=='amlfs07'):
         pool='groot-l40-03'if pool=='groot-l40-02'else'groot-l40-02'
     result=submit_reconciled(target,priority=priority,pool=pool,nodes=1)
@@ -110,10 +110,12 @@ def tick_queue(filename,*,native_yam=False):
 def images():
     from .launch_efe_pear_rtx import launch
     published=read(DEST/'native-rtx-images.json',{})
-    progress=read(DEST/'native-rtx-publication-status.json',{}).get('worker',{})
+    publication=read(DEST/'native-rtx-publication-status.json',{})
+    progress=publication.get('worker',{})
     for suite in ['robodojo','yamlab']:
         if suite not in published:
-            available=(progress.get('phase')=='private_image_publication_completed'or
+            available=(publication.get('scheduler_status')=='COMPLETED'or
+                progress.get('phase')=='private_image_publication_completed'or
                 '/'+suite+'/'in progress.get('receipt','')or
                 any('/'+suite+'/'in receipt for receipt in progress.get('receipts',[])))
             if not available:continue
