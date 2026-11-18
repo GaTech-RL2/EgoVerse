@@ -48,7 +48,7 @@ class MultitaskReplayBuffer(PearReplayBuffer):
             self.telemetry.group(g,self.curriculum.configs[g['config_id']])
 
     def _selection(self, keys):
-        return retained_selection([self.curriculum.groups[uid] for uid in keys],self.curriculum.quotas)
+        return retained_selection([self.curriculum.groups[uid] for uid in keys],self.curriculum.quotas,self.curriculum.stage)
 
     def _has_enough_samples(self, global_steps, partition_id, batch_size, sampleable_keys):
         enough=super()._has_enough_samples(global_steps,partition_id,batch_size,sampleable_keys)
@@ -95,6 +95,8 @@ class MultitaskTrainer(PearTrainer):
     def __init__(self, config):
         manifest=json.loads(Path(os.environ['EFE_PEAR_CURRICULUM']).read_text())
         self.curriculum=CurriculumState(manifest,seed=int(config.data.get('seed',1701)))
+        if self.curriculum.stage!='expanded_full':
+            raise ValueError('Primary RL requires every authorized control and reasoning family')
         self.telemetry=Telemetry(os.environ['EFE_PEAR_METRICS_DIR'],
                                  str(config.trainer.experiment_name),heartbeat=True)
         self.telemetry.metadata({'model_revision':os.environ.get('MODEL_REVISION'),
@@ -106,6 +108,7 @@ class MultitaskTrainer(PearTrainer):
             'entropy_coefficient':float(config.actor_rollout_ref.actor.entropy_coeff),
             'kl_penalty':bool(config.actor_rollout_ref.actor.use_kl_loss or config.algorithm.use_kl_in_reward),
             'family_quotas':self.curriculum.quotas,'curriculum_sha256':self.curriculum.manifest_sha256,
+            'curriculum_stage':self.curriculum.stage,
             'workflow':os.environ.get('EFE_WORKFLOW_ID'),'sgs_uniform_fraction':.2})
         self._row_by_config=None
         super().__init__(config)
@@ -195,6 +198,13 @@ class MultitaskTrainer(PearTrainer):
         # The upstream completion pointer is written only after this state and
         # the model/optimizer/TransferQueue are saved.
         super()._save_checkpoint()
+        archive_root=os.environ.get('PEAR_CHECKPOINT_ARCHIVE')
+        if archive_root:
+            from efe_pear_checkpoint_archive import archive
+            name='rp_jhh_qwen36_moe_warmstart496_pear_expanded_step'+f'{self.global_steps:06d}'
+            manifest=archive(folder,Path(archive_root)/name)
+            self.telemetry.emit('checkpoint_archive','archive/'+str(self.global_steps),step=int(self.global_steps),
+                                name=name,bytes=manifest['bytes'],readback_verified=True)
         self.telemetry.emit('checkpoint','checkpoint/'+str(self.global_steps),step=int(self.global_steps),
             name='rp_jhh_'+self.telemetry.run_id.replace('-','_')+'_step'+str(self.global_steps),complete=True)
 

@@ -198,10 +198,12 @@ def prepare_training_bundle():
     names=['efe_pear_scaled_train.sh','efe_pear_multitask_train.py','efe_pear_curriculum.py',
         'efe_pear_curriculum_state.py','efe_pear_telemetry.py','efe_pear_agent_metrics.py',
         'efe_pear_router.py','efe_pear_moe_kernels.py',
+        'efe_pear_checkpoint_archive.py','efe_pear_observation_check.py',
+        'efe_pear_reasoning_env.py','efe_pear_reasoning_scenes.py',
         'efe_pear_agent_metrics.yaml','efe_pear_native_env.py','efe_pear_bridge.py',
         'efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']
     sources={name:BASE/'cluster'/name for name in names}
-    sources['scene_identity.py']=BUILD_ROOT/'efe-pear-native-qualification-20261114-v1/scene_identity.py'
+    sources['scene_identity.py']=BASE/'cluster/efe_pear_scene_audit.py'
     digests={name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()}
     digest=hashlib.sha256(json.dumps(digests,sort_keys=True).encode()).hexdigest()
     build=BUILD_ROOT/('efe-pear-training-adapters-'+digest[:16]);build.mkdir(exist_ok=True)

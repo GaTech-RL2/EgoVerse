@@ -226,15 +226,38 @@ def inventory(root):
 def build(base=BASE):
     root=base/'artifacts/embodied-first-exam';scaled=root/'pear-scaled-v1'
     plan=read(scaled/'plan.json',{})
+    control=read(scaled/'control.json',{})
+    scaling=read(scaled/'warmstart-post-smoke-scaling-policy.json',{})
+    enabled=control.get('enabled_training_arms',[])
+    warm_authorized=(not control.get('paused',True)and not control.get('primary_training_paused',True)
+                     and 'moe-warmstart496-pearplusplus'in enabled)
     catalog=inventory(root)
     proposal=read(base/'proposals/efe_pearplusplus_multitask_v2.json',{})
     reasoning=proposal.get('reasoning_training',{})
+    reasoning_check=read(scaled/'warmstart-reasoning-check.json',{})
+    reasoning_bank=read(scaled/'reasoning-remote-qualified/membership.json',{})
+    checked_families=reasoning_check.get('worker',{}).get('families',{})
+    reasoning_families=[]
+    for family in reasoning.get('families',[]):
+        scenes=[s for s in reasoning_bank.get('scenes',{}).values()if s['family']==family['id']]
+        train=sum(s['partition']=='train'and s.get('qualification')=='passed'for s in scenes)
+        dev=sum(s['partition']=='development'and s.get('qualification')=='passed'for s in scenes)
+        passed=checked_families.get(family['id'],{}).get('passed')is True
+        reasoning_families.append({**family,'admitted_tasks':int(bool(train and passed)),
+            'qualified_train_scenes':train,'qualified_development_scenes':dev,
+            'transport_passed':passed,'status':'procedural scenes and reward/transport checks passed'if passed else family['status'],
+            'training_environment':'Independently generated MuJoCo primitive scenes; initial task templates. Published dataset sources below remain candidates.'if passed else family['training_environment']})
+    control_validation=read(scaled/'expanded-validation-status.json',{})
+    task_receipts={}
+    for path in(scaled/'validation-receipts').glob('*/checks.json'):
+        task_receipts.update(read(path,{}))
     result={'title':'rpunamiya reasoning','updated_utc':datetime.now(timezone.utc).isoformat(),
         'inventory':catalog,'timing_proxies':timing_proxies(root),
         'compute_usage':read(base/'artifacts/reasoning-workspace/compute-usage.json',{}),
         'simulators':simulator_families(catalog,read(scaled/'holdout-review-v2.json',{}),
             read(base/'artifacts/reasoning-workspace/family-images.json',{})),
-        'embodied_reasoning':{**reasoning,'evaluation_benchmarks':proposal.get('holdouts',{}).get('benchmarks',[]),
+        'embodied_reasoning':{**reasoning,'families':reasoning_families,
+            'evaluation_benchmarks':proposal.get('holdouts',{}).get('benchmarks',[]),
             'existing_training_sources':read(base/'proposals/efe_reasoning_training_sources_v1.json',{}).get('sources',[]),
             'box_output_planned':any('bounding box'in f.get('output','').lower()or'bbox'in f.get('output','').lower()
                 for f in reasoning.get('families',[]))},
@@ -248,7 +271,23 @@ def build(base=BASE):
             'balance':proposal.get('multitask_balancing',proposal.get('multitask',{})),
             'recipe':plan.get('recipe',{}),'interface_context':plan.get('interface_context',{}),
             'planned_extra_h100_gpus_total':32,'planned_h100_gpus_per_arm':16,
-            'launch_authorized':False,'allocation_note':'Estimate only. Existing experiments remain independent; do not launch PEAR.',
+            'launch_authorized':warm_authorized,'enabled_training_arms':enabled,
+            'paused_training_arms':control.get('paused_training_arms',[]),
+            'warmstart_scaling':scaling,
+            'preflight':{'router':read(scaled/'warmstart-router-check.json',{}),
+                'native_bridge':read(scaled/'bridge-status.json',{}),
+                'reasoning':reasoning_check,'controls':control_validation,
+                'native_yam':read(scaled/'warmstart-yam-check.json',{}),
+                'on_policy':read(scaled/'onpolicy-check-status.json',read(scaled/'onpolicy-check-launch.json',{})),
+                'camera_observations':read(scaled/'control-observation-audit.json',{}),
+                'protected_scene_collisions':sum(not r['source_scene_check_passed']for r in read(scaled/'source-scene-audit.json',{}).get('tasks',{}).values()),
+                'task_receipts':{k:{field:v[field]for field in ['success','native_interface_passed','qualification','error']if field in v}
+                    for k,v in task_receipts.items()}},
+            'allocation_note':('Warmstart launch authorized after RL smoke checks. Target '
+                +str(scaling.get('initial_target_h100s',64))+' H100s, fallback '
+                +str(scaling.get('fallback_target_h100s',48))
+                +'; RTX simulator capacity is additional for Isaac RGB. Expand when useful capacity is available. Base-model arm remains paused. No primary allocation is confirmed.'
+                if warm_authorized else 'Estimate only. Existing experiments remain independent; do not launch PEAR.'),
             'paper_reference':{'url':PAPER,'h100_node_generated_tokens_second':[2000,3000],
                 'mean_episode_generated_tokens':92000,'total_training_h100_equivalent_hours':50000,
                 'note':'Published dense-model baseline; not our measured PEAR rate. The paper uses more concurrent sessions than our initial recipe.'},

@@ -9,6 +9,7 @@
 <p id="retention-status"></p><div id="retention-results" class="table-wrap"></div><p id="retention-explanation" class="meta"></p>
 <p id="pear-live-status" class="meta"></p>
 <div id="pear-run-table" class="table-wrap"></div>
+<details open><summary>Launch validation</summary><div id="launch-validation" class="table-wrap"></div><p id="launch-validation-explanation" class="meta"></p></details>
 <div class="filters"><label>Run<select id="metric-run"><option value="all">Both PEAR runs</option></select></label><label>Metric<select id="metric-name"><option value="policy_loss">Policy loss</option></select></label></div>
 <div id="metric-legend" class="benchmark-list"></div><div id="metric-chart" class="metric-chart"></div><p id="metric-value" class="meta" aria-live="polite">Hover or focus a point for its run, step and value.</p><p class="meta">Policy loss is the RL update objective. Assess capability with rewards and held-out evaluations; its numerical value is not comparable to supervised cross-entropy.</p>
 <details><summary>Latest task rewards and recorded metrics</summary><div id="live-task-rewards" class="table-wrap"></div><div id="live-metrics" class="table-wrap"></div></details>
@@ -18,7 +19,7 @@
 </section>
 <section id="embodied-reasoning" class="panel">
 <div class="section-heading"><h2>Embodied reasoning</h2><span id="reasoning-status" class="pill"></span></div>
-<p class="meta">Each task uses observations and public context → reasoning → one typed JSON answer. Control tasks use the robot’s EEF or joint action schema; reasoning tasks use point, set, count, label or pose answers. Existing source data still needs conversion and reward qualification. Named benchmark datasets stay reserved for evaluation.</p>
+<p class="meta">Each task uses observations and public context → reasoning → one typed JSON answer. The initial reasoning bank uses independently generated MuJoCo primitive scenes with verifier controls. Control tasks use the robot’s EEF or joint action schema; reasoning tasks use typed point, box, set and count answers or camera inspection. Named benchmark datasets stay reserved for evaluation.</p>
 <div id="reasoning-task-table" class="table-wrap"></div>
 <h3 class="reasoning-eval-heading">Existing training datasets</h3><p class="meta">Published training sources are available. The entries below are candidates being inspected; they are not yet staged or admitted to our training mixture.</p><div id="reasoning-source-table" class="table-wrap"></div>
 <h3 class="reasoning-eval-heading">Held-out evaluation benchmarks</h3><div id="reasoning-benchmarks" class="benchmark-list"></div>
@@ -31,8 +32,8 @@
 <div id="simulator-families" class="family-grid"></div>
 <p id="yam-split-note" class="meta"></p>
 </section>
-<section id="planning" class="panel"><div class="section-heading"><h2>PEAR compute estimates</h2><span class="pill">32 additional H100s · 16 per run</span></div>
-<p>The proposed PEAR allocation is additional compute, divided equally between the existing MoE warmstart and base Qwen3.8-27B. Values below describe scenarios after qualification and allocation; they are not measured PEAR completion times.</p>
+<section id="planning" class="panel"><div class="section-heading"><h2>PEAR compute estimates</h2><span class="pill">Warmstart target: 64 H100s · fallback: 48</span></div>
+<p>The warmstart arm is authorized to launch after the complete mixture and RL pipeline pass validation. The base-model arm remains paused. The calculator retains both proposed arms as editable scenarios; these are estimates, not measured PEAR completion times or confirmed allocations.</p>
 <p class="meta">The proposal uses 512 updates as a planning milestone, with continuation driven by coverage and learning. The calculator opens at the earlier 32-update checkpoint; select 512 to price the longer schedule.</p>
 <div class="controls"><label>Planning milestone<select id="updates"><option value="1">1 retained update</option><option value="8">8 retained updates</option><option value="32" selected>32 retained updates</option><option value="128">128 retained updates</option><option value="512">512 retained updates · planning milestone</option></select></label>
 <label>Extra H100 GPUs, both runs<select id="gpu-budget"><option value="32" selected>32 · 16 per run</option><option value="64">64 · 32 per run</option><option value="128">128 · 64 per run</option><option value="256">256 · 128 per run</option></select></label>

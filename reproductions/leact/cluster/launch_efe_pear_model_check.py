@@ -20,6 +20,9 @@ VERSION=4
 
 def prepare(arm,index=0):
     require_unpaused()
+    enabled=read(DEST/'control.json',{}).get('enabled_training_arms')
+    ident='moe-warmstart496-pearplusplus'if arm=='moe_warmstart496'else'qwen38-27b-base-pearplusplus'
+    if enabled is not None and ident not in enabled:raise RuntimeError('This model arm is paused by the user')
     build=BUILD_ROOT/f'efe-pear-model-check-20261117-{arm}-v{VERSION}-r{index}'
     if (build/'source-manifest.json').exists():return build
     models=read(DEST/'model-files-ready.json')['models']
@@ -62,6 +65,9 @@ def tick():
     from .efe_coverage_retry import retry_due
     statuses=[];done=True
     for arm in ARMS:
+        enabled=read(DEST/'control.json',{}).get('enabled_training_arms')
+        ident='moe-warmstart496-pearplusplus'if arm=='moe_warmstart496'else'qwen38-27b-base-pearplusplus'
+        if enabled is not None and ident not in enabled:continue
         queue=queues.setdefault(arm,{'attempts':[]})
         if not queue['attempts']:
             build=prepare(arm);require_unpaused()

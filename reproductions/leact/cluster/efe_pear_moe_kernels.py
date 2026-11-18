@@ -10,6 +10,10 @@ class FrozenRouterTrainingKernels(Qwen3_5TrainingKernels):
     def install(cls,module,fp32_residual,use_fused_kernels,fused_kernels_backend):
         super().install(module,fp32_residual,use_fused_kernels,fused_kernels_backend)
         cls.router_freeze_receipt=freeze_expert_routers(module)
+        import os
+        if os.environ.get('EFE_PEAR_OPTIMIZER_CHECK_DIR'):
+            from efe_pear_optimizer_check import install
+            install()
 
     @classmethod
     def check_model(cls,module,use_remove_padding,use_fused_kernels,fused_kernels_backend):

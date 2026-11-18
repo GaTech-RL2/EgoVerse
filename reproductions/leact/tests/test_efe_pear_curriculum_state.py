@@ -55,6 +55,20 @@ def test_no_partial_or_evaluation_curriculum_can_start_training():
         with pytest.raises(ValueError):CurriculumState(m)
 
 
+def test_control_bootstrap_is_explicit_and_cannot_silently_replace_the_full_mixture():
+    m=manifest();m['configs']=[c for c in m['configs']if c['family']=='general_manipulation']
+    with pytest.raises(ValueError,match='Every authorized'):CurriculumState(m)
+    m['curriculum_stage']='control_bootstrap'
+    for c in m['configs']:c['suite']='metaworldplus'
+    state=CurriculumState(m)
+    assert state.quotas=={'general_manipulation':128}
+    assert state.loss_weights=={'general_manipulation':1.}
+    restored=CurriculumState(m);restored.restore(state.state_dict())
+    assert restored.quotas==state.quotas
+    m['configs'][0]['suite']='unqualified-other-suite'
+    with pytest.raises(ValueError,match='restricted'):CurriculumState(m)
+
+
 def test_refill_targets_missing_families_without_losing_full_starts():
     state=CurriculumState(manifest());family='physical_prediction'
     ready={f:n for f,n in INITIAL_QUOTAS.items() if f!=family}

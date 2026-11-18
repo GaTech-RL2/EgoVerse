@@ -27,6 +27,8 @@ class CurriculumState:
     def __init__(self, manifest, seed=1701):
         if manifest.get('partition') != 'train' or manifest.get('qualification') != 'passed':
             raise ValueError('A qualified training manifest is required')
+        self.stage=manifest.get('curriculum_stage','expanded_full')
+        if self.stage not in {'expanded_full','control_bootstrap'}:raise ValueError('Unknown curriculum stage')
         self.manifest_sha256=hashlib.sha256(json.dumps(manifest,sort_keys=True).encode()).hexdigest()
         self.configs={}
         seen_envs=set()
@@ -39,18 +41,21 @@ class CurriculumState:
                 raise ValueError('Unqualified, duplicate, terminal or unobservable reset: '+key)
             if c['stratum'] not in {'full','grasped','near_goal'}:
                 raise ValueError('Unknown reset stratum')
+            if self.stage=='control_bootstrap'and(c['family']!='general_manipulation'or c['suite']!='metaworldplus'):
+                raise ValueError('Control bootstrap is restricted to existing MetaWorld training tasks')
             for required in ['suite','task','env_class','env_args']:
                 if not c.get(required):raise ValueError('Missing reset field: '+required)
             env_id=identity(c['env_class'],c['env_args'])
             if env_id in seen_envs:raise ValueError('Duplicate reset identity under different config IDs')
             seen_envs.add(env_id);self.configs[key]=c
-        if {c['family'] for c in self.configs.values()} != set(INITIAL_QUOTAS):
+        required={'general_manipulation'}if self.stage=='control_bootstrap'else set(INITIAL_QUOTAS)
+        if {c['family'] for c in self.configs.values()} != required:
             raise ValueError('Every authorized control and reasoning family must be admitted')
         tasks={(c['family'],c['suite'],c['task']) for c in self.configs.values()}
         full={(c['family'],c['suite'],c['task']) for c in self.configs.values() if c['stratum']=='full'}
         if tasks != full:raise ValueError('Every semantic task needs a native full start')
         self.rng=random.Random(seed)
-        self.quotas=dict(INITIAL_QUOTAS)
+        self.quotas={'general_manipulation':128}if self.stage=='control_bootstrap'else dict(INITIAL_QUOTAS)
         self.history=SuccessHistory()
         self.groups={}
         self.dispatches=Counter()
@@ -138,7 +143,7 @@ class CurriculumState:
 
     def adapt(self, quotas, *, step, evidence):
         """Accept measured training-only updates, never invent missing signals."""
-        validate_quotas(quotas)
+        validate_quotas(quotas,self.stage)
         if step<32 or step%16 or evidence.get('partition')!='train':
             raise ValueError('Adaptation requires the scheduled training-only measurement')
         if evidence.get('step')!=step or set(evidence.get('families',{}))!=set(self.quotas):
@@ -164,7 +169,7 @@ class CurriculumState:
     def restore(self, state):
         if state['manifest_sha256']!=self.manifest_sha256:
             raise ValueError('Resume changed the admitted curriculum')
-        validate_quotas(state['quotas'])
+        validate_quotas(state['quotas'],self.stage)
         self.rng.setstate(_tuples(state['rng']));self.quotas=dict(state['quotas'])
         self.history=SuccessHistory.from_state_dict(state['history'])
         self.groups=dict(state['groups']);self.dispatches=Counter(state['dispatches'])

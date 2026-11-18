@@ -28,8 +28,9 @@ from efe_pear_curriculum_state import CurriculumState
 q=json.loads(Path(os.environ['MODEL_QUALIFICATION']).read_text())
 assert q['model_revision']==os.environ['MODEL_REVISION']
 assert q['parameter_update']=='full_finetuning' and q['lora_rank']==0
-assert q['full_model_replay_max_error'] <= 0.0005
-assert q['optimizer_updates']==1 and q['checkpoint_reload_passed'] is True
+assert q['loaded_weight_max_error'] <= 0.0005
+assert q['repeated_forward_max_error'] <= 0.0005
+assert q['diagnostic_optimizer_updates']==1 and q['checkpoint_reload_passed'] is True
 assert q['primary_training_qualified'] is True and q['on_policy_score_centering_validated'] is True
 config=json.loads(Path(os.environ['EFE_PEAR_NATIVE_CONFIG']).read_text())
 assert not config.get('qualification_only')
@@ -37,6 +38,7 @@ membership=json.loads(Path(config['membership_file']).read_text())
 assert membership['training_tasks']
 assert all(v['qualification']=='passed' for v in membership['training_tasks'].values())
 curriculum=CurriculumState(json.loads(Path(os.environ['EFE_PEAR_CURRICULUM']).read_text()))
+assert curriculum.stage=='expanded_full', 'Primary RL requires every authorized control and reasoning family'
 tools=yaml.safe_load(Path(os.environ['TOOL_CONFIG']).read_text())['tools']
 configured={t['config']['env_class'] for t in tools}
 assert {c['env_class'] for c in curriculum.configs.values()} <= configured
@@ -102,7 +104,7 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   actor_rollout_ref.actor.ppo_mini_batch_size="$BATCH" \
   trainer.n_gpus_per_node=8 trainer.nnodes="$TRAINER_NNODES" \
   trainer.total_training_steps="$TRAINING_STEPS" trainer.total_epochs=10000 \
-  trainer.experiment_name="$(basename "$RUN")" trainer.default_local_dir="$RUN/ckpt" \
+  trainer.experiment_name="${PEAR_RUN_ID:-$(basename "$RUN")}" trainer.default_local_dir="${PEAR_CHECKPOINT_SCRATCH:-$RUN/ckpt}" \
   trainer.validation_data_dir="$RUN/eval" trainer.logger='["console","file","tensorboard"]' \
   run_dir="$RUN" run_sizes.sessions_per_replica="$SESSIONS_PER_REPLICA" \
   "$ENV_VAR.VERL_USE_EXTERNAL_MODULES='$VERL_USE_EXTERNAL_MODULES'" \
@@ -110,7 +112,7 @@ VAL_FILES=$("$VERL_ENV/bin/python" -c 'import json,sys; v=sys.argv[1]; print(jso
   "$ENV_VAR.EFE_PEAR_CURRICULUM=$EFE_PEAR_CURRICULUM" \
   "$ENV_VAR.EFE_PEAR_METRICS_DIR=$EFE_PEAR_METRICS_DIR" \
   "$ENV_VAR.MODEL_REVISION=$MODEL_REVISION" \
-  "$ENV_VAR.RAY_DEDUP_LOGS=0" \
-  "$ENV_VAR.PEAR_PRIMARY_TRAINING=1" "$ENV_VAR.VERL_FILE_LOGGER_PATH=$RUN/metrics.jsonl" \
-  "$ENV_VAR.NCCL_ALGO=Ring" "$ENV_VAR.NCCL_PROTO=Simple" "$ENV_VAR.NCCL_P2P_DISABLE=1" \
+  "$ENV_VAR.RAY_DEDUP_LOGS='0'" \
+  "$ENV_VAR.PEAR_PRIMARY_TRAINING='1'" "$ENV_VAR.VERL_FILE_LOGGER_PATH=$RUN/metrics.jsonl" \
+  "$ENV_VAR.NCCL_ALGO=Ring" "$ENV_VAR.NCCL_PROTO=Simple" "$ENV_VAR.NCCL_P2P_DISABLE='1'" \
   "$@" 2>&1 | tee -a "$RUN/train.log"

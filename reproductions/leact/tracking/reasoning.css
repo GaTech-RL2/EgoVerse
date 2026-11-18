@@ -3,3 +3,5 @@
 nav{max-width:100%;flex-wrap:wrap}.reasoning-example{font-style:italic;color:var(--muted);font-size:12px;margin:5px 0}.benchmark-list{display:flex;flex-wrap:wrap;gap:8px}.benchmark-list .tag{font-size:11px;padding:6px 9px}.reasoning-eval-heading{margin:18px 0 10px}#reasoning-task-table td:first-child{min-width:160px}#reasoning-task-table td:nth-child(2){min-width:240px}#reasoning-task-table td:last-child{min-width:130px}#reasoning-task-table details{margin-top:8px}#reasoning-task-table summary{font-size:11px}#reasoning-task-table p{margin:6px 0}.panel{min-width:0}.table-wrap{max-width:100%}
 .metric-chart{min-height:180px;border:1px solid var(--line,#dbe3ee);border-radius:10px;margin-top:14px;overflow:hidden}.metric-chart svg{display:block;width:100%;height:auto}.chart-empty{padding:55px 20px;text-align:center;color:#526174}.metric-run-label{font-size:12px;font-weight:600;overflow-wrap:anywhere}.metric-chart circle:focus{outline:2px solid #111;stroke:#111;stroke-width:2}
 .metric-color-0{color:#2563eb}.metric-color-1{color:#d97706}
+
+.pill{max-width:100%;white-space:normal;overflow-wrap:anywhere}

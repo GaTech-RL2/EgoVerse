@@ -20,7 +20,11 @@ FLOORS = {'native_gr00t_yam':24, 'broader_bimanual':16, 'general_manipulation':1
           'language_conditioned_control':8, **{key:2 for key in REASONING_FAMILIES}}
 
 
-def validate_quotas(quotas):
+def validate_quotas(quotas,stage='expanded_full'):
+    if stage=='control_bootstrap':
+        if quotas!={'general_manipulation':128}:raise ValueError('Control bootstrap keeps the complete 128-group optimizer batch')
+        return
+    if stage!='expanded_full':raise ValueError('Unknown curriculum stage')
     if set(quotas) != set(INITIAL_QUOTAS):
         raise ValueError('Every authorized control and reasoning family is required')
     if any(type(n) is not int or n < FLOORS[key] for key,n in quotas.items()):
@@ -113,13 +117,13 @@ def choose_reset(configs, history, rng, *, task, stratum, partition='train'):
                       'task':task,'stratum':stratum}
 
 
-def retained_selection(groups, quotas):
+def retained_selection(groups, quotas,stage='expanded_full'):
     """Oldest usable groups satisfying exact quotas, or None if a family is short.
 
     Group rewards are checked here even if the upstream DAPO filter already ran.
     No compensating quota transfer to an easier family is allowed.
     """
-    validate_quotas(quotas)
+    validate_quotas(quotas,stage)
     by_family={key:[] for key in quotas}
     ids=set()
     for group in groups:

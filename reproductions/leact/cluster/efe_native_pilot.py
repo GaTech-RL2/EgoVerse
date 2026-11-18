@@ -15,6 +15,7 @@ import sys
 import tarfile
 import time
 import urllib.request
+from uuid import uuid4
 
 ROOT=Path('/tmp/efe-native')
 SPEC=Path('/tmp/efe-native-spec.json')
@@ -30,7 +31,13 @@ def write(name,value):
     for parent in (ROOT,ARCHIVE):
         parent.mkdir(parents=True,exist_ok=True)
         path=parent/name;path.parent.mkdir(parents=True,exist_ok=True)
-        temp=path.with_suffix(path.suffix+'.tmp');temp.write_text(data);temp.replace(path)
+        # Controls run concurrently. Each writer needs its own staging file:
+        # sharing progress.json.tmp can make one thread rename another's file.
+        temp=path.with_name('.'+path.name+'.'+uuid4().hex+'.tmp')
+        try:
+            temp.write_text(data);temp.replace(path)
+        finally:
+            temp.unlink(missing_ok=True)
 
 
 def progress(phase,detail,**extra):

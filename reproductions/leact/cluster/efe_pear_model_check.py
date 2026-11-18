@@ -82,7 +82,8 @@ def make_engine(spec):
         model_dtype='fp32',param_offload=False,optimizer_offload=True,optimizer_offload_step=True,
         mixed_precision={'param_dtype':'bf16','reduce_dtype':'fp32','buffer_dtype':'fp32',
             'fp32_modules':['model.visual'],'fp32_modules_tf32':True,'fp32_residual':True},
-        kernels='pear.models.qwen3_5.trainer.training_kernels.Qwen3_5TrainingKernels',
+        kernels=('efe_pear_moe_kernels.FrozenRouterTrainingKernels'if spec.get('router_policy')=='frozen_expert_selection_router'
+                 else 'pear.models.qwen3_5.trainer.training_kernels.Qwen3_5TrainingKernels'),
         use_gpu_backend=dense,use_torch_compile=False)
     optimizer=FSDPOptimizerConfig(lr=1e-6,total_training_steps=1,lr_warmup_steps=0,
         weight_decay=.01,betas=(.9,.999),clip_grad=1.,
@@ -91,7 +92,12 @@ def make_engine(spec):
         override_optimizer_config=None if dense else {'foreach':False})
     engine=PearFSDPEngine(model,config,optimizer,CheckpointConfig())
     engine.initialize()
-    if any(not p.requires_grad for p in engine.module.parameters()):
+    if spec.get('router_policy')=='frozen_expert_selection_router':
+        from efe_pear_router import ROUTER,assert_expert_routers_frozen
+        assert_expert_routers_frozen(engine.module)
+        if any(not p.requires_grad for name,p in engine.module.named_parameters()if not ROUTER.search(name)):
+            raise ValueError('Unexpected frozen non-router parameters')
+    elif any(not p.requires_grad for p in engine.module.parameters()):
         raise ValueError('Unexpected frozen parameters in full-finetuning model')
     return engine
 
@@ -181,23 +187,33 @@ def forward(engine, batch):
 def fingerprints(engine):
     import torch
     from torch.distributed.tensor import DTensor
-    def add(h,name,value):
-        h.update(name.encode())
+    def add(h,name,value,other=None):
+        def update(raw):
+            h.update(raw)
+            if other is not None:other.update(raw)
+        update(name.encode())
         if isinstance(value,DTensor):value=value.to_local()
         if isinstance(value,torch.Tensor):
-            value=value.detach();h.update(str(value.shape).encode()+str(value.dtype).encode())
+            value=value.detach();update(str(value.shape).encode()+str(value.dtype).encode())
             flat=value.reshape(-1)
             for i in range(0,flat.numel(),1<<20):
-                h.update(flat[i:i+(1<<20)].contiguous().cpu().view(torch.uint8).numpy().tobytes())
-        else:h.update(repr(value).encode())
+                update(flat[i:i+(1<<20)].contiguous().cpu().view(torch.uint8).numpy().tobytes())
+        else:update(repr(value).encode())
     model=hashlib.sha256();optim=hashlib.sha256()
-    for name,value in sorted(engine.module.state_dict().items()):add(model,name,value)
+    groups={key:hashlib.sha256()for key in ['routers','experts','backbone']}
+    for name,value in sorted(engine.module.state_dict().items()):
+        group='routers'if re.search(r'(?:^|\.)mlp\.gate\.(?:weight|bias)$',name)else'experts'if'.experts.'in name else'backbone'
+        add(model,name,value,groups[group])
     for i,group in enumerate(engine.optimizer.param_groups):
         for key,val in sorted(group.items()):
             if key!='params':add(optim,f'{i}/{key}',val)
         for j,param in enumerate(group['params']):
             for key,val in sorted(engine.optimizer.state.get(param,{}).items()):add(optim,f'{i}/{j}/{key}',val)
-    return {'model':model.hexdigest(),'optimizer':optim.hexdigest()}
+    return {'model':model.hexdigest(),'optimizer':optim.hexdigest(),**{key:value.hexdigest()for key,value in groups.items()}}
+
+
+def checkpoint_directory(spec,root):
+    return Path(spec.get('checkpoint_local_root',root))/os.environ['EFE_WORKFLOW_ID']/'rp_jhh_discarded_engine_step1'
 
 
 def distributed(spec, phase, root):
@@ -206,7 +222,7 @@ def distributed(spec, phase, root):
     rank=int(os.environ['RANK'])
     engine=make_engine(spec)
     batch=probe_batch(engine,spec)
-    checkpoint=root/'rp_jhh_discarded_engine_step1'
+    checkpoint=checkpoint_directory(spec,root)
     if phase=='update':
         if rank==0:record(root,'checking_full_parent_weights')
         replay=loaded_weight_check(engine,spec['model'])
@@ -223,22 +239,35 @@ def distributed(spec, phase, root):
                 loss.backward()
             if engine.use_gpu_backend:engine.kernels.run_checked(backward,engine.optimizer_zero_grad)
             else:backward()
+            if spec.get('router_policy')=='frozen_expert_selection_router':
+                from efe_pear_router import ROUTER
+                if any(p.grad is not None for name,p in engine.module.named_parameters()if ROUTER.search(name)):
+                    raise ValueError('A frozen router received gradients')
             grad_norm=engine.optimizer_step()
             engine.lr_scheduler_step()
         if not math.isfinite(grad_norm) or grad_norm<=0:raise ValueError('Invalid full-FT gradient')
         after=forward(engine,batch);state=fingerprints(engine)
         if initial['model']==state['model']:raise ValueError('Diagnostic update did not change the model')
+        if spec.get('router_policy')=='frozen_expert_selection_router':
+            if initial['routers']!=state['routers']:raise ValueError('Router parameters changed')
+            if any(initial[key]==state[key]for key in ['experts','backbone']):
+                raise ValueError('Expert and backbone parameters must both learn')
         engine.save_checkpoint(str(checkpoint),global_step=1)
         torch.save(after,root/f'expected-logprobs-rank{rank}.pt')
         write(root/f'expected-state-rank{rank}.json',state)
         if rank==0:write(root/'update.json',{'parameter_update':'full_finetuning','lora_rank':0,
             'diagnostic_optimizer_updates':1,'primary_rl_updates':0,'gradient_norm':grad_norm,
             'repeated_forward_max_error':repeat_error,'model_revision':spec['model_revision'],
+            'router_policy':spec.get('router_policy'),'router_gradients_absent':spec.get('router_policy')=='frozen_expert_selection_router',
+            'router_unchanged_after_update':initial['routers']==state['routers'],
+            'expert_parameters_changed':initial['experts']!=state['experts'],
+            'backbone_parameters_changed':initial['backbone']!=state['backbone'],
             'loss':'fixed-target NLL numerical test; not on-policy PEAR training',**replay})
     else:
         engine.load_checkpoint(str(checkpoint),del_local_after_load=False)
         expected=json.loads((root/f'expected-state-rank{rank}.json').read_text())
-        if fingerprints(engine)!=expected:raise ValueError('Model or optimizer differs after fresh-process reload')
+        restored=fingerprints(engine)
+        if restored!=expected:raise ValueError('Model or optimizer differs after fresh-process reload')
         expected_logp=torch.load(root/f'expected-logprobs-rank{rank}.pt',weights_only=True)
         actual=forward(engine,batch)
         error=float((actual-expected_logp).abs().max())
@@ -248,6 +277,7 @@ def distributed(spec, phase, root):
             value={**json.loads((root/'update.json').read_text()),'engine_check_passed':True,
                    'checkpoint_reload_max_error':max(all_errors),'checkpoint_reload_passed':True,
                    'primary_training_qualified':False,'on_policy_score_centering_validated':False,
+                   'router_unchanged_after_update_and_reload':expected['routers']==restored['routers'],
                    'scope':'Full-model weights, native-image forward, discarded NLL update and fresh-process restart only.'}
             write(root/'result.json',value);record(root,'model_engine_check_passed',**value)
     dist.barrier();dist.destroy_process_group()
@@ -273,6 +303,10 @@ def main():
     if args.phase:
         distributed(spec,args.phase,root);return
     try:
+        if spec.get('checkpoint_local_root'):
+            local=Path(spec['checkpoint_local_root']);local.mkdir(parents=True,exist_ok=True)
+            if shutil.disk_usage(local).free<spec.get('minimum_checkpoint_free_bytes',500_000_000_000):
+                raise RuntimeError('Insufficient local scratch for a full-model optimizer checkpoint')
         if not Path(spec['remote_root'],'runtime-ready.json').exists():
             raise RuntimeError('Pinned shared runtime is not ready')
         python=Path(spec['remote_root'],'runtime/envs/verl/bin/python')
@@ -289,7 +323,7 @@ def main():
                 subprocess.run([*command,str(Path(__file__).resolve()),'--phase',phase],env=env,cwd=source,
                     stdout=log,stderr=subprocess.STDOUT,check=True,timeout=14400)
         # These are explicitly discarded diagnostic updates, never run parents.
-        shutil.rmtree(root/'rp_jhh_discarded_engine_step1')
+        shutil.rmtree(checkpoint_directory(spec,root))
         record(root,'model_engine_check_passed',result=json.loads((root/'result.json').read_text()))
     except Exception as exc:
         logs={p.name:p.read_text(errors='replace') for p in root.glob('*.log')}

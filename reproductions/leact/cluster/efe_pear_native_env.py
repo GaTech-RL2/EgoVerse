@@ -15,6 +15,7 @@ from pear.sim.process import SimulatorProcess
 from efe_action_loop import SYSTEM, parse_action
 from efe_pear_bridge import HarborEpisode, NativeInfrastructureError, image_blocks, observation_payload
 from efe_pear_context import VERSION as INTERFACE_CONTEXT_VERSION
+from efe_pear_observation_check import validate_frames
 
 
 class NativeEfeEnv(StatefulEnv):
@@ -27,6 +28,12 @@ class NativeEfeEnv(StatefulEnv):
     ENVIRONMENT_PROMPT=''
     LOG_KEYS=('native_trial_path','action_contract_sha256','requested_control_steps','executed_control_steps',
               'interface_context_version','interface_context_sha256')
+
+    @classmethod
+    def server_n(cls,config,cluster_resources):
+        count=int(config.get('server_n',cluster_resources.get('efe',0)))
+        if count<1:raise ValueError('Native simulator capacity is missing')
+        return count
 
     @classmethod
     def setup_env(cls,context):
@@ -65,6 +72,7 @@ class NativeEfeEnv(StatefulEnv):
             self.contract=visible['action_contract'];self.instruction=visible['objective']
             self.contract_sha=hashlib.sha256(json.dumps(self.contract,sort_keys=True).encode()).hexdigest()
             blocks=image_blocks(content);images=[b['image'] for b in blocks if b['type']=='image']
+            validate_frames(images,self.contract['cameras'])
             context_sha=hashlib.sha256(blocks[0]['text'].encode()).hexdigest()
             state={'public_observation':visible['observation']}
             feedback=visible.get('recent_actions_and_feedback',[])
