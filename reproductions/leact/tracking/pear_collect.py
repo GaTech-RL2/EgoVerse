@@ -40,6 +40,7 @@ def parse_records(logs):
 def fold(state,marker,row):
     if marker=='PEAR_RUN':state['metadata']=row
     elif marker=='PEAR_HEARTBEAT':
+        if state.get('heartbeat',{}).get('updated_utc','')>row.get('updated_utc',''):return state
         state['heartbeat']={k:v for k,v in row.items()if k!='rollout_diagnostics'}
         state['rollout_diagnostics']=row.get('rollout_diagnostics',{})
     elif marker=='PEAR_EVENT':
@@ -118,13 +119,27 @@ def needs_qualification_poll(state,workflow):
                and(workflow['status']!='COMPLETED'or previous.get('terminal_log_captured')))
 
 
+def discovered_workflows(rows,primary_rows,allowed):
+    workflows={r['name']:r for r in [*rows,*primary_rows]
+        if r.get('labels',{}).get('pear_run_id')in allowed or any(a in r['name']for a in allowed)}
+    newest={}
+    for row in workflows.values():
+        if row.get('labels',{}).get('pear_phase')=='primary_training':
+            ident=row['labels']['pear_run_id'];previous=newest.get(ident)
+            if previous is None or row['submit_time']>previous['submit_time']:newest[ident]=row
+    return {name:row for name,row in workflows.items()
+        if row.get('labels',{}).get('pear_phase')!='primary_training'
+        or newest[row['labels']['pear_run_id']]['name']==name}
+
+
 def tick(database,binary):
     workspace=latest(database).get('status',{}).get('reasoning_workspace',{})
     allowed={r['id']for r in workspace.get('pear',{}).get('arms',[])}
     rows=json.loads(command(binary,['list','--name','pear','--user','rpunamiya','--count','100',
                                    '--order','desc','--format-type','json']))['workflows']
-    workflows={r['name']:r for r in rows if r.get('labels',{}).get('pear_run_id')in allowed
-               or any(a in r['name']for a in allowed)}
+    primary=json.loads(command(binary,['list','--name','rp-jhh-pear-primary','--user','rpunamiya',
+                                      '--count','20','--order','desc','--format-type','json']))['workflows']
+    workflows=discovered_workflows(rows,primary,allowed)
     retention=json.loads(command(binary,['list','--name','warm496-realworldqa','--user','rpunamiya',
                                        '--count','1','--order','desc','--format-type','json']))['workflows']
     for r in retention:workflows[r['name']]=r

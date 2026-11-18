@@ -1,6 +1,6 @@
 import json
 
-from reproductions.leact.tracking.pear_collect import fold,fold_launch_check,parse_records,needs_qualification_poll
+from reproductions.leact.tracking.pear_collect import discovered_workflows,fold,fold_launch_check,parse_records,needs_qualification_poll
 
 
 def test_hosted_collector_handles_prefixes_repeated_steps_and_separate_measurements():
@@ -44,3 +44,19 @@ def test_finished_qualification_does_not_delay_polling_the_live_run():
     assert not needs_qualification_poll(state,workflow)
     assert needs_qualification_poll(state,{**workflow,'status':'RUNNING'})
     assert needs_qualification_poll(state,{**workflow,'submit_time':'2026-11-18T07:00:00'})
+
+
+def test_native_retries_cannot_hide_the_model_behind_the_recent_workflow_limit():
+    labels={'pear_run_id':'arm','pear_phase':'primary_training'}
+    older={'name':'model-old','labels':labels,'submit_time':'2026-11-18T06:00:00'}
+    current={**older,'name':'model-current','submit_time':'2026-11-18T07:00:00'}
+    retries=[{'name':f'native-{i}','labels':{**labels,'pear_phase':'primary_native_workers'}}for i in range(100)]
+    found=discovered_workflows(retries,[older,current],{'arm'})
+    assert 'model-current'in found and'model-old'not in found and len(found)==101
+
+
+def test_old_attempt_heartbeat_cannot_replace_a_newer_live_heartbeat():
+    state={}
+    fold(state,'PEAR_HEARTBEAT',{'updated_utc':'2026-11-18T07:00:00','step':2})
+    fold(state,'PEAR_HEARTBEAT',{'updated_utc':'2026-11-18T06:00:00','step':0})
+    assert state['heartbeat']['step']==2
