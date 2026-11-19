@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -18,10 +19,63 @@ from .recover_efe_pear_graphics import frozen_files
 from .efe_pear_allocation_jobs import running_tasks, submit
 from .efe_pear_submission import infrastructure_failure, submit_reconciled
 from .monitor_efe_preflight import remote
+from .efe_pear_file_rpc import atomic_bytes,atomic_json
 from .launch_astra_wide_collection import (
     ROOT, OWNER, TEACHER_ROOT, NEW_FILES, CREDENTIAL, freeze_worker,
     idle_verification, record_launch,
 )
+
+
+def reconcile_lost_claims(root,transport,prefixes,*,now=None):
+    """Retire only v2 RPCs claimed by independently proven lost native jobs."""
+    root,transport=Path(root),Path(transport);now=time.time()if now is None else now;receipts=[]
+    if any(not p.startswith(('leact-rp-jhh-pear-worker-','rp-jhh-astra-wide-'))for p in prefixes):
+        raise ValueError('Lost-claim reconciliation requires owned teacher native prefixes')
+    for path in root.glob('episodes/*/infra-*/result.json'):
+        try:record=json.loads(path.read_text())
+        except (OSError,ValueError):continue
+        if(record.get('status')not in {'opening','running'}or record.get('requested_model')!='openai/openai/gpt-6.2-astra'
+            or record.get('requested_effort')!='xhigh'):continue
+        uid=record.get('episode_id')
+        if not isinstance(uid,str)or not re.fullmatch('[0-9a-f]{32}',uid):continue
+        episode=transport/'episodes'/uid
+        try:claim=json.loads((episode/'claimed.json').read_text())
+        except (OSError,ValueError):continue
+        worker=claim.get('worker_id','')
+        if not re.fullmatch('[A-Za-z0-9_.-]+',worker):continue
+        if not any(worker==prefix or worker.startswith(prefix+'-')for prefix in prefixes):continue
+        try:heartbeat=json.loads((transport/'workers'/(worker+'.json')).read_text())
+        except (OSError,ValueError):heartbeat={}
+        if now-heartbeat.get('updated_unix',0)<=120:continue
+        error={'error':'Owned native job was independently verified lost; no policy reward assigned.',
+            'lost_native_worker':worker,'reconciled_unix':now,'infrastructure_failure':True}
+        for name in ['infrastructure-error.json','cancel.json']:
+            if not(episode/name).exists():atomic_json(episode/name,error)
+        orphan=False
+        with(path.parent.parent/'writer.lock').open('a')as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:pass
+            else:
+                current=json.loads(path.read_text())
+                if current.get('status')in {'opening','running'}and current.get('episode_id')==uid:
+                    current.update(status='infrastructure_failure',error_type='LostOwnedNativeClaim',
+                        error=error['error'],lost_native_worker=worker,updated_unix=now,
+                        completed_utc=datetime.fromtimestamp(now,timezone.utc).isoformat())
+                    atomic_json(path,current);orphan=True
+        receipts.append({'episode_id':uid,'case_id':record['case']['case_id'],
+            'lost_native_worker':worker,'orphan_record_finalized':orphan,'native_workers_canceled':False})
+    return receipts
+
+
+def reconcile_remote(host,prefixes):
+    import inspect
+    from .switch_astra_wide_profile import PROFILE_ROOT
+    script=('from pathlib import Path\nfrom uuid import uuid4\nfrom datetime import datetime,timezone\n'
+        'import os,json,re,fcntl,time\n'+inspect.getsource(atomic_bytes)+'\n'+inspect.getsource(atomic_json)+'\n'+
+        inspect.getsource(reconcile_lost_claims)+'\n'+
+        "print('EFE_CAPTURE '+json.dumps({'receipts':reconcile_lost_claims("+repr(PROFILE_ROOT)+','+
+        repr(TEACHER_ROOT+'/transport')+','+repr(prefixes)+")}),flush=True)\n")
+    return remote(host,script,task='native')
 
 
 def refresh_build(state):
@@ -108,6 +162,7 @@ def recover_allocation(state, scheduler):
     replacement={**state,**receipt,'workflow':receipt['name'],'job_id':None,'build':str(build),
         'allocation_build':str(build),'pool':pool,'priority':'LOW','phase':'scheduler_recovery_submitted',
         'allocation_retries':state.get('allocation_retries',0)+1,'recovery_of':state['workflow']}
+    replacement['lost_native_prefixes']=[*state.get('lost_native_prefixes',[]),state['workflow']]
     replacement.pop('allocation_control',None);replacement.pop('superseded_by',None)
     for key in ['profile_sidecar','profile_job_id','profile_build','profile_phase']:replacement.pop(key,None)
     record_launch(replacement)
@@ -124,7 +179,8 @@ def recover_child(state, node):
     job='rp-jhh-astra-recovery-'+hashlib.sha256((state['workflow']+str(number)).encode()).hexdigest()[:20]
     receipt=submit(state,build,replace_running=False,job_id=job)
     replacement={**state,'build':str(build),'job_id':receipt['job_id'],'child_retries':number,
-        'allocation_control':control,'phase':'child_recovery_staged','idle_proof':proof}
+        'allocation_control':control,'phase':'child_recovery_staged','idle_proof':proof,
+        'lost_native_prefixes':[*state.get('lost_native_prefixes',[]),state['workflow']+'-'+state['job_id']]}
     record_launch(replacement);return replacement
 
 
@@ -166,6 +222,11 @@ def tick():
         status['snapshot_read_errors']=capture.get('read_errors',[])
         profile_enabled=read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'
         if profile_enabled:status['astra62_attempt_status']=capture['astra62_profile']['attempt_status']
+        prefixes=set(read(ROOT/'lost-native-workers.json',{}).get('prefixes',[]))
+        for row in states.values():prefixes.update(row.get('lost_native_prefixes',[]))
+        if prefixes:
+            try:status['lost_claim_reconciliation']=reconcile_remote(hosts[0],sorted(prefixes))['receipts']
+            except Exception as exc:status['lost_claim_reconciliation_pending']=str(exc)[:600]
         for wf,node in capture['nodes'].items():
             if wf not in hosts:continue
             row=active[wf]

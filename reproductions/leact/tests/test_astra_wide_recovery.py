@@ -2,6 +2,7 @@ import hashlib
 import contextlib
 import io
 import json
+import fcntl
 from types import SimpleNamespace
 
 import pytest
@@ -117,3 +118,39 @@ def test_yam_heartbeat_replacement_race_preserves_missing_file_semantics(tmp_pat
     monkeypatch.setattr(Path,'stat',disappears)
     assert not head_heartbeat_expired(tmp_path/'head',now=99999)
     assert len(calls)==1
+
+
+@pytest.mark.parametrize('current_writer',[False,True])
+def test_lost_claim_reconciliation_preserves_traces_and_never_scores_failure(tmp_path,current_writer):
+    root=tmp_path/'profile';transport=tmp_path/'transport';uid='a'*32;worker='rp-jhh-astra-wide-test-old-job-task'
+    path=root/'episodes/case/infra-00/result.json';path.parent.mkdir(parents=True)
+    original={'status':'running','requested_model':'openai/openai/gpt-6.2-astra','requested_effort':'xhigh',
+        'episode_id':uid,'case':{'case_id':'case'},'valid_actions':7,'generated_tokens':123}
+    path.write_text(json.dumps(original));turns=path.with_name('turns.jsonl');turns.write_text('original trace\n')
+    episode=transport/'episodes'/uid;episode.mkdir(parents=True)
+    (episode/'claimed.json').write_text(json.dumps({'worker_id':worker}))
+    (transport/'workers').mkdir();(transport/'workers'/(worker+'.json')).write_text('{"updated_unix":100}')
+    lock=(path.parent.parent/'writer.lock').open('a')
+    if current_writer:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+    try:
+        receipts=watch.reconcile_lost_claims(root,transport,['rp-jhh-astra-wide-test-old-job'],now=1000)
+        value=json.loads(path.read_text())
+        assert value['status']==('running'if current_writer else'infrastructure_failure')
+        assert value['valid_actions']==7 and value['generated_tokens']==123
+        assert 'native_success'not in value and turns.read_text()=='original trace\n'
+        assert (episode/'infrastructure-error.json').exists()and(episode/'cancel.json').exists()
+        assert receipts[0]['orphan_record_finalized']is(not current_writer)
+    finally:lock.close()
+
+
+def test_fresh_or_unowned_claim_is_preserved(tmp_path):
+    root=tmp_path/'profile';transport=tmp_path/'transport';uid='b'*32;worker='rp-jhh-astra-wide-healthy-new-job-task'
+    path=root/'episodes/case/infra-00/result.json';path.parent.mkdir(parents=True)
+    original={'status':'opening','requested_model':'openai/openai/gpt-6.2-astra','requested_effort':'xhigh',
+              'episode_id':uid,'case':{'case_id':'case'}}
+    path.write_text(json.dumps(original));episode=transport/'episodes'/uid;episode.mkdir(parents=True)
+    (episode/'claimed.json').write_text(json.dumps({'worker_id':worker}));(transport/'workers').mkdir()
+    (transport/'workers'/(worker+'.json')).write_text('{"updated_unix":990}')
+    assert watch.reconcile_lost_claims(root,transport,['rp-jhh-astra-wide-healthy-new-job'],now=1000)==[]
+    assert watch.reconcile_lost_claims(root,transport,['rp-jhh-astra-wide-different-job'],now=99999)==[]
+    assert json.loads(path.read_text())==original and not(episode/'cancel.json').exists()
