@@ -415,3 +415,30 @@ and rolling family balancing remain unchanged. The standalone journal checkout
 is absent, so the development record remains here and on the existing tracker.
 
 Validation for the allocation-lifecycle change: 655 research tests passed, three skipped and eight subtests passed. The required repository-wide unit command was attempted and cannot collect without the local `lightning` dependency.
+
+
+### 2026-11-19 03:54 UTC — the retained cluster is producing rollouts
+
+Live OSMO checks confirm all five model tasks on 40 H100s are RUNNING in
+`leact-rp-jhh-pear-primary-02a394b6b227-1`. The keeper children are active and
+the run metadata confirms task-and-reset SGS, rolling family targets over
+eight updates, frozen routers, score centering and 128 groups of eight.
+Model servers completed CUDA-graph startup, followed by actual rollout
+completion records. At 03:54:07 UTC the counters were 95 completed episodes,
+eight successes, 24 parse endings and eight separately recorded infrastructure
+failed attempts. There were zero completed optimizer updates. These are
+initial warmstart-policy rollouts, not evidence of an RL improvement.
+
+The 56-H100 LOW standby request expired without receiving nodes. A fresh
+56-H100 LOW request, `leact-rp-jhh-pear-primary-977d7595149a-1`, was submitted
+on h100-02 without changing the running primary. The controller now refreshes
+and retries never-started standby queue timeouts even while the primary runs;
+it preserves running/initializing requests and honors user cancellations.
+Retry submissions count all seven nodes instead of a single simulator node.
+
+The tracker reused one arm-label event-cache file across the strict and rolling
+curriculum run directories. Inspection found 142 cached events spanning the
+previous evening and the new run, even though the live rollout counters came
+from the new run. Cache files now include the admitted run-directory hash, so
+historical groups cannot be assigned to the new recipe. Existing historical
+cache files remain intact. This changes tracking only, not model jobs or rewards.

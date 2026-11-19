@@ -1,5 +1,6 @@
 """Read-only OSMO collector for the separate reasoning ITSS workspace."""
 from datetime import datetime,timezone
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -88,6 +89,15 @@ def telemetry_roots(arms,primary):
     return roots
 
 
+def merge_telemetry_cache(cache,arm,run_directory,events):
+    # An arm label can survive a recipe change, but a different admitted run
+    # directory must not inherit the old run's groups or optimizer events.
+    key=hashlib.sha256(run_directory.encode()).hexdigest()[:12]
+    target=Path(cache)/(arm+'-'+key+'-events.json');saved=read(target,{})
+    for row in events:saved[row['event_id']]=row
+    write(target,saved);return saved
+
+
 def pear():
     from ..cluster.monitor_efe_preflight import remote
     path=BASE/'artifacts/reasoning-workspace/live/pear.json';old=read(path,{})
@@ -135,9 +145,7 @@ print('EFE_CAPTURE '+json.dumps(result),flush=True)
     result={'observed_utc':datetime.now(timezone.utc).isoformat(),'collector_state':'connected','runs':{}}
     cache=path.parent;cache.mkdir(parents=True,exist_ok=True)
     for arm,value in capture.items():
-        target=cache/(arm+'-events.json');saved=read(target,{})
-        for row in value['events']:saved[row['event_id']]=row
-        write(target,saved)
+        saved=merge_telemetry_cache(cache,arm,roots[arm],value['events'])
         result['runs'][arm]={**compact_telemetry(saved.values()),'heartbeat':value['heartbeat'],
                             'run_directory':roots[arm],'rollout_diagnostics':value['rollout_diagnostics'],
                             'metadata':value['metadata']}

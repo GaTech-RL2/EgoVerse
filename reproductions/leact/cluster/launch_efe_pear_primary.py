@@ -356,6 +356,8 @@ def recover_job_inside_allocation(state,observed):
 
 def tick():
     state=read(DEST/'primary-launch.json',{})
+    from .efe_pear_backup import maintain as maintain_backup
+    maintain_backup(DEST/'backup-allocation.json')
     promoted=promote_allocated_backup(state)
     if promoted is not None:return promoted
     if state.get('workflow')and not state.get('terminal_confirmed'):

@@ -6,7 +6,7 @@ import pytest
 from reproductions.leact.cluster.efe_pear_telemetry import Telemetry, WorkerDiagnostics, reward_metrics
 from reproductions.leact.cluster.efe_pear_yam_split import build, task_group
 from reproductions.leact.tracking.server import ingest,ingest_pear,reasoning_workspace
-from reproductions.leact.tracking.reasoning_live import compact_telemetry,telemetry_readers,telemetry_roots
+from reproductions.leact.tracking.reasoning_live import compact_telemetry,telemetry_readers,telemetry_roots,merge_telemetry_cache
 
 
 def test_collection_never_execs_into_primary_startup_or_a_different_filesystem():
@@ -24,6 +24,16 @@ def test_live_collection_tracks_the_admitted_run_instead_of_the_plan_placeholder
     primary={'run_id':'warm','run':'/runs/rp_jhh_curriculum_hash'}
     assert telemetry_roots(arms,primary)=={'warm':'/runs/rp_jhh_curriculum_hash','base':'/runs/base'}
     assert telemetry_roots(arms,{'run_id':'unregistered','run':'/other'})==telemetry_roots(arms,{})
+
+
+def test_recipe_change_does_not_mix_old_groups_into_the_current_arm(tmp_path):
+    old={'event_id':'group/old','run_id':'same-arm','kind':'group','rewards':[1]*8}
+    new={'event_id':'group/new','run_id':'same-arm','kind':'group','rewards':[0]*8}
+    merge_telemetry_cache(tmp_path,'same-arm','/runs/strict',[old])
+    actual=merge_telemetry_cache(tmp_path,'same-arm','/runs/rolling',[new])
+    assert list(actual)==['group/new']
+    assert merge_telemetry_cache(tmp_path,'same-arm','/runs/strict',[])=={'group/old':old}
+    assert merge_telemetry_cache(tmp_path,'same-arm','/runs/rolling',[new])==actual
 
 
 def test_unfiltered_macro_reward_includes_rejected_groups_but_not_infrastructure():
