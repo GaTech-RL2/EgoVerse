@@ -503,3 +503,14 @@ prior optimizer/reward history when that identity changes. Tests cover an old
 run with two updates versus a fresh recipe with zero updates, and subsequent
 arrival of the correct hosted record without importing old history. This does
 not change any training, sampling, action or reward code.
+
+
+At 04:46 UTC all exact driver compositions passed (CPU, 525.54 seconds).
+The controller submitted job `native-repair-fdc5fe8591f322d5` inside the retained
+40-H100 allocation, using new run `rp_jhh_pear_moe_warmstart496_full_a5b016aab118`.
+All five keeper children were observed running that replacement; the native
+simulator allocations remained held. Model startup and simulator retargeting
+were still in progress, with zero optimizer updates. The hosted dashboard was
+verified to serve the new assets and the current task-signal sampler metadata.
+Recipe identity also suppresses old local/hosted metrics during the interval
+before a replacement driver writes its first metadata file.

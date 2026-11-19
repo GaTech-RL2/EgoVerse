@@ -96,7 +96,11 @@ def reasoning_workspace(path):
                 record.pop('graded_group_ids',None)
                 record.pop('group_reward_totals',None)
                 snapshot_run=runs.get(run_id,{})
-                identity=snapshot_run.get('metadata',{}).get('curriculum_sha256')
+                primary=value.get('pear',{}).get('preflight',{}).get('primary_launch',{})
+                expected=primary.get('expected_curriculum_sha256')if primary.get('run_id')==run_id else None
+                if expected and snapshot_run.get('metadata',{}).get('curriculum_sha256')!=expected:
+                    snapshot_run={};runs[run_id]=snapshot_run
+                identity=expected or snapshot_run.get('metadata',{}).get('curriculum_sha256')
                 # The arm label survives recipe changes and retained-node job
                 # replacements. Old hosted logs must not overwrite the new
                 # admitted run's metadata, rewards or optimizer history.

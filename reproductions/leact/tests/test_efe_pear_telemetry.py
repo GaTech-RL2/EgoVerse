@@ -140,3 +140,13 @@ def test_hosted_arm_history_cannot_overwrite_a_different_admitted_recipe(tmp_pat
     result=reasoning_workspace(db)['live_pear']['runs']['arm']
     assert result['history']==[{'step':1}]and result['optimizer_steps_observed']==1
     assert result['metadata']['sampling_policy']=='task-signal-window-v2'
+
+
+def test_replacement_startup_does_not_display_old_run_steps_before_new_metadata_exists(tmp_path):
+    db=tmp_path/'db.sqlite'
+    old={'metadata':{'curriculum_sha256':'old'},'optimizer_steps_observed':2,'history':[{'step':2}]}
+    workspace={'pear':{'arms':[{'id':'arm'}],'preflight':{'primary_launch':{
+        'run_id':'arm','expected_curriculum_sha256':'replacement'}}},'live_pear':{'runs':{'arm':old}}}
+    ingest(db,{'schema_version':1,'runs':[],'training':[],'status':{'reasoning_workspace':workspace}})
+    ingest_pear(db,{'schema_version':1,'run_id':'arm','data':old})
+    assert reasoning_workspace(db)['live_pear']['runs']['arm']=={}

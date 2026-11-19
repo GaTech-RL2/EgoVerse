@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import math
 import re
@@ -255,6 +256,12 @@ def build(base=BASE):
     yam_readback=read(scaled/'native-yam-bank-readback.json',{})
     full_qualification=read(scaled/'full-qualification-status.json',{})
     primary_state=read(scaled/'primary-status.json',{})
+    launch_state=read(scaled/'primary-launch.json',{})
+    if launch_state.get('job_id')and launch_state.get('job_id')!=primary_state.get('job_id'):
+        primary_state=launch_state
+    if primary_state.get('build'):
+        manifest=read(Path(primary_state['build'])/'curriculum.json',{})
+        if manifest:primary_state['expected_curriculum_sha256']=hashlib.sha256(json.dumps(manifest,sort_keys=True).encode()).hexdigest()
     graphics_recovery=read(scaled/'graphics-recovery-state.json',{})
     if(control.get('graphics_recovery_target_pool')=='groot-l40s-01'
         and graphics_recovery.get('workflow')==primary_state.get('workflow')and graphics_recovery.get('phase')):
