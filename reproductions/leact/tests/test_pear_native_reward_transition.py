@@ -136,3 +136,13 @@ def test_native_requests_can_stage_through_the_owner_only_after_all_model_tasks_
         with pytest.raises(RuntimeError,match='startup barrier'):
             jobs.submit({'workflow':'native-node','build':str(tmp_path)},tmp_path,**arguments)
         assert seen==[]
+
+
+def test_an_observed_dead_keeper_is_held_without_blocking_a_replacement_worker(tmp_path,monkeypatch):
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    (tmp_path/'spec.json').write_text(json.dumps({'allocation_slot':'native-slot'}))
+    queue={'held':{'workflow':'preserved-native','build':str(tmp_path),
+        'reuse_blocked_reason':'Observed zero-byte keeper heartbeat stale for hours'}}
+    monkeypatch.setattr(primary,'command',lambda *a:pytest.fail('The held allocation was accessed or canceled'))
+    assert primary.reuse_native_allocation(tmp_path,queue)is None
+    assert queue['held']['workflow']=='preserved-native'

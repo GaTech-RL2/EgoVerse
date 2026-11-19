@@ -362,6 +362,7 @@ def reuse_native_allocation(build,queue,*,live_workflows=None,model_job_id=None)
     protected=protected_teacher_allocations(DEST)
     for item in queue.values():
         if item.get('workflow')in protected:continue
+        if item.get('reuse_blocked_reason'):continue
         if live_workflows is not None and item.get('workflow')not in live_workflows:continue
         old=read(Path(item['build'])/'spec.json')
         if old.get('allocation_slot')!=slot or old.get('allocation_lifecycle')!='persistent_cluster':continue
