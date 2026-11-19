@@ -479,6 +479,9 @@ def compose(
                 }
             )
         cfg.logger.wandb.config = dict(cfg.async_lineage)
+        # Hydra would pass `config` as a DictConfig, which wandb.init rejects
+        # ("first argument must be callable or None"); hand it plain containers.
+        cfg.logger.wandb._convert_ = "all"
         if role == "train":
             cfg.mode = "train"
             cfg.ckpt_path = run["resume_checkpoint"]["local_path"]
