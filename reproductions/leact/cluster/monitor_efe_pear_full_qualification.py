@@ -79,6 +79,8 @@ def retry(item):
         and item.get('filesystem','amlfs07')=='amlfs07'):
         pool='groot-l40-03'if pool=='groot-l40-02'else'groot-l40-02'
     priority=scheduling_priority(pool,priority,read(DEST/'control.json',{}))
+    priority=item.get('allocation_priority',priority)
+    if priority not in {'HIGH','NORMAL','LOW'}:raise ValueError('Invalid worker allocation priority')
     result=submit_reconciled(target,priority=priority,pool=pool,nodes=1)
     item.setdefault('history',[]).append({'workflow':item['workflow'],'status':item.get('scheduler_status')})
     item.update(**result,workflow=result['name'],build=str(target),priority=priority,pool=pool,attempt=attempt)

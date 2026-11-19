@@ -28,6 +28,10 @@ def unpack(path,expected,target):
 
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
+    if spec.get('numeric_representation'):
+        from efe_pear_float32_json import VERSION
+        if spec['numeric_representation']!=VERSION:raise ValueError('Unknown native numeric representation')
+        os.environ['PEAR_NATIVE_FLOAT32_JSON']='1'
     if spec.get('owner_model_workflow'):
         from efe_pear_primary_native import wait_for_model_head
         wait_for_model_head(spec)

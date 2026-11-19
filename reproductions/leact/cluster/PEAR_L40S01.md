@@ -177,3 +177,64 @@ The research suite passes 625 tests, with 3 skips and 8 passing subtests.
 The repository unit command was attempted and still fails collection because
 the local environment lacks `lightning`. Current run metrics remain the
 authority for completed updates; no primary RL improvement is claimed yet.
+
+### 2026-11-19 00:34 UTC: restore HIGH-priority capacity and diagnose failed actions
+
+The user confirmed 32 L40-03 GPUs at HIGH priority. Nine queued core requests
+were replaced at HIGH priority and eight more renderer workers were submitted;
+running model and simulator processes were retained. The last scheduler census
+shows 18 HIGH and 10 LOW L40-03 GPUs RUNNING, with 12 HIGH and four LOW pending.
+Accepted submissions are not counted as active GPUs.
+
+The model workflow remains `leact-rp-jhh-pear-primary-48775f967d9b-1`, on 40
+H100s. At 00:28 UTC its telemetry records 209 completed episodes, seven positive
+rewards and zero completed primary optimizer updates. Positive rewards so far
+come from procedural reasoning, with no demonstrated manipulation improvement.
+Mixed-reward group filtering and per-family quotas remain unchanged.
+
+The separate eight-H100 EFE host failed. Its Podman logs show repeated container
+shutdown timeouts, an API broken pipe and failure to shut the API service down.
+Archived trial logs also show failed image startup and canceled trials. An unset
+egress-sidecar image appears during cleanup; it is not established as the initial
+cause. Security and egress controls remain enabled. Recovery request
+`leact-rp-jhh-pear-worker-63f1f5a36b7c-1` uses one rather than two lanes per GPU
+and staggers startup by ten seconds. It preserves all six admitted EFE families
+and requests eight H100s at HIGH priority. This is a contention hypothesis test,
+not a confirmed repair or active allocation at this timestamp.
+
+A native YAM trace audit found 62 episode endings caused solely by decimal
+bounds differences below 1e-6. For example, `-0.0475` was rejected against
+`-0.04749999940395355`, although both produce identical float32 controller bits.
+`efe_pear_float32_json.py` exposes short decimal contract bounds and observed
+joint values that round-trip to the original native float32 bits. The strict
+action parser still rejects substantive limit violations, wrong dimensions and
+unsupported action types. No action is clipped and no physics limit is changed.
+The version is opt-in for new workers. A real simulator reset, four nonblank RGB
+cameras, one executed boundary action and an official finalized verdict are
+required before the observer adds corrected workers alongside existing lanes.
+Source hashes bind the qualification receipt to the deployed numeric adapters.
+
+The earlier cross-pool probe itself omitted the parser's mandatory `summary`
+field. Its hold and stop commands now pass through the same strict parser used
+by the policy. Transport validation and numeric qualification remain separate
+from learning results. The independent LFS path remains a fallback while HIGH
+L40-03 uses the original admitted AMLFS07 inputs.
+
+The RL engine is PEAR's patched verl stack with vLLM rollouts, Ray coordination
+and FSDP full fine-tuning. SGS, score centering, per-family balancing, adapters
+and metric collection extend it. The MoE configuration disables LoRA and freezes
+expert-selection routers. The current research suite passes 633 tests with
+three skips and eight passing subtests. Repository unit collection still fails
+because `lightning` is absent. The experiment-journal checkout/helper is absent
+from its configured/default locations, so these notes and the self-contained
+PEAR dashboard retain the investigation and live qualification state.
+
+The real numeric qualification then completed in
+`leact-rp-jhh-pear-worker-5985ad7c941e-1`: four camera images, exactly one
+executed native boundary action, a finalized native verdict and matching
+numeric-adapter source hashes. This validation deliberately stops after one
+step and does not assert task success. The observer submitted eight corrected
+two-GPU YAM workers on the compatible LOW-priority AMLFS07 path. Existing
+workers remain in service; atomic episode claims prevent duplicate ownership.
+A redundant second qualification request was released after the first proof
+completed, and its separate submission/cancellation receipts are retained.

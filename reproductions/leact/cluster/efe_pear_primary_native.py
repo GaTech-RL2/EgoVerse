@@ -49,8 +49,15 @@ def main():
             PYTHONPATH=str(lane)+':'+env.get('PYTHONPATH',''),OMP_NUM_THREADS='2')
         devices=subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()
         if len(devices)!=8:raise ValueError('The native EFE allocation must own eight GPUs')
+        lanes_per_gpu=spec.get('lanes_per_gpu',2)
+        stagger=spec.get('startup_stagger_seconds',0)
+        if type(lanes_per_gpu)is not int or lanes_per_gpu not in {1,2}:
+            raise ValueError('Native EFE lanes per GPU must be one or two')
+        if type(stagger)not in {int,float}or not 0<=stagger<=30:
+            raise ValueError('Native EFE startup stagger must be between zero and thirty seconds')
+        workers=len(devices)*lanes_per_gpu
         kinds={'efe/'+suite for suite in spec['suites']}
-        for index in range(16):
+        for index in range(workers):
             directory=output/f'lane-{index:02d}';directory.mkdir()
             config={**spec['native_config'],'reference':str(reference),'agent_source':str(lane),
                 'episode_root':str(directory/'episodes'),'harbor':__import__('shutil').which('harbor',path=env['PATH']),
@@ -69,7 +76,9 @@ def main():
                 child=subprocess.Popen(command,env={**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%8]},
                     stdout=worker_log,stderr=subprocess.STDOUT,start_new_session=True)
             children.append(child)
-        print('PEAR_PRIMARY_NATIVE_READY '+json.dumps({'workers':16,'gpu':8,'primary_rl_updates':0}),flush=True)
+            if stagger and index+1<workers:time.sleep(stagger)
+        print('PEAR_PRIMARY_NATIVE_READY '+json.dumps({'workers':workers,'gpu':8,'primary_rl_updates':0,
+            'lanes_per_gpu':lanes_per_gpu,'startup_stagger_seconds':stagger}),flush=True)
         while not Path(spec['finished']).exists():
             if any(p.poll()is not None for p in children):
                 raise RuntimeError('A native EFE lane exited prematurely')

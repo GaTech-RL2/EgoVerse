@@ -256,12 +256,23 @@ def build(base=BASE):
     full_qualification=read(scaled/'full-qualification-status.json',{})
     primary_state=read(scaled/'primary-status.json',{})
     graphics_recovery=read(scaled/'graphics-recovery-state.json',{})
-    if graphics_recovery.get('workflow')==primary_state.get('workflow')and graphics_recovery.get('phase'):
+    if(control.get('graphics_recovery_target_pool')=='groot-l40s-01'
+        and graphics_recovery.get('workflow')==primary_state.get('workflow')and graphics_recovery.get('phase')):
         primary_state['graphics_recovery']={key:graphics_recovery[key]for key in
             ['phase','model_allocation_preserved','graphics_gpus']if key in graphics_recovery}
         primary_state['reason']=('Additional simulator workers are submitted; the current model and working simulators are preserved.'
             if graphics_recovery['phase']=='graphics_replacement_submitted'else
             'Simulator capacity is being restored while the current model allocation continues.')
+    numeric_recovery=read(scaled/'native-numeric-recovery.json',{})
+    if numeric_recovery.get('workflow')==primary_state.get('workflow'):
+        primary_state['numeric_recovery']=numeric_recovery
+        phase=numeric_recovery.get('phase')
+        primary_state['reason']={
+            'validating_native_float32_json':'Checking native decimal serialization in a real simulator before adding corrected rollout workers.',
+            'numeric_workers_submitted':'Additional simulator workers use decimal values with identical native float32 commands.',
+            'numeric_validation_requires_review':'Native decimal validation failed and needs review; existing model workers remain allocated.',
+        }.get(phase,primary_state.get('reason',''))
+    primary_state['native_efe_recovery']=read(scaled/'native-efe-recovery.json',{})
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
     pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
     pool_ready=read(scaled/'l40s01-storage-ready.json',{})

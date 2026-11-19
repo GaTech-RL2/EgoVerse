@@ -76,6 +76,9 @@ class YamApiProbePolicy(PolicyBase[YamApiProbePolicyCfg]):
             'semantics':'Absolute joint targets in native action-term order; arm radians and mirrored finger translations in meters.'}},
             'cameras':list(cameras),'control_dt':float(base.step_dt),'max_repeat':25,
             'protocol':'efe-constrained-action-v3','output_keys':['action_type','action','repeat','summary']}
+        if os.environ.get('PEAR_NATIVE_FLOAT32_JSON')=='1':
+            from efe_pear_float32_json import public_contract
+            contract=public_contract(contract)
         digest=hashlib.sha256(json.dumps(contract,sort_keys=True).encode()).hexdigest()
         if self.calls==0:self.initial={'action_contract':contract,'action_contract_sha256':digest,'cameras':cameras}
         elif digest!=self.initial['action_contract_sha256']:raise ValueError('Native action contract changed after one control step')

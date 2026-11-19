@@ -8,6 +8,7 @@ import copy
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import threading
@@ -84,13 +85,17 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                 rgb=(np.clip(rgb,0,1)*255).astype(np.uint8)if rgb.max()<=1 else np.clip(rgb,0,255).astype(np.uint8)
             images.append(Image.fromarray(rgb[...,:3]))
         joint=contract['action_types']['joint_position']
+        measured=array(hold)[0].tolist()
+        if os.environ.get('PEAR_NATIVE_FLOAT32_JSON')=='1':
+            from efe_pear_float32_json import public_number
+            measured=[public_number(v)for v in measured]
         visible={'mode':'task','objective':env.unwrapped.get_language_instruction(),
             'action_contract':contract,'spec':{'frames':{
                 'world':'Native simulator world frame; +Z is up. Camera image axes do not define robot axes.',
                 'joint_position':'Positive angles follow the named native joint axes; use the exact joint order.'},
                 'cameras':{name:{'rgb':True,'size':list(image.size),'moving':'wrist'in name}
                     for name,image in zip(contract['cameras'],images,strict=True)}},
-            'observation':{'proprio':{'layout':joint['layout'],'now':array(hold)[0].tolist(),
+            'observation':{'proprio':{'layout':joint['layout'],'now':measured,
                 'units':'Arm angles in radians; mirrored prismatic finger targets in meters.'}},
             'recent_actions_and_feedback':[]if action is None else[{'action':action,'execution_completed':True,
                 'control_steps_before':self.steps-executed,'control_steps_after':self.steps}]}

@@ -282,6 +282,8 @@ def tick():
     if state.get('native_workers_launched')and query['status']=='RUNNING':
         from .recover_efe_pear_graphics import tick as recover_graphics
         recover_graphics(state)
+        from .recover_efe_pear_numeric import tick as recover_numeric
+        recover_numeric(state)
         from .efe_pear_submission import infrastructure_failure as infra_retryable
         from .monitor_efe_pear_full_qualification import retry
         queue=read(DEST/'primary-native-queue.json',{})
