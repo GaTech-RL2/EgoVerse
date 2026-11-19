@@ -514,3 +514,35 @@ were still in progress, with zero optimizer updates. The hosted dashboard was
 verified to serve the new assets and the current task-signal sampler metadata.
 Recipe identity also suppresses old local/hosted metrics during the interval
 before a replacement driver writes its first metadata file.
+
+
+### 2026-11-19 05:41 UTC — recover retained nodes from orphaned inference workers
+
+The latest live check found the 40-H100 OSMO allocation healthy but all training
+children idle after failure. The repaired reward/sampler metadata had activated,
+but no rollout or optimizer update completed. Two automatic child-job retries
+failed with vLLM reporting only 10.26 GiB free against its 67.3 GiB reservation.
+The old native-repair activation receipt was historical, not proof of a live job.
+
+All 32 rollout GPU processes still belonged to the original
+`initial-63d8bff380c4` job. Each held approximately 69 GiB. Their workflow,
+allocation-control path and attempt identifiers were verified from a whitelist
+of process environment fields. Ray actor and vLLM descendants had escaped the
+process-group-only shutdown; restarting Ray alone did not release their memory.
+
+Added ownership-scoped process cleanup before a replacement starts and after a
+job exits. It matches both allocation and workflow plus an explicit attempt,
+preserves the current startup attempt, keeper and calling ancestry, checks PID
+start times against reuse, and escalates verified remaining owned processes only.
+The Linux detached-child check passed and preserved an unrelated process. The
+research suite passed 678 tests with four skipped and eight subtests passed;
+the local Linux-only test is skipped on macOS and was exercised on the trainer.
+The required root unit command cannot collect without local lightning.
+
+While all five children were verified idle, cleanup removed the old job's
+processes inside the retained containers. Rollout GPUs returned to 0–4 MiB used
+(approximately 79 GiB free). No allocation was canceled. The replacement bundle
+keeps the same admitted curriculum, initialization, frozen routers, 160k segment
+budget and 128-by-eight optimizer batch. Old logs and zero-update attempts remain
+in job history. Dashboard text now gives the current child-job phase before its
+historical recipe-activation receipt.

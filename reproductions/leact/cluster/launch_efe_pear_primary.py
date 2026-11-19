@@ -32,7 +32,7 @@ EXTRA=['efe_pear_primary_worker.py','efe_pear_primary_native.py','efe_pear_prima
     'efe_pear_native_entry.py','efe_pear_rtx_env.py','efe_pear_remote_worker.py','efe_pear_gpu_cdi.py',
     'efe_pear_yam_server.py','efe_pear_yam_session_policy.py','efe_pear_yam_api_policy.py',
     'efe_pear_yam_probe_entry.py','efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py',
-    'efe_pear_float32_json.py','efe_pear_allocation_keeper.py']
+    'efe_pear_float32_json.py','efe_pear_allocation_keeper.py','efe_pear_job_cleanup.py']
 
 
 def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):

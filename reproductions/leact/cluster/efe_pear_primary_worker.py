@@ -53,6 +53,10 @@ def main():
                 except Exception as exc:
                     print('PEAR_OBJECT_HEARTBEAT_RETRY '+json.dumps({'error_type':type(exc).__name__}),flush=True)
             stopped.wait(10)
+    if execution and os.environ.get('PEAR_ALLOCATION_CONTROL'):
+        from efe_pear_job_cleanup import cleanup
+        record('releasing_previous_job_processes',cleanup=cleanup(os.environ['EFE_WORKFLOW_ID'],
+            os.environ['PEAR_ALLOCATION_CONTROL'],keep_attempt=execution))
     credential=None;shared_credential=None
     if head:
         threading.Thread(target=heartbeat,daemon=True).start()
@@ -207,6 +211,10 @@ ray.shutdown()
             except subprocess.TimeoutExpired:os.killpg(ray_process.pid,signal.SIGKILL);ray_process.wait()
         if credential:credential.unlink(missing_ok=True)
         if shared_credential:shared_credential.unlink(missing_ok=True)
+        if execution and os.environ.get('PEAR_ALLOCATION_CONTROL'):
+            from efe_pear_job_cleanup import cleanup
+            record('cleaning_current_job_processes',cleanup=cleanup(os.environ['EFE_WORKFLOW_ID'],
+                os.environ['PEAR_ALLOCATION_CONTROL'],only_attempt=execution))
 
 
 if __name__=='__main__':main()

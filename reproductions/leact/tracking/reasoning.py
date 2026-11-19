@@ -296,7 +296,8 @@ def build(base=BASE):
                 'Transition status: '+recipe_transition.get('phase','pending').replace('_',' ')+'.')
     reward_finalization=read(scaled/'native-reward-finalization-status.json',{})
     if reward_finalization.get('current_workflow')==primary_state.get('workflow'):
-        primary_state['reason']=('Native terminal-grade repair and early training-task sampling: '
+        primary_state['reason']=('Current training job: '+primary_state.get('phase','pending').replace('_',' ')+'. '
+            'Native terminal-grade repair and early training-task sampling: '
             +reward_finalization.get('phase','pending').replace('_',' ')+'. '
             'Existing GPU allocations are retained. Pre-repair rollouts are diagnostics; optimizer updates and evaluations are reported separately.')
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
