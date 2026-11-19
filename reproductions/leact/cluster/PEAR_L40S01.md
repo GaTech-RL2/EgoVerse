@@ -368,3 +368,50 @@ of HTTP error details. The required repository unit command was attempted;
 `python -m pytest tests/unit -q` cannot collect without local `lightning`.
 The journal checkout is absent at its configured/default locations, so this
 entry remains in the existing experiment log. No RL improvement is claimed.
+
+
+### 2026-11-19 — retain allocations; add a LOW-priority backup
+
+The earlier recipe transition canceled the healthy 40-H100 allocation after
+its native sanity check passed. That released scarce GPUs, and the replacement
+then timed out in the scheduler without starting. This was an orchestration
+mistake: a validated recipe change did not justify giving up the allocation.
+The user explicitly instructed that failed runs must leave the cluster
+allocated and that another job should run inside those same nodes.
+
+Automatic recipe changes now submit versioned jobs inside an existing
+allocation. The native-worker cancellation helper preserves allocations by
+default; explicit user release is required to cancel them. A persistent keeper
+is the main process in each new production task, with training or simulator
+work as its child. A failed or completed child leaves the allocation available.
+A real CPU process test ran a failed child followed by a successful replacement
+under the same keeper PID, then verified explicit release. Peer failures stop
+sibling jobs without exiting their allocation keepers. Qualification jobs
+continue to finish normally rather than reserving diagnostic GPUs indefinitely.
+
+Jobs are staged and SHA256-verified before switching. Job generations have
+separate Ray authentication/startup directories, credential paths, logs and
+checkpoint archive identities. Replacement exec is forbidden until every
+OSMO task is RUNNING, preserving the startup-barrier fix. Native slots can be
+reused across model jobs. Failed startup jobs with zero optimizer updates may
+retry twice inside their current allocation; jobs with observed updates hold
+for checkpoint recovery instead of silently restarting at the warmstart.
+
+The user also requested a 56- or 48-GPU LOW-priority backup. Submitted 56 model
+H100s (one trainer node plus six rollout nodes) at LOW on groot-h100-02 as
+`leact-rp-jhh-pear-primary-f0f6d4bebad3-1`. It starts in standby. The prior HIGH
+request ended with FAILED_QUEUE_TIMEOUT and zero allocated nodes; a new
+persistent 40-model-H100 HIGH request was submitted on groot-h100-01 as
+`leact-rp-jhh-pear-primary-9178f4099349-1`. Neither request was canceled to make
+these changes. At the latest scheduler check both requests were PENDING.
+The controller selects an allocated cluster for the experiment, and a locked
+shared writer receipt prevents the primary and backup from writing the same
+run concurrently. A later explicit stop/release instruction takes precedence.
+
+The preference is recorded in this study's AGENTS.md and the user-requested
+future-reference memory note. No new optimizer update or capability gain is
+claimed. The 160k budget, frozen-router policy, 128x8 batch, task curriculum
+and rolling family balancing remain unchanged. The standalone journal checkout
+is absent, so the development record remains here and on the existing tracker.
+
+Validation for the allocation-lifecycle change: 655 research tests passed, three skipped and eight subtests passed. The required repository-wide unit command was attempted and cannot collect without the local `lightning` dependency.

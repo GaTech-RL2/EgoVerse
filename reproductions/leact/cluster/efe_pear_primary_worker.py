@@ -32,7 +32,10 @@ def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
     role=os.environ['EFE_ROLE'];head=role=='trainer';run=Path(spec['run'])
     run.mkdir(mode=0o700,parents=True,exist_ok=True)
-    attempt=run/'attempts'/os.environ['EFE_WORKFLOW_ID'];attempt.mkdir(parents=True,exist_ok=True)
+    attempt=run/'attempts'/os.environ['EFE_WORKFLOW_ID']
+    execution=os.environ.get('EFE_PEAR_ATTEMPT_ID')
+    if execution:attempt=attempt/execution
+    attempt.mkdir(parents=True,exist_ok=True)
     bundle=run/'adapters';source=Path(spec['pear_source']);runtime=Path(spec['runtime']);python=runtime/'envs/verl/bin/python'
     deadline=time.monotonic()+48*3600;stopped=threading.Event();phase={'phase':'initializing'}
     object_transport={'store':None}
@@ -93,7 +96,7 @@ def main():
             ('efe_pear_reasoning_env.ReasoningDevelopmentEnv','efe_pear_reasoning_tool.ReasoningTool',2)]:
             tools.append({'class_name':name,'config':{'type':'native','env_class':cls,'server_n':count,'log_dir':str(run/'sim')}})
         (run/'tools.yaml').write_text(yaml.safe_dump({'tools':tools},sort_keys=False))
-        credential=Path('/dev/shm/rp_jhh_pear_archive_credentials.json')
+        credential=Path('/dev/shm/rp_jhh_pear_archive_credentials'+('_'+execution if execution else'')+'.json')
         descriptor=os.open(credential,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         with os.fdopen(descriptor,'w')as stream:stream.write(os.environ.pop('RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION'))
         if spec.get('object_transport_uri'):
@@ -118,9 +121,9 @@ def main():
         'EFE_PEAR_REASONING_MEMBERSHIP':str(run/'reasoning-membership.json'),'EFE_PEAR_REMOTE_ROOT':str(run/'transport'),
         'TOOL_CONFIG':str(run/'tools.yaml'),'EFE_PEAR_METRICS_DIR':str(run/'telemetry'),
         'PEAR_LOG_DIR':str(run/'sim'),'PEAR_TRACE_FRAMES':'1','PEAR_PRIMARY_TRAINING':'1',
-        'PEAR_CHECKPOINT_ARCHIVE':spec['checkpoint_archive']+'/attempts/rp_jhh_'+hashlib.sha256(os.environ['EFE_WORKFLOW_ID'].encode()).hexdigest()[:12],
+        'PEAR_CHECKPOINT_ARCHIVE':spec['checkpoint_archive']+'/attempts/rp_jhh_'+hashlib.sha256((os.environ['EFE_WORKFLOW_ID']+'/'+(execution or'')).encode()).hexdigest()[:12],
         'PEAR_CHECKPOINT_SCRATCH':'/dev/shm/rp_jhh_pear_checkpoints',
-        'PEAR_OBJECTSTORE_CREDENTIAL_FILE':'/dev/shm/rp_jhh_pear_archive_credentials.json',
+        'PEAR_OBJECTSTORE_CREDENTIAL_FILE':'/dev/shm/rp_jhh_pear_archive_credentials'+('_'+execution if execution else'')+'.json',
         'LOCAL_DIR':'/tmp/rp-jhh-pear-primary','RAY_AUTH_MODE':'token','RAY_AUTH_TOKEN_PATH':launch['auth'],
         'PYTHONPATH':':'.join(map(str,[bundle,source/'pear/utils/sitecustomize',source,source/'3rdparty/verl/src'])),
         'NCCL_ALGO':'Ring','NCCL_PROTO':'Simple','NCCL_P2P_DISABLE':'1','RAY_DEDUP_LOGS':'0',

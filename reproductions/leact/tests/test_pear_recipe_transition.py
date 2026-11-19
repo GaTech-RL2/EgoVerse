@@ -43,7 +43,7 @@ def test_recipe_switch_preserves_the_model_until_observed_readiness(tmp_path,mon
     assert json.loads((tmp_path/'recipe-transition.json').read_text())['phase']==expected
 
 
-def test_accepted_cancellation_is_reconciled_before_resubmitting_the_new_recipe(tmp_path,monkeypatch):
+def test_legacy_reallocation_phase_never_cancels_or_resubmits_a_cluster(tmp_path,monkeypatch):
     from reproductions.leact.cluster import launch_efe_pear_primary as primary
     monkeypatch.setattr(transition,'DEST',tmp_path)
     state={'workflow':'owned-model','run_id':'arm','profile':12,'pool':'groot-h100-01'}
@@ -53,7 +53,7 @@ def test_accepted_cancellation_is_reconciled_before_resubmitting_the_new_recipe(
     monkeypatch.setattr(transition,'command',lambda *a:{'status':'FAILED_CANCELED'})
     monkeypatch.setattr(transition.subprocess,'run',lambda *a,**k:pytest.fail('Cancellation was already accepted'))
     canceled=[];monkeypatch.setattr(primary,'cancel_native_workers',lambda name:canceled.append(name))
-    monkeypatch.setattr(primary,'launch',lambda profile,pool:{'workflow':'new-model'})
-    assert transition.tick(state)=={'workflow':'new-model'}
-    assert canceled==['owned-model']
-    assert json.loads((tmp_path/'primary-launch.json').read_text())['terminal_confirmed']is True
+    monkeypatch.setattr(primary,'launch',lambda *a,**k:pytest.fail('Unexpected allocation replacement'))
+    assert transition.tick(state)is None
+    assert canceled==[]
+    assert json.loads((tmp_path/'recipe-transition.json').read_text())['phase']=='requires_in_allocation_job_submission'

@@ -76,17 +76,9 @@ def tick(state):
     if control.get('paused')or state.get('run_id')not in control.get('enabled_training_arms',[]):return None
     if transition.get('phase')in {'requires_harness_review','requires_checkpoint_handoff'}:return None
     if transition.get('phase')=='reallocating_for_validated_recipe':
-        query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
-        if query['status'].startswith('FAILED')or query['status']=='COMPLETED':
-            from .launch_efe_pear_primary import launch,cancel_native_workers
-            cancel_native_workers(state['workflow'])
-            state.update(terminal_confirmed=True,source_repair_ready=True,next_profile=state['profile'],scheduler_status=query['status'])
-            write(DEST/'primary-launch.json',state)
-            result=launch(state['profile'],pool=state['pool'])
-            transition.update(phase='replacement_submitted',replacement_workflow=result['workflow'])
-            write(DEST/'recipe-transition.json',transition)
-            return result
-        transition['phase']='validating_replacement'
+        transition['phase']='requires_in_allocation_job_submission'
+        write(DEST/'recipe-transition.json',transition)
+        return None
     replay=read(DEST/'matched-warmstart-smoke-h100-client.json',{});driver=read(DEST/'primary-driver-check-launch.json',{})
     if not replay.get('output')or not driver.get('name'):return None
     observed=capture(state,replay,driver)
@@ -114,30 +106,23 @@ def tick(state):
     transition.update(driver_scheduler_status=cpu['status'],driver_passed=bool(cpu_ready),matched_control_passed=ready)
     write(DEST/'recipe-transition.json',transition)
     if not(ready and cpu_ready):return None
-    from .launch_efe_pear_primary import prepare,launch,cancel_native_workers
+    from .launch_efe_pear_primary import prepare
+    from .efe_pear_allocation_jobs import submit as submit_in_allocation
     control['next_sampling_policy']=POLICY;write(DEST/'control.json',control)
     transition['validation_passed']=True;write(DEST/'recipe-transition.json',transition)
-    build=prepare(state['profile'])
-    next_spec=read(build/'spec.json')
-    if next_spec['model_revision']!=transition['model_revision']or next_spec['rollout_nodes']!=4:
-        raise ValueError('Recipe handoff changed the initialization or validated GPU allocation')
-    transition.update(phase='reallocating_for_validated_recipe',prepared_build=str(build))
-    write(DEST/'recipe-transition.json',transition)
-    if not state['workflow'].startswith('leact-rp-jhh-pear-primary-'):
-        raise ValueError('Recipe transition does not own this workflow')
-    subprocess.run(['osmo','workflow','cancel',state['workflow'],'--message',
-        'User-approved task curriculum and rolling family balancing. Exact driver checks and known-case native success passed; zero completed primary optimizer updates.'],
-        check=True,capture_output=True,text=True,timeout=30)
-    deadline=time.monotonic()+45
-    while True:
-        query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
-        if query['status'].startswith('FAILED')or query['status']=='COMPLETED':break
-        if time.monotonic()>deadline:raise RuntimeError('Recipe handoff is waiting for confirmed allocation termination')
-        time.sleep(2)
-    cancel_native_workers(state['workflow'])
-    state.update(terminal_confirmed=True,source_repair_ready=True,next_profile=state['profile'],scheduler_status=query['status'])
+    build=prepare(state['profile']);next_spec=read(build/'spec.json')
+    allocated=read(Path(state.get('allocation_build',state['build']))/'spec.json')
+    if next_spec['model_revision']!=transition['model_revision']or next_spec['rollout_nodes']!=allocated['rollout_nodes']:
+        raise ValueError('Recipe handoff changed initialization or allocated node roles')
+    if allocated.get('allocation_lifecycle')!='persistent_cluster':
+        transition.update(phase='requires_in_allocation_job_support',prepared_build=str(build),
+            reason='Keep the legacy cluster allocated; automatic scheduler cancellation is disabled.')
+        write(DEST/'recipe-transition.json',transition);return None
+    receipt=submit_in_allocation(state,build,replace_running=True)
+    state.update(allocation_build=state.get('allocation_build',state['build']),build=str(build),
+        run=next_spec['run'],job_id=receipt['job_id'],native_workers_launched=False)
     write(DEST/'primary-launch.json',state)
-    result=launch(state['profile'],pool=state['pool'])
-    transition.update(phase='replacement_submitted',replacement_workflow=result['workflow'])
+    transition.update(phase='replacement_submitted_in_existing_allocation',replacement_workflow=state['workflow'],
+        replacement_job_id=receipt['job_id'])
     write(DEST/'recipe-transition.json',transition)
-    return result
+    return state

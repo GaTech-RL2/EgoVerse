@@ -32,7 +32,7 @@ EXTRA=['efe_pear_primary_worker.py','efe_pear_primary_native.py','efe_pear_prima
     'efe_pear_native_entry.py','efe_pear_rtx_env.py','efe_pear_remote_worker.py','efe_pear_gpu_cdi.py',
     'efe_pear_yam_server.py','efe_pear_yam_session_policy.py','efe_pear_yam_api_policy.py',
     'efe_pear_yam_probe_entry.py','efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py',
-    'efe_pear_float32_json.py']
+    'efe_pear_float32_json.py','efe_pear_allocation_keeper.py']
 
 
 def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):
@@ -65,7 +65,7 @@ def allocation_profile(attempt):
     return 4,'HIGH'if attempt%3==0 else'LOW'
 
 
-def prepare(profile=0):
+def prepare(profile=0,*,standby=False,priority_override=None):
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     control=read(DEST/'control.json',{})
     policy=control.get('next_sampling_policy','strict-family-v1')
@@ -84,6 +84,9 @@ def prepare(profile=0):
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
     rollout_nodes,priority=allocation_profile(profile)
     priority=scheduling_priority('groot-h100',priority,control)
+    if priority_override is not None:
+        if priority_override not in {'HIGH','LOW'}:raise ValueError('Invalid explicit allocation priority')
+        priority=priority_override
     l40_pool=simulator_pool('groot-l40-02',control)
     if l40_pool=='groot-l40s-01':
         ready=read(DEST/'l40s01-storage-ready.json',{})
@@ -104,7 +107,8 @@ def prepare(profile=0):
         'adapter_digests':{name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()},
         'data_digests':{name:hashlib.sha256(raw).hexdigest()for name,raw in serialized.items()},
         'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
-        'worker_bundle_format':BUNDLE_FORMAT}
+        'worker_bundle_format':BUNDLE_FORMAT,'allocation_lifecycle':'persistent_cluster',
+        'allocation_control_base':REMOTE+'/allocations','standby':bool(standby)}
     spec['l40_pool']=l40_pool
     if l40_pool=='groot-l40s-01':
         wire=hashlib.sha256(json.dumps([spec['adapter_digests'],profile,l40_pool],sort_keys=True).encode()).hexdigest()[:16]
@@ -119,7 +123,7 @@ def prepare(profile=0):
         for name,path in sources.items():shutil.copyfile(path,build/name)
         for name,raw in serialized.items():(build/name).write_bytes(raw)
         write(build/'spec.json',spec)
-        (build/'bootstrap.py').write_text(bootstrap(build,[*sources,*data,'spec.json'],'efe_pear_primary_worker.py'))
+        (build/'bootstrap.py').write_text(bootstrap(build,[*sources,*data,'spec.json'],'efe_pear_allocation_keeper.py'))
         resources={'trainer':{'gpu':8,'cpu':64,'memory':'1536Gi','storage':'300Gi','platform':'dgx-h100'},
             'rollout':{'gpu':8,'cpu':64,'memory':'512Gi','storage':'250Gi','platform':'dgx-h100'}}
         tasks=[]
@@ -127,7 +131,10 @@ def prepare(profile=0):
             task={'name':role,'resource':'trainer'if role=='trainer'else'rollout','image':native_image,
                 'command':['python3'],'args':['-u','/tmp/rp-jhh-pear-primary/bootstrap.py'],
                 'environment':{'EFE_ROLE':role,'EFE_WORKFLOW_ID':'{{workflow_id}}','EFE_HEAD_HOST':'{{host:trainer}}',
-                    'PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1','NVIDIA_DRIVER_CAPABILITIES':'all'},
+                    'PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1','NVIDIA_DRIVER_CAPABILITIES':'all',
+                    'PEAR_ALLOCATION_BASE':spec['allocation_control_base'],'PEAR_KEEPER_ENTRY':'efe_pear_primary_worker.py',
+                    'PEAR_ALLOCATION_ROLES':json.dumps(['trainer',*['rollout-'+str(i)for i in range(rollout_nodes)]]),
+                    'PEAR_KEEPER_AUTOSTART':'0'if standby else'1'},
                 'files':[{'localpath':'bootstrap.py','path':'/tmp/rp-jhh-pear-primary/bootstrap.py'}]}
             if role=='trainer':
                 task['lead']=True
@@ -138,7 +145,7 @@ def prepare(profile=0):
             'labels':{'pear_run_id':ARM,'pear_phase':'primary_training'},
             'groups':[{'name':'model-cluster','tasks':tasks}]}}
         (build/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False));freeze_sources(build)
-    write(DEST/'primary-ready.json',{'build':str(build),'run':run,'counts':admission['counts'],
+    write(DEST/('backup-ready.json'if standby else'primary-ready.json'),{'build':str(build),'run':run,'counts':admission['counts'],
         'model_cluster_h100s':8*(1+rollout_nodes),'native_efe_h100s':8,'target_total_h100s':8*(2+rollout_nodes),
         'primary_rl_updates':0,'qualified':True})
     return build
@@ -152,14 +159,16 @@ def launch(profile=0,*,pool='groot-h100-02'):
         state=read(DEST/'primary-launch.json',{})
         if state.get('workflow')and not state.get('terminal_confirmed'):
             return state
-        build=prepare(profile);spec=read(build/'spec.json')
+        # Allocations start idle. The controller selects one ready cluster
+        # before submitting a job, so primary and backup never share a writer.
+        build=prepare(profile,standby=True);spec=read(build/'spec.json')
         result=submit_reconciled(build,priority=spec['priority'],pool=pool,nodes=1+spec['rollout_nodes'])
         history=state.get('history',[])
         if state.get('workflow'):history.append({k:state[k]for k in ['workflow','profile','scheduler_status']if k in state})
         state={**result,'workflow':result['name'],'build':str(build),'profile':profile,'history':history,
             'pool':pool,'priority':spec['priority'],'run':spec['run'],'run_id':ARM,
             'gpu':8*(1+spec['rollout_nodes']),'primary_rl_updates':0,'native_workers_launched':False,
-            'phase':'primary_submitted'}
+            'phase':'primary_submitted','standby':True,'allocation_lifecycle':'persistent_cluster'}
         write(DEST/'primary-launch.json',state)
         write(DEST/'primary-status.json',state)
         return state
@@ -185,7 +194,7 @@ def native_builds(model_build,model_workflow):
                     ['franka-allegro-bimanual','franka-robotiq-2f85','i2rt-yam-bimanual']}}},
         'suites':sorted({r['suite']for r in rows}),'transport_root':run+'/transport',
         'finished':run+'/finished.json','head_heartbeat':run+'/head-heartbeat.json',
-        'episode_archive':model['checkpoint_archive']+'/native-episodes'}
+        'episode_archive':model['checkpoint_archive']+'/native-episodes','allocation_slot':'native-efe'}
     base=yaml.safe_load(TEMPLATE.read_text())['workflow']['tasks'][0]['image']
     builds.append(worker_build(spec,files,'efe_pear_primary_native.py',base,'python3',
         gpu=8,cpu=64,memory='512Gi',storage='400Gi',platform='dgx-h100',privileged=True))
@@ -200,7 +209,7 @@ def native_builds(model_build,model_workflow):
             spec={k:source[k]for k in ['payload','payload_sha256','files','suite','native_tool_relative']}
             spec['payload']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['payload']).name
             spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=l40_root+'/native-rtx/'+suite,transport_root=l40_root+'/transport',
-                finished=l40_root+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes')
+                finished=l40_root+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes',allocation_slot='rtx-'+suite+'-'+str(index))
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
                 '/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python',
                 gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform=platform))
@@ -208,7 +217,7 @@ def native_builds(model_build,model_workflow):
     for offset in range(0,len(names),2):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)
         spec=read(old/'spec.json');spec.update(owner_model_workflow=model_workflow,
-            output=l40_root+'/native-yam',transport_root=l40_root+'/transport',finished=l40_root+'/finished.json')
+            output=l40_root+'/native-yam',transport_root=l40_root+'/transport',finished=l40_root+'/finished.json',allocation_slot='native-yam-'+str(offset//2))
         from .recover_efe_pear_numeric import qualified
         if qualified(read(DEST/'native-float32-proof.json',{})):
             from .efe_pear_float32_json import VERSION
@@ -230,6 +239,12 @@ def native_builds(model_build,model_workflow):
 
 
 def worker_build(spec,files,worker,image,python,**resources):
+    spec=dict(spec);files=dict(files)
+    persistent=bool(spec.get('owner_model_workflow')and resources.get('gpu',0)>0)
+    if persistent:
+        files['efe_pear_allocation_keeper.py']=BASE/'cluster/efe_pear_allocation_keeper.py'
+        spec.update(allocation_lifecycle='persistent_cluster',allocation_job_entry=worker,
+            allocation_control_base=str(Path(spec['transport_root']).parent/'allocations'))
     privileged=resources.pop('privileged',False)
     key=hashlib.sha256(json.dumps([spec,worker,image,resources,privileged,BUNDLE_FORMAT,NATIVE_QUEUE_TIMEOUT,
         {n:hashlib.sha256(p.read_bytes()).hexdigest()for n,p in files.items()}],sort_keys=True).encode()).hexdigest()[:12]
@@ -238,11 +253,14 @@ def worker_build(spec,files,worker,image,python,**resources):
     build.mkdir()
     for name,path in files.items():shutil.copyfile(path,build/name)
     write(build/'spec.json',spec)
-    (build/'bootstrap.py').write_text(bootstrap(build,[*files,'spec.json'],worker))
+    (build/'bootstrap.py').write_text(bootstrap(build,[*files,'spec.json'],'efe_pear_allocation_keeper.py'if persistent else worker))
     task={'name':'native','image':image,'command':[python],'args':['-u','/tmp/pear-native/bootstrap.py'],
         'environment':{'EFE_WORKFLOW_ID':'{{workflow_id}}','PYTHONUNBUFFERED':'1','PYTHONDONTWRITEBYTECODE':'1',
             'NVIDIA_DRIVER_CAPABILITIES':'all','PEAR_PRIMARY_TRAINING':'0'if spec.get('qualification_only')is True else'1','OMP_NUM_THREADS':'2'},
         'files':[{'localpath':'bootstrap.py','path':'/tmp/pear-native/bootstrap.py'}]}
+    if persistent:
+        task['environment'].update(PEAR_ALLOCATION_BASE=spec['allocation_control_base'],
+            PEAR_KEEPER_ENTRY=worker,PEAR_ALLOCATION_ROLES='["native"]')
     if worker in {'efe_pear_primary_native.py','efe_pear_primary_rtx.py',
         'efe_pear_object_transport.py','efe_pear_object_probe.py','efe_pear_file_relay.py'}:
         task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
@@ -254,7 +272,11 @@ def worker_build(spec,files,worker,image,python,**resources):
     return build
 
 
-def cancel_native_workers(model_workflow):
+def cancel_native_workers(model_workflow,*,explicit_user_release=False):
+    if not explicit_user_release:
+        write(DEST/'native-allocation-preservation.json',{'owner_model_workflow':model_workflow,
+            'preserved':True,'reason':'Training failure or recipe change does not authorize releasing simulator allocations.'})
+        return
     queue=read(DEST/'primary-native-queue.json',{})
     for item in queue.values():
         if item.get('owner_model_workflow')!=model_workflow:continue
@@ -268,8 +290,74 @@ def cancel_native_workers(model_workflow):
         item['cancel_requested']=True;write(DEST/'primary-native-queue.json',queue)
 
 
+def promote_allocated_backup(state):
+    backup=read(DEST/'backup-allocation.json',{})
+    if not backup.get('standby')or not backup.get('workflow')or backup['workflow']==state.get('workflow'):return None
+    # Never start a second writer for the same experiment while the primary
+    # allocation is queued or alive. A scheduler-ended request has no nodes
+    # left to preserve; an already allocated backup can take over at once.
+    if state.get('workflow'):
+        current=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
+        current_spec=read(Path(state['build'])/'spec.json')
+        safely_idle=(state.get('standby')and current_spec.get('allocation_lifecycle')=='persistent_cluster')
+        if not current['status'].startswith('FAILED')and not safely_idle:return None
+    candidate=command(['osmo','workflow','query',backup['workflow'],'--format-type','json'])
+    backup['scheduler_status']=candidate['status'];write(DEST/'backup-allocation.json',backup)
+    if candidate['status']!='RUNNING':return None
+    from .efe_pear_allocation_jobs import activate_embedded
+    previous=state.get('workflow')if state.get('workflow')and current['status'].startswith('FAILED')else None
+    receipt=activate_embedded(backup,previous_workflow=previous);spec=read(Path(backup['build'])/'spec.json')
+    history=state.get('history',[])
+    if state.get('workflow'):history=history+[{k:state[k]for k in ['workflow','profile','scheduler_status']if k in state}]
+    value={**backup,**receipt,'run':spec['run'],'run_id':ARM,'profile':spec['profile'],
+        'standby':False,'native_workers_launched':False,'history':history,'phase':'job_submitted_in_existing_allocation',
+        'primary_rl_updates':0,'scheduler_status':'RUNNING'}
+    if state.get('standby')and not current['status'].startswith('FAILED'):
+        write(DEST/'backup-allocation.json',{**state,'standby':True,'demoted_to_standby':True})
+    else:
+        backup.update(standby=False,promoted_to_primary=True,job_id=receipt['job_id']);write(DEST/'backup-allocation.json',backup)
+    write(DEST/'primary-launch.json',value);return value
+
+
+def reuse_native_allocation(build,queue):
+    spec=read(Path(build)/'spec.json');slot=spec.get('allocation_slot')
+    if not slot:return None
+    from .efe_pear_allocation_jobs import submit as submit_job
+    for item in queue.values():
+        old=read(Path(item['build'])/'spec.json')
+        if old.get('allocation_slot')!=slot or old.get('allocation_lifecycle')!='persistent_cluster':continue
+        status=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
+        if status['status']!='RUNNING':continue
+        # A different run can replace the worker job on the same GPU node.
+        # This terminates a child process, never its OSMO allocation.
+        receipt=submit_job(item,build,replace_running=True)
+        item['superseded']=True
+        return{**item,**receipt,'allocation_build':item.get('allocation_build',item['build']),
+            'build':str(build),'owner_model_workflow':spec['owner_model_workflow'],'reused_allocation':True,'superseded':False}
+    return None
+
+
+def recover_job_inside_allocation(state,observed):
+    nodes=observed.get('nodes',[])
+    if not any(n.get('phase')=='idle_failed'for n in nodes):return state
+    state['phase']='allocation_held_after_job_failure'
+    state['allocation_job_status']=observed
+    # Preserve progress for an explicit checkpoint handoff. Startup failures
+    # before any optimizer update can retry the identical pinned job directly.
+    if observed.get('completed_updates',0):
+        state['phase']='allocation_held_for_checkpoint_recovery';return state
+    if any(n.get('phase')=='running'for n in nodes)or state.get('in_allocation_retries',0)>=2:return state
+    from .efe_pear_allocation_jobs import submit as submit_job
+    receipt=submit_job(state,state['build'])
+    state.update(job_id=receipt['job_id'],native_workers_launched=False,
+        in_allocation_retries=state.get('in_allocation_retries',0)+1,phase='job_retried_in_existing_allocation')
+    return state
+
+
 def tick():
     state=read(DEST/'primary-launch.json',{})
+    promoted=promote_allocated_backup(state)
+    if promoted is not None:return promoted
     if state.get('workflow')and not state.get('terminal_confirmed'):
         from .efe_pear_recipe_transition import tick as transition_recipe
         replacement=transition_recipe(state)
@@ -282,11 +370,34 @@ def tick():
     query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
     state['scheduler_status']=query['status'];write(DEST/'primary-launch.json',state)
     write(DEST/'primary-status.json',state)
+    if query['status']=='RUNNING'and state.get('standby'):
+        from .efe_pear_allocation_jobs import activate_embedded
+        receipt=activate_embedded(state)
+        state.update(**receipt,standby=False,phase='job_submitted_in_existing_allocation')
+        write(DEST/'primary-launch.json',state)
+    if query['status']=='RUNNING'and state.get('job_id'):
+        from .efe_pear_allocation_jobs import status as job_status,running_tasks
+        running_tasks(query)
+        observed=job_status(state)
+        if observed is not None:state=recover_job_inside_allocation(state,observed)
+        write(DEST/'primary-launch.json',state)
     if query.get('start_time')and not state.get('native_workers_launched'):
         worker_queue=read(DEST/'primary-native-queue.json',{})
         for build in native_builds(state['build'],state['workflow']):
-            if build.name in worker_queue:continue
+            if build.name in worker_queue:
+                item=worker_queue[build.name]
+                if state.get('job_id')and item.get('model_job_id')!=state['job_id']:
+                    from .efe_pear_allocation_jobs import submit as submit_job
+                    worker_status=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
+                    if worker_status['status']=='RUNNING':
+                        item.update(submit_job(item,build,replace_running=True),model_job_id=state['job_id'])
+                        write(DEST/'primary-native-queue.json',worker_queue)
+                continue
             spec=read(build/'spec.json')
+            reused=reuse_native_allocation(build,worker_queue)
+            if reused is not None:
+                reused['model_job_id']=state.get('job_id')
+                worker_queue[build.name]=reused;write(DEST/'primary-native-queue.json',worker_queue);continue
             # Split the two renderer workloads across compatible shared-volume
             # pools; one pool rejected its single-GPU placements before startup.
             pool=('groot-h100-01'if spec.get('kind')=='efe'else
@@ -296,7 +407,7 @@ def tick():
             priority=scheduling_priority(pool,state['priority'],read(DEST/'control.json',{}))
             receipt=submit_reconciled(build,priority=priority,pool=pool,nodes=1)
             worker_queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),
-                'pool':pool,'priority':priority,'owner_model_workflow':state['workflow']}
+                'pool':pool,'priority':priority,'owner_model_workflow':state['workflow'],'model_job_id':state.get('job_id')}
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
@@ -325,7 +436,8 @@ def tick():
                 if time.time()-first>180 and item.get('attempt',0)<attempt_limit:retry(item)
         write(DEST/'primary-native-queue.json',queue)
     if query['status'].startswith('FAILED'):
-        cancel_native_workers(state['workflow'])
+        # A scheduler-ended model allocation cannot be revived in place, but
+        # its independent simulator allocations must remain available.
         from .efe_pear_submission import infrastructure_failure as infra_retryable
         if infra_retryable(query):
             state.update(terminal_confirmed=True,source_repair_ready=True,next_profile=state['profile']+1)

@@ -273,6 +273,14 @@ def build(base=BASE):
             'numeric_validation_requires_review':'Native decimal validation failed and needs review; existing model workers remain allocated.',
         }.get(phase,primary_state.get('reason',''))
     primary_state['native_efe_recovery']=read(scaled/'native-efe-recovery.json',{})
+    backup_allocation=read(scaled/'backup-allocation.json',{})
+    primary_state['backup_allocation']={k:backup_allocation.get(k)for k in ['gpu','priority','scheduler_status','standby']}
+    if primary_state.get('allocation_lifecycle')=='persistent_cluster':
+        primary_state['reason']=('Allocated nodes are retained across training-job failures and recipe changes. '
+            'Training jobs launch inside the retained allocation. '
+            +'Current job: '+primary_state.get('phase','awaiting allocation').replace('_',' ')+'. '
+            +'Backup: '+str(backup_allocation.get('gpu',0))+' GPUs, '+str(backup_allocation.get('priority',''))
+            +' priority, '+str(backup_allocation.get('scheduler_status','submitted'))+'.')
     recipe_transition=read(scaled/'recipe-transition.json',{})
     if recipe_transition.get('from_workflow')==primary_state.get('workflow'):
         primary_state['recipe_transition']=recipe_transition
