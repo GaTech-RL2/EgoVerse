@@ -692,3 +692,41 @@ Validation: 696 research tests passed, four skipped and eight subtests passed.
 The required root unit command was attempted; the module form cannot collect
 because lightning is missing from the local environment. The live recovery
 receipts and timestamped heartbeat snapshots are retained in pear-scaled-v1.
+
+### 2026-11-19 08:38 UTC — control groups arrive; suppress retired-request replay
+
+The next hourly check verified the same startup32 model job running on all five
+model nodes. At 08:31 UTC it had 694 completed episodes, 127 episode successes,
+77 fully graded groups and 27 usable mixed-outcome groups toward the 32-group
+first update. These include nine usable MetaWorld groups and eighteen reasoning
+groups. Fully graded native YAM, RoboDojo and LIBERO groups had not succeeded;
+episode totals also include unfinished groups and must not be reported as fixed
+evaluation success rates. Actual optimizer updates, checkpoints and evals were
+still zero. By 08:37 UTC collection reached 704 episodes, 131 successes and 28
+usable groups. Earlier-run results remain separate.
+
+Thirteen native child jobs had failed inside live allocations. Exact logs showed
+the retired-request error, including one job with the earlier concurrent-reader
+fix already installed. That fix handled a missing pending source, but retained
+the exception when the pending file reappeared alongside its retirement record.
+An identical replay of an already retired UID is now removed without executing
+another episode or changing the original retirement evidence. A replay with
+different contents is retained and rejected for investigation. Both boundaries
+have explicit regression tests; missing native grades still never become policy
+failure rewards.
+
+Added a controller hook for this specific failed-child condition. It requires a
+fresh heartbeat from the current model owner, every model scheduler task running,
+the exact failed child ID, a matching error in its actual logs, and an actual
+upgrade of the pinned transport source. It stages and verifies a new immutable
+bundle with an identical simulator spec and submits inside that same allocation.
+Healthy children and already-upgraded children are left running. Regular ticks
+repair at most four children; the hourly recovery pass processes the existing
+backlog while the local observer is stopped to serialize ledger writes. Model
+weights, recipe, groups, reset banks and simulator allocations are preserved.
+
+The 56-H100 LOW standby retry r9 was RUNNING on all seven scheduler tasks at
+08:30 UTC, held idle as a backup while the 40-H100 primary remained active.
+Validation: 705 research tests passed, four skipped and eight subtests passed.
+The required root unit collection was attempted and remains blocked locally by
+the missing lightning dependency.

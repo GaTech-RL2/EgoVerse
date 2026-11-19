@@ -437,6 +437,8 @@ def tick():
     if state.get('native_workers_launched')and query['status']=='RUNNING':
         from .efe_pear_additional_capacity import tick as retarget_additional
         retarget_additional(state)
+        from .efe_pear_native_child_recovery import tick as recover_native_children
+        recover_native_children(state)
         from .recover_efe_pear_graphics import tick as recover_graphics
         recover_graphics(state)
         from .recover_efe_pear_numeric import tick as recover_numeric

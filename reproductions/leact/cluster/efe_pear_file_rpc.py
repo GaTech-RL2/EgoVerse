@@ -104,6 +104,14 @@ def retire_abandoned_request(root,pending,request,*,now=None,grace_seconds=300):
     root,pending=Path(root),Path(pending)
     if not re.fullmatch('[0-9a-f]{32}',pending.stem):raise ValueError('Unexpected native episode identifier')
     folder=root/'episodes'/pending.stem;now=time.time()if now is None else now
+    target=folder/'retired-pending-request.json'
+    if target.exists():
+        # A stale reader or transport replay can expose a retired UID again.
+        # Preserve its original evidence and never launch a duplicate episode.
+        if json.loads(target.read_text())!=request:
+            raise ValueError('A retired request was replayed with different contents')
+        pending.unlink(missing_ok=True)
+        return None
     reason='cancelled'if(folder/'cancel.json').exists()else None
     deadline=request.get('open_deadline_unix')
     if deadline is None:
@@ -113,12 +121,6 @@ def retire_abandoned_request(root,pending,request,*,now=None,grace_seconds=300):
             except FileNotFoundError:return None
     if reason is None and deadline is not None and now>deadline+grace_seconds:reason='open_deadline_expired'
     if reason is None:return None
-    target=folder/'retired-pending-request.json'
-    if target.exists():
-        # Several workers can read the same pending request before one
-        # atomically retires it. The losing reader must keep serving work.
-        if not pending.exists():return None
-        raise ValueError('An abandoned request was already retired')
     try:pending.rename(target)
     except FileNotFoundError:return None
     receipt={'uid':pending.stem,'kind':request['kind'],'reason':reason,'retired_unix':now,

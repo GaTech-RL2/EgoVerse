@@ -86,6 +86,33 @@ def test_two_workers_retiring_the_same_cancelled_request_keep_serving(tmp_path):
     assert not(client.folder/'response-000000.pkl').exists()
 
 
+def test_replayed_retired_request_does_not_launch_another_episode(tmp_path):
+    client=FileEpisodeClient(tmp_path,'efe/robodojo',{})
+    pending=tmp_path/'pending'/(client.uid+'.json')
+    request={'kind':client.kind,'env_args':{}}
+    atomic_json(pending,request);client.close()
+    assert claim_episode(tmp_path,'first-worker')is None
+    original=(client.folder/'retired-pending-request.json').read_bytes()
+    receipt=(client.folder/'retired-pending-receipt.json').read_bytes()
+    atomic_json(pending,request)
+    assert claim_episode(tmp_path,'second-worker')is None
+    assert not pending.exists()
+    assert(client.folder/'retired-pending-request.json').read_bytes()==original
+    assert(client.folder/'retired-pending-receipt.json').read_bytes()==receipt
+    assert not(client.folder/'claimed.json').exists()
+
+
+def test_changed_replay_is_preserved_for_investigation(tmp_path):
+    client=FileEpisodeClient(tmp_path,'efe/robodojo',{})
+    pending=tmp_path/'pending'/(client.uid+'.json')
+    atomic_json(pending,{'kind':client.kind,'env_args':{}});client.close()
+    assert claim_episode(tmp_path,'first-worker')is None
+    atomic_json(pending,{'kind':client.kind,'env_args':{'task':'different'}})
+    with pytest.raises(ValueError,match='different contents'):claim_episode(tmp_path,'second-worker')
+    assert pending.exists()
+    assert not(client.folder/'claimed.json').exists()
+
+
 def test_explicit_deadline_and_cancellation_after_claim_do_not_create_rewards(tmp_path):
     client=FileEpisodeClient(tmp_path,'custom/test',{})
     deadline=time.time()+1000
