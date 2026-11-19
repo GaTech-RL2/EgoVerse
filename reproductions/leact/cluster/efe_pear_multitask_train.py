@@ -55,13 +55,13 @@ class MultitaskReplayBuffer(PearReplayBuffer):
     def _has_enough_samples(self, global_steps, partition_id, batch_size, sampleable_keys):
         enough=super()._has_enough_samples(global_steps,partition_id,batch_size,sampleable_keys)
         if partition_id=='val':return enough
-        if batch_size!=128:raise ValueError('The authorized retained batch is 128 groups')
+        if batch_size!=self.curriculum.batch_size:raise ValueError('Retained batch differs from the admitted configuration')
         return enough and self._selection(sampleable_keys) is not None
 
     def _select_prompt_uids(self, partition_id, sampleable_keys, batch_size):
         if partition_id=='val':return super()._select_prompt_uids(partition_id,sampleable_keys,batch_size)
         selected=self._selection(sampleable_keys)
-        if selected is None:raise RuntimeError('Attempted to train without a qualified 128-group batch')
+        if selected is None:raise RuntimeError('Attempted to train before the configured usable-group batch was ready')
         return selected,dict(self.partitions[partition_id]),dict(self.prompt_global_steps[partition_id])
 
     def family_counts(self):

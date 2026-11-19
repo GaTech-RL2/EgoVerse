@@ -11,9 +11,9 @@ def configuration(config,manifest,*,model_revision=None,workflow=None):
     if curriculum.stage!='expanded_full':
         raise ValueError('Primary RL requires every authorized control and reasoning family')
     actor=config.actor_rollout_ref.actor
-    if(int(config.data.train_batch_size)!=128 or int(config.actor_rollout_ref.rollout.n)!=8 or
+    if(int(config.data.train_batch_size)!=curriculum.batch_size or int(config.actor_rollout_ref.rollout.n)!=8 or
         int(actor.ppo_epochs)!=1 or actor.loss_agg_mode!='token-mean'):
-        raise ValueError('Curriculum reduction requires one update of the full 128x8 token-mean batch')
+        raise ValueError('Curriculum requires one update of the configured batch (default 128x8) with a token mean')
     metadata={'model_revision':model_revision,
         'router_policy':'frozen_expert_selection_router'if str(actor.fsdp_config.kernels).endswith('FrozenRouterTrainingKernels')else'not_applicable',
         'retained_groups':int(config.data.train_batch_size),'rollouts_per_group':int(config.actor_rollout_ref.rollout.n),

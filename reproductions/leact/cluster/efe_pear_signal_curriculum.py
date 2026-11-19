@@ -19,7 +19,8 @@ def window_counts(history):
 
 
 def select_available(groups,targets,history):
-    """Keep the full 128x8 batch; an unavailable family cannot block it."""
+    """Fill the configured batch; an unavailable family cannot block it."""
+    batch_size=sum(targets.values())
     by_family=defaultdict(list);seen=set()
     for group in groups:
         uid=group['uid'];family=group['family'];values=group['outcomes']
@@ -30,11 +31,11 @@ def select_available(groups,targets,history):
         if len(values)!=8 or any(v not in (0,1)for v in values):raise ValueError('Incomplete or nonbinary group')
         if min(values)==max(values):continue
         by_family[family].append(group)
-    if sum(map(len,by_family.values()))<128:return None
+    if sum(map(len,by_family.values()))<batch_size:return None
     for rows in by_family.values():rows.sort(key=lambda g:(g['dispatch_step'],g['uid']))
     previous=window_counts(history);selected=[];current=Counter()
     length=min(len(history),WINDOW_UPDATES-1)+1
-    for _ in range(128):
+    for _ in range(batch_size):
         available=[f for f,rows in by_family.items()if current[f]<len(rows)]
         # Debt is normalized by the target so large families cannot permanently
         # crowd out a small family when its first informative group appears.

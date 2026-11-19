@@ -12,11 +12,11 @@ from pathlib import Path
 import random
 
 try:
-    from .efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
+    from .efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas, initial_quotas
     from . import efe_pear_signal_curriculum as signal_curriculum
     from . import efe_pear_curriculum_focus as curriculum_focus
 except ImportError:
-    from efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
+    from efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas, initial_quotas
     import efe_pear_signal_curriculum as signal_curriculum
     import efe_pear_curriculum_focus as curriculum_focus
 
@@ -40,6 +40,10 @@ class CurriculumState:
             raise ValueError('Unknown curriculum sampling policy')
         if self.sampling_policy==signal_curriculum.POLICY and self.stage!='expanded_full':
             raise ValueError('Signal balancing requires the complete admitted mixture')
+        self.batch_size=manifest.get('retained_groups_per_update',128)
+        targets=initial_quotas(self.batch_size)
+        if self.batch_size!=128 and self.sampling_policy!=signal_curriculum.POLICY:
+            raise ValueError('Reduced startup batches require rolling family balancing')
         self.manifest_sha256=hashlib.sha256(json.dumps(manifest,sort_keys=True).encode()).hexdigest()
         self.configs={}
         seen_envs=set()
@@ -66,7 +70,7 @@ class CurriculumState:
         full={(c['family'],c['suite'],c['task']) for c in self.configs.values() if c['stratum']=='full'}
         if tasks != full:raise ValueError('Every semantic task needs a native full start')
         self.rng=random.Random(seed)
-        self.quotas={'general_manipulation':128}if self.stage=='control_bootstrap'else dict(INITIAL_QUOTAS)
+        self.quotas={'general_manipulation':128}if self.stage=='control_bootstrap'else targets
         self.history=SuccessHistory()
         self.groups={}
         self.dispatches=Counter()
@@ -100,7 +104,7 @@ class CurriculumState:
 
     def record_selection(self,step,uids):
         if not self.signal_balancing:return
-        if len(uids)!=128 or len(set(uids))!=128:raise ValueError('A selected batch needs 128 unique groups')
+        if len(uids)!=self.batch_size or len(set(uids))!=self.batch_size:raise ValueError('A selected batch needs the configured number of unique groups')
         row={'step':int(step),'uids':sorted(uids),
              'family_counts':dict(Counter(self.groups[uid]['family']for uid in uids))}
         existing=next((v for v in self.selection_history if v['step']==step),None)
@@ -116,7 +120,7 @@ class CurriculumState:
 
     @property
     def loss_weights(self):
-        return {key:n/128 for key,n in self.quotas.items()}
+        return {key:n/self.batch_size for key,n in self.quotas.items()}
 
     def register(self, uid, config_id, dispatch_step):
         if uid in self.groups:
@@ -237,7 +241,7 @@ class CurriculumState:
 
     def adapt(self, quotas, *, step, evidence):
         """Accept measured training-only updates, never invent missing signals."""
-        validate_quotas(quotas,self.stage)
+        validate_quotas(quotas,self.stage,batch_size=self.batch_size)
         if step<32 or step%16 or evidence.get('partition')!='train':
             raise ValueError('Adaptation requires the scheduled training-only measurement')
         if evidence.get('step')!=step or set(evidence.get('families',{}))!=set(self.quotas):
@@ -264,7 +268,7 @@ class CurriculumState:
     def restore(self, state):
         if state['manifest_sha256']!=self.manifest_sha256:
             raise ValueError('Resume changed the admitted curriculum')
-        validate_quotas(state['quotas'],self.stage)
+        validate_quotas(state['quotas'],self.stage,batch_size=self.batch_size)
         self.rng.setstate(_tuples(state['rng']));self.quotas=dict(state['quotas'])
         self.history=SuccessHistory.from_state_dict(state['history'])
         self.groups=dict(state['groups']);self.dispatches=Counter(state['dispatches'])

@@ -24,6 +24,7 @@ def launch():
     from .efe_pear_native_finalization import VERSION
     spec['curriculum_overrides']={'native_reward_finalization':VERSION,
         'warmup_sampling':read(DEST/'control.json',{}).get('warmup_sampling',{})}
+    spec['curriculum_overrides']['retained_groups_per_update']=read(DEST/'control.json',{}).get('retained_groups_per_update',128)
     key=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-primary-driver-check-'+key)
     if not(build/'source-manifest.json').exists():

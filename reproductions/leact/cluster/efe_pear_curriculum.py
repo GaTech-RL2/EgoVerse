@@ -20,17 +20,24 @@ FLOORS = {'native_gr00t_yam':24, 'broader_bimanual':16, 'general_manipulation':1
           'language_conditioned_control':8, **{key:2 for key in REASONING_FAMILIES}}
 
 
-def validate_quotas(quotas,stage='expanded_full'):
+def initial_quotas(batch_size=128):
+    if type(batch_size)is not int or batch_size not in {32,64,128}:
+        raise ValueError('Retained group batch must be 32, 64 or 128')
+    return{f:n*batch_size//128 for f,n in INITIAL_QUOTAS.items()}
+
+
+def validate_quotas(quotas,stage='expanded_full',*,batch_size=128):
+    initial_quotas(batch_size)
     if stage=='control_bootstrap':
         if quotas!={'general_manipulation':128}:raise ValueError('Control bootstrap keeps the complete 128-group optimizer batch')
         return
     if stage!='expanded_full':raise ValueError('Unknown curriculum stage')
     if set(quotas) != set(INITIAL_QUOTAS):
         raise ValueError('Every authorized control and reasoning family is required')
-    if any(type(n) is not int or n < FLOORS[key] for key,n in quotas.items()):
+    if any(type(n) is not int or n < math.ceil(FLOORS[key]*batch_size/128) for key,n in quotas.items()):
         raise ValueError('Family coverage floor violated')
-    if sum(quotas.values()) != 128 or sum(quotas[k] for k in REASONING_FAMILIES) != 32:
-        raise ValueError('The retained batch must contain 96 control and 32 reasoning groups')
+    if sum(quotas.values()) != batch_size or sum(quotas[k] for k in REASONING_FAMILIES) != batch_size//4:
+        raise ValueError('Retained targets require 75 percent control and 25 percent reasoning groups')
 
 
 def usable_group_probability(p, n=8):

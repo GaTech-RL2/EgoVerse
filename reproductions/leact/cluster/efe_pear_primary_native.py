@@ -1,5 +1,6 @@
 """Bootstrap isolated native EFE lanes without changing the model runtime."""
 import json
+import hashlib
 import os
 from pathlib import Path
 import signal
@@ -9,6 +10,10 @@ import threading
 import time
 
 from efe_pear_file_rpc import atomic_json
+
+
+def runtime_root(workflow):
+    return Path('/tmp/efe-native-jobs')/hashlib.sha256(workflow.encode()).hexdigest()[:16]
 
 
 def wait_for_model_head(spec,timeout=1800):
@@ -30,10 +35,15 @@ def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
     wait_for_model_head(spec)
     output=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];output.mkdir(parents=True,exist_ok=True)
-    (output/'logs').mkdir();native.ROOT=Path('/tmp/efe-native');native.ARCHIVE=output
+    (output/'logs').mkdir()
+    # A retained node can still have conmon processes mapping the prior job's
+    # executable. Stage this job's tools, source and socket in a fresh root,
+    # while reusing the pinned image-layer cache rather than downloading it.
+    native.ROOT=runtime_root(os.environ['EFE_WORKFLOW_ID'])
+    native.ARCHIVE=output
     service=None;log=None;children=[]
     try:
-        reference,env,service,log=native.setup(spec['native_setup'])
+        reference,env,service,log=native.setup({**spec['native_setup'],'container_storage_root':'/tmp/efe-native'})
         from efe_pear_gpu_cdi import ensure_gpu_cdi
         ensure_gpu_cdi(native.run)
         raw=os.environ.pop('RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION')

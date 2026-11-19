@@ -300,6 +300,12 @@ def build(base=BASE):
             'Native terminal-grade repair and early training-task sampling: '
             +reward_finalization.get('phase','pending').replace('_',' ')+'. '
             'Existing GPU allocations are retained. Pre-repair rollouts are diagnostics; optimizer updates and evaluations are reported separately.')
+    batch_transition=read(scaled/'startup-batch-transition.json',{})
+    if batch_transition.get('current_workflow')==primary_state.get('workflow'):
+        primary_state['reason']=primary_state.get('reason','')+(' Startup group batch: '
+            +str(batch_transition['source_groups'])+' → '+str(batch_transition['target_groups'])
+            +'; '+batch_transition.get('phase','pending').replace('_',' ')
+            +'. The current job continues until the validated handoff; completed optimizer work requires a checkpoint handoff.')
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
     pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
     pool_ready=read(scaled/'l40s01-storage-ready.json',{})
@@ -357,6 +363,8 @@ def build(base=BASE):
                 'primary_launch':primary_state,
                 'recipe_transition':recipe_transition,
                 'native_reward_finalization':reward_finalization,
+                'startup_batch':batch_transition,
+                'native_bootstrap_recovery':read(scaled/'native-bootstrap-recovery.json',{}),
                 'graphics_storage':{'assets_verified':pool_assets.get('passed',False),
                     'asset_files':pool_assets.get('files',0),'sources_verified':pool_sources.get('passed',False),
                     'transport_verified':pool_ready.get('transport_roundtrip_passed',False),

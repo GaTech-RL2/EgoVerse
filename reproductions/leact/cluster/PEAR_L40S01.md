@@ -546,3 +546,54 @@ keeps the same admitted curriculum, initialization, frozen routers, 160k segment
 budget and 128-by-eight optimizer batch. Old logs and zero-update attempts remain
 in job history. Dashboard text now gives the current child-job phase before its
 historical recipe-activation receipt.
+
+
+### 2026-11-19 — restore control rollouts, add L40 capacity, and stage 32-group startup
+
+The retained model job resumed real generation after orphan cleanup: at 06:10 UTC
+it had 90 completed episodes, nine successes and four usable groups, with zero
+optimizer updates. Those successes were procedural reasoning; RoboDojo pickup
+returned a fully graded 0/8 group. Thirty-four harness-finalization receipts
+confirmed the repaired native terminal-reward path was executing. Neither the
+heartbeat's step=1 nor RUNNING scheduler status establishes an optimizer update.
+
+The MetaWorld/LIBERO worker was still allocated but its child had failed with
+ETXTBSY while extracting conmon over a binary mapped by a previous job. Native
+bootstrap now gives each child its own bounded-length tool/source/socket root,
+while preserving the checksum-pinned runtime and existing image-layer cache.
+The replacement child was submitted inside the same eight-H100 allocation;
+it completed all 156 task checks and reported eight native lanes ready at
+06:22 UTC. The model job was not interrupted by this repair.
+
+The user identified additional L40-03 capacity. Its live pool allowed no
+privileged containers and had two guaranteed and four physically free GPUs.
+Added two one-GPU RoboDojo replicas at HIGH priority and a two-GPU native YAM
+replica at LOW priority using the already qualified SDK images. At the first
+check, one RoboDojo and the YAM allocation were RUNNING; the other RoboDojo
+request was PENDING. Requests are recorded in additional-l40-03-20261119.json.
+A controller hook retargets these exact allocations after a model recipe changes,
+including deferred retargeting for requests that have not started, without
+submitting duplicate scheduler allocations.
+
+The user asked whether 128 groups should be reduced to obtain an actual update.
+Staged a 32 retained-group x eight-rollout startup variant. All admitted families,
+SGS, rolling family balancing, the exploration component, frozen routers, LR and
+native verifiers remain. Target proportions scale to 24 control and eight
+reasoning groups per update; they remain rolling targets, never a per-family gate.
+Actual selected-family weights renormalize over present families. A complete
+32-group batch still needs 256 trajectories and preserves all eight members of
+each mixed-outcome group. Constant groups and missing native grades do not count.
+
+The exact CPU command validation is
+leact-rp-jhh-pear-primary-driver-check-e46d9f20cb0c-1, covering strict 128 and
+rolling 32 configurations on both 40- and 56-model-H100 layouts. The running
+128-group job keeps collecting until the new receipt passes. The handoff checks
+for observed optimizer steps immediately before submission: any progress is
+preserved for checkpoint handoff; zero-update work can switch inside the retained
+allocation to a separate content-addressed run. This is a documented batch-size
+variant, not an unchanged paper recipe. No optimizer update or improvement is
+claimed from the configuration check.
+
+Validation: 693 research tests passed, four skipped and eight subtests passed.
+JavaScript syntax, shell syntax and diff checks passed. The required repository
+unit command was attempted and cannot collect without local lightning.

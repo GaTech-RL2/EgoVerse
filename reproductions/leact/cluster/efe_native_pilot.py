@@ -111,8 +111,10 @@ def setup(spec):
     conf=ROOT/'containers.conf'
     conf.write_text('[engine]\ncompose_warning_logs = false\nhelper_binaries_dir = ['+json.dumps(str(prefix/'usr/local/lib/podman'))+']\nconmon_path = ['+json.dumps(str(conmon))+']\ncgroup_manager = "cgroupfs"\nevents_logger = "file"\n[engine.runtimes]\ncrun = ['+json.dumps(str(binary.parent/'crun'))+']\n')
     storage=ROOT/'storage.conf'
-    storage_text=('[storage]\ndriver='+json.dumps(driver)+'\nrunroot='+json.dumps(str(ROOT/'run'))+
-                  '\ngraphroot='+json.dumps(str(ROOT/'containers'))+'\n')
+    state_root=Path(spec.get('container_storage_root',ROOT))
+    if not state_root.is_absolute():raise ValueError('Native container storage must be absolute')
+    storage_text=('[storage]\ndriver='+json.dumps(driver)+'\nrunroot='+json.dumps(str(state_root/'run'))+
+                  '\ngraphroot='+json.dumps(str(state_root/'containers'))+'\n')
     if driver=='overlay':
         # Explicit opt-in on fresh isolated jobs. Overlay shares image layers;
         # VFS copied them until the Isaac jobs exceeded 800 GiB of scratch.
@@ -126,7 +128,7 @@ def setup(spec):
          # Harbor parses stdout from compose exec for package-manager detection.
          # Podman's provider banner otherwise contaminates the returned value.
          'PODMAN_COMPOSE_WARNING_LOGS':'false',
-         'DOCKER_HOST':'unix:///tmp/efe-native/podman.sock','PYTHONUNBUFFERED':'1'}
+         'DOCKER_HOST':'unix://'+str(ROOT/'podman.sock'),'PYTHONUNBUFFERED':'1'}
     log=(ARCHIVE/'logs/podman-service.log').open('w')
     service=subprocess.Popen(['podman','system','service','--time=0',env['DOCKER_HOST']],env=env,stdout=log,stderr=subprocess.STDOUT)
     for _ in range(60):

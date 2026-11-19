@@ -162,6 +162,8 @@ def model_qualification(root):
         or command.get('multitask_config_sha256')!=sha(Path(__file__).with_name('efe_pear_multitask_config.py'))):
         raise PendingAdmission('Exact primary training command has not passed source and CPU configuration checks')
     next_policy=read(root/'control.json',{}).get('next_sampling_policy','strict-family-v1')
+    if command.get('retained_groups_per_update',128)!=read(root/'control.json',{}).get('retained_groups_per_update',128):
+        raise PendingAdmission('The configured retained group batch has not passed the exact driver check')
     if next_policy=='task-signal-window-v2'and(
         next_policy not in command.get('sampling_policies',[])
         or command.get('curriculum_state_sha256')!=sha(Path(__file__).with_name('efe_pear_curriculum_state.py'))

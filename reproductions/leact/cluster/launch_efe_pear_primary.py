@@ -72,6 +72,8 @@ def prepare(profile=0,*,standby=False,priority_override=None):
     admission['curriculum']['native_reward_finalization']=FINALIZATION_VERSION
     if control.get('warmup_sampling'):
         admission['curriculum']['warmup_sampling']=control['warmup_sampling']
+    if 'retained_groups_per_update'in control:
+        admission['curriculum']['retained_groups_per_update']=control['retained_groups_per_update']
     policy=control.get('next_sampling_policy','strict-family-v1')
     if policy!='strict-family-v1':
         admission['curriculum']['sampling_policy']=policy
@@ -374,6 +376,9 @@ def tick():
     promoted=promote_allocated_backup(state)
     if promoted is not None:return promoted
     if state.get('workflow')and state.get('scheduler_status')=='RUNNING':
+        from .efe_pear_batch_transition import tick as transition_batch
+        replacement=transition_batch(state)
+        if replacement is not None:return replacement
         from .efe_pear_native_reward_transition import tick as transition_native_reward
         replacement=transition_native_reward(state)
         if replacement is not None:return replacement
@@ -430,6 +435,8 @@ def tick():
             write(DEST/'primary-native-queue.json',worker_queue)
         state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
     if state.get('native_workers_launched')and query['status']=='RUNNING':
+        from .efe_pear_additional_capacity import tick as retarget_additional
+        retarget_additional(state)
         from .recover_efe_pear_graphics import tick as recover_graphics
         recover_graphics(state)
         from .recover_efe_pear_numeric import tick as recover_numeric
