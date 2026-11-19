@@ -6,7 +6,8 @@
 # Usage: ice_evaluate.sh <cell> <opscale_root>
 #   <opscale_root>/private-unseen-clean-20261107  metadata; canonical_zarr -> $STAGE
 #   <opscale_root>/index                          _episode_index*.json
-#   <opscale_root>/runs/<cell>/evaluate_{final,all}.sh  from `runtime prepare`
+#   <opscale_root>/runs/manifest.json             from `runtime prepare`
+# Runs the runtime from this checkout, not the commit `prepare` ran from.
 set -euo pipefail
 cell=$1
 root=$2
@@ -26,7 +27,10 @@ echo "[ice] $(date) $(hostname) stage start"
 df -h /tmp
 python -u "$here/stage_episodes.py" "$root/private-unseen-clean-20261107" "$cell" "$STAGE" "$root/index"
 echo "[ice] $(date) stage done"
-"$root/runs/$cell/evaluate_final.sh"
-echo "[ice] $(date) final done"
-"$root/runs/$cell/evaluate_all.sh"
+cd "$here/../../.."
+for mode in evaluate-final evaluate-all; do
+  python -u -m experiments.fold_clothes_moving_opscale.lambda_async.runtime \
+    "$mode" --manifest "$root/runs/manifest.json" --cell "$cell"
+  echo "[ice] $(date) $mode done"
+done
 echo "[ice] $(date) all done"
