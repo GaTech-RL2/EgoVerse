@@ -1,0 +1,157 @@
+"""Observe and recover only the separately owned Astra teacher collectors."""
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import time
+
+import yaml
+
+from .scale_efe import BASE, command, read, write
+from .launch_efe_pear_scaled import DEST
+from .launch_efe_pear_primary import worker_build
+from .recover_efe_pear_graphics import frozen_files
+from .efe_pear_allocation_jobs import running_tasks, submit
+from .efe_pear_submission import infrastructure_failure, submit_reconciled
+from .monitor_efe_preflight import remote
+from .launch_astra_wide_collection import (
+    ROOT, OWNER, TEACHER_ROOT, NEW_FILES, CREDENTIAL, freeze_worker,
+    idle_verification, record_launch,
+)
+
+
+def refresh_build(state):
+    """Freeze the same admitted task recipe with the latest collection recovery."""
+    old=Path(state['build']);spec=read(old/'spec.json')
+    if spec.get('owner_model_workflow')!=OWNER or spec.get('teacher_root')!=TEACHER_ROOT:
+        raise ValueError('Not an independently owned teacher collection')
+    files=frozen_files(old)
+    for name in NEW_FILES:files[name]=BASE/'cluster'/name
+    spec['teacher_recovery_of']=state['workflow']+':'+str(state.get('job_id','initial'))
+    workflow=yaml.safe_load((old/'workflow.yaml').read_text())['workflow']
+    task=workflow['tasks'][0];resources=dict(workflow['resources']['default'])
+    if task.get('privileged'):resources['privileged']=True
+    entry='efe_astra_wide_reasoning_worker.py'if state['label']=='reasoning'else'efe_astra_wide_worker.py'
+    build=worker_build(spec,files,entry,task['image'],task['command'][0],**resources)
+    if (build/'submission.json').exists()or(build/'submission-intent.json').exists():return build
+    value=yaml.safe_load((build/'workflow.yaml').read_text());wf=value['workflow'];native=wf['tasks'][0]
+    wf['name']='rp-jhh-astra-wide-'+state['label']+'-'+build.name.rsplit('-',1)[-1]
+    wf['labels']={'experiment':OWNER,'phase':'teacher_collection','teacher_model':'gpt-6-astra'}
+    native['credentials']={CREDENTIAL:{'NVIDIA_INFERENCE_API_KEY':'api_key'}}
+    if state['label']in {'efe','robodojo','robolab','yamlab'}:
+        native['credentials']['rp-jhh-pear-swift-archive-20261118']={'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}
+    (build/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False))
+    freeze_worker(build,[*files,'spec.json','bootstrap.py','workflow.yaml'])
+    return build
+
+
+def snapshot(host, states):
+    controls={}
+    for wf,row in states.items():
+        if row.get('superseded_by'):continue
+        spec=read(Path(row.get('allocation_build',row['build']))/'spec.json')
+        controls[wf]=spec['allocation_control_base']+'/'+wf
+    script='''from pathlib import Path
+import collections,json,time
+root=Path(__ROOT__);controls=__CONTROLS__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0
+for wf,control in controls.items():
+ p=Path(control)
+ try:
+  node=json.loads((p/'nodes/native.json').read_text());desired=json.loads((p/'desired.json').read_text())
+  nodes[wf]={'node':node,'desired_id':desired['id']}
+ except FileNotFoundError:pass
+for p in root.glob('episodes/*/infra-*/result.json'):
+ r=json.loads(p.read_text());status=r['status'];suite=r['case']['suite'];counts[status]+=1
+ suites.setdefault(suite,collections.Counter())[status]+=1
+ actions+=r.get('valid_actions',0);invalid+=r.get('invalid_actions',0);tokens+=r.get('generated_tokens',0);admitted+=bool(r.get('sft_admitted'))
+print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'attempt_status':dict(counts),
+ 'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted}),flush=True)
+'''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls))
+    return remote(host,script,task='native')
+
+
+def recover_allocation(state, scheduler):
+    """A scheduler-ended allocation has no live nodes to cancel or repurpose."""
+    if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}:
+        return None
+    if not (infrastructure_failure(scheduler)or '2001'in str(scheduler)):
+        return None
+    if state.get('allocation_retries',0)>=6:return None
+    build=refresh_build(state)
+    pool=state.get('pool')or scheduler['pool']
+    receipt=submit_reconciled(build,pool=pool,priority='LOW',nodes=1)
+    replacement={**state,**receipt,'workflow':receipt['name'],'job_id':None,'build':str(build),
+        'allocation_build':str(build),'pool':pool,'priority':'LOW','phase':'scheduler_recovery_submitted',
+        'allocation_retries':state.get('allocation_retries',0)+1,'recovery_of':state['workflow']}
+    replacement.pop('allocation_control',None);replacement.pop('superseded_by',None)
+    record_launch(replacement)
+    record_launch({**state,'superseded_by':replacement['workflow'],'phase':'scheduler_ended_recovered'})
+    return replacement
+
+
+def recover_child(state, node):
+    if node['node']['phase']not in {'idle_failed','idle_peer_failed'}:return None
+    if node['desired_id']!=state.get('job_id')or state.get('child_retries',0)>=3:return None
+    # Both the durable desired job and native/GPU process proof must show idle.
+    proof,control=idle_verification(state)
+    build=refresh_build(state);number=state.get('child_retries',0)+1
+    job='rp-jhh-astra-recovery-'+hashlib.sha256((state['workflow']+str(number)).encode()).hexdigest()[:20]
+    receipt=submit(state,build,replace_running=False,job_id=job)
+    replacement={**state,'build':str(build),'job_id':receipt['job_id'],'child_retries':number,
+        'allocation_control':control,'phase':'child_recovery_staged','idle_proof':proof}
+    record_launch(replacement);return replacement
+
+
+def tick():
+    states=read(ROOT/'launches.json',{})
+    active={k:v for k,v in states.items()if not v.get('superseded_by')}
+    def query(wf):
+        try:return wf,command(['osmo','workflow','query',wf,'--format-type','json'])
+        except Exception as exc:return wf,{'status':'UNKNOWN','error':str(exc)[:300]}
+    schedulers=dict(ThreadPoolExecutor(6).map(query,active))
+    write(ROOT/'watch-schedulers.json',schedulers)
+    status={'updated_utc':datetime.now(timezone.utc).isoformat(),'pid':os.getpid(),
+        'scheduler_counts':dict(__import__('collections').Counter(q['status']for q in schedulers.values())),
+        'hero_untouched':True,'recovery_actions':[]}
+    primary=read(DEST/'primary-launch.json',{})
+    if primary.get('workflow'):status['hero_scheduler']=query(primary['workflow'])[1].get('status')
+    hosts=[]
+    for wf,q in schedulers.items():
+        try:running_tasks(q);hosts.append(wf)
+        except (RuntimeError,KeyError):pass
+    if hosts:
+        # Reading all shared status through one healthy owned worker avoids
+        # exec during any other worker's scheduler startup barrier.
+        capture=snapshot(hosts[0],active);write(ROOT/'watch-census.json',capture)
+        status['attempt_status']=capture['attempt_status'];status['sft_admitted']=capture['sft_admitted']
+        for wf,node in capture['nodes'].items():
+            if wf not in hosts:continue
+            row=active[wf]
+            if not row.get('job_id'):
+                row={**row,'job_id':node['desired_id']};record_launch(row);active[wf]=row
+            recovered=recover_child(row,node)
+            if recovered:status['recovery_actions'].append({'workflow':wf,'child':recovered['job_id']})
+    for wf,q in schedulers.items():
+        replacement=recover_allocation(active[wf],q)
+        if replacement:status['recovery_actions'].append({'workflow':replacement['workflow'],'recovery_of':wf})
+    write(ROOT/'watch-status.json',status)
+    return status
+
+
+def main():
+    ROOT.mkdir(parents=True,exist_ok=True)
+    with(ROOT/'watch.lock').open('a')as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        write(ROOT/'watch-launch.json',{'pid':os.getpid(),'started_utc':datetime.now(timezone.utc).isoformat(),
+            'module':__name__,'interval_seconds':120,'scope':'Independent Astra collectors only; preserve hero and all live allocations.'})
+        while not read(ROOT/'control.json',{}).get('paused'):
+            try:print(json.dumps(tick()),flush=True)
+            except Exception as exc:
+                write(ROOT/'watch-error.json',{'updated_unix':time.time(),'error':str(exc)[:1200]})
+            time.sleep(120)
+
+
+if __name__=='__main__':main()
