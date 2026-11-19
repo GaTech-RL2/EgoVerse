@@ -6,6 +6,7 @@
 # Usage: ice_evaluate.sh <cell> <opscale_root>
 #   <opscale_root>/private-unseen-clean-20261107  metadata; canonical_zarr -> $STAGE
 #   <opscale_root>/index                          _episode_index*.json
+#   <opscale_root>/stage_inventory.json           url, md5, size per file
 #   <opscale_root>/runs/manifest.json             from `runtime prepare`
 # Runs the runtime from this checkout, not the commit `prepare` ran from.
 set -euo pipefail
@@ -25,7 +26,8 @@ unset AWS_SESSION_TOKEN AWS_PROFILE
 here=$(dirname "$0")
 echo "[ice] $(date) $(hostname) stage start"
 df -h /tmp
-python -u "$here/stage_episodes.py" "$root/private-unseen-clean-20261107" "$cell" "$STAGE" "$root/index"
+python -u "$here/stage_episodes.py" "$root/stage_inventory.json" \
+  "$root/private-unseen-clean-20261107/splits/fold_moving_$cell.json" "$STAGE" "$root/index"
 echo "[ice] $(date) stage done"
 cd "$here/../../.."
 for mode in evaluate-final evaluate-all; do
