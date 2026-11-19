@@ -43,6 +43,21 @@ def checkpoint_for_resume(run):
     return None
 
 
+def validate_eef_release(spec,release):
+    if not spec.get('control_interface'):return
+    from efe_pear_eef import VERSION,POSE_SUITES,DELTA_SUITES
+    if (release.get('passed')is not True or release.get('run')!=spec['run']or
+        release.get('control_interface')!=VERSION or release.get('scope')!='pear_rl_only'or
+        release.get('teacher_collection_changed')is not False or
+        set(release.get('simulators',{}))!=POSE_SUITES|DELTA_SUITES|{'native_gr00t_yam'}or
+        not all(v.get('passed')is True for v in release['simulators'].values())):
+        raise ValueError('EEF training release does not qualify this complete RL branch')
+    pins=release.get('adapter_sha256',{})
+    if not pins or any(spec['adapter_digests'].get(n)!=h for n,h in pins.items()):
+        raise ValueError('EEF training release differs from the staged model adapters')
+    if not release.get('qualification_sha256'):raise ValueError('EEF training release lacks its qualification receipt')
+
+
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
     role=os.environ['EFE_ROLE'];head=role=='trainer';run=Path(spec['run'])
@@ -196,6 +211,15 @@ else:raise TimeoutError("Not all model rollout nodes joined")
 ray.shutdown()
 '''
             subprocess.run([str(python),'-u','-c',code],env=env,check=True,timeout=1500)
+            if spec.get('control_interface'):
+                release_path=Path(spec['eef_release'])
+                record('waiting_for_native_eef_qualification',model_nodes=1+spec['rollout_nodes'],
+                    optimizer_updates=0)
+                while not release_path.exists():
+                    if ray_process.poll()is not None:raise RuntimeError('Model runtime ended during native qualification')
+                    if time.monotonic()>deadline:raise TimeoutError('Native EEF release did not arrive')
+                    time.sleep(2)
+                validate_eef_release(spec,json.loads(release_path.read_text()))
             resume=[]
             if resume_checkpoint is not None:
                 latest=resume_checkpoint

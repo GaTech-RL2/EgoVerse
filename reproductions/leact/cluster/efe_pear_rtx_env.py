@@ -56,6 +56,10 @@ class NativeRtxEpisode:
             'RCB_TOOL':str(self.srv/tool_name),'RCB_SRV':str(self.srv),
             'RCB_SERVER':str(self.srv/'server.py'),'SIM_URL':'http://127.0.0.1:8000',
             'NVIDIA_DRIVER_CAPABILITIES':'all','OMNI_KIT_ALLOW_ROOT':'1'}
+        if self.config.get('control_interface'):
+            from efe_pear_eef import enabled
+            enabled(self.config['control_interface'])
+            self.env['PEAR_NATIVE_CONTROL_INTERFACE']=self.config['control_interface']
         entry=Path(__file__).with_name('efe_pear_native_entry.py')
         with(self.root/'native.log').open('w')as log:
             self.process=subprocess.Popen([sys.executable,'-u',str(entry),str(self.srv/'server.py')],
@@ -63,7 +67,12 @@ class NativeRtxEpisode:
         threading.Thread(target=self.process.wait,daemon=True).start()
         self.robot=Robot(base='http://127.0.0.1:8000',timeout=1000)
         self.spec=self.robot.spec()
-        self.contract=native_contract(self.spec,allowed_action_types=['joint_position'])
+        if self.config.get('control_interface'):
+            from efe_pear_eef import contract,public_spec
+            self.contract=contract(self.spec,suite)
+            self.spec=public_spec(self.spec,self.contract)
+        else:
+            self.contract=native_contract(self.spec,allowed_action_types=['joint_position'])
         self.contract_sha=hashlib.sha256(json.dumps(self.contract,sort_keys=True).encode()).hexdigest()
         self.instruction=(task/'instruction.md').read_text()
         self.observation=self.robot.get_obs(cameras=self.contract['cameras'],include_depth=False)
@@ -81,7 +90,9 @@ class NativeRtxEpisode:
                 'recent_actions_and_feedback':[]if self.last_action is None else[{
                     'action':self.last_action,'execution_completed':True,
                     'control_steps_before':self.previous_steps,
-                    'control_steps_after':self.observation.meta.get('control_steps')}]}
+                    'control_steps_after':self.observation.meta.get('control_steps'),
+                    **({'eef_execution':self.observation.meta['eef_execution']}
+                       if 'eef_execution'in self.observation.meta else{})}]}
             blocks,context_sha=public_blocks(visible,images);state=visible['observation']
         actions=[]if self.last_action is None or self.last_action.get('stop')else[self.last_action]
         return {'images':images,'state':state,'instruction':self.instruction,'actions':actions,
@@ -92,7 +103,10 @@ class NativeRtxEpisode:
             'interface_context_sha256':context_sha,'native_trial_path':str(self.data/'final.json'),
             'requested_control_steps':0 if self.last_action is None else self.last_action.get('repeat',0),
             'executed_control_steps':executed,'grading_scope':'unchanged_native_live_training_verdict',
-            'benchmark_resource_enforced':False}
+            'benchmark_resource_enforced':False,
+            **({'control_interface':self.contract['control_interface'],
+                'eef_execution':self.observation.meta.get('eef_execution')}
+               if self.contract.get('control_interface')else{})}
 
     def _finalize(self, executed=0):
         with(self.root/'finalize.log').open('w')as log:
@@ -113,12 +127,21 @@ class NativeRtxEpisode:
         if action.get('stop'):
             return self._finalize()
         self.previous_steps=int(self.observation.meta['control_steps'])
-        self.observation=self.robot.submit(action['action_type'],[action['action']]*action['repeat'],
+        vector=action['action']
+        if self.contract.get('control_interface'):
+            from efe_pear_eef import native_pose
+            vector=native_pose(vector,self.contract['action_types'][action['action_type']])
+        self.observation=self.robot.submit(action['action_type'],[vector]*action['repeat'],
             dt=self.contract['control_dt'],cameras=self.contract['cameras'],video='frames',
             include_depth=False,note='PEAR constrained policy action')
         executed=int(self.observation.meta['control_steps'])-self.previous_steps
         if not 0<=executed<=action['repeat']:
             raise ValueError('Native control-step accounting differs from the policy command')
+        if self.contract.get('control_interface'):
+            receipt=self.observation.meta.get('eef_execution',{})
+            if(receipt.get('requested_control_steps')!=action['repeat']or
+                receipt.get('executed_control_steps')!=executed):
+                raise ValueError('Native EEF controller did not return its exact motion budget receipt')
         if (self.observation.done or self.turns>=self.config.get('max_task_calls',180)or
                 time.monotonic()-self.started>=self.config.get('wall_seconds',3600)):
             return self._finalize(executed)

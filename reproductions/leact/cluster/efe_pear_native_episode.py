@@ -30,6 +30,11 @@ class NativeEfeEpisode:
         from scene_identity import scene_identity
         if scene_identity(reference,self.row)['scene_sha256']!=self.expected_scene:
             raise ValueError('Frozen scene identity changed')
+        if self.config.get('control_interface'):
+            from efe_pear_eef import enabled
+            enabled(self.config['control_interface'])
+            self.config={**self.config,'action_config':{**self.config['action_config'],
+                'control_interface':self.config['control_interface'],'suite':self.row['suite']}}
         self.bridge=HarborEpisode(self.row,self.config,uuid4().hex)
         self.contract=None;self.contract_sha=None;self.last_action=None;self.instruction=''
 
@@ -55,6 +60,7 @@ class NativeEfeEpisode:
             'done':value['done'],'executed':len(actions),'outcome':'done' if value['done'] else 'observed',
             'instruction':self.instruction,'public_blocks':blocks,'action_contract':self.contract,
             'action_contract_sha256':self.contract_sha,'native_trial_path':value.get('native_trial_path'),
+            'scene_sha256':self.expected_scene,
             'interface_context_version':INTERFACE_CONTEXT_VERSION,'interface_context_sha256':context_sha,
             'requested_control_steps':action.get('repeat',0) if action else 0,
             'executed_control_steps':executed_controls}

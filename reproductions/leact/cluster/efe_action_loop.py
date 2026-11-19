@@ -149,6 +149,12 @@ def parse_action(text, *, contract, allow_stop):
         raise ValueError('action must contain exactly '+str(native['dim'])+' finite numbers.')
     if any(not lo <= x <= hi for x, lo, hi in zip(action, native['lower'], native['upper'])):
         raise ValueError('action exceeds the declared native component bounds.')
+    if native.get('quaternion_groups'):
+        try:
+            from .efe_pear_eef import validate_quaternions
+        except ImportError:
+            from efe_pear_eef import validate_quaternions
+        validate_quaternions(action, native)
     if native.get('dtype', '').startswith(('int', 'uint')) and any(type(x) is not int for x in action):
         raise ValueError('This native action type requires integer components.')
     if type(value['repeat']) is not int or not 1 <= value['repeat'] <= contract['max_repeat']:
@@ -225,6 +231,18 @@ early. In task mode only, you may finish with {"stop":true,"summary":"reason"}.
 Task success is determined solely by the native simulator grader.'''
 
 
+def system_prompt(contract):
+    if contract.get('control_interface') != 'pear-eef-native-v1':
+        return SYSTEM
+    return SYSTEM + ('\nThis episode uses the pear-eef-native-v1 Cartesian interface. '
+        'Choose end-effector goals or Cartesian deltas in the exact declared simulator frame. '
+        'For ee_pose, a bounded robot controller converts the pose to joint commands: repeat is '
+        'a maximum number of native control steps, and does not guarantee arrival. '
+        'Use measured TCP poses and execution feedback to correct the next action. '
+        'A controller reaching a pose does not prove contact, grasping or task success. '
+        'Only action_contract lists callable actions; other SDK operations are unavailable.')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=Path, required=True)
@@ -243,11 +261,19 @@ def main():
     spec = robot.spec()
     write(args.logs/'native-spec.json',spec)
     allowed=config.get('allowed_action_types_by_robot',{}).get(spec.get('robot'))
-    contract = native_contract(spec, config.get('max_repeat', 25),allowed_action_types=allowed)
+    if config.get('control_interface'):
+        from efe_pear_eef import enabled, contract as eef_contract, public_spec, wrap_robot
+        enabled(config['control_interface'])
+        robot=wrap_robot(robot,config['suite']);spec=robot.spec()
+        contract = eef_contract(spec, config['suite'], config.get('max_repeat', 25))
+        spec = public_spec(spec, contract)
+    else:
+        contract = native_contract(spec, config.get('max_repeat', 25),allowed_action_types=allowed)
     cameras = contract['cameras']
     contract_sha = hashlib.sha256(json.dumps(contract, sort_keys=True).encode()).hexdigest()
+    prompt=system_prompt(contract)
     write(args.logs/'action-contract.json', {'contract':contract, 'sha256':contract_sha,
-        'native_spec':spec, 'system_prompt_sha256':hashlib.sha256(SYSTEM.encode()).hexdigest(),
+        'native_spec':spec, 'system_prompt_sha256':hashlib.sha256(prompt.encode()).hexdigest(),
         'bridge_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()})
     instruction = args.instruction.read_text()
     trajectory = {'schema_version':PROTOCOL,'action_contract_sha256':contract_sha,'steps':[
@@ -286,7 +312,7 @@ def main():
                     Image.fromarray(np.ascontiguousarray(obs.last[camera])).save(buf,format='PNG')
                     content += [{'type':'input_text','text':'Current camera: '+camera},
                                 {'type':'input_image','image_url':'data:image/png;base64,'+base64.b64encode(buf.getvalue()).decode(),'detail':'auto'}]
-                body = {'model':config['model'],'instructions':SYSTEM,
+                body = {'model':config['model'],'instructions':prompt,
                     'input':[{'role':'user','content':content}], 'stream':True,'store':False,
                     'max_output_tokens':config['max_output_tokens'], 'reasoning':{'effort':'high'}}
                 before = optional_tcp(obs.meta)
@@ -329,7 +355,11 @@ def main():
                 write(args.logs/'trajectory.json',trajectory)
                 controls_before = obs.meta.get('control_steps')
                 submit_start = time.monotonic()
-                obs = robot.submit(action['action_type'], [action['action']]*action['repeat'], dt=contract['control_dt'],
+                vector = action['action']
+                if contract.get('control_interface') and action['action_type'] == 'ee_pose':
+                    from efe_pear_eef import native_pose
+                    vector = native_pose(vector, contract['action_types']['ee_pose'])
+                obs = robot.submit(action['action_type'], [vector]*action['repeat'], dt=contract['control_dt'],
                     cameras=cameras,video='frames',include_depth=False,note=PROTOCOL)
                 step['submit_seconds'] = time.monotonic()-submit_start
                 stats['submit_seconds'] += step['submit_seconds']
@@ -340,6 +370,14 @@ def main():
                             'observed_delta_m':[b-a for a,b in zip(before,after)] if before is not None and after is not None else None,
                             'control_steps_before':controls_before,'control_steps_after':obs.meta.get('control_steps'),
                             'execution_completed':True,'done':bool(obs.done)}
+                if contract.get('control_interface'):
+                    controls_after=obs.meta.get('control_steps')
+                    if (type(controls_before)is not int or type(controls_after)is not int or
+                        not 0<=controls_after-controls_before<=action['repeat']):
+                        raise ValueError('Native EEF action exceeded its control-step budget')
+                    feedback['eef_execution']=obs.meta.get('eef_execution',{
+                        'requested_control_steps':action['repeat'],
+                        'executed_control_steps':controls_after-controls_before})
                 history.append(feedback)
                 step['observation']['results'] = [{'source_call_id':call_id,'content':json.dumps(feedback)}]
                 if goal is not None:

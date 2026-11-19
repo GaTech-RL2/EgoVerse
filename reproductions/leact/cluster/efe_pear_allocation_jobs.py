@@ -58,7 +58,7 @@ print('EFE_CAPTURE '+json.dumps({'job_id':request['id'],'allocation_control':str
     return remote(state['workflow'],script,task='trainer')
 
 
-def submit(state,build,*,replace_running=False,job_id=None,previous_workflow=None):
+def submit(state,build,*,replace_running=False,job_id=None,previous_workflow=None,staging=None):
     """Verify and stage a complete frozen job on the existing shared volume."""
     build=Path(build);allocation_spec=read(Path(state.get('allocation_build',state['build']))/'spec.json')
     if allocation_spec.get('allocation_lifecycle')!='persistent_cluster':
@@ -71,6 +71,16 @@ def submit(state,build,*,replace_running=False,job_id=None,previous_workflow=Non
     base=allocation_spec.get('allocation_control_base')
     if base is None:raise ValueError('Allocation has no durable control directory')
     control=base+'/'+state['workflow'];job=job_id or'job-'+uuid4().hex[:16];bundle=control+'/jobs/'+job+'/bundle'
+    transport_workflow=state['workflow'];transport_task=task
+    if staging:
+        # Qualified AMLFS07 native keepers can receive the exact same frozen
+        # request through the model node. This avoids a stalled renderer exec
+        # channel without changing the target allocation or its job protocol.
+        if(model or not base.startswith('/mnt/amlfs-07/shared/rpunamiya/')or
+            candidate.get('owner_model_workflow')!=staging['workflow']or staging.get('task')!='trainer'):
+            raise ValueError('Shared staging requires the owning model trainer and qualified AMLFS07 native control')
+        running_tasks(command(['osmo','workflow','query',staging['workflow'],'--format-type','json']))
+        transport_workflow=staging['workflow'];transport_task=staging['task']
     files=read(build/'source-manifest.json')
     for name,expected in files.items():
         if hashlib.sha256((build/name).read_bytes()).hexdigest()!=expected:raise ValueError('Local job source changed')
@@ -86,9 +96,9 @@ if not REPLACE and any(n['phase']=='running'for n in nodes):raise RuntimeError('
 Path(BUNDLE).mkdir(mode=0o700,parents=True,exist_ok=True)
 print('EFE_CAPTURE '+json.dumps({'ready':True}),flush=True)
 """.replace('CONTROL',repr(control)).replace('REPLACE',repr(replace_running)).replace('BUNDLE',repr(bundle)).replace('JOB',repr(job)).replace('WORKFLOW',repr(state['workflow']))
-    ready=remote(state['workflow'],script,task=task)
+    ready=remote(transport_workflow,script,task=transport_task)
     if ready.get('already_submitted'):return ready
-    subprocess.run(['osmo','workflow','rsync','upload',state['workflow'],task,
+    subprocess.run(['osmo','workflow','rsync','upload',transport_workflow,transport_task,
         str(build)+'/:'+bundle+'/','--no-progress'],check=True,capture_output=True,text=True,timeout=180)
     request={'id':job,'bundle':bundle,'entry':'efe_pear_primary_worker.py'if model else candidate['allocation_job_entry'],
         'roles':roles,'files':files}
@@ -111,4 +121,4 @@ if MODEL:
 temporary=root/('desired.'+str(os.getpid())+'.tmp');temporary.write_text(json.dumps(request));temporary.replace(root/'desired.json')
 print('EFE_CAPTURE '+json.dumps({'job_id':request['id'],'workflow':WORKFLOW,'allocation_preserved':True}),flush=True)
 """.replace('CONTROL',repr(control)).replace('REQUEST',repr(json.dumps(metadata))).replace('MANIFEST_SHA',repr(manifest_sha)).replace('WORKFLOW',repr(state['workflow'])).replace('PREVIOUS',repr(previous_workflow)).replace('MODEL',repr(model))
-    return remote(state['workflow'],script,task=task)
+    return remote(transport_workflow,script,task=transport_task)

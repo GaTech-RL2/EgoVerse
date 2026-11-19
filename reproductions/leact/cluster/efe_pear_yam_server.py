@@ -91,6 +91,8 @@ def main():
                 'output':str(task/'sessions'),'worker_id':os.environ['EFE_WORKFLOW_ID']+'-'+row['env_name']},
             'rollout_limit':{'num_steps':100000000},'environment_builder':{'seed':18471}},
             'runs':{'training':{'environment_builder':{'num_envs':1}}}}
+        if spec.get('control_interface'):
+            experiment['shared']['policy']['control_interface']=spec['control_interface']
         config=task/'experiment.yaml';config.write_text(yaml.safe_dump(experiment,sort_keys=False))
         env={**os.environ,'PYTHONPATH':str(lane)+':'+str(source)+':'+os.environ.get('PYTHONPATH',''),
             'CUDA_VISIBLE_DEVICES':gpu,'OMNI_KIT_ALLOW_ROOT':'1','NVIDIA_DRIVER_CAPABILITIES':'all',

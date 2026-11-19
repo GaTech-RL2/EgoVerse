@@ -203,7 +203,8 @@ def prepare_training_bundle():
         'efe_pear_reasoning_env.py','efe_pear_reasoning_tool.py','efe_pear_reasoning_scenes.py','efe_pear_child.py','efe_pear_sim_process.py',
         'efe_pear_agent_metrics.yaml','efe_pear_native_env.py','efe_pear_native_episode.py','efe_pear_native_tool.py','efe_pear_native_finalization.py','efe_pear_bridge.py',
         'efe_pear_remote_env.py','efe_pear_file_rpc.py','efe_pear_object_transport.py',
-        'efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py']
+        'efe_pear_context.py','efe_action_loop.py','efe_action_agent.py','efe_native_pilot.py',
+        'efe_pear_eef.py','efe_pear_eef_service.py','efe_pear_yam_eef.py','efe_pear_vlabench_eef.py']
     sources={name:BASE/'cluster'/name for name in names}
     sources['scene_identity.py']=BASE/'cluster/efe_pear_scene_audit.py'
     digests={name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()}

@@ -128,7 +128,7 @@ def prepare_reasoning_check():
 
 
 def prepare_native_yam_check(task_names=None,generated_resets=False,native_transport_probe=False,*,runtime_override=None):
-    if ARM not in read(DEST/'control.json',{}).get('enabled_training_arms',[]):
+    if not {ARM,ARM+'-eef-v1'}&set(read(DEST/'control.json',{}).get('enabled_training_arms',[])):
         raise RuntimeError('Warmstart RL is not enabled')
     metadata=read(DEST/'sources/gr00t-sim-source.json');source=Path(metadata['source'])
     runtime={**read(DEST/'native-yam-runtime-config.json'),**(runtime_override or{})}

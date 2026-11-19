@@ -369,6 +369,8 @@ def build(base=BASE):
                 'recipe_transition':recipe_transition,
                 'native_reward_finalization':reward_finalization,
                 'startup_batch':batch_transition,
+                'eef_interface':read(scaled/'eef-interface-v1/status.json',{}),
+                'eef_transition':read(scaled/'eef-interface-v1/transition.json',{}),
                 'native_bootstrap_recovery':read(scaled/'native-bootstrap-recovery.json',{}),
                 'graphics_storage':{'assets_verified':pool_assets.get('passed',False),
                     'asset_files':pool_assets.get('files',0),'sources_verified':pool_sources.get('passed',False),

@@ -65,9 +65,19 @@ def allocation_profile(attempt):
     return 4,'HIGH'if attempt%3==0 else'LOW'
 
 
-def prepare(profile=0,*,standby=False,priority_override=None):
+def prepare(profile=0,*,standby=False,priority_override=None,control_interface=None,stage_runtime_only=False):
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     control=read(DEST/'control.json',{})
+    control_interface=control_interface or control.get('next_control_interface')
+    eef_interface=None
+    if control_interface:
+        from .efe_pear_eef import enabled
+        enabled(control_interface)
+        from .efe_pear_eef_admission import qualify,admission as eef_admission,interface_metadata
+        if not stage_runtime_only:qualify(DEST,BASE/'cluster')
+        eef_interface=interface_metadata(BASE/'cluster')
+        admission=eef_admission(admission,eef_interface)
+    elif stage_runtime_only:raise ValueError('Deferred native qualification is only available to the EEF fork')
     from .efe_pear_native_finalization import VERSION as FINALIZATION_VERSION
     admission['curriculum']['native_reward_finalization']=FINALIZATION_VERSION
     if control.get('warmup_sampling'):
@@ -80,9 +90,9 @@ def prepare(profile=0,*,standby=False,priority_override=None):
         from .efe_pear_curriculum_state import CurriculumState
         CurriculumState(admission['curriculum'])
         from .recover_efe_pear_numeric import qualified
-        if not qualified(read(DEST/'native-float32-proof.json',{})):
+        if not eef_interface and not qualified(read(DEST/'native-float32-proof.json',{})):
             raise PendingAdmission('The replacement recipe requires the current real native float32 action proof')
-        if not read(DEST/'recipe-transition.json',{}).get('validation_passed'):
+        if not eef_interface and not read(DEST/'recipe-transition.json',{}).get('validation_passed'):
             raise PendingAdmission('The replacement recipe awaits its known-training-case inference check')
     package=prepare_training_bundle();common=Path(package['bundle'])
     sources={name:common/name for name in package['files']}
@@ -104,8 +114,9 @@ def prepare(profile=0,*,standby=False,priority_override=None):
         'model-qualification.json':qualification,'reasoning-membership.json':read(DEST/'reasoning-remote-qualified/membership.json')}
     serialized={name:(json.dumps(value,sort_keys=True)+'\n').encode()for name,value in data.items()}
     identity=hashlib.sha256(serialized['curriculum.json']).hexdigest()[:12]
-    run=REMOTE+'/runs/rp_jhh_pear_moe_warmstart496_full_'+identity
-    spec={'run_id':ARM,'run':run,'model':parent['path'],'model_revision':parent['revision'],
+    prefix='rp_jhh_pear_moe_warmstart496_eef_'if eef_interface else'rp_jhh_pear_moe_warmstart496_full_'
+    run=REMOTE+'/runs/'+prefix+identity
+    spec={'run_id':ARM+'-eef-v1'if eef_interface else ARM,'run':run,'model':parent['path'],'model_revision':parent['revision'],
         'runtime':REMOTE+'/runtime','pear_source':REMOTE+'/sources/pear-'+PEAR_REVISION,
         'rollout_nodes':rollout_nodes,'training_steps':32,'primary_training':True,
         'trainer_ray_cpus':64,'rollout_ray_cpus':64,
@@ -115,6 +126,9 @@ def prepare(profile=0,*,standby=False,priority_override=None):
         'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
         'worker_bundle_format':BUNDLE_FORMAT,'allocation_lifecycle':'persistent_cluster',
         'allocation_control_base':REMOTE+'/allocations','standby':bool(standby)}
+    if eef_interface:
+        spec.update(control_interface=control_interface,eef_release=run+'/native-eef-release.json',
+            runtime_warmup_only_until_native_release=bool(stage_runtime_only))
     spec['l40_pool']=l40_pool
     if l40_pool=='groot-l40s-01':
         wire=hashlib.sha256(json.dumps([spec['adapter_digests'],profile,l40_pool],sort_keys=True).encode()).hexdigest()[:16]
@@ -153,7 +167,8 @@ def prepare(profile=0,*,standby=False,priority_override=None):
         (build/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False));freeze_sources(build)
     write(DEST/('backup-ready.json'if standby else'primary-ready.json'),{'build':str(build),'run':run,'counts':admission['counts'],
         'model_cluster_h100s':8*(1+rollout_nodes),'native_efe_h100s':8,'target_total_h100s':8*(2+rollout_nodes),
-        'primary_rl_updates':0,'qualified':True})
+        'primary_rl_updates':0,'qualified':not stage_runtime_only,
+        'runtime_preparation_only':bool(stage_runtime_only)})
     return build
 
 
@@ -172,7 +187,7 @@ def launch(profile=0,*,pool='groot-h100-02'):
         history=state.get('history',[])
         if state.get('workflow'):history.append({k:state[k]for k in ['workflow','profile','scheduler_status']if k in state})
         state={**result,'workflow':result['name'],'build':str(build),'profile':profile,'history':history,
-            'pool':pool,'priority':spec['priority'],'run':spec['run'],'run_id':ARM,
+            'pool':pool,'priority':spec['priority'],'run':spec['run'],'run_id':spec['run_id'],
             'gpu':8*(1+spec['rollout_nodes']),'primary_rl_updates':0,'native_workers_launched':False,
             'phase':'primary_submitted','standby':True,'allocation_lifecycle':'persistent_cluster'}
         write(DEST/'primary-launch.json',state)
@@ -201,6 +216,7 @@ def native_builds(model_build,model_workflow):
         'suites':sorted({r['suite']for r in rows}),'transport_root':run+'/transport',
         'finished':run+'/finished.json','head_heartbeat':run+'/head-heartbeat.json',
         'episode_archive':model['checkpoint_archive']+'/native-episodes','allocation_slot':'native-efe'}
+    if model.get('control_interface'):spec['control_interface']=model['control_interface']
     base=yaml.safe_load(TEMPLATE.read_text())['workflow']['tasks'][0]['image']
     builds.append(worker_build(spec,files,'efe_pear_primary_native.py',base,'python3',
         gpu=8,cpu=64,memory='512Gi',storage='400Gi',platform='dgx-h100',privileged=True))
@@ -216,6 +232,7 @@ def native_builds(model_build,model_workflow):
             spec['payload']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['payload']).name
             spec.update(kind='rtx',owner_model_workflow=model_workflow,replica=index,output=l40_root+'/native-rtx/'+suite,transport_root=l40_root+'/transport',
                 finished=l40_root+'/finished.json',episode_archive=model['checkpoint_archive']+'/native-episodes',allocation_slot='rtx-'+suite+'-'+str(index))
+            if model.get('control_interface'):spec['control_interface']=model['control_interface']
             builds.append(worker_build(spec,files,'efe_pear_primary_rtx.py',images[suite]['image'],
                 '/opt/robolab/.venv/bin/python'if suite=='robolab'else'/opt/venv/bin/python',
                 gpu=1,cpu=8,memory='64Gi',storage='150Gi',platform=platform))
@@ -224,6 +241,9 @@ def native_builds(model_build,model_workflow):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)
         spec=read(old/'spec.json');spec.update(owner_model_workflow=model_workflow,
             output=l40_root+'/native-yam',transport_root=l40_root+'/transport',finished=l40_root+'/finished.json',allocation_slot='native-yam-'+str(offset//2))
+        if model.get('control_interface'):
+            from .efe_pear_float32_json import VERSION as NUMERIC_VERSION
+            spec.update(control_interface=model['control_interface'],numeric_representation=NUMERIC_VERSION)
         from .recover_efe_pear_numeric import qualified
         if qualified(read(DEST/'native-float32-proof.json',{})):
             from .efe_pear_float32_json import VERSION
@@ -324,7 +344,7 @@ def promote_allocated_backup(state):
     history=state.get('history',[])
     if state.get('workflow'):history=history+[{k:state[k]for k in ['workflow','profile','scheduler_status']if k in state}]
     value={**backup,**receipt,'allocation_build':backup.get('allocation_build',backup['build']),
-        'build':str(build),'run':spec['run'],'run_id':ARM,'profile':spec['profile'],
+        'build':str(build),'run':spec['run'],'run_id':spec.get('run_id',ARM),'profile':spec['profile'],
         'standby':False,'native_workers_launched':False,'history':history,'phase':'job_submitted_in_existing_allocation',
         'primary_rl_updates':0,'scheduler_status':'RUNNING'}
     if state.get('standby')and not current['status'].startswith('FAILED'):
@@ -334,18 +354,26 @@ def promote_allocated_backup(state):
     write(DEST/'primary-launch.json',value);return value
 
 
-def reuse_native_allocation(build,queue):
+def reuse_native_allocation(build,queue,*,live_workflows=None,model_job_id=None):
     spec=read(Path(build)/'spec.json');slot=spec.get('allocation_slot')
     if not slot:return None
     from .efe_pear_allocation_jobs import submit as submit_job
+    from .efe_pear_eef_admission import protected_teacher_allocations
+    protected=protected_teacher_allocations(DEST)
     for item in queue.values():
+        if item.get('workflow')in protected:continue
+        if live_workflows is not None and item.get('workflow')not in live_workflows:continue
         old=read(Path(item['build'])/'spec.json')
         if old.get('allocation_slot')!=slot or old.get('allocation_lifecycle')!='persistent_cluster':continue
         status=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
         if status['status']!='RUNNING':continue
         # A different run can replace the worker job on the same GPU node.
         # This terminates a child process, never its OSMO allocation.
-        receipt=submit_job(item,build,replace_running=True)
+        identity=json.dumps([spec['owner_model_workflow'],model_job_id,build.name],sort_keys=True)
+        job='native-'+hashlib.sha256(identity.encode()).hexdigest()[:16]
+        staging=({'workflow':spec['owner_model_workflow'],'task':'trainer'}
+            if old.get('allocation_control_base','').startswith('/mnt/amlfs-07/shared/rpunamiya/')else None)
+        receipt=submit_job(item,build,replace_running=True,job_id=job,staging=staging)
         item['superseded']=True
         return{**item,**receipt,'allocation_build':item.get('allocation_build',item['build']),
             'build':str(build),'owner_model_workflow':spec['owner_model_workflow'],'reused_allocation':True,'superseded':False}
@@ -366,6 +394,52 @@ def recover_job_inside_allocation(state,observed):
     receipt=submit_job(state,state['build'])
     state.update(job_id=receipt['job_id'],native_workers_launched=False,
         in_allocation_retries=state.get('in_allocation_retries',0)+1,phase='job_retried_in_existing_allocation')
+    return state
+
+
+def provision_native(build,state,queue,live_workflows):
+    if build.name in queue:
+        item=queue[build.name]
+        if state.get('job_id')and item.get('model_job_id')!=state['job_id']:
+            from .efe_pear_allocation_jobs import submit as submit_job
+            query=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
+            if query['status']=='RUNNING':
+                job='native-rebind-'+hashlib.sha256((state['job_id']+build.name).encode()).hexdigest()[:16]
+                allocated=read(Path(item.get('allocation_build',item['build']))/'spec.json')
+                staging=({'workflow':state['workflow'],'task':'trainer'}
+                    if allocated.get('allocation_control_base','').startswith('/mnt/amlfs-07/shared/rpunamiya/')else None)
+                item.update(submit_job(item,build,replace_running=True,job_id=job,staging=staging),model_job_id=state['job_id'])
+                write(DEST/'primary-native-queue.json',queue)
+        return
+    spec=read(build/'spec.json')
+    reused=reuse_native_allocation(build,queue,live_workflows=live_workflows,model_job_id=state['job_id'])
+    if reused is not None:
+        reused['model_job_id']=state['job_id'];queue[build.name]=reused
+    else:
+        fallback='groot-l40-02'if spec.get('kind')=='rtx'else'groot-l40-03'
+        pool='groot-h100-01'if spec.get('kind')=='efe'else read(Path(state['build'])/'spec.json').get('l40_pool',fallback)
+        priority=scheduling_priority(pool,state['priority'],read(DEST/'control.json',{}))
+        receipt=submit_reconciled(build,priority=priority,pool=pool,nodes=1)
+        queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),'pool':pool,'priority':priority,
+            'owner_model_workflow':state['workflow'],'model_job_id':state['job_id']}
+    write(DEST/'primary-native-queue.json',queue)
+
+
+def provision_native_workers(builds,state,queue,live_workflows):
+    import pexpect
+    deferred={}
+    for build in builds:
+        try:provision_native(build,state,queue,live_workflows)
+        except(pexpect.TIMEOUT,pexpect.EOF,subprocess.TimeoutExpired,RuntimeError)as exc:
+            # A stalled exec into one retained allocation must not prevent
+            # independent simulators from starting. Reuse the same request
+            # identity on the next tick; uncertain acceptance never releases
+            # that allocation or submits another copy of its worker.
+            deferred[build.name]={'error_type':type(exc).__name__,'summary':str(exc).splitlines()[0][:240]}
+    write(DEST/'native-provisioning-deferred.json',{'model_workflow':state['workflow'],
+        'model_job_id':state['job_id'],'updated_unix':time.time(),'workers':deferred})
+    state['native_workers_launched']=not deferred
+    state['native_workers_partially_launched']=any(build.name in queue for build in builds)
     return state
 
 
@@ -415,37 +489,18 @@ def tick():
         observed=job_status(state)
         if observed is not None:state=recover_job_inside_allocation(state,observed)
         write(DEST/'primary-launch.json',state)
+        if state.get('control_interface'):
+            from .release_efe_pear_eef import tick as release_eef
+            release_eef(state)
     if (query['status']=='RUNNING'and state.get('job_id')and query.get('start_time')
         and not state.get('native_workers_launched')):
         worker_queue=read(DEST/'primary-native-queue.json',{})
-        for build in native_builds(state['build'],state['workflow']):
-            if build.name in worker_queue:
-                item=worker_queue[build.name]
-                if state.get('job_id')and item.get('model_job_id')!=state['job_id']:
-                    from .efe_pear_allocation_jobs import submit as submit_job
-                    worker_status=command(['osmo','workflow','query',item['workflow'],'--format-type','json'])
-                    if worker_status['status']=='RUNNING':
-                        item.update(submit_job(item,build,replace_running=True),model_job_id=state['job_id'])
-                        write(DEST/'primary-native-queue.json',worker_queue)
-                continue
-            spec=read(build/'spec.json')
-            reused=reuse_native_allocation(build,worker_queue)
-            if reused is not None:
-                reused['model_job_id']=state.get('job_id')
-                worker_queue[build.name]=reused;write(DEST/'primary-native-queue.json',worker_queue);continue
-            # Split the two renderer workloads across compatible shared-volume
-            # pools; one pool rejected its single-GPU placements before startup.
-            pool=('groot-h100-01'if spec.get('kind')=='efe'else
-                'groot-l40-02'if spec.get('kind')=='rtx'else'groot-l40-03')
-            if spec.get('kind')!='efe':
-                pool=read(Path(state['build'])/'spec.json').get('l40_pool',pool)
-            priority=scheduling_priority(pool,state['priority'],read(DEST/'control.json',{}))
-            receipt=submit_reconciled(build,priority=priority,pool=pool,nodes=1)
-            worker_queue[build.name]={**receipt,'workflow':receipt['name'],'build':str(build),
-                'pool':pool,'priority':priority,'owner_model_workflow':state['workflow'],'model_job_id':state.get('job_id')}
-            write(DEST/'primary-native-queue.json',worker_queue)
-        state['native_workers_launched']=True;write(DEST/'primary-launch.json',state)
-    if state.get('native_workers_launched')and query['status']=='RUNNING':
+        live_rows=command(['osmo','workflow','list','--name','leact-rp-jhh-pear-worker',
+            '--count','1000','--format-type','json'])['workflows']
+        live_workflows={v['name']for v in live_rows if v['status']=='RUNNING'}
+        state=provision_native_workers(native_builds(state['build'],state['workflow']),state,worker_queue,live_workflows)
+        write(DEST/'primary-launch.json',state)
+    if (state.get('native_workers_launched')or state.get('native_workers_partially_launched'))and query['status']=='RUNNING':
         from .efe_pear_additional_capacity import tick as retarget_additional
         retarget_additional(state)
         from .efe_pear_native_child_recovery import tick as recover_native_children
@@ -498,7 +553,10 @@ def main():
                 value=tick()
                 if value.get('scheduler_status')=='COMPLETED':return
             except Exception as exc:
-                write(DEST/'primary-observer-error.json',{'error_type':type(exc).__name__,'error':str(exc)[-1200:]})
+                import traceback
+                write(DEST/'primary-observer-error.json',{'error_type':type(exc).__name__,'error':str(exc)[-1200:],
+                    'frames':[{'file':Path(f.filename).name,'line':f.lineno,'function':f.name}
+                        for f in traceback.extract_tb(exc.__traceback__)]})
             time.sleep(90)
 
 

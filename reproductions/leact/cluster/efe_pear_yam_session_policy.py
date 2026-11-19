@@ -34,6 +34,7 @@ class YamSessionPolicyCfg(PolicyCfg):
     training_reset_manifest_sha256:str=''
     output:str=''
     worker_id:str=''
+    control_interface:str=''
 
 
 @register_policy
@@ -48,6 +49,10 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
         self.root=Path(config.transport_root);self.output=Path(config.output)
         self.output.mkdir(parents=True,exist_ok=True);self.schedule=None
         self.terms=None;self.steps=0;self.folder=None;self.bound=False
+        self.eef=None;self.eef_feedback=None
+        if config.control_interface:
+            from efe_pear_eef import enabled
+            enabled(config.control_interface)
         if not re.fullmatch(r'[A-Za-z0-9_.-]+',config.worker_id):raise ValueError('Invalid native worker identity')
         workers=self.root/'workers';workers.mkdir(mode=0o700,parents=True,exist_ok=True)
         self.stopped=threading.Event()
@@ -67,6 +72,9 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
         manager=base.termination_manager
         if'success'not in manager.active_terms:raise ValueError('Native task lacks an official success termination')
         observe_termination_computes(manager,lambda values:setattr(self,'terms',values))
+        if self.config.control_interface:
+            from efe_pear_yam_eef import YamEefController
+            self.eef=YamEefController(env)
         self.bound=True
 
     def _public_result(self,env,observation,*,done=False,action=None,executed=0):
@@ -89,6 +97,8 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
         if os.environ.get('PEAR_NATIVE_FLOAT32_JSON')=='1':
             from efe_pear_float32_json import public_number
             measured=[public_number(v)for v in measured]
+        if self.eef:
+            contract=self.eef.contract(contract['cameras'],contract['control_dt'])
         visible={'mode':'task','objective':env.unwrapped.get_language_instruction(),
             'action_contract':contract,'spec':{'frames':{
                 'world':'Native simulator world frame; +Z is up. Camera image axes do not define robot axes.',
@@ -99,6 +109,12 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                 'units':'Arm angles in radians; mirrored prismatic finger targets in meters.'}},
             'recent_actions_and_feedback':[]if action is None else[{'action':action,'execution_completed':True,
                 'control_steps_before':self.steps-executed,'control_steps_after':self.steps}]}
+        if self.eef:
+            visible['observation']['tcp_pose']=self.eef.state()
+            visible['spec']['frames'].pop('joint_position',None)
+            visible['spec']['frames']['ee_pose']=contract['action_types']['ee_pose']['frame']
+            if self.eef_feedback and visible['recent_actions_and_feedback']:
+                visible['recent_actions_and_feedback'][-1]['eef_execution']=self.eef_feedback
         blocks,context_sha=public_blocks(visible,images)
         self.contract=contract;self.instruction=visible['objective']
         reward=float(bool(self.terms and self.terms.get('success')))if done else 0.
@@ -111,7 +127,9 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             'interface_context_version':'pear-public-interface-language-v1',
             'interface_context_sha256':context_sha,
             'requested_control_steps':0 if action is None else action.get('repeat',0),
-            'executed_control_steps':executed,'action_contract_sha256':view.initial['action_contract_sha256']}
+            'executed_control_steps':executed,'action_contract_sha256':hashlib.sha256(
+                json.dumps(contract,sort_keys=True).encode()).hexdigest(),
+            **({'eef_execution':self.eef_feedback}if self.eef else{})}
 
     def get_action(self,env,observation):
         if not self.bound:self._bind(env)
@@ -119,7 +137,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             claimed=claim_episode(self.root,self.config.worker_id,kinds={'native_yam/'+self.config.task})
             if claimed:break
             time.sleep(.1)
-        self.folder,request=claimed;self.steps=0;committed=False
+        self.folder,request=claimed;self.steps=0;committed=False;self.eef_feedback=None
         try:
             args=request['env_args']
             if set(args)!={'task','reset_id'}or args['task']!=self.config.task:
@@ -145,6 +163,7 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
             if bool(terminated.any()or truncated.any()):raise ValueError('Native reset terminated during its initial hold')
             self.terms=termination_snapshot(base.termination_manager)
             if any(self.terms.values()):raise ValueError('Native training reset is already terminal')
+            if self.eef:self.eef.reset()
             publish_result(self.folder,0,self._public_result(env,observation));index=0
             while True:
                 index+=1;action=wait_command(self.folder,index)
@@ -156,11 +175,18 @@ class YamSessionPolicy(PolicyBase[YamSessionPolicyCfg]):
                         'control_steps':self.steps,'policy_stop':True,'success':bool(value['rewards'][0])})
                     publish_result(self.folder,index,value);committed=True;break
                 executed=0;done=False
-                target=torch.tensor([action['action']],dtype=torch.float32,device=base.device)
+                target=None if self.eef else torch.tensor([action['action']],dtype=torch.float32,device=base.device)
                 for _ in range(action['repeat']):
+                    if self.eef:target=self.eef.step(action['action'])
                     observation,_,terminated,truncated,_=env.step(target);self.steps+=1;executed+=1
                     done=bool(terminated.any()or truncated.any())
                     if done:break
+                # Native auto-reset may already have replaced robot poses on
+                # termination. Never report those poses as the reached target.
+                if self.eef:
+                    self.eef_feedback={'requested_control_steps':action['repeat'],
+                        'executed_control_steps':executed,'terminal_pose_unavailable_after_auto_reset':done,
+                        **({}if done else self.eef.feedback(action['action']))}
                 value=self._public_result(env,observation,done=done,action=action,executed=executed)
                 if done:atomic_json(self.folder/'native-verdict.json',{'native_termination_terms':self.terms,
                     'control_steps':self.steps,'policy_stop':False,'success':bool(value['rewards'][0])})

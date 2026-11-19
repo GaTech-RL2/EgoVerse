@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from pear.agent_loop.protocol import InvalidAction
 from pear.envs.tool import EnvironmentTool
-from efe_action_loop import SYSTEM, parse_action
+from efe_action_loop import SYSTEM, parse_action, system_prompt
 from efe_pear_native_finalization import finalize_episode
 
 
@@ -23,7 +23,7 @@ class NativeEfeTool(EnvironmentTool):
     def system_prompt(self,result):
         # The action schema and controller are unchanged; PEAR stores the model's
         # reasoning separately and its parser expects the final fenced JSON.
-        return SYSTEM.replace('Return only one JSON object with action_type',
+        return system_prompt(result['action_contract']).replace('Return only one JSON object with action_type',
             'End your response with one json code block containing action_type')+(
             '\nGround your reasoning in the action and observation guide supplied with each observation, '
             'including its coordinate frames, units and named sensor layout.')

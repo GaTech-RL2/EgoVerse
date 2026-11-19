@@ -25,6 +25,12 @@ def main():
     sys.path.insert(0, str(service.parent))
     import rcb_limited
     rcb_limited.Episode._usr1 = owner_thread_end
+    import os
+    if os.environ.get('PEAR_NATIVE_CONTROL_INTERFACE'):
+        from efe_pear_eef import enabled
+        enabled(os.environ['PEAR_NATIVE_CONTROL_INTERFACE'])
+        from efe_pear_eef_service import install
+        install(rcb_limited)
     sys.argv = [str(service), *sys.argv[2:]]
     runpy.run_path(str(service), run_name='__main__')
 

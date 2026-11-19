@@ -123,6 +123,8 @@ class HarborEpisode:
         source=Path(self.config['agent_source'])
         for name in ['efe_action_agent.py','efe_action_loop.py']:
             shutil.copyfile(source/name,agent_dir/name)
+        if self.config['action_config'].get('control_interface'):
+            shutil.copyfile(source/'efe_pear_eef.py',agent_dir/'efe_pear_eef.py')
         (agent_dir/'action-config.json').write_text(json.dumps(self.config['action_config'])+'\n')
         env={**os.environ,**self.config.get('container_environment',{}),
             'OPENAI_API_KEY':self.token,'OPENAI_BASE_URL':f'http://{address}:{self.server.server_port}/v1',

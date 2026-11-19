@@ -44,6 +44,12 @@ def main():
     service=None;log=None;children=[]
     try:
         reference,env,service,log=native.setup({**spec['native_setup'],'container_storage_root':'/tmp/efe-native'})
+        if spec.get('control_interface'):
+            from efe_pear_eef import enabled
+            enabled(spec['control_interface'])
+            from efe_pear_vlabench_eef import stage
+            overlays=stage(reference,spec['native_setup']['tasks'],lane/'efe_pear_vlabench_eef.py')
+            atomic_json(output/'eef-native-source-overlays.json',overlays)
         from efe_pear_gpu_cdi import ensure_gpu_cdi
         ensure_gpu_cdi(native.run)
         raw=os.environ.pop('RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION')
@@ -73,6 +79,9 @@ def main():
                 'episode_root':str(directory/'episodes'),'harbor':__import__('shutil').which('harbor',path=env['PATH']),
                 'retain_transport_observations':False,
                 'container_environment':{**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%8]}}
+            if spec.get('native_membership_local'):
+                config['membership_file']=str(lane/'native-membership.json')
+            if spec.get('control_interface'):config['control_interface']=spec['control_interface']
             config_path=directory/'native-config.json'
             # No credential bytes are retained in configs: the inherited
             # archive environment contains only a node-local filename.

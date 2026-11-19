@@ -41,6 +41,7 @@ def main():
     config={'source':str(source),'native_tool_relative':spec['native_tool_relative'],
         'episode_root':str(root/'episodes'),'qualification_only':False,
         'training_tasks':{k:v for k,v in membership['training_tasks'].items()if v['row']['suite']==spec['suite']}}
+    if spec.get('control_interface'):config['control_interface']=spec['control_interface']
     path=root/'native-config.json';atomic_json(path,config);os.environ['EFE_PEAR_RTX_CONFIG']=str(path)
     try:
         serve(spec['transport_root'],os.environ['EFE_WORKFLOW_ID'],{'efe/'+spec['suite']},

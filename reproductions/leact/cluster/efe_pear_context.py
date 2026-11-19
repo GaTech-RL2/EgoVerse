@@ -61,7 +61,8 @@ def interface_context(visible,*,image_sizes=None):
         f"{contract['max_repeat']}; summary explains the chosen action.",
         f"One control step lasts {contract['control_dt']} seconds. The controller applies the same vector "
         'once per step for repeat steps; requested duration is repeat times the control-step duration.',
-        'Declared world/robot coordinate conventions: '+compact(spec.get('frames','Not declared.')),
+        'Declared world/robot coordinate conventions: '+compact(spec.get('frames',
+            spec.get('world','Not declared.')if contract.get('control_interface')=='pear-eef-native-v1'else'Not declared.')),
         'For Cartesian deltas, positive values follow the declared positive axis and negative values '
         'go in the opposite direction. Absolute position or joint targets are targets, not deltas. '
         'Image left/right/up/down are not automatically world or robot-base directions. '
@@ -74,8 +75,11 @@ def interface_context(visible,*,image_sizes=None):
             '  Component-wise lower bounds: '+compact(entry['lower'])+'; upper bounds: '+compact(entry['upper'])])
         # Preserve asymmetric arm/finger order, mixed frames, normalized scales,
         # quaternion order and gripper sign descriptions exactly as published.
-        for key in ['frame','frames','axis_directions','units','dtype','kinds','parts',
-                    'semantics','grip','gripper','rotation_convention','quaternion_order','hybrid_mode']:
+        fields=['frame','frames','axis_directions','units','dtype','kinds','parts',
+                'semantics','grip','gripper','rotation_convention','quaternion_order','hybrid_mode']
+        if contract.get('control_interface')=='pear-eef-native-v1':
+            fields+=['tool_frame','note','quaternion_groups']
+        for key in fields:
             if key in entry:lines.append('  '+key+': '+compact(entry[key]))
         if not any(key in entry for key in ['frame','frames']):
             lines.append('  Action-specific frame: not separately declared; consult the native semantics above and global conventions without assuming they coincide.')
