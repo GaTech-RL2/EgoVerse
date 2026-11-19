@@ -768,3 +768,27 @@ four optimizer updates. The upstream paper config has test_freq=-1 and disables
 in-run validation; do not describe evaluations as automatically underway. The
 next checkpoint is due at update 4. Runtime receipts, first-step metrics and the
 live dashboard retain the measured timings for revised estimates.
+
+### 2026-11-19 10:36 UTC — second batch ready; resource-monitor retries persist
+
+The same model job remains running on all five model nodes, with all twenty
+current native children running. At 10:31 UTC the run had 1402 completed episodes,
+294 successes and 63 cumulative usable groups: 32 used by completed update 1 and
+31 collected toward update 2. At 10:35 UTC that next batch reached 32 usable
+groups, with 1438 completed episodes and 302 successes. Completed optimizer
+updates remained one; a full batch is not itself a completed gradient update.
+No primary checkpoint or eval had completed. The LOW 56-H100 standby was pending
+at retry r15. An earlier scheduler-list HTTP 503 had cleared; current controller
+checks were succeeding. No live allocation was canceled or recipe changed.
+
+Episode-level native infrastructure failures continue despite live workers. The
+latest transport errors report an invalid resource-enforced verdict. Audited
+recent retained native trial JSON: affected MetaWorld trials have
+resource_monitor_missing=1 and infra_error=1 while resource_enforced=1. Some
+also report live_success=1 / success_before_limits=1. These are rejected and
+retried, rather than treated as valid successes or policy failure rewards.
+Other recent trials have valid monitor records and usable native verdicts.
+The underlying monitor fault is not yet repaired; this is a verified source of
+episode attrition. Evidence is saved in hourly-episode-errors.json and
+hourly-native-verifier-audit.json. Preserve the grading checks while diagnosing
+the monitor; bypassing them would change what counts as a valid outcome.
