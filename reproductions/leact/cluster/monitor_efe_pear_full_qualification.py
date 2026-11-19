@@ -84,6 +84,11 @@ def retry(item):
     result=submit_reconciled(target,priority=priority,pool=pool,nodes=1)
     item.setdefault('history',[]).append({'workflow':item['workflow'],'status':item.get('scheduler_status')})
     item.update(**result,workflow=result['name'],build=str(target),priority=priority,pool=pool,attempt=attempt)
+    if read(target/'spec.json',{}).get('allocation_lifecycle')=='persistent_cluster':
+        # A scheduler retry creates a fresh allocation from this bundle. Its
+        # keeper root must not be inherited from an older retained allocation.
+        item['allocation_build']=str(target)
+        item.pop('job_id',None)
     item.pop('receipt',None);item.pop('worker',None);item.pop('source_failure',None)
     item['scheduler_status']='PENDING'
 

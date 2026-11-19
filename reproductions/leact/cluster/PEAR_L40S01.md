@@ -618,3 +618,39 @@ processes were observed running this job. Its separate run directory is
 and the first optimizer update remain distinct from successful job submission.
 The dashboard retains the 141-episode/19-success pre-update observation in the
 handoff explanation rather than assigning those old rollouts to the new run.
+
+
+### 2026-11-19 07:33 UTC — hourly chat heartbeat and native retry-root repair
+
+The user explicitly requested hourly progress messages in this conversation.
+Installed the local LaunchAgent com.rpunamiya.pear-chat-heartbeat with a
+3600-second interval. It uses the supported `codex queue --thread ... --message
+... --resume` command against this existing conversation, inheriting its model.
+The prompt requires live workflow/child-state checks, actual optimizer updates,
+rollout successes, useful groups, checkpoints/evaluations, blockers and ETA;
+it requires an update even when unchanged. It preserves allocations and later
+user instructions, and never creates another heartbeat. The wrapper locks and
+persists its send intent before queueing to avoid repeated sends in one hour.
+The first scheduled-command test exited zero, returned a queued-message ID and
+no resume warning. launchctl confirms a 3600-second interval and last exit zero.
+The runtime is local: the Mac must be awake and the Codex service available.
+
+At 07:25 UTC the startup32 run had 246 completed episodes, 30 successes and five
+usable groups, with zero optimizer updates. Fully judged groups still supplied
+useful signal only from reasoning; native task groups and partial rollouts are
+reported separately. Five model children remained running.
+
+The controller was repeatedly failing on the last YAM slot with "Allocation
+keeper is not ready". The scheduler retry had created a new allocation whose
+actual keeper root was under the newer run, but its ledger retained the older
+allocation_build field. An in-container environment/spec/node read verified the
+mismatch. Corrected that one ledger reference; future persistent-allocation
+scheduler retries now reset allocation_build to their own frozen bootstrap and
+drop stale child-job IDs. The controller then completed core worker job
+submission (native_workers_launched=true) without interrupting the model or
+canceling any allocations. Added a regression test for that ownership boundary.
+
+Validation: 694 research tests passed, four skipped and eight subtests passed.
+The required root unit command was attempted and cannot collect without local
+lightning. The heartbeat was operationally verified against the real local
+scheduler and existing Codex conversation; no GPU was allocated for notification.
