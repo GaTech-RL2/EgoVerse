@@ -330,3 +330,41 @@ already calls `final_action_json` first. The corrected diagnostic reuses that
 same decoder and validates native bounds afterward. The rejected wrapper in
 the earlier attempt is not evidence of a policy regression. All old records
 are retained, and the corrected replay has separate source pins and outputs.
+
+
+### 2026-11-19 02:10 UTC — update is still awaiting usable groups
+
+Live scheduler queries confirm the 40-H100 primary, the separate eight-H100
+native EFE host, and the zero-GPU transport maintenance job are RUNNING. No
+primary optimizer-step artifact exists. A fresh rollout-counter snapshot shows
+325 completed episodes, seven positive rewards, 39 fully judged groups and
+four mixed-outcome groups. There were also 81 infrastructure/runtime failed
+attempts; those are distinct from policy failure rewards. The four usable
+groups are insufficient for the preserved 128-group batch, even without the
+old per-family gate. Native YAM accounts for 30 of the judged groups.
+
+The known-case replay reached 18 valid actions and zero invalid actions in
+handle-press, then received an HTTP 400 with no captured response body. The
+last successful request already contained 149,086 prompt tokens. The serving
+API confirms a 176,384-token context limit, and its tokenizer endpoint passed
+a text probe. The exact HTTP rejection cause is not yet established: these
+observations motivate bounding each completion to the available context and
+retaining the server's full error body rather than treating the incident as a
+policy failure. The corrected replay tokenizes its full conversation before
+sampling, preserves images/history, and finalizes through the native verifier
+when the context is exhausted. Its diagnostic outputs remain separate. The
+primary 160,000-response-token recipe and passed driver source hashes were
+not changed.
+
+A new replay was launched on the existing rollout node without another model
+allocation. Its previous attempt and all results were retained. Two temporary
+native diagnostic lanes were requested on the existing simulator host to claim
+only these four known training requests, avoiding the general simulator queue;
+this adds no GPU allocation and leaves ordinary worker ownership intact.
+
+Validation: 648 research tests pass, three skip, and eight subtests pass.
+The regression check covers long-context completion capacity and preservation
+of HTTP error details. The required repository unit command was attempted;
+`python -m pytest tests/unit -q` cannot collect without local `lightning`.
+The journal checkout is absent at its configured/default locations, so this
+entry remains in the existing experiment log. No RL improvement is claimed.

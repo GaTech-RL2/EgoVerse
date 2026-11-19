@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import time
+import urllib.error
 import urllib.request
 
 from efe_action_loop import SYSTEM,parse_action
@@ -19,6 +20,23 @@ from efe_pear_action_json import final_action_json
 
 def decode_action(text,contract):
     return parse_action(final_action_json(text),contract=contract,allow_stop=True)
+
+
+def completion_capacity(tokenization,remaining_episode_tokens):
+    count,limit=tokenization['count'],tokenization['max_model_len']
+    if type(count)is not int or type(limit)is not int or count<0 or limit<=0:
+        raise ValueError('Invalid serving context accounting')
+    return max(0,min(32768,remaining_episode_tokens,limit-count))
+
+
+def api_json(http,url,body):
+    request=urllib.request.Request(url,data=json.dumps(body).encode(),
+        headers={'Content-Type':'application/json'})
+    try:
+        with http.open(request,timeout=600)as response:return json.load(response)
+    except urllib.error.HTTPError as exc:
+        detail=exc.read(16384).decode(errors='replace')
+        raise RuntimeError(f'Inference HTTP {exc.code}: {detail}')from exc
 
 
 def public_content(blocks):
@@ -66,18 +84,23 @@ def run_case(spec,case,index):
                 result['end_reason']='diagnostic_budget'
                 value=client.step({'stop':True,'summary':'Finish the diagnostic at its declared budget.'});break
             messages.append({'role':'user','content':public_content(value['public_blocks'])})
-            body={'model':spec['model'],'messages':messages,'temperature':1.,
-                'max_tokens':min(32768,160000-result['generated_tokens'])}
+            body={'model':spec['model'],'messages':messages,'temperature':1.}
             if spec.get('chat_template_kwargs'):body['chat_template_kwargs']=spec['chat_template_kwargs']
-            request=urllib.request.Request(api+'/v1/chat/completions',
-                data=json.dumps(body).encode(),headers={'Content-Type':'application/json'})
+            tokenization=api_json(http,api+'/tokenize',{k:body[k]for k in
+                ['model','messages','chat_template_kwargs']if k in body})
+            body['max_tokens']=completion_capacity(tokenization,160000-result['generated_tokens'])
+            if not body['max_tokens']:
+                result['end_reason']='diagnostic_context_budget'
+                value=client.step({'stop':True,'summary':'Finish at the serving context budget.'});break
             before=time.monotonic()
-            with http.open(request,timeout=600)as response:reply=json.load(response)
+            reply=api_json(http,api+'/v1/chat/completions',body)
             message=reply['choices'][0]['message'];text=message.get('content')or''
             result['generated_tokens']+=reply['usage']['completion_tokens']
             with(folder/'turns.jsonl').open('a')as log:
                 log.write(json.dumps({'turn':turn,'text':text,'finish_reason':reply['choices'][0]['finish_reason'],
-                    'usage':reply['usage'],'model_seconds':time.monotonic()-before})+'\n')
+                    'usage':reply['usage'],'requested_max_tokens':body['max_tokens'],
+                    'tokenized_prompt_tokens':tokenization['count'],
+                    'model_seconds':time.monotonic()-before})+'\n')
             messages.append({'role':'assistant','content':text})
             try:action=decode_action(text,contract)
             except(ValueError,TypeError,KeyError)as exc:
