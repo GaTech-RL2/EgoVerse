@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import time
 
 import yaml
@@ -29,7 +30,8 @@ def refresh_build(state):
     from .switch_astra_wide_profile import PROFILE_ROOT,profile_spec
     if spec.get('owner_model_workflow')!=OWNER or spec.get('teacher_root')not in {TEACHER_ROOT,PROFILE_ROOT}:
         raise ValueError('Not an independently owned teacher collection')
-    if read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1':
+    if (state.get('teacher_profile_id')=='astra62-xhigh-v1'or
+        read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'):
         spec={**profile_spec(spec),'teacher_native_only':True}
     files=frozen_files(old)
     for name in NEW_FILES:files[name]=BASE/'cluster'/name
@@ -61,25 +63,33 @@ def snapshot(host, states):
         controls[wf]=spec['allocation_control_base']+'/'+wf
     script='''from pathlib import Path
 import collections,json,time
-root=Path(__ROOT__);controls=__CONTROLS__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0
+root=Path(__ROOT__);controls=__CONTROLS__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0;errors=[]
+def load(path):
+ try:return json.loads(path.read_text())
+ except (OSError,ValueError)as exc:
+  errors.append({'path':str(path),'error_type':type(exc).__name__,'error':str(exc)[:180]});return None
 for wf,control in controls.items():
  p=Path(control)
- try:
-  node=json.loads((p/'nodes/native.json').read_text());desired=json.loads((p/'desired.json').read_text())
-  nodes[wf]={'node':node,'desired_id':desired['id']}
- except FileNotFoundError:pass
+ node=load(p/'nodes/native.json');desired=load(p/'desired.json')
+ if node and desired:nodes[wf]={'node':node,'desired_id':desired['id']}
 for p in root.glob('episodes/*/infra-*/result.json'):
- r=json.loads(p.read_text());status=r['status'];suite=r['case']['suite'];counts[status]+=1
+ r=load(p)
+ if r is None:continue
+ status=r['status'];suite=r['case']['suite'];counts[status]+=1
  suites.setdefault(suite,collections.Counter())[status]+=1
  actions+=r.get('valid_actions',0);invalid+=r.get('invalid_actions',0);tokens+=r.get('generated_tokens',0);admitted+=bool(r.get('sft_admitted'))
 profile_root=Path(__PROFILE_ROOT__);profile_counts=collections.Counter();profile_suites={};workers={}
 for p in profile_root.glob('episodes/*/infra-*/result.json'):
- r=json.loads(p.read_text());profile_counts[r['status']]+=1
+ r=load(p)
+ if r is None:continue
+ profile_counts[r['status']]+=1
  profile_suites.setdefault(r['case']['suite'],collections.Counter())[r['status']]+=1
-for p in profile_root.glob('profile-workers/*.json'):workers[p.stem]=json.loads(p.read_text())
+for p in profile_root.glob('profile-workers/*.json'):
+ value=load(p)
+ if value is not None:workers[p.stem]=value
 print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'attempt_status':dict(counts),
  'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted,
- 'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers}}),flush=True)
+ 'read_errors':errors,'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers}}),flush=True)
 '''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls)).replace('__PROFILE_ROOT__',repr(PROFILE_ROOT))
     return remote(host,script,task='native')
 
@@ -88,9 +98,10 @@ def recover_allocation(state, scheduler):
     """A scheduler-ended allocation has no live nodes to cancel or repurpose."""
     if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}:
         return None
-    if not (infrastructure_failure(scheduler)or '2001'in str(scheduler)):
+    if scheduler.get('cancelled_by'):return None
+    if not (infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
         return None
-    if state.get('allocation_retries',0)>=6:return None
+    if state.get('allocation_retries',0)>=16:return None
     build=refresh_build(state)
     pool=state.get('pool')or scheduler['pool']
     receipt=submit_reconciled(build,pool=pool,priority='LOW',nodes=1)
@@ -118,27 +129,41 @@ def recover_child(state, node):
 
 
 def tick():
+    write(ROOT/'watch-loop-heartbeat.json',{'updated_unix':time.time(),'pid':os.getpid(),'phase':'querying_schedulers'})
     states=read(ROOT/'launches.json',{})
     active={k:v for k,v in states.items()if not v.get('superseded_by')}
     def query(wf):
-        try:return wf,command(['osmo','workflow','query',wf,'--format-type','json'])
+        try:
+            result=subprocess.run(['osmo','workflow','query',wf,'--format-type','json'],
+                                  capture_output=True,text=True,timeout=20)
+            if result.returncode:raise RuntimeError((result.stderr+result.stdout)[-600:])
+            return wf,json.loads(result.stdout[result.stdout.index('{'):])
         except Exception as exc:return wf,{'status':'UNKNOWN','error':str(exc)[:300]}
-    schedulers=dict(ThreadPoolExecutor(6).map(query,active))
+    with ThreadPoolExecutor(4)as pool:schedulers=dict(pool.map(query,active))
     write(ROOT/'watch-schedulers.json',schedulers)
     status={'updated_utc':datetime.now(timezone.utc).isoformat(),'pid':os.getpid(),
         'scheduler_counts':dict(__import__('collections').Counter(q['status']for q in schedulers.values())),
-        'hero_untouched':True,'recovery_actions':[]}
-    primary=read(DEST/'primary-launch.json',{})
+        'hero_untouched':True,'recovery_actions':[],'phase':'capturing_teacher_state'}
+    write(ROOT/'watch-status.json',status)
+    try:primary=read(DEST/'primary-launch.json',{})
+    except (OSError,ValueError)as exc:
+        primary={};status['hero_read_error']=type(exc).__name__+':'+str(exc)[:240]
     if primary.get('workflow'):status['hero_scheduler']=query(primary['workflow'])[1].get('status')
     hosts=[]
     for wf,q in schedulers.items():
         try:running_tasks(q);hosts.append(wf)
         except (RuntimeError,KeyError):pass
+    capture=None
     if hosts:
         # Reading all shared status through one healthy owned worker avoids
         # exec during any other worker's scheduler startup barrier.
-        capture=snapshot(hosts[0],active);write(ROOT/'watch-census.json',capture)
+        for host in hosts[:3]:
+            try:capture=snapshot(host,active);break
+            except Exception as exc:status.setdefault('snapshot_errors',{})[host]=type(exc).__name__+':'+str(exc)[:240]
+    if capture is not None:
+        write(ROOT/'watch-census.json',capture)
         status['attempt_status']=capture['attempt_status'];status['sft_admitted']=capture['sft_admitted']
+        status['snapshot_read_errors']=capture.get('read_errors',[])
         profile_enabled=read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'
         if profile_enabled:status['astra62_attempt_status']=capture['astra62_profile']['attempt_status']
         for wf,node in capture['nodes'].items():
@@ -146,19 +171,29 @@ def tick():
             row=active[wf]
             if not row.get('job_id'):
                 row={**row,'job_id':node['desired_id']};record_launch(row);active[wf]=row
-            recovered=recover_child(row,node)
+            try:recovered=recover_child(row,node)
+            except Exception as exc:
+                status.setdefault('child_recovery_pending',{})[wf]=str(exc)[:600];continue
             if recovered:status['recovery_actions'].append({'workflow':wf,'child':recovered['job_id']})
             if profile_enabled and not recovered and node['node']['phase']=='running':
                 from .switch_astra_wide_profile import deploy
+                key=wf+'-'+str(row.get('profile_job_id',''))
+                heartbeat=capture['astra62_profile']['workers'].get(key,{})
+                if time.time()-heartbeat.get('updated_unix',0)<120:
+                    status.setdefault('profile_collectors',{})[wf]=heartbeat['pid'];continue
                 try:
                     result=deploy(row)
                     status.setdefault('profile_collectors',{})[wf]=result['profile_sidecar']['pid']
                 except Exception as exc:
                     status.setdefault('profile_deployment_pending',{})[wf]=str(exc)[:600]
     for wf,q in schedulers.items():
-        replacement=recover_allocation(active[wf],q)
+        try:replacement=recover_allocation(active[wf],q)
+        except Exception as exc:
+            status.setdefault('allocation_recovery_pending',{})[wf]=str(exc)[:600];continue
         if replacement:status['recovery_actions'].append({'workflow':replacement['workflow'],'recovery_of':wf})
+    status.update(updated_utc=datetime.now(timezone.utc).isoformat(),phase='observed')
     write(ROOT/'watch-status.json',status)
+    write(ROOT/'watch-loop-heartbeat.json',{'updated_unix':time.time(),'pid':os.getpid(),'phase':'sleeping'})
     return status
 
 
@@ -172,6 +207,8 @@ def main():
             try:print(json.dumps(tick()),flush=True)
             except Exception as exc:
                 write(ROOT/'watch-error.json',{'updated_unix':time.time(),'error':str(exc)[:1200]})
+                write(ROOT/'watch-status.json',{'updated_utc':datetime.now(timezone.utc).isoformat(),
+                    'pid':os.getpid(),'phase':'observer_error','hero_untouched':True,'error':str(exc)[:600]})
             time.sleep(120)
 
 

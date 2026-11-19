@@ -27,7 +27,7 @@ TEACHER_ROOT=REMOTE+'/teacher-collections/rp_jhh_astra_wide_warmstart_20261119_v
 OWNER='rp_jhh_astra_wide_warmstart_20261119_v1'
 CREDENTIAL='rp-jhh-astra-wide-inference-20261119'
 NEW_FILES=['efe_astra_wide_collect.py','efe_astra_wide_worker.py','efe_astra_wide_reasoning_worker.py',
-           'efe_astra_wide_profile_worker.py','efe_pear_file_rpc.py','efe_pear_remote_worker.py']
+           'efe_astra_wide_profile_worker.py','efe_pear_yam_server.py','efe_pear_file_rpc.py','efe_pear_remote_worker.py']
 
 
 def freeze_worker(build,names):
@@ -127,7 +127,7 @@ gpu=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid,process_name
 print('EFE_CAPTURE '+json.dumps({'node':node,'native_processes':native,'gpu_processes':gpu,'observed_unix':time.time()}),flush=True)
 '''.replace('__CONTROL__',repr(control))
     proof=remote(item['workflow'],script,task='native')
-    if proof['node']['phase']not in {'idle_failed','idle_finished','waiting_for_job'}or proof['native_processes']or proof['gpu_processes']:
+    if proof['node']['phase']not in {'idle_failed','idle_peer_failed','idle_finished','idle_completed','waiting_for_job'}or proof['native_processes']or proof['gpu_processes']:
         raise RuntimeError('Retained allocation has an active owner/workload; preserved')
     return proof,control
 

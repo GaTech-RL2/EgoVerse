@@ -1,5 +1,8 @@
 import hashlib
+import contextlib
+import io
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -53,3 +56,64 @@ def test_native_failure_feedback_stays_scoped_to_worker_tasks(tmp_path):
     assert (tmp_path/'transport/episodes/own/infrastructure-error.json').exists()
     assert not (tmp_path/'transport/episodes/other/infrastructure-error.json').exists()
     assert not (tmp_path/'transport/episodes/done/infrastructure-error.json').exists()
+
+
+def test_empty_failed_allocation_json_does_not_block_other_evidence(tmp_path,monkeypatch):
+    from reproductions.leact.cluster import switch_astra_wide_profile as profile
+    legacy=tmp_path/'legacy';current=tmp_path/'current';allocation=tmp_path/'allocations'
+    (allocation/'failed/nodes').mkdir(parents=True);(allocation/'failed/nodes/native.json').write_text('')
+    (allocation/'failed/desired.json').write_text('{"id":"failed-job"}')
+    build=tmp_path/'build';build.mkdir();(build/'spec.json').write_text(json.dumps({'allocation_control_base':str(allocation)}))
+    result=current/'episodes/case/infra-00/result.json';result.parent.mkdir(parents=True)
+    result.write_text('{"status":"graded_success","case":{"suite":"procedural_reasoning"}}')
+    monkeypatch.setattr(watch,'TEACHER_ROOT',str(legacy));monkeypatch.setattr(profile,'PROFILE_ROOT',str(current))
+    def execute(host,script,task):
+        stream=io.StringIO()
+        with contextlib.redirect_stdout(stream):exec(script,{})
+        return json.loads(stream.getvalue().split('EFE_CAPTURE ',1)[1])
+    monkeypatch.setattr(watch,'remote',execute)
+    captured=watch.snapshot('healthy-reader',{'failed':{'build':str(build)}})
+    assert captured['read_errors'][0]['error_type']=='JSONDecodeError'
+    assert captured['astra62_profile']['attempt_status']=={'graded_success':1}
+
+
+def test_snapshot_host_failure_does_not_skip_failed_allocation_recovery(tmp_path,monkeypatch):
+    states={name:{'workflow':name,'build':'unused'}for name in ['healthy','failed']}
+    (tmp_path/'launches.json').write_text(json.dumps(states))
+    monkeypatch.setattr(watch,'ROOT',tmp_path);monkeypatch.setattr(watch,'DEST',tmp_path)
+    def run(args,**kwargs):
+        q={'status':'RUNNING'if args[3]=='healthy'else'FAILED',
+           'tasks':[{'status':'RUNNING'if args[3]=='healthy'else'FAILED'}]}
+        return SimpleNamespace(returncode=0,stdout=json.dumps(q))
+    monkeypatch.setattr(watch.subprocess,'run',run)
+    monkeypatch.setattr(watch,'snapshot',lambda *_:(_ for _ in()).throw(RuntimeError('reader disconnected')))
+    recovered=[]
+    def recovery(state,scheduler):
+        recovered.append(state['workflow'])
+        return {'workflow':'replacement'}if state['workflow']=='failed'else None
+    monkeypatch.setattr(watch,'recover_allocation',recovery)
+    result=watch.tick()
+    assert recovered==['healthy','failed']
+    assert result['snapshot_errors']and result['phase']=='observed'
+    assert result['recovery_actions']==[{'workflow':'replacement','recovery_of':'failed'}]
+    assert json.loads((tmp_path/'watch-status.json').read_text())['phase']=='observed'
+
+
+def test_explicitly_canceled_teacher_is_not_automatically_reallocated(monkeypatch):
+    monkeypatch.setattr(watch,'refresh_build',lambda *_:pytest.fail('User cancellation must remain respected'))
+    assert watch.recover_allocation({}, {'status':'FAILED','cancelled_by':'rpunamiya','exit_code':2143})is None
+
+
+def test_yam_heartbeat_replacement_race_preserves_missing_file_semantics(tmp_path,monkeypatch):
+    from pathlib import Path
+    from reproductions.leact.cluster.efe_pear_yam_server import head_heartbeat_expired
+    class Stamp:
+        st_mtime=1000
+    monkeypatch.setattr(Path,'stat',lambda self:Stamp())
+    assert not head_heartbeat_expired(tmp_path/'head',now=1299)
+    assert head_heartbeat_expired(tmp_path/'head',now=1301)
+    calls=[]
+    def disappears(self):calls.append(str(self));raise FileNotFoundError('replaced concurrently')
+    monkeypatch.setattr(Path,'stat',disappears)
+    assert not head_heartbeat_expired(tmp_path/'head',now=99999)
+    assert len(calls)==1

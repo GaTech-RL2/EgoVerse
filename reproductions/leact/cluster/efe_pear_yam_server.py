@@ -17,6 +17,13 @@ import time
 import yaml
 
 
+def head_heartbeat_expired(path, *, now=None, max_age=300):
+    """Read the heartbeat once; a concurrent replacement can hide its name."""
+    try:updated=Path(path).stat().st_mtime
+    except FileNotFoundError:return False
+    return (time.time()if now is None else now)-updated>max_age
+
+
 def unpack(path,expected,target):
     digest=hashlib.sha256()
     with Path(path).open('rb')as stream:
@@ -98,7 +105,7 @@ def main():
             with lock:processes.append(process)
             while process.poll()is None:
                 head=finished.with_name('head-heartbeat.json')
-                lost=head.exists()and time.time()-head.stat().st_mtime>300
+                lost=head_heartbeat_expired(head)
                 if finished.exists()or failed.is_set()or lost:
                     os.killpg(process.pid,signal.SIGTERM)
                     try:process.wait(timeout=30)
