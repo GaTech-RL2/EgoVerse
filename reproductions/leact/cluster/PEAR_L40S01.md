@@ -858,3 +858,12 @@ lightning. Recovery evidence is in hourly-native-efe-scheduler.json,
 hourly-native-efe-recovery.json, hourly-native-efe-bootstrap.json and
 hourly-embedded-job-reconciliation.json. Native resource-monitor retries remain
 an independent unresolved source of episode attrition.
+
+At 12:49 UTC the replacement's retained Harbor results verified real native
+rollouts had resumed: two coffee-button successes and an unsuccessful handle-press
+trial, each with resource_enforced=1, resource_monitor_missing=0 and infra_error=0.
+The successful episodes executed 208 and 370 native control steps. These are
+individual training rollouts, not held-out evaluations or extra successes to add
+to the cumulative worker counter. Cold-start recovery evidence is retained in
+hourly-native-cold-runtime.json. The controller and all model/simulator allocations
+remain running; the external idle cancellation was the only node release.
