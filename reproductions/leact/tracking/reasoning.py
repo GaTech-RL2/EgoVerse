@@ -284,9 +284,14 @@ def build(base=BASE):
     recipe_transition=read(scaled/'recipe-transition.json',{})
     if recipe_transition.get('from_workflow')==primary_state.get('workflow'):
         primary_state['recipe_transition']=recipe_transition
-        primary_state['reason']=('Preparing task-level sampling and rolling family balancing. '
-            'The current run still uses hard per-family batches. Transition status: '
-            +recipe_transition.get('phase','pending').replace('_',' ')+'.')
+        if recipe_transition.get('phase')not in {'replacement_submitted_in_existing_allocation','replacement_active'}:
+            primary_state['reason']=('Preparing task-level sampling and rolling family balancing. '
+                'Transition status: '+recipe_transition.get('phase','pending').replace('_',' ')+'.')
+    reward_finalization=read(scaled/'native-reward-finalization-status.json',{})
+    if reward_finalization.get('current_workflow')==primary_state.get('workflow'):
+        primary_state['reason']=('Native terminal-grade repair and early training-task sampling: '
+            +reward_finalization.get('phase','pending').replace('_',' ')+'. '
+            'Existing GPU allocations are retained. Pre-repair rollouts are diagnostics; optimizer updates and evaluations are reported separately.')
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
     pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
     pool_ready=read(scaled/'l40s01-storage-ready.json',{})
@@ -343,6 +348,7 @@ def build(base=BASE):
                 'native_yam_production_volume':read(scaled/'native-yam-07-transport-status.json',{}),
                 'primary_launch':primary_state,
                 'recipe_transition':recipe_transition,
+                'native_reward_finalization':reward_finalization,
                 'graphics_storage':{'assets_verified':pool_assets.get('passed',False),
                     'asset_files':pool_assets.get('files',0),'sources_verified':pool_sources.get('passed',False),
                     'transport_verified':pool_ready.get('transport_roundtrip_passed',False),

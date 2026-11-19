@@ -167,6 +167,10 @@ def model_qualification(root):
         or command.get('curriculum_state_sha256')!=sha(Path(__file__).with_name('efe_pear_curriculum_state.py'))
         or command.get('signal_curriculum_sha256')!=sha(Path(__file__).with_name('efe_pear_signal_curriculum.py'))):
         raise PendingAdmission('Task curriculum and rolling family balancing have not passed the exact driver check')
+    if read(root/'control.json',{}).get('warmup_sampling')and(
+        command.get('focus_curriculum_sha256')!=sha(Path(__file__).with_name('efe_pear_curriculum_focus.py'))
+        or not command.get('warmup_sampling_checked')):
+        raise PendingAdmission('Focused training-task sampling has not passed the exact driver check')
     queue=read(root/'queue-checkpoint-status.json',{})
     queue_result=queue.get('worker',{})
     if(queue.get('scheduler_status')!='COMPLETED'or queue_result.get('passed')is not True

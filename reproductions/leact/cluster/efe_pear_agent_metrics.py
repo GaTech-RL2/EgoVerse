@@ -47,6 +47,8 @@ class MeasuredPearAgentLoop(PearAgentLoop):
         if self._thought_measured:values.update(thinking_tokens_sum=self._thought,thinking_measured_episodes=1)
         diagnostics().add(values)
         output.extra_fields['pear_diagnostics']=values
+        finalization=getattr(self.episode,'native_finalization',None)
+        if finalization:output.extra_fields['episode']['native_finalization']=finalization
         return output
 
     async def _log_turn(self,agent_data):

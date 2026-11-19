@@ -7,14 +7,18 @@ from collections import Counter, defaultdict, deque
 import hashlib
 import json
 import math
+import os
+from pathlib import Path
 import random
 
 try:
     from .efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
     from . import efe_pear_signal_curriculum as signal_curriculum
+    from . import efe_pear_curriculum_focus as curriculum_focus
 except ImportError:
     from efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
     import efe_pear_signal_curriculum as signal_curriculum
+    import efe_pear_curriculum_focus as curriculum_focus
 
 
 def identity(env_class, env_args):
@@ -70,6 +74,19 @@ class CurriculumState:
         self.adaptations=[]
         self.last_draw=None
         self.selection_history=[]
+        self.bootstrap_draw_cursor=0
+        self.set_sampling_control(manifest.get('warmup_sampling',{}))
+
+    def set_sampling_control(self,value):
+        confirmed=value.get('confirmed_training_tasks',[])
+        if(confirmed and(value.get('partition')!='train'or
+            not set(confirmed)<={c['task']for c in self.configs.values()})):
+            raise ValueError('Bootstrap sampling can only prioritize admitted training tasks')
+        if value and value.get('decay_updates',8)<=0:
+            raise ValueError('Bootstrap sampling needs a positive decay horizon')
+        if not set(value.get('probe_config_ids',[]))<=set(self.configs):
+            raise ValueError('Bootstrap probes must be admitted training configurations')
+        self.warmup_sampling=dict(value)
 
     @property
     def signal_balancing(self):return self.sampling_policy==signal_curriculum.POLICY
@@ -131,8 +148,23 @@ class CurriculumState:
         affects dispatch effort only. It cannot replace a missing family.
         """
         ready=ready or {};inflight=inflight or {}
+        control=os.environ.get('EFE_PEAR_SAMPLING_CONTROL')
+        if control and Path(control).exists():
+            self.set_sampling_control(json.loads(Path(control).read_text()))
+        confirmed=set(self.warmup_sampling.get('confirmed_training_tasks',[]))
+        if self.warmup_sampling:
+            confirmed.update(self.configs[g['config_id']]['task']for g in self.groups.values()
+                if g['infrastructure_ok']and any(g['outcomes'])and
+                self.configs[g['config_id']]['suite']!='procedural_reasoning')
+        probes=self.warmup_sampling.get('probe_config_ids',[])
+        forced=self.configs[probes[self.bootstrap_draw_cursor]]if self.signal_balancing and self.bootstrap_draw_cursor<len(probes)else None
+        if forced:self.bootstrap_draw_cursor+=1
         if self.signal_balancing:
             weights=signal_curriculum.dispatch_weights(self.quotas,self.selection_history,self.family_outcomes,inflight)
+            if self.warmup_sampling:
+                weights=curriculum_focus.focus_families(weights,self.quotas,self.configs,
+                    confirmed,self.groups,
+                    step=step,decay_updates=self.warmup_sampling.get('decay_updates',8))
         else:weights={}
         for family,quota in (()if self.signal_balancing else self.quotas.items()):
             recent=self.family_outcomes.get(family,())[-100:]
@@ -142,7 +174,7 @@ class CurriculumState:
         if not any(weights.values()):
             weights={f:max(0,n-ready.get(f,0)) for f,n in self.quotas.items()}
         if not any(weights.values()):weights=dict(self.quotas)
-        family=self.rng.choices(list(weights),weights=list(weights.values()),k=1)[0]
+        family=forced['family']if forced else self.rng.choices(list(weights),weights=list(weights.values()),k=1)[0]
         pool=[c for c in self.configs.values() if c['family']==family]
         # Balance coverage hierarchically. Reset-bank size never changes a
         # simulator or semantic task's sampling weight.
@@ -163,11 +195,16 @@ class CurriculumState:
             base={key:1/(len(suite_counts)*suite_counts[key[0]])for key in rates}
             total=sum(base[key]*learned[key]for key in rates)
             task_probabilities={key:.2*base[key]+.8*base[key]*learned[key]/total for key in rates}
+            if self.warmup_sampling:
+                focus_names={name for name in rates if name[1]in confirmed}
+                task_probabilities=curriculum_focus.focus_tasks(task_probabilities,base,focus_names,rates,
+                    step=step,decay_updates=self.warmup_sampling.get('decay_updates',8))
             suite,task=self.rng.choices(sorted(task_probabilities),weights=[task_probabilities[k]for k in sorted(task_probabilities)],k=1)[0]
             task_probability=task_probabilities[suite,task]
         else:
             suite=least_used('suite',pool);pool=[c for c in pool if c['suite']==suite]
             task=least_used('task',pool)
+        if forced:suite,task=forced['suite'],forced['task'];task_probability=1.
         pool=[c for c in pool if c['suite']==suite and c['task']==task]
         counts=Counter()
         for c in pool:counts[c['stratum']]+=self.dispatches[c['config_id']]
@@ -175,6 +212,7 @@ class CurriculumState:
         assisted=sorted({c['stratum'] for c in pool}-{'full'})
         stratum=('full' if not assisted or counts['full']<=full_fraction*sum(counts.values())
                  else self.rng.choice(assisted))
+        if forced:stratum=forced['stratum']
         pool=[c for c in pool if c['stratum']==stratum]
         rates={}
         for c in pool:
@@ -184,6 +222,7 @@ class CurriculumState:
         probabilities=sgs_probabilities(rates)
         chosen=self.rng.choices(sorted(probabilities),
             weights=[probabilities[k] for k in sorted(probabilities)],k=1)[0]
+        if forced:chosen=forced['config_id']
         self.last_draw={'family':family,'suite':suite,'task':task,'stratum':stratum,
             'selected_config_id':chosen,'selected_probability':probabilities[chosen],
             'estimated_success':rates[chosen],'reset_pool_size':len(probabilities),
@@ -192,7 +231,8 @@ class CurriculumState:
             'ready_groups':dict(ready),'inflight_groups':dict(inflight),
             'quotas':dict(self.quotas),'full_start_target_fraction':full_fraction}
         self.last_draw.update(sampling_policy=self.sampling_policy,task_probability=task_probability,
-                              sgs_scope='task_and_reset'if self.signal_balancing else'reset_only')
+                              sgs_scope='task_and_reset'if self.signal_balancing else'reset_only',
+                              warmup_sampling=self.warmup_sampling,planned_training_probe=bool(forced))
         return chosen
 
     def adapt(self, quotas, *, step, evidence):
@@ -218,7 +258,8 @@ class CurriculumState:
         return {'manifest_sha256':self.manifest_sha256,'rng':self.rng.getstate(),
                 'quotas':self.quotas,'history':self.history.state_dict(),'groups':self.groups,
                 'dispatches':dict(self.dispatches),'family_outcomes':dict(self.family_outcomes),
-                'adaptations':self.adaptations,'selection_history':self.selection_history}
+                'adaptations':self.adaptations,'selection_history':self.selection_history,
+                'warmup_sampling':self.warmup_sampling,'bootstrap_draw_cursor':self.bootstrap_draw_cursor}
 
     def restore(self, state):
         if state['manifest_sha256']!=self.manifest_sha256:
@@ -230,3 +271,5 @@ class CurriculumState:
         self.family_outcomes=defaultdict(list,state['family_outcomes'])
         self.adaptations=list(state['adaptations'])
         self.selection_history=list(state.get('selection_history',[]))
+        self.set_sampling_control(state.get('warmup_sampling',self.warmup_sampling))
+        self.bootstrap_draw_cursor=state.get('bootstrap_draw_cursor',0)

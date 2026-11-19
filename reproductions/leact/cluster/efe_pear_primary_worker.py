@@ -118,6 +118,7 @@ def main():
         'EPISODES':json.dumps(launch['train_files']),'VALIDATION_EPISODES':str(run/'development.json'),
         'TRAINING_STEPS':str(spec['training_steps']),'TRAINER_NNODES':'1','ROLLOUT_NNODES':str(spec['rollout_nodes']),
         'EFE_PEAR_NATIVE_CONFIG':str(run/'native-config.json'),'EFE_PEAR_CURRICULUM':str(run/'curriculum.json'),
+        'EFE_PEAR_SAMPLING_CONTROL':str(run/'curriculum-sampling.json'),
         'EFE_PEAR_REASONING_MEMBERSHIP':str(run/'reasoning-membership.json'),'EFE_PEAR_REMOTE_ROOT':str(run/'transport'),
         'TOOL_CONFIG':str(run/'tools.yaml'),'EFE_PEAR_METRICS_DIR':str(run/'telemetry'),
         'PEAR_LOG_DIR':str(run/'sim'),'PEAR_TRACE_FRAMES':'1','PEAR_PRIMARY_TRAINING':'1',

@@ -7,6 +7,7 @@ import re
 from pear.agent_loop.protocol import InvalidAction
 from pear.envs.tool import EnvironmentTool
 from efe_action_loop import SYSTEM, parse_action
+from efe_pear_native_finalization import finalize_episode
 
 
 class NativeEfeTool(EnvironmentTool):
@@ -58,5 +59,12 @@ class NativeEfeTool(EnvironmentTool):
         return self._observation(result),result
 
     async def close(self,episode):
-        try:await super().close(episode)
-        finally:self.contracts.pop(episode.uid,None)
+        try:
+            if episode.uid in self.contracts and not episode.done:
+                receipt=await finalize_episode(self.client,episode)
+                if receipt:
+                    path=self.log_path.parent/('native_finalizations_'+str(os.getpid())+'.jsonl')
+                    with path.open('a')as stream:stream.write(json.dumps(receipt)+'\n')
+        finally:
+            try:await super().close(episode)
+            finally:self.contracts.pop(episode.uid,None)

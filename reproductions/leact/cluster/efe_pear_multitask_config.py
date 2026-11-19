@@ -27,5 +27,7 @@ def configuration(config,manifest,*,model_revision=None,workflow=None):
         'family_targets_scope':'rolling_window'if curriculum.signal_balancing else'per_optimizer_batch',
         'family_window_updates':8 if curriculum.signal_balancing else 1,
         'sgs_scope':'task_and_reset'if curriculum.signal_balancing else'reset_only',
-        'curriculum_stage':curriculum.stage,'workflow':workflow,'sgs_uniform_fraction':.2}
+        'curriculum_stage':curriculum.stage,'workflow':workflow,'sgs_uniform_fraction':.2,
+        'native_reward_finalization':manifest.get('native_reward_finalization','legacy-close'),
+        'warmup_sampling':curriculum.warmup_sampling}
     return curriculum,metadata

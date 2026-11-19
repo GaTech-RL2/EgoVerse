@@ -442,3 +442,50 @@ previous evening and the new run, even though the live rollout counters came
 from the new run. Cache files now include the admitted run-directory hash, so
 historical groups cannot be assigned to the new recipe. Existing historical
 cache files remain intact. This changes tracking only, not model jobs or rewards.
+
+
+### 2026-11-19 — finalize native rewards and bootstrap from learnable training tasks
+
+The rolling sampler is live on the retained 40-H100 allocation
+`leact-rp-jhh-pear-primary-02a394b6b227-1`; its metadata confirms task/reset SGS
+and eight-update family balancing. The per-family batch gate is absent, while
+128 mixed-reward groups of eight remain required. A live check at 04:36 UTC
+still found zero completed optimizer updates.
+
+A matched warmstart replay had native successes on coffee-button and
+handle-press (two of four checked tasks). The production adapter could omit
+that terminal grade: on token-budget or parse termination the agent loop
+closed the environment and read Episode.success, but the adapter only canceled
+the remote session. The replay instead explicitly requested the native stop
+verdict. The fix collects that official verdict before cleanup and records a
+separate receipt without adding a sampled action, generated tokens or a chunk.
+Missing verdicts raise infrastructure errors rather than becoming fake zero
+rewards. The number of prior native successes affected remains unmeasured.
+
+The replacement starts from warmstart496 in a new content-addressed run;
+pre-repair rollouts remain diagnostic evidence. Exact configuration composition
+is running as `leact-rp-jhh-pear-primary-driver-check-8b8c866e3a6a-1` on CPU.
+Only after it passes, and only if the old run still has zero optimizer updates,
+the controller stages and checksums a replacement child job inside the same
+allocation. Any observed update holds the transition for checkpoint handoff.
+Simulator allocations remain retained and are reused with the new run root.
+Standby promotion also stages current validated sources, avoiding stale embedded
+native reward code. Lost submission acknowledgments retry the same job id.
+
+Sampling initially probes the two confirmed MetaWorld tasks, RoboDojo
+`general_pickup` and `align_blocks`, and two admitted LIBERO goal/spatial
+training scenes. LIBERO and RoboDojo are candidates, not confirmed student wins.
+Confirmed native tasks receive a soft early preference that decays over eight
+optimizer updates; newly successful control tasks join automatically. The regular
+sampler preserves its 20% hierarchical coverage component and the entire admitted
+mixture. Selection does not discard failures from mixed groups. These are
+training-only signals, and diagnostic generations never enter gradient batches.
+
+The design follows success-guided sampling of learnable task configurations;
+SGS reports PPO evidence, so effectiveness in this VLM/GRPO setting is a hypothesis.
+PEAR itself starts with LIBERO and later expands to RoboDojo. Sources:
+https://sgs-rl.github.io/ and PEAR's run_stage1.sh / run_stage3.sh.
+The required repository-wide unit command was attempted and cannot collect
+without the local lightning dependency. The research suite passed 673 tests, with three skipped and eight subtests
+passed. JavaScript syntax and diff checks passed. Live activation is tracked
+separately from configuration and unit checks.

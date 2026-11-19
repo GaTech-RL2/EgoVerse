@@ -41,6 +41,7 @@ def main():
     policies=['strict-family-v1','task-signal-window-v2']
     for policy in policies:
         curriculum=json.loads((previous/'curriculum.json').read_text());curriculum['sampling_policy']=policy
+        curriculum.update(spec.get('curriculum_overrides',{}))
         path=root/(policy+'-curriculum.json');path.write_text(json.dumps(curriculum)+'\n')
         env['EFE_PEAR_CURRICULUM']=str(path)
         for count in [6,4]:
@@ -64,6 +65,8 @@ def main():
         'multitask_config_sha256':spec['files']['efe_pear_multitask_config.py'],
         'curriculum_state_sha256':spec['files']['efe_pear_curriculum_state.py'],
         'signal_curriculum_sha256':spec['files']['efe_pear_signal_curriculum.py'],
+        'focus_curriculum_sha256':spec['files']['efe_pear_curriculum_focus.py'],
+        'warmup_sampling_checked':bool(spec.get('curriculum_overrides',{}).get('warmup_sampling')),
         'sampling_policies':policies,
         'wall_seconds':time.monotonic()-started,
         'scope':'Exact primary shell, resolved Hydra overrides, worker file paths, full curriculum and custom trainer metadata. No model load, Ray cluster or optimizer update.'}

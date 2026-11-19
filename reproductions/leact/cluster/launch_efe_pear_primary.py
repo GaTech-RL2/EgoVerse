@@ -68,6 +68,10 @@ def allocation_profile(attempt):
 def prepare(profile=0,*,standby=False,priority_override=None):
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     control=read(DEST/'control.json',{})
+    from .efe_pear_native_finalization import VERSION as FINALIZATION_VERSION
+    admission['curriculum']['native_reward_finalization']=FINALIZATION_VERSION
+    if control.get('warmup_sampling'):
+        admission['curriculum']['warmup_sampling']=control['warmup_sampling']
     policy=control.get('next_sampling_policy','strict-family-v1')
     if policy!='strict-family-v1':
         admission['curriculum']['sampling_policy']=policy
@@ -304,12 +308,21 @@ def promote_allocated_backup(state):
     candidate=command(['osmo','workflow','query',backup['workflow'],'--format-type','json'])
     backup['scheduler_status']=candidate['status'];write(DEST/'backup-allocation.json',backup)
     if candidate['status']!='RUNNING':return None
-    from .efe_pear_allocation_jobs import activate_embedded
+    from .efe_pear_allocation_jobs import submit as submit_job
     previous=state.get('workflow')if state.get('workflow')and current['status'].startswith('FAILED')else None
-    receipt=activate_embedded(backup,previous_workflow=previous);spec=read(Path(backup['build'])/'spec.json')
+    allocated=read(Path(backup['build'])/'spec.json')
+    try:build=prepare(allocated['profile'],standby=True,priority_override=backup['priority'])
+    except PendingAdmission as exc:
+        backup['phase']='allocation_held_for_current_recipe_validation';backup['reason']=str(exc)
+        write(DEST/'backup-allocation.json',backup);return None
+    spec=read(build/'spec.json')
+    if(spec['model_revision']!=allocated['model_revision']or spec['rollout_nodes']!=allocated['rollout_nodes']):
+        raise ValueError('Backup promotion changed the model initialization or allocated roles')
+    receipt=submit_job(backup,build,previous_workflow=previous)
     history=state.get('history',[])
     if state.get('workflow'):history=history+[{k:state[k]for k in ['workflow','profile','scheduler_status']if k in state}]
-    value={**backup,**receipt,'run':spec['run'],'run_id':ARM,'profile':spec['profile'],
+    value={**backup,**receipt,'allocation_build':backup.get('allocation_build',backup['build']),
+        'build':str(build),'run':spec['run'],'run_id':ARM,'profile':spec['profile'],
         'standby':False,'native_workers_launched':False,'history':history,'phase':'job_submitted_in_existing_allocation',
         'primary_rl_updates':0,'scheduler_status':'RUNNING'}
     if state.get('standby')and not current['status'].startswith('FAILED'):
@@ -360,6 +373,10 @@ def tick():
     maintain_backup(DEST/'backup-allocation.json')
     promoted=promote_allocated_backup(state)
     if promoted is not None:return promoted
+    if state.get('workflow')and state.get('scheduler_status')=='RUNNING':
+        from .efe_pear_native_reward_transition import tick as transition_native_reward
+        replacement=transition_native_reward(state)
+        if replacement is not None:return replacement
     if state.get('workflow')and not state.get('terminal_confirmed'):
         from .efe_pear_recipe_transition import tick as transition_recipe
         replacement=transition_recipe(state)

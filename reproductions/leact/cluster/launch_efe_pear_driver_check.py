@@ -21,6 +21,9 @@ def launch():
     spec={'primary':primary,'output':REMOTE+'/primary-driver-checks',
         'script_sha256':hashlib.sha256((BASE/'cluster/efe_pear_scaled_train.sh').read_bytes()).hexdigest(),
         'files':{n:hashlib.sha256(p.read_bytes()).hexdigest()for n,p in files.items()}}
+    from .efe_pear_native_finalization import VERSION
+    spec['curriculum_overrides']={'native_reward_finalization':VERSION,
+        'warmup_sampling':read(DEST/'control.json',{}).get('warmup_sampling',{})}
     key=hashlib.sha256(json.dumps(spec,sort_keys=True).encode()).hexdigest()[:12]
     build=BUILD_ROOT/('rp-jhh-pear-primary-driver-check-'+key)
     if not(build/'source-manifest.json').exists():
