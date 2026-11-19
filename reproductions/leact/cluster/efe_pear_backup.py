@@ -15,10 +15,14 @@ def maintain(path):
     if not state.get('standby')or not state.get('workflow'):return state
     query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
     state['scheduler_status']=query['status'];write(path,state)
-    # A user cancellation must stay canceled; a running or initializing
-    # allocation is preserved. Only an expired, never-started queue request
-    # is replaced here.
-    if query['status']!='FAILED_QUEUE_TIMEOUT'or query.get('start_time')or state.get('attempt',0)>=32:return state
+    # Preserve live allocations and user cancellations. A terminal OSMO
+    # controller failure can also end an allocated but idle standby cluster.
+    # Those scheduler-ended nodes are gone; this never stops a live cluster.
+    expired=query['status']=='FAILED_QUEUE_TIMEOUT'and not query.get('start_time')
+    tasks=[t for g in query.get('groups',[])for t in g.get('tasks',[])]
+    control_failed=query['status']=='FAILED'and any(t.get('exit_code')==2001 for t in tasks)
+    if not(expired or control_failed)or state.get('attempt',0)>=32:return state
+    if control_failed and read(Path(state['build'])/'spec.json',{}).get('standby')is not True:return state
     old=Path(state['build']);attempt=state.get('attempt',0)+1
     target=old.with_name(old.name.rsplit('-standby-r',1)[0]+'-standby-r'+str(attempt))
     if not(target/'source-manifest.json').exists():

@@ -30,3 +30,20 @@ def test_expired_backup_requeues_all_seven_nodes_at_low_priority(tmp_path,monkey
     value=backup.maintain(p)
     assert calls==[{'priority':'LOW','pool':'groot-h100-02','nodes':7}]
     assert value['gpu']==56 and value['standby']and value['workflow']=='new-backup'
+
+
+def test_scheduler_control_failure_requeues_an_idle_standby_without_touching_the_primary(tmp_path,monkeypatch):
+    build=tmp_path/'backup';build.mkdir()
+    files={'spec.json':json.dumps({'rollout_nodes':6,'allocation_control_base':'/private/allocations','standby':True}),
+        'workflow.yaml':yaml.safe_dump({'workflow':{'name':'backup'}})}
+    for name,value in files.items():(build/name).write_text(value)
+    (build/'source-manifest.json').write_text(json.dumps({n:hashlib.sha256((build/n).read_bytes()).hexdigest()for n in files}))
+    p=tmp_path/'backup.json';p.write_text(json.dumps({'workflow':'scheduler-ended','build':str(build),
+        'pool':'groot-h100-02','standby':True}))
+    monkeypatch.setattr(backup,'command',lambda *a:{'status':'FAILED','start_time':'started',
+        'groups':[{'tasks':[{'name':'trainer','exit_code':2001}]}]})
+    calls=[]
+    monkeypatch.setattr(backup,'submit_reconciled',lambda b,**k:calls.append(k)or{'name':'fresh-standby'})
+    value=backup.maintain(p)
+    assert calls==[{'priority':'LOW','pool':'groot-h100-02','nodes':7}]
+    assert value['workflow']=='fresh-standby'and value['standby']and value['gpu']==56

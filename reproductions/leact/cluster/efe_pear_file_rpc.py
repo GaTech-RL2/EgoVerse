@@ -114,7 +114,11 @@ def retire_abandoned_request(root,pending,request,*,now=None,grace_seconds=300):
     if reason is None and deadline is not None and now>deadline+grace_seconds:reason='open_deadline_expired'
     if reason is None:return None
     target=folder/'retired-pending-request.json'
-    if target.exists():raise ValueError('An abandoned request was already retired')
+    if target.exists():
+        # Several workers can read the same pending request before one
+        # atomically retires it. The losing reader must keep serving work.
+        if not pending.exists():return None
+        raise ValueError('An abandoned request was already retired')
     try:pending.rename(target)
     except FileNotFoundError:return None
     receipt={'uid':pending.stem,'kind':request['kind'],'reason':reason,'retired_unix':now,

@@ -654,3 +654,41 @@ Validation: 694 research tests passed, four skipped and eight subtests passed.
 The required root unit command was attempted and cannot collect without local
 lightning. The heartbeat was operationally verified against the real local
 scheduler and existing Codex conversation; no GPU was allocated for notification.
+
+### 2026-11-19 07:46 UTC — first heartbeat recovery, simulator retirement race
+
+The first hourly message arrived in the existing conversation. Live verification
+found the startup32 model child running on all five retained model nodes, zero
+optimizer updates, and no new checkpoints or evaluation events. At 07:44 UTC,
+worker diagnostics counted 309 completed episodes and 36 successes. Group-level
+retention is tracked separately from partial-group episode totals; these counts
+belong to the current startup32 run and exclude the earlier 19-success run.
+
+One additional RoboDojo child and three core YAM children had failed while their
+OSMO allocation keepers stayed running. Their exact worker logs identified the
+same transport race: workers can read the same abandoned pending request before
+one atomically retires it. The losing reader then saw the retired target and
+raised an exception, taking down its simulator process. Treat an already-retired
+request with no pending source as an idempotent no-op, while preserving the
+error for a genuinely inconsistent duplicate. A regression test reproduces the
+stale second reader without nondeterministic thread scheduling.
+
+Staged and checksum-verified four replacement native bundles containing that
+transport-only repair. Submitted new child jobs inside the same allocations;
+native specs, reset banks, model job, retained rollouts and training recipe are
+unchanged. Also reconciled the additional YAM plan to its actual scheduler retry
+allocation so it can follow the current model run instead of polling an ended
+workflow. The local observer was briefly stopped to serialize ledger updates;
+no OSMO allocation was canceled.
+
+The 56-H100 low-priority standby had actually started, but OSMO ended it with
+controller exit code 2001. The standby maintenance policy now retries this exact
+terminal scheduler failure as well as an unallocated queue expiry. Live clusters
+and user cancellations remain untouched, and the controller-failure retry also
+requires a pinned standby spec. Submitted standby-r7 at LOW priority on H100-02;
+its initial scheduler state is PENDING and it does not autostart a model job.
+
+Validation: 696 research tests passed, four skipped and eight subtests passed.
+The required root unit command was attempted; the module form cannot collect
+because lightning is missing from the local environment. The live recovery
+receipts and timestamped heartbeat snapshots are retained in pear-scaled-v1.

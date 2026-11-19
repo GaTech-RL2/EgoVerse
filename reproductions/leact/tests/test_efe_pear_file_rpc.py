@@ -73,6 +73,19 @@ def test_legacy_expiry_respects_the_longer_native_yam_open_timeout(tmp_path):
     assert(tmp_path/'pending'/(clients[1].uid+'.json')).exists()
 
 
+def test_two_workers_retiring_the_same_cancelled_request_keep_serving(tmp_path):
+    from reproductions.leact.cluster.efe_pear_file_rpc import retire_abandoned_request
+    client=FileEpisodeClient(tmp_path,'efe/robodojo',{})
+    pending=tmp_path/'pending'/(client.uid+'.json')
+    request={'kind':client.kind,'env_args':{}}
+    atomic_json(pending,request);client.close()
+    assert retire_abandoned_request(tmp_path,pending,request)['reason']=='cancelled'
+    # A second worker already read the request before the first rename.
+    assert retire_abandoned_request(tmp_path,pending,request)is None
+    assert claim_episode(tmp_path,'surviving-worker')is None
+    assert not(client.folder/'response-000000.pkl').exists()
+
+
 def test_explicit_deadline_and_cancellation_after_claim_do_not_create_rewards(tmp_path):
     client=FileEpisodeClient(tmp_path,'custom/test',{})
     deadline=time.time()+1000
