@@ -21,7 +21,9 @@ def maintain(path):
     expired=query['status']=='FAILED_QUEUE_TIMEOUT'and not query.get('start_time')
     tasks=[t for g in query.get('groups',[])for t in g.get('tasks',[])]
     control_failed=query['status']=='FAILED'and any(t.get('exit_code')==2001 for t in tasks)
-    if not(expired or control_failed)or state.get('attempt',0)>=32:return state
+    limit=read(path.parent/'control.json',{}).get('backup_allocation_attempts',32)
+    if type(limit)is not int or limit<0:raise ValueError('Backup allocation attempt limit must be a nonnegative integer')
+    if not(expired or control_failed)or state.get('attempt',0)>=limit:return state
     if control_failed and read(Path(state['build'])/'spec.json',{}).get('standby')is not True:return state
     old=Path(state['build']);attempt=state.get('attempt',0)+1
     target=old.with_name(old.name.rsplit('-standby-r',1)[0]+'-standby-r'+str(attempt))

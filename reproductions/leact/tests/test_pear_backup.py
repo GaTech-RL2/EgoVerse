@@ -15,21 +15,27 @@ def test_backup_maintenance_preserves_live_requests_and_user_cancellations(tmp_p
     assert backup.maintain(p)['workflow']=='backup'
 
 
-def test_expired_backup_requeues_all_seven_nodes_at_low_priority(tmp_path,monkeypatch):
+@pytest.mark.parametrize('attempt,limit,should_retry',[(0,None,True),(32,None,False),(32,64,True),(64,64,False)])
+def test_expired_backup_requeues_all_seven_nodes_at_low_priority(tmp_path,monkeypatch,attempt,limit,should_retry):
     build=tmp_path/'backup';build.mkdir()
     files={'spec.json':json.dumps({'rollout_nodes':6,'allocation_control_base':'/private/allocations'}),
         'workflow.yaml':yaml.safe_dump({'workflow':{'name':'backup','groups':[{'name':'cluster','tasks':[{'name':'trainer'}]}]}})}
     for name,data in files.items():(build/name).write_text(data)
     (build/'source-manifest.json').write_text(json.dumps({n:hashlib.sha256((build/n).read_bytes()).hexdigest()for n in files}))
     p=tmp_path/'backup.json';p.write_text(json.dumps({'workflow':'expired','build':str(build),
-        'pool':'groot-h100-02','standby':True}))
+        'pool':'groot-h100-02','standby':True,'attempt':attempt}))
+    if limit is not None:(tmp_path/'control.json').write_text(json.dumps({'backup_allocation_attempts':limit}))
     monkeypatch.setattr(backup,'command',lambda *a:{'status':'FAILED_QUEUE_TIMEOUT','start_time':None})
     calls=[]
     def submit(path,**kwargs):calls.append(kwargs);return{'name':'new-backup'}
     monkeypatch.setattr(backup,'submit_reconciled',submit)
     value=backup.maintain(p)
-    assert calls==[{'priority':'LOW','pool':'groot-h100-02','nodes':7}]
-    assert value['gpu']==56 and value['standby']and value['workflow']=='new-backup'
+    if should_retry:
+        assert calls==[{'priority':'LOW','pool':'groot-h100-02','nodes':7}]
+        assert value['gpu']==56 and value['standby']and value['workflow']=='new-backup'
+        assert value['attempt']==attempt+1
+    else:
+        assert calls==[] and value['workflow']=='expired'
 
 
 def test_scheduler_control_failure_requeues_an_idle_standby_without_touching_the_primary(tmp_path,monkeypatch):

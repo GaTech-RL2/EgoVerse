@@ -911,3 +911,31 @@ old high-UUID request was claimed before the new low-UUID request. This check
 invoked no simulator and admitted no training data. Receipt:
 native-fifo-linux-qualification.json. Actual rollout throughput after the repair
 must be measured rather than assumed improved.
+
+### 2026-11-19 17:34 UTC — fourth actor update and first checkpoint publication
+
+The fourth batch reached 32 mixed-outcome groups. The production log entered
+update_actor at 16:58:26 UTC and save_checkpoint at 17:23:27 UTC, proving the
+fourth actor update returned. Its iteration metrics are still unpublished
+because checkpoint archival precedes the metrics callback. Keep the three
+finalized telemetry steps distinct from four observed actor updates. The run
+has 3207 completed training episodes and 563 successes; no held-out evaluation
+or completed durable checkpoint is claimed.
+
+The complete local checkpoint is 441095550273 bytes, including all eight model
+and optimizer shards, RNG state, curriculum and TransferQueue state. At 17:34
+UTC the first four multipart model uploads contained 52344913920 bytes. That
+is upload progress, not verified data or a committed archive; full object
+readback and the final manifest remain required. Evidence is in
+hourly-checkpoint-local-state.json, hourly-checkpoint-progress.json and
+hourly-checkpoint-upload-state.json. All five model children and twenty native
+children were running, including both tasks of the recovered YAM slot.
+
+The requested LOW standby failed with OSMO Control exit 2001 and then hit the
+controller's fixed 32-attempt bound. Make that bound explicitly configurable,
+defaulting to the existing 32 attempts, and extend this campaign to 64 to honor
+the standing retry request. Preserve one sequential 56-GPU LOW request, pinned
+sources, live allocations, user cancellations and the active training recipe.
+Tests cover default exhaustion, an explicit extension and exhaustion at the
+extended limit. Validation: 715 research tests passed, four skipped and eight
+subtests passed. Repository-wide unit collection was also attempted separately.
