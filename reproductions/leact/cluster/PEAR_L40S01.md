@@ -730,3 +730,41 @@ The 56-H100 LOW standby retry r9 was RUNNING on all seven scheduler tasks at
 Validation: 705 research tests passed, four skipped and eight subtests passed.
 The required root unit collection was attempted and remains blocked locally by
 the missing lightning dependency.
+
+### 2026-11-19 09:31 UTC — first real PEAR optimizer update completed
+
+The current startup32 job emitted completed optimizer step 1 at 09:26:38 UTC
+(01:26 Pacific). Verified the immutable step receipt, its finite reduced actor
+metrics, continued step-2 rollout messages, and all five running model children.
+This is the primary full-model training run, separate from the discarded engine
+qualification update and all earlier pre-update collection attempts.
+
+The first selected batch contained exactly 32 groups / 256 trajectories: twelve
+MetaWorld manipulation groups and twenty reasoning groups. Policy-gradient loss
+was 0.0652131, gradient norm 4.12213, LR 1e-6 and rollout/current-policy KL
+0.00494756. That KL is not divergence from the initial warmstart. The actor pass
+took 1815.47 seconds (30.3 minutes), weight publication 23.45 seconds, and initial
+rollout collection 7660.95 seconds. Total first-step time was 9500.97 seconds
+(158.3 minutes), including the simulator recovery period. Peak actor allocation
+was 65.93 GiB per reported worker; no nonfinite metric was present.
+
+At 09:31 UTC worker totals reached 973 completed episodes and 207 successes,
+with 47 usable groups cumulatively. Thirty-two had fed update 1; the sampler
+reported fifteen finished usable groups for the next 32-group batch, plus
+eighteen running groups. Do not show 47/32 as next-batch readiness or interpret
+cumulative sampling reward as a held-out improvement. Of the fully graded
+groups, MetaWorld supplied 26 usable groups and reasoning supplied 21; other
+simulator suites had no usable mixed-outcome groups in this snapshot.
+
+All twenty current native children were running. The repaired request-replay
+failure was not recurring in the controller's latest check. One YAM scheduler
+allocation had been replaced automatically after an infrastructure failure; its
+new embedded initial child was live even though the queue omitted a child ID.
+The 56-H100 LOW standby remained pending at retry r12. No allocation was canceled
+and the primary training recipe and model job were unchanged.
+
+No primary checkpoint or evaluation had completed. The pinned launch saves every
+four optimizer updates. The upstream paper config has test_freq=-1 and disables
+in-run validation; do not describe evaluations as automatically underway. The
+next checkpoint is due at update 4. Runtime receipts, first-step metrics and the
+live dashboard retain the measured timings for revised estimates.
