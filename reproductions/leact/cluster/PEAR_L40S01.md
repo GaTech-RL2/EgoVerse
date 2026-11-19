@@ -238,3 +238,86 @@ two-GPU YAM workers on the compatible LOW-priority AMLFS07 path. Existing
 workers remain in service; atomic episode claims prevent duplicate ownership.
 A redundant second qualification request was released after the first proof
 completed, and its separate submission/cancellation receipts are retained.
+
+### 2026-11-19: diagnose missing learning signal and stage the approved recipe
+
+The 496-step warmstart's completed native evaluation has four successes on
+24 seen training scenes and zero on 12 same-simulator new tasks. Its four
+successful cases are MetaWorld door-lock, coffee-button, handle-press and
+plate-slide-back. Across the 36-case panel, 3,443 of 3,456 requests produced
+valid actions (99.6%). These establish usable control behavior on that panel;
+they do not establish a warmstart improvement over base, which had four seen
+and one new-task success. Native GR00T YAM was outside that panel.
+
+At the subsequent rollout audit, only four of 26 judged GRPO groups had mixed
+rewards, all in procedural reasoning. Nineteen native YAM groups, or 152
+rollouts, had zero successes. The original exact per-family batch quotas block
+the first update even if MetaWorld starts supplying useful groups. SGS was
+being applied within reset variants after selecting a task; it cannot change
+which single-reset MetaWorld task is chosen.
+
+The user approved two changes, implemented as opt-in `task-signal-window-v2`:
+
+1. Choose tasks using their training-only success histories, and direct more
+   dispatch effort toward families yielding informative groups. Family, task
+   and reset selection retain exploration components. Task sampling covers
+   simulators with equal initial weight, independently of their reset counts.
+2. Fill the complete 128-by-eight optimizer batch from available mixed-outcome
+   groups. Select groups to reduce family coverage deficits over eight updates.
+   Missing-signal families remain in exploration without blocking the learner.
+   Normalize loss weights over families present in the batch; log actual group
+   counts, target weights and active weights. Save selection history and RNG
+   with the curriculum checkpoint so restart preserves the balancing state.
+
+GRPO's constant-reward filter, score centering, learning rate, full-model
+frozen-router update and the 160,000-response-token episode budget remain
+the recipe. All 1,761 admitted training configurations and protected splits
+are retained. Target mixture proportions are rolling targets, not a claim
+that an all-failure family contributes gradients. Transfer from MetaWorld to
+native YAM remains an experimental question.
+
+PEAR's quick-start allocation table uses **nodes**: eight trainer and 24
+rollout nodes at eight H100s each, or 64 plus 192 GPUs. This study's current
+model allocation is one trainer node and four rollout nodes, or eight plus
+32 GPUs. A sampled rollout node reported zero GPU utilization on all eight
+GPUs in six consecutive samples while environment calls were waiting.
+Additional model inference GPUs cannot resolve these stalled simulator calls.
+Reference: https://github.com/mit-han-lab/pear/blob/main/docs/getting_started/quickstart.md.
+
+The transport queue also retained canceled and expired requests after their
+clients had timed out. A reviewed cleanup retired 46 requests into their own
+episode directories, preserving their bodies and a reason receipt. No policy
+reward was generated. New clients declare their open deadline; workers retire
+abandoned requests before starting a simulator. Legacy EFE's 1,800-second and
+native YAM's 14,400-second open timeouts are distinguished, with a five-minute
+clock/cleanup margin. A zero-GPU maintenance job now performs this cleanup.
+
+The reduced-concurrency EFE host subsequently failed too. Its policy killed
+all lanes when one lane exited after five consecutive errors. The updated
+worker retries recognized `NativeInfrastructureError` failures with bounded
+backoff, retaining error records; unexpected source errors still fail. A new
+eight-H100 host includes this change and orphan-request retirement. This
+repairs failure propagation and wasted dispatch; underlying native startup
+reliability still needs observed rollouts, rather than an assumed recovery.
+
+The four known-success cases are queued for a diagnostic against the current
+rollout server. An initial zero-GPU L40 client could not reach the H100 private
+network; its four connection timeouts carry no policy grade. The diagnostic
+client now runs inside the existing H100 cluster, adding no model allocation.
+It uses the current action prompt/parser and native verdicts. Its HTTP path is
+a case sanity check, not a claim of identical training-sampler tokenization.
+
+The replacement recipe is staged, not active at this entry. Its CPU check
+composes both allocation profiles under both old and new sampling policies.
+The primary observer can advance automatically only after this check and a
+valid-action native-success replay pass. It prepares the complete new bundle
+before releasing the old allocation, and refuses this warmstart handoff if
+the old run has completed optimizer updates. Replays and all retries remain
+diagnostics, separate from primary learning metrics and benchmark scores.
+
+Validation for this replacement: 646 research tests pass, with three skips and
+eight passing subtests. The real CPU launch check passed both sampling policies
+under both node profiles and retained matching trainer/config/curriculum source
+hashes. Repository-wide unit collection was attempted and remains blocked by
+the missing local `lightning` dependency. Native known-case outcomes remain a
+separate activation check; CPU validation does not establish policy success.

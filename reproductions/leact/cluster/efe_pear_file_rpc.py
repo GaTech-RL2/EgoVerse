@@ -83,7 +83,8 @@ class FileEpisodeClient:
         raise RemoteEpisodeLost('Native simulator did not respond before its infrastructure deadline')
 
     def open(self):
-        atomic_json(self.root/'pending'/(self.uid+'.json'),{'kind':self.kind,'env_args':self.args})
+        atomic_json(self.root/'pending'/(self.uid+'.json'),{'kind':self.kind,'env_args':self.args,
+            'open_deadline_unix':time.time()+self.timeout})
         return self._receive()
 
     def step(self,action):
@@ -93,14 +94,53 @@ class FileEpisodeClient:
     def close(self):atomic_json(self.folder/'cancel.json',{'closed_unix':time.time()})
 
 
+def retire_abandoned_request(root,pending,request,*,now=None,grace_seconds=300):
+    """Preserve an unclaimed request after cancellation or its open deadline.
+
+    Older EFE clients may die at the outer simulator timeout before closing.
+    Their open deadline is 1800s; native YAM has a distinct 14400s deadline.
+    A grace period protects against small inter-node wall-clock differences.
+    """
+    root,pending=Path(root),Path(pending)
+    if not re.fullmatch('[0-9a-f]{32}',pending.stem):raise ValueError('Unexpected native episode identifier')
+    folder=root/'episodes'/pending.stem;now=time.time()if now is None else now
+    reason='cancelled'if(folder/'cancel.json').exists()else None
+    deadline=request.get('open_deadline_unix')
+    if deadline is None:
+        timeout=1800 if request['kind'].startswith('efe/')else 14400 if request['kind'].startswith('native_yam/')else None
+        if timeout is not None:
+            try:deadline=pending.stat().st_mtime+timeout
+            except FileNotFoundError:return None
+    if reason is None and deadline is not None and now>deadline+grace_seconds:reason='open_deadline_expired'
+    if reason is None:return None
+    target=folder/'retired-pending-request.json'
+    if target.exists():raise ValueError('An abandoned request was already retired')
+    try:pending.rename(target)
+    except FileNotFoundError:return None
+    receipt={'uid':pending.stem,'kind':request['kind'],'reason':reason,'retired_unix':now,
+        'open_deadline_unix':deadline,'grace_seconds':grace_seconds}
+    atomic_json(folder/'retired-pending-receipt.json',receipt)
+    return receipt
+
+
+def retire_abandoned_pending(root,*,now=None):
+    root=Path(root);retired=[]
+    for pending in sorted((root/'pending').glob('*.json')):
+        try:request=json.loads(pending.read_text())
+        except FileNotFoundError:continue
+        receipt=retire_abandoned_request(root,pending,request,now=now)
+        if receipt is not None:retired.append(receipt)
+    return retired
+
+
 def claim_episode(root,worker_id,kinds=None):
     root=Path(root)
     for pending in sorted((root/'pending').glob('*.json')):
         if not re.fullmatch('[0-9a-f]{32}',pending.stem):raise ValueError('Unexpected native episode identifier')
-        if kinds is not None:
-            try:kind=json.loads(pending.read_text())['kind']
-            except FileNotFoundError:continue
-            if kind not in kinds:continue
+        try:request=json.loads(pending.read_text())
+        except FileNotFoundError:continue
+        if retire_abandoned_request(root,pending,request)is not None:continue
+        if kinds is not None and request['kind']not in kinds:continue
         # Atomic rename grants one owner across every native simulator worker.
         folder=root/'episodes'/pending.stem
         try:pending.rename(folder/'claimed-request.json')
@@ -113,6 +153,7 @@ def claim_episode(root,worker_id,kinds=None):
 def serve_episode(folder,factory,env_args):
     environment=None
     try:
+        if(Path(folder)/'cancel.json').exists():return
         environment=factory(**env_args);value=environment.open();index=0
         publish_result(folder,index,value)
         while not value['done']:

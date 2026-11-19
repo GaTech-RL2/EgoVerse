@@ -37,8 +37,8 @@ def launch():
             'gpu':0,'cpu':4,'memory':'24Gi','storage':'10Gi','platform':'ovx-l40'}},
             'timeout':{'queue_timeout':'10m','exec_timeout':'30m'},'tasks':[task]}}
         (build/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False));freeze_sources(build)
-    result=submit_reconciled(build,priority='HIGH',pool='groot-l40-02',nodes=1)
-    value={**result,'build':str(build),'pool':'groot-l40-02','priority':'HIGH','nodes':1}
+    result=submit_reconciled(build,priority='HIGH',pool='groot-l40-03',nodes=1)
+    value={**result,'build':str(build),'pool':'groot-l40-03','priority':'HIGH','nodes':1}
     write(DEST/'primary-driver-check-launch.json',value)
     return value
 

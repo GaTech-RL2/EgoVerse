@@ -11,8 +11,10 @@ import random
 
 try:
     from .efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
+    from . import efe_pear_signal_curriculum as signal_curriculum
 except ImportError:
     from efe_pear_curriculum import INITIAL_QUOTAS, REASONING_FAMILIES, SuccessHistory, sgs_probabilities, validate_quotas
+    import efe_pear_signal_curriculum as signal_curriculum
 
 
 def identity(env_class, env_args):
@@ -29,6 +31,11 @@ class CurriculumState:
             raise ValueError('A qualified training manifest is required')
         self.stage=manifest.get('curriculum_stage','expanded_full')
         if self.stage not in {'expanded_full','control_bootstrap'}:raise ValueError('Unknown curriculum stage')
+        self.sampling_policy=manifest.get('sampling_policy','strict-family-v1')
+        if self.sampling_policy not in {'strict-family-v1',signal_curriculum.POLICY}:
+            raise ValueError('Unknown curriculum sampling policy')
+        if self.sampling_policy==signal_curriculum.POLICY and self.stage!='expanded_full':
+            raise ValueError('Signal balancing requires the complete admitted mixture')
         self.manifest_sha256=hashlib.sha256(json.dumps(manifest,sort_keys=True).encode()).hexdigest()
         self.configs={}
         seen_envs=set()
@@ -62,6 +69,33 @@ class CurriculumState:
         self.family_outcomes=defaultdict(list)
         self.adaptations=[]
         self.last_draw=None
+        self.selection_history=[]
+
+    @property
+    def signal_balancing(self):return self.sampling_policy==signal_curriculum.POLICY
+
+    def select_groups(self,groups):
+        if self.signal_balancing:
+            return signal_curriculum.select_available(groups,self.quotas,self.selection_history)
+        try:from .efe_pear_curriculum import retained_selection
+        except ImportError:from efe_pear_curriculum import retained_selection
+        return retained_selection(groups,self.quotas,self.stage)
+
+    def record_selection(self,step,uids):
+        if not self.signal_balancing:return
+        if len(uids)!=128 or len(set(uids))!=128:raise ValueError('A selected batch needs 128 unique groups')
+        row={'step':int(step),'uids':sorted(uids),
+             'family_counts':dict(Counter(self.groups[uid]['family']for uid in uids))}
+        existing=next((v for v in self.selection_history if v['step']==step),None)
+        if existing:
+            if existing!=row:raise ValueError('A retried step changed its selected groups')
+            return
+        self.selection_history.append(row)
+        del self.selection_history[:-signal_curriculum.WINDOW_UPDATES]
+
+    def batch_loss_weights(self,families):
+        return(signal_curriculum.active_weights(self.loss_weights,set(families))
+               if self.signal_balancing else self.loss_weights)
 
     @property
     def loss_weights(self):
@@ -97,8 +131,10 @@ class CurriculumState:
         affects dispatch effort only. It cannot replace a missing family.
         """
         ready=ready or {};inflight=inflight or {}
-        weights={}
-        for family,quota in self.quotas.items():
+        if self.signal_balancing:
+            weights=signal_curriculum.dispatch_weights(self.quotas,self.selection_history,self.family_outcomes,inflight)
+        else:weights={}
+        for family,quota in (()if self.signal_balancing else self.quotas.items()):
             recent=self.family_outcomes.get(family,())[-100:]
             acceptance=(sum(x['retained'] for x in recent)+1)/(len(recent)+2)
             deficit=max(0,quota-ready.get(family,0))
@@ -115,8 +151,24 @@ class CurriculumState:
             for c in rows:counts[c[field]]+=self.dispatches[c['config_id']]
             minimum=min(counts.values())
             return self.rng.choice(sorted(k for k,v in counts.items() if v==minimum))
-        suite=least_used('suite',pool);pool=[c for c in pool if c['suite']==suite]
-        task=least_used('task',pool);pool=[c for c in pool if c['task']==task]
+        task_probability=None
+        if self.signal_balancing:
+            tasks={c['config_id']:(c['suite'],c['task'])for c in pool};recent=defaultdict(lambda:deque(maxlen=100))
+            for g in self.groups.values():
+                if g['config_id']in tasks and g['infrastructure_ok']:
+                    recent[tasks[g['config_id']]].extend(g['outcomes'])
+            rates={name:(sum(recent[name])+1)/(len(recent[name])+2)for name in sorted(set(tasks.values()))}
+            learned=sgs_probabilities(rates,uniform_fraction=0.)
+            suite_counts=Counter(key[0]for key in rates)
+            base={key:1/(len(suite_counts)*suite_counts[key[0]])for key in rates}
+            total=sum(base[key]*learned[key]for key in rates)
+            task_probabilities={key:.2*base[key]+.8*base[key]*learned[key]/total for key in rates}
+            suite,task=self.rng.choices(sorted(task_probabilities),weights=[task_probabilities[k]for k in sorted(task_probabilities)],k=1)[0]
+            task_probability=task_probabilities[suite,task]
+        else:
+            suite=least_used('suite',pool);pool=[c for c in pool if c['suite']==suite]
+            task=least_used('task',pool)
+        pool=[c for c in pool if c['suite']==suite and c['task']==task]
         counts=Counter()
         for c in pool:counts[c['stratum']]+=self.dispatches[c['config_id']]
         full_fraction=.75 if step>=256 else .5
@@ -139,6 +191,8 @@ class CurriculumState:
             'uniform_fraction':.2,'history_horizon':self.history.horizon,
             'ready_groups':dict(ready),'inflight_groups':dict(inflight),
             'quotas':dict(self.quotas),'full_start_target_fraction':full_fraction}
+        self.last_draw.update(sampling_policy=self.sampling_policy,task_probability=task_probability,
+                              sgs_scope='task_and_reset'if self.signal_balancing else'reset_only')
         return chosen
 
     def adapt(self, quotas, *, step, evidence):
@@ -164,7 +218,7 @@ class CurriculumState:
         return {'manifest_sha256':self.manifest_sha256,'rng':self.rng.getstate(),
                 'quotas':self.quotas,'history':self.history.state_dict(),'groups':self.groups,
                 'dispatches':dict(self.dispatches),'family_outcomes':dict(self.family_outcomes),
-                'adaptations':self.adaptations}
+                'adaptations':self.adaptations,'selection_history':self.selection_history}
 
     def restore(self, state):
         if state['manifest_sha256']!=self.manifest_sha256:
@@ -175,3 +229,4 @@ class CurriculumState:
         self.groups=dict(state['groups']);self.dispatches=Counter(state['dispatches'])
         self.family_outcomes=defaultdict(list,state['family_outcomes'])
         self.adaptations=list(state['adaptations'])
+        self.selection_history=list(state.get('selection_history',[]))

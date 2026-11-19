@@ -50,7 +50,7 @@ class MultitaskReplayBuffer(PearReplayBuffer):
             self.telemetry.group(g,self.curriculum.configs[g['config_id']])
 
     def _selection(self, keys):
-        return retained_selection([self.curriculum.groups[uid] for uid in keys],self.curriculum.quotas,self.curriculum.stage)
+        return self.curriculum.select_groups([self.curriculum.groups[uid] for uid in keys])
 
     def _has_enough_samples(self, global_steps, partition_id, batch_size, sampleable_keys):
         enough=super()._has_enough_samples(global_steps,partition_id,batch_size,sampleable_keys)
@@ -61,7 +61,7 @@ class MultitaskReplayBuffer(PearReplayBuffer):
     def _select_prompt_uids(self, partition_id, sampleable_keys, batch_size):
         if partition_id=='val':return super()._select_prompt_uids(partition_id,sampleable_keys,batch_size)
         selected=self._selection(sampleable_keys)
-        if selected is None:raise RuntimeError('Attempted to train without every family quota')
+        if selected is None:raise RuntimeError('Attempted to train without a qualified 128-group batch')
         return selected,dict(self.partitions[partition_id]),dict(self.prompt_global_steps[partition_id])
 
     def family_counts(self):
@@ -79,6 +79,7 @@ class MultitaskReplayBuffer(PearReplayBuffer):
         # PEAR calls refill before its sample-ready check. Avoid extending a
         # finished batch simply because the sampler has capacity for more work.
         if partition_id=='train':
+            if self.curriculum.signal_balancing:return super()._refill_free_room(partition_id)
             ready,_=self.family_counts()
             if all(ready[f]>=n for f,n in self.curriculum.quotas.items()):return False
         return super()._refill_free_room(partition_id)
@@ -86,9 +87,14 @@ class MultitaskReplayBuffer(PearReplayBuffer):
     def sample(self, global_steps, partition_id, batch_size):
         batch,metrics=super().sample(global_steps,partition_id,batch_size)
         if partition_id=='train':
+            uids=list(dict.fromkeys(key.split('_',1)[0]for key in batch.keys))
+            self.curriculum.record_selection(global_steps,uids)
+            counts=Counter(self.curriculum.groups[uid]['family']for uid in uids)
+            weights=self.curriculum.batch_loss_weights(counts)
             for family,n in self.curriculum.quotas.items():
-                metrics[f'curriculum/retained_groups/{family}']=n
-                metrics[f'curriculum/loss_weight/{family}']=self.curriculum.loss_weights[family]
+                metrics[f'curriculum/retained_groups/{family}']=counts.get(family,0)
+                metrics[f'curriculum/loss_weight/{family}']=weights.get(family,0.)
+                metrics[f'curriculum/target_weight/{family}']=self.curriculum.loss_weights[family]
             metrics['curriculum/adaptations_applied']=len(self.curriculum.adaptations)
         return batch,metrics
 
@@ -159,7 +165,7 @@ class MultitaskTrainer(PearTrainer):
         counts=Counter()
         for family,mask in zip(families,data['response_mask'].unbind(),strict=True):
             counts[family]+=int(mask.sum().item())
-        factors=token_mean_factors(dict(counts),self.curriculum.loss_weights)
+        factors=token_mean_factors(dict(counts),self.curriculum.batch_loss_weights(counts))
         scaled=[values*factors[family] for values,family in
                 zip(data['advantages'].unbind(),families,strict=True)]
         advantages=torch.nested.as_nested_tensor(scaled,layout=torch.jagged)

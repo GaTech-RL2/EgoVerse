@@ -196,7 +196,7 @@ def prepare_bridge(index=0):
 def prepare_training_bundle():
     """Package the complete future trainer without enabling paused launches."""
     names=['efe_pear_scaled_train.sh','efe_pear_multitask_train.py','efe_pear_multitask_config.py','efe_pear_curriculum.py',
-        'efe_pear_curriculum_state.py','efe_pear_telemetry.py','efe_pear_agent_metrics.py',
+        'efe_pear_curriculum_state.py','efe_pear_signal_curriculum.py','efe_pear_telemetry.py','efe_pear_agent_metrics.py',
         'efe_pear_router.py','efe_pear_moe_kernels.py',
         'efe_pear_checkpoint_archive.py','efe_pear_queue_checkpoint.py','efe_pear_object_archive.py','efe_pear_episode_archive.py',
         'efe_pear_public_observation.py','efe_pear_observation_check.py','efe_pear_launch_contract.py','efe_pear_action_json.py',

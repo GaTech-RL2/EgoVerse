@@ -31,7 +31,8 @@ NATIVE_QUEUE_TIMEOUT='45m'
 EXTRA=['efe_pear_primary_worker.py','efe_pear_primary_native.py','efe_pear_primary_rtx.py',
     'efe_pear_native_entry.py','efe_pear_rtx_env.py','efe_pear_remote_worker.py','efe_pear_gpu_cdi.py',
     'efe_pear_yam_server.py','efe_pear_yam_session_policy.py','efe_pear_yam_api_policy.py',
-    'efe_pear_yam_probe_entry.py','efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py']
+    'efe_pear_yam_probe_entry.py','efe_pear_yam_contract.py','efe_pear_arena_compat.py','efe_pear_yam_reset_bank.py',
+    'efe_pear_float32_json.py']
 
 
 def validate_trainer_cpu_capacity(cpus,*,storage_units=32,ranks=8):
@@ -66,12 +67,22 @@ def allocation_profile(attempt):
 
 def prepare(profile=0):
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
+    control=read(DEST/'control.json',{})
+    policy=control.get('next_sampling_policy','strict-family-v1')
+    if policy!='strict-family-v1':
+        admission['curriculum']['sampling_policy']=policy
+        from .efe_pear_curriculum_state import CurriculumState
+        CurriculumState(admission['curriculum'])
+        from .recover_efe_pear_numeric import qualified
+        if not qualified(read(DEST/'native-float32-proof.json',{})):
+            raise PendingAdmission('The replacement recipe requires the current real native float32 action proof')
+        if not read(DEST/'recipe-transition.json',{}).get('validation_passed'):
+            raise PendingAdmission('The replacement recipe awaits its known-training-case inference check')
     package=prepare_training_bundle();common=Path(package['bundle'])
     sources={name:common/name for name in package['files']}
     sources.update({name:BASE/'cluster'/name for name in EXTRA})
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
     rollout_nodes,priority=allocation_profile(profile)
-    control=read(DEST/'control.json',{})
     priority=scheduling_priority('groot-h100',priority,control)
     l40_pool=simulator_pool('groot-l40-02',control)
     if l40_pool=='groot-l40s-01':
@@ -167,6 +178,7 @@ def native_builds(model_build,model_workflow):
     setup={k:native_setup[k]for k in ['repository','revision','podman','compose']}
     setup.update(tasks=rows,podman_storage_driver='overlay')
     spec={'kind':'efe','owner_model_workflow':model_workflow,'output':run+'/native-efe','native_setup':setup,
+        'lanes_per_gpu':1,'startup_stagger_seconds':10,'retry_native_infrastructure':True,
         'native_config':{'qualification_only':False,'membership_file':run+'/native-membership.json',
             'action_config':{**native_setup['fixed_action_config'],'model':'external-pear-policy',
                 'allowed_action_types_by_robot':{r:['joint_position']for r in
@@ -197,6 +209,10 @@ def native_builds(model_build,model_workflow):
         old=prepare_native_yam_check(names[offset:offset+2],generated_resets=True,native_transport_probe=True)
         spec=read(old/'spec.json');spec.update(owner_model_workflow=model_workflow,
             output=l40_root+'/native-yam',transport_root=l40_root+'/transport',finished=l40_root+'/finished.json')
+        from .recover_efe_pear_numeric import qualified
+        if qualified(read(DEST/'native-float32-proof.json',{})):
+            from .efe_pear_float32_json import VERSION
+            spec['numeric_representation']=VERSION
         # Pool-local assets and inputs are byte-verified before admission;
         # L40S-01 uses the object bridge to reach the AMLFS07 model cluster.
         spec['source_archive_path']=(LFS_ROOT if cross_pool else REMOTE)+'/sources/'+Path(spec['source_archive_path']).name
@@ -254,6 +270,10 @@ def cancel_native_workers(model_workflow):
 
 def tick():
     state=read(DEST/'primary-launch.json',{})
+    if state.get('workflow')and not state.get('terminal_confirmed'):
+        from .efe_pear_recipe_transition import tick as transition_recipe
+        replacement=transition_recipe(state)
+        if replacement is not None:return replacement
     if not state or(state.get('terminal_confirmed')and state.get('source_repair_ready')):
         try:return launch(state.get('next_profile',state.get('profile',0)),pool=state.get('pool','groot-h100-02'))
         except PendingAdmission as exc:

@@ -23,5 +23,9 @@ def configuration(config,manifest,*,model_revision=None,workflow=None):
         'entropy_coefficient':float(actor.entropy_coeff),
         'kl_penalty':bool(actor.use_kl_loss or config.algorithm.use_kl_in_reward),
         'family_quotas':curriculum.quotas,'curriculum_sha256':curriculum.manifest_sha256,
+        'sampling_policy':curriculum.sampling_policy,
+        'family_targets_scope':'rolling_window'if curriculum.signal_balancing else'per_optimizer_batch',
+        'family_window_updates':8 if curriculum.signal_balancing else 1,
+        'sgs_scope':'task_and_reset'if curriculum.signal_balancing else'reset_only',
         'curriculum_stage':curriculum.stage,'workflow':workflow,'sgs_uniform_fraction':.2}
     return curriculum,metadata

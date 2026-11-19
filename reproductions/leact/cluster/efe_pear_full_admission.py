@@ -161,6 +161,12 @@ def model_qualification(root):
         or command.get('driver_entry_sha256')!=sha(Path(__file__).with_name('efe_pear_multitask_train.py'))
         or command.get('multitask_config_sha256')!=sha(Path(__file__).with_name('efe_pear_multitask_config.py'))):
         raise PendingAdmission('Exact primary training command has not passed source and CPU configuration checks')
+    next_policy=read(root/'control.json',{}).get('next_sampling_policy','strict-family-v1')
+    if next_policy=='task-signal-window-v2'and(
+        next_policy not in command.get('sampling_policies',[])
+        or command.get('curriculum_state_sha256')!=sha(Path(__file__).with_name('efe_pear_curriculum_state.py'))
+        or command.get('signal_curriculum_sha256')!=sha(Path(__file__).with_name('efe_pear_signal_curriculum.py'))):
+        raise PendingAdmission('Task curriculum and rolling family balancing have not passed the exact driver check')
     queue=read(root/'queue-checkpoint-status.json',{})
     queue_result=queue.get('worker',{})
     if(queue.get('scheduler_status')!='COMPLETED'or queue_result.get('passed')is not True

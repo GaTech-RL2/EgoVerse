@@ -10,7 +10,7 @@ import time
 from efe_pear_file_rpc import atomic_json,claim_episode,serve_episode
 
 
-def serve(root,worker_id,kinds,factory,*,finished):
+def serve(root,worker_id,kinds,factory,*,finished,recoverable_errors=(),max_infrastructure_retries=32):
     root=Path(root);root.mkdir(mode=0o700,parents=True,exist_ok=True)
     if root.stat().st_mode&0o077:raise ValueError('Native transport root must be private')
     (root/'pending').mkdir(mode=0o700,exist_ok=True)
@@ -39,7 +39,12 @@ def serve(root,worker_id,kinds,factory,*,finished):
                 state['consecutive_errors']=state.get('consecutive_errors',0)+1
                 print('PEAR_NATIVE_EPISODE_INFRASTRUCTURE_ERROR '+json.dumps({'error_type':type(exc).__name__,
                     'worker_id':worker_id,'episodes':state['episodes'],'errors':state['errors']}),flush=True)
-                if state['consecutive_errors']>=5:
+                recoverable=isinstance(exc,recoverable_errors)
+                if recoverable and state.get('infrastructure_retries',0)<max_infrastructure_retries:
+                    state['infrastructure_retries']=state.get('infrastructure_retries',0)+1
+                    state['phase']='infrastructure_backoff'
+                    stopped.wait(min(60,2**min(6,state['consecutive_errors'])))
+                elif state['consecutive_errors']>=5:
                     raise RuntimeError('Native simulator repeatedly failed to complete an episode')from exc
             finally:state['phase']='ready';active[0]=None
     finally:
@@ -63,8 +68,12 @@ def main():
         from efe_pear_native_episode import NativeEfeEpisode
         factory=NativeEfeEpisode
     else:raise ValueError('Unknown native simulator lane kind')
+    recoverable_errors=()
+    if spec['kind']=='efe'and spec.get('retry_native_infrastructure'):
+        from efe_pear_bridge import NativeInfrastructureError
+        recoverable_errors=(NativeInfrastructureError,)
     serve(spec['transport_root'],spec['worker_id'],set(spec['kinds']),factory,
-        finished=Path(spec['finished']))
+        finished=Path(spec['finished']),recoverable_errors=recoverable_errors)
 
 
 if __name__=='__main__':main()

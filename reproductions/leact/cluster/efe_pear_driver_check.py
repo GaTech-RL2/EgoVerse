@@ -38,23 +38,33 @@ def main():
         'OMP_NUM_THREADS':'2','MKL_NUM_THREADS':'2','OPENBLAS_NUM_THREADS':'1','TOKENIZERS_PARALLELISM':'false',
         'PEAR_DRIVER_PREFLIGHT_ONLY':'1'}
     started=time.monotonic()
-    for count in [6,4]:
-        print('PEAR_DRIVER_CHECK '+json.dumps({'phase':'composing_configuration','rollout_nodes':count,'gpu':0}),flush=True)
-        env.update(RUN=str(root/f'rollout-nodes-{count}'),ROLLOUT_NNODES=str(count))
-        with(root/f'rollout-nodes-{count}.log').open('w')as log:
-            result=subprocess.run(['bash',str(lane/'efe_pear_scaled_train.sh')],
-                cwd=source,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=300)
-        if result.returncode:
-            print((root/f'rollout-nodes-{count}.log').read_text(errors='replace')[-5000:],flush=True)
-            raise RuntimeError('Primary training command failed CPU configuration composition')
-        content=(root/f'rollout-nodes-{count}.log').read_text(errors='replace')
-        records=[json.loads(line.split('PEAR_DRIVER_VALIDATED ',1)[1])for line in content.splitlines()if 'PEAR_DRIVER_VALIDATED 'in line]
-        if len(records)!=1 or not records[0]['custom_trainer_config_passed']:
-            raise ValueError('The exact custom trainer configuration was not validated')
+    policies=['strict-family-v1','task-signal-window-v2']
+    for policy in policies:
+        curriculum=json.loads((previous/'curriculum.json').read_text());curriculum['sampling_policy']=policy
+        path=root/(policy+'-curriculum.json');path.write_text(json.dumps(curriculum)+'\n')
+        env['EFE_PEAR_CURRICULUM']=str(path)
+        for count in [6,4]:
+            print('PEAR_DRIVER_CHECK '+json.dumps({'phase':'composing_configuration','rollout_nodes':count,'sampling_policy':policy,'gpu':0}),flush=True)
+            env.update(RUN=str(root/f'{policy}-rollout-nodes-{count}'),ROLLOUT_NNODES=str(count))
+            logfile=root/f'{policy}-rollout-nodes-{count}.log'
+            with logfile.open('w')as log:
+                result=subprocess.run(['bash',str(lane/'efe_pear_scaled_train.sh')],
+                    cwd=source,env=env,stdout=log,stderr=subprocess.STDOUT,timeout=300)
+            if result.returncode:
+                print(logfile.read_text(errors='replace')[-5000:],flush=True)
+                raise RuntimeError('Primary training command failed CPU configuration composition')
+            content=logfile.read_text(errors='replace')
+            records=[json.loads(line.split('PEAR_DRIVER_VALIDATED ',1)[1])for line in content.splitlines()if 'PEAR_DRIVER_VALIDATED 'in line]
+            if(len(records)!=1 or not records[0]['custom_trainer_config_passed']
+                or records[0]['metadata']['sampling_policy']!=policy):
+                raise ValueError('The exact custom trainer configuration was not validated')
     value={'passed':True,'source_check_passed':True,'rollout_nodes':[6,4],
         'script_sha256':digest,'gpu':0,'primary_rl_updates':0,'custom_trainer_config_passed':True,
         'driver_entry_sha256':spec['files']['efe_pear_multitask_train.py'],
         'multitask_config_sha256':spec['files']['efe_pear_multitask_config.py'],
+        'curriculum_state_sha256':spec['files']['efe_pear_curriculum_state.py'],
+        'signal_curriculum_sha256':spec['files']['efe_pear_signal_curriculum.py'],
+        'sampling_policies':policies,
         'wall_seconds':time.monotonic()-started,
         'scope':'Exact primary shell, resolved Hydra overrides, worker file paths, full curriculum and custom trainer metadata. No model load, Ray cluster or optimizer update.'}
     (root/'checks.json').write_text(json.dumps(value,indent=2)+'\n')

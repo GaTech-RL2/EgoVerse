@@ -69,7 +69,7 @@ def main():
             atomic_json(config_path,config)
             worker={'kind':'efe','worker_id':os.environ['EFE_WORKFLOW_ID']+f'-lane-{index:02d}',
                 'config':str(config_path),'kinds':sorted(kinds),'transport_root':spec['transport_root'],
-                'finished':spec['finished']}
+                'finished':spec['finished'],'retry_native_infrastructure':spec.get('retry_native_infrastructure',False)}
             atomic_json(directory/'spec.json',worker)
             with(directory/'worker.log').open('w')as worker_log:
                 command=[sys.executable,'-u',str(lane/'efe_pear_remote_worker.py'),str(directory/'spec.json')]
