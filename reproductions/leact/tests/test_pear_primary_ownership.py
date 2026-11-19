@@ -40,6 +40,41 @@ def test_gpu_device_plugin_rejection_is_retried_but_cuda_oom_is_not():
     assert not infrastructure_failure({'status':'FAILED','failure_message':'CUDA out of memory while allocating model tensors'})
 
 
+@pytest.mark.parametrize('status',['FAILED_CANCELED','RUNNING'])
+def test_model_without_a_live_child_never_retargets_native_workers(tmp_path,monkeypatch,status):
+    from reproductions.leact.cluster import efe_pear_backup as backup
+    from reproductions.leact.cluster import efe_pear_recipe_transition as transition
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'model-without-job',
+        'profile':16,'native_workers_launched':False,'standby':False}))
+    monkeypatch.setattr(backup,'maintain',lambda *_:None)
+    monkeypatch.setattr(primary,'promote_allocated_backup',lambda *_:None)
+    monkeypatch.setattr(transition,'tick',lambda *_:None)
+    monkeypatch.setattr(primary,'command',lambda *a,**kw:{'status':status,
+        'start_time':'2026-11-19T20:00:00','failure_message':'Manual user cancellation'})
+    monkeypatch.setattr(primary,'native_builds',lambda *_:pytest.fail(
+        'A scheduler-ended allocation or a model without a child cannot take native workers'))
+    result=primary.tick()
+    assert result['scheduler_status']==status
+    assert not result['native_workers_launched']
+
+
+def test_checkpoint_recovery_keeps_capacity_without_activating_an_unresumable_run(tmp_path,monkeypatch):
+    from reproductions.leact.cluster import efe_pear_backup as backup
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'idle-capacity','standby':True}))
+    (tmp_path/'checkpoint-recovery-required.json').write_text(json.dumps({
+        'required':True,'reason':'Optimizer shards incomplete; awaiting explicit recovery choice'}))
+    maintained=[]
+    monkeypatch.setattr(backup,'maintain',lambda path:maintained.append(path))
+    monkeypatch.setattr(primary,'command',lambda *a,**kw:{'status':'RUNNING'})
+    monkeypatch.setattr(primary,'promote_allocated_backup',lambda *_:pytest.fail('Must not activate an unresumable writer'))
+    result=primary.tick()
+    assert result['phase']=='awaiting_explicit_checkpoint_recovery'
+    assert result['scheduler_status']=='RUNNING'and result['standby']is True
+    assert maintained==[tmp_path/'backup-allocation.json']
+
+
 def test_verified_source_repair_still_waits_for_all_prelaunch_gates(tmp_path,monkeypatch):
     monkeypatch.setattr(primary,'DEST',tmp_path)
     (tmp_path/'primary-launch.json').write_text(json.dumps({'workflow':'terminated-attempt',

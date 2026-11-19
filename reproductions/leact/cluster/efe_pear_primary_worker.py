@@ -28,6 +28,21 @@ def prepare_system_packages(sources=Path('/etc/apt/sources.list.d'),
     subprocess.run(['apt-get','install','-y','-qq','git','perl','libosmesa6','libgl1','libglib2.0-0'],check=True,timeout=300)
 
 
+def checkpoint_for_resume(run):
+    """Never overwrite prior optimizer history with an implicit fresh start."""
+    run=Path(run);pointer=run/'checkpoint-latest.json'
+    if pointer.exists():
+        latest=json.loads(pointer.read_text())
+        if (latest.get('readback_verified')is not True or type(latest.get('step'))is not int
+            or latest['step']<1 or not isinstance(latest.get('archive'),str)or not latest['archive']):
+            raise ValueError('Latest checkpoint is not a verified resume checkpoint')
+        return latest
+    if any((run/'telemetry/steps').glob('*.json')):
+        raise RuntimeError('Prior optimizer updates exist but no committed resume checkpoint is available; '
+            'preserve this run and prepare an explicit recovery or fresh-run fork')
+    return None
+
+
 def main():
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
     role=os.environ['EFE_ROLE'];head=role=='trainer';run=Path(spec['run'])
@@ -37,6 +52,7 @@ def main():
     if execution:attempt=attempt/execution
     attempt.mkdir(parents=True,exist_ok=True)
     bundle=run/'adapters';source=Path(spec['pear_source']);runtime=Path(spec['runtime']);python=runtime/'envs/verl/bin/python'
+    resume_checkpoint=checkpoint_for_resume(run)if head else None
     deadline=time.monotonic()+48*3600;stopped=threading.Event();phase={'phase':'initializing'}
     object_transport={'store':None}
     def record(stage,**fields):
@@ -180,10 +196,9 @@ else:raise TimeoutError("Not all model rollout nodes joined")
 ray.shutdown()
 '''
             subprocess.run([str(python),'-u','-c',code],env=env,check=True,timeout=1500)
-            resume=[];pointer=run/'checkpoint-latest.json'
-            if pointer.exists():
-                latest=json.loads(pointer.read_text())
-                if not latest['readback_verified']:raise ValueError('Latest checkpoint is not committed')
+            resume=[]
+            if resume_checkpoint is not None:
+                latest=resume_checkpoint
                 target=Path(env['PEAR_CHECKPOINT_SCRATCH'])/f"global_step_{latest['step']}"
                 from efe_pear_object_archive import restore
                 os.environ['PEAR_OBJECTSTORE_CREDENTIAL_FILE']=str(credential)

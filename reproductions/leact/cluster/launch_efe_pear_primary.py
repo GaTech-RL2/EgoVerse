@@ -373,6 +373,16 @@ def tick():
     state=read(DEST/'primary-launch.json',{})
     from .efe_pear_backup import maintain as maintain_backup
     maintain_backup(DEST/'backup-allocation.json')
+    recovery=read(DEST/'checkpoint-recovery-required.json',{})
+    if recovery.get('required'):
+        # Retain queued/allocated capacity, but never activate a fresh writer
+        # against old metrics while the interrupted checkpoint is unresolved.
+        if state.get('workflow'):
+            query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
+            state['scheduler_status']=query['status']
+        state.update(phase='awaiting_explicit_checkpoint_recovery',checkpoint_recovery=recovery)
+        write(DEST/'primary-launch.json',state);write(DEST/'primary-status.json',state)
+        return state
     promoted=promote_allocated_backup(state)
     if promoted is not None:return promoted
     if state.get('workflow')and state.get('scheduler_status')=='RUNNING':
@@ -405,7 +415,8 @@ def tick():
         observed=job_status(state)
         if observed is not None:state=recover_job_inside_allocation(state,observed)
         write(DEST/'primary-launch.json',state)
-    if query.get('start_time')and not state.get('native_workers_launched'):
+    if (query['status']=='RUNNING'and state.get('job_id')and query.get('start_time')
+        and not state.get('native_workers_launched')):
         worker_queue=read(DEST/'primary-native-queue.json',{})
         for build in native_builds(state['build'],state['workflow']):
             if build.name in worker_queue:
