@@ -140,13 +140,25 @@ def retire_abandoned_pending(root,*,now=None):
 
 
 def claim_episode(root,worker_id,kinds=None):
-    root=Path(root)
-    for pending in sorted((root/'pending').glob('*.json')):
+    root=Path(root);eligible=[];now=time.time()
+    for pending in(root/'pending').glob('*.json'):
         if not re.fullmatch('[0-9a-f]{32}',pending.stem):raise ValueError('Unexpected native episode identifier')
         try:request=json.loads(pending.read_text())
         except FileNotFoundError:continue
         if retire_abandoned_request(root,pending,request)is not None:continue
         if kinds is not None and request['kind']not in kinds:continue
+        deadline=request.get('open_deadline_unix')
+        timeout=1800 if request['kind'].startswith('efe/')else 14400 if request['kind'].startswith('native_yam/')else None
+        # Request IDs are random. Sorting them can starve an older episode
+        # until its client times out, invalidating the whole rollout group.
+        # Use the original deadline to preserve age across file relays; old
+        # clients without it retain filesystem arrival order. The retirement
+        # grace is unchanged, and requests still within their client deadline
+        # take precedence over expired requests awaiting that grace.
+        try:created=deadline-timeout if deadline is not None and timeout else pending.stat().st_mtime
+        except FileNotFoundError:continue
+        eligible.append((deadline is not None and deadline<now,created,pending.stem,pending))
+    for _,_,_,pending in sorted(eligible):
         # Atomic rename grants one owner across every native simulator worker.
         folder=root/'episodes'/pending.stem
         try:pending.rename(folder/'claimed-request.json')

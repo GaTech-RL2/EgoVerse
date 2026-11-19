@@ -113,6 +113,50 @@ def test_changed_replay_is_preserved_for_investigation(tmp_path):
     assert not(client.folder/'claimed.json').exists()
 
 
+def test_native_queue_claims_the_oldest_live_request_instead_of_the_smallest_uuid(tmp_path):
+    now=time.time()
+    for uid,age in [('f'*32,900),('0'*32,10)]:
+        (tmp_path/'episodes'/uid).mkdir(parents=True)
+        (tmp_path/'pending').mkdir(exist_ok=True)
+        atomic_json(tmp_path/'pending'/(uid+'.json'),{'kind':'efe/metaworldplus','env_args':{},
+            'open_deadline_unix':now-age+1800})
+    assert claim_episode(tmp_path,'first',{'efe/metaworldplus'})[0].name=='f'*32
+    assert claim_episode(tmp_path,'second',{'efe/metaworldplus'})[0].name=='0'*32
+
+
+def test_expired_request_in_retirement_grace_does_not_displace_a_live_request(tmp_path):
+    now=time.time()
+    for uid,deadline in [('0'*32,now-10),('f'*32,now+300)]:
+        (tmp_path/'episodes'/uid).mkdir(parents=True)
+        (tmp_path/'pending').mkdir(exist_ok=True)
+        atomic_json(tmp_path/'pending'/(uid+'.json'),{'kind':'efe/metaworldplus','env_args':{},
+            'open_deadline_unix':deadline})
+    assert claim_episode(tmp_path,'worker',{'efe/metaworldplus'})[0].name=='f'*32
+    assert(tmp_path/'pending'/('0'*32+'.json')).exists()
+    assert not(tmp_path/'episodes'/('0'*32)/'retired-pending-request.json').exists()
+
+
+def test_legacy_queue_age_falls_back_to_mtime_and_respects_worker_kinds(tmp_path):
+    import os
+    for uid,mtime,kind in [('f'*32,10,'custom/eligible'),('0'*32,20,'custom/eligible'),('1'*32,1,'custom/other')]:
+        (tmp_path/'episodes'/uid).mkdir(parents=True)
+        (tmp_path/'pending').mkdir(exist_ok=True)
+        p=tmp_path/'pending'/(uid+'.json');atomic_json(p,{'kind':kind,'env_args':{}});os.utime(p,(mtime,mtime))
+    assert claim_episode(tmp_path,'worker',{'custom/eligible'})[0].name=='f'*32
+    assert(tmp_path/'pending'/('1'*32+'.json')).exists()
+
+
+def test_native_termination_closes_the_episode_without_fabricating_a_verdict(tmp_path):
+    from reproductions.leact.cluster.efe_pear_remote_worker import stop_signal
+    closed=[]
+    class Environment:
+        def open(self):stop_signal()
+        def close(self):closed.append(True)
+    with pytest.raises(SystemExit)as error:serve_episode(tmp_path,Environment,{})
+    assert error.value.code==143 and closed==[True]
+    assert not(tmp_path/'response-000000.pkl').exists()
+
+
 def test_explicit_deadline_and_cancellation_after_claim_do_not_create_rewards(tmp_path):
     client=FileEpisodeClient(tmp_path,'custom/test',{})
     deadline=time.time()+1000

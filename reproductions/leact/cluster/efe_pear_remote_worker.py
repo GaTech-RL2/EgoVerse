@@ -10,6 +10,9 @@ import time
 from efe_pear_file_rpc import atomic_json,claim_episode,serve_episode
 
 
+def stop_signal(*_):raise SystemExit(143)
+
+
 def serve(root,worker_id,kinds,factory,*,finished,recoverable_errors=(),max_infrastructure_retries=32):
     root=Path(root);root.mkdir(mode=0o700,parents=True,exist_ok=True)
     if root.stat().st_mode&0o077:raise ValueError('Native transport root must be private')
@@ -54,6 +57,9 @@ def serve(root,worker_id,kinds,factory,*,finished,recoverable_errors=(),max_infr
 
 
 def main():
+    # Let serve_episode's finally block close its owned Harbor trial before
+    # the keeper reuses these nodes for another native job.
+    signal.signal(signal.SIGTERM,stop_signal)
     lane=Path(__file__).resolve().parent
     path=Path(sys.argv[1])if len(sys.argv)>1 else lane/'spec.json'
     spec=json.loads(path.read_text())

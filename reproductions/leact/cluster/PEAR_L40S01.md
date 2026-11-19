@@ -867,3 +867,47 @@ individual training rollouts, not held-out evaluations or extra successes to add
 to the cumulative worker counter. Cold-start recovery evidence is retained in
 hourly-native-cold-runtime.json. The controller and all model/simulator allocations
 remain running; the external idle cancellation was the only node release.
+
+### 2026-11-19 13:51 UTC — queue starvation repair inside the retained EFE node
+
+At 13:31 UTC the same primary had 2033 completed episodes, 385 successes, two
+completed optimizer updates and 21 usable groups waiting toward update 3. The
+main model and all twenty simulator children were running, and the EFE
+replacement was returning valid resource-enforced native verdicts. No primary
+checkpoint or evaluation had completed.
+
+Audited live queue age. Workers previously sorted random episode IDs rather than
+arrival time. An active MetaWorld request had waited 878 seconds while newer
+requests of the same kind were claimed after 5-80 seconds. Other pending EFE
+requests were approaching or past their 1800-second open deadline. This can
+invalidate an entire eight-trajectory group despite other completed members.
+The timestamped evidence is in hourly-queue-aging-audit.json; this is a concrete
+queue-ordering defect, not proof that it explains every infrastructure failure.
+
+The transport now claims the oldest eligible live request first, deriving age
+from the original open deadline for EFE/YAM and using mtime for legacy clients.
+Expired requests waiting out the existing retirement grace rank after live
+requests. Eligibility, deadlines, retirement grace, action budgets, sampling,
+reward verification and model training parameters are unchanged. Added tests
+for inverted UUID/age order, legacy/kind filtering, retirement grace precedence,
+and native termination cleanup without fabricated rewards. Native lane entry
+points now handle SIGTERM through their normal episode-close finally block.
+
+Staged and checksum-verified an immutable native bundle with a simulator spec
+identical to the previous job. Replaced only the EFE child inside its existing
+allocation; the model job, completed groups and nineteen independent simulators
+were preserved. The ownership snapshot and handoff are retained in
+native-fifo-old-ownership.json and native-fifo-handoff.json. After the old child
+exited, stopped thirteen old nested containers whose Compose paths matched that
+old job's private reference root. No image, volume or trial record was removed;
+no OSMO allocation was canceled. Interrupted native attempts remain
+infrastructure retries, never synthetic policy failures.
+
+Validation: 712 research tests passed, four skipped and eight subtests passed.
+The required root unit command was attempted and cannot collect without local
+lightning. Qualified the exact deployed queue source on the allocated Linux
+node and shared filesystem using a separate, non-training transport root; the
+old high-UUID request was claimed before the new low-UUID request. This check
+invoked no simulator and admitted no training data. Receipt:
+native-fifo-linux-qualification.json. Actual rollout throughput after the repair
+must be measured rather than assumed improved.
