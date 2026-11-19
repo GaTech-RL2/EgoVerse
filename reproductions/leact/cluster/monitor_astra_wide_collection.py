@@ -26,8 +26,11 @@ from .launch_astra_wide_collection import (
 def refresh_build(state):
     """Freeze the same admitted task recipe with the latest collection recovery."""
     old=Path(state['build']);spec=read(old/'spec.json')
-    if spec.get('owner_model_workflow')!=OWNER or spec.get('teacher_root')!=TEACHER_ROOT:
+    from .switch_astra_wide_profile import PROFILE_ROOT,profile_spec
+    if spec.get('owner_model_workflow')!=OWNER or spec.get('teacher_root')not in {TEACHER_ROOT,PROFILE_ROOT}:
         raise ValueError('Not an independently owned teacher collection')
+    if read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1':
+        spec={**profile_spec(spec),'teacher_native_only':True}
     files=frozen_files(old)
     for name in NEW_FILES:files[name]=BASE/'cluster'/name
     spec['teacher_recovery_of']=state['workflow']+':'+str(state.get('job_id','initial'))
@@ -39,7 +42,8 @@ def refresh_build(state):
     if (build/'submission.json').exists()or(build/'submission-intent.json').exists():return build
     value=yaml.safe_load((build/'workflow.yaml').read_text());wf=value['workflow'];native=wf['tasks'][0]
     wf['name']='rp-jhh-astra-wide-'+state['label']+'-'+build.name.rsplit('-',1)[-1]
-    wf['labels']={'experiment':OWNER,'phase':'teacher_collection','teacher_model':'gpt-6-astra'}
+    wf['labels']={'experiment':OWNER,'phase':'teacher_collection',
+                  'teacher_model':'gpt-6.2-astra'if spec.get('teacher_profile_id')=='astra62-xhigh-v1'else'gpt-6-astra'}
     native['credentials']={CREDENTIAL:{'NVIDIA_INFERENCE_API_KEY':'api_key'}}
     if state['label']in {'efe','robodojo','robolab','yamlab'}:
         native['credentials']['rp-jhh-pear-swift-archive-20261118']={'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}
@@ -49,6 +53,7 @@ def refresh_build(state):
 
 
 def snapshot(host, states):
+    from .switch_astra_wide_profile import PROFILE_ROOT
     controls={}
     for wf,row in states.items():
         if row.get('superseded_by'):continue
@@ -67,9 +72,15 @@ for p in root.glob('episodes/*/infra-*/result.json'):
  r=json.loads(p.read_text());status=r['status'];suite=r['case']['suite'];counts[status]+=1
  suites.setdefault(suite,collections.Counter())[status]+=1
  actions+=r.get('valid_actions',0);invalid+=r.get('invalid_actions',0);tokens+=r.get('generated_tokens',0);admitted+=bool(r.get('sft_admitted'))
+profile_root=Path(__PROFILE_ROOT__);profile_counts=collections.Counter();profile_suites={};workers={}
+for p in profile_root.glob('episodes/*/infra-*/result.json'):
+ r=json.loads(p.read_text());profile_counts[r['status']]+=1
+ profile_suites.setdefault(r['case']['suite'],collections.Counter())[r['status']]+=1
+for p in profile_root.glob('profile-workers/*.json'):workers[p.stem]=json.loads(p.read_text())
 print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'attempt_status':dict(counts),
- 'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted}),flush=True)
-'''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls))
+ 'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted,
+ 'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers}}),flush=True)
+'''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls)).replace('__PROFILE_ROOT__',repr(PROFILE_ROOT))
     return remote(host,script,task='native')
 
 
@@ -87,6 +98,7 @@ def recover_allocation(state, scheduler):
         'allocation_build':str(build),'pool':pool,'priority':'LOW','phase':'scheduler_recovery_submitted',
         'allocation_retries':state.get('allocation_retries',0)+1,'recovery_of':state['workflow']}
     replacement.pop('allocation_control',None);replacement.pop('superseded_by',None)
+    for key in ['profile_sidecar','profile_job_id','profile_build','profile_phase']:replacement.pop(key,None)
     record_launch(replacement)
     record_launch({**state,'superseded_by':replacement['workflow'],'phase':'scheduler_ended_recovered'})
     return replacement
@@ -127,6 +139,8 @@ def tick():
         # exec during any other worker's scheduler startup barrier.
         capture=snapshot(hosts[0],active);write(ROOT/'watch-census.json',capture)
         status['attempt_status']=capture['attempt_status'];status['sft_admitted']=capture['sft_admitted']
+        profile_enabled=read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'
+        if profile_enabled:status['astra62_attempt_status']=capture['astra62_profile']['attempt_status']
         for wf,node in capture['nodes'].items():
             if wf not in hosts:continue
             row=active[wf]
@@ -134,6 +148,13 @@ def tick():
                 row={**row,'job_id':node['desired_id']};record_launch(row);active[wf]=row
             recovered=recover_child(row,node)
             if recovered:status['recovery_actions'].append({'workflow':wf,'child':recovered['job_id']})
+            if profile_enabled and not recovered and node['node']['phase']=='running':
+                from .switch_astra_wide_profile import deploy
+                try:
+                    result=deploy(row)
+                    status.setdefault('profile_collectors',{})[wf]=result['profile_sidecar']['pid']
+                except Exception as exc:
+                    status.setdefault('profile_deployment_pending',{})[wf]=str(exc)[:600]
     for wf,q in schedulers.items():
         replacement=recover_allocation(active[wf],q)
         if replacement:status['recovery_actions'].append({'workflow':replacement['workflow'],'recovery_of':wf})

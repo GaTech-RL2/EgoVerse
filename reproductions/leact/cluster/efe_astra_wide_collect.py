@@ -13,6 +13,8 @@ import json
 import math
 import os
 from pathlib import Path
+import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -28,6 +30,13 @@ except ImportError:
 
 
 MODEL = 'azure/openai/gpt-6-astra'
+LEGACY_PROFILE='astra6-high-v1'
+ASTRA62_PROFILE='astra62-xhigh-v1'
+PROFILES={
+    LEGACY_PROFILE:{'id':LEGACY_PROFILE,'model':MODEL,'api_mode':'responses','effort':'high'},
+    ASTRA62_PROFILE:{'id':ASTRA62_PROFILE,'model':'openai/openai/gpt-6.2-astra',
+                     'api_mode':'chat_completions','effort':'xhigh'},
+}
 PROMPT = SYSTEM.replace('Return only one JSON object with action_type',
     'End your response with one json code block containing action_type') + (
     '\nGround your action in the supplied public camera, observation and action guide. '
@@ -39,7 +48,35 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def collection_plan(curriculum, *, attempts_per_task=2):
+def model_profile(spec):
+    identifier=spec.get('teacher_profile_id',LEGACY_PROFILE)
+    if identifier not in PROFILES:raise ValueError('Unapproved teacher model profile')
+    return dict(PROFILES[identifier])
+
+
+def request_body(profile, *, prompt, inputs, max_output_tokens):
+    if profile['api_mode']=='responses':
+        return {'model':profile['model'],'instructions':prompt,'input':inputs,
+            'stream':False,'store':False,'max_output_tokens':max_output_tokens,
+            'reasoning':{'effort':profile['effort']}}
+    messages=[{'role':'system','content':prompt}]
+    for item in inputs:
+        content=item['content']
+        if isinstance(content,list):
+            converted=[]
+            for block in content:
+                if block['type']=='input_text':converted.append({'type':'text','text':block['text']})
+                elif block['type']=='input_image':converted.append({'type':'image_url',
+                    'image_url':{'url':block['image_url'],'detail':block.get('detail','auto')}})
+                else:raise ValueError('Unsupported public chat input block')
+            content=converted
+        messages.append({'role':item['role'],'content':content})
+    return {'model':profile['model'],'messages':messages,'stream':False,'store':False,
+        'max_completion_tokens':max_output_tokens,'reasoning_effort':profile['effort']}
+
+
+def collection_plan(curriculum, *, attempts_per_task=2, teacher_profile_id=LEGACY_PROFILE):
+    profile=model_profile({'teacher_profile_id':teacher_profile_id})
     if curriculum.get('partition') != 'train' or curriculum.get('qualification') != 'passed':
         raise ValueError('A qualified training curriculum is required')
     if type(attempts_per_task) is not int or attempts_per_task < 1:
@@ -67,7 +104,7 @@ def collection_plan(curriculum, *, attempts_per_task=2):
                     'repeated_reset': attempt > 0 and index == 0}
             case['case_id'] = 'rp_jhh_' + digest([suite, task, row['config_id'], attempt])[:24]
             cases.append(case)
-    return {'schema_version': 1, 'teacher_model': MODEL, 'partition': 'train',
+    return {'schema_version': 1, 'teacher_model':profile['model'],'teacher_profile':profile,'partition':'train',
             'curriculum_sha256': digest(curriculum), 'attempts_per_task': attempts_per_task,
             'cases': cases, 'task_count': len(grouped),
             'admission': 'Only finalized native successes with complete public responses, '
@@ -85,21 +122,36 @@ def api_response(body, *, endpoint, credential_file):
     if key_path.stat().st_mode & 0o077:
         raise ValueError('Teacher inference credential must be private')
     key = key_path.read_text().strip()
-    request = urllib.request.Request(endpoint.rstrip('/') + '/responses',
+    chat='messages'in body
+    request = urllib.request.Request(endpoint.rstrip('/') + ('/chat/completions'if chat else'/responses'),
         data=json.dumps(body, allow_nan=False).encode(),
         headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
     # Store only public output, usage and identifiers, never the response's
     # provider-private reasoning entries, encrypted contents or key material.
     with urllib.request.urlopen(request, timeout=900) as stream:
         result = json.load(stream)
-    if result.get('status') != 'completed':
-        raise RuntimeError('Teacher response did not complete: ' + str(result.get('status')))
-    text = public_text(result)
+    raw_usage=result.get('usage',{})
+    if chat:
+        choices=result.get('choices',[])
+        if len(choices)!=1 or choices[0].get('finish_reason')!='stop':
+            raise RuntimeError('Teacher chat response did not complete: '+str([c.get('finish_reason')for c in choices]))
+        content=choices[0].get('message',{}).get('content')
+        text=content if isinstance(content,str)else'\n'.join(b['text']for b in(content or[])if b.get('type')=='text')
+        usage={'input_tokens':raw_usage.get('prompt_tokens',0),'output_tokens':raw_usage.get('completion_tokens',0),
+               'total_tokens':raw_usage.get('total_tokens',0),
+               'input_tokens_details':raw_usage.get('prompt_tokens_details',{}),
+               'output_tokens_details':raw_usage.get('completion_tokens_details',{})}
+    else:
+        if result.get('status')!='completed':
+            raise RuntimeError('Teacher response did not complete: '+str(result.get('status')))
+        text=public_text(result);usage=raw_usage
     if not text:
         raise RuntimeError('Teacher response has no public action text')
-    return {'public_output': text, 'usage': result.get('usage', {}),
+    return {'public_output':text,'usage':usage,'provider_usage':raw_usage,
             'returned_model': result.get('model'), 'response_id': result.get('id'),
-            'status': result.get('status')}
+            'status':'completed','requested_model':body['model'],
+            'requested_effort':body.get('reasoning_effort',body.get('reasoning',{}).get('effort')),
+            'api_mode':'chat_completions'if chat else'responses','fallback_allowed':False}
 
 
 def public_observation(value, folder, turn):
@@ -217,6 +269,7 @@ class ReasoningClient:
 
 def run_case(spec, case, *, infrastructure_attempt=0):
     reasoning=case['suite']=='procedural_reasoning'
+    profile=model_profile(spec)
     folder = Path(spec['teacher_root'])/'episodes'/case['case_id']/f'infra-{infrastructure_attempt:02d}'
     folder.mkdir(parents=True, exist_ok=True, mode=0o700)
     result_path = folder/'result.json'
@@ -224,7 +277,9 @@ def run_case(spec, case, *, infrastructure_attempt=0):
     if old is not None:return old
     kind = 'native_yam/'+case['task'] if case['suite'] == 'native_gr00t_yam' else 'efe/'+case['suite']
     client=None
-    result = {'case': case, 'teacher_model': MODEL, 'status': 'opening',
+    result = {'case':case,'teacher_model':profile['model'],'teacher_profile':profile,
+        'requested_model':profile['model'],'requested_effort':profile['effort'],
+        'api_mode':profile['api_mode'],'fallback_allowed':False,'status':'opening',
         'episode_id': None, 'started_utc': datetime.now(timezone.utc).isoformat(),
         'valid_actions': 0, 'invalid_actions': 0, 'generated_tokens': 0, 'input_tokens_sum':0,
         'maximum_input_tokens_per_call':0,
@@ -274,10 +329,8 @@ def run_case(spec, case, *, infrastructure_attempt=0):
             content, refs = public_observation(value, folder, turn)
             if history:
                 content.insert(0, {'type': 'input_text', 'text': 'Recent public actions and feedback:\n'+json.dumps(history[-8:])})
-            body = {'model': MODEL, 'instructions': prompt,
-                'input': reasoning_history+[{'role': 'user', 'content': content}], 'stream': False, 'store': False,
-                'max_output_tokens': min(32768, 160000-result['generated_tokens']),
-                'reasoning': {'effort': 'high'}}
+            body=request_body(profile,prompt=prompt,inputs=reasoning_history+[{'role':'user','content':content}],
+                              max_output_tokens=min(32768,160000-result['generated_tokens']))
             before = time.monotonic()
             reply = api_response(body, endpoint=spec['teacher_endpoint'], credential_file=spec['teacher_credential_file'])
             seconds = time.monotonic()-before
@@ -289,9 +342,15 @@ def run_case(spec, case, *, infrastructure_attempt=0):
                                           {'role':'assistant','content':reply['public_output']}])
             result['model_seconds'] += seconds
             row = {'turn': turn, 'observed_unix': time.time(), **reply,
+                'teacher_profile':profile,'requested_model':profile['model'],'requested_effort':profile['effort'],
+                'api_mode':profile['api_mode'],'fallback_allowed':False,
                 'model_seconds': seconds, 'request_sha256': digest(body),
                 'action_contract_sha256': sha, 'frames': refs,
                 'public_observation_text': [b['text'] for b in content if b['type'] == 'input_text']}
+            if reply.get('returned_model')!=profile['model']:
+                row['model_identity_mismatch']=True
+                with(folder/'turns.jsonl').open('a')as log:log.write(json.dumps(row)+'\n')
+                raise RuntimeError('Teacher returned a different model; no fallback action executed')
             try:
                 payload=final_action_json(reply['public_output'])
                 action = reasoning_action(payload,family=case['env_args']['family'],actions=executed_actions)if reasoning else parse_action(payload, contract=contract, allow_stop=True)
@@ -336,10 +395,73 @@ def run_case(spec, case, *, infrastructure_attempt=0):
     return result
 
 
-def collect(spec):
+class LegacyCaseGuards:
+    """Let existing legacy episodes finish, then retain their simulator lanes.
+
+    Legacy collectors already skip a case when its writer lock is held. Taking
+    every unstarted legacy case lock prevents another old-profile episode;
+    waiting on existing locks respects each in-flight native episode boundary.
+    """
+    def __init__(self,spec,cases):
+        self.spec=spec;self.handles={};self.pending={};self.mutex=threading.Lock()
+        root=spec.get('legacy_teacher_root')
+        if not root:return
+        if Path(root).resolve()==Path(spec['teacher_root']).resolve():
+            raise ValueError('A model-profile handoff needs a separate output directory')
+        for case in cases:
+            path=Path(root)/'episodes'/case['case_id']/'writer.lock';path.parent.mkdir(parents=True,exist_ok=True)
+            handle=path.open('a');self.handles[path]=handle
+            try:fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:self.pending.setdefault(case['task'],[]).append(path)
+            else:self.preserve_orphans(path)
+        self.save()
+    def preserve_orphans(self,path):
+        # Holding the legacy case's exclusive writer lock proves no legacy
+        # collector still owns an unfinished record. Preserve it as interrupted
+        # and close only its orphaned RPC, never an allocated native server.
+        for result in path.parent.glob('infra-*/result.json'):
+            previous_attempt(result.parent,self.spec)
+    def save(self):
+        root=Path(self.spec['teacher_root'])/'profile-handoffs';root.mkdir(mode=0o700,parents=True,exist_ok=True)
+        atomic_json(root/(os.environ.get('EFE_WORKFLOW_ID','local')+'.json'),{
+            'profile':model_profile(self.spec),'legacy_root':self.spec.get('legacy_teacher_root'),
+            'legacy_inflight_tasks':sorted(k for k,v in self.pending.items()if v),
+            'guarded_legacy_cases':len(self.handles)-sum(map(len,self.pending.values())),
+            'updated_unix':time.time(),'pid':os.getpid(),'native_processes_preserved':True})
+    def wait_task(self,name):
+        while self.pending.get(name):
+            with self.mutex:
+                for path in list(self.pending[name]):
+                    try:fcntl.flock(self.handles[path],fcntl.LOCK_EX|fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        # A queued legacy open with no native owner can be
+                        # retired atomically. Winning the pending-file rename
+                        # proves no simulator episode was interrupted; a native
+                        # claim that wins the race is left to finish normally.
+                        for result_path in path.parent.glob('infra-*/result.json'):
+                            result=json.loads(result_path.read_text());uid=result.get('episode_id')
+                            if result.get('status')!='opening'or not uid or not re.fullmatch('[0-9a-f]{32}',uid):continue
+                            episode=Path(self.spec['transport_root'])/'episodes'/uid
+                            pending=Path(self.spec['transport_root'])/'pending'/(uid+'.json')
+                            try:pending.rename(episode/'profile-superseded-pending.json')
+                            except FileNotFoundError:continue
+                            atomic_json(episode/'infrastructure-error.json',{
+                                'error':'Legacy profile open superseded before native claim at authorized model handoff.',
+                                'superseded_before_native_claim':True,'updated_unix':time.time()})
+                        continue
+                    self.pending[name].remove(path)
+                    self.preserve_orphans(path)
+                self.save()
+            if self.pending[name]:time.sleep(1)
+    def close(self):
+        for handle in self.handles.values():handle.close()
+
+
+def collect(spec, *, legacy_guards=None):
     names = list(dict.fromkeys(spec['teacher_task_names']))
     cases = [r for r in spec['teacher_plan']['cases'] if r['task'] in names]
     def one_task(name):
+        if legacy_guards is not None:legacy_guards.wait_task(name)
         for case in [r for r in cases if r['task'] == name]:
             base = Path(spec['teacher_root'])/'episodes'/case['case_id'];base.mkdir(parents=True,exist_ok=True)
             with (base/'writer.lock').open('a') as lock:

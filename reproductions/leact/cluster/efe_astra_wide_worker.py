@@ -58,7 +58,7 @@ def main():
                     if child.poll()is not None:
                         fail_owned_requests(spec,'Owned teacher native bootstrap exited with code '+str(child.returncode))
             watcher=threading.Thread(target=watch_child,daemon=True);watcher.start()
-        collect(spec)
+        if not spec.get('teacher_native_only'):collect(spec)
         atomic_json(root/(os.environ['EFE_WORKFLOW_ID']+'-collection-complete.json'),
                     {'complete':True,'updated_unix':time.time()})
         # Keep native lanes and the allocation available for an explicit next

@@ -27,7 +27,7 @@ TEACHER_ROOT=REMOTE+'/teacher-collections/rp_jhh_astra_wide_warmstart_20261119_v
 OWNER='rp_jhh_astra_wide_warmstart_20261119_v1'
 CREDENTIAL='rp-jhh-astra-wide-inference-20261119'
 NEW_FILES=['efe_astra_wide_collect.py','efe_astra_wide_worker.py','efe_astra_wide_reasoning_worker.py',
-           'efe_pear_file_rpc.py','efe_pear_remote_worker.py']
+           'efe_astra_wide_profile_worker.py','efe_pear_file_rpc.py','efe_pear_remote_worker.py']
 
 
 def freeze_worker(build,names):
