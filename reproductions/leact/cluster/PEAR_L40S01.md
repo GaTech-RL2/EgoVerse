@@ -792,3 +792,36 @@ The underlying monitor fault is not yet repaired; this is a verified source of
 episode attrition. Evidence is saved in hourly-episode-errors.json and
 hourly-native-verifier-audit.json. Preserve the grading checks while diagnosing
 the monitor; bypassing them would change what counts as a valid outcome.
+
+### 2026-11-19 11:34 UTC — update 2 completed; monitor rejection reasons recovered
+
+Verified primary optimizer update 2 completed at 11:06:30 UTC (03:06 Pacific),
+with finite policy-gradient loss 0.0303618, gradient norm 4.62666 and
+rollout/current-policy KL 0.00554875. Its learner pass took 1881.48 seconds
+(31.4 minutes), collection 4080.45 seconds (68.0 minutes), and total step time
+5985.65 seconds (99.8 minutes). The lower loss is a different sampled RL batch,
+not evidence of a held-out capability improvement.
+
+At 11:31 UTC the same run had 1623 completed episodes, 322 successes, seventy
+cumulative usable groups and two completed updates consuming sixty-four groups.
+The replay-buffer log independently reported six finished usable groups toward
+the next batch of thirty-two, with twenty-four running groups. All five model
+children and twenty simulator children were running. The trainer GPUs were idle
+while awaiting the next batch. No primary checkpoint or eval had completed.
+The standby r17 queue request expired without starting; automatic retries remain
+enabled without stopping any live allocation.
+
+Read the benchmark's unchanged images/monitor/rcb_monitor/rcb_limits.py and
+retained verifier/resource_limits.json from actual rejected trials. Two
+MetaWorld cases report `16 s of 61 s unobserved` and `7 s of 64 s unobserved`.
+A DexJoco case reports that the monitor never found its watched containers
+(`no beacon seen`). The resource checker rejects excessive sampling gaps or
+missing container scope; the file is not necessarily absent. This narrows the
+earlier generic resource_monitor_missing symptom to observed record problems,
+without proving why the monitor missed samples or its container beacon.
+
+Saved the source and exact trial detail evidence in
+hourly-resource-monitor-source.json, hourly-resource-monitor-detail.json and
+diagnostic-sources/rcb_limits.py. These are read-only diagnostic copies. The
+resource checks, workload limits, grading, task mixture, and training recipe
+were not modified; invalid records continue to be retried and excluded.
