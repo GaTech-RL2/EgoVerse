@@ -72,6 +72,8 @@ def ingest_pear(path,value):
     with closing(connect(path))as db,db:
         previous=db.execute('SELECT payload FROM pear_runs WHERE run_id=?',(run_id,)).fetchone()
         old=json.loads(unpack_payload(previous[0]))if previous else {}
+        identity=data.get('metadata',{}).get('curriculum_sha256')
+        if identity and old.get('metadata',{}).get('curriculum_sha256')!=identity:old={}
         for key in ['history','evaluations','checkpoints']:
             records={row['step']:row for row in [*old.get(key,[]),*data.get(key,[])]}
             if any(type(k)is not int or k<0 for k in records):raise ValueError('Invalid optimizer step')
@@ -93,6 +95,16 @@ def reasoning_workspace(path):
                 record=json.loads(unpack_payload(payload))
                 record.pop('graded_group_ids',None)
                 record.pop('group_reward_totals',None)
+                snapshot_run=runs.get(run_id,{})
+                identity=snapshot_run.get('metadata',{}).get('curriculum_sha256')
+                # The arm label survives recipe changes and retained-node job
+                # replacements. Old hosted logs must not overwrite the new
+                # admitted run's metadata, rewards or optimizer history.
+                if identity and record.get('metadata',{}).get('curriculum_sha256')!=identity:continue
+                if identity:
+                    if(snapshot_run.get('heartbeat')or{}).get('updated_utc','')>(record.get('heartbeat')or{}).get('updated_utc',''):
+                        continue
+                    record['metadata']={**snapshot_run.get('metadata',{}),**record.get('metadata',{})}
                 runs[run_id]=record
         live['observed_utc']=max(r[1]for r in rows)
     status=Path(path).parent/'collector-status.json'

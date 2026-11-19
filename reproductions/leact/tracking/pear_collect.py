@@ -38,7 +38,10 @@ def parse_records(logs):
 
 
 def fold(state,marker,row):
-    if marker=='PEAR_RUN':state['metadata']=row
+    if marker=='PEAR_RUN':
+        identity=row.get('curriculum_sha256')
+        if identity and state.get('metadata',{}).get('curriculum_sha256')!=identity:state.clear()
+        state['metadata']=row
     elif marker=='PEAR_HEARTBEAT':
         if state.get('heartbeat',{}).get('updated_utc','')>row.get('updated_utc',''):return state
         state['heartbeat']={k:v for k,v in row.items()if k!='rollout_diagnostics'}

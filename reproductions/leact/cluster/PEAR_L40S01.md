@@ -489,3 +489,17 @@ The required repository-wide unit command was attempted and cannot collect
 without the local lightning dependency. The research suite passed 673 tests, with three skipped and eight subtests
 passed. JavaScript syntax and diff checks passed. Live activation is tracked
 separately from configuration and unit checks.
+
+
+### 2026-11-19 — prevent hosted telemetry from crossing recipe boundaries
+
+After publishing the sampler explanation, a live page check returned no sampler
+policy although shared-storage run.json confirmed task-signal-window-v2. The
+hosted SQLite record replaced the locally collected record solely by arm name;
+its launch-only/older data hid the current recipe. Run composition now compares
+the admitted curriculum hash before merging hosted data and prefers the fresher
+heartbeat within the same recipe. Hosted ingestion and PEAR_RUN log folding clear
+prior optimizer/reward history when that identity changes. Tests cover an old
+run with two updates versus a fresh recipe with zero updates, and subsequent
+arrival of the correct hosted record without importing old history. This does
+not change any training, sampling, action or reward code.

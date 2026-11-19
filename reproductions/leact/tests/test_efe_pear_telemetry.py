@@ -123,3 +123,20 @@ def test_direct_ingestion_is_scoped_and_survives_catalog_refresh(tmp_path):
     assert [p['step']for p in result['live_pear']['runs']['registered-arm']['history']]==[1,2]
     with pytest.raises(ValueError,match='registered'):ingest_pear(db,{**upload(1),'run_id':'unregistered'})
     with pytest.raises(ValueError,match='cannot modify'):ingest_pear(db,{**upload(1),'data':{'inventory':{}}})
+
+
+def test_hosted_arm_history_cannot_overwrite_a_different_admitted_recipe(tmp_path):
+    db=tmp_path/'db.sqlite'
+    current={'metadata':{'curriculum_sha256':'current','sampling_policy':'task-signal-window-v2'},
+        'optimizer_steps_observed':0,'history':[],'heartbeat':None}
+    workspace={'pear':{'arms':[{'id':'arm'}]},'live_pear':{'runs':{'arm':current}}}
+    ingest(db,{'schema_version':1,'runs':[],'training':[],'status':{'reasoning_workspace':workspace}})
+    upload={'schema_version':1,'run_id':'arm','data':{'metadata':{'curriculum_sha256':'old'},
+        'optimizer_steps_observed':2,'history':[{'step':2}]}}
+    ingest_pear(db,upload)
+    assert reasoning_workspace(db)['live_pear']['runs']['arm']==current
+    ingest_pear(db,{**upload,'data':{'metadata':{'curriculum_sha256':'current'},
+        'optimizer_steps_observed':1,'history':[{'step':1}]}})
+    result=reasoning_workspace(db)['live_pear']['runs']['arm']
+    assert result['history']==[{'step':1}]and result['optimizer_steps_observed']==1
+    assert result['metadata']['sampling_policy']=='task-signal-window-v2'

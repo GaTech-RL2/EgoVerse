@@ -60,3 +60,10 @@ def test_old_attempt_heartbeat_cannot_replace_a_newer_live_heartbeat():
     fold(state,'PEAR_HEARTBEAT',{'updated_utc':'2026-11-18T07:00:00','step':2})
     fold(state,'PEAR_HEARTBEAT',{'updated_utc':'2026-11-18T06:00:00','step':0})
     assert state['heartbeat']['step']==2
+
+
+def test_new_admitted_recipe_in_the_same_allocation_does_not_inherit_old_rewards_or_updates():
+    state={'metadata':{'curriculum_sha256':'old-recipe'},'optimizer_steps_observed':2,
+        'history':[{'step':2}],'group_reward_totals':{'all':{'episodes':8,'successes':5}}}
+    fold(state,'PEAR_RUN',{'run_id':'arm','curriculum_sha256':'new-recipe'})
+    assert state=={'metadata':{'run_id':'arm','curriculum_sha256':'new-recipe'}}
