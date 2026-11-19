@@ -306,6 +306,11 @@ def build(base=BASE):
             +str(batch_transition['source_groups'])+' → '+str(batch_transition['target_groups'])
             +'; '+batch_transition.get('phase','pending').replace('_',' ')
             +'. The current job continues until the validated handoff; completed optimizer work requires a checkpoint handoff.')
+        baseline=batch_transition.get('baseline_before_handoff',{})
+        if baseline:
+            primary_state['reason']+=(' Before the handoff: '+str(baseline['completed_episodes'])+' completed warmstart episodes, '
+                +str(baseline['successes'])+' successes and '+str(baseline['optimizer_updates'])
+                +' optimizer updates. Those observations are a separate pre-update baseline, not results of the new batch recipe.')
     pool_assets=read(scaled/'l40s01-storage-receipts/asset-restore-receipt.json',{})
     pool_sources=read(scaled/'l40s01-storage-receipts/source-restore-receipt.json',{})
     pool_ready=read(scaled/'l40s01-storage-ready.json',{})

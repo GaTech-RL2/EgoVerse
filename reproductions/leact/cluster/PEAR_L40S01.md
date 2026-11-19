@@ -597,3 +597,24 @@ claimed from the configuration check.
 Validation: 693 research tests passed, four skipped and eight subtests passed.
 JavaScript syntax, shell syntax and diff checks passed. The required repository
 unit command was attempted and cannot collect without local lightning.
+
+
+The native control fix produced positive student verdicts: an audit of terminal
+finalization receipts found four coffee-button successes and five handle-press
+successes. The sampled finalizations were 4/4 coffee-button and 5/9 handle-press;
+these are provisional training receipts, not fixed-set success-rate estimates or
+completed eight-rollout group counts. At 06:29 UTC the live warmstart policy had
+141 completed episodes, 19 total successes and five usable mixed groups, with
+zero optimizer updates. Fully judged RoboDojo and YAM groups were still all zero.
+The student can therefore produce correct native manipulation actions; this is
+not yet evidence of an RL improvement or broad simulator generalization.
+
+
+At 06:32 UTC, after exact 32-group driver composition passed and the old run was
+verified to have zero completed updates, the controller submitted
+`startup32-cdce159a8d47849a` inside the same 40-H100 allocation. All five child
+processes were observed running this job. Its separate run directory is
+`rp_jhh_pear_moe_warmstart496_full_6ba760740bcf`; model/rollout initialization
+and the first optimizer update remain distinct from successful job submission.
+The dashboard retains the 141-episode/19-success pre-update observation in the
+handoff explanation rather than assigning those old rollouts to the new run.
