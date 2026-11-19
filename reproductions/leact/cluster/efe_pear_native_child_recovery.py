@@ -27,6 +27,13 @@ def recoverable(item,node,*,rpc_sha256):
         and node.get('job_id')==item.get('job_id')and old and old!=rpc_sha256)
 
 
+def embedded_initial(item,node):
+    spec_path=Path(item.get('allocation_build',item['build']))/'spec.json'
+    if read(spec_path,{}).get('allocation_lifecycle')!='persistent_cluster':return False
+    expected='initial-'+hashlib.sha256(spec_path.read_bytes()).hexdigest()[:12]
+    return node.get('job_id')==expected==node.get('desired_job_id')
+
+
 def tick(state,*,limit=4):
     if read(DEST/'control.json',{}).get('paused')or not state.get('job_id'):return
     path=DEST/'primary-native-queue.json';queue=read(path,{});items={};seen=set()
@@ -58,22 +65,31 @@ if fresh:
   p=Path(row['control'])/'nodes/native.json'
   try:node=json.loads(p.read_text())
   except(FileNotFoundError,ValueError):continue
-  if node.get('phase')!='idle_failed':continue
-  job=node['job_id'];logs=list((Path(row['control'])/'jobs'/job).glob('*.log'))
-  if row.get('output'):logs+=list((Path(row['output'])/(row['workflow']+'-'+job)).glob('*/native.log'))
-  node['retired_request_failure']=any('An abandoned request was already retired'in tail(p)for p in logs)
+  desired=Path(row['control'])/'desired.json'
+  node['desired_job_id']=json.loads(desired.read_text()).get('id')if desired.exists()else None
+  if node.get('phase')=='idle_failed':
+   job=node['job_id'];logs=list((Path(row['control'])/'jobs'/job).glob('*.log'))
+   if row.get('output'):
+    root=Path(row['output'])/(row['workflow']+'-'+job)
+    for pattern in ['*/native.log','*/worker.log']:logs+=list(root.glob(pattern))
+   node['retired_request_failure']=any('An abandoned request was already retired'in tail(p)for p in logs)
   out[row['key']]=node
 print('EFE_CAPTURE '+json.dumps({'head_fresh':fresh,'nodes':out}),flush=True)
 """.replace('RUN',repr(state['run'])).replace('ROWS',repr(rows)).replace('WORKFLOW',repr(state['workflow']))
     observed=remote(state['workflow'],script,task='trainer')
     progress={'observed_unix':time.time(),'model_job_id':state['job_id'],
-        'head_fresh':observed['head_fresh'],'failed_children':len(observed['nodes']),'repairs':[]}
+        'head_fresh':observed['head_fresh'],
+        'failed_children':sum(n.get('phase')=='idle_failed'for n in observed['nodes'].values()),
+        'repairs':[],'reconciled_embedded_jobs':[]}
     if not observed['head_fresh']:
         write(DEST/'native-child-recovery.json',progress);return progress
     digest=hashlib.sha256((BASE/'cluster/efe_pear_file_rpc.py').read_bytes()).hexdigest()
     from .efe_pear_allocation_jobs import submit
     for key,node in observed['nodes'].items():
         item=items[key]
+        if not item.get('job_id')and embedded_initial(item,node):
+            item['job_id']=node['job_id'];write(path,queue)
+            progress['reconciled_embedded_jobs'].append({'workflow':item['workflow'],'job_id':node['job_id']})
         if not recoverable(item,node,rpc_sha256=digest):continue
         build=repair_build(item)
         job='rpc-replay-'+hashlib.sha256((state['job_id']+item['workflow']+build.name).encode()).hexdigest()[:14]

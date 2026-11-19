@@ -825,3 +825,36 @@ hourly-resource-monitor-source.json, hourly-resource-monitor-detail.json and
 diagnostic-sources/rcb_limits.py. These are read-only diagnostic copies. The
 resource checks, workload limits, grading, task mixture, and training recipe
 were not modified; invalid records continue to be retried and excluded.
+
+### 2026-11-19 12:41 UTC — external idle shutdown and retained-child reconciliation
+
+At 12:31 UTC the current run had 1846 completed episodes, 358 successes and two
+completed optimizer updates. Sixteen usable groups were waiting toward the next
+32-group batch. The main five model children and nineteen other simulator
+children were live; the main native EFE provider was being replaced.
+
+Queried both scheduler records. The previous EFE allocation ended at 12:25:35 UTC
+with FAILED_CANCELED and the explicit failure message `Task was canceled by user:
+groot-idle-job-shutdown. Auto-cancel due to sustained idleness`. This was an
+external automatic cancellation, not this agent releasing or canceling nodes.
+The existing controller submitted a replacement, which became RUNNING at
+12:32:12 UTC. Its persistent keeper started the embedded initial child. Verified
+that its system packages installed and its frozen task-list checks progressed;
+do not confuse that bootstrap activity with restored simulator rollouts.
+
+The scheduler retry correctly cleared the old child ID, but the child-recovery
+hook never adopted the new embedded ID. Fixed the bookkeeping: adoption requires
+the exact initial ID derived from the allocation's frozen spec and the same ID
+in its current desired request. This reconciles metadata without interrupting
+a healthy child. Also inspect native EFE lane worker.log files when identifying
+the already-recognized retired-request failure; its wrapper log alone omits the
+underlying lane traceback. Reconciled the live initial children for the EFE
+replacement and a YAM scheduler retry. No model or simulator child was restarted
+by this reconciliation, and no training parameters or grading checks changed.
+
+Validation: 708 research tests passed, four skipped and eight subtests passed.
+The required root unit collection was attempted and is blocked by missing local
+lightning. Recovery evidence is in hourly-native-efe-scheduler.json,
+hourly-native-efe-recovery.json, hourly-native-efe-bootstrap.json and
+hourly-embedded-job-reconciliation.json. Native resource-monitor retries remain
+an independent unresolved source of episode attrition.
