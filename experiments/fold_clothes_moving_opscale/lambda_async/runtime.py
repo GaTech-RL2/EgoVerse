@@ -534,6 +534,7 @@ def compose(
             }
             if manifest.get("metrics_only", False):
                 cfg.data.video_episodes = {}
+                cfg.callbacks.moving_opscale_evaluation.render_videos = False
             # No training optimizer is created by validate(); its checkpoint
             # weights are loaded strictly by the existing trainHydra path.
         need(

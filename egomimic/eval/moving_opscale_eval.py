@@ -223,9 +223,14 @@ class _NamedReferenceRenderer(OpenLoopSimEval):
 
 class MovingOpscaleEvaluation(Callback):
     def __init__(
-        self, private_dir: str, split_name: str, viz_every_n_epochs: int = 200
+        self,
+        private_dir: str,
+        split_name: str,
+        viz_every_n_epochs: int = 200,
+        render_videos: bool = True,
     ):
         self.private_dir = Path(private_dir)
+        self.render_videos = bool(render_videos)
         self.split_name = split_name
         self.viz_every_n_epochs = int(viz_every_n_epochs)
         if self.viz_every_n_epochs < 1:
@@ -417,7 +422,9 @@ class MovingOpscaleEvaluation(Callback):
             if totals["visited"] != totals["scored"] + totals["skipped"]:
                 raise RuntimeError(f"Inconsistent tracking coverage for {cohort}")
         final = trainer.current_epoch + 1 >= trainer.max_epochs
-        render_now = final or (trainer.current_epoch + 1) % self.viz_every_n_epochs == 0
+        render_now = self.render_videos and (
+            final or (trainer.current_epoch + 1) % self.viz_every_n_epochs == 0
+        )
         videos = self._render(trainer, pl_module) if render_now else []
         metrics = {}
         for cohort in COHORT_HEADS:
