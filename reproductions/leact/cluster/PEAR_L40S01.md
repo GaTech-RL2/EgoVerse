@@ -315,9 +315,18 @@ before releasing the old allocation, and refuses this warmstart handoff if
 the old run has completed optimizer updates. Replays and all retries remain
 diagnostics, separate from primary learning metrics and benchmark scores.
 
-Validation for this replacement: 646 research tests pass, with three skips and
+Validation for this replacement: 647 research tests pass, with three skips and
 eight passing subtests. The real CPU launch check passed both sampling policies
 under both node profiles and retained matching trainer/config/curriculum source
 hashes. Repository-wide unit collection was attempted and remains blocked by
 the missing local `lightning` dependency. Native known-case outcomes remain a
 separate activation check; CPU validation does not establish policy success.
+
+One diagnostic-specific parser mismatch was caught before interpreting its
+plate-slide-back result: the student generated a 138-token reply ending in a
+valid four-dimensional `ee_delta` action, but the diagnostic passed the entire
+reasoning-plus-JSON reply directly to the strict native parser. Production
+already calls `final_action_json` first. The corrected diagnostic reuses that
+same decoder and validates native bounds afterward. The rejected wrapper in
+the earlier attempt is not evidence of a policy regression. All old records
+are retained, and the corrected replay has separate source pins and outputs.

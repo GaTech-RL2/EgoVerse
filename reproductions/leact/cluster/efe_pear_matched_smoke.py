@@ -14,6 +14,11 @@ import urllib.request
 
 from efe_action_loop import SYSTEM,parse_action
 from efe_pear_file_rpc import FileEpisodeClient,atomic_json
+from efe_pear_action_json import final_action_json
+
+
+def decode_action(text,contract):
+    return parse_action(final_action_json(text),contract=contract,allow_stop=True)
 
 
 def public_content(blocks):
@@ -40,6 +45,7 @@ def run_case(spec,case,index):
     result={'task':name,'status':'opening','model':spec['model'],'model_revision':spec['model_revision'],
         'episode_id':client.uid,'primary_rl_updates':0,'generated_tokens':0,'valid_actions':0,
         'invalid_actions':0,'official_success':None,'response_budget':160000,'max_calls':96,
+        'action_decoder':'production final_action_json followed by native parse_action',
         'inference_path':'Existing PEAR vLLM HTTP API; no new model allocation.',
         'scope':'HTTP case replay using the current tool prompt and parser; separate from primary training metrics. Exact training-sampler tokenization parity is not asserted.'}
     def save():
@@ -73,7 +79,7 @@ def run_case(spec,case,index):
                 log.write(json.dumps({'turn':turn,'text':text,'finish_reason':reply['choices'][0]['finish_reason'],
                     'usage':reply['usage'],'model_seconds':time.monotonic()-before})+'\n')
             messages.append({'role':'assistant','content':text})
-            try:action=parse_action(text,contract=contract,allow_stop=True)
+            try:action=decode_action(text,contract)
             except(ValueError,TypeError,KeyError)as exc:
                 result['invalid_actions']+=1;result['end_reason']='action_validation'
                 result['action_error']=str(exc)[:500]

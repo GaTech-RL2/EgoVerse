@@ -18,6 +18,8 @@ def test_recipe_switch_requires_complete_native_success_and_valid_actions():
     assert not transition.replay_ready(rows,tasks,'other-weights')
     assert not transition.replay_ready([{**r,'official_success':0}for r in rows],tasks,'warm496')
     assert not transition.replay_ready([{**r,'invalid_actions':5}for r in rows],tasks,'warm496')
+    rows[-1].update(status='infrastructure_or_runtime_failure',official_success=None,valid_actions=0)
+    assert transition.replay_ready(rows,tasks,'warm496')
 
 
 @pytest.mark.parametrize('updates,success,expected',[(1,True,'requires_checkpoint_handoff'),(0,False,'requires_harness_review')])

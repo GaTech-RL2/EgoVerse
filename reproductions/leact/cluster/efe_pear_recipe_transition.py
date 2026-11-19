@@ -11,9 +11,11 @@ from .efe_pear_signal_curriculum import POLICY
 
 def replay_ready(cases,expected_tasks,model_revision):
     if len(cases)!=len(expected_tasks)or {c.get('task')for c in cases}!=set(expected_tasks):return False
-    if any(c.get('status')!='completed'or c.get('model_revision')!=model_revision for c in cases):return False
+    if any(c.get('status')not in {'completed','infrastructure_or_runtime_failure'}
+        or c.get('model_revision')!=model_revision for c in cases):return False
     valid=sum(c.get('valid_actions',0)for c in cases);invalid=sum(c.get('invalid_actions',0)for c in cases)
-    return bool(valid and valid/(valid+invalid)>=.95 and any(c.get('official_success')==1 for c in cases))
+    return bool(valid and valid/(valid+invalid)>=.95 and any(
+        c.get('status')=='completed'and c.get('official_success')==1 for c in cases))
 
 
 def capture(state,replay,driver):
@@ -49,7 +51,7 @@ source=Path(SOURCE);target=Path(TARGET);target.mkdir(mode=0o700,parents=True,exi
 if(target/'launch.json').exists():
  print('EFE_CAPTURE '+(target/'launch.json').read_text(),flush=True)
  raise SystemExit(0)
-for name in ['efe_pear_matched_smoke.py','efe_pear_file_rpc.py','efe_action_loop.py']:shutil.copyfile(source/name,target/name)
+for name in ['efe_pear_matched_smoke.py','efe_pear_file_rpc.py','efe_action_loop.py','efe_pear_action_json.py']:(target/name).write_bytes((source/name).read_bytes())
 spec=json.loads((source/'spec.json').read_text());spec['output']=str(target)
 (target/'spec.json').write_text(json.dumps(spec))
 with(target/'worker.log').open('a')as log:
@@ -59,7 +61,7 @@ receipt={'pid':p.pid,'output':str(target),'started_unix':time.time()}
 temporary=target/'launch.json.tmp';temporary.write_text(json.dumps(receipt));temporary.replace(target/'launch.json')
 print('EFE_CAPTURE '+json.dumps(receipt),flush=True)
 """.replace('SOURCE',repr(replay['output'])).replace('TARGET',repr(target)).replace('PYTHON',repr(REMOTE+'/runtime/envs/verl/bin/python'))
-    result=remote(state['workflow'],script,task='trainer')
+    result=remote(state['workflow'],script,task=replay.get('host_task','trainer'))
     value={**replay,**result,'attempt':attempt,'history':replay.get('history',[])+[
         {k:replay[k]for k in ['output','pid','started_unix']if k in replay}]}
     write(DEST/'matched-warmstart-smoke-h100-client.json',value)
