@@ -268,21 +268,24 @@ def refresh_build(state):
 def snapshot(host, states):
     from .switch_astra_wide_profile import PROFILE_ROOT
     controls={}
+    native_services=[]
     for wf,row in states.items():
         if row.get('superseded_by'):continue
         spec=read(Path(row.get('allocation_build',row['build']))/'spec.json')
         controls[wf]=spec['allocation_control_base']+'/'+wf
+        if row.get('native_service_only')is True:native_services.append(wf)
     script='''from pathlib import Path
 import collections,hashlib,json,time
-root=Path(__ROOT__);controls=__CONTROLS__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0;errors=[]
+root=Path(__ROOT__);controls=__CONTROLS__;native_services=__NATIVE_SERVICES__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0;errors=[]
 def load(path):
  try:return json.loads(path.read_text())
  except (OSError,ValueError)as exc:
   errors.append({'path':str(path),'error_type':type(exc).__name__,'error':str(exc)[:180]});return None
 for wf,control in controls.items():
  p=Path(control)
- node=load(p/'nodes/native.json');desired=load(p/'desired.json')
- if node and desired:nodes[wf]={'node':node,'desired_id':desired['id']}
+ node=load(p/'nodes/native.json');desired=load(p/'desired.json')if(p/'desired.json').exists()else None
+ if node and(desired or(wf in native_services and node.get('phase')=='waiting_for_job')):
+  nodes[wf]={'node':node,'desired_id':desired['id']if desired else None}
 for p in root.glob('episodes/*/infra-*/result.json'):
  r=load(p)
  if r is None:continue
@@ -318,7 +321,7 @@ for p in profile_root.glob('profile-workers/*.json'):
 print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'attempt_status':dict(counts),
  'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted,
  'read_errors':errors,'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers,'completed_cases':completed_cases}}),flush=True)
-'''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls)).replace('__PROFILE_ROOT__',repr(PROFILE_ROOT))
+'''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls)).replace('__PROFILE_ROOT__',repr(PROFILE_ROOT)).replace('__NATIVE_SERVICES__',repr(native_services))
     return remote(host,script,task='native')
 
 
@@ -447,6 +450,14 @@ def tick():
             row=active[wf]
             if not row.get('job_id'):
                 row={**row,'job_id':node['desired_id']};record_launch(row);active[wf]=row
+            if row.get('native_service_only')is True and node['node']['phase']=='waiting_for_job':
+                try:
+                    from .activate_astra_native_service import activate
+                    activated=activate(row);active[wf]=activated
+                    status['recovery_actions'].append({'workflow':wf,'native_service_job':activated['job_id']})
+                except Exception as exc:
+                    status.setdefault('native_service_activation_pending',{})[wf]=type(exc).__name__+':'+str(exc)[:500]
+                continue
             try:recovered=recover_child(row,node)
             except Exception as exc:
                 status.setdefault('child_recovery_pending',{})[wf]=str(exc)[:600];continue

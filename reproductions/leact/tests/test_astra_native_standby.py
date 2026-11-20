@@ -11,8 +11,9 @@ from reproductions.leact.cluster import monitor_astra_wide_collection as watch
 from reproductions.leact.tests.test_astra_rpc_heartbeat import original_build, WORKER
 
 
-def staged_standby(tmp_path):
-    source, _ = original_build(tmp_path)
+def staged_standby(tmp_path, *, spec_updates=None):
+    source, spec = original_build(tmp_path)
+    if spec_updates:(source/'spec.json').write_text(json.dumps({**spec, **spec_updates}))
     workflow = yaml.safe_load((source/'workflow.yaml').read_text())
     task = workflow['workflow']['tasks'][0]
     task.update(image='pinned-native-image', command=['python3'],
