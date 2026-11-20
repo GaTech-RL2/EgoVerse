@@ -26,6 +26,9 @@ from .launch_astra_wide_collection import (
 )
 
 
+MAX_ALLOCATION_RETRIES = 64
+
+
 def reconcile_lost_claims(root,transport,prefixes,*,now=None):
     """Retire only v2 RPCs claimed by independently proven lost native jobs."""
     root,transport=Path(root),Path(transport);now=time.time()if now is None else now;receipts=[]
@@ -155,7 +158,7 @@ def recover_allocation(state, scheduler):
     if scheduler.get('cancelled_by'):return None
     if not (infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
         return None
-    if state.get('allocation_retries',0)>=16:return None
+    if state.get('allocation_retries',0)>=MAX_ALLOCATION_RETRIES:return None
     build=refresh_build(state)
     pool=state.get('pool')or scheduler['pool']
     receipt=submit_reconciled(build,pool=pool,priority='LOW',nodes=1)

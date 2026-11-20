@@ -27,6 +27,32 @@ def test_recovery_never_replaces_live_or_user_canceled_allocation(status,monkeyp
     assert watch.recover_allocation({'workflow':'own'}, {'status':status})is None
 
 
+@pytest.mark.parametrize('retries,allowed', [(16, True), (63, True), (64, False)])
+def test_authorized_allocation_recovery_bound_keeps_low_priority_and_durable_lineage(
+        tmp_path, monkeypatch, retries, allowed):
+    recorded, submissions = [], []
+    monkeypatch.setattr(watch, 'refresh_build', lambda _: tmp_path/'verified-build')
+    def submit(build, **kwargs):
+        submissions.append((build, kwargs))
+        return {'name': 'rp-jhh-astra-wide-efe-recovery-1'}
+    monkeypatch.setattr(watch, 'submit_reconciled', submit)
+    monkeypatch.setattr(watch, 'record_launch', recorded.append)
+    state = {'workflow': 'rp-jhh-astra-wide-efe-ended-1', 'label': 'efe',
+             'pool': 'groot-h100-01', 'allocation_retries': retries}
+    scheduler = {'status': 'FAILED', 'cancelled_by': None,
+                 'failure_message': 'Exit code2001 due to OSMO Control failure'}
+    result = watch.recover_allocation(state, scheduler)
+    if not allowed:
+        assert result is None and not submissions and not recorded
+        return
+    assert submissions == [(tmp_path/'verified-build',
+                            {'pool': 'groot-h100-01', 'priority': 'LOW', 'nodes': 1})]
+    assert result['allocation_retries'] == retries+1
+    assert result['recovery_of'] == state['workflow']
+    assert result['lost_native_prefixes'] == [state['workflow']]
+    assert recorded[-1]['superseded_by'] == result['workflow']
+
+
 def test_child_recovery_requires_exact_recorded_teacher_owner(monkeypatch):
     monkeypatch.setattr(watch,'idle_verification',lambda *_:pytest.fail('A different child owns the allocation'))
     assert watch.recover_child({'job_id':'own'},
