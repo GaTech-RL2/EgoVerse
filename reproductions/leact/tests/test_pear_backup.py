@@ -16,14 +16,16 @@ def test_backup_maintenance_preserves_live_requests_and_user_cancellations(tmp_p
 
 
 @pytest.mark.parametrize('attempt,limit,should_retry',[(0,None,True),(32,None,False),(32,64,True),(64,64,False)])
-def test_expired_backup_requeues_all_seven_nodes_at_low_priority(tmp_path,monkeypatch,attempt,limit,should_retry):
+@pytest.mark.parametrize('priority',['LOW','HIGH'])
+def test_expired_backup_requeues_all_nodes_at_its_explicit_priority(tmp_path,monkeypatch,attempt,limit,should_retry,priority):
     build=tmp_path/'backup';build.mkdir()
     files={'spec.json':json.dumps({'rollout_nodes':6,'allocation_control_base':'/private/allocations'}),
         'workflow.yaml':yaml.safe_dump({'workflow':{'name':'backup','groups':[{'name':'cluster','tasks':[{'name':'trainer'}]}]}})}
     for name,data in files.items():(build/name).write_text(data)
     (build/'source-manifest.json').write_text(json.dumps({n:hashlib.sha256((build/n).read_bytes()).hexdigest()for n in files}))
-    p=tmp_path/'backup.json';p.write_text(json.dumps({'workflow':'expired','build':str(build),
-        'pool':'groot-h100-02','standby':True,'attempt':attempt}))
+    state={'workflow':'expired','build':str(build),'pool':'groot-h100-02','standby':True,'attempt':attempt}
+    if priority=='HIGH':state['retry_priority']='HIGH'
+    p=tmp_path/'backup.json';p.write_text(json.dumps(state))
     if limit is not None:(tmp_path/'control.json').write_text(json.dumps({'backup_allocation_attempts':limit}))
     monkeypatch.setattr(backup,'command',lambda *a:{'status':'FAILED_QUEUE_TIMEOUT','start_time':None})
     calls=[]
@@ -31,7 +33,7 @@ def test_expired_backup_requeues_all_seven_nodes_at_low_priority(tmp_path,monkey
     monkeypatch.setattr(backup,'submit_reconciled',submit)
     value=backup.maintain(p)
     if should_retry:
-        assert calls==[{'priority':'LOW','pool':'groot-h100-02','nodes':7}]
+        assert calls==[{'priority':priority,'pool':'groot-h100-02','nodes':7}]
         assert value['gpu']==56 and value['standby']and value['workflow']=='new-backup'
         assert value['attempt']==attempt+1
     else:

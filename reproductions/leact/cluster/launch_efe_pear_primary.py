@@ -316,8 +316,13 @@ def cancel_native_workers(model_workflow,*,explicit_user_release=False):
         item['cancel_requested']=True;write(DEST/'primary-native-queue.json',queue)
 
 
-def promote_allocated_backup(state):
-    backup=read(DEST/'backup-allocation.json',{})
+def standby_allocation_paths():
+    return[DEST/'backup-allocation.json',*sorted((DEST/'model-capacity-requests').glob('*.json'))]
+
+
+def promote_allocated_backup(state,path=None):
+    path=Path(path)if path is not None else DEST/'backup-allocation.json'
+    backup=read(path,{})
     if not backup.get('standby')or not backup.get('workflow')or backup['workflow']==state.get('workflow'):return None
     # Never start a second writer for the same experiment while the primary
     # allocation is queued or alive. A scheduler-ended request has no nodes
@@ -328,18 +333,20 @@ def promote_allocated_backup(state):
         safely_idle=(state.get('standby')and current_spec.get('allocation_lifecycle')=='persistent_cluster')
         if not current['status'].startswith('FAILED')and not safely_idle:return None
     candidate=command(['osmo','workflow','query',backup['workflow'],'--format-type','json'])
-    backup['scheduler_status']=candidate['status'];write(DEST/'backup-allocation.json',backup)
+    backup['scheduler_status']=candidate['status'];write(path,backup)
     if candidate['status']!='RUNNING':return None
-    from .efe_pear_allocation_jobs import submit as submit_job
-    previous=state.get('workflow')if state.get('workflow')and current['status'].startswith('FAILED')else None
+    from .efe_pear_allocation_jobs import submit as submit_job,running_tasks,previous_model_writer
+    try:running_tasks(candidate)
+    except RuntimeError:return None
     allocated=read(Path(backup['build'])/'spec.json')
     try:build=prepare(allocated['profile'],standby=True,priority_override=backup['priority'])
     except PendingAdmission as exc:
         backup['phase']='allocation_held_for_current_recipe_validation';backup['reason']=str(exc)
-        write(DEST/'backup-allocation.json',backup);return None
+        write(path,backup);return None
     spec=read(build/'spec.json')
     if(spec['model_revision']!=allocated['model_revision']or spec['rollout_nodes']!=allocated['rollout_nodes']):
         raise ValueError('Backup promotion changed the model initialization or allocated roles')
+    previous=previous_model_writer(backup['workflow'],spec['run'])
     receipt=submit_job(backup,build,previous_workflow=previous)
     history=state.get('history',[])
     if state.get('workflow'):history=history+[{k:state[k]for k in ['workflow','profile','scheduler_status']if k in state}]
@@ -348,9 +355,9 @@ def promote_allocated_backup(state):
         'standby':False,'native_workers_launched':False,'history':history,'phase':'job_submitted_in_existing_allocation',
         'primary_rl_updates':0,'scheduler_status':'RUNNING'}
     if state.get('standby')and not current['status'].startswith('FAILED'):
-        write(DEST/'backup-allocation.json',{**state,'standby':True,'demoted_to_standby':True})
+        write(path,{**state,'standby':True,'demoted_to_standby':True})
     else:
-        backup.update(standby=False,promoted_to_primary=True,job_id=receipt['job_id']);write(DEST/'backup-allocation.json',backup)
+        backup.update(standby=False,promoted_to_primary=True,job_id=receipt['job_id']);write(path,backup)
     write(DEST/'primary-launch.json',value);return value
 
 
@@ -447,7 +454,8 @@ def provision_native_workers(builds,state,queue,live_workflows):
 def tick():
     state=read(DEST/'primary-launch.json',{})
     from .efe_pear_backup import maintain as maintain_backup
-    maintain_backup(DEST/'backup-allocation.json')
+    standby_paths=standby_allocation_paths()
+    for standby_path in standby_paths:maintain_backup(standby_path)
     recovery=read(DEST/'checkpoint-recovery-required.json',{})
     if recovery.get('required'):
         # Retain queued/allocated capacity, but never activate a fresh writer
@@ -459,6 +467,10 @@ def tick():
         write(DEST/'primary-launch.json',state);write(DEST/'primary-status.json',state)
         return state
     promoted=promote_allocated_backup(state)
+    if promoted is None:
+        for standby_path in standby_paths[1:]:
+            promoted=promote_allocated_backup(state,standby_path)
+            if promoted is not None:break
     if promoted is not None:return promoted
     if state.get('workflow')and state.get('scheduler_status')=='RUNNING':
         from .efe_pear_batch_transition import tick as transition_batch
@@ -480,8 +492,9 @@ def tick():
     state['scheduler_status']=query['status'];write(DEST/'primary-launch.json',state)
     write(DEST/'primary-status.json',state)
     if query['status']=='RUNNING'and state.get('standby'):
-        from .efe_pear_allocation_jobs import activate_embedded
-        receipt=activate_embedded(state)
+        from .efe_pear_allocation_jobs import activate_embedded,previous_model_writer
+        previous=previous_model_writer(state['workflow'],state['run'])
+        receipt=activate_embedded(state,previous_workflow=previous)
         state.update(**receipt,standby=False,phase='job_submitted_in_existing_allocation')
         write(DEST/'primary-launch.json',state)
     if query['status']=='RUNNING'and state.get('job_id'):

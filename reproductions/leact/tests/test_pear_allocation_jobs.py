@@ -6,6 +6,39 @@ from reproductions.leact.cluster import efe_pear_allocation_jobs as jobs
 from reproductions.leact.cluster import launch_efe_pear_primary as primary
 
 
+@pytest.mark.parametrize('status,end_time,allowed',[
+    ('FAILED_CANCELED','ended',True),('COMPLETED','ended',True),
+    ('RUNNING',None,False),('PENDING',None,False),('FAILED',None,False),
+])
+def test_model_handoff_checks_the_actual_durable_owner(monkeypatch,status,end_time,allowed):
+    queried=[]
+    def command(args):
+        wf=args[3];queried.append(wf)
+        if wf=='new':return{'status':'RUNNING','groups':[{'tasks':[{'status':'RUNNING'}]}]}
+        assert wf=='actual-old-owner'
+        return{'status':status,'end_time':end_time}
+    monkeypatch.setattr(jobs,'command',command)
+    monkeypatch.setattr(jobs,'remote',lambda *a,**k:{'owner':{'workflow':'actual-old-owner'},
+        'step_files':[],'checkpoint_pointer_exists':False})
+    if allowed:assert jobs.previous_model_writer('new','run')=='actual-old-owner'
+    else:
+        with pytest.raises(RuntimeError,match='writer has not ended'):jobs.previous_model_writer('new','run')
+    assert queried==['new','actual-old-owner']
+
+
+def test_model_handoff_preserves_uncommitted_optimizer_progress(monkeypatch):
+    monkeypatch.setattr(jobs,'command',lambda *a:{'status':'RUNNING','groups':[{'tasks':[{'status':'RUNNING'}]}]})
+    monkeypatch.setattr(jobs,'remote',lambda *a,**k:{'owner':{'workflow':'old'},
+        'step_files':['00000001.json'],'checkpoint_pointer_exists':False})
+    with pytest.raises(RuntimeError,match='explicit recovery'):jobs.previous_model_writer('new','run')
+
+
+def test_model_handoff_never_execs_during_startup(monkeypatch):
+    monkeypatch.setattr(jobs,'command',lambda *a:{'status':'RUNNING','groups':[{'tasks':[{'status':'INITIALIZING'}]}]})
+    monkeypatch.setattr(jobs,'remote',lambda *a,**k:pytest.fail('No exec during startup'))
+    with pytest.raises(RuntimeError,match='startup barrier'):jobs.previous_model_writer('new','run')
+
+
 def test_no_allocation_exec_during_the_group_startup_barrier(monkeypatch):
     monkeypatch.setattr(jobs,'command',lambda *a:{'status':'RUNNING','groups':[{'tasks':[
         {'name':'trainer','status':'RUNNING'},{'name':'rollout-0','status':'INITIALIZING'}]}]})

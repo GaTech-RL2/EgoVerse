@@ -74,8 +74,10 @@ def test_standby_promotion_stages_the_current_recipe_instead_of_restarting_old_r
     (old/'spec.json').write_text(json.dumps(spec));(new/'spec.json').write_text(json.dumps(replacement))
     backup={'workflow':'standby','standby':True,'build':str(old),'priority':'LOW'}
     (tmp_path/'backup-allocation.json').write_text(json.dumps(backup))
-    monkeypatch.setattr(primary,'command',lambda *a:{'status':'RUNNING'})
+    monkeypatch.setattr(primary,'command',lambda *a:{'status':'RUNNING','groups':[{'tasks':[
+        {'name':name,'status':'RUNNING'}for name in ['trainer',*['rollout-'+str(i)for i in range(6)]]]}]})
     monkeypatch.setattr(primary,'prepare',lambda *a,**k:new)
+    monkeypatch.setattr(jobs,'previous_model_writer',lambda workflow,run:None)
     monkeypatch.setattr(jobs,'activate_embedded',lambda *a,**k:pytest.fail('Stale embedded code was activated'))
     calls=[]
     monkeypatch.setattr(jobs,'submit',lambda s,b,**k:calls.append((s['workflow'],b))or{'job_id':'fresh'})

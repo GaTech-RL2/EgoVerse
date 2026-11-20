@@ -17,6 +17,34 @@ def running_tasks(query):
     return tasks
 
 
+def previous_model_writer(workflow,run):
+    """Allow a handoff only from the actual, scheduler-ended run owner."""
+    running_tasks(command(['osmo','workflow','query',workflow,'--format-type','json']))
+    script="""from pathlib import Path
+import fcntl,json
+run=Path(RUN);owner={};steps=[];checkpoint=False
+if run.exists():
+ with(run/'allocation-writer.lock').open('a')as lock:
+  fcntl.flock(lock,fcntl.LOCK_SH)
+  try:owner=json.loads((run/'allocation-writer.json').read_text())
+  except FileNotFoundError:pass
+  steps=[p.name for p in(run/'telemetry/steps').glob('*.json')]
+  checkpoint=(run/'checkpoint-latest.json').is_file()
+print('EFE_CAPTURE '+json.dumps({'owner':owner,'step_files':steps,'checkpoint_pointer_exists':checkpoint}),flush=True)
+""".replace('RUN',repr(str(run)))
+    observed=remote(workflow,script,task='trainer')
+    if observed.get('step_files')and not observed.get('checkpoint_pointer_exists'):
+        raise RuntimeError('Prior optimizer updates have no committed checkpoint; explicit recovery is required')
+    owner=observed.get('owner',{}).get('workflow')
+    if owner is None or owner==workflow:return None
+    if not isinstance(owner,str)or not owner:raise ValueError('Invalid experiment writer identity')
+    previous=command(['osmo','workflow','query',owner,'--format-type','json'])
+    ended=(previous.get('status')=='COMPLETED'or str(previous.get('status','')).startswith('FAILED'))
+    if not ended or not previous.get('end_time'):
+        raise RuntimeError('Previous experiment writer has not ended; retain both allocations without activation')
+    return owner
+
+
 def status(state):
     spec=read(Path(state.get('allocation_build',state['build']))/'spec.json')
     if spec.get('allocation_lifecycle')!='persistent_cluster':return None

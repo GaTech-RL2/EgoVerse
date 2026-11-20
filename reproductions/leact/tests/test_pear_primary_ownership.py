@@ -6,6 +6,48 @@ import pytest
 from reproductions.leact.cluster import launch_efe_pear_primary as primary
 
 
+def test_capacity_requests_are_tracked_separately_from_the_original_backup(tmp_path,monkeypatch):
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    directory=tmp_path/'model-capacity-requests';directory.mkdir()
+    for name in ['pool02-low.json','pool01-high.json']:(directory/name).write_text('{}')
+    assert primary.standby_allocation_paths()==[tmp_path/'backup-allocation.json',
+        directory/'pool01-high.json',directory/'pool02-low.json']
+
+
+def test_ready_extra_capacity_promotes_once_and_preserves_other_requests(tmp_path,monkeypatch):
+    from reproductions.leact.cluster import efe_pear_allocation_jobs as jobs
+    monkeypatch.setattr(primary,'DEST',tmp_path)
+    spec={'allocation_lifecycle':'persistent_cluster','rollout_nodes':4,
+        'model_revision':'pinned','run':'same-run','run_id':'same-run-id','profile':6}
+    paths=[]
+    for name in ['queued-build','ready-build','job-build']:
+        p=tmp_path/name;p.mkdir();(p/'spec.json').write_text(json.dumps(spec));paths.append(p)
+    state={'workflow':'queued02','build':str(paths[0]),'standby':True,'profile':6}
+    extra=tmp_path/'extra.json';extra.write_text(json.dumps({'workflow':'ready01','build':str(paths[1]),
+        'standby':True,'priority':'HIGH','pool':'groot-h100-01','gpu':40}))
+    default=tmp_path/'backup-allocation.json';default.write_text('{"workflow":"queued56"}')
+    def command(args):
+        if args[3]=='queued02':return{'status':'PENDING'}
+        assert args[3]=='ready01'
+        return{'status':'RUNNING','groups':[{'tasks':[
+            {'name':r,'status':'RUNNING'}for r in ['trainer','rollout-0','rollout-1','rollout-2','rollout-3']]}]}
+    monkeypatch.setattr(primary,'command',command)
+    monkeypatch.setattr(primary,'prepare',lambda *a,**k:paths[2])
+    monkeypatch.setattr(jobs,'previous_model_writer',lambda wf,run:'actual-ended-owner')
+    submitted=[]
+    monkeypatch.setattr(jobs,'submit',lambda state,build,**kw:submitted.append((state['workflow'],kw))or{'job_id':'job-1'})
+    value=primary.promote_allocated_backup(state,extra)
+    assert value['workflow']=='ready01'and value['standby']is False
+    assert submitted==[('ready01',{'previous_workflow':'actual-ended-owner'})]
+    assert json.loads(extra.read_text())['workflow']=='queued02'
+    assert json.loads(default.read_text())=={'workflow':'queued56'}
+    assert json.loads((tmp_path/'primary-launch.json').read_text())['job_id']=='job-1'
+    # A second pass sees the actual primary running; it cannot start queued02.
+    monkeypatch.setattr(primary,'command',lambda *_:{'status':'RUNNING'})
+    assert primary.promote_allocated_backup(value,extra)is None
+    assert len(submitted)==1
+
+
 def test_only_explicit_release_cancels_workers_owned_by_that_attempt(tmp_path,monkeypatch):
     monkeypatch.setattr(primary,'DEST',tmp_path)
     rows={

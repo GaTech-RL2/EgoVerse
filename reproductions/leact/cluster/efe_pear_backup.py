@@ -36,9 +36,11 @@ def maintain(path):
         config['workflow']['name']='leact-'+target.name
         (target/'workflow.yaml').write_text(yaml.safe_dump(config,sort_keys=False));freeze_sources(target)
     spec=read(target/'spec.json');nodes=1+spec['rollout_nodes']
-    receipt=submit_reconciled(target,priority='LOW',pool=state['pool'],nodes=nodes)
+    priority=state.get('retry_priority','LOW')
+    if priority not in {'LOW','HIGH'}:raise ValueError('Standby retry priority must be LOW or HIGH')
+    receipt=submit_reconciled(target,priority=priority,pool=state['pool'],nodes=nodes)
     history=state.get('history',[])+[{'workflow':state['workflow'],'status':query['status']}]
     state.update(**receipt,workflow=receipt['name'],build=str(target),attempt=attempt,
-        priority='LOW',gpu=8*nodes,scheduler_status='PENDING',history=history,
+        priority=priority,gpu=8*nodes,scheduler_status='PENDING',history=history,
         allocation_control=spec['allocation_control_base']+'/'+receipt['name'])
     write(path,state);return state
