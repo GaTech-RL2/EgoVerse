@@ -128,6 +128,7 @@ def prepare(profile=0,*,standby=False,priority_override=None,control_interface=N
         'adapter_digests':{name:hashlib.sha256(path.read_bytes()).hexdigest()for name,path in sources.items()},
         'data_digests':{name:hashlib.sha256(raw).hexdigest()for name,raw in serialized.items()},
         'admitted_counts':admission['counts'],'profile':profile,'priority':priority,
+        'model_queue_timeout':'12h',
         'worker_bundle_format':BUNDLE_FORMAT,'allocation_lifecycle':'persistent_cluster',
         'allocation_control_base':REMOTE+'/allocations','standby':bool(standby)}
     if eef_interface:
@@ -165,7 +166,7 @@ def prepare(profile=0,*,standby=False,priority_override=None,control_interface=N
                 task['credentials']={'rp-jhh-pear-swift-archive-20261118':{'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}}
             tasks.append(task)
         workflow={'workflow':{'name':'leact-'+build.name,'resources':resources,
-            'timeout':{'queue_timeout':'20m','exec_timeout':'48h'},
+            'timeout':{'queue_timeout':spec['model_queue_timeout'],'exec_timeout':'48h'},
             'labels':{'pear_run_id':ARM,'pear_phase':'primary_training'},
             'groups':[{'name':'model-cluster','tasks':tasks}]}}
         (build/'workflow.yaml').write_text(yaml.safe_dump(workflow,sort_keys=False));freeze_sources(build)
