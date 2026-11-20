@@ -257,6 +257,9 @@ def refresh_build(state):
     native['credentials']={CREDENTIAL:{'NVIDIA_INFERENCE_API_KEY':'api_key'}}
     if state['label']in {'efe','robodojo','robolab','yamlab'}:
         native['credentials']['rp-jhh-pear-swift-archive-20261118']={'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}
+    if spec.get('teacher_native_service_only')is True:
+        from .stage_astra_native_standby import native_only_task
+        native_only_task(native);wf['labels']['teacher_role']='native_service_only'
     (build/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False))
     freeze_worker(build,[*files,'spec.json','bootstrap.py','workflow.yaml'])
     return for_recovery(build)if fixed_dojo else build
@@ -449,6 +452,8 @@ def tick():
                 status.setdefault('child_recovery_pending',{})[wf]=str(exc)[:600];continue
             if recovered:status['recovery_actions'].append({'workflow':wf,'child':recovered['job_id']})
             if profile_enabled and not recovered and node['node']['phase']=='running':
+                if row.get('native_service_only')is True or specs.get(wf,{}).get('teacher_native_service_only')is True:
+                    status.setdefault('native_only_services',{})[wf]=node['node'].get('child_pid');continue
                 from .switch_astra_wide_profile import deploy
                 key=wf+'-'+str(row.get('profile_job_id',''))
                 heartbeat=capture['astra62_profile']['workers'].get(key,{})

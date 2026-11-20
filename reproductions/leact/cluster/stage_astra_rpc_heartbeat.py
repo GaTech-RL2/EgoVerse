@@ -25,6 +25,7 @@ ORIGINAL_IMPORT = 'from efe_pear_file_rpc import atomic_json,claim_episode,serve
 HELPER_IMPORT = 'from efe_astra_heartbeat_io import head_heartbeat_expired\n'
 PROVENANCE = 'teacher-heartbeat-overlay.json'
 OVERLAY_FILES = {PROVENANCE, 'efe_astra_heartbeat_io.py', 'efe_astra_original_rpc_worker.py'}
+BUNDLE_VERSION = 'astra-rpc-heartbeat-owned-allocation-v2'
 
 
 def patch_worker(original):
@@ -81,7 +82,7 @@ def prepare(source, *, build_root=None):
     patched_bytes = patch_worker(original_bytes.decode()).encode()
     helper = BASE/'cluster/efe_astra_heartbeat_io.py'
     identity = hashlib.sha256(spec_bytes+patched_bytes+helper.read_bytes()+
-        (source/'source-manifest.json').read_bytes()).hexdigest()[:12]
+        (source/'source-manifest.json').read_bytes()+BUNDLE_VERSION.encode()).hexdigest()[:12]
     build = Path(build_root or BUILD_ROOT)/('rp-jhh-astra-rpc-heartbeat-'+identity)
     if (build/'source-manifest.json').exists():
         frozen_files(build)
@@ -96,11 +97,11 @@ def prepare(source, *, build_root=None):
     names = [*files, helper.name, 'efe_astra_original_rpc_worker.py']
     (build/'bootstrap.py').write_text(bootstrap(build, [*names, 'spec.json'], 'efe_pear_allocation_keeper.py'))
     workflow = yaml.safe_load((source/'workflow.yaml').read_text())
-    workflow['workflow']['name'] = 'rp-jhh-astra-rpc-heartbeat-'+identity
+    workflow['workflow']['name'] = 'rp-jhh-astra-wide-robodojo-rpcfix-'+identity
     workflow['workflow'].setdefault('labels', {})['teacher_rpc_heartbeat_fix'] = VERSION
     (build/'workflow.yaml').write_text(yaml.safe_dump(workflow, sort_keys=False))
     write(build/PROVENANCE, {
-        'version': VERSION, 'source_build': str(source),
+        'version': VERSION, 'bundle_version': BUNDLE_VERSION, 'source_build': str(source),
         'source_manifest_sha256': hashlib.sha256((source/'source-manifest.json').read_bytes()).hexdigest(),
         'original_rpc_sha256': hashlib.sha256(original_bytes).hexdigest(),
         'patched_rpc_sha256': hashlib.sha256(patched_bytes).hexdigest(),
