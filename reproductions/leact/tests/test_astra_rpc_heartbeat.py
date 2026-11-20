@@ -155,6 +155,72 @@ def test_frozen_overlay_changes_no_recipe_sources_or_shared_runtime(tmp_path):
     assert hashlib.sha256(WORKER.read_bytes()).hexdigest() == shared_before
 
 
+def test_recovery_refresh_removes_only_reviewed_overlay_packaging(tmp_path):
+    source, _ = original_build(tmp_path)
+    before = stage.frozen_files(source)
+    assert stage.recovery_sources(before) == before
+    build = stage.prepare(source, build_root=tmp_path/'builds')
+    files = stage.frozen_files(build)
+    recovered = stage.recovery_sources(files)
+    assert set(recovered) == set(before)
+    assert not stage.OVERLAY_FILES.intersection(recovered)
+    assert recovered[WORKER.name].read_text() == WORKER.read_text()
+
+
+def test_recovery_refuses_an_unreviewed_overlay(tmp_path):
+    source, _ = original_build(tmp_path)
+    build = stage.prepare(source, build_root=tmp_path/'builds')
+    files = stage.frozen_files(build)
+    (build/WORKER.name).write_text('# changed after reviewed overlay\n')
+    with pytest.raises(ValueError, match='differs from its preserved source'):
+        stage.recovery_sources(files)
+
+
+def test_watcher_reapplies_teacher_only_overlay_on_repeated_dojo_recovery(tmp_path, monkeypatch):
+    from reproductions.leact.cluster import monitor_astra_wide_collection as watch
+    source, _ = original_build(tmp_path)
+    workflow = yaml.safe_load((source/'workflow.yaml').read_text())
+    task = workflow['workflow']['tasks'][0]
+    task.update(image='pinned-native-image', command=['python3'])
+    (source/'workflow.yaml').write_text(yaml.safe_dump(workflow))
+    stage.freeze_worker(source, [p.name for p in source.iterdir() if p.name != 'source-manifest.json'])
+    monkeypatch.setattr(stage, 'BUILD_ROOT', tmp_path/'overlays')
+    monkeypatch.setattr(watch, 'ROOT', tmp_path/'controller')
+    built = []
+    def worker_build(spec, files, entry, image, python, **resources):
+        path = tmp_path/('refreshed-'+str(len(built)))
+        path.mkdir()
+        for name, old in files.items():
+            (path/name).write_bytes(old.read_bytes())
+        (path/'spec.json').write_text(json.dumps(spec))
+        (path/'workflow.yaml').write_text(yaml.safe_dump(workflow))
+        (path/'bootstrap.py').write_text('# staged keeper bootstrap\n')
+        built.append({'path': path, 'files': dict(files), 'spec': spec, 'entry': entry})
+        return path
+    monkeypatch.setattr(watch, 'worker_build', worker_build)
+    state = {'workflow': 'rp-jhh-astra-wide-robodojo-owned-1', 'label': 'robodojo',
+             'build': str(source), 'teacher_profile_id': 'astra62-xhigh-v1', 'job_id': 'first'}
+    first = watch.refresh_build(state)
+    second = watch.refresh_build({**state, 'build': str(first), 'job_id': 'second'})
+    for build in [first, second]:
+        assert (build/WORKER.name).read_text() == stage.patch_worker(WORKER.read_text())
+        assert (build/'efe_astra_heartbeat_io.py').exists()
+        spec = json.loads((build/'spec.json').read_text())
+        assert spec['max_calls'] == 96 and spec['wall_seconds'] == 1500 and spec['token_budget'] == 160000
+        assert spec['native_config'] == {'joint_only': True}
+        assert spec['teacher_plan']['teacher_profile']['model'] == 'openai/openai/gpt-6.2-astra'
+        assert spec['teacher_plan']['teacher_profile']['effort'] == 'xhigh'
+    assert not stage.OVERLAY_FILES.intersection(built[1]['files'])
+    assert built[1]['files'][WORKER.name].read_bytes() == WORKER.read_bytes()
+
+
+def test_other_native_suites_never_receive_the_dojo_overlay(tmp_path, monkeypatch):
+    source, spec = original_build(tmp_path)
+    (source/'spec.json').write_text(json.dumps({**spec, 'suite': 'robolab'}))
+    monkeypatch.setattr(stage, 'prepare', lambda *_: pytest.fail('Not the reviewed Dojo lane'))
+    assert stage.for_recovery(source) == source
+
+
 @pytest.mark.parametrize('change', [
     {'owner_model_workflow': 'hero'}, {'teacher_profile_id': 'legacy-high'},
     {'teacher_native_entry': 'efe_pear_primary_native.py'}, {'teacher_native_only': False},

@@ -142,15 +142,22 @@ def refresh_build(state):
     if (state.get('teacher_profile_id')=='astra62-xhigh-v1'or
         read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'):
         spec={**profile_spec(spec),'teacher_native_only':True}
-    files=frozen_files(old)
-    for name in NEW_FILES:files[name]=BASE/'cluster'/name
+    from .stage_astra_rpc_heartbeat import recovery_sources,for_recovery
+    files=recovery_sources(frozen_files(old))
+    fixed_dojo=(spec.get('teacher_profile_id')=='astra62-xhigh-v1'and
+        spec.get('teacher_native_entry')=='efe_pear_primary_rtx.py'and spec.get('suite')=='robodojo')
+    # This repair qualifies one predicate against the exact frozen Dojo lane.
+    # Do not incidentally upgrade unrelated shared adapters during its retry.
+    if not fixed_dojo:
+        for name in NEW_FILES:files[name]=BASE/'cluster'/name
     spec['teacher_recovery_of']=state['workflow']+':'+str(state.get('job_id','initial'))
     workflow=yaml.safe_load((old/'workflow.yaml').read_text())['workflow']
     task=workflow['tasks'][0];resources=dict(workflow['resources']['default'])
     if task.get('privileged'):resources['privileged']=True
     entry='efe_astra_wide_reasoning_worker.py'if state['label']=='reasoning'else'efe_astra_wide_worker.py'
     build=worker_build(spec,files,entry,task['image'],task['command'][0],**resources)
-    if (build/'submission.json').exists()or(build/'submission-intent.json').exists():return build
+    if (build/'submission.json').exists()or(build/'submission-intent.json').exists():
+        return for_recovery(build)if fixed_dojo else build
     value=yaml.safe_load((build/'workflow.yaml').read_text());wf=value['workflow'];native=wf['tasks'][0]
     wf['name']='rp-jhh-astra-wide-'+state['label']+'-'+build.name.rsplit('-',1)[-1]
     wf['labels']={'experiment':OWNER,'phase':'teacher_collection',
@@ -160,7 +167,7 @@ def refresh_build(state):
         native['credentials']['rp-jhh-pear-swift-archive-20261118']={'RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION':'configuration'}
     (build/'workflow.yaml').write_text(yaml.safe_dump(value,sort_keys=False))
     freeze_worker(build,[*files,'spec.json','bootstrap.py','workflow.yaml'])
-    return build
+    return for_recovery(build)if fixed_dojo else build
 
 
 def snapshot(host, states):

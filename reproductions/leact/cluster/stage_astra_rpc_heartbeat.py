@@ -24,6 +24,7 @@ FIXED_CHECK = 'if head_heartbeat_expired(heartbeat):head_lost.set()'
 ORIGINAL_IMPORT = 'from efe_pear_file_rpc import atomic_json,claim_episode,serve_episode\n'
 HELPER_IMPORT = 'from efe_astra_heartbeat_io import head_heartbeat_expired\n'
 PROVENANCE = 'teacher-heartbeat-overlay.json'
+OVERLAY_FILES = {PROVENANCE, 'efe_astra_heartbeat_io.py', 'efe_astra_original_rpc_worker.py'}
 
 
 def patch_worker(original):
@@ -34,6 +35,33 @@ def patch_worker(original):
     patched = original.replace(ORIGINAL_IMPORT, HELPER_IMPORT+ORIGINAL_IMPORT).replace(ORIGINAL_CHECK, FIXED_CHECK)
     compile(patched, 'teacher-only-efe_pear_remote_worker.py', 'exec')
     return patched
+
+
+def recovery_sources(files):
+    """Remove reviewed overlay packaging before an unchanged teacher refresh.
+
+    The watcher refreshes its pinned baseline RPC source, then applies this
+    overlay again. Old metadata must not claim that a different build is fixed.
+    """
+    if PROVENANCE not in files:
+        return dict(files)
+    original = files['efe_astra_original_rpc_worker.py'].read_text()
+    if files['efe_pear_remote_worker.py'].read_text() != patch_worker(original):
+        raise ValueError('Previous teacher heartbeat overlay differs from its preserved source')
+    if read(files[PROVENANCE]).get('version') != VERSION:
+        raise ValueError('Unexpected teacher heartbeat overlay version')
+    sources = {name: path for name, path in files.items() if name not in OVERLAY_FILES}
+    sources['efe_pear_remote_worker.py'] = files['efe_astra_original_rpc_worker.py']
+    return sources
+
+
+def for_recovery(build):
+    """Apply only to the independently owned exact-profile Dojo native lane."""
+    spec = read(Path(build)/'spec.json')
+    if (spec.get('suite') == 'robodojo' and spec.get('teacher_profile_id') == 'astra62-xhigh-v1'
+            and spec.get('teacher_native_entry') == 'efe_pear_primary_rtx.py'):
+        return prepare(build)
+    return build
 
 
 def prepare(source, *, build_root=None):
