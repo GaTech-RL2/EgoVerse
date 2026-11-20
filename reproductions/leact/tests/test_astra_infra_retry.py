@@ -88,6 +88,7 @@ def test_runner_stops_on_native_failure_and_never_retries_it_on_resume(tmp_path,
     spec,case,folder=fixture(tmp_path);exhausted(spec,case,folder)
     manifest=retry.prepare(spec);before={str(p):p.read_bytes()for p in folder.rglob('*.json')};calls=[]
     monkeypatch.setattr(retry,'verify_health',lambda *args:None)
+    sleeps=[];monkeypatch.setattr(retry.time,'sleep',sleeps.append)
     def execute(spec,case,*,infrastructure_attempt):
         calls.append(infrastructure_attempt)
         status='graded_failure'if infrastructure_attempt==4 else'infrastructure_failure'
@@ -96,7 +97,7 @@ def test_runner_stops_on_native_failure_and_never_retries_it_on_resume(tmp_path,
         return row
     monkeypatch.setattr(retry,'run_case',execute)
     result=retry.run(spec,manifest,{},tmp_path/'cohort')
-    assert calls==[3,4] and result['events'][-1]['status']=='graded_failure'
+    assert calls==[3,4] and sleeps==[10] and result['events'][-1]['status']=='graded_failure'
     retry.run(spec,manifest,{},tmp_path/'cohort')
     assert calls==[3,4] and not(folder/'infra-05').exists()
     assert all(Path(p).read_bytes()==raw for p,raw in before.items())
@@ -105,6 +106,7 @@ def test_runner_stops_on_native_failure_and_never_retries_it_on_resume(tmp_path,
 def test_all_infrastructure_failures_are_bounded_and_replay_uses_existing_ids(tmp_path,monkeypatch):
     spec,case,folder=fixture(tmp_path);exhausted(spec,case,folder);manifest=retry.prepare(spec);calls=[]
     monkeypatch.setattr(retry,'verify_health',lambda *args:None)
+    monkeypatch.setattr(retry.time,'sleep',lambda *_:None)
     def execute(spec,case,*,infrastructure_attempt):
         existing=folder/f'infra-{infrastructure_attempt:02d}/result.json'
         if existing.exists():return json.loads(existing.read_text())

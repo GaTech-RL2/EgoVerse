@@ -342,13 +342,34 @@ def never_started_queue_timeout(scheduler):
                    ['start_time', 'node_name', 'pod_ip']) for task in tasks)
 
 
+def never_started_unhealthy_nic_rejection(scheduler):
+    """Recognize the observed kubelet NIC rejection before any application ran."""
+    if (scheduler.get('status')not in{'FAILED','FAILED_BACKEND_ERROR'}or scheduler.get('cancelled_by')
+        or 'start_time'not in scheduler or scheduler['start_time']is not None
+        or scheduler.get('duration')not in(None,0)):
+        return False
+    groups=scheduler.get('groups',[])
+    tasks=[task for group in groups for task in group.get('tasks',[])]+scheduler.get('tasks',[])
+    if not tasks or any('start_time'not in group or group['start_time']is not None for group in groups):return False
+    for task in tasks:
+        message=str(task.get('failure_message','')).lower()
+        if (task.get('status')!='FAILED_BACKEND_ERROR'or task.get('exit_code')!=3001
+            or 'start_time'not in task or task['start_time']is not None
+            or not all(text in message for text in[
+                'pod was rejected','allocate failed','no healthy devices present',
+                'cannot allocate unhealthy devices nvidia.com/mlnxnics'])):
+            return False
+    return True
+
+
 def recover_allocation(state, scheduler):
     """A scheduler-ended allocation has no live nodes to cancel or repurpose."""
     queue_timeout = never_started_queue_timeout(scheduler)
-    if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}and not queue_timeout:
+    unhealthy_nic=never_started_unhealthy_nic_rejection(scheduler)
+    if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}and not(queue_timeout or unhealthy_nic):
         return None
     if scheduler.get('cancelled_by'):return None
-    if not (queue_timeout or infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
+    if not (queue_timeout or unhealthy_nic or infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
         return None
     if state.get('allocation_retries',0)>=MAX_ALLOCATION_RETRIES:return None
     build=refresh_build(state)

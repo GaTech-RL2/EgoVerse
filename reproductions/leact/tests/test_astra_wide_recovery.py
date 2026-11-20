@@ -113,6 +113,46 @@ def test_allocated_cancelled_or_unproven_queue_timeout_never_retries(kind, monke
     assert watch.recover_allocation({'allocation_retries': 18}, scheduler) is None
 
 
+def rejected_unhealthy_nic():
+    return {'status':'FAILED','cancelled_by':None,'start_time':None,'duration':None,'groups':[
+        {'status':'FAILED','start_time':None,'tasks':[{'status':'FAILED_BACKEND_ERROR','start_time':None,
+            'exit_code':3001,'node_name':'assigned-but-application-never-started',
+            'failure_message':'Pod was rejected: Allocate failed due to no healthy devices present; '
+                              'cannot allocate unhealthy devices nvidia.com/mlnxnics, which is unexpected'}]}]}
+
+
+def test_observed_never_started_nic_rejection_recovers_native_service_once_at_low(tmp_path,monkeypatch):
+    scheduler=rejected_unhealthy_nic();assert watch.never_started_unhealthy_nic_rejection(scheduler)
+    submitted=[];recorded=[]
+    monkeypatch.setattr(watch,'refresh_build',lambda *_:tmp_path/'same-verified-native-service')
+    def submit(build,**kwargs):submitted.append((build,kwargs));return {'name':'rp-jhh-astra-wide-dojo-next'}
+    monkeypatch.setattr(watch,'submit_reconciled',submit);monkeypatch.setattr(watch,'record_launch',recorded.append)
+    state={'workflow':'rp-jhh-astra-wide-dojo-device-rejected','pool':'groot-l40-03',
+           'allocation_retries':1,'native_service_only':True,'native_standby_of':'preserved-original'}
+    result=watch.recover_allocation(state,scheduler)
+    assert result['allocation_retries']==2 and result['native_service_only']is True
+    assert result['native_standby_of']=='preserved-original'
+    assert submitted==[(tmp_path/'same-verified-native-service',
+                        {'pool':'groot-l40-03','priority':'LOW','nodes':1})]
+    assert recorded[-1]['superseded_by']==result['workflow']
+
+
+@pytest.mark.parametrize('change',['workflow_started','task_started','group_started','cancelled',
+    'unknown_start','python_error','other_device','other_backend_error','running'])
+def test_nic_recovery_does_not_expand_to_started_cancelled_or_unrelated_failures(change):
+    scheduler=rejected_unhealthy_nic();task=scheduler['groups'][0]['tasks'][0]
+    if change=='workflow_started':scheduler['start_time']='2026-11-20T05:00:00'
+    elif change=='task_started':task['start_time']='2026-11-20T05:00:00'
+    elif change=='group_started':scheduler['groups'][0]['start_time']='2026-11-20T05:00:00'
+    elif change=='cancelled':scheduler['cancelled_by']='user'
+    elif change=='unknown_start':del task['start_time']
+    elif change=='python_error':task['exit_code']=1
+    elif change=='other_device':task['failure_message']=task['failure_message'].replace('mlnxnics','gpu')
+    elif change=='other_backend_error':task['failure_message']='The container image could not be fetched'
+    elif change=='running':scheduler['status']='RUNNING'
+    assert watch.never_started_unhealthy_nic_rejection(scheduler)is False
+
+
 def test_child_recovery_requires_exact_recorded_teacher_owner(monkeypatch):
     monkeypatch.setattr(watch,'idle_verification',lambda *_:pytest.fail('A different child owns the allocation'))
     assert watch.recover_child({'job_id':'own'},

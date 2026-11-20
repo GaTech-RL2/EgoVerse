@@ -159,6 +159,7 @@ def run(spec,manifest,health,output):
                     events.append(event);atomic_json(output/'status.json',{'id':manifest['id'],
                         'updated_unix':time.time(),'events':events,'original_records_modified':False})
                     if result['status']!='infrastructure_failure':break
+                    time.sleep(10)  # Preserve the original collector's infrastructure backoff.
         final={'id':manifest['id'],'completed_utc':datetime.now(timezone.utc).isoformat(),
                'events':events,'original_records_modified':False}
         atomic_json(output/'complete.json',final);return final
