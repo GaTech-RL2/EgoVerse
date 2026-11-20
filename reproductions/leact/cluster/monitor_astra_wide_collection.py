@@ -29,6 +29,58 @@ from .launch_astra_wide_collection import (
 MAX_ALLOCATION_RETRIES = 64
 
 
+def completed_taskset(spec, completed_cases):
+    """Suppress recovery only for the exact assigned, natively finalized cases."""
+    from .switch_astra_wide_profile import PROFILE_ROOT
+    unavailable = {'complete': False, 'reason': 'Unproven exact-profile taskset completion'}
+    if (not isinstance(spec, dict) or not isinstance(completed_cases, dict)
+            or spec.get('owner_model_workflow') != OWNER or spec.get('teacher_root') != PROFILE_ROOT
+            or spec.get('teacher_profile_id') != 'astra62-xhigh-v1'
+            or spec.get('max_calls', 96) != 96 or spec.get('wall_seconds', 1500) != 1500):
+        return unavailable
+    plan = spec.get('teacher_plan', {})
+    if not isinstance(plan, dict) or not isinstance(plan.get('cases'), list):
+        return unavailable
+    names = set(spec.get('teacher_task_names', []))
+    cases = [case for case in plan['cases'] if isinstance(case, dict) and case.get('task') in names]
+    if (not names or {case.get('task') for case in cases} != names or not cases
+            or not plan.get('curriculum_sha256')
+            or len({case.get('case_id') for case in cases}) != len(cases)):
+        return unavailable
+    matched = []
+    identity = ['case_id', 'task', 'config_id', 'scene_sha256', 'partition', 'admitted']
+    for case in cases:
+        if (case.get('partition') != 'train' or case.get('admitted') is not True
+                or any(key not in case for key in identity)):
+            return unavailable
+        candidates = completed_cases.get(case['case_id'], [])
+        if not isinstance(candidates, list):
+            candidates = []
+        for row in candidates:
+            if not isinstance(row, dict) or not isinstance(row.get('case'), dict):
+                continue
+            if (row.get('requested_model') != 'openai/openai/gpt-6.2-astra'
+                    or row.get('requested_effort') != 'xhigh'
+                    or row.get('teacher_profile_id') != 'astra62-xhigh-v1'
+                    or row.get('curriculum_sha256') != plan['curriculum_sha256']
+                    or any(row.get('case', {}).get(key) != case[key] for key in identity)
+                    or row.get('status') not in {'graded_success', 'graded_failure'}
+                    or row.get('finalized_native_outcome') is not True
+                    or row.get('native_success') is not (row['status'] == 'graded_success')
+                    or row.get('native_verdict_success') is not row.get('native_success')
+                    or not re.fullmatch('[0-9a-f]{64}', str(row.get('native_verdict_sha256', '')))
+                    or not re.fullmatch('[0-9a-f]{64}', str(row.get('result_sha256', '')))):
+                continue
+            matched.append({'case_id': case['case_id'], 'status': row['status'],
+                            'result_sha256': row['result_sha256'],
+                            'native_verdict_sha256': row['native_verdict_sha256']})
+            break
+    return {'complete': len(matched) == len(cases), 'planned': len(cases),
+            'matched_finalized': len(matched), 'case_receipts': matched,
+            'reason': 'All assigned cases have exact-profile finalized native outcomes'
+                      if len(matched) == len(cases) else 'Assigned cases remain unfinished or unproven'}
+
+
 def reconcile_lost_claims(root,transport,prefixes,*,now=None):
     """Retire only v2 RPCs claimed by independently proven lost native jobs."""
     root,transport=Path(root),Path(transport);now=time.time()if now is None else now;receipts=[]
@@ -119,7 +171,7 @@ def snapshot(host, states):
         spec=read(Path(row.get('allocation_build',row['build']))/'spec.json')
         controls[wf]=spec['allocation_control_base']+'/'+wf
     script='''from pathlib import Path
-import collections,json,time
+import collections,hashlib,json,time
 root=Path(__ROOT__);controls=__CONTROLS__;nodes={};counts=collections.Counter();suites={};actions=invalid=tokens=admitted=0;errors=[]
 def load(path):
  try:return json.loads(path.read_text())
@@ -135,18 +187,35 @@ for p in root.glob('episodes/*/infra-*/result.json'):
  status=r['status'];suite=r['case']['suite'];counts[status]+=1
  suites.setdefault(suite,collections.Counter())[status]+=1
  actions+=r.get('valid_actions',0);invalid+=r.get('invalid_actions',0);tokens+=r.get('generated_tokens',0);admitted+=bool(r.get('sft_admitted'))
-profile_root=Path(__PROFILE_ROOT__);profile_counts=collections.Counter();profile_suites={};workers={}
+profile_root=Path(__PROFILE_ROOT__);profile_counts=collections.Counter();profile_suites={};workers={};completed_cases={}
 for p in profile_root.glob('episodes/*/infra-*/result.json'):
  r=load(p)
  if r is None:continue
+ if not isinstance(r,dict)or not isinstance(r.get('case'),dict)or not r.get('status')or not r['case'].get('suite'):
+  errors.append({'path':str(p),'error_type':'MalformedEpisodeRecord','error':'Missing episode status or case identity'});continue
  profile_counts[r['status']]+=1
  profile_suites.setdefault(r['case']['suite'],collections.Counter())[r['status']]+=1
+ if r.get('status')not in {'graded_success','graded_failure'}or r.get('finalized_native_outcome')is not True:continue
+ native_path=p.with_name('native-verdict.json');verdict=load(native_path)
+ if not isinstance(verdict,dict):continue
+ verifier=verdict.get('verifier_result');rewards=verifier.get('rewards')if isinstance(verifier,dict)else None
+ success=verdict.get('success',rewards.get('success')if isinstance(rewards,dict)else None)
+ if type(success)not in(bool,int,float)or success not in(0,1):continue
+ try:result_sha=hashlib.sha256(p.read_bytes()).hexdigest();native_sha=hashlib.sha256(native_path.read_bytes()).hexdigest()
+ except OSError as exc:
+  errors.append({'path':str(p),'error_type':type(exc).__name__,'error':str(exc)[:180]});continue
+ completed_cases.setdefault(r['case']['case_id'],[]).append({
+  'case':{k:r['case'].get(k)for k in ['case_id','task','config_id','scene_sha256','partition','admitted']},
+  'requested_model':r.get('requested_model'),'requested_effort':r.get('requested_effort'),
+  'teacher_profile_id':r.get('teacher_profile',{}).get('id'),'curriculum_sha256':r.get('curriculum_sha256'),
+  'status':r['status'],'native_success':r.get('native_success'),'finalized_native_outcome':r.get('finalized_native_outcome'),
+  'native_verdict_success':bool(success),'result_sha256':result_sha,'native_verdict_sha256':native_sha})
 for p in profile_root.glob('profile-workers/*.json'):
  value=load(p)
  if value is not None:workers[p.stem]=value
 print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'attempt_status':dict(counts),
  'suites':{k:dict(v)for k,v in suites.items()},'valid_actions':actions,'invalid_actions':invalid,'provider_output_tokens':tokens,'sft_admitted':admitted,
- 'read_errors':errors,'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers}}),flush=True)
+ 'read_errors':errors,'astra62_profile':{'root':str(profile_root),'attempt_status':dict(profile_counts),'suites':{k:dict(v)for k,v in profile_suites.items()},'workers':workers,'completed_cases':completed_cases}}),flush=True)
 '''.replace('__ROOT__',repr(TEACHER_ROOT)).replace('__CONTROLS__',repr(controls)).replace('__PROFILE_ROOT__',repr(PROFILE_ROOT))
     return remote(host,script,task='native')
 
@@ -212,7 +281,7 @@ def tick():
     for wf,q in schedulers.items():
         try:running_tasks(q);hosts.append(wf)
         except (RuntimeError,KeyError):pass
-    capture=None
+    capture=None;complete={}
     if hosts:
         # Reading all shared status through one healthy owned worker avoids
         # exec during any other worker's scheduler startup barrier.
@@ -225,6 +294,14 @@ def tick():
         status['snapshot_read_errors']=capture.get('read_errors',[])
         profile_enabled=read(ROOT/'active-profile.json',{}).get('teacher_profile_id')=='astra62-xhigh-v1'
         if profile_enabled:status['astra62_attempt_status']=capture['astra62_profile']['attempt_status']
+        for wf,row in active.items():
+            try:
+                spec=read(Path(row.get('profile_build')or row['build'])/'spec.json')
+                proof=completed_taskset(spec,capture.get('astra62_profile',{}).get('completed_cases',{}))
+                if proof['complete']:complete[wf]=proof
+            except (OSError,ValueError,KeyError,TypeError)as exc:
+                status.setdefault('completion_read_errors',{})[wf]=type(exc).__name__+':'+str(exc)[:180]
+        if complete:status['completed_tasksets_preserved']=complete
         prefixes=set(read(ROOT/'lost-native-workers.json',{}).get('prefixes',[]))
         for row in states.values():prefixes.update(row.get('lost_native_prefixes',[]))
         if prefixes:
@@ -232,6 +309,7 @@ def tick():
             except Exception as exc:status['lost_claim_reconciliation_pending']=str(exc)[:600]
         for wf,node in capture['nodes'].items():
             if wf not in hosts:continue
+            if wf in complete:continue  # Preserve already accepted/live allocations; no new child/profile work.
             row=active[wf]
             if not row.get('job_id'):
                 row={**row,'job_id':node['desired_id']};record_launch(row);active[wf]=row
@@ -251,6 +329,7 @@ def tick():
                 except Exception as exc:
                     status.setdefault('profile_deployment_pending',{})[wf]=str(exc)[:600]
     for wf,q in schedulers.items():
+        if wf in complete:continue  # A valid graded failure completes its planned collection attempt too.
         try:replacement=recover_allocation(active[wf],q)
         except Exception as exc:
             status.setdefault('allocation_recovery_pending',{})[wf]=str(exc)[:600];continue

@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import fcntl
+import copy
 from types import SimpleNamespace
 
 import pytest
@@ -180,3 +181,132 @@ def test_fresh_or_unowned_claim_is_preserved(tmp_path):
     assert watch.reconcile_lost_claims(root,transport,['rp-jhh-astra-wide-healthy-new-job'],now=1000)==[]
     assert watch.reconcile_lost_claims(root,transport,['rp-jhh-astra-wide-different-job'],now=99999)==[]
     assert json.loads(path.read_text())==original and not(episode/'cancel.json').exists()
+
+
+def completed_collection_fixture():
+    from reproductions.leact.cluster.switch_astra_wide_profile import PROFILE_ROOT
+    cases = [{'case_id': 'case-'+str(index), 'task': 'assigned-task', 'config_id': 'reset-'+str(index),
+              'scene_sha256': str(index)*64, 'partition': 'train', 'admitted': True}
+             for index in range(2)]
+    spec = {'owner_model_workflow': launch.OWNER, 'teacher_root': PROFILE_ROOT,
+            'teacher_profile_id': 'astra62-xhigh-v1', 'teacher_task_names': ['assigned-task'],
+            'teacher_plan': {'curriculum_sha256': 'pinned-curriculum', 'cases': cases}}
+    rows = {case['case_id']: [{'case': copy.deepcopy(case),
+        'requested_model': 'openai/openai/gpt-6.2-astra', 'requested_effort': 'xhigh',
+        'teacher_profile_id': 'astra62-xhigh-v1', 'curriculum_sha256': 'pinned-curriculum',
+        'status': 'graded_failure', 'native_success': False, 'finalized_native_outcome': True,
+        'native_verdict_success': False, 'result_sha256': 'a'*64, 'native_verdict_sha256': 'b'*64}]
+        for case in cases}
+    return spec, rows
+
+
+def test_native_graded_failures_complete_the_exact_planned_attempts():
+    spec, rows = completed_collection_fixture()
+    proof = watch.completed_taskset(spec, rows)
+    assert proof['complete'] is True and proof['matched_finalized'] == proof['planned'] == 2
+    assert all(row['status'] == 'graded_failure' for row in proof['case_receipts'])
+
+
+@pytest.mark.parametrize('mismatch', ['missing', 'infrastructure', 'malformed', 'model', 'effort',
+    'profile', 'scene', 'config', 'curriculum', 'not_finalized', 'missing_verdict', 'disagreeing_verdict'])
+def test_unfinished_or_unproven_case_never_suppresses_recovery(mismatch):
+    spec, rows = completed_collection_fixture()
+    row = rows['case-1'][0]
+    if mismatch == 'missing':
+        del rows['case-1']
+    elif mismatch == 'infrastructure':
+        row['status'] = 'infrastructure_failure'
+    elif mismatch == 'malformed':
+        rows['case-1'] = [None, {'case': 'invalid'}]
+    elif mismatch == 'model':
+        row['requested_model'] = 'azure/openai/gpt-6-astra'
+    elif mismatch == 'effort':
+        row['requested_effort'] = 'high'
+    elif mismatch == 'profile':
+        row['teacher_profile_id'] = 'legacy-profile'
+    elif mismatch == 'scene':
+        row['case']['scene_sha256'] = 'changed-scene'
+    elif mismatch == 'config':
+        row['case']['config_id'] = 'another-reset'
+    elif mismatch == 'curriculum':
+        row['curriculum_sha256'] = 'another-curriculum'
+    elif mismatch == 'not_finalized':
+        row['finalized_native_outcome'] = False
+    elif mismatch == 'missing_verdict':
+        del row['native_verdict_sha256']
+    elif mismatch == 'disagreeing_verdict':
+        row['native_verdict_success'] = True
+    proof = watch.completed_taskset(spec, rows)
+    assert proof['complete'] is False and proof['matched_finalized'] == 1
+
+
+def test_same_task_other_reset_is_not_completion_and_future_wall_arm_remains_separate():
+    spec, rows = completed_collection_fixture()
+    # A wrapper/aggregate saying two episodes does not prove both planned resets.
+    rows['case-0'].append(copy.deepcopy(rows['case-0'][0]))
+    del rows['case-1']
+    assert not watch.completed_taskset(spec, rows)['complete']
+    spec, rows = completed_collection_fixture()
+    spec['wall_seconds'] = 3600
+    assert not watch.completed_taskset(spec, rows)['complete']
+
+
+def test_completed_tasksets_keep_accepted_allocations_and_skip_only_future_recovery(tmp_path, monkeypatch):
+    spec, receipts = completed_collection_fixture()
+    complete = tmp_path/'complete'
+    unfinished = tmp_path/'unfinished'
+    complete.mkdir()
+    unfinished.mkdir()
+    (complete/'spec.json').write_text(json.dumps(spec))
+    other = copy.deepcopy(spec)
+    for case in other['teacher_plan']['cases']:
+        case['case_id'] = 'unfinished-'+case['case_id']
+    (unfinished/'spec.json').write_text(json.dumps(other))
+    states = {'failed-complete': {'workflow': 'failed-complete', 'build': str(complete)},
+              'live-complete': {'workflow': 'live-complete', 'build': str(complete)},
+              'unfinished-core': {'workflow': 'unfinished-core', 'build': str(unfinished)}}
+    (tmp_path/'launches.json').write_text(json.dumps(states))
+    (tmp_path/'active-profile.json').write_text('{"teacher_profile_id":"astra62-xhigh-v1"}')
+    monkeypatch.setattr(watch, 'ROOT', tmp_path)
+    monkeypatch.setattr(watch, 'DEST', tmp_path)
+    def query(args, **kwargs):
+        status = 'RUNNING' if args[3] == 'live-complete' else 'FAILED'
+        return SimpleNamespace(returncode=0, stdout=json.dumps({'status': status, 'tasks': [{'status': status}]}))
+    monkeypatch.setattr(watch.subprocess, 'run', query)
+    monkeypatch.setattr(watch, 'snapshot', lambda *_: {
+        'attempt_status': {}, 'sft_admitted': 0,
+        'nodes': {'live-complete': {'node': {'phase': 'idle_failed'}, 'desired_id': 'keep-existing'}},
+        'astra62_profile': {'attempt_status': {}, 'workers': {}, 'completed_cases': receipts}})
+    monkeypatch.setattr(watch, 'recover_child', lambda *_: pytest.fail('Completed child must stay untouched'))
+    recovered = []
+    monkeypatch.setattr(watch, 'recover_allocation', lambda state, query: recovered.append(state['workflow']))
+    result = watch.tick()
+    assert recovered == ['unfinished-core']
+    assert set(result['completed_tasksets_preserved']) == {'failed-complete', 'live-complete'}
+    assert result['recovery_actions'] == []
+    assert json.loads((tmp_path/'launches.json').read_text()) == states
+
+
+@pytest.mark.parametrize('verdict', ['not valid JSON', '{"verifier_result":"malformed"}'])
+def test_malformed_native_verdict_cannot_poison_completion_snapshot(tmp_path, monkeypatch, verdict):
+    from reproductions.leact.cluster import switch_astra_wide_profile as profile
+    legacy, current = tmp_path/'legacy', tmp_path/'current'
+    spec, receipts = completed_collection_fixture()
+    row = copy.deepcopy(receipts['case-0'][0])
+    row['case']['suite'] = 'native_gr00t_yam'
+    row['teacher_profile'] = {'id': 'astra62-xhigh-v1'}
+    path = current/'episodes/case-0/infra-00/result.json'
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(row))
+    path.with_name('native-verdict.json').write_text(verdict)
+    monkeypatch.setattr(watch, 'TEACHER_ROOT', str(legacy))
+    monkeypatch.setattr(profile, 'PROFILE_ROOT', str(current))
+    def execute(host, script, task):
+        stream = io.StringIO()
+        with contextlib.redirect_stdout(stream):
+            exec(script, {})
+        return json.loads(stream.getvalue().split('EFE_CAPTURE ', 1)[1])
+    monkeypatch.setattr(watch, 'remote', execute)
+    result = watch.snapshot('healthy-reader', {})
+    assert result['astra62_profile']['attempt_status'] == {'graded_failure': 1}
+    assert result['astra62_profile']['completed_cases'] == {}
