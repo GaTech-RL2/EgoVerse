@@ -24,6 +24,9 @@ writer:
     pipeline/uploads/<vendor>/<delivery_id>/<id>.json    dashboard: uploads in progress
     pipeline/staged/<vendor>/<delivery_id>/<digest>/...  conversion job: staged results, by digest
     pipeline/accounts.json                               dashboard (staff)
+    pipeline/dataset.json                                ingest loop, after each commit round:
+                                                         the Lance `changes` rows and the
+                                                         version each commit's tag pins
 
 A dashboard delivery is complete only while its files match the manifest in
 _complete.json, and starting any new upload to it removes that marker; it cannot be marked
@@ -58,6 +61,7 @@ DONE = "_done.json"
 MARKERS = (COMPLETE, DONE)
 ACCOUNTS = f"{PIPELINE}/accounts.json"
 VENDORS = f"{PIPELINE}/vendors.json"
+DATASET = f"{PIPELINE}/dataset.json"
 PIPELINE_BUCKET = "ingest"
 VENDOR_BUCKET = "ingest-{vendor}"
 # Not ingest-*, which would read as a vendor's bucket.
@@ -591,6 +595,14 @@ class Store(ABC):
                 ref = Ref(v, name[: -len(".json")])
                 out[ref] = _load(self._get(key)) or {}
         return out
+
+    # ---- what the committer has written to Lance (ingest loop writes, dashboard reads)
+
+    def put_dataset(self, dataset: dict) -> None:
+        self._put(DATASET, _json({**dataset, "updated_at": now()}))
+
+    def get_dataset(self) -> dict | None:
+        return _load(self._get(DATASET))
 
     # ---- staff decisions (dashboard writes, watcher reads)
 
