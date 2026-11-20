@@ -18,6 +18,9 @@ class FixedActionAgent(BaseAgent):
         parent = Path(__file__).resolve().parent
         await environment.upload_file(parent/'efe_action_loop.py','/tmp/efe_action_loop.py')
         await environment.upload_file(parent/'action-config.json','/tmp/efe_action_config.json')
+        config=json.loads((parent/'action-config.json').read_text())
+        if config.get('control_interface'):
+            await environment.upload_file(parent/'efe_pear_eef.py','/tmp/efe_pear_eef.py')
 
     async def run(self, instruction, environment, context):
         self.logs_dir.mkdir(parents=True,exist_ok=True)

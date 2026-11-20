@@ -17,12 +17,24 @@ from .scale_efe import BASE,BUILD_ROOT,read,write,submit,command
 from .launch_efe_training import freeze_sources
 from .launch_efe_coverage import DEST as COVERAGE,DURABLE,infra_retryable
 from .efe_coverage_retry import retry_due
+from .efe_coverage_retry import submission_priority
 
 STEP=496
 MODEL='warmstart-step496'
 DEST=COVERAGE/'intermediate-496'
 BUILD=BUILD_ROOT/'efe-intermediate-export-step496-20261116-v1'
 LANE='/tmp/efe-intermediate-export'
+TRAINING_STAGE='warmstart'
+
+
+def configure_leact_milestone(step=96):
+    """Reuse exact pin/replay/export for a declared early R1 diagnostic."""
+    global STEP,MODEL,DEST,BUILD,TRAINING_STAGE
+    if type(step) is not int or step<1:raise ValueError('Positive milestone required')
+    STEP=step;TRAINING_STAGE='leact-from-step496-r1'
+    MODEL=f'{TRAINING_STAGE}-step{step}'
+    DEST=COVERAGE/f'intermediate-{MODEL}'
+    BUILD=BUILD_ROOT/f'efe-intermediate-export-{MODEL}-20261117-v1'
 
 
 def now():return datetime.now(timezone.utc).isoformat()
@@ -69,8 +81,10 @@ def publish(state,ready=None):
         registry=read(path,{'runs':[]})
         entry=next((r for r in registry['runs'] if r['id']==MODEL),None)
         if entry is None:
-            entry={'id':MODEL,'label':'Expanded warmstart · update 496','step':STEP,'baseline':'base',
-                'selection':'User-requested intermediate diagnostic; final fixed-budget comparison remains separate.',
+            entry={'id':MODEL,'label':('Expanded warmstart' if TRAINING_STAGE=='warmstart' else 'Warmstart 496 + LeAct R1')+f' · update {STEP}',
+                'step':STEP,'baseline':'base' if TRAINING_STAGE=='warmstart' else 'warmstart-step496',
+                'training_stage':TRAINING_STAGE,
+                'selection':'Declared fixed-update intermediate diagnostic; final fixed-budget comparison continues independently.',
                 'panel_sha256':sha(COVERAGE/'evaluation-panel.json'),'planned_tasks':36,
                 'pin_sha256':sha(DEST/'checkpoint-pin.json')}
             registry['runs'].append(entry)
@@ -92,13 +106,19 @@ def prepare():
         'efe_qwen36_adapter_io.py','efe_training_state.py','efe_qwen36_restart.py','efe_qwen36_health.py']
     mapping.update({n:n for n in names})
     for source,target in mapping.items():shutil.copyfile(BASE/'cluster'/source,BUILD/target)
+    branches={r['id']:r for r in read(COVERAGE/'branch-runs.json',{}).get('runs',[])}
+    base_manifest=(DURABLE+'/base-checkpoint-manifest.json' if TRAINING_STAGE=='warmstart'
+                   else branches[TRAINING_STAGE]['parent_ready']['manifest'])
     spec={'step':STEP,'archive_root':str(Path(pin['checkpoint']).parent),
-        'pin_sha256':sha(DEST/'checkpoint-pin.json'),'base_manifest':DURABLE+'/base-checkpoint-manifest.json',
+        'pin_sha256':sha(DEST/'checkpoint-pin.json'),'base_manifest':base_manifest,
+        'checkpoint_revision_prefix':('efe-coverage-warmstart-intermediate' if TRAINING_STAGE=='warmstart'
+            else 'rp_jhh_efe_coverage_'+TRAINING_STAGE+'-intermediate'),
         'additional_optimizer_updates':0,'evaluation_model':MODEL,'scope':'User-requested intermediate native evaluation on the unchanged 36-task panel.'}
     write(BUILD/'spec.json',spec)
-    training=read(COVERAGE/'training-queue.json')['stages']['warmstart']['attempts'][-1]
+    training=read(COVERAGE/'training-queue.json')['stages'][TRAINING_STAGE]['attempts'][-1]
     workflow=yaml.safe_load((Path(training['build'])/'workflow.yaml').read_text())
-    workflow['workflow']['name']='leact-efe-intermediate-export-step496-v1'
+    workflow['workflow']['name']=('leact-efe-intermediate-export-step496-v1' if TRAINING_STAGE=='warmstart'
+                                  else 'leact-efe-intermediate-export-'+MODEL+'-v1')
     workflow['workflow']['timeout']={'queue_timeout':'20m','exec_timeout':'3h'}
     task=workflow['workflow']['tasks'][0];task.pop('credentials',None)
     task.update(command=['python3'],args=['-u',LANE+'/worker.py'])
@@ -110,14 +130,15 @@ def prepare():
         'tasks':36,'cohorts':{'seen_training_scene':24,'same_simulator_new_task':12},
         'sequence':['Pinned committed adapter','Exact full-model loss replay','Merge native-serving model','Matched native robot evaluations'],
         'selection':'Intermediate diagnostic. Zero additional optimizer updates; final warmstart continues independently.'})
-    publish({'phase':'prepared','step':STEP,'updated_utc':now(),'summary':'Update 496 is pinned; native evaluation waits for exact replay and export.'})
+    publish({'phase':'prepared','step':STEP,'updated_utc':now(),'summary':f'{MODEL} is pinned; native evaluation waits for exact replay and export.'})
     return BUILD
 
 
 def tick():
     prepare();q=read(DEST/'queue.json',{'attempts':[]})
     if not q['attempts']:
-        receipt=submit(BUILD,priority='HIGH')
+        pool=read(COVERAGE/'execution-pools.json',{}).get('training_pool','groot-h100-01')
+        receipt=submit(BUILD,priority='HIGH',pool=pool)
         q['attempts'].append({'workflow':receipt['name'],'build':str(BUILD),'submitted_utc':now(),'priority':'HIGH'})
         write(DEST/'queue.json',q)
     a=q['attempts'][-1];scheduler=command(['osmo','workflow','query',a['workflow'],'--format-type','json'])
@@ -138,7 +159,7 @@ def tick():
     if result:
         write(DEST/'result.json',result)
         state.update(phase='ready_for_native_evaluation',result=result,
-            summary='Checkpoint 496 passed exact loss replay and native-model export; the frozen 36-task panel is released to the evaluator.')
+            summary=f'{MODEL} passed exact loss replay and native-model export; the frozen 36-task panel is released to the evaluator.')
         publish(state,result['ready']);return True
     if scheduler['status'].startswith('FAILED'):
         cuda_start=('torch.cuda.set_device(local)' in logs and
@@ -151,15 +172,17 @@ def tick():
                     folder.mkdir(exist_ok=True)
                     for name in read(BUILD/'source-manifest.json'):shutil.copyfile(BUILD/name,folder/name)
                     spec=yaml.safe_load((folder/'workflow.yaml').read_text())
-                    spec['workflow']['name']='leact-efe-intermediate-export-step496-v1-r'+str(len(q['attempts']))
+                    spec['workflow']['name']=yaml.safe_load((BUILD/'workflow.yaml').read_text())['workflow']['name']+'-r'+str(len(q['attempts']))
                     (folder/'workflow.yaml').write_text(yaml.safe_dump(spec,sort_keys=False));freeze_sources(folder)
-                receipt=submit(folder,priority='LOW')
-                q['attempts'].append({'workflow':receipt['name'],'build':str(folder),'submitted_utc':now(),'priority':'LOW'})
+                pool=read(COVERAGE/'execution-pools.json',{}).get('training_pool','groot-h100-01')
+                priority=submission_priority(q)
+                receipt=submit(folder,priority=priority,pool=pool)
+                q['attempts'].append({'workflow':receipt['name'],'build':str(folder),'submitted_utc':now(),'priority':priority,'pool':pool})
                 state.update(workflow=receipt['name'],scheduler_status='PENDING',phase='pending')
             write(DEST/'queue.json',q)
         else:state['phase']='needs_review'
     elif scheduler['status']=='COMPLETED':state['phase']='awaiting_terminal_receipt'
-    state['summary']='Checkpoint 496 intermediate evaluation: '+state['phase'].replace('_',' ')+'. The original 36-task panel and baseline budgets are unchanged.'
+    state['summary']=MODEL+' intermediate evaluation: '+state['phase'].replace('_',' ')+'. The original 36-task panel and baseline budgets are unchanged.'
     publish(state);return False
 
 

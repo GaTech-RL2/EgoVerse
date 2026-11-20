@@ -15,6 +15,7 @@ import sys
 import tarfile
 import time
 import urllib.request
+from uuid import uuid4
 
 ROOT=Path('/tmp/efe-native')
 SPEC=Path('/tmp/efe-native-spec.json')
@@ -30,7 +31,13 @@ def write(name,value):
     for parent in (ROOT,ARCHIVE):
         parent.mkdir(parents=True,exist_ok=True)
         path=parent/name;path.parent.mkdir(parents=True,exist_ok=True)
-        temp=path.with_suffix(path.suffix+'.tmp');temp.write_text(data);temp.replace(path)
+        # Controls run concurrently. Each writer needs its own staging file:
+        # sharing progress.json.tmp can make one thread rename another's file.
+        temp=path.with_name('.'+path.name+'.'+uuid4().hex+'.tmp')
+        try:
+            temp.write_text(data);temp.replace(path)
+        finally:
+            temp.unlink(missing_ok=True)
 
 
 def progress(phase,detail,**extra):
@@ -88,7 +95,10 @@ def find_trial_result(results,task):
 
 def setup(spec):
     ROOT.mkdir(parents=True,exist_ok=True);ARCHIVE.mkdir(parents=True,exist_ok=True)
-    run('system_packages',['bash','-c','apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq podman uidmap slirp4netns git curl ca-certificates'],timeout=600)
+    driver=spec.get('podman_storage_driver','vfs')
+    if driver not in {'vfs','overlay'}:raise ValueError('Unsupported container storage driver')
+    packages='podman uidmap slirp4netns git curl ca-certificates'+(' fuse-overlayfs' if driver=='overlay' else '')
+    run('system_packages',['bash','-c','apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq '+packages],timeout=600)
     progress('install_pinned_container_tools','Installing checksum-pinned Podman 5.8.0 and Compose 2.40.3')
     fetch(spec['podman'],ROOT/'podman.tar.gz')
     with tarfile.open(ROOT/'podman.tar.gz') as tar:tar.extractall(ROOT/'podman',filter='data')
@@ -100,14 +110,25 @@ def setup(spec):
     conmon=next(prefix.rglob('conmon'))
     conf=ROOT/'containers.conf'
     conf.write_text('[engine]\ncompose_warning_logs = false\nhelper_binaries_dir = ['+json.dumps(str(prefix/'usr/local/lib/podman'))+']\nconmon_path = ['+json.dumps(str(conmon))+']\ncgroup_manager = "cgroupfs"\nevents_logger = "file"\n[engine.runtimes]\ncrun = ['+json.dumps(str(binary.parent/'crun'))+']\n')
-    storage=ROOT/'storage.conf';storage.write_text('[storage]\ndriver="vfs"\nrunroot="/tmp/efe-native/run"\ngraphroot="/tmp/efe-native/containers"\n')
+    storage=ROOT/'storage.conf'
+    state_root=Path(spec.get('container_storage_root',ROOT))
+    if not state_root.is_absolute():raise ValueError('Native container storage must be absolute')
+    storage_text=('[storage]\ndriver='+json.dumps(driver)+'\nrunroot='+json.dumps(str(state_root/'run'))+
+                  '\ngraphroot='+json.dumps(str(state_root/'containers'))+'\n')
+    if driver=='overlay':
+        # Explicit opt-in on fresh isolated jobs. Overlay shares image layers;
+        # VFS copied them until the Isaac jobs exceeded 800 GiB of scratch.
+        if not Path('/dev/fuse').is_char_device():
+            raise RuntimeError('Requested fuse-overlayfs storage needs /dev/fuse in the allocated job')
+        storage_text+='[storage.options.overlay]\nmount_program="/usr/bin/fuse-overlayfs"\n'
+    storage.write_text(storage_text)
     env={**os.environ,'PATH':str(binary.parent)+':'+str(bindir)+':'+os.environ['PATH'],
          'CONTAINERS_CONF':str(conf),'CONTAINERS_STORAGE_CONF':str(storage),
          'PODMAN_COMPOSE_PROVIDER':str(bindir/'docker-compose'),
          # Harbor parses stdout from compose exec for package-manager detection.
          # Podman's provider banner otherwise contaminates the returned value.
          'PODMAN_COMPOSE_WARNING_LOGS':'false',
-         'DOCKER_HOST':'unix:///tmp/efe-native/podman.sock','PYTHONUNBUFFERED':'1'}
+         'DOCKER_HOST':'unix://'+str(ROOT/'podman.sock'),'PYTHONUNBUFFERED':'1'}
     log=(ARCHIVE/'logs/podman-service.log').open('w')
     service=subprocess.Popen(['podman','system','service','--time=0',env['DOCKER_HOST']],env=env,stdout=log,stderr=subprocess.STDOUT)
     for _ in range(60):
@@ -115,6 +136,7 @@ def setup(spec):
         if service.poll() is not None:raise RuntimeError('Podman API exited before socket creation')
         time.sleep(1)
     run('compose_socket',['podman','compose','ls'],env=env,timeout=60)
+    run('container_storage_info',['podman','info','--format','json'],env=env,timeout=60)
     reference=ROOT/'reference'
     run('clone_reference',['git','clone','--filter=blob:none','--no-checkout',spec['repository'],str(reference)],env=env,timeout=300)
     run('sparse_init',['git','sparse-checkout','init','--no-cone'],cwd=reference,env=env,timeout=60)

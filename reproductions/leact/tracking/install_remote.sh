@@ -8,6 +8,13 @@ base="$HOME/leact-tracker"
 test -f "$base/.leact-tracker-managed"
 test -f "$release/server.py"
 mkdir -p "$base/data" "$base/logs"
+home_page="${LEACT_TRACKER_HOME_PAGE:-}"
+if [[ -z "$home_page" && -f "$base/home-page.txt" ]]; then
+    read -r home_page < "$base/home-page.txt"
+fi
+home_page="${home_page:-experiments}"
+[[ "$home_page" == experiments || "$home_page" == reasoning ]]
+printf '%s\n' "$home_page" > "$base/home-page.txt"
 if [[ ! -f "$base/emimic/bin/activate" ]]; then
     python3 -m venv --without-pip "$base/emimic"
 fi
@@ -24,7 +31,7 @@ with socket.socket() as listener:
         listener.bind(('0.0.0.0', 8126))
     except OSError:
         with urllib.request.urlopen('http://127.0.0.1:8126/api/health', timeout=3) as response:
-            if json.load(response).get('service') != 'leact-tracker':
+            if json.load(response).get('service') not in {'leact-tracker','reasoning-tracker'}:
                 raise SystemExit('Port 8126 belongs to a different service')
 PY
 ln -sfn "$release" "$base/current"
@@ -33,7 +40,8 @@ cat > "$base/run.sh" <<'RUN'
 set -euo pipefail
 cd "$HOME/leact-tracker"
 source emimic/bin/activate
-exec python -u current/server.py serve --db data/experiments.sqlite3 --host 0.0.0.0 --port 8126
+read -r home_page < home-page.txt
+exec python -u current/server.py serve --db data/experiments.sqlite3 --host 0.0.0.0 --port 8126 --home-page "$home_page"
 RUN
 chmod 700 "$base/run.sh"
 

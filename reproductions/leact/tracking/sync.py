@@ -84,15 +84,19 @@ def publish_records(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host', default='rpunamiya@yam-coverage-rpunamiya.nvidia.com')
-    parser.add_argument('--control', type=Path, default=Path('/tmp/leact-itss-ssh-rpunamiya/control'))
-    parser.add_argument('--identity', type=Path, default=Path.home()/'.ssh/leact_tracker_itss')
+    parser.add_argument('--host')
+    parser.add_argument('--control', type=Path)
+    parser.add_argument('--identity', type=Path)
     parser.add_argument('--state', type=Path, required=True)
     parser.add_argument('--watch', action='store_true')
+    parser.add_argument('--reasoning-only',action='store_true',help='Publish the compact reasoning workspace without legacy experiment traces')
     parser.add_argument('--interval', type=int, default=30)
     parser.add_argument('--prune-uploaded-chunks', action='store_true',
                         help='Release acknowledged rollout transfer buffers; originals remain on Lustre and ITSS')
     args = parser.parse_args()
+    args.host=args.host or ('rpunamiya@rpunamiya.nvidia.com'if args.reasoning_only else 'rpunamiya@yam-coverage-rpunamiya.nvidia.com')
+    args.control=args.control or Path('/tmp/'+('reasoning'if args.reasoning_only else 'leact')+'-itss-ssh-rpunamiya/control')
+    args.identity=args.identity or Path.home()/('.ssh/reasoning_tracker_itss'if args.reasoning_only else '.ssh/leact_tracker_itss')
     if args.interval < 5:
         parser.error('Polling interval must be at least five seconds')
     args.state.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +108,7 @@ def main():
             last = state.get('sha256')
     while True:
         try:
-            value = snapshot()
+            value = snapshot(reasoning_only=args.reasoning_only)
             payload = json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
             digest = hashlib.sha256(payload).hexdigest()
             if digest != last:
@@ -116,13 +120,13 @@ def main():
                     raise ValueError('Tracking host returned a different snapshot checksum')
                 state = {'destination': destination, **imported,
                          'synced_utc': datetime.now(timezone.utc).isoformat(),
-                         'runs': len(value['runs']), 'live_training_series': len(value['live_training'])}
+                         'runs': len(value['runs']), 'live_training_series': len(value.get('live_training',[]))}
                 temporary = args.state.with_suffix('.tmp')
                 temporary.write_text(json.dumps(state, indent=2)+'\n')
                 temporary.replace(args.state)
                 last = digest
                 print(json.dumps(state), flush=True)
-            publish_records(args)
+            if not args.reasoning_only:publish_records(args)
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             print(json.dumps({'time': datetime.now(timezone.utc).isoformat(),
                               'error': str(exc), 'uploaded': False}), flush=True)

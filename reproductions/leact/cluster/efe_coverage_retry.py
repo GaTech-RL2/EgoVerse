@@ -37,9 +37,13 @@ def init_interruption_proven(scheduler,events):
     readiness_lost=(events.rfind('PodReadyToStartContainers: False')>
                     events.rfind('PodReadyToStartContainers: True')>
                     events.find('osmo/init-container:')>=0)
+    deleted_during_binding=('BindingError' in events
+        and 'is being deleted, cannot be assigned to a host' in events)
+    preempted_before_start=('Evict: Pod ' in events
+        and ' was preempted by higher priority workload ' in events)
     return (never_started_init_failure(scheduler)
-        and 'osmo/init-container:' in events
-        and ('Stopping container osmo-init' in events or readiness_lost)
+        and (deleted_during_binding or preempted_before_start or ('osmo/init-container:' in events
+            and ('Stopping container osmo-init' in events or readiness_lost)))
         and 'Started container osmo-main' not in events)
 
 
@@ -52,17 +56,54 @@ def reviewed_init_interruption(scheduler):
     record=directory/(key+'.json')
     if record.exists():
         value=json.loads(record.read_text())
-        if value.get('rule_version')==2:
+        if value.get('rule_version')==4:
             return value['workflow']==name and value.get('retryable',False)
     result=subprocess.run(['osmo','workflow','events',name],capture_output=True,text=True,timeout=30)
     if result.returncode:return False
     events=result.stdout
     (directory/(key+'.events.txt')).write_text(events)
-    value={'workflow':name,'utc':datetime.now(timezone.utc).isoformat(),'rule_version':2,
+    value={'workflow':name,'utc':datetime.now(timezone.utc).isoformat(),'rule_version':4,
         'retryable':init_interruption_proven(scheduler,events),
         'events_sha256':hashlib.sha256(events.encode()).hexdigest(),
-        'rule':'No workflow/task/input download start; exit 4000; events confirm OSMO init container interrupted before task execution.'}
+        'rule':'No workflow/task/input download start; exit 4000; events confirm interrupted OSMO init, pod deletion during binding, or explicit higher-priority preemption before task execution.'}
     temporary=record.with_suffix('.tmp');temporary.write_text(json.dumps(value,indent=2)+'\n');temporary.replace(record)
+    return value['retryable']
+
+
+def backend_node_interruption_proven(scheduler,events):
+    """Require the scheduler's backend error and explicit unhealthy-node eviction."""
+    tasks=[t for g in scheduler.get('groups',[]) for t in g.get('tasks',[])]
+    return (scheduler.get('status')=='FAILED' and len(tasks)==1
+        and tasks[0].get('status')=='FAILED_BACKEND_ERROR' and tasks[0].get('exit_code')==3001
+        and 'NodeNotReady: Node is not ready' in events
+        and 'TaintManagerEviction: Marking for deletion Pod ' in events
+        and 'deleting due to NoExecute taint' in events)
+
+
+def reviewed_backend_node_interruption(scheduler):
+    tasks=[t for g in scheduler.get('groups',[]) for t in g.get('tasks',[])]
+    if not (scheduler.get('status')=='FAILED' and len(tasks)==1
+            and tasks[0].get('status')=='FAILED_BACKEND_ERROR' and tasks[0].get('exit_code')==3001):
+        return False
+    name=scheduler['name'];directory=ROOT/'fixed-action-v1/coverage-scale-v1/backend-node-reviews'
+    directory.mkdir(parents=True,exist_ok=True)
+    key=hashlib.sha256(name.encode()).hexdigest()[:16];path=directory/(key+'.json')
+    if path.exists():
+        value=json.loads(path.read_text())
+        if value.get('rule_version')==1 and value.get('workflow')==name:return value.get('retryable',False)
+    try:
+        result=subprocess.run(['osmo','workflow','events',name],capture_output=True,text=True,timeout=12)
+        if result.returncode:return False
+        events=result.stdout
+    except subprocess.TimeoutExpired as error:
+        events=error.stdout or '';events=events.decode(errors='replace') if isinstance(events,bytes) else events
+        if not backend_node_interruption_proven(scheduler,events):return False
+    (directory/(key+'.events.txt')).write_text(events)
+    value={'workflow':name,'rule_version':1,'utc':datetime.now(timezone.utc).isoformat(),
+        'retryable':backend_node_interruption_proven(scheduler,events),
+        'events_sha256':hashlib.sha256(events.encode()).hexdigest(),
+        'rule':'Single task FAILED_BACKEND_ERROR/3001 plus NodeNotReady and explicit NoExecute-taint eviction.'}
+    pending=path.with_suffix('.tmp');pending.write_text(json.dumps(value,indent=2)+'\n');pending.replace(path)
     return value['retryable']
 
 
@@ -111,12 +152,31 @@ def cuda_unavailable_before_training(scheduler, evidence):
         and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable' in message)
 
 
+def reviewed_hf_scoring_recovery(scheduler,evidence,review,source_spec_sha256):
+    """Release one reviewed R1 repair only after exact-score data promotion."""
+    error=evidence.get('error',{});activation=evidence.get('scoring_recovery',{})
+    if not(scheduler.get('status')=='FAILED' and scheduler.get('name')==review.get('workflow')
+           and review.get('action')=='resume_with_training_backend_admissions'
+           and review.get('source_spec_sha256')==source_spec_sha256
+           and error.get('workflow')==scheduler['name']
+           and error.get('error','').startswith('smoke exited 1:')
+           and 'Training/selection complete-target likelihood differs' in error['error']):return False
+    return (activation.get('success')is True and activation.get('production_optimizer_updates_before_recovery')==0
+        and activation.get('original_dataset_sha256')==review.get('original_dataset_sha256')
+        and activation.get('dataset_sha256')==evidence.get('dataset',{}).get('sha256')
+        and activation.get('selection',{}).get('score_backend')=='exact_training_fsdp_fp32_master_bf16_forward'
+        and evidence.get('committed_restart_step',0)==0 and not evidence.get('train_complete'))
+
+
 def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
     """One explicit diagnostic retry before any benchmark episode; no inferred cause."""
     name=scheduler.get('name')
     marker='Student vision/function-call preflight failed; do not run benchmark tasks'
+    approved=(review.get('action')=='retry_original_preflight_once' or (
+        review.get('action')=='retry_with_matched_constrained_preflight'
+        and review.get('target_preflight_protocol')=='constrained-image-action-preflight-v1'))
     if (scheduler.get('status')!='FAILED' or not name or review.get('workflow')!=name
-        or review.get('action')!='retry_original_preflight_once'
+        or not approved
         or review.get('source_spec_sha256')!=spec_sha256):return False
     if review.get('evidence_sha256')!=hashlib.sha256(json.dumps(evidence,sort_keys=True).encode()).hexdigest():return False
     progress=evidence.get('progress',{});worker=evidence.get('worker_complete',{})
@@ -129,6 +189,27 @@ def reviewed_preflight_retry(scheduler,evidence,review,spec_sha256):
         and worker.get('workflow')==name and worker.get('success') is False and worker.get('error')==marker
         and not evidence.get('results',{}).get('trials')
         and not evidence.get('public_manifest',{}).get('episodes'))
+
+
+def inference_cuda_unavailable_before_rollouts(scheduler,evidence):
+    """Recognize initial device acquisition failure before any native trial."""
+    name=scheduler.get('name');marker='Qwen serving exited; inspect logs/student-vllm.log'
+    progress=evidence.get('progress',{});worker=evidence.get('worker_complete',{})
+    complete=evidence.get('complete',{});preflight=evidence.get('preflight',{})
+    failure=evidence.get('serving_failure',{});message=failure.get('log_tail','')
+    return bool(name and scheduler.get('status')=='FAILED'
+        and progress.get('workflow')==name and worker.get('workflow')==name
+        and progress.get('benchmark_rollouts_started')is False
+        and progress.get('phase')=='qwen_baseline_needs_review'
+        and preflight.get('status')=='failed' and preflight.get('error')==marker
+        and complete.get('success',False)is False and bool(complete.get('completed_utc'))
+        and complete.get('completed_trials')==0
+        and complete.get('error')==marker and worker.get('success')is False and worker.get('error')==marker
+        and not evidence.get('results',{}).get('trials')
+        and not evidence.get('public_manifest',{}).get('episodes')
+        and failure.get('returncode')is not None and failure['returncode']!=0
+        and 'torch.accelerator.set_device_index(self.device)'in message
+        and 'CUDA error: CUDA-capable device(s) is/are busy or unavailable'in message)
 
 
 def retry_due(record, workflow, at=None):

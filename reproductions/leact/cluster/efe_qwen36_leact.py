@@ -66,7 +66,7 @@ def link_immutable(source,destination,expected_sha256=None):
     if expected_sha256 and sha(source)!=expected_sha256:raise ValueError('Replay source checksum changed')
     destination.parent.mkdir(parents=True,exist_ok=True)
     if destination.exists():
-        if destination.resolve()!=source and sha(destination)!=sha(source):raise ValueError('Replay destination differs')
+        if not destination.samefile(source) and destination.resolve()!=source and sha(destination)!=sha(source):raise ValueError('Replay destination differs')
         return
     try:os.link(source,destination)
     except OSError as error:
@@ -93,6 +93,15 @@ def selection_indices(count,execution):
     return set(indices)
 
 
+def reuse_encoded_row(original_root,prepared_root,row,decision_id,pair,direction):
+    """Reuse bytes only for an identical frozen candidate and training direction."""
+    if(row.get('id')!=pair+'-'+direction or row.get('decision_id')!=decision_id
+       or row.get('direction')!=direction or row.get('state_id')!=pair):
+        raise ValueError('Cached explanation tensor identity differs')
+    link_immutable(Path(original_root)/row['tensor_file'],Path(prepared_root)/row['tensor_file'],row['tensor_sha256'])
+    return dict(row)
+
+
 def select(spec,root,execution=None):
     import torch
     from transformers import AutoProcessor
@@ -102,6 +111,8 @@ def select(spec,root,execution=None):
     config=root/'selection-execution.json'
     execution=execution if execution is not None else json.loads(config.read_text()) if config.exists() else {}
     producer=execution.get('candidate_only',False)
+    frozen_scores=execution.get('frozen_training_scores_only',False)
+    if frozen_scores and producer:raise ValueError('Frozen-score assembly cannot generate candidates')
     max_sequences=execution.get('max_num_seqs',1)
     if max_sequences not in (1,8):raise ValueError('Unreviewed selection concurrency')
     worker_root=Path(execution.get('worker_root',str(root)))
@@ -131,12 +142,19 @@ def select(spec,root,execution=None):
         if sha(parent/'dataset-manifest.json')!=spec['parent_dataset_sha256']:raise ValueError('Warmstart replay corpus changed')
         for blob in (parent/'tensor-blobs').glob('*.pt'):
             link_immutable(blob,root/'tensor-blobs'/blob.name)
+    cached_rows={};reused_tensors=0;encoded_tensors=0
+    if frozen_scores and execution.get('reuse_original_tensors'):
+        original=Path(execution['original_training_root']);manifest=original/'dataset-manifest.json'
+        if sha(manifest)!=execution['original_dataset_sha256']:raise ValueError('Original training tensor manifest changed')
+        cached_rows={row['id']:row for row in json.loads(manifest.read_text())['examples']if row.get('source')=='leact'}
+        for blob in(original/'tensor-blobs').glob('*.pt'):
+            link_immutable(blob,root/'tensor-blobs'/blob.name)
     for state in states:
         if tuple(state['action'])!=('action_type','action','repeat','summary') or state['tools']:
             raise ValueError('Unexpected constrained command interface')
     processor=AutoProcessor.from_pretrained(spec['base_model'],local_files_only=True)
     processor.image_processor.size.update(shortest_edge=65536,longest_edge=1048576)
-    llm=LLM(model=spec['base_model'],tokenizer=spec['base_model'],dtype='bfloat16',tensor_parallel_size=8,
+    llm=None if frozen_scores else LLM(model=spec['base_model'],tokenizer=spec['base_model'],dtype='bfloat16',tensor_parallel_size=8,
         distributed_executor_backend='mp',disable_custom_all_reduce=True,enforce_eager=True,
         max_model_len=spec['context'],max_num_seqs=max_sequences,max_num_batched_tokens=2048,gpu_memory_utilization=.75,
         enable_prefix_caching=False,limit_mm_per_prompt={'image':40,'video':0},
@@ -169,7 +187,7 @@ def select(spec,root,execution=None):
             'full_json_mean_logp':sum(values.values())/len(values),'full_json_tokens':len(values),
             'complete_prompt_tokens':len(ids)}
         return result,batch
-    if not producer or execution.get('shared_candidates'):
+    if not frozen_scores and (not producer or execution.get('shared_candidates')):
         # First-call variation was observed even with the original one-sequence
         # engine. Keep these requests outside candidate admission and record them.
         first=states[0]
@@ -182,7 +200,7 @@ def select(spec,root,execution=None):
     rows=[];reports=[];probes=[]
     for index,state in enumerate(states):
         if index not in indices:continue
-        path=root/'candidates'/(state['id']+'.json')
+        path=Path(execution['scored_candidates_root'])/(state['id']+'.json') if frozen_scores else root/'candidates'/(state['id']+'.json')
         condition=hashlib.sha256(json.dumps({'spec':spec,'state':state},sort_keys=True).encode()).hexdigest()
         seed=int(hashlib.sha256((str(spec['seed'])+'/'+state['id']).encode()).hexdigest()[:8],16)%(2**31)
         if producer and execution.get('score_reference_root'):
@@ -202,7 +220,10 @@ def select(spec,root,execution=None):
             if path.exists():
                 record=json.loads(path.read_text())
                 if record['condition_sha256']!=condition:raise ValueError('Existing candidate provenance differs')
+                if frozen_scores and record.get('score_backend')!='exact_training_fsdp_fp32_master_bf16_forward':
+                    raise ValueError('Frozen-score assembly requires the qualified training scorer')
             else:
+                if frozen_scores:raise ValueError('Missing frozen HF score group; never backfill with new generations')
                 timings.clear()
                 tick=time.monotonic();base,base_batch=score(state,'',seed)
                 if base is None:raise ValueError('Teacher command no longer fits complete scoring context')
@@ -245,12 +266,24 @@ def select(spec,root,execution=None):
             write(worker_root/'timings.json',{'states':reports,'execution':execution})
             continue
         if index<2:
-            base,batch=score(state,'',seed);p=root/'probes'/f'base-{index}.pt';torch.save(batch,p)
-            probes.append({'condition':'base-'+str(index),'tensor_file':str(p.relative_to(root)),'tensor_sha256':sha(p),'mean_target_logp':base['mean_target_logp']})
+            p=root/'probes'/f'base-{index}.pt'
+            if frozen_scores:
+                original=Path(execution['original_training_root']);reference=json.loads((original/'scoring-probes.json').read_text())[index]
+                source=original/reference['tensor_file']
+                if sha(source)!=reference['tensor_sha256']:raise ValueError('Original scoring input changed')
+                shutil.copyfile(source,p);base=record['base']
+            else:
+                base,batch=score(state,'',seed);torch.save(batch,p)
+            probes.append({'condition':'base-'+str(index),'tensor_file':str(p.relative_to(root)),'tensor_sha256':sha(p),
+                'mean_target_logp':base['mean_target_logp'],**({'score_backend':'training_hf_fsdp'}if frozen_scores else {})})
         for candidate in record['candidates']:
             if candidate['candidate'] not in record['selected']:continue
             pair=state['id']+'-leact-'+str(candidate['candidate']);rationale=candidate['rationale']
             for direction,messages,answer in [('forward',state['messages'],json.dumps(state['action'],ensure_ascii=False)),('backward',backward(state),'DONE')]:
+                ident=pair+'-'+direction;cached=cached_rows.get(ident)
+                if cached is not None:
+                    rows.append(reuse_encoded_row(execution['original_training_root'],root,cached,state['id'],pair,direction))
+                    reused_tensors+=1;continue
                 batch,meta=encode_example(processor,messages,[],{'role':'assistant','reasoning_content':rationale,'content':answer},spec['context'])
                 if batch is None:raise ValueError('Admitted complete training pair exceeds context')
                 name='tensors/'+pair+'-'+direction+'.pt'
@@ -258,6 +291,7 @@ def select(spec,root,execution=None):
                     from efe_visual_tensor_store import save
                     save(batch,root/name)
                 else:torch.save(batch,root/name)
+                encoded_tensors+=1
                 rows.append({'id':pair+'-'+direction,'state_id':pair,'decision_id':state['id'],'direction':direction,
                     'suite':state['suite'],'task':state['task'],'episode':state['episode'],'source':'leact','tensor_file':name,
                     'tensor_sha256':sha(root/name),**meta})
@@ -271,6 +305,9 @@ def select(spec,root,execution=None):
     selection={'states_attempted':len(states),'candidate_count':8,'max_positive_candidates':2,
         'admitted_candidates':len(rows)//2,'admitted_states':len({r['decision_id'] for r in rows}),
         'rule':'Strictly positive mean log-likelihood gain on identical executable-command tokens; top two per state. Summary tokens cannot determine admission.'}
+    if frozen_scores:selection['score_backend']='exact_training_fsdp_fp32_master_bf16_forward'
+    if cached_rows:selection['tensor_preparation']={'verified_existing_tensors_reused':reused_tensors,
+        'new_tensors_encoded':encoded_tensors,'original_dataset_sha256':execution['original_dataset_sha256']}
     write(root/'selection.json',selection)
     if not rows:write(root/'selection-complete.json',{'success':True,'no_admissions':True});return
     parent=Path(spec['parent_corpus']);manifest=json.loads((parent/'dataset-manifest.json').read_text())

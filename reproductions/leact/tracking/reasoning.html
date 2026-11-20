@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>rpunamiya reasoning</title><link rel="stylesheet" href="/reasoning.css"></head>
+<body><header><a class="wordmark" href="/reasoning">rpunamiya <span>reasoning</span></a><nav aria-label="Workspace"><a href="#live-experiments">Experiments</a><a href="#embodied-reasoning">Reasoning</a><a href="#simulators">Simulators</a><a href="#planning">PEAR estimates</a></nav></header>
+<main>
+<p id="freshness" class="meta freshness" role="status">Loading the latest recorded snapshot…</p>
+<div id="error" class="notice" hidden></div>
+<section id="live-experiments" class="panel">
+<div class="section-heading"><h2>Experiments</h2><span id="live-status" class="meta"></span></div>
+<p id="retention-status"></p><div id="retention-results" class="table-wrap"></div><p id="retention-explanation" class="meta"></p>
+<p id="pear-live-status" class="meta"></p>
+<div id="pear-run-table" class="table-wrap"></div>
+<details open><summary>Launch validation</summary><div id="launch-validation" class="table-wrap"></div><p id="launch-validation-explanation" class="meta"></p></details>
+<div class="filters"><label>Run<select id="metric-run"><option value="all">Both PEAR runs</option></select></label><label>Metric<select id="metric-name"><option value="policy_loss">Policy loss</option></select></label></div>
+<div id="metric-legend" class="benchmark-list"></div><div id="metric-chart" class="metric-chart"></div><p id="metric-value" class="meta" aria-live="polite">Hover or focus a point for its run, step and value.</p><p class="meta">Policy loss is the RL update objective. Assess capability with rewards and held-out evaluations; its numerical value is not comparable to supervised cross-entropy.</p>
+<details><summary>Latest task rewards and recorded metrics</summary><div id="live-task-rewards" class="table-wrap"></div><div id="live-metrics" class="table-wrap"></div></details>
+<details><summary>Checkpoints and evaluations</summary><div id="pear-checkpoints" class="table-wrap"></div><div id="pear-evaluations" class="table-wrap"></div></details>
+<details><summary>Training recipe and task balance</summary><div id="pear-recipe" class="table-wrap"></div><p id="pear-sampling" class="meta"></p><p class="meta">Target proportions across updates: native YAM 25%; broader bimanual 18.75%; general manipulation 18.75%; language following 12.5%; reasoning 25% across eight families. Full starts and assisted starts are reported separately. Evaluation uses fixed full starts.</p></details>
+<p class="meta">Raw rewards include constant-reward groups discarded by GRPO. Task averages weight tasks equally. Approximate rollout-policy KL measures policy drift; reference-policy KL is not measured by the PEAR recipe. This instance owns the run tracking and keeps its history separately from catalog updates. Timestamps show stale connections.</p>
+</section>
+<section id="embodied-reasoning" class="panel">
+<div class="section-heading"><h2>Embodied reasoning</h2><span id="reasoning-status" class="pill"></span></div>
+<p class="meta">Each task uses observations and public context → reasoning → one typed JSON answer. The initial reasoning bank uses independently generated MuJoCo primitive scenes with verifier controls. Control tasks use the robot’s EEF or joint action schema; reasoning tasks use typed point, box, set and count answers or camera inspection. Named benchmark datasets stay reserved for evaluation.</p>
+<div id="reasoning-task-table" class="table-wrap"></div>
+<h3 class="reasoning-eval-heading">Existing training datasets</h3><p class="meta">Published training sources are available. The entries below are candidates being inspected; they are not yet staged or admitted to our training mixture.</p><div id="reasoning-source-table" class="table-wrap"></div>
+<h3 class="reasoning-eval-heading">Held-out evaluation benchmarks</h3><div id="reasoning-benchmarks" class="benchmark-list"></div>
+<p id="reasoning-bbox-status" class="meta"></p>
+</section>
+<section id="simulators" class="panel simulator-panel">
+<div class="section-heading"><h1>Simulator families</h1><span id="simulator-count" class="meta"></span></div>
+<p id="mixture-summary" class="meta"></p>
+<div class="filters simulator-filters"><label>Family or task<input id="sim-search" type="search" placeholder="Search simulator or task"></label><label>Task split<select id="sim-split"><option value="all">All families</option><option value="train">Train</option><option value="eval_seen">Eval · seen sim, unseen task</option><option value="eval_unseen">Eval · unseen sim, unseen task</option><option value="pending">Split pending</option></select></label></div>
+<div id="simulator-families" class="family-grid"></div>
+<p id="yam-split-note" class="meta"></p>
+</section>
+<section id="planning" class="panel"><div class="section-heading"><h2>PEAR compute estimates</h2><span class="pill">Warmstart target: 64 H100s · fallback: 48</span></div>
+<p>The warmstart arm is authorized to launch after the complete mixture and RL pipeline pass validation. The base-model arm remains paused. The calculator retains both proposed arms as editable scenarios; these are estimates, not measured PEAR completion times or confirmed allocations.</p>
+<p class="meta">The proposal uses 512 updates as a planning milestone, with continuation driven by coverage and learning. The calculator opens at the earlier 32-update checkpoint; select 512 to price the longer schedule.</p>
+<div class="controls"><label>Planning milestone<select id="updates"><option value="1">1 retained update</option><option value="8">8 retained updates</option><option value="32" selected>32 retained updates</option><option value="128">128 retained updates</option><option value="512">512 retained updates · planning milestone</option></select></label>
+<label>Extra H100 GPUs, both runs<select id="gpu-budget"><option value="32" selected>32 · 16 per run</option><option value="64">64 · 32 per run</option><option value="128">128 · 64 per run</option><option value="256">256 · 128 per run</option></select></label>
+<label>Simulator profile<select id="profile"><option value="mixed" selected>Mixed EFE + YAM · reserve simulator GPUs</option><option value="cpu">CPU rendering · all remaining GPUs sample</option></select></label>
+<label>Retained group fraction<input id="retention" type="number" min="0.05" max="1" step="0.05" value="0.65"></label>
+<label>Generated tokens/s per 8 rollout GPUs<input id="throughput" type="number" min="100" max="10000" step="100" value="2500"></label>
+<label>Effective pipeline availability<input id="availability" type="number" min="0.1" max="1" step="0.05" value="0.85"></label>
+<label>MoE control tokens / episode<input id="moe-tokens" type="number" min="100" step="1000" value="13000"></label>
+<label>Base control tokens / episode<input id="dense-tokens" type="number" min="100" step="1000" value="92000"></label>
+<label>Reasoning tokens / episode<input id="reasoning-tokens" type="number" min="100" step="1000" value="4000"></label>
+</div><p id="role-budget" class="meta"></p><div id="estimate-results" class="estimate-grid"></div><p id="parallel-total" class="notice"></p>
+<details><summary>Assumptions and arithmetic</summary><div id="estimate-assumptions"></div><p>Retained episodes = updates × 128 groups × 8 episodes. Attempted episodes divide by the retained fraction. Estimated runtime is setup plus the maximum of generation time, environment occupancy and learner time, divided by availability. Async work overlaps; inference waiting is not charged twice. GPU-hours include the whole reserved allocation.</p><p>The mixed profile reserves 8 trainer / 4 rollout / 4 simulator GPUs at 16 GPUs per run. This is a proposed layout, not a launched or qualified orchestration. The CPU profile uses 8 trainer / 8 rollout GPUs. Larger budgets scale these roles.</p><p>The editable throughput proxy is anchored to the <a href="https://mit-han-lab.github.io/pear-blog/#appendix" target="_blank" rel="noreferrer">PEAR training appendix</a>, which reports 2,000–3,000 generated tokens/s per H100 node and about 92k generated tokens per episode. Our initial sampler concurrency is lower, so these rates may be optimistic. MoE token lengths come from existing native evaluation timings, not an on-policy PEAR pilot.</p></details>
+</section>
+<section class="panel"><div class="section-heading"><h2>Measured timing proxies</h2></div><div id="timing-table" class="table-wrap"></div><p class="meta">The existing MoE evaluations use different sampling and episode limits. Their short warmstart outputs do not establish an RL speedup or predict how reasoning length will evolve. No primary PEAR throughput is measured yet.</p></section>
+<details id="environments" class="panel"><summary>Full task catalog and split audit</summary><div class="section-heading catalog-heading"><h2>Training and evaluation tasks</h2><button id="download" type="button">Download inventory CSV</button></div>
+<div class="filters"><label>Search<input id="search" type="search" placeholder="Task, simulator, robot or description"></label><label>Source<select id="source"><option value="">All sources</option></select></label><label>Membership<select id="role"><option value="">All memberships</option></select></label></div>
+<p id="inventory-count" class="meta"></p><div id="environment-table" class="table-wrap"></div><div class="pagination"><button id="previous" type="button">Previous</button><span id="page"></span><button id="next" type="button">Next</button></div>
+<details><summary>Suite counts and qualification status</summary><div id="suite-table" class="table-wrap"></div></details><div id="inventory-limits" class="callout"></div></details>
+<footer>Catalog candidates are not admitted environments. Estimates are not launch requests. <a href="/api/reasoning" download="rpunamiya-reasoning.json">Download this snapshot</a></footer></main><script src="/reasoning.js"></script></body></html>

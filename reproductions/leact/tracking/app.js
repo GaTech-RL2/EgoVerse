@@ -135,6 +135,11 @@ function currentStudyStatus(){
   const state=workflowLabel(warm?.status||recovery.status),stamp=recovery.evidence_captured_utc;
   const link=node('a','Open current loss curves');link.href='#loss-efe-expanded';
   el('status').replaceChildren(node('span',`EFE warmstart: ${state.toLowerCase()}. ${last?.step??0} of ${run?.steps??737} updates recorded.`),link);
+  const priorities=exp.execution_priorities;
+  if(priorities?.primary_deliverable){
+    const r1=exp.training?.jobs?.find(j=>j.stage==='leact-from-step496-r1');
+    el('status').replaceChildren(node('span',`Priority: LeAct R1 robot evals. ${workflowLabel(r1?.status)}. ${r1?.progress?.detail||''} Target: ${priorities.target_local}.`),link);
+  }
   el('status').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const format=value=>value?new Date(value).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}):'not available';
   el('updated').textContent=`Training records: ${format(stamp)}. Auto-refresh every 15 seconds.`;
@@ -142,14 +147,17 @@ function currentStudyStatus(){
   el('loss-run-state').textContent=state;el('loss-run-state').dataset.state=(warm?.status||recovery.status||'').toLowerCase();
   const leact=exp.training?.jobs?.find(j=>j.stage==='leact-r1'),pear=study.pear_comparison?.plan?.optimizer_update_qualification;
   const branches=exp.branch_runs?.runs||[];
-  const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}.`;}).join(' ');
+  const branchText=branches.map(r=>{const job=exp.training?.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${workflowLabel(job?.status)}. ${job?.progress?.detail||''}`;}).join(' ');
   const pending=branchText+' '+(leact?.status==='WAITING_FOR_WARMSTART'?'The final-737 LeAct branch still waits for warmstart completion.':`Final-737 LeAct: ${workflowLabel(leact?.status)}.`);
   const pearText=pear?.result?.success?'PEAR’s optimizer check passed.':pear?.error||pear?.phase?.includes('needs_review')?'PEAR’s optimizer check needs review.':pear?.phase==='fresh_process_restart_verification'?'PEAR is verifying its saved checkpoint.':pear?.accumulation?.microbatches?`PEAR’s update check: ${pear.accumulation.microbatches}/${pear.accumulation.total_microbatches} batches.`:pear?.workflow?`PEAR’s optimizer check is ${workflowLabel(pear.scheduler_status).toLowerCase()}.`:'PEAR’s optimizer check is pending.';
   const selection=exp.selection_workers;
   const workerText=selection?.enabled?`Parallel selection: ${(selection.jobs||[]).filter(j=>j.status==='RUNNING').length}/${(selection.jobs||[]).length} additional H100 nodes running. `:'';
+  const rescoreJobs=exp.hf_scoring_recovery?.rescore_jobs||[];
+  const rescoreText=rescoreJobs.length?`Training scorer recovery: ${rescoreJobs.filter(j=>j.status==='RUNNING').length}/${rescoreJobs.length} H100 nodes running; production R1 optimization follows verified readmission. `:'';
   const checkpoint=exp.performance?.checkpoint_optimization;
   const checkpointText=checkpoint?` Checkpoint-saving validation: ${workflowLabel(checkpoint.status).toLowerCase()}. ${checkpoint.production_enabled?'Enabled in training.':'The current training save path is unchanged.'}`:'';
-  el('loss-next-stage').textContent=pending+' '+workerText+(exp.performance?.summary||'')+checkpointText+' '+pearText+' The PEAR comparison uses the final warmstart.';
+  el('loss-next-stage').textContent=pending+' '+workerText+rescoreText+(exp.performance?.summary||'')+checkpointText+' '+
+    (priorities?.defer_additional_pear_launches?'Further PEAR++ launches are deferred while LeAct R1 training and its frozen 36-task evaluation panel take priority.':pearText);
 }
 function chart(){
   const histories=lossHistories(data),category=lossCategories.find(c=>c.id===chartState.category)||lossCategories[0];
@@ -648,6 +656,48 @@ function embodiedStudy(){
     table('efe-published-examples',['Published example','Native result','Interface evidence','Use in this study'],(a.examples||[]).map(e=>{const link=node('a',e.task);link.href=e.source_url;link.target='_blank';link.rel='noopener';return[link,e.outcome,e.finding,e.admission];}));
   }
   const diagnosis=study.trace_diagnosis;
+  const scaled=study.pear_scaled;
+  if(scaled?.plan?.arms&&el('efe-pear-scaled-summary')){
+    const p=scaled.plan,s=scaled.status||{},e=p.environments||{},r=p.recipe||{};
+    const proposal=p.proposal;
+    const primaryUpdates=p.arms.reduce((total,a)=>total+(a.rl_updates??0),0);
+    el('efe-pear-scaled-summary').textContent=proposal
+      ?`PEAR++ launch preparation is authorized. Shared runtime: ${(s.phase||p.status).replaceAll('_',' ')}. ${e.task_variants??0} eligible EFE variants (${e.semantic_tasks??0} semantic tasks) across ${Object.keys(e.suite_counts||{}).length} candidate suites, plus the full native GR00T YAM catalog and eight generated reasoning families. These are catalog candidates; ${p.admitted_tasks??0} tasks are admitted to RL and ${primaryUpdates} primary updates are recorded across both runs. The target is 16 H100 nodes per arm, with a 34-node campaign limit; this is not an allocated GPU count.`
+      :`Two PEAR++ arms are being prepared alongside LeAct. ${e.task_variants??0} EFE training variants across ${Object.keys(e.suite_counts||{}).length} candidate suites; ${p.admitted_tasks??0} tasks admitted to RL so far. Shared runtime: ${(s.phase||p.status).replaceAll('_',' ')}. No PEAR++ robot-success result is available yet.`;
+    if(p.implementation?.current_summary)el('efe-pear-scaled-summary').textContent+=' '+p.implementation.current_summary;
+    const modelChecks=scaled.model_checks?.arms||[];
+    table('efe-pear-scaled-arms',['Run','Initialization / nearest baseline','Updates','Model engine check','What it tests'],p.arms.map(a=>{
+      const baseline=node('a',a.warmstart_step?`MoE warmstart · step ${a.warmstart_step}`:'Base Qwen3.8-27B · evaluation pending');
+      baseline.href=a.warmstart_step?'#efe-coverage-expansion-results':'https://huggingface.co/Qwen/Qwen3.8-27B';
+      const check=modelChecks.find(c=>c.arm===(a.warmstart_step?'moe_warmstart496':'dense_base'));
+      let checkCell='Awaiting runtime';
+      if(check){checkCell=node('a',(check.worker?.phase||check.scheduler_status||'Pending').replaceAll('_',' ')+' · diagnostic');checkCell.href='https://us-west-2-aws.osmo.nvidia.com/workflows/'+encodeURIComponent(check.workflow);checkCell.target='_blank';checkCell.rel='noopener';}
+      return [a.model+' + PEAR++',baseline,`${a.rl_updates??0} · full fine-tuning`,checkCell,a.warmstart_step?'Can native-reward RL improve our existing warmstart across a broader task set?':'Can the paper’s dense base model learn directly on the same expanded task set?'];
+    }));
+    el('efe-pear-scaled-recipe').textContent=proposal
+      ?'Authorized for both full-finetuning arms: 128 retained groups × 8 rollouts; AdamW LR 1e-6; PEAR score centering. Initial groups: native YAM 32, broader bimanual 24, general manipulation 24, language-conditioned control 16, and reasoning 32 (4 per family). Language following uses existing benchmark instructions, tasks and native success checks. Preserve group ratios after filtering and average the loss within each family before weighting. SGS selects learnable reset configurations within tasks; full-start evaluation stays fixed. Review at 32, 256 and 512 updates; continuation depends on per-task exposure and training/development success. Runtime and environment preparation jobs are submitted; primary RL is awaiting integration and qualification.'
+      :`${r.retained_groups_per_update} retained groups × ${r.rollouts_per_group} rollouts per update; AdamW LR ${r.learning_rate}; score centering; one update using generated-token mean loss. LoRA disabled in both arms. The total update budget scales with admitted task identities; the final count is pending environment qualification. Constant-reward groups are discarded and still count toward compute cost.`;
+    const interfaceContext=p.interface_context||proposal?.interface?.language_context;
+    if(el('efe-pear-interface-context'))el('efe-pear-interface-context').textContent=interfaceContext?.enabled
+      ?`Both students are configured to receive the same per-environment language guide: action directions, frames, units, component and gripper order; delivered cameras, image layout, calibration and proprioception fields. The shared native EFE tool supplies this guide with every observation. Missing conventions are marked unspecified. Initial prompt budget: ${(r.prompt_budget||16384).toLocaleString()} tokens. Broader YAM and reasoning adapters must provide verified metadata as they are integrated.`
+      :'';
+    table('efe-pear-scaled-suites',['Candidate simulator suite','Training variants','Admission'],Object.entries(e.suite_counts||{}).map(([suite,count])=>[suite,count,'Action, native reward and scene checks pending']));
+    const catalog=new Map(Object.entries(scaled.catalog_checks?.contracts||{}));
+    if(catalog.size)table('efe-pear-scaled-suites',['Candidate simulator suite','Training variants','Admission'],Object.entries(e.suite_counts||{}).map(([suite,count])=>{
+      const check=catalog.get(suite);
+      return [suite,count,check?.success?'One native interface check passed; scene and policy checks pending':check?`Interface check needs repair: ${check.error}`:'Native interface check queued or running'];
+    }));
+    el('efe-pear-scaled-note').textContent='Existing simulator and reasoning benchmark holdouts stay protected; BEHAVIOR is excluded. Native GR00T YAM is separate from ABC-Sim and EFE YAMLab. Its environments are confirmed working by the study owner; enumerating the full catalog requires refreshing the expired GitLab login or an available checkout. These arms differ in architecture and initialization, so their comparison does not isolate warmstart alone.';
+    if(proposal?.evaluation?.holdout_review){
+      const h=proposal.evaluation.holdout_review;
+      el('efe-pear-scaled-note').textContent+=` Frozen core membership includes ${h.core_cohort_counts?.same_sim_new_task??0} new-task candidates in proposed training simulators and ${h.core_cohort_counts?.same_sim_same_task_new_variant??0} same-task variant candidates whose scene separation still needs verification. Another ${h.unseen_simulator_reserve_count??0} entries are reserved across PandaDyn, RoboPaint, RoboTwin-2 and RoboWits. Final cohort labels require actual training-exposure and scene audits.`;
+    }
+    if(scaled.native_bridge?.worker?.success)el('efe-pear-scaled-note').textContent+=' Native EFE transport check passed: one action, fresh observation and official grade. This was a scripted API check, not a model success evaluation.';
+    const names=scaled.checkpoint_names;
+    if(names?.checkpoint_count)el('efe-pear-scaled-note').textContent+=` ${names.checkpoint_count} existing checkpoints have rp_jhh_ names; new committed checkpoints receive the same prefix.`;
+    if(names?.checkpoints)table('efe-checkpoint-names',['Checkpoint name','Update','Contents','Cluster path'],Object.entries(names.checkpoints).map(([name,c])=>[node('code',name),c.step,c.kind.replaceAll('_',' '),node('code',c.path)]));
+    if(s.workflow)el('efe-pear-scaled-workflow').href='https://us-west-2-aws.osmo.nvidia.com/workflows/'+encodeURIComponent(s.workflow);
+  }
   const pear=study.pear_comparison;
   if(pear?.plan?.conditions&&el('efe-pear-summary')){
     const p=pear.plan,s=pear.status||{},q=pear.qualification||{},u=p.optimizer_update_qualification||{};
@@ -683,10 +733,10 @@ function embodiedStudy(){
     const recovery=expansion.training_recovery||{};
     const intermediates=expansion.intermediate_evaluations?.runs||[],branches=expansion.branch_runs?.runs||[];
     const studentGraded=(expansion.evaluation?.scores||[]).filter(r=>!['astra','base'].includes(r.model)).reduce((n,r)=>n+r.graded,0);
-    el('efe-coverage-expansion-summary').textContent=[baselineSummary,admittedSummary,
+    el('efe-coverage-expansion-summary').textContent=[expansion.execution_priorities?.primary_deliverable?`Priority: ${expansion.execution_priorities.primary_deliverable}. Target: ${expansion.execution_priorities.target_local}.`:null,baselineSummary,admittedSummary,
       recovery.last_recorded_update?`Expanded warmstart: ${recovery.last_recorded_update}/${recovery.planned_optimizer_updates} updates recorded; ${workflowLabel(recovery.status).toLowerCase()}. Latest saved checkpoint: ${recovery.committed_restart_step}. ${studentGraded?`${studentGraded} expanded-student rollouts graded; see the results below.`:'No expanded student robot-success result yet.'}`:s.summary||'Expanded teacher collection is queued.',
-      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the final 737-update comparison remains separate.`;}),
-      ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${job?.progress?.detail||workflowLabel(job?.status)}. Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
+      ...intermediates.map(r=>{const graded=(expansion.evaluation?.scores||[]).filter(s=>s.model===r.id).reduce((n,s)=>n+s.graded,0);return `${r.label}: ${graded}/${r.planned_tasks} tasks graded; ${r.ready?'native evaluation released':(r.export?.phase||'preparing export').replaceAll('_',' ')}. This is an intermediate diagnostic; the full training run continues independently.`;}),
+      ...branches.map(r=>{const job=training.jobs?.find(j=>j.stage===r.id);return `${r.label}: ${workflowLabel(job?.status)}. ${job?.progress?.detail||''} Uses the same training corpus and native evaluation panel as its parent.`;})].filter(Boolean).join(' ');
     table('efe-coverage-expansion-counts',['Eligible / candidate tasks','Native outcomes','Native successes','Candidate usable successes','Distinct successful tasks','Scene audit'],[[
       `${s.eligible_tasks??p.candidate_tasks}/${p.candidate_tasks}`,s.graded_episodes||0,s.native_successes||0,`${s.candidate_successful_episodes||0}/${p.target_successful_episodes}`,
       `${s.candidate_successful_tasks||0}/${p.minimum_distinct_successful_tasks} minimum`,s.scene_audit_complete?'Complete':'Pending']]);

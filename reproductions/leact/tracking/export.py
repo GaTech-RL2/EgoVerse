@@ -18,8 +18,11 @@ def read(path, default=None):
         return default
 
 
-def snapshot(base: Path = BASE):
+def snapshot(base: Path = BASE,*,reasoning_only=False):
     artifacts, build = base / 'artifacts', base / 'cluster/.build'
+    if reasoning_only:
+        return {'schema_version':1,'title':'rpunamiya reasoning','runs':[],'training':[],
+            'status':{'reasoning_workspace':read(artifacts/'reasoning-workspace/workspace.json',{})}}
     status = read(artifacts / 'run-status.json', {})
     astra_status = read(artifacts / 'astra-expert/status.json')
     if astra_status:

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "id": "efe-reasoning-existing-training-sources-v1",
+  "updated_utc": "2026-11-17T23:56:58.088334+00:00",
+  "status": "candidate_sources_verified_not_admitted",
+  "sources": [
+    {
+      "id": "robopoint-synthetic",
+      "name": "RoboPoint synthetic subsets",
+      "url": "https://github.com/wentaoyuan/RoboPoint#prepare-data",
+      "dataset": "wentao-yuan/robopoint-data",
+      "revision": "7b06a4831afe7d5d46f19db0f0042ab4f58388e8",
+      "partition": "Only object_ref/ and region_ref/ synthetic examples from the released mix",
+      "skills": "Object pointing, spatial referring and free-space placement points.",
+      "families": [
+        "object_pointing",
+        "spatial_relations_frames",
+        "valid_placement"
+      ],
+      "available_labels": [
+        "normalized point sets"
+      ],
+      "status": "Public release verified; 3 coordinate-target annotation records parsed. Image archives, overlap audit and task adapter pending.",
+      "audit": "Exclude all other namespaces in the mixed release. Sampled valid points do not by themselves define a complete valid-region RL reward."
+    },
+    {
+      "id": "openimages-train",
+      "name": "Open Images training split",
+      "url": "https://storage.googleapis.com/openimages/web/download_v7.html",
+      "partition": "Official train annotations and their matching train images only",
+      "skills": "Bounding-box grounding, object/mask pointing, sets and counting after annotation-quality filtering.",
+      "families": [
+        "object_pointing",
+        "set_pointing_counting"
+      ],
+      "available_labels": [
+        "bounding boxes",
+        "instance segmentation masks",
+        "point labels",
+        "relationships"
+      ],
+      "status": "Official train boxes verified; 5 bounding-box annotation rows parsed. Images, masks, holdout deduplication and task adapter pending.",
+      "audit": "Filter incomplete/group annotations for counting. Compare source IDs, image hashes and near-duplicates against protected benchmark images before admission."
+    },
+    {
+      "id": "spatialrgpt-osd",
+      "name": "SpatialRGPT / Open Spatial Dataset",
+      "url": "https://github.com/AnjieCheng/SpatialRGPT#open-spatial-dataset",
+      "dataset": "a8cheng/OpenSpatialDataset",
+      "revision": "1c7089a792b7fd3ee63203c8c5faff1254675ac2",
+      "partition": "Published training annotations; Open Images source photographs",
+      "skills": "Region-grounded spatial relation and geometric question answering.",
+      "families": [
+        "spatial_relations_frames"
+      ],
+      "available_labels": [
+        "spatial question-answer annotations"
+      ],
+      "status": "Public annotation release and pinned revision verified. Full download, image matching, overlap audit and task adapter pending.",
+      "audit": "Shares Open Images provenance; group splits by source image and deduplicate across mixtures. Estimated geometry is not simulator ground truth."
+    },
+    {
+      "id": "sat-train",
+      "name": "SAT-v2 training split",
+      "url": "https://huggingface.co/datasets/array/SAT-v2",
+      "dataset": "array/SAT-v2",
+      "revision": "77d83da806d0a31f837be7b36d0dfbda230d8864",
+      "partition": "train only; exclude released test data",
+      "skills": "Spatial relations, counting, viewpoint and motion reasoning.",
+      "families": [
+        "spatial_relations_frames",
+        "set_pointing_counting"
+      ],
+      "available_labels": [
+        "multiple-choice answers",
+        "question types",
+        "rendered image sets"
+      ],
+      "status": "Public release verified, including 11 train Parquet shards. Row API returned 503; local row/image staging and task adapter pending.",
+      "audit": "Group by source scene and image identity, including alternate views. Do not equate offline viewpoint QA with a closed-loop active-perception task."
+    },
+    {
+      "id": "clevrer-train",
+      "name": "CLEVRER training split",
+      "url": "https://clevrer.csail.mit.edu/",
+      "partition": "Official training videos, annotations, questions and answers only",
+      "skills": "Temporal, causal, predictive and counterfactual physical reasoning.",
+      "families": [
+        "physical_prediction"
+      ],
+      "available_labels": [
+        "question answers",
+        "event annotations",
+        "object masks and attributes"
+      ],
+      "status": "Official training release links verified. Video staging, scene audit and task adapter pending.",
+      "audit": "Keep all questions and video frames from the same scene in one partition. Exclude validation and test releases from training."
+    }
+  ],
+  "admitted_tasks": 0,
+  "primary_rl_updates": 0,
+  "launch_authorized": false,
+  "rules": [
+    "Preserve every named reasoning benchmark as evaluation-only, including all RefCOCO variants, RefSpatial and PixMo-Points.",
+    "Dataset training partitions do not automatically prove separation from independently named evaluation datasets. Audit source scenes, assets and images.",
+    "Released annotations are not automatically a faithful RL verifier. Validate ambiguity, multiple valid answers and reward behavior before admission.",
+    "Use existing training releases first; generate new scenes for coverage or verifier gaps."
+  ],
+  "deferred_sources": [
+    {
+      "name": "CLEVR-Ref+",
+      "url": "https://github.com/ccvl/iep-ref",
+      "status": "Published box/mask referring dataset exists; original download URL returned HTTP 404 in the current probe. Not relied on for immediate data preparation."
+    }
+  ]
+}

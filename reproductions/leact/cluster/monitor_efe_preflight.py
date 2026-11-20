@@ -25,13 +25,13 @@ def write(path, value):
     temporary.replace(path)
 
 
-def remote(workflow, script):
+def remote(workflow, script,task='preflight'):
     payload = base64.b64encode(zlib.compress(script.encode())).decode()
     entry = 'python3 -c ' + shlex.quote('import base64,zlib;exec(zlib.decompress(base64.b64decode('+repr(payload)+')))')
-    child = pexpect.spawn('osmo', ['workflow','exec',workflow,'preflight','--entry',entry],
+    child = pexpect.spawn('osmo', ['workflow','exec',workflow,task,'--entry',entry],
                           encoding='utf-8', timeout=35, maxread=65536, echo=False)
     try:
-        child.expect(r'EFE_CAPTURE (\{[^\r\n]+\})\r?\n')
+        child.expect(r'EFE_CAPTURE (\{[^\r\n]*\})\r?\n')
         record = json.loads(child.match.group(1))
         child.expect(pexpect.EOF, timeout=10)
         return record

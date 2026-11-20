@@ -1,6 +1,27 @@
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+import json
+from pathlib import Path
+import threading
 
 from reproductions.leact.cluster.efe_native_pilot import control_verdict,find_trial_result
+
+
+def test_concurrent_controls_publish_status_without_sharing_staging_files(tmp_path,monkeypatch):
+    from reproductions.leact.cluster import efe_native_pilot as native
+    monkeypatch.setattr(native,'ROOT',tmp_path/'root')
+    monkeypatch.setattr(native,'ARCHIVE',tmp_path/'archive')
+    write_text=Path.write_text;barrier=threading.Barrier(4)
+    def simultaneous_write(path,*args,**kwargs):
+        result=write_text(path,*args,**kwargs)
+        if path.name.endswith('.tmp'):barrier.wait(timeout=5)
+        return result
+    monkeypatch.setattr(Path,'write_text',simultaneous_write)
+    with ThreadPoolExecutor(max_workers=4)as pool:
+        list(pool.map(lambda i:native.write('progress.json',{'control':i}),range(4)))
+    for root in [native.ROOT,native.ARCHIVE]:
+        assert json.loads((root/'progress.json').read_text())['control']in range(4)
+        assert not list(root.glob('*.tmp'))
 
 
 class NativeControlTests(unittest.TestCase):

@@ -86,9 +86,12 @@ def prepare():
     return builds
 
 
-def submit(build, *, priority=None):
+def submit(build, *, priority=None, pool='groot-h100-01', nodes=1):
     priority=priority or read(ROOT/'osmo-priority-policy.json',{}).get('current_priority','HIGH')
     if priority not in {'HIGH','NORMAL','LOW'}:raise ValueError('Unsupported OSMO priority: '+str(priority))
+    authorization=read(ROOT/'compute-authorization.json',{})
+    if type(nodes) is not int or not 1<=nodes<=authorization.get('max_nodes_per_job',2):
+        raise ValueError('Requested node count exceeds the authorized per-job bound')
     with (BUILD_ROOT / 'builderbench-submission.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if (build / 'submission.json').exists():
@@ -99,17 +102,20 @@ def submit(build, *, priority=None):
             if hashlib.sha256((build/name).read_bytes()).hexdigest()!=digest:
                 raise ValueError('Frozen launch file checksum mismatch: '+name)
         active = command(['osmo', 'workflow', 'list', '--name', 'leact', '--status',
-                          'RUNNING', 'PENDING', 'WAITING', '--format-type', 'json'])['workflows']
-        require_capacity(active)
-        validation = subprocess.run(['osmo', 'workflow', 'validate', 'workflow.yaml', '--pool', 'groot-h100-01'],
+                          'RUNNING', 'PENDING', 'WAITING', '--count', '1000', '--format-type', 'json'])['workflows']
+        require_capacity(active, additional_nodes=nodes)
+        validation = subprocess.run(['osmo', 'workflow', 'validate', 'workflow.yaml', '--pool', pool],
                                     cwd=build, capture_output=True, text=True, timeout=90)
         (build / 'validation.log').write_text(validation.stdout + validation.stderr)
         if validation.returncode:
             raise RuntimeError('OSMO validation failed: '+(validation.stdout+validation.stderr)[-1800:])
-        write(build / 'submission-intent.json', {'utc': datetime.now(timezone.utc).isoformat(), 'nodes': 1, 'priority':priority})
-        receipt = command(['osmo', 'workflow', 'submit', 'workflow.yaml', '--pool', 'groot-h100-01',
+        write(build / 'submission-intent.json', {'utc': datetime.now(timezone.utc).isoformat(), 'nodes': nodes, 'priority':priority, 'pool':pool})
+        receipt = command(['osmo', 'workflow', 'submit', 'workflow.yaml', '--pool', pool,
                            '--priority', priority, '--format-type', 'json'], cwd=build)
         write(build / 'submission.json', receipt)
+        reservations=read(ROOT/'node-reservations.json',{})
+        reservations[receipt['name']]=nodes
+        write(ROOT/'node-reservations.json',reservations)
         return receipt
 
 

@@ -190,12 +190,15 @@ for d in (root/'evaluation').glob('*/*'):
   'public_manifest':read(d/'public-episodes/manifest.json') or {},
   'progress':read(d/'progress.json') or {},'preflight':read(d/'student-preflight.json') or {},
   'worker_complete':read(d/'worker-complete.json') or {}}
+ failure=read(d/'student-serving-failure.json')
+ if failure:evaluations[d.name]['serving_failure']=failure
 for stage,stage_root in STAGES_LITERAL.items():
  d=Path(stage_root)
  data={'progress':read(d/'progress.json') or {},'complete':read(d/'complete.json') or {},
        'waiting_for_corpus':read(d/'waiting-for-corpus.json') or {},'error':read(d/'worker-error.json') or {},
        'ready':read(d/('warmstart-ready.json' if stage=='warmstart' else 'leact-ready.json')) or {},
-       'selection':read(d/'selection.json') or {},'membership':read(d/'membership.json') or {}}
+       'selection':read(d/'selection.json') or {},'membership':read(d/'membership.json') or {},
+       'scoring_recovery':read(d/'hf-score-activation.json') or {}}
  if (d/'selection-lock-protocol.json').exists():
   cached=sum(1 for _ in (d/'candidates').glob('*.json'))
   parallel={p.parent.name:read(p) for p in (d/'selection-workers').glob('*/progress.json')}
@@ -204,6 +207,24 @@ for stage,stage_root in STAGES_LITERAL.items():
    assembled=data['progress'].get('completed',0);total=data['progress'].get('total',2048)
    data['progress'].update(cached_states=cached,parallel_workers=parallel,
     detail=f'{cached}/{total} states generated and scored across selection workers; {assembled} assembled into training data.')
+ recovery=d/'hf-rescore-v1'
+ if recovery.exists():
+  corrected=sum(1 for _ in(recovery/'candidates').glob('*.json'))
+  assembly=read(recovery/'assembly/status.json') or {}
+  preparation=read(Path(assembly['preparation_root'])/'progress.json') if assembly.get('preparation_root') else None
+  data['scoring_recovery_progress']={'states_rescored':corrected,'total_states':2048,
+   'workers':{p.parent.name:read(p) for p in recovery.glob('worker-*/progress.json')},
+   'assembly':assembly,'tensor_preparation':preparation or {}}
+  if not data['scoring_recovery']:
+   data['progress'].update(phase='hf_scoring_recovery',training_started=False,
+    updated_utc=assembly.get('updated_utc',data['progress'].get('updated_utc')),
+    workflow=assembly.get('workflow',data['progress'].get('workflow')),
+    detail=f'{corrected}/2048 fixed states rescored with the training implementation; production R1 optimizer updates remain zero.')
+   if preparation:
+    data['progress'].update(phase='training_tensor_preparation',
+     updated_utc=preparation.get('updated_utc',assembly.get('updated_utc')),
+     workflow=preparation.get('workflow',assembly.get('workflow')),
+     detail=f"All scores ready. Training tensors prepared for {preparation.get('completed',0)}/2048 states; production R1 optimizer updates remain zero.")
  worker=read(d/'worker-start.json') or {}
  data['worker_start']=worker
  states=[read(p) for p in (d/'restart-states').glob('checkpoint-*/training-state.json')]
@@ -295,12 +316,12 @@ def next_batch(plan, queue, graded, excluded):
 
 
 def infra_retryable(scheduler):
-    from .efe_coverage_retry import reviewed_init_interruption
+    from .efe_coverage_retry import reviewed_init_interruption,reviewed_backend_node_interruption
     status = scheduler.get('status','')
     text = json.dumps(scheduler).lower()
     return status in {'FAILED_QUEUE_TIMEOUT','FAILED_START_ERROR','FAILED_START_TIMEOUT','FAILED_PREEMPTED'} or (
         status.startswith('FAILED') and any(x in text for x in
-        ['groot-idle-job-shutdown', 'gpu quota enforcement', 'osmocontrol', 'osmo control', 'osmo-init', 'preempt'])) or reviewed_init_interruption(scheduler)
+        ['groot-idle-job-shutdown', 'gpu quota enforcement', 'osmocontrol', 'osmo control', 'osmo-init', 'preempt'])) or reviewed_init_interruption(scheduler) or reviewed_backend_node_interruption(scheduler)
 
 
 def tick():
@@ -509,12 +530,24 @@ def refresh_recovery_status(training,evidence):
     summary=f"Warmstart {job.get('status','UNKNOWN')}: {step}/{total} updates logged; latest committed restart {committed}."
     if last.get('forward_ce') is not None and last.get('backward_ce') is not None:
         summary+=f" Last forward/backward losses {last['forward_ce']:.4f}/{last['backward_ce']:.4f}."
-    summary+=f" LeAct {jobs.get('leact-r1',{}).get('status','WAITING_FOR_WARMSTART')}."
+    summary+=f" Final-warmstart LeAct {jobs.get('leact-r1',{}).get('status','WAITING_FOR_WARMSTART')}."
+    for stage,branch in jobs.items():
+        if not stage.startswith('leact-from-step'):continue
+        selection=evidence.get('training',{}).get(stage,{}).get('selection',{})
+        summary+=f" {stage}: {branch.get('status','UNKNOWN')}."
+        if selection:
+            summary+=f" Scored {selection['states_attempted']} states; admitted {selection['admitted_candidates']} explanations from {selection['admitted_states']} states."
+        recovery=evidence.get('training',{}).get(stage,{}).get('scoring_recovery_progress',{})
+        if recovery and not evidence.get('training',{}).get(stage,{}).get('scoring_recovery'):
+            summary+=f" Training-backend correction: {recovery['states_rescored']}/{recovery['total_states']} states rescored; no production R1 updates yet."
+        failure=evidence.get('training',{}).get(stage,{}).get('error',{})
+        if failure.get('workflow')==branch.get('workflow') and branch.get('status')=='NEEDS_REVIEW':
+            summary+=' Stopped: '+str(failure.get('error','Unknown worker error')).splitlines()[0][:200]+'.'
     error=warm.get('error',{})
     if error.get('workflow')==job.get('workflow') and job.get('status')=='NEEDS_REVIEW':
         summary+=' Latest attempt stopped: '+str(error.get('error','Unknown worker error')).splitlines()[0][:240]+'.'
     evaluation=read(DEST/'evaluation-status.json',{})
-    student=[r for r in evaluation.get('scores',[]) if r['model'] in {'warmstart','leact-r1'}]
+    student=[r for r in evaluation.get('scores',[]) if r['model'] not in {'base','astra'}]
     if student:
         summary+=' Native student results: '+'; '.join(
             f"{r['model']} {r['cohort']} {r['successes']}/{r['graded']}" for r in student)+'.'

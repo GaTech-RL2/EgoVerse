@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import tarfile
 
@@ -17,31 +18,48 @@ ASSETS = Path(__file__).resolve().parent
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host', default='rpunamiya@yam-coverage-rpunamiya.nvidia.com')
-    parser.add_argument('--control', type=Path, default=Path('/tmp/leact-itss-ssh-rpunamiya/control'))
+    parser.add_argument('--host')
+    parser.add_argument('--control', type=Path)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--package-only', action='store_true')
+    parser.add_argument('--home-page',choices=['experiments','reasoning'])
     args = parser.parse_args()
+    reasoning=args.home_page=='reasoning'
+    args.host=args.host or ('rpunamiya@rpunamiya.nvidia.com'if reasoning else 'rpunamiya@yam-coverage-rpunamiya.nvidia.com')
+    args.control=args.control or Path('/tmp/'+('reasoning'if reasoning else 'leact')+'-itss-ssh-rpunamiya/control')
     args.output.mkdir(parents=True, exist_ok=True)
-    data = snapshot()
+    data = snapshot(reasoning_only=args.home_page=='reasoning')
     snapshot_path = args.output/'snapshot.json'
     snapshot_path.write_text(json.dumps(data, indent=2, allow_nan=False)+'\n')
     records_path = args.output/'records.jsonl'
     counts = {'expert': 0, 'trace': 0}
     with records_path.open('w') as stream:
-        for record in records():
+        for record in ([]if args.home_page=='reasoning'else records()):
             stream.write(json.dumps(record, allow_nan=False)+'\n')
             counts[record['kind']] += 1
     archive = args.output/'tracker.tar.gz'
     with tarfile.open(archive, 'w:gz') as bundle:
-        for name in ['server.py', 'index.html', 'app.js', 'traces.js', 'leaderboards.js', 'style.css', 'install_remote.sh']:
+        for name in ['server.py', 'index.html', 'app.js', 'traces.js', 'leaderboards.js', 'style.css',
+                     'reasoning.html','reasoning.js','reasoning.css','install_remote.sh','pear_collect.py']:
             bundle.add(ASSETS/name, arcname=name)
         bundle.add(snapshot_path, arcname='snapshot.json')
         bundle.add(records_path, arcname='records.jsonl')
+        if reasoning:
+            media=ASSETS.parent/'artifacts/reasoning-workspace/media'
+            added=set()
+            for family in data['status']['reasoning_workspace'].get('simulators',{}).get('families',[]):
+                preview=family.get('image')
+                if not preview:continue
+                name=preview['file'];path=media/name
+                if not re.fullmatch(r'[a-f0-9]{64}\.(jpg|png)',name)or not path.resolve().is_relative_to(media.resolve()):
+                    raise ValueError('Invalid simulator preview path')
+                if hashlib.sha256(path.read_bytes()).hexdigest()!=preview['sha256']:
+                    raise ValueError('Simulator preview checksum mismatch')
+                if name not in added:bundle.add(path,arcname='reasoning-media/'+name);added.add(name)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     record = {'host': args.host, 'archive': str(archive), 'sha256': digest,
               'bytes': archive.stat().st_size, 'runs': len(data['runs']),
-              'audit_rows': len(data['audit']['rows']), 'records': counts, 'deployed': False}
+              'audit_rows': len(data.get('audit',{}).get('rows',[])), 'records': counts, 'deployed': False}
     (args.output/'deployment.json').write_text(json.dumps(record, indent=2)+'\n')
     if args.package_only:
         print(json.dumps(record))
@@ -69,6 +87,8 @@ mkdir -p "releases/DIGEST"
 tar -xzf incoming.tar.gz -C "releases/DIGEST"
 bash "releases/DIGEST/install_remote.sh" "$base/releases/DIGEST"
 '''.replace('DIGEST', digest)
+    if args.home_page:
+        installation='export LEACT_TRACKER_HOME_PAGE='+args.home_page+'\n'+installation
     result = subprocess.run(ssh+[installation], text=True, capture_output=True, timeout=90)
     (args.output/'install.log').write_text(result.stdout+result.stderr)
     if result.returncode:
@@ -77,7 +97,7 @@ bash "releases/DIGEST/install_remote.sh" "$base/releases/DIGEST"
                                    capture_output=True, text=True, timeout=20, check=True)
     health = json.loads(health_result.stdout)
     canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
-    if health.get('service') != 'leact-tracker' or health['snapshot']['sha256'] != hashlib.sha256(canonical).hexdigest():
+    if health.get('service') != ('reasoning-tracker'if reasoning else'leact-tracker') or health['snapshot']['sha256'] != hashlib.sha256(canonical).hexdigest():
         raise ValueError('ITSS health or imported snapshot checksum did not match')
     record.update(deployed=True, verified_utc=datetime.now(timezone.utc).isoformat(), health=health,
                   url='http://'+args.host.split('@')[-1]+':8126/')

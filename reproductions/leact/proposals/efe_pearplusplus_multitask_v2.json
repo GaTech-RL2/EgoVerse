@@ -1,0 +1,713 @@
+{
+  "schema_version": 2,
+  "id": "efe-pearplusplus-multitask-v2",
+  "updated_utc": "2026-11-17T02:14:15.648430+00:00",
+  "status": "authorized_for_implementation_and_launch",
+  "executable": false,
+  "arms": [
+    {
+      "checkpoint_name_prefix": "rp_jhh_qwen36_moe_warmstart496_pearplusplus",
+      "id": "moe-warmstart496-pearplusplus",
+      "initialization": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-coverage-20261105-v1/intermediate/warmstart-step496/model",
+      "lora_rank": 0,
+      "model": "Qwen/Qwen3.6-35B-A3B",
+      "parameter_update": "full_finetuning",
+      "revision": "efe-coverage-warmstart-intermediate-step496",
+      "rl_updates": 0,
+      "run_directory": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1/runs/moe-warmstart496-pearplusplus",
+      "warmstart_step": 496,
+      "router_policy": "frozen_expert_selection_router",
+      "frozen_components": [
+        "expert_selection_routers"
+      ],
+      "router_replay": false,
+      "workflow_labels": {
+        "pear_run_id": "moe-warmstart496-pearplusplus"
+      }
+    },
+    {
+      "checkpoint_name_prefix": "rp_jhh_qwen38_27b_base_pearplusplus",
+      "id": "qwen38-27b-base-pearplusplus",
+      "initialization": "base_checkpoint",
+      "lora_rank": 0,
+      "model": "Qwen/Qwen3.8-27B",
+      "parameter_update": "full_finetuning",
+      "revision": "37561816e66b5b9153b1b64c10968c18c1e6f4a0",
+      "rl_updates": 0,
+      "run_directory": "/mnt/amlfs-07/shared/rpunamiya/leact/studies/efe-pear-scaled-20261116-v1/runs/qwen38-27b-base-pearplusplus",
+      "workflow_labels": {
+        "pear_run_id": "qwen38-27b-base-pearplusplus"
+      }
+    }
+  ],
+  "comparison_note": "Different model architectures and initialization histories; this is not an isolated warmstart ablation.",
+  "checkpoint_name_prefix": "rp_jhh_",
+  "interface": {
+    "loop": "RGB views + proprioception + instruction + robot schema + history -> model reasoning -> one strict JSON action -> deterministic controller -> new observation",
+    "control_action_types": [
+      "eef_pose",
+      "eef_delta",
+      "joint_position"
+    ],
+    "contract": "Each adapter fixes allowed action type, arm names, frames, units, joint ordering, gripper/hand coordinates, bounds and action duration. Full robot-specific semantics; identical parser and observations for both models.",
+    "bimanual": "Both arms are included in the same synchronized action record; Allegro hands use explicit finger joints.",
+    "reasoning_tasks": "Reasoning followed by typed JSON answer: point/set/label/count/pose/prediction. Active perception can issue permitted observation actions before its answer.",
+    "policy_inputs": "Public RGB/proprioception/calibration and declared robot specification only; simulator labels and reset state stay in the generator/grader.",
+    "execution": "Deterministic IK/control and schema validation only; no task-level planner, code execution, skill library or teacher action repair.",
+    "language_context": {
+      "version": "pear-public-interface-language-v1",
+      "enabled": true,
+      "same_for_both_arms": true,
+      "per_observation": true,
+      "format": "Natural-language guide alongside the unchanged native schema and sensor values.",
+      "action_fields": [
+        "component_order",
+        "dimensions",
+        "bounds",
+        "units",
+        "frames",
+        "axis_directions",
+        "gripper_and_hand_semantics",
+        "action_duration"
+      ],
+      "observation_fields": [
+        "delivered_sensor_names_and_order",
+        "RGB_resolution",
+        "image_axis_convention",
+        "declared_camera_mount_motion_and_calibration",
+        "proprioception_layout",
+        "public_observation_template"
+      ],
+      "metadata_rule": "Use public adapter declarations only; omitted conventions remain explicitly unspecified. Never infer world/base/camera axes from each other.",
+      "provenance": [
+        "interface_context_version",
+        "interface_context_sha256"
+      ],
+      "implementation_scope": "Shared EFE native PEAR tool. Additional YAM/reasoning adapters must supply their own verified public metadata through the same context contract."
+    }
+  },
+  "control_training": {
+    "scope": "Nine EFE candidate families plus the full native GR00T YAM catalog. This replaces the earlier five-family-only proposal.",
+    "candidate_variants": 241,
+    "candidate_semantic_tasks": 210,
+    "suite_counts": {
+      "abc-sim": 23,
+      "dexjoco": 3,
+      "libero-max": 50,
+      "metaworldplus": 38,
+      "robocasa": 22,
+      "robodojo": 34,
+      "robolab": 38,
+      "vlabench": 27,
+      "yamlab": 6
+    },
+    "count_meaning": "Eligible frozen training inventory, not implemented adapters or training admission; counts exclude native GR00T YAM.",
+    "selection": {
+      "libero-max": "50 candidate variants, 23 semantic tasks; preserve protected scenes.",
+      "metaworldplus": "38 manipulation tasks.",
+      "robocasa": "Select 8 complementary tasks from 22 candidates; keep this a small kitchen subset.",
+      "robodojo": "Start general_pickup and align_blocks, then select 8-12 stacking, sorting, placement and language-directed tasks from 34 candidates.",
+      "abc-sim": "23 dual-YAM candidates; prioritize transfer, reorientation, coordinated object handling, then count/spell instruction tasks.",
+      "dexjoco": "3 training bimanual tasks: assembly, Hanoi, microwave cooking. Support the 16 Allegro joint targets per hand explicitly.",
+      "robolab": "38 native language-goal candidates; use existing left/right, spatial and specified-order tasks with their original instructions and verifiers.",
+      "vlabench": "27 candidates for semantic, spatial, ordinal and commonsense object selection and physical questions.",
+      "yamlab": "6 candidate scenes of mug hanging and pot placement; distinct from native GR00T YAM."
+    },
+    "native_gr00t_yam": {
+      "priority": "primary pillar; enumerate all working manipulation environments",
+      "user_confirmation": "The user confirms these simulator environments work.",
+      "catalog_count": null,
+      "catalog_access": "Pinned native source catalog is present.",
+      "local_fixture": "Full native catalog is indexed locally; task metadata is kept outside the public repository.",
+      "catalog_fields": [
+        "task_id",
+        "source_revision",
+        "robot",
+        "single_or_bimanual",
+        "action_schema",
+        "joint_names",
+        "frames_and_units",
+        "cameras",
+        "native_success",
+        "reset_parameters",
+        "language_goal",
+        "scene_asset_ancestry",
+        "split"
+      ],
+      "integration_checks": "Map observations, typed JSON actions and native rewards to our learner. Preserve working environment definitions.",
+      "task_split_manifest": "Private local artifact: native-yam-split-v1.json",
+      "scene_policy": "All existing saved layouts remain evaluation-only. Independent generated training scenes are required.",
+      "rl_admitted": 0,
+      "catalog_count_note": "Counts and private task metadata are stored in the local source index and ITSS inventory."
+    },
+    "other_scene_sources": [
+      "robocasa365",
+      "robocasa-gr1",
+      "roboarc",
+      "autobio",
+      "molmospaces",
+      "mujoco-playground",
+      "labutopia",
+      "maniguard",
+      "ambench"
+    ],
+    "other_scene_sources_note": "Reasoning-scene providers initially; added only when independent scenes, required labels and allowed runtime are available."
+  },
+  "reasoning_training": {
+    "new_task_families": 8,
+    "families": [
+      {
+        "id": "object_pointing",
+        "name": "Object referring and pointing",
+        "training_environment": "Procedural tabletop and room scenes; qualified training scenes from RoboCasa, MolmoSpaces, VLABench, RoboLab and YAMLab.",
+        "tasks": [
+          "Point to an object described by category, color, shape, size or visible state.",
+          "Disambiguate similar objects using visible relations.",
+          "Return no target only when the generated query has no valid referent."
+        ],
+        "example": "Point to the small blue cup beside the open drawer.",
+        "output": "One normalized image point, or an explicit no-target response.",
+        "reward": "Point inside the visible instance mask of any valid referent; calibrated no-target correctness. Masks and instance IDs are evaluator-only.",
+        "transfer_targets": [
+          "PointBench",
+          "RefCOCO",
+          "RefCOCO+",
+          "RefCOCOg",
+          "RoboRefIt"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "set_pointing_counting",
+        "name": "Set pointing and counting",
+        "training_environment": "Procedural clutter generator with varying categories, counts, occlusion and distractors.",
+        "tasks": [
+          "Point to every instance satisfying an attribute or relation.",
+          "Count matching visible instances.",
+          "Select the second or third object in an explicitly defined ordering."
+        ],
+        "example": "Mark every red fastener outside the tray and report how many there are.",
+        "output": "A set of normalized image points and an integer count.",
+        "reward": "One-to-one matching of points to valid visible instances, set precision/recall and exact count; duplicate points are penalized.",
+        "transfer_targets": [
+          "PointBench",
+          "PixMo-Points"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "spatial_relations_frames",
+        "name": "Spatial relations and reference frames",
+        "training_environment": "Generated scene graphs over qualified MuJoCo and Isaac Sim training scenes, with explicit camera, robot or object reference frames.",
+        "tasks": [
+          "Compose two to four spatial relations to select a referent.",
+          "Answer relative depth, distance, orientation and containment queries.",
+          "Convert between reference frames whose definition is available to the model."
+        ],
+        "example": "From the robot viewpoint, point to the object behind the bowl that is left of the kettle.",
+        "output": "A point, relation label, or numeric answer in a declared coordinate convention.",
+        "reward": "Exact scene-graph predicate evaluation or bounded geometric error; multiple valid answers are accepted and ambiguous prompts are filtered.",
+        "transfer_targets": [
+          "RefSpatial",
+          "RoboSpatial",
+          "PointBench"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "valid_placement",
+        "name": "Placement and packing",
+        "training_environment": "Procedurally cluttered counters, trays, drawers, shelves and containers in qualified training scenes.",
+        "tasks": [
+          "Choose free space satisfying language constraints.",
+          "Account for the placed object footprint and orientation.",
+          "Place inside, between or beside targets while avoiding collisions and unsupported locations."
+        ],
+        "example": "Place this box between the bottle and bowl, entirely on the shelf.",
+        "output": "Placement point or pose; optional subsequent native robot action episode.",
+        "reward": "Collision-free full footprint, support, containment and relation predicates, with physics settling where appropriate; a pixel in empty space alone is insufficient.",
+        "transfer_targets": [
+          "Where2Place",
+          "RoboSpatial",
+          "PointBench"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "cross_view_correspondence",
+        "name": "Cross-view correspondence",
+        "training_environment": "Paired and multi-view renders of the same independently generated training scene, with known geometry and camera calibration in the grader.",
+        "tasks": [
+          "Locate the same surface point or object part in another view.",
+          "Match identities through viewpoint change, occlusion and distractors.",
+          "Report that the reference point is not visible when appropriate."
+        ],
+        "example": "Find the marked drawer-handle tip in the wrist-camera image.",
+        "output": "A target-view image point, or explicit not-visible response.",
+        "reward": "Visibility-checked 3D reprojection and surface/instance identity with normalized pixel tolerance; no arbitrary choice between symmetric valid matches.",
+        "transfer_targets": [
+          "CrossPoint"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "affordance_part_selection",
+        "name": "Affordances and object parts",
+        "training_environment": "Procedural articulated cabinets, containers, knobs, handles and tools from an audited training asset registry.",
+        "tasks": [
+          "Point to the part needed for opening, pressing, grasping or turning.",
+          "Choose a contact point and direction.",
+          "Select a tool or grasp compatible with a stated operation."
+        ],
+        "example": "Where should the gripper contact this cabinet to pull the door open?",
+        "output": "Point and optional contact direction or operation label.",
+        "reward": "Annotated part geometry plus analytic feasibility or simulated operation success; dataset semantics must be specified independently of benchmark answers.",
+        "transfer_targets": [
+          "PointBench",
+          "RoboRefIt"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "physical_prediction",
+        "name": "Physical prediction and counterfactuals",
+        "training_environment": "Short deterministic branches of generated MuJoCo or qualified Isaac Sim training scenes.",
+        "tasks": [
+          "Predict which object moves, falls or becomes accessible after a stated intervention.",
+          "Determine whether an object fits through an opening or a drawer can open.",
+          "Choose a stable placement or a nonblocking action order."
+        ],
+        "example": "Which block falls if the support beneath it is removed?",
+        "output": "Object point, outcome label, pose or short action ordering.",
+        "reward": "Agreement with branched simulator outcomes or geometric constraints; required physical properties must be visible, stated or discoverable by permitted probes.",
+        "transfer_targets": [
+          "RoboSpatial",
+          "Where2Place"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      },
+      {
+        "id": "active_perception_memory",
+        "name": "Active perception and spatial memory",
+        "training_environment": "Multi-turn generated training scenes with allowed camera moves and controlled object motion or temporary occlusion.",
+        "tasks": [
+          "Choose a view that reveals the target.",
+          "Track an object or relation across observed motion and occlusion.",
+          "Gather sufficient visual evidence, then answer a grounding or placement query."
+        ],
+        "example": "Inspect the other side of the tray, then point to the cup that was moved there.",
+        "output": "Permitted view actions followed by a grounded answer.",
+        "reward": "Final verifiable answer with a bounded observation/action budget; never reward guesses about unseen random changes.",
+        "transfer_targets": [
+          "CrossPoint",
+          "RoboSpatial",
+          "PointBench"
+        ],
+        "status": "planned_adapter_and_generator_not_implemented",
+        "admitted_tasks": 0
+      }
+    ],
+    "scene_sources": [
+      "New procedural tabletop and room scenes rendered with MuJoCo, optional Blender rendering, and qualified Isaac Sim adapters.",
+      "Only scene identities already admitted to training from the existing candidate simulator suites.",
+      "Audited training-only object, part, material and texture assets."
+    ],
+    "label_source": "Scene geometry, object identity, visibility, camera transforms and simulator outcomes. No benchmark annotations or benchmark-derived teacher answers.",
+    "model_inputs": "RGB observations, task text, and declared camera/robot state or allowed interaction feedback. Hidden simulator state is accessible only to generation and grading.",
+    "task_counts": "Eight generator/adapter families, not eight fixed tasks. Seeds, resets, camera views and paraphrases do not count as new semantic tasks."
+  },
+  "holdouts": {
+    "benchmarks": [
+      "PointBench",
+      "Where2Place",
+      "RefSpatial",
+      "CrossPoint",
+      "RoboSpatial",
+      "RefCOCO",
+      "RefCOCO+",
+      "RefCOCOg",
+      "RoboRefIt",
+      "PixMo-Points"
+    ],
+    "all_benchmark_splits_excluded_from_new_training": true,
+    "exclusions": [
+      "Benchmark images, videos, scans, scene IDs, annotations and instructions.",
+      "Crops, rerenders of the same held-out scene, paraphrases, and teacher-generated answers derived from held-out inputs.",
+      "Benchmark rewards or scores for curriculum adaptation, hyperparameter tuning, early stopping or checkpoint selection."
+    ],
+    "existing_suites": [
+      "pandadyn",
+      "robopaint",
+      "robotwin-2",
+      "robowits"
+    ],
+    "existing_runtimes": [
+      "genesis",
+      "sapien"
+    ],
+    "development": "Use independent development scenes, asset/scene groups and generator combinations. Keep named benchmark evaluation isolated from selection.",
+    "identity_checks": [
+      "Exact hashes and source IDs",
+      "Near-duplicate image review",
+      "Scene, asset and capture ancestry separation",
+      "No render of a protected scene through another camera"
+    ],
+    "foundation_model_note": "This controls the new training data only; prior exposure of pretrained or warmstarted checkpoints to these benchmarks has not been established.",
+    "capability_retention_benchmarks": [
+      "RealWorldQA"
+    ]
+  },
+  "excluded_everywhere": [
+    "behavior-1k"
+  ],
+  "data_scale_proposal": {
+    "control_reset_configs_per_semantic_task_initial": 64,
+    "control_reset_configs_per_semantic_task_expanded": 256,
+    "control_note": "Only count distinct physically valid generated configurations. Native fixed scenes require a separate training generator; do not relabel repeated seeds as new scenes.",
+    "reasoning_scene_query_pairs_per_family_initial": 25000,
+    "reasoning_scene_query_pairs_total_initial": 200000,
+    "splits": "Existing protected splits remain fixed. New training/dev/test scenes are separated by scene and asset groups; new semantic task holdouts are frozen before sampling.",
+    "language": "Use existing benchmarks/environments and their native instructions, goals, variants and success checks: RoboLab, VLABench, LIBERO-Max, RoboDojo and ABC-Sim, plus existing native GR00T YAM language tasks. Select only allowed training membership. No new synthetic instruction pairs, generated paraphrase corpus or modified goal predicates for this component.",
+    "reasoning_bank_note": "The 200,000-pair figure is proposed generator/pool capacity; report unique scenes and queries actually sampled separately. It is not a claim that every pair is trained on."
+  },
+  "optimizer": {
+    "parameter_update": "full_finetuning",
+    "lora_rank": 0,
+    "retained_groups": 128,
+    "rollouts_per_group": 8,
+    "optimizer": "AdamW",
+    "lr": 1e-06,
+    "updates_per_batch": 1,
+    "algorithm": "PEAR GRPO with zero-variance group filtering and score-centered REINFORCE bypass loss",
+    "score_centering": true,
+    "sampler_top_logprobs": 32,
+    "ppo_clipping": false,
+    "kl_penalty": 0,
+    "entropy_bonus": 0,
+    "temperature": 1,
+    "top_p": 1,
+    "top_k": -1,
+    "response_budget_control_initial": 160000,
+    "long_sequence_target": 256000,
+    "long_sequence_gate": "Model context and full-model numerical/memory checks; record actual truncation per family.",
+    "reasoning_single_answer_budget_initial": 8192,
+    "reasoning_single_answer_extension": 16384,
+    "reasoning_budget_note": "Development-driven proposals; distinguish total episode budget from tokens per action. No length reward.",
+    "prompt_budget_initial": 16384
+  },
+  "mixture": [
+    {
+      "family": "native_gr00t_yam",
+      "groups": 32,
+      "control": true
+    },
+    {
+      "family": "broader_bimanual",
+      "groups": 24,
+      "control": true
+    },
+    {
+      "family": "general_manipulation",
+      "groups": 24,
+      "control": true
+    },
+    {
+      "family": "language_conditioned_control",
+      "groups": 16,
+      "control": true
+    },
+    {
+      "family": "eight_reasoning_families",
+      "groups": 32,
+      "groups_per_reasoning_family": 4,
+      "control": false
+    }
+  ],
+  "multitask_balancing": {
+    "hierarchy": [
+      "fixed 75% control / 25% reasoning",
+      "capability bucket and simulator",
+      "semantic task",
+      "SGS reset/scene configuration"
+    ],
+    "initial_phase": "First 32 updates use fixed bucket targets and family loss weights; same rules for both arms.",
+    "post_filter": "Enforce retained-group quotas after constant-reward filtering, with bounded acceptance-aware refill. Log all attempts and failures. Do not silently fill deficits with faster tasks.",
+    "loss": "L = 0.75 * sum_control(w_k * mean_generated_token_PEAR_SC_loss_k) + 0.25 * sum_reasoning(v_k * mean_generated_token_PEAR_SC_loss_k); w and v each sum to one.",
+    "loss_note": "Family token denominators are global across ranks. This is an intentional change from PEAR global token-mean reduction. Sampling quotas must not cause a second multiplication by the same family weight.",
+    "adaptive_phase": "After update 32, bounded MT-GRPO-inspired weight changes every 16 updates using complete training-probe successes and per-family pre/post surrogate improvement. Hyperparameters calibrated on independent development only.",
+    "initial_floors_groups": {
+      "native_gr00t_yam": 24,
+      "broader_bimanual": 16,
+      "general_manipulation": 16,
+      "language_conditioned_control": 8,
+      "each_reasoning_family": 2
+    },
+    "adaptation_limits": "Keep total control 96 and reasoning 32. Cap changes to 20% relative per adaptation; maintain rolling coverage of every admitted simulator and task. Same algorithm and initial weights; model-specific histories are recorded.",
+    "no_signal": "Differentiate all-success, all-failure, invalid actions and infrastructure failure; infrastructure outcomes do not enter rewards or success estimates.",
+    "objective_note": "These are engineering defaults, not a proven optimal mix. Equal reward ranges do not ensure equal gradients; audit gradient norms and conflicts."
+  },
+  "sgs": {
+    "status": "Restartable sampling state and native PEAR trainer hooks implemented; reset banks and GPU integration validation remain pending.",
+    "source": "https://arxiv.org/html/2610.12465v1",
+    "scope": "Choose a reset stratum (full start / grasped / near goal) under explicit quotas, then a configuration within the semantic task, before drawing 8 fresh policy rollouts.",
+    "paper_manipulation_defaults": {
+      "target_success": 0.5,
+      "kappa": 1,
+      "temperature": 2,
+      "epsilon": 0.0001,
+      "history_outcomes": 100
+    },
+    "kernel": "w_i=(p_i+eps)^(kappa*t)*(1-p_i+eps)^(kappa*(1-t)); q_i proportional to (max(w_i,eps)+eps)^(1/T)",
+    "our_extension": "Mix 20% uniform configurations with 80% SGS weights. Use a smoothed cold-start estimate; history includes every valid rollout, including filtered groups. Keep arm-specific histories and sampler versions.",
+    "reset_curriculum": "Native full starts, valid grasped-object starts and nonterminal near-goal starts. Begin at least 50% full-start groups per task and expand to at least 75% during consolidation. Only use audited physically stable states allowed by the training verifier.",
+    "no_signal_limit": "If every reset fails, SGS has no frontier to identify; add reachable intermediate reset configurations or easier subproblems. Never supply a hidden solution to the policy.",
+    "evaluation": "Native/full-start performance is primary; assisted-start success reported separately. Frozen evaluation distributions, never SGS-selected.",
+    "interaction_with_grpo": "For binary independent rollouts, P(group retained)=1-p^8-(1-p)^8. The resulting training configuration distribution also depends on this filter, so log raw and retained reset distributions.",
+    "test": "Short matched pilot branches using uniform resets versus SGS from the same checkpoint, same reset bank, reward, token allowance and GPU budget. Measure full-start success plus retained groups per GPU-hour.",
+    "limitation": "SGS was tested with PPO and different actor observations/training; its benefit for reasoning VLM GRPO is a hypothesis.",
+    "sparse_history": "Use shrinking success estimates for sparse control configurations; H=100 is the maximum window, not a prerequisite. For procedurally generated reasoning, estimate learnability at generator/template/difficulty-bin level, rather than requiring repeated trials for each unique image.",
+    "near_goal_guard": "Exclude already-successful starts and physically invalid states. Do not reset into memory tasks without the corresponding observable history. Near-goal training changes the reset distribution and is tracked separately from full-start training."
+  },
+  "schedule": {
+    "planned_ceiling_updates_per_arm": null,
+    "retained_episodes_at_ceiling_per_arm": null,
+    "stages": [
+      {
+        "updates": [
+          1,
+          32
+        ],
+        "purpose": "Fixed multitask mixture; verify learning, full-start success, task coverage and throughput. Measure throughput after 2-4 updates."
+      },
+      {
+        "updates": [
+          33,
+          256
+        ],
+        "purpose": "Expand catalog and reset diversity; enable qualified SGS and bounded multitask reweighting."
+      },
+      {
+        "updates": [
+          257,
+          512
+        ],
+        "purpose": "Conditional on development gains and measured cost: harder compositions, full-start transfer and retention."
+      }
+    ],
+    "scale_rule": "Use admitted semantic tasks, retained-group exposure, unique attempted reset/scene coverage, and per-family full-start training/development success to determine continuation. 512 is a planning milestone, not a guarantee of learning or a fixed endpoint. Any longer schedule remains a proposal while paused.",
+    "initial_planning_milestone_updates": 512,
+    "retained_episodes_at_512_updates_per_arm": 524288,
+    "coverage_budget": {
+      "formula": "U >= max_over_buckets ceil(sum_t(target_retained_groups_t)/retained_groups_per_update_bucket)",
+      "interpretation": "Necessary exposure lower bound under fixed bucket quotas, not a convergence theorem. SGS resampling, repeated configurations and changing quotas require direct measurement.",
+      "current_efe_control_groups_per_update": 64,
+      "native_yam_groups_per_update_separate": 32,
+      "reasoning_groups_per_update_separate": 32,
+      "hypothetical_all_210_efe_tasks": {
+        "32_updates_mean_retained_groups_per_task": 9.75,
+        "512_updates_mean_retained_groups_per_task": 156.04,
+        "256_groups_per_task_global_lower_bound_updates": 840
+      },
+      "example_note": "Assumes all 210 candidate EFE semantic tasks are admitted and an even aggregate allocation. Per-bucket bottlenecks can require more updates. Eight rollouts in a group share the initial configuration; they are not eight distinct scenes.",
+      "coverage_signals": [
+        "attempted and retained groups per semantic task",
+        "distinct reset/scene configurations attempted",
+        "native full-start success on training probes",
+        "independent development success",
+        "all-failure and all-success fractions",
+        "worst-family regressions"
+      ],
+      "solved_tasks": "Do not chase retained-group targets on already mastered tasks whose groups have zero variance; use success evidence and periodic retention probes."
+    },
+    "conditional_extension": {
+      "example_review_milestone": 1024,
+      "status": "proposal_only_no_jobs_launched",
+      "condition": "Expanded admitted task count or measured undercoverage warrants continuation, development improves, and measured compute cost is acceptable."
+    },
+    "diagnostic_actions": {
+      "train_and_dev_low_with_all_failure_groups": "Fix exploration/reset curriculum or interface and horizon before extending blindly.",
+      "train_improves_dev_improves": "Continue updates while checking per-task exposure.",
+      "train_high_dev_low": "Increase distinct training scenes and task compositions supported by the existing benchmark; repeated optimization alone is not the fix.",
+      "one_family_regresses": "Inspect task/loss balance and gradient interference; adjust bounded weights and retention coverage.",
+      "persistent_underfit_with_useful_signal_and_adequate_exposure": "Investigate optimization, representation and parameter capacity; do not assume a larger model is required from diversity alone."
+    }
+  },
+  "compute": {
+    "initial_h100_nodes_per_arm": 2,
+    "gpus_per_node": 8,
+    "roles_per_arm": [
+      "one full-FT trainer node",
+      "one rollout node"
+    ],
+    "study_node_cap": 34,
+    "leave_leact_running": true,
+    "expansion": "Target 16 H100 nodes per arm: 2 trainer, 12 rollout and 2 simulator nodes. Start with one-node model checks, then measure throughput before assigning primary roles. Up to 16 nodes per scheduler job and 34 nodes across the study; these are authorized limits, not allocated capacity.",
+    "cost_note": "The published PEAR run reports about 50,000 H100-equivalent GPU-hours. This broader two-arm ceiling is a large research budget, not an overnight ETA; estimate costs from the pilot before committing to completion.",
+    "target_nodes_per_arm": 16,
+    "time_target_hours": [
+      24,
+      48
+    ]
+  },
+  "evaluation": {
+    "checkpoints": [
+      0,
+      8,
+      32,
+      64,
+      128,
+      256,
+      512
+    ],
+    "primary": [
+      "macro native full-start success",
+      "worst-family success",
+      "bimanual success",
+      "native language-task success and instruction adherence",
+      "each of eight reasoning accuracies"
+    ],
+    "efficiency": [
+      "seconds per action p50/p95",
+      "tokens per action",
+      "decode tokens per second",
+      "time to success",
+      "retained groups per GPU-hour",
+      "all-zero/all-one groups",
+      "truncation",
+      "invalid actions",
+      "simulator overhead"
+    ],
+    "splits": [
+      "same task new scene",
+      "new task in trained simulator",
+      "completely held-out simulator/runtime",
+      "held-out reasoning benchmarks"
+    ],
+    "selection": "Independent development only. Named held-out benchmarks are final reports, not curriculum signals.",
+    "comparison": "Same task registry and evaluation seeds, full-FT policy, reward and sampler rules. Report both learning versus retained exposure and versus GPU-hours. This is a two-system comparison; it does not isolate warmstart from architecture.",
+    "holdout_review": {
+      "status": "frozen membership; seen/unseen labels remain provisional until actual training and scene ancestry audit",
+      "core_within_proposed_training_suites": 30,
+      "core_cohort_counts": {
+        "same_sim_new_task": 27,
+        "same_sim_same_task_new_variant": 3
+      },
+      "development_within_proposed_suites": 61,
+      "development_cohort_counts": {
+        "same_sim_new_task": 59,
+        "same_sim_same_task_new_variant": 2
+      },
+      "unseen_simulator_reserve_count": 89,
+      "unseen_simulator_counts": {
+        "pandadyn": 15,
+        "robopaint": 21,
+        "robotwin-2": 44,
+        "robowits": 9
+      },
+      "seen_sim_new_task_examples": [
+        "metaworldplus-basketball-i00-standard",
+        "metaworldplus-button-press-topdown-i00-standard",
+        "dexjoco-bimanual-photograph-i00-standard",
+        "robodojo-fill-egg-holder-i00-standard",
+        "robodojo-insert-key-i00-standard",
+        "robolab-put-two-mugs-on-shelf-i00-standard"
+      ],
+      "same_task_new_variant_examples": [
+        "libero-max-goal-wine-bottle-on-wine-rack-top-visual-theme-switch-i00-standard",
+        "yamlab-hang-mug-on-tree-i15-standard",
+        "yamlab-put-pot-on-cooktop-i00-standard"
+      ],
+      "scene_verification": "The three core same-task/new-variant candidates have variant_scene_verified=false. Do not report them as independently verified unseen scenes yet.",
+      "lineage_check": {
+        "parent_candidate_tasks_checked": 82,
+        "parent_task_id_overlap_with_protected_core_or_development": 0,
+        "pear_candidate_task_id_overlap_with_protected_core_or_development": 0,
+        "limit": "Task-ID check on the warmstart candidate superset, not a complete scene/asset ancestry or earlier-checkpoint audit."
+      },
+      "rules": [
+        "Keep development separate from final test. Training curriculum uses training probes; no final-test feedback for adaptation or checkpoint selection.",
+        "Define unseen simulator using all new training exposure, including reasoning-scene generators and warmstart ancestry; rendering its scenes makes that simulator seen.",
+        "Recompute seen-task versus new-task cohorts from actual admitted task families and equivalent goal definitions, not task directory names alone.",
+        "Native GR00T YAM: use existing test split if present; otherwise freeze semantic task families and scene/asset groups before rollout generation. The full catalog is still required.",
+        "SAPIEN is an unseen runtime, not an unseen physics engine when Isaac/PhysX has been trained; Genesis can be held out at both levels.",
+        "Same constrained action interface for every arm; do not score unsupported adapters or infrastructure failures as model failures."
+      ]
+    }
+  },
+  "references": {
+    "pear": "https://mit-han-lab.github.io/pear-blog/",
+    "pear_code": "https://github.com/mit-han-lab/pear/blob/d604856a1b16fdccd47e22a27d4dd935e3a62014/pear/configs/training.yaml",
+    "mt_grpo": "https://proceedings.mlr.press/v306/ramesh26b.html",
+    "sgs": "https://sgs-rl.github.io/",
+    "efe_revision": "b88c450c46de8a96bba83bf9606b66396cccfff5"
+  },
+  "implementation_status": "Runtime installed and CUDA probe passed. Native checks, model checks, model staging, retained-family quotas, SGS dispatch state and family loss reduction are implemented. No primary RL updates. Full native YAM catalog access, generated reasoning scenes, reset/scene admission, adaptive progress measurement and primary multi-node orchestration remain pending.",
+  "telemetry": {
+    "driver_entrypoint": "cluster/efe_pear_multitask_train.py",
+    "recipe": "cluster/efe_pear_scaled_train.sh",
+    "immutable_package_command": "python -m reproductions.leact.cluster.launch_efe_pear_scaled package",
+    "raw_metrics": "$RUN/metrics.jsonl",
+    "durable_events": "$RUN/telemetry/events.jsonl",
+    "rollout_diagnostics": "$RUN/telemetry/rollout-workers/*.json",
+    "heartbeat_seconds": 10,
+    "dashboard_poll_seconds": 15,
+    "collection": "Hosted OSMO log collector on ITSS; own authenticated session; fixed read-only workflow operations.",
+    "reference_policy_kl": "Unmeasured; no reference-model forward or KL penalty. Rollout-current sampled KL and entropy are logged.",
+    "validation": "CPU telemetry and resume tests; GPU instrumentation qualification pending.",
+    "hosted_collector": "tracking/pear_collect.py",
+    "hosted_poll_seconds": 20,
+    "mac_required_for_run_tracking": false
+  },
+  "prelaunch_retention": {
+    "benchmark": "RealWorldQA",
+    "questions_per_checkpoint": 765,
+    "checkpoints": [
+      "Qwen3.6-35B-A3B base",
+      "exact warmstart update 496"
+    ],
+    "primary_reference": "https://arxiv.org/html/2611.18562#A6",
+    "status": "separately authorized evaluation submitted; no result yet",
+    "training_remains_paused": true
+  },
+  "moe_router_policy": {
+    "default": "frozen_expert_selection_router",
+    "scope": "Future MoE post-training only. Keep the current retention checkpoints and evaluations unchanged.",
+    "trainable": "Experts, backbone and other previously trainable weights; no LoRA.",
+    "frozen": "Only expert-selection mlp.gate weight/bias; not gate_proj, GatedDeltaNet gates or the shared-expert mixing gate.",
+    "qualification": [
+      "exact_router_parameter_names_and_count",
+      "routers_have_no_gradients",
+      "router_weights_unchanged_after_update_and_reload",
+      "expert_and_backbone_updates_present",
+      "same_weight_train_rollout_logprob_and_route_checks"
+    ],
+    "comparison": {
+      "method": "R3",
+      "status": "planned_not_implemented_or_launched",
+      "details": "Record rollout top-k expert IDs for every layer/token, including multimodal prefill and multi-turn prefixes. Replay these IDs in training and recompute current gating weights with gradients. Preserve token/packing/mask and policy-version alignment."
+    },
+    "caveat": "Frozen weights do not guarantee identical top-k routes across numerical engines or after hidden-state changes. R3 Appendix D reports a frozen-router run still collapsing; freezing is not evidence of capability retention.",
+    "required_metrics": [
+      "expert_load_cv_by_layer",
+      "expert_peak_load_over_mean",
+      "cold_expert_fraction_below_0.1_mean",
+      "router_weight_drift",
+      "same_weight_train_rollout_route_disagreement",
+      "same_weight_train_rollout_logprob_kl",
+      "task_macro_reward",
+      "heldout_capability_delta"
+    ],
+    "sources": [
+      "https://arxiv.org/html/2610.11959#S5.SS4",
+      "https://proceedings.mlr.press/v306/ma26aw.html",
+      "https://arxiv.org/html/2510.11370#A4"
+    ]
+  }
+}

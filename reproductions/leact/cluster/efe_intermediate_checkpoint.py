@@ -15,7 +15,7 @@ def sha(path):
     return digest.hexdigest()
 
 
-def pin(training_root, destination, step):
+def pin(training_root, destination, step, selection=None):
     training_root=Path(training_root);destination=Path(destination)
     source=training_root/'restart-states'/f'checkpoint-{step}'
     destination.mkdir(parents=True,exist_ok=True)
@@ -78,7 +78,7 @@ def pin(training_root, destination, step):
             'source_spec_sha256':sha(reference/'spec.json'),
             'base_model':runtime['base_model'],'base_revision':runtime['base_revision'],
             'model':runtime['model'],'additional_optimizer_updates':0,'final':False,
-            'selection':'User-requested fixed update; intermediate diagnostic, not selected by evaluation performance.',
+            'selection':selection or 'User-requested fixed update; intermediate diagnostic, not selected by evaluation performance.',
             'pinned_utc':datetime.now(timezone.utc).isoformat()}
         temporary=done.with_suffix('.tmp');temporary.write_text(json.dumps(value,indent=2)+'\n');temporary.replace(done)
         return value
