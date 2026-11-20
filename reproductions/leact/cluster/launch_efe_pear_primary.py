@@ -67,8 +67,8 @@ def allocation_profile(attempt):
 
 def prepare(profile=0,*,standby=False,priority_override=None,control_interface=None,stage_runtime_only=False,
             rollout_nodes_override=None):
-    if rollout_nodes_override is not None and(type(rollout_nodes_override)is not int or rollout_nodes_override not in {4,6,7}):
-        raise ValueError('Explicit model layouts must have four, six or seven rollout nodes')
+    if rollout_nodes_override is not None and(type(rollout_nodes_override)is not int or rollout_nodes_override not in {4,5,6,7}):
+        raise ValueError('Explicit model layouts must have four to seven rollout nodes')
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     control=read(DEST/'control.json',{})
     control_interface=control_interface or control.get('next_control_interface')
@@ -347,7 +347,7 @@ def promote_allocated_backup(state,path=None):
     try:running_tasks(candidate)
     except RuntimeError:return None
     allocated=read(Path(backup['build'])/'spec.json')
-    layout={'rollout_nodes_override':7}if allocated['rollout_nodes']==7 else{}
+    layout={'rollout_nodes_override':allocated['rollout_nodes']}if allocated['rollout_nodes']in {5,7} else{}
     try:build=prepare(allocated['profile'],standby=True,priority_override=backup['priority'],**layout)
     except PendingAdmission as exc:
         backup['phase']='allocation_held_for_current_recipe_validation';backup['reason']=str(exc)

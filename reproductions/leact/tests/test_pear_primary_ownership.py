@@ -22,7 +22,7 @@ def test_superseded_pool_request_is_preserved_without_activation(tmp_path,monkey
     assert json.loads(p.read_text())['workflow']=='old-pool'
 
 
-@pytest.mark.parametrize('rollout_nodes',[4,7])
+@pytest.mark.parametrize('rollout_nodes',[4,5,7])
 def test_ready_extra_capacity_promotes_once_and_preserves_other_requests(tmp_path,monkeypatch,rollout_nodes):
     from reproductions.leact.cluster import efe_pear_allocation_jobs as jobs
     monkeypatch.setattr(primary,'DEST',tmp_path)
@@ -50,7 +50,7 @@ def test_ready_extra_capacity_promotes_once_and_preserves_other_requests(tmp_pat
     assert value['workflow']=='ready01'and value['standby']is False
     assert submitted==[('ready01',{'previous_workflow':'actual-ended-owner'})]
     assert prepared==[{'standby':True,'priority_override':'HIGH',**(
-        {'rollout_nodes_override':7}if rollout_nodes==7 else{})}]
+        {'rollout_nodes_override':rollout_nodes}if rollout_nodes in {5,7} else{})}]
     assert json.loads(extra.read_text())['workflow']=='queued02'
     assert json.loads(default.read_text())=={'workflow':'queued56'}
     assert json.loads((tmp_path/'primary-launch.json').read_text())['job_id']=='job-1'
@@ -182,9 +182,14 @@ def test_64_gpu_layout_preserves_eight_trainer_gpus_and_fits_all_proxies():
     assert primary.validate_rollout_cpu_capacity(7,64)==308
 
 
-@pytest.mark.parametrize('count',[True,0,5,8,'7'])
+def test_48_gpu_layout_preserves_eight_trainer_gpus_and_fits_all_proxies():
+    assert primary.validate_trainer_cpu_capacity(64)==58
+    assert primary.validate_rollout_cpu_capacity(5,64)==268
+
+
+@pytest.mark.parametrize('count',[True,0,3,8,'7'])
 def test_invalid_explicit_layout_is_rejected_before_any_preparation(count):
-    with pytest.raises(ValueError,match='four, six or seven'):
+    with pytest.raises(ValueError,match='four to seven'):
         primary.prepare(rollout_nodes_override=count)
 
 
