@@ -6,7 +6,9 @@ The pass converts and hands off deliveries (egomimic/ingest/watch.py); the commi
 (egomimic/scripts/lance_commit.py) then commits what is staged under --lance-staging: MCAP
 deliveries one lab at a time, annotation changes last, all under one hold of the root's writer
 lock (egomimic/rldb/lance/lock.py). If another writer (a manual lance_commit, say) holds it
-for more than LOCK_WAIT_S, the round reports "busy" and the next round tries again. A STOP file in --work ends the loop after
+for more than LOCK_WAIT_S, the round reports "busy" and the next round tries again. Each round
+then publishes what Lance holds (dataset(): commits, tags, versions) to the ingest bucket's
+pipeline/dataset.json for the staff dashboard. A STOP file in --work ends the loop after
 the current round; --once runs a single round.
 """
 
@@ -60,6 +62,34 @@ def commit_round(lance_staging: str, lance_root: str, work) -> dict:
     }
 
 
+def dataset(lance_root: str) -> dict:
+    """What the committer has written to `lance_root`, for the dashboard: every `changes`
+    row (newest first) with the recordings table version its tag pins, and that table's
+    current version and row count. Empty before the first commit."""
+    from egomimic.rldb.lance import commit
+    from egomimic.rldb.lance.dataset import open_table
+
+    try:
+        changes = open_table(commit.changes_uri(lance_root)).to_table().to_pylist()
+        recordings = open_table(commit.join(lance_root, "recordings.lance"))
+    except ValueError:  # "Dataset at path ... was not found": nothing committed yet
+        return {"commits": [], "version": None, "recordings": 0}
+    tags = recordings.tags.list()
+    commits = [
+        {
+            **{k: c[k] for k in ("tag", "source", "operator", "added", "replaced")},
+            "committed_at": c["committed_at"].isoformat(),
+            "version": (tags.get(c["tag"]) or {}).get("version"),
+        }
+        for c in sorted(changes, key=lambda c: c["committed_at"], reverse=True)
+    ]
+    return {
+        "commits": commits,
+        "version": recordings.version,
+        "recordings": recordings.count_rows(),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     from egomimic.ingest.convert_job import store_from_args
 
@@ -81,6 +111,10 @@ def main(argv: list[str] | None = None) -> int:
             committed = commit_round(args.lance_staging, args.lance, args.work)
         except Exception as e:
             committed = {"error": f"{type(e).__name__}: {e}"}
+        try:  # every round, so a manual lance_commit --replace shows up too
+            store.put_dataset(dataset(args.lance))
+        except Exception as e:
+            committed = {**committed, "dataset_error": f"{type(e).__name__}: {e}"}
         print(json.dumps({"pass": summary, "commit": committed}), flush=True)
         if args.once or (args.work / "STOP").exists():
             return 0

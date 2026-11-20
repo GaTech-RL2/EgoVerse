@@ -611,3 +611,23 @@ def test_a_job_checks_the_lab_against_the_labs_it_was_given(env):
         env.store, A, fp, str(env.root), env.tmp / "w", labs=["x"], **SETTINGS
     )
     assert out["status"] == "rejected" and "not registered" in out["problems"][0]
+
+
+def test_the_dataset_record_lists_each_commit_with_its_version(env):
+    from egomimic.ingest.run import dataset
+
+    assert dataset(str(env.root)) == {"commits": [], "version": None, "recordings": 0}
+    env.deliver(A)
+    env.run()
+    env.approve(A)
+    env.run()
+    env.commit()
+    rid = env.status(A)["recording_id"]
+    d = dataset(str(env.root))
+    (mcap,) = [c for c in d["commits"] if c["source"] == "mcap-rl2"]
+    assert mcap["added"] == [rid] and mcap["replaced"] == []
+    rec = lance.dataset(env.root / "recordings.lance")
+    assert mcap["version"] == rec.tags.list()[mcap["tag"]]["version"]
+    assert d["version"] == rec.version and d["recordings"] == 1
+    env.store.put_dataset(d)  # what the loop publishes for the dashboard
+    assert env.store.get_dataset()["commits"] == d["commits"]
