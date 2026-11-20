@@ -47,8 +47,8 @@ def test_cdi_all_does_not_substitute_for_exact_assigned_uuid_devices():
     assert shape.verify_cdi(GPUS[-2:], {'devices': ['nvidia.com/gpu=all', *expected]}) == expected
 
 
-def load_native(monkeypatch, tmp_path):
-    source = Path(shape.__file__).with_name('efe_pear_primary_native.py')
+def load_native(monkeypatch, tmp_path, filename='efe_astra_native_gpu_bootstrap.py'):
+    source = Path(shape.__file__).with_name(filename)
     monkeypatch.syspath_prepend(str(source.parent))
     descriptor = importlib.util.spec_from_file_location('native_shape_bootstrap_under_test', source)
     module = importlib.util.module_from_spec(descriptor)
@@ -57,9 +57,14 @@ def load_native(monkeypatch, tmp_path):
     return module
 
 
-@pytest.mark.parametrize('count', [8, 2, 4])
-def test_bootstrap_default_eight_and_opt_in_shapes_bind_only_their_devices(tmp_path, monkeypatch, count):
-    module = load_native(monkeypatch, tmp_path)
+@pytest.mark.parametrize('count,filename', [
+    (8, 'efe_pear_primary_native.py'),
+    (8, 'efe_astra_native_gpu_bootstrap.py'),
+    (2, 'efe_astra_native_gpu_bootstrap.py'),
+    (4, 'efe_astra_native_gpu_bootstrap.py'),
+])
+def test_bootstrap_default_eight_and_opt_in_shapes_bind_only_their_devices(tmp_path, monkeypatch, count, filename):
+    module = load_native(monkeypatch, tmp_path, filename)
     assigned = GPUS if count == 8 else list(reversed(GPUS[-count:]))
     finished = tmp_path/'finished.json'
     spec = {'owner_model_workflow': 'test-teacher', 'output': str(tmp_path/'output'),
@@ -144,6 +149,8 @@ def frozen_teacher(tmp_path, environment=None):
 def test_staged_shape_preserves_recipe_and_sources_without_submission(tmp_path, count):
     source, spec = frozen_teacher(tmp_path)
     original = {p.name: p.read_bytes() for p in source.iterdir()}
+    qualified_bootstrap = Path(shape.__file__).with_name('efe_pear_primary_native.py')
+    qualified_bytes = qualified_bootstrap.read_bytes()
     build = stage.prepare(source, count, build_root=tmp_path/'builds')
     actual = json.loads((build/'spec.json').read_text())
     assert {k: v for k, v in actual.items() if k not in {'native_gpu_count', 'native_gpu_ownership'}} == spec
@@ -159,6 +166,9 @@ def test_staged_shape_preserves_recipe_and_sources_without_submission(tmp_path, 
     assert not (build/'submission.json').exists()
     assert not (build/'submission-intent.json').exists()
     assert {p.name: p.read_bytes() for p in source.iterdir()} == original
+    assert qualified_bootstrap.read_bytes() == qualified_bytes
+    assert (build/'efe_pear_primary_native.py').read_bytes() == Path(shape.__file__).with_name(
+        'efe_astra_native_gpu_bootstrap.py').read_bytes()
 
 
 def test_staging_rejects_manual_gpu_assignment_override(tmp_path):

@@ -33,18 +33,9 @@ def wait_for_model_head(spec,timeout=1800):
 def main():
     import efe_native_pilot as native
     lane=Path(__file__).resolve().parent;spec=json.loads((lane/'spec.json').read_text())
-    expected_gpus=spec.get('native_gpu_count',8)
-    if type(expected_gpus)is not int or expected_gpus not in {2,4,8}:
-        raise ValueError('Native EFE GPU count must be explicitly two, four, or the default eight')
-    selected_devices=ownership=None
-    if expected_gpus!=8:
-        from efe_pear_native_gpu_shape import assigned_devices
-        # Prove the scheduler assignment before Podman setup or native startup.
-        selected_devices,ownership=assigned_devices(expected_gpus)
     wait_for_model_head(spec)
     output=Path(spec['output'])/os.environ['EFE_WORKFLOW_ID'];output.mkdir(parents=True,exist_ok=True)
     (output/'logs').mkdir()
-    if ownership:atomic_json(output/'native-gpu-ownership.json',ownership)
     # A retained node can still have conmon processes mapping the prior job's
     # executable. Stage this job's tools, source and socket in a fresh root,
     # while reusing the pinned image-layer cache rather than downloading it.
@@ -60,11 +51,7 @@ def main():
             overlays=stage(reference,spec['native_setup']['tasks'],lane/'efe_pear_vlabench_eef.py')
             atomic_json(output/'eef-native-source-overlays.json',overlays)
         from efe_pear_gpu_cdi import ensure_gpu_cdi
-        cdi_receipt=ensure_gpu_cdi(native.run)
-        if ownership:
-            from efe_pear_native_gpu_shape import verify_cdi
-            ownership['verified_cdi_devices']=verify_cdi(selected_devices,cdi_receipt)
-            atomic_json(output/'native-gpu-ownership.json',ownership)
+        ensure_gpu_cdi(native.run)
         raw=os.environ.pop('RP_JHH_PRIVATE_ARCHIVE_CONFIGURATION')
         credential=Path('/dev/shm/rp_jhh_native_archive_credentials.json')
         descriptor=os.open(credential,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -76,9 +63,8 @@ def main():
         env.update(PEAR_OBJECTSTORE_CREDENTIAL_FILE=str(credential),
             PEAR_EPISODE_ARCHIVE=spec['episode_archive'],PEAR_PRIMARY_TRAINING='1',
             PYTHONPATH=str(lane)+':'+env.get('PYTHONPATH',''),OMP_NUM_THREADS='2')
-        devices=selected_devices if selected_devices is not None else subprocess.check_output(
-            ['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()
-        if len(devices)!=expected_gpus:raise ValueError('The native EFE allocation must own its requested GPU count')
+        devices=subprocess.check_output(['nvidia-smi','--query-gpu=uuid','--format=csv,noheader'],text=True).splitlines()
+        if len(devices)!=8:raise ValueError('The native EFE allocation must own eight GPUs')
         lanes_per_gpu=spec.get('lanes_per_gpu',2)
         stagger=spec.get('startup_stagger_seconds',0)
         if type(lanes_per_gpu)is not int or lanes_per_gpu not in {1,2}:
@@ -92,7 +78,7 @@ def main():
             config={**spec['native_config'],'reference':str(reference),'agent_source':str(lane),
                 'episode_root':str(directory/'episodes'),'harbor':__import__('shutil').which('harbor',path=env['PATH']),
                 'retain_transport_observations':False,
-                'container_environment':{**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%len(devices)]}}
+                'container_environment':{**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%8]}}
             if spec.get('native_membership_local'):
                 config['membership_file']=str(lane/'native-membership.json')
             if spec.get('control_interface'):config['control_interface']=spec['control_interface']
@@ -106,11 +92,11 @@ def main():
             atomic_json(directory/'spec.json',worker)
             with(directory/'worker.log').open('w')as worker_log:
                 command=[sys.executable,'-u',str(lane/'efe_pear_remote_worker.py'),str(directory/'spec.json')]
-                child=subprocess.Popen(command,env={**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%len(devices)]},
+                child=subprocess.Popen(command,env={**env,'EFE_PODMAN_GPUS':'nvidia.com/gpu='+devices[index%8]},
                     stdout=worker_log,stderr=subprocess.STDOUT,start_new_session=True)
             children.append(child)
             if stagger and index+1<workers:time.sleep(stagger)
-        print('PEAR_PRIMARY_NATIVE_READY '+json.dumps({'workers':workers,'gpu':len(devices),'primary_rl_updates':0,
+        print('PEAR_PRIMARY_NATIVE_READY '+json.dumps({'workers':workers,'gpu':8,'primary_rl_updates':0,
             'lanes_per_gpu':lanes_per_gpu,'startup_stagger_seconds':stagger}),flush=True)
         while not Path(spec['finished']).exists():
             if any(p.poll()is not None for p in children):

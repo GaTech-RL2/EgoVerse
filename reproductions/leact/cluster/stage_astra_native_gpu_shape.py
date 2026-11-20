@@ -35,7 +35,9 @@ def prepare(source, gpu_count, *, build_root=None):
     if any(name in task.get('environment', {}) for name in
            ['NVIDIA_VISIBLE_DEVICES', 'CUDA_VISIBLE_DEVICES', 'NV_GPU']):
         raise ValueError('Workflow must not override scheduler-provided GPU assignment')
-    files.update({'efe_pear_primary_native.py': BASE/'cluster/efe_pear_primary_native.py',
+    # Replace only the frozen review bundle's entry. The live eight-GPU source
+    # stays byte-identical to its native EEF qualification pins.
+    files.update({'efe_pear_primary_native.py': BASE/'cluster/efe_astra_native_gpu_bootstrap.py',
                   'efe_pear_native_gpu_shape.py': BASE/'cluster/efe_pear_native_gpu_shape.py'})
     spec = {**spec, 'native_gpu_count': gpu_count, 'native_gpu_ownership': {
         'version': VERSION, 'required_assignment': 'Inherited full GPU UUIDs in NVIDIA_VISIBLE_DEVICES',
