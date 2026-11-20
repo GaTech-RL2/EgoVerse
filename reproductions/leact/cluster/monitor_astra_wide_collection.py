@@ -220,12 +220,30 @@ print('EFE_CAPTURE '+json.dumps({'observed_unix':time.time(),'nodes':nodes,'atte
     return remote(host,script,task='native')
 
 
+def never_started_queue_timeout(scheduler):
+    """A terminal queue expiry can retry only with explicit no-allocation proof."""
+    if (scheduler.get('status') != 'FAILED_QUEUE_TIMEOUT' or scheduler.get('cancelled_by')
+            or 'start_time' not in scheduler or scheduler['start_time'] is not None
+            or scheduler.get('duration') not in (None, 0)):
+        return False
+    groups = scheduler.get('groups', [])
+    tasks = [task for group in groups for task in group.get('tasks', [])]
+    tasks += scheduler.get('tasks', [])
+    if not tasks or any('start_time' not in group or group['start_time'] is not None for group in groups):
+        return False
+    # OSMO can create a pod name while still queued. Node assignment, pod IP,
+    # or any task start proves this was allocated and is outside this retry.
+    return all(all(key in task and task[key] is None for key in
+                   ['start_time', 'node_name', 'pod_ip']) for task in tasks)
+
+
 def recover_allocation(state, scheduler):
     """A scheduler-ended allocation has no live nodes to cancel or repurpose."""
-    if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}:
+    queue_timeout = never_started_queue_timeout(scheduler)
+    if scheduler['status']not in {'FAILED','FAILED_EVICTED','FAILED_PREEMPTED','FAILED_NODE_LOST'}and not queue_timeout:
         return None
     if scheduler.get('cancelled_by'):return None
-    if not (infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
+    if not (queue_timeout or infrastructure_failure(scheduler)or any(code in str(scheduler)for code in ['2001','2143'])):
         return None
     if state.get('allocation_retries',0)>=MAX_ALLOCATION_RETRIES:return None
     build=refresh_build(state)

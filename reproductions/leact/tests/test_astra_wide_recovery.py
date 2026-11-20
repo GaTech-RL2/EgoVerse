@@ -54,6 +54,65 @@ def test_authorized_allocation_recovery_bound_keeps_low_priority_and_durable_lin
     assert recorded[-1]['superseded_by'] == result['workflow']
 
 
+def unallocated_queue_timeout():
+    return {'status': 'FAILED_QUEUE_TIMEOUT', 'cancelled_by': None,
+            'start_time': None, 'duration': None, 'groups': [{'start_time': None,
+                'tasks': [{'start_time': None, 'node_name': None, 'pod_ip': None,
+                           'pod_name': 'precreated-while-queued'}]}]}
+
+
+@pytest.mark.parametrize('retries,expected', [(18, True), (64, False)])
+def test_unfinished_never_started_queue_timeout_retries_low_with_same_bound(tmp_path, monkeypatch, retries, expected):
+    submissions, recorded = [], []
+    monkeypatch.setattr(watch, 'refresh_build', lambda _: tmp_path/'verified-profile')
+    def submit(build, **kwargs):
+        submissions.append((build, kwargs))
+        return {'name': 'rp-jhh-astra-wide-efe-queue-recovery-1'}
+    monkeypatch.setattr(watch, 'submit_reconciled', submit)
+    monkeypatch.setattr(watch, 'record_launch', recorded.append)
+    state = {'workflow': 'rp-jhh-astra-wide-efe-ended-1', 'pool': 'groot-h100-01',
+             'allocation_retries': retries, 'teacher_profile_id': 'astra62-xhigh-v1'}
+    result = watch.recover_allocation(state, unallocated_queue_timeout())
+    assert bool(submissions) is expected
+    if expected:
+        assert submissions == [(tmp_path/'verified-profile',
+                                {'pool': 'groot-h100-01', 'priority': 'LOW', 'nodes': 1})]
+        assert result['allocation_retries'] == 19
+        assert result['teacher_profile_id'] == state['teacher_profile_id']
+        assert result['recovery_of'] == state['workflow']
+    else:
+        assert result is None and not recorded
+
+
+@pytest.mark.parametrize('kind', ['cancelled', 'workflow_started', 'group_started', 'task_started',
+    'node_assigned', 'pod_ip_assigned', 'nonzero_duration', 'unknown_start', 'unknown_task_allocation', 'no_tasks'])
+def test_allocated_cancelled_or_unproven_queue_timeout_never_retries(kind, monkeypatch):
+    scheduler = unallocated_queue_timeout()
+    task = scheduler['groups'][0]['tasks'][0]
+    if kind == 'cancelled':
+        scheduler['cancelled_by'] = 'rpunamiya'
+    elif kind == 'workflow_started':
+        scheduler['start_time'] = '2026-11-20T00:00:00'
+    elif kind == 'group_started':
+        scheduler['groups'][0]['start_time'] = '2026-11-20T00:00:00'
+    elif kind == 'task_started':
+        task['start_time'] = '2026-11-20T00:00:00'
+    elif kind == 'node_assigned':
+        task['node_name'] = 'already-allocated'
+    elif kind == 'pod_ip_assigned':
+        task['pod_ip'] = '10.0.0.1'
+    elif kind == 'nonzero_duration':
+        scheduler['duration'] = 1
+    elif kind == 'unknown_start':
+        del scheduler['start_time']
+    elif kind == 'unknown_task_allocation':
+        del task['node_name']
+    elif kind == 'no_tasks':
+        scheduler['groups'] = []
+    monkeypatch.setattr(watch, 'refresh_build', lambda *_: pytest.fail('Not a proven unallocated queue timeout'))
+    assert watch.recover_allocation({'allocation_retries': 18}, scheduler) is None
+
+
 def test_child_recovery_requires_exact_recorded_teacher_owner(monkeypatch):
     monkeypatch.setattr(watch,'idle_verification',lambda *_:pytest.fail('A different child owns the allocation'))
     assert watch.recover_child({'job_id':'own'},
@@ -251,7 +310,8 @@ def test_same_task_other_reset_is_not_completion_and_future_wall_arm_remains_sep
     assert not watch.completed_taskset(spec, rows)['complete']
 
 
-def test_completed_tasksets_keep_accepted_allocations_and_skip_only_future_recovery(tmp_path, monkeypatch):
+@pytest.mark.parametrize('failed_status', ['FAILED', 'FAILED_QUEUE_TIMEOUT'])
+def test_completed_tasksets_keep_accepted_allocations_and_skip_only_future_recovery(tmp_path, monkeypatch, failed_status):
     spec, receipts = completed_collection_fixture()
     complete = tmp_path/'complete'
     unfinished = tmp_path/'unfinished'
@@ -270,7 +330,7 @@ def test_completed_tasksets_keep_accepted_allocations_and_skip_only_future_recov
     monkeypatch.setattr(watch, 'ROOT', tmp_path)
     monkeypatch.setattr(watch, 'DEST', tmp_path)
     def query(args, **kwargs):
-        status = 'RUNNING' if args[3] == 'live-complete' else 'FAILED'
+        status = 'RUNNING' if args[3] == 'live-complete' else failed_status
         return SimpleNamespace(returncode=0, stdout=json.dumps({'status': status, 'tasks': [{'status': status}]}))
     monkeypatch.setattr(watch.subprocess, 'run', query)
     monkeypatch.setattr(watch, 'snapshot', lambda *_: {
