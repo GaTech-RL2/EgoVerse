@@ -27,6 +27,7 @@ from .launch_astra_wide_collection import (
 
 
 MAX_ALLOCATION_RETRIES = 64
+MAX_SNAPSHOT_HOSTS = 6
 
 
 def completed_taskset(spec, completed_cases):
@@ -79,6 +80,97 @@ def completed_taskset(spec, completed_cases):
             'matched_finalized': len(matched), 'case_receipts': matched,
             'reason': 'All assigned cases have exact-profile finalized native outcomes'
                       if len(matched) == len(cases) else 'Assigned cases remain unfinished or unproven'}
+
+
+def completion_identity(spec):
+    """Scope a cached native-completion receipt to the complete current plan."""
+    from .switch_astra_wide_profile import PROFILE_ROOT
+    if not isinstance(spec, dict):return None
+    plan=spec.get('teacher_plan',{})
+    if not isinstance(plan,dict):return None
+    profile=plan.get('teacher_profile',{})
+    if (spec.get('owner_model_workflow')!=OWNER or spec.get('teacher_root')!=PROFILE_ROOT
+        or spec.get('teacher_profile_id')!='astra62-xhigh-v1'
+        or plan.get('teacher_model')!='openai/openai/gpt-6.2-astra'
+        or not isinstance(profile,dict)or profile.get('id')!='astra62-xhigh-v1'
+        or profile.get('model')!='openai/openai/gpt-6.2-astra'or profile.get('effort')!='xhigh'
+        or profile.get('api_mode')!='chat_completions'
+        or not isinstance(plan.get('cases'),list)or not plan.get('curriculum_sha256')):return None
+    names=spec.get('teacher_task_names',[])
+    if not isinstance(names,list)or not names or any(not isinstance(n,str)for n in names):return None
+    cases=[case for case in plan['cases']if isinstance(case,dict)and case.get('task')in names]
+    if {case.get('task')for case in cases}!=set(names):return None
+    return {'owner':OWNER,'root':PROFILE_ROOT,'teacher_profile':profile,
+        'curriculum_sha256':plan['curriculum_sha256'],'task_names':sorted(set(names)),
+        'assigned_cases_sha256':hashlib.sha256(json.dumps(cases,sort_keys=True).encode()).hexdigest(),
+        'max_calls':spec.get('max_calls',96),'wall_seconds':spec.get('wall_seconds',1500),
+        'generated_token_budget':spec.get('token_budget',160000)}
+
+
+def cache_taskset(cache,spec,completed_cases):
+    if not isinstance(cache,dict):return False
+    identity=completion_identity(spec)
+    if identity is None:return False
+    proof=completed_taskset(spec,completed_cases)
+    if not proof['complete']:return False
+    cases={row['case_id']:completed_cases[row['case_id']]for row in proof['case_receipts']}
+    body={'identity':identity,'completed_cases':cases,'proof':proof}
+    key=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
+    digest=hashlib.sha256(json.dumps(body,sort_keys=True).encode()).hexdigest()
+    if cache.get('schema_version')!=1 or not isinstance(cache.get('tasksets'),dict):
+        cache.clear();cache.update(schema_version=1,tasksets={})
+    previous=cache['tasksets'].get(key,{})
+    if previous.get('receipt_sha256')==digest:return False
+    cache['tasksets'][key]={**body,'receipt_sha256':digest,'validated_unix':time.time()}
+    return True
+
+
+def cached_taskset(cache,spec):
+    identity=completion_identity(spec)
+    if (identity is None or not isinstance(cache,dict)or cache.get('schema_version')!=1
+        or not isinstance(cache.get('tasksets'),dict)):return None
+    key=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
+    row=cache['tasksets'].get(key)
+    if not isinstance(row,dict)or row.get('identity')!=identity:return None
+    body={k:row.get(k)for k in ['identity','completed_cases','proof']}
+    if hashlib.sha256(json.dumps(body,sort_keys=True).encode()).hexdigest()!=row.get('receipt_sha256'):return None
+    proof=completed_taskset(spec,row.get('completed_cases'))
+    if proof.get('complete')is not True or proof!=row.get('proof'):return None
+    return {**proof,'validated_completion_cache':True,'receipt_sha256':row['receipt_sha256']}
+
+
+def capture_snapshot(hosts,schedulers,active,status):
+    """Remember working readers and rotate past blocked original allocations."""
+    try:reader=read(ROOT/'snapshot-reader.json',{})
+    except (OSError,ValueError):reader={}
+    if not isinstance(reader,dict):reader={}
+    now=time.time();failures=reader.get('failures',{})
+    if not isinstance(failures,dict):failures={}
+    cursor=reader.get('cursor',0)
+    if type(cursor)is not int:cursor=0
+    rotated=hosts[cursor%len(hosts):]+hosts[:cursor%len(hosts)]
+    def priority(host):
+        failed=failures.get(host,0)
+        failed=failed if type(failed)in(int,float)else 0
+        recent_failure=now-failed<600
+        good=(host==reader.get('last_successful_host')and
+              type(reader.get('last_success_unix'))in(int,float)and now-reader['last_success_unix']<1800)
+        stamp=schedulers[host].get('start_time')or''
+        try:started=datetime.fromisoformat(stamp.replace('Z','+00:00')).timestamp()
+        except (ValueError,AttributeError):started=0
+        return recent_failure,not good,-started,rotated.index(host)
+    ordered=sorted(rotated,key=priority);capture=None
+    for host in ordered[:MAX_SNAPSHOT_HOSTS]:
+        try:capture=snapshot(host,active)
+        except Exception as exc:
+            failures[host]=time.time()
+            status.setdefault('snapshot_errors',{})[host]=type(exc).__name__+':'+str(exc)[:240]
+        else:
+            reader.update(last_successful_host=host,last_success_unix=time.time())
+            failures.pop(host,None);status['snapshot_host']=host;break
+    reader.update(failures=failures,cursor=(cursor+min(MAX_SNAPSHOT_HOSTS,len(hosts)))%len(hosts))
+    write(ROOT/'snapshot-reader.json',reader)
+    return capture
 
 
 def reconcile_lost_claims(root,transport,prefixes,*,now=None):
@@ -306,13 +398,26 @@ def tick():
     for wf,q in schedulers.items():
         try:running_tasks(q);hosts.append(wf)
         except (RuntimeError,KeyError):pass
-    capture=None;complete={}
+    capture=None;complete={};specs={};cache_changed=False
+    try:cache=read(ROOT/'validated-taskset-completions.json',{})
+    except (OSError,ValueError):cache={}
+    if not isinstance(cache,dict):cache={}
+    try:previous=read(ROOT/'watch-census.json',{})
+    except (OSError,ValueError):previous={}
+    old_profile=previous.get('astra62_profile',{})if isinstance(previous,dict)else{}
+    old_cases=old_profile.get('completed_cases',{})if isinstance(old_profile,dict)else{}
+    for wf,row in active.items():
+        try:
+            spec=read(Path(row.get('profile_build')or row['build'])/'spec.json');specs[wf]=spec
+            cache_changed=cache_taskset(cache,spec,old_cases)or cache_changed
+            proof=cached_taskset(cache,spec)
+            if proof:complete[wf]=proof
+        except (OSError,ValueError,KeyError,TypeError)as exc:
+            status.setdefault('completion_read_errors',{})[wf]=type(exc).__name__+':'+str(exc)[:180]
     if hosts:
         # Reading all shared status through one healthy owned worker avoids
         # exec during any other worker's scheduler startup barrier.
-        for host in hosts[:3]:
-            try:capture=snapshot(host,active);break
-            except Exception as exc:status.setdefault('snapshot_errors',{})[host]=type(exc).__name__+':'+str(exc)[:240]
+        capture=capture_snapshot(hosts,schedulers,active,status)
     if capture is not None:
         write(ROOT/'watch-census.json',capture)
         status['attempt_status']=capture['attempt_status'];status['sft_admitted']=capture['sft_admitted']
@@ -321,12 +426,13 @@ def tick():
         if profile_enabled:status['astra62_attempt_status']=capture['astra62_profile']['attempt_status']
         for wf,row in active.items():
             try:
-                spec=read(Path(row.get('profile_build')or row['build'])/'spec.json')
+                spec=specs.get(wf)or read(Path(row.get('profile_build')or row['build'])/'spec.json')
                 proof=completed_taskset(spec,capture.get('astra62_profile',{}).get('completed_cases',{}))
-                if proof['complete']:complete[wf]=proof
+                if proof['complete']:
+                    complete[wf]=proof
+                    cache_changed=cache_taskset(cache,spec,capture.get('astra62_profile',{}).get('completed_cases',{}))or cache_changed
             except (OSError,ValueError,KeyError,TypeError)as exc:
                 status.setdefault('completion_read_errors',{})[wf]=type(exc).__name__+':'+str(exc)[:180]
-        if complete:status['completed_tasksets_preserved']=complete
         prefixes=set(read(ROOT/'lost-native-workers.json',{}).get('prefixes',[]))
         for row in states.values():prefixes.update(row.get('lost_native_prefixes',[]))
         if prefixes:
@@ -353,6 +459,8 @@ def tick():
                     status.setdefault('profile_collectors',{})[wf]=result['profile_sidecar']['pid']
                 except Exception as exc:
                     status.setdefault('profile_deployment_pending',{})[wf]=str(exc)[:600]
+    if cache_changed:write(ROOT/'validated-taskset-completions.json',cache)
+    if complete:status['completed_tasksets_preserved']=complete
     for wf,q in schedulers.items():
         if wf in complete:continue  # A valid graded failure completes its planned collection attempt too.
         try:replacement=recover_allocation(active[wf],q)

@@ -370,3 +370,135 @@ def test_malformed_native_verdict_cannot_poison_completion_snapshot(tmp_path, mo
     result = watch.snapshot('healthy-reader', {})
     assert result['astra62_profile']['attempt_status'] == {'graded_failure': 1}
     assert result['astra62_profile']['completed_cases'] == {}
+
+
+def cacheable_collection_fixture():
+    from reproductions.leact.cluster.efe_astra_wide_collect import ASTRA62_PROFILE, PROFILES
+    spec, rows = completed_collection_fixture()
+    spec['teacher_plan'].update(teacher_model=PROFILES[ASTRA62_PROFILE]['model'],
+                                teacher_profile=dict(PROFILES[ASTRA62_PROFILE]))
+    return spec, rows
+
+
+def test_completion_cache_contains_only_validated_exact_case_receipts():
+    spec, rows = cacheable_collection_fixture()
+    cache = {}
+    partial = copy.deepcopy(rows)
+    del partial['case-1']
+    assert watch.cache_taskset(cache, spec, partial) is False and cache == {}
+    assert watch.cache_taskset(cache, spec, rows) is True
+    assert watch.cache_taskset(cache, spec, rows) is False  # Stable receipt, no new validation claim.
+    proof = watch.cached_taskset(cache, spec)
+    assert proof['complete'] and proof['matched_finalized'] == 2
+    assert proof['validated_completion_cache'] is True
+    assert all(row['status'] == 'graded_failure' for row in proof['case_receipts'])
+
+
+@pytest.mark.parametrize('mismatch', ['root', 'owner', 'model', 'effort', 'profile', 'curriculum',
+    'scene', 'config', 'env_args', 'tasks', 'max_calls', 'wall_seconds', 'token_budget', 'malformed_plan'])
+def test_cached_completion_never_crosses_current_profile_or_plan_scope(mismatch):
+    spec, rows = cacheable_collection_fixture()
+    cache = {}
+    assert watch.cache_taskset(cache, spec, rows)
+    current = copy.deepcopy(spec)
+    if mismatch == 'root':current['teacher_root'] = 'another-root'
+    elif mismatch == 'owner':current['owner_model_workflow'] = 'hero'
+    elif mismatch == 'model':current['teacher_plan']['teacher_profile']['model'] = 'another-model'
+    elif mismatch == 'effort':current['teacher_plan']['teacher_profile']['effort'] = 'high'
+    elif mismatch == 'profile':current['teacher_profile_id'] = 'another-profile'
+    elif mismatch == 'curriculum':current['teacher_plan']['curriculum_sha256'] = 'changed'
+    elif mismatch == 'scene':current['teacher_plan']['cases'][0]['scene_sha256'] = 'changed'
+    elif mismatch == 'config':current['teacher_plan']['cases'][0]['config_id'] = 'changed'
+    elif mismatch == 'env_args':current['teacher_plan']['cases'][0]['env_args'] = {'seed': 999}
+    elif mismatch == 'tasks':current['teacher_task_names'].append('another-task')
+    elif mismatch == 'max_calls':current['max_calls'] = 192
+    elif mismatch == 'wall_seconds':current['wall_seconds'] = 3600
+    elif mismatch == 'token_budget':current['token_budget'] = 320000
+    else:current['teacher_plan'] = None
+    assert watch.cached_taskset(cache, current) is None
+
+
+@pytest.mark.parametrize('bad_cache', [None, [], {}, {'schema_version': 2, 'tasksets': {}},
+                                      {'schema_version': 1, 'tasksets': []}])
+def test_missing_or_malformed_cache_never_asserts_completion(bad_cache):
+    spec, _ = cacheable_collection_fixture()
+    assert watch.cached_taskset(bad_cache, spec) is None
+
+
+def test_cache_requires_intact_receipt_and_rechecks_native_evidence():
+    spec, rows = cacheable_collection_fixture()
+    cache = {}
+    watch.cache_taskset(cache, spec, rows)
+    receipt = next(iter(cache['tasksets'].values()))
+    receipt['completed_cases']['case-0'][0]['native_verdict_success'] = True
+    assert watch.cached_taskset(cache, spec) is None
+    # Even an accidentally regenerated checksum cannot qualify invalid native evidence.
+    body = {k: receipt[k] for k in ['identity', 'completed_cases', 'proof']}
+    receipt['receipt_sha256'] = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
+    assert watch.cached_taskset(cache, spec) is None
+
+
+def test_reader_outage_keeps_proven_completed_sets_and_unfinished_recovery_separate(tmp_path, monkeypatch):
+    spec, rows = cacheable_collection_fixture()
+    original = tmp_path/'original'
+    original.mkdir()
+    (original/'spec.json').write_text(json.dumps(spec))
+    unfinished = tmp_path/'unfinished'
+    unfinished.mkdir()
+    other = copy.deepcopy(spec)
+    for case in other['teacher_plan']['cases']:case['case_id'] = 'unfinished-'+case['case_id']
+    (unfinished/'spec.json').write_text(json.dumps(other))
+    states = {name: {'workflow': name, 'build': str(build)} for name, build in
+              [('complete', original), ('unfinished', unfinished)]}
+    (tmp_path/'launches.json').write_text(json.dumps(states))
+    (tmp_path/'watch-census.json').write_text(json.dumps({'astra62_profile': {'completed_cases': rows}}))
+    monkeypatch.setattr(watch, 'ROOT', tmp_path)
+    monkeypatch.setattr(watch, 'DEST', tmp_path)
+    monkeypatch.setattr(watch.subprocess, 'run', lambda *args, **kwargs:
+        SimpleNamespace(returncode=0, stdout=json.dumps({'status': 'FAILED'})))
+    recovered = []
+    monkeypatch.setattr(watch, 'recover_allocation', lambda row, _: recovered.append(row['workflow']))
+    first = watch.tick()
+    assert recovered == ['unfinished']
+    assert first['completed_tasksets_preserved']['complete']['validated_completion_cache'] is True
+    assert len(json.loads((tmp_path/'validated-taskset-completions.json').read_text())['tasksets']) == 1
+    (tmp_path/'watch-census.json').unlink()  # Subsequent reader outage must retain the original proof.
+    recovered.clear()
+    second = watch.tick()
+    assert recovered == ['unfinished']
+    assert second['completed_tasksets_preserved']['complete']['matched_finalized'] == 2
+    assert json.loads((tmp_path/'launches.json').read_text()) == states
+
+
+def test_snapshot_falls_back_past_three_blocked_hosts_and_remembers_success(tmp_path, monkeypatch):
+    monkeypatch.setattr(watch, 'ROOT', tmp_path)
+    hosts = ['host-'+str(i) for i in range(5)]
+    schedulers = {host: {} for host in hosts}
+    calls = []
+    def capture(host, _):
+        calls.append(host)
+        if host != 'host-3':raise TimeoutError('Blocked old mount')
+        return {'astra62_profile': {'completed_cases': {}}, 'reader': host}
+    monkeypatch.setattr(watch, 'snapshot', capture)
+    status = {}
+    assert watch.capture_snapshot(hosts, schedulers, {}, status)['reader'] == 'host-3'
+    assert calls == hosts[:4] and status['snapshot_host'] == 'host-3'
+    calls.clear()
+    assert watch.capture_snapshot(hosts, schedulers, {}, {})['reader'] == 'host-3'
+    assert calls == ['host-3']
+
+
+def test_snapshot_attempts_are_bounded_and_a_later_tick_reaches_new_hosts(tmp_path, monkeypatch):
+    monkeypatch.setattr(watch, 'ROOT', tmp_path)
+    hosts = ['host-'+str(i) for i in range(watch.MAX_SNAPSHOT_HOSTS+2)]
+    calls = []
+    def capture(host, _):
+        calls.append(host)
+        if host != hosts[-1]:raise TimeoutError('Unavailable reader')
+        return {'astra62_profile': {}, 'reader': host}
+    monkeypatch.setattr(watch, 'snapshot', capture)
+    assert watch.capture_snapshot(hosts, {h: {} for h in hosts}, {}, {}) is None
+    assert len(calls) == watch.MAX_SNAPSHOT_HOSTS
+    calls.clear()
+    assert watch.capture_snapshot(hosts, {h: {} for h in hosts}, {}, {})['reader'] == hosts[-1]
+    assert calls[:2] == hosts[-2:]
