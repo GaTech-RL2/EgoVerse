@@ -65,7 +65,10 @@ def allocation_profile(attempt):
     return 4,'HIGH'if attempt%3==0 else'LOW'
 
 
-def prepare(profile=0,*,standby=False,priority_override=None,control_interface=None,stage_runtime_only=False):
+def prepare(profile=0,*,standby=False,priority_override=None,control_interface=None,stage_runtime_only=False,
+            rollout_nodes_override=None):
+    if rollout_nodes_override is not None and(type(rollout_nodes_override)is not int or rollout_nodes_override not in {4,6,7}):
+        raise ValueError('Explicit model layouts must have four, six or seven rollout nodes')
     require_unpaused();admission=compile_admission(DEST);qualification=model_qualification(DEST)
     control=read(DEST/'control.json',{})
     control_interface=control_interface or control.get('next_control_interface')
@@ -99,6 +102,7 @@ def prepare(profile=0,*,standby=False,priority_override=None,control_interface=N
     sources.update({name:BASE/'cluster'/name for name in EXTRA})
     parent=next(m for m in read(DEST/'model-files-ready.json')['models']if m['kind']=='moe_warmstart496')
     rollout_nodes,priority=allocation_profile(profile)
+    if rollout_nodes_override is not None:rollout_nodes=rollout_nodes_override
     priority=scheduling_priority('groot-h100',priority,control)
     if priority_override is not None:
         if priority_override not in {'HIGH','LOW'}:raise ValueError('Invalid explicit allocation priority')
@@ -182,7 +186,9 @@ def launch(profile=0,*,pool='groot-h100-02'):
             return state
         # Allocations start idle. The controller selects one ready cluster
         # before submitting a job, so primary and backup never share a writer.
-        build=prepare(profile,standby=True);spec=read(build/'spec.json')
+        target=read(DEST/'control.json',{}).get('primary_model_h100_target')
+        layout={'rollout_nodes_override':7}if target==64 else{}
+        build=prepare(profile,standby=True,**layout);spec=read(build/'spec.json')
         result=submit_reconciled(build,priority=spec['priority'],pool=pool,nodes=1+spec['rollout_nodes'])
         history=state.get('history',[])
         if state.get('workflow'):history.append({k:state[k]for k in ['workflow','profile','scheduler_status']if k in state})
@@ -323,6 +329,7 @@ def standby_allocation_paths():
 def promote_allocated_backup(state,path=None):
     path=Path(path)if path is not None else DEST/'backup-allocation.json'
     backup=read(path,{})
+    if backup.get('eligible_for_promotion')is False:return None
     if not backup.get('standby')or not backup.get('workflow')or backup['workflow']==state.get('workflow'):return None
     # Never start a second writer for the same experiment while the primary
     # allocation is queued or alive. A scheduler-ended request has no nodes
@@ -339,7 +346,8 @@ def promote_allocated_backup(state,path=None):
     try:running_tasks(candidate)
     except RuntimeError:return None
     allocated=read(Path(backup['build'])/'spec.json')
-    try:build=prepare(allocated['profile'],standby=True,priority_override=backup['priority'])
+    layout={'rollout_nodes_override':7}if allocated['rollout_nodes']==7 else{}
+    try:build=prepare(allocated['profile'],standby=True,priority_override=backup['priority'],**layout)
     except PendingAdmission as exc:
         backup['phase']='allocation_held_for_current_recipe_validation';backup['reason']=str(exc)
         write(path,backup);return None

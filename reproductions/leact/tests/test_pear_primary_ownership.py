@@ -14,31 +14,43 @@ def test_capacity_requests_are_tracked_separately_from_the_original_backup(tmp_p
         directory/'pool01-high.json',directory/'pool02-low.json']
 
 
-def test_ready_extra_capacity_promotes_once_and_preserves_other_requests(tmp_path,monkeypatch):
+def test_superseded_pool_request_is_preserved_without_activation(tmp_path,monkeypatch):
+    p=tmp_path/'old.json';p.write_text(json.dumps({'workflow':'old-pool',
+        'standby':True,'eligible_for_promotion':False}))
+    monkeypatch.setattr(primary,'command',lambda *_:pytest.fail('Do not promote superseded capacity'))
+    assert primary.promote_allocated_backup({},p)is None
+    assert json.loads(p.read_text())['workflow']=='old-pool'
+
+
+@pytest.mark.parametrize('rollout_nodes',[4,7])
+def test_ready_extra_capacity_promotes_once_and_preserves_other_requests(tmp_path,monkeypatch,rollout_nodes):
     from reproductions.leact.cluster import efe_pear_allocation_jobs as jobs
     monkeypatch.setattr(primary,'DEST',tmp_path)
-    spec={'allocation_lifecycle':'persistent_cluster','rollout_nodes':4,
+    spec={'allocation_lifecycle':'persistent_cluster','rollout_nodes':rollout_nodes,
         'model_revision':'pinned','run':'same-run','run_id':'same-run-id','profile':6}
     paths=[]
     for name in ['queued-build','ready-build','job-build']:
         p=tmp_path/name;p.mkdir();(p/'spec.json').write_text(json.dumps(spec));paths.append(p)
     state={'workflow':'queued02','build':str(paths[0]),'standby':True,'profile':6}
     extra=tmp_path/'extra.json';extra.write_text(json.dumps({'workflow':'ready01','build':str(paths[1]),
-        'standby':True,'priority':'HIGH','pool':'groot-h100-01','gpu':40}))
+        'standby':True,'priority':'HIGH','pool':'groot-h100-01','gpu':8*(1+rollout_nodes)}))
     default=tmp_path/'backup-allocation.json';default.write_text('{"workflow":"queued56"}')
     def command(args):
         if args[3]=='queued02':return{'status':'PENDING'}
         assert args[3]=='ready01'
         return{'status':'RUNNING','groups':[{'tasks':[
-            {'name':r,'status':'RUNNING'}for r in ['trainer','rollout-0','rollout-1','rollout-2','rollout-3']]}]}
+            {'name':r,'status':'RUNNING'}for r in ['trainer',*['rollout-'+str(i)for i in range(rollout_nodes)]]]}]}
     monkeypatch.setattr(primary,'command',command)
-    monkeypatch.setattr(primary,'prepare',lambda *a,**k:paths[2])
+    prepared=[]
+    monkeypatch.setattr(primary,'prepare',lambda *a,**k:prepared.append(k)or paths[2])
     monkeypatch.setattr(jobs,'previous_model_writer',lambda wf,run:'actual-ended-owner')
     submitted=[]
     monkeypatch.setattr(jobs,'submit',lambda state,build,**kw:submitted.append((state['workflow'],kw))or{'job_id':'job-1'})
     value=primary.promote_allocated_backup(state,extra)
     assert value['workflow']=='ready01'and value['standby']is False
     assert submitted==[('ready01',{'previous_workflow':'actual-ended-owner'})]
+    assert prepared==[{'standby':True,'priority_override':'HIGH',**(
+        {'rollout_nodes_override':7}if rollout_nodes==7 else{})}]
     assert json.loads(extra.read_text())['workflow']=='queued02'
     assert json.loads(default.read_text())=={'workflow':'queued56'}
     assert json.loads((tmp_path/'primary-launch.json').read_text())['job_id']=='job-1'
@@ -163,6 +175,17 @@ def test_four_rollout_nodes_have_room_for_the_full_proxy_pools_and_inference():
         primary.validate_rollout_cpu_capacity(4,56)
     assert primary.validate_rollout_cpu_capacity(4,64)==248
     assert primary.validate_rollout_cpu_capacity(6,56)==288
+
+
+def test_64_gpu_layout_preserves_eight_trainer_gpus_and_fits_all_proxies():
+    assert primary.validate_trainer_cpu_capacity(64)==58
+    assert primary.validate_rollout_cpu_capacity(7,64)==308
+
+
+@pytest.mark.parametrize('count',[True,0,5,8,'7'])
+def test_invalid_explicit_layout_is_rejected_before_any_preparation(count):
+    with pytest.raises(ValueError,match='four, six or seven'):
+        primary.prepare(rollout_nodes_override=count)
 
 
 def test_queue_failure_rechecks_admission_and_preserves_the_next_allocation_profile(tmp_path,monkeypatch):

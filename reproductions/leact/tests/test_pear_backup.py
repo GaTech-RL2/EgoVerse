@@ -15,6 +15,14 @@ def test_backup_maintenance_preserves_live_requests_and_user_cancellations(tmp_p
     assert backup.maintain(p)['workflow']=='backup'
 
 
+def test_retained_old_pool_request_is_observed_without_renewing_it(tmp_path,monkeypatch):
+    p=tmp_path/'backup.json';p.write_text(json.dumps({'workflow':'old-pool','standby':True,'retry_enabled':False}))
+    monkeypatch.setattr(backup,'command',lambda *a:pytest.fail('Superseded pool must not block new primary on an API read'))
+    monkeypatch.setattr(backup,'submit_reconciled',lambda *a,**k:pytest.fail('Old-pool capacity must not be requested again'))
+    value=backup.maintain(p)
+    assert value['workflow']=='old-pool'and value['retry_enabled']is False
+
+
 @pytest.mark.parametrize('attempt,limit,should_retry',[(0,None,True),(32,None,False),(32,64,True),(64,64,False)])
 @pytest.mark.parametrize('priority',['LOW','HIGH'])
 def test_expired_backup_requeues_all_nodes_at_its_explicit_priority(tmp_path,monkeypatch,attempt,limit,should_retry,priority):

@@ -13,6 +13,7 @@ from .efe_pear_submission import submit_reconciled
 def maintain(path):
     path=Path(path);state=read(path,{})
     if not state.get('standby')or not state.get('workflow'):return state
+    if state.get('retry_enabled')is False:return state
     query=command(['osmo','workflow','query',state['workflow'],'--format-type','json'])
     state['scheduler_status']=query['status'];write(path,state)
     # Preserve live allocations and user cancellations. A terminal OSMO
