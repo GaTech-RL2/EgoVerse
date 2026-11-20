@@ -372,7 +372,8 @@ def _follow(store: Store, ref: Ref, status: dict, summary) -> None:
             _set(store, ref, status, state="commit_rejected", problems=note["errors"])
             summary.commit_rejected.append(_key(ref))
     elif not files:  # the committer removes what it committed
-        _set(store, ref, status, state="committed")
+        # A --replace after commit_rejected: its "already committed" no longer holds.
+        _set(store, ref, status, state="committed", problems=[])
         summary.committed.append(_key(ref))
 
 
