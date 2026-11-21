@@ -610,12 +610,28 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     load_env()
 
+    # Checkpoint scoring never reads training frames; building the training
+    # graph (every train episode, twice) only probes keys/shapes and re-checks
+    # the precomputed norm stats against training coverage. With
+    # validate_without_train_datasets the probe uses the valid datasets (same
+    # key_map and transforms) and the stats load as-is from the precomputed
+    # file, which an earlier full run of the same split already checked.
+    skip_train = bool(cfg.get("validate_without_train_datasets", False))
+    if skip_train and (
+        _resolve_mode(cfg) != "validate"
+        or OmegaConf.select(cfg, "norm_stats.precomputed_norm_path") is None
+    ):
+        raise ValueError(
+            "validate_without_train_datasets needs mode=validate and "
+            "norm_stats.precomputed_norm_path"
+        )
+
     # One SQL pull / path resolution per dataset spec across train, valid,
     # train_viz and the norm-stat copies; dropped on exit so nothing outlives
     # this run.
     with resolve_once():
         train_datasets = {}
-        for dataset_name in cfg.data.train_datasets:
+        for dataset_name in [] if skip_train else cfg.data.train_datasets:
             train_datasets[dataset_name] = _instantiate_dataset(
                 cfg.data.train_datasets[dataset_name], dataset_name=dataset_name
             )
@@ -625,6 +641,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             valid_datasets[dataset_name] = _instantiate_dataset(
                 cfg.data.valid_datasets[dataset_name], dataset_name=dataset_name
             )
+        probe_datasets = (
+            {name: valid_datasets[name] for name in cfg.data.train_datasets}
+            if skip_train
+            else None
+        )
 
         train_viz_datasets, train_viz_params = _train_viz_datasets(
             cfg, train_datasets, instantiate=_instantiate_dataset
@@ -705,7 +726,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             state={},
             norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
         )
-        norm_stats.populate_from_datasets(datamodule.train_datasets)
+        if probe_datasets is None:
+            probe_datasets = datamodule.train_datasets
+        norm_stats.populate_from_datasets(probe_datasets)
 
         from egomimic.rldb.zarr import episode_norm_samples, norm_cache
 
@@ -722,28 +745,33 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         use_cache = bool(OmegaConf.select(cfg, "norm_stats.use_cache", default=False))
         cache_dir = OmegaConf.select(cfg, "norm_stats.cache_dir", default=None)
 
-        for dataset_name, dataset in datamodule.train_datasets.items():
+        for dataset_name, dataset in probe_datasets.items():
             log.info(f"Inferring shapes for dataset <{dataset_name}>")
             norm_stats.infer_shapes_from_batch(dataset[0])
-            instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-            keymap_cfg = instantiate_copy.resolver.key_map
-            km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
+            if skip_train:
+                # No training tracking policy on a valid dataset, so the
+                # precomputed stats load without the coverage re-check.
+                norm_dataset = dataset
+            else:
+                instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+                keymap_cfg = instantiate_copy.resolver.key_map
+                km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
 
-            # this remove annotation and image keys from the keymap
-            km["norm_mode"] = True
-            if "proprio_history" in km:
-                # Current-step proprio stats even on a history (K > 1) config:
-                # every history step is normalized with the CURRENT-step,
-                # per-channel (D,) stats, so a K > 1 run and the K = 1 baseline
-                # share exactly one set of stats. Same rule as
-                # scripts/precompute_norm_stats.py.
-                km["proprio_history"] = 1
+                # this remove annotation and image keys from the keymap
+                km["norm_mode"] = True
+                if "proprio_history" in km:
+                    # Current-step proprio stats even on a history (K > 1) config:
+                    # every history step is normalized with the CURRENT-step,
+                    # per-channel (D,) stats, so a K > 1 run and the K = 1 baseline
+                    # share exactly one set of stats. Same rule as
+                    # scripts/precompute_norm_stats.py.
+                    km["proprio_history"] = 1
 
-            instantiate_copy.resolver.key_map = km
-            norm_dataset = _instantiate_dataset(
-                instantiate_copy, dataset_name=dataset_name
-            )
-            norm_dataset.use_training_tracking_reference(dataset)
+                instantiate_copy.resolver.key_map = km
+                norm_dataset = _instantiate_dataset(
+                    instantiate_copy, dataset_name=dataset_name
+                )
+                norm_dataset.use_training_tracking_reference(dataset)
 
             emb = get_embodiment_id(dataset_name)
             key = inputs = cached = episode_cache = None

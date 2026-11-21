@@ -523,6 +523,9 @@ def compose(
             cfg.trainer.checkpoint_epoch = metadata["epoch_zero_based"]
             cfg.trainer.checkpoint_step = metadata["global_step"]
             cfg.trainer.limit_val_batches = 800
+            # Skip the training graph: scoring reads only the val heads, and
+            # norm stats come from norm_stats_dir (see trainHydra.train).
+            cfg.validate_without_train_datasets = True
             cfg.trainer.enable_checkpointing = False
             cfg.trainer.strategy = "auto"
             cfg.callbacks.pop("model_checkpoint", None)
