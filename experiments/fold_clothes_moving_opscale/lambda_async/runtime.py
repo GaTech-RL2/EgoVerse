@@ -526,6 +526,12 @@ def compose(
             # Skip the training graph: scoring reads only the val heads, and
             # norm stats come from norm_stats_dir (see trainHydra.train).
             cfg.validate_without_train_datasets = True
+            # The val loaders are decode-bound: 8 workers give about 4 batches/s
+            # on a B200 node, 16 about 8.6. Frames and order are unchanged
+            # (unshuffled, exact reads), so metrics stay comparable.
+            for head in ("valid", "extra_valid", "unseen_op_valid"):
+                for params in cfg.data[f"{head}_dataloader_params"].values():
+                    params.num_workers = 16
             cfg.trainer.enable_checkpointing = False
             cfg.trainer.strategy = "auto"
             cfg.callbacks.pop("model_checkpoint", None)

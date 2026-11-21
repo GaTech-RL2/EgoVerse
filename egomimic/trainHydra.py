@@ -703,7 +703,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             "MultiDataModuleWrapper" in cfg.data._target_
         ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
         datamodule_kwargs = dict(
-            train_datasets=train_datasets, valid_datasets=valid_datasets
+            # A None slot, not an empty dict: hydra merges kwargs into the
+            # config, so {} would let it build the training node itself.
+            train_datasets=(
+                {name: None for name in cfg.data.train_datasets}
+                if skip_train
+                else train_datasets
+            ),
+            valid_datasets=valid_datasets,
         )
         # Always passed, so train_viz=false also drops a data config's own
         # train_viz_datasets.
