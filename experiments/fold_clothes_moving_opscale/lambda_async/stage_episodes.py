@@ -54,7 +54,8 @@ def main(stage_inventory, split_json, dest, index_dir):
     dest, index_dir = Path(dest), Path(index_dir)
     inventory = json.loads(Path(stage_inventory).read_text())["episodes"]
     split = json.loads(Path(split_json).read_text())
-    keys = ("train", "seen_matched", "seen_perlevel", "unseen")
+    # Scoring reads only the val cohorts (validate_without_train_datasets).
+    keys = ("seen_matched", "seen_perlevel", "unseen")
     episodes = sorted(set().union(*(split[k] for k in keys)))
     absent = [h for h in episodes if h not in inventory]
     if absent:
