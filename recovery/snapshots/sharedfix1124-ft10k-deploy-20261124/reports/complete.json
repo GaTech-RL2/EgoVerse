@@ -1,0 +1,52 @@
+[
+  {
+    "passed": true,
+    "package": "/coc/flash7/cxin34/egoa180-cart-la-sharedfix1124-FT10k-robotpc-20261124",
+    "task": "cart",
+    "step": 10000,
+    "run": "egoa180-cart-la-sharedfix1124-ft60k-MSCstrong-s42",
+    "port": 8280,
+    "job_id": "4854951",
+    "source_checkpoint_sha256": "1e31cce673793fd5c3dcd422125143b09b9b160736b877912abf5ce258e9ed54",
+    "portable_checkpoint_sha256": "c2a4a6d01ddded6a923d35a69845bc08333f5bd6605ae0f4a9d82c8c365bca32",
+    "ordinary_rtc_max_error": 0.0,
+    "camera_validation": {
+      "translation_cm_median": 1.719149809084428,
+      "translation_cm_p90": 5.292279415795829,
+      "rotation_deg_median": 3.74348299721873,
+      "rotation_deg_p90": 8.196501576383346
+    },
+    "train_only_geometry": true,
+    "look_at": true,
+    "hardware_tested": false,
+    "robotpc_client_checked": false,
+    "files": 694,
+    "bytes": 596531670,
+    "checksum_manifest_sha256": "93192fcc2bb758cba6056fcc74d5807c236f7522a454dde57b91486792acc8ed"
+  },
+  {
+    "passed": true,
+    "package": "/coc/flash7/cxin34/egoa180-basket55-sharedfix1124-FT10k-robotpc-20261124",
+    "task": "basket",
+    "step": 10000,
+    "run": "egoa180-basket55-sharedfix1124-ft60k-MSCstrong-s42",
+    "port": 8281,
+    "job_id": "4854952",
+    "source_checkpoint_sha256": "beefc84701be31d716555933fa8b63c3ac957ec373d09e8019c4918356ee1aec",
+    "portable_checkpoint_sha256": "ca011ca86944960c70f0f4fdf31da80ffc2de6ae2bf45424f942206c72aa378e",
+    "ordinary_rtc_max_error": 0.0,
+    "camera_validation": {
+      "translation_cm_median": 1.9741215220818031,
+      "translation_cm_p90": 3.823660315629895,
+      "rotation_deg_median": 1.1649055195519766,
+      "rotation_deg_p90": 3.017076635314601
+    },
+    "train_only_geometry": true,
+    "look_at": false,
+    "hardware_tested": false,
+    "robotpc_client_checked": false,
+    "files": 695,
+    "bytes": 596540913,
+    "checksum_manifest_sha256": "78d811247f065b3991e2240cfae81040180299981cbd9f4e4225ebfab95d3914"
+  }
+]

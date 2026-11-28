@@ -1,0 +1,1058 @@
+[
+  {
+    "take": 66,
+    "uuid": "714f122c-f465-44f2-9260-7c1bcbcebc7c",
+    "full_rows": 713,
+    "full_s": 11.866666666666687,
+    "pipeline_rows": 465,
+    "pipeline_orig_rows": 713,
+    "selected_rows": 310,
+    "selected_s": 5.15,
+    "keep_full_indices": [
+      0,
+      310
+    ],
+    "keep_relative_s": [
+      0.0,
+      5.15
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 6.716666666666667,
+    "baseline_window": {
+      "take": 66,
+      "original_rows": 465,
+      "start_row": 0,
+      "end_row": 311,
+      "rows": 311,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 275894653000,
+      "end_ns": 281061319666,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      310
+    ],
+    "removed_valid_rows": 301,
+    "removed_valid_runs": [
+      {
+        "start": 326,
+        "end": 413,
+        "seconds": 1.4333333333333333
+      },
+      {
+        "start": 424,
+        "end": 426,
+        "seconds": 0.016666666666666666
+      },
+      {
+        "start": 436,
+        "end": 464,
+        "seconds": 0.45
+      },
+      {
+        "start": 504,
+        "end": 688,
+        "seconds": 3.05
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        465,
+        504
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          310,
+          326
+        ],
+        [
+          413,
+          424
+        ],
+        [
+          426,
+          436
+        ],
+        [
+          464,
+          504
+        ],
+        [
+          688,
+          713
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u65ad0.27s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 69,
+    "uuid": "a9a2399f-d8fa-4ae6-bee0-877033956b25",
+    "full_rows": 726,
+    "full_s": 12.083333333333313,
+    "pipeline_rows": 677,
+    "pipeline_orig_rows": 725,
+    "selected_rows": 454,
+    "selected_s": 7.55,
+    "keep_full_indices": [
+      0,
+      454
+    ],
+    "keep_relative_s": [
+      0.0,
+      7.55
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 4.533333333333333,
+    "baseline_window": {
+      "take": 69,
+      "original_rows": 677,
+      "start_row": 0,
+      "end_row": 455,
+      "rows": 455,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 371561317000,
+      "end_ns": 379127983666,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      454
+    ],
+    "removed_valid_rows": 209,
+    "removed_valid_runs": [
+      {
+        "start": 467,
+        "end": 676,
+        "seconds": 3.466666666666667
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        677,
+        726
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          454,
+          467
+        ],
+        [
+          676,
+          726
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u65ad0.22s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 74,
+    "uuid": "31510141-894f-4cfb-8cd5-1911d866782d",
+    "full_rows": 750,
+    "full_s": 12.483333333333373,
+    "pipeline_rows": 439,
+    "pipeline_orig_rows": 749,
+    "selected_rows": 420,
+    "selected_s": 6.983333333333373,
+    "keep_full_indices": [
+      0,
+      420
+    ],
+    "keep_relative_s": [
+      0.0,
+      6.983333333333373
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 5.5,
+    "baseline_window": {
+      "take": 74,
+      "original_rows": 439,
+      "start_row": 0,
+      "end_row": 421,
+      "rows": 421,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 601661321000,
+      "end_ns": 608661321000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      420
+    ],
+    "removed_valid_rows": 260,
+    "removed_valid_runs": [
+      {
+        "start": 432,
+        "end": 438,
+        "seconds": 0.08333333333333333
+      },
+      {
+        "start": 478,
+        "end": 732,
+        "seconds": 4.216666666666667
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        439,
+        478
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          420,
+          432
+        ],
+        [
+          438,
+          478
+        ],
+        [
+          732,
+          750
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u65ad0.20s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 75,
+    "uuid": "f21a0cd5-5d52-4909-93eb-9b7db9584ead",
+    "full_rows": 725,
+    "full_s": 12.066666666666627,
+    "pipeline_rows": 725,
+    "pipeline_orig_rows": 725,
+    "selected_rows": 450,
+    "selected_s": 7.4833333333332535,
+    "keep_full_indices": [
+      266,
+      716
+    ],
+    "keep_relative_s": [
+      4.433333333333373,
+      11.916666666666627
+    ],
+    "head_removed_s": 4.433333333333334,
+    "tail_removed_s": 0.15,
+    "baseline_window": {
+      "take": 75,
+      "original_rows": 725,
+      "start_row": 266,
+      "end_row": 717,
+      "rows": 451,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 637811337333,
+      "end_ns": 645311337333,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      266,
+      716
+    ],
+    "removed_valid_rows": 207,
+    "removed_valid_runs": [
+      {
+        "start": 0,
+        "end": 207,
+        "seconds": 3.433333333333333
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          207,
+          266
+        ]
+      ],
+      "right": [
+        [
+          716,
+          725
+        ]
+      ]
+    },
+    "reason": "\u5de6\u624b\u4e2d\u9014\u4e2d\u65ad0.98s\uff0c\u6700\u957f\u6bb5\u9009\u62e9\u4e22\u5f03\u524d\u6bb5",
+    "visual_assessment": "\u662f\uff1a\u53d6\u8863\u524d\u6bb5"
+  },
+  {
+    "take": 78,
+    "uuid": "36828d52-4241-4687-8e4f-9f7b3445f601",
+    "full_rows": 684,
+    "full_s": 11.383333333333374,
+    "pipeline_rows": 651,
+    "pipeline_orig_rows": 683,
+    "selected_rows": 312,
+    "selected_s": 5.183333333333373,
+    "keep_full_indices": [
+      60,
+      372
+    ],
+    "keep_relative_s": [
+      1.0,
+      6.183333333333373
+    ],
+    "head_removed_s": 1.0,
+    "tail_removed_s": 5.2,
+    "baseline_window": {
+      "take": 78,
+      "original_rows": 651,
+      "start_row": 60,
+      "end_row": 373,
+      "rows": 313,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 733583542000,
+      "end_ns": 738783542000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      60,
+      372
+    ],
+    "removed_valid_rows": 266,
+    "removed_valid_runs": [
+      {
+        "start": 384,
+        "end": 650,
+        "seconds": 4.416666666666667
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        0,
+        61
+      ],
+      [
+        651,
+        684
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          0,
+          60
+        ],
+        [
+          372,
+          384
+        ],
+        [
+          650,
+          684
+        ]
+      ]
+    },
+    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.20s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 81,
+    "uuid": "4abb4ec0-d3ac-4563-888f-599da0cb1709",
+    "full_rows": 732,
+    "full_s": 12.183333333333373,
+    "pipeline_rows": 731,
+    "pipeline_orig_rows": 731,
+    "selected_rows": 387,
+    "selected_s": 6.433333333333373,
+    "keep_full_indices": [
+      117,
+      504
+    ],
+    "keep_relative_s": [
+      1.95,
+      8.383333333333374
+    ],
+    "head_removed_s": 1.95,
+    "tail_removed_s": 3.8,
+    "baseline_window": {
+      "take": 81,
+      "original_rows": 731,
+      "start_row": 116,
+      "end_row": 505,
+      "rows": 389,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 819611317333,
+      "end_ns": 826077984000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      117,
+      504
+    ],
+    "removed_valid_rows": 215,
+    "removed_valid_runs": [
+      {
+        "start": 517,
+        "end": 732,
+        "seconds": 3.566666666666667
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        0,
+        117
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          0,
+          65
+        ]
+      ],
+      "right": [
+        [
+          0,
+          117
+        ],
+        [
+          504,
+          517
+        ]
+      ]
+    },
+    "reason": "\u5f00\u5934\u8ffd\u8e2a\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.22s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 83,
+    "uuid": "705275c3-fb0b-438c-8968-845a8f1f1738",
+    "full_rows": 636,
+    "full_s": 10.583333333333373,
+    "pipeline_rows": 635,
+    "pipeline_orig_rows": 635,
+    "selected_rows": 275,
+    "selected_s": 4.566666666666627,
+    "keep_full_indices": [
+      0,
+      275
+    ],
+    "keep_relative_s": [
+      0.0,
+      4.566666666666627
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 6.016666666666667,
+    "baseline_window": {
+      "take": 83,
+      "original_rows": 635,
+      "start_row": 0,
+      "end_row": 275,
+      "rows": 275,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 873227984000,
+      "end_ns": 877794650666,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      275
+    ],
+    "removed_valid_rows": 324,
+    "removed_valid_runs": [
+      {
+        "start": 283,
+        "end": 415,
+        "seconds": 2.183333333333333
+      },
+      {
+        "start": 437,
+        "end": 629,
+        "seconds": 3.183333333333333
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          635,
+          636
+        ]
+      ],
+      "right": [
+        [
+          275,
+          283
+        ],
+        [
+          415,
+          437
+        ],
+        [
+          629,
+          636
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.13s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 84,
+    "uuid": "86fb6f3e-cadc-4571-935d-3a6bdfebfd14",
+    "full_rows": 630,
+    "full_s": 10.483333333333373,
+    "pipeline_rows": 629,
+    "pipeline_orig_rows": 629,
+    "selected_rows": 326,
+    "selected_s": 5.416666666666627,
+    "keep_full_indices": [
+      0,
+      326
+    ],
+    "keep_relative_s": [
+      0.0,
+      5.416666666666627
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 5.066666666666666,
+    "baseline_window": {
+      "take": 84,
+      "original_rows": 629,
+      "start_row": 0,
+      "end_row": 327,
+      "rows": 327,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 901294650000,
+      "end_ns": 906727983333,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      326
+    ],
+    "removed_valid_rows": 272,
+    "removed_valid_runs": [
+      {
+        "start": 355,
+        "end": 397,
+        "seconds": 0.6833333333333333
+      },
+      {
+        "start": 399,
+        "end": 629,
+        "seconds": 3.816666666666667
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          629,
+          630
+        ]
+      ],
+      "right": [
+        [
+          326,
+          355
+        ],
+        [
+          397,
+          399
+        ],
+        [
+          629,
+          630
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.48s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 85,
+    "uuid": "8b549038-9e75-4095-829b-7c6b3714bcd3",
+    "full_rows": 659,
+    "full_s": 10.966666666666628,
+    "pipeline_rows": 659,
+    "pipeline_orig_rows": 659,
+    "selected_rows": 434,
+    "selected_s": 7.216666666666627,
+    "keep_full_indices": [
+      0,
+      434
+    ],
+    "keep_relative_s": [
+      0.0,
+      7.216666666666627
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 3.75,
+    "baseline_window": {
+      "take": 85,
+      "original_rows": 659,
+      "start_row": 0,
+      "end_row": 435,
+      "rows": 435,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 925211349000,
+      "end_ns": 932444682333,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      434
+    ],
+    "removed_valid_rows": 194,
+    "removed_valid_runs": [
+      {
+        "start": 440,
+        "end": 634,
+        "seconds": 3.216666666666667
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          656,
+          659
+        ]
+      ],
+      "right": [
+        [
+          434,
+          440
+        ],
+        [
+          634,
+          659
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.10s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 89,
+    "uuid": "44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+    "full_rows": 617,
+    "full_s": 10.266666666666627,
+    "pipeline_rows": 616,
+    "pipeline_orig_rows": 617,
+    "selected_rows": 336,
+    "selected_s": 5.583333333333373,
+    "keep_full_indices": [
+      18,
+      354
+    ],
+    "keep_relative_s": [
+      0.3,
+      5.883333333333373
+    ],
+    "head_removed_s": 0.3,
+    "tail_removed_s": 4.383333333333334,
+    "baseline_window": {
+      "take": 89,
+      "original_rows": 613,
+      "start_row": 18,
+      "end_row": 355,
+      "rows": 337,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 1034278007000,
+      "end_ns": 1039878007000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      18,
+      354
+    ],
+    "removed_valid_rows": 230,
+    "removed_valid_runs": [
+      {
+        "start": 366,
+        "end": 393,
+        "seconds": 0.43333333333333335
+      },
+      {
+        "start": 395,
+        "end": 598,
+        "seconds": 3.3666666666666667
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          0,
+          18
+        ],
+        [
+          354,
+          366
+        ],
+        [
+          393,
+          395
+        ],
+        [
+          598,
+          617
+        ]
+      ]
+    },
+    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.20s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 90,
+    "uuid": "d157a33c-859b-4950-b867-3c1ba6a14688",
+    "full_rows": 666,
+    "full_s": 11.083333333333373,
+    "pipeline_rows": 665,
+    "pipeline_orig_rows": 665,
+    "selected_rows": 417,
+    "selected_s": 6.933333333333373,
+    "keep_full_indices": [
+      0,
+      417
+    ],
+    "keep_relative_s": [
+      0.0,
+      6.933333333333373
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 4.15,
+    "baseline_window": {
+      "take": 90,
+      "original_rows": 664,
+      "start_row": 0,
+      "end_row": 417,
+      "rows": 417,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 1058239096000,
+      "end_ns": 1065172429333,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      417
+    ],
+    "removed_valid_rows": 207,
+    "removed_valid_runs": [
+      {
+        "start": 440,
+        "end": 647,
+        "seconds": 3.433333333333333
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          417,
+          440
+        ],
+        [
+          647,
+          666
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.38s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 92,
+    "uuid": "b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+    "full_rows": 713,
+    "full_s": 11.866666666666626,
+    "pipeline_rows": 381,
+    "pipeline_orig_rows": 713,
+    "selected_rows": 212,
+    "selected_s": 3.516666666666627,
+    "keep_full_indices": [
+      0,
+      212
+    ],
+    "keep_relative_s": [
+      0.0,
+      3.516666666666627
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 8.35,
+    "baseline_window": {
+      "take": 92,
+      "original_rows": 381,
+      "start_row": 0,
+      "end_row": 213,
+      "rows": 213,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 846600210000,
+      "end_ns": 850133543333,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      212
+    ],
+    "removed_valid_rows": 341,
+    "removed_valid_runs": [
+      {
+        "start": 284,
+        "end": 381,
+        "seconds": 1.6
+      },
+      {
+        "start": 440,
+        "end": 684,
+        "seconds": 4.05
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        381,
+        440
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [
+        [
+          212,
+          284
+        ]
+      ],
+      "right": [
+        [
+          381,
+          440
+        ],
+        [
+          684,
+          713
+        ]
+      ]
+    },
+    "reason": "\u5de6\u624b\u4e2d\u65ad1.20s\uff1b\u540e\u7eed\u53f3\u624b\u51bb\u7ed3\u622a\u5c3e",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 94,
+    "uuid": "0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+    "full_rows": 563,
+    "full_s": 9.366666666666626,
+    "pipeline_rows": 331,
+    "pipeline_orig_rows": 563,
+    "selected_rows": 331,
+    "selected_s": 5.5,
+    "keep_full_indices": [
+      0,
+      331
+    ],
+    "keep_relative_s": [
+      0.0,
+      5.5
+    ],
+    "head_removed_s": 0.0,
+    "tail_removed_s": 3.8666666666666667,
+    "baseline_window": {
+      "take": 94,
+      "original_rows": 331,
+      "start_row": 0,
+      "end_row": 331,
+      "rows": 331,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 899166874000,
+      "end_ns": 904666874000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      0,
+      331
+    ],
+    "removed_valid_rows": 141,
+    "removed_valid_runs": [
+      {
+        "start": 394,
+        "end": 535,
+        "seconds": 2.3333333333333335
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        331,
+        394
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          331,
+          394
+        ],
+        [
+          535,
+          563
+        ]
+      ]
+    },
+    "reason": "\u53f3\u624b\u51bb\u7ed31.05s\u540e\u622a\u5c3e\uff0c\u5373\u4f7f\u540e\u7eed\u6062\u590d",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 97,
+    "uuid": "b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+    "full_rows": 635,
+    "full_s": 10.566666666666627,
+    "pipeline_rows": 355,
+    "pipeline_orig_rows": 635,
+    "selected_rows": 306,
+    "selected_s": 5.083333333333373,
+    "keep_full_indices": [
+      30,
+      336
+    ],
+    "keep_relative_s": [
+      0.5,
+      5.583333333333373
+    ],
+    "head_removed_s": 0.5,
+    "tail_removed_s": 4.983333333333333,
+    "baseline_window": {
+      "take": 97,
+      "original_rows": 355,
+      "start_row": 30,
+      "end_row": 337,
+      "rows": 307,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 988133561000,
+      "end_ns": 993233561000,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      30,
+      336
+    ],
+    "removed_valid_rows": 178,
+    "removed_valid_runs": [
+      {
+        "start": 386,
+        "end": 388,
+        "seconds": 0.016666666666666666
+      },
+      {
+        "start": 436,
+        "end": 612,
+        "seconds": 2.9166666666666665
+      }
+    ],
+    "right_frozen_runs": [
+      [
+        0,
+        31
+      ],
+      [
+        355,
+        386
+      ],
+      [
+        399,
+        436
+      ]
+    ],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          0,
+          30
+        ],
+        [
+          336,
+          386
+        ],
+        [
+          388,
+          436
+        ],
+        [
+          612,
+          635
+        ]
+      ]
+    },
+    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad/\u51bb\u7ed3",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  },
+  {
+    "take": 98,
+    "uuid": "e278aeb0-89a3-47ed-9599-6744a719e1d5",
+    "full_rows": 612,
+    "full_s": 10.183333333333373,
+    "pipeline_rows": 603,
+    "pipeline_orig_rows": 611,
+    "selected_rows": 350,
+    "selected_s": 5.816666666666627,
+    "keep_full_indices": [
+      23,
+      373
+    ],
+    "keep_relative_s": [
+      0.38333333333337305,
+      6.2
+    ],
+    "head_removed_s": 0.38333333333333336,
+    "tail_removed_s": 3.9833333333333334,
+    "baseline_window": {
+      "take": 98,
+      "original_rows": 602,
+      "start_row": 22,
+      "end_row": 374,
+      "rows": 352,
+      "policy": "Longest contiguous bilateral MPS-valid window after existing pipeline tail trim; frozen before train/valid split outcomes",
+      "start_ns": 1015205761666,
+      "end_ns": 1021055761666,
+      "base_pose": "Original world origin preserved; no coordinate reset"
+    },
+    "fixed_bounds": [
+      23,
+      373
+    ],
+    "removed_valid_rows": 210,
+    "removed_valid_runs": [
+      {
+        "start": 377,
+        "end": 587,
+        "seconds": 3.4833333333333334
+      }
+    ],
+    "right_frozen_runs": [],
+    "bad_tracking_runs": {
+      "left": [],
+      "right": [
+        [
+          0,
+          23
+        ],
+        [
+          373,
+          377
+        ],
+        [
+          587,
+          612
+        ]
+      ]
+    },
+    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.067s",
+    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+  }
+]

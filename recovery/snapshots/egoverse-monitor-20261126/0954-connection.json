@@ -1,0 +1,8 @@
+{
+  "trigger_utc": "2026-11-26T14:54:00.801Z",
+  "new_york": "2026-11-26 09:54 EST",
+  "status": "SSH_CONNECT_TIMEOUT",
+  "remote_verified": false,
+  "remote_mutations": false,
+  "next": "Verify live controller, ledger,45recoveries and0110c intent/receipt before resuming audit; preserve NODE_FAIL exclusion"
+}

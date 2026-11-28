@@ -47,3 +47,13 @@ tmux-client-*.log
 # NVS-related code stays offline (collaborator's unpublished work) — never commit
 egomimic/models/custom_encoders.py
 egomimic/hydra_configs/**/*nvs3d*.yaml
+
+# Local recovery runtime and data are separate from restored source.
+.venv/
+.pytest_cache/
+__pycache__/
+recovery/local-paths.json
+recovery/runtime/
+*.pt
+*.ckpt
+*.safetensors

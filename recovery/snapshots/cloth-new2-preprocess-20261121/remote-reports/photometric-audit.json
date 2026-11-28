@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "device": "NVIDIA A40",
+  "batch": 32,
+  "train_rows": 22225,
+  "xyz_labels_proprio_unchanged": true,
+  "shared_photometry_padding_checked": true,
+  "upstream_wrapper_exact_parity": true,
+  "replay_identity_exact": true,
+  "consistency_nonzero": 0.013017562218010426,
+  "encoder_consistency_gradient_finite_nonzero": true,
+  "eval_unchanged": true,
+  "policy_initialized_from_scratch": true,
+  "all_policy_parameters_trainable": true
+}

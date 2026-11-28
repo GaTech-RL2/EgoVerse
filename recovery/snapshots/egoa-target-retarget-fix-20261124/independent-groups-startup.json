@@ -1,0 +1,37 @@
+{
+  "time": "2026-11-24T11:57:51.241649-05:00",
+  "groups": [
+    {
+      "name": "cart",
+      "job": "4853036",
+      "queue": "4853036|RUNNING|zhurong|gres/gpu:l40s:1",
+      "independent_smoke_passed": true,
+      "formal_step": 100,
+      "latest_train_metrics": {
+        "step": 100,
+        "loss": 1.779004693031311,
+        "action": 0.30443182587623596,
+        "aux": 1.4745728969573975,
+        "consistency": 0.0
+      },
+      "formal_parent_transfer_passed": true,
+      "parent_sha256": "94b695a5786fa97a554076ed1c86272f575a3cf3979d873fcb5c3f812c87a430"
+    },
+    {
+      "name": "basket",
+      "job": "4853106",
+      "queue": "4853106|RUNNING|zhurong|gres/gpu:l40s:1",
+      "independent_smoke_passed": true,
+      "formal_step": 100,
+      "latest_train_metrics": {
+        "step": 100,
+        "loss": 1.9068022966384888,
+        "action": 0.33755937218666077,
+        "aux": 1.5692429542541504,
+        "consistency": 0.0
+      },
+      "formal_parent_transfer_passed": true,
+      "parent_sha256": "94b695a5786fa97a554076ed1c86272f575a3cf3979d873fcb5c3f812c87a430"
+    }
+  ]
+}

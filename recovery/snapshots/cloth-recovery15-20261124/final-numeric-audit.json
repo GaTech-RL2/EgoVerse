@@ -1,0 +1,371 @@
+{
+  "added": 17,
+  "excluded": [
+    {
+      "uuid": "cc21a93e-cbdf-58ec-bd42-719a49e7690a",
+      "recording_id": "714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "take": 66,
+      "task": "cloth",
+      "split": "valid",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_66_20261123_210819.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_66_20261123_210819_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/cc21a93e-cbdf-58ec-bd42-719a49e7690a",
+      "raw_vrs_sha256": "82e38a9f8e846ad1e4faa1a226606c892bd85b7464fe6e548664f40678ec449d",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_66",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/work",
+      "baseline_tag": "episode_66",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 0,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "recovery_grid_bounds": [
+        326,
+        413
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_FK",
+        "uuid": "cc21a93e-cbdf-58ec-bd42-719a49e7690a",
+        "reason": "Original 5mm R-FK gate; thresholds unchanged",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/cc21a93e-cbdf-58ec-bd42-719a49e7690a/logs/cloud-B.log",
+        "sha256": "d8aa15e68f2dd81a0e73cb21beefea8f29c55ca975faa6b748860d2c48fef9b7",
+        "original_attempt": "recovery-result.json"
+      }
+    },
+    {
+      "uuid": "06bdbf17-d245-56d0-8383-c08d87df609b",
+      "recording_id": "714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "take": 66,
+      "task": "cloth",
+      "split": "valid",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_66_20261123_210819.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_66_20261123_210819_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/06bdbf17-d245-56d0-8383-c08d87df609b",
+      "raw_vrs_sha256": "82e38a9f8e846ad1e4faa1a226606c892bd85b7464fe6e548664f40678ec449d",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_66",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/work",
+      "baseline_tag": "episode_66",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 1,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "recovery_grid_bounds": [
+        504,
+        688
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_RETARGET",
+        "uuid": "06bdbf17-d245-56d0-8383-c08d87df609b",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/06bdbf17-d245-56d0-8383-c08d87df609b/logs/fixed-retarget-qc.log",
+        "sha256": "2ab8ff2827bf81cffd5f53a1418bc39a5fe2ffe801bca45335f52273d3a1b654"
+      }
+    },
+    {
+      "uuid": "08a5db6b-a259-5dc4-9285-945743b60ff2",
+      "recording_id": "31510141-894f-4cfb-8cd5-1911d866782d",
+      "take": 74,
+      "task": "cloth",
+      "split": "train",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_74_20261123_211345.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_74_20261123_211345_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/08a5db6b-a259-5dc4-9285-945743b60ff2",
+      "raw_vrs_sha256": "19d9fd65f2bc8c274ccfe63ab1cf9907fe6347140d200b2ba10444a750cb95d2",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_74",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/31510141-894f-4cfb-8cd5-1911d866782d",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/31510141-894f-4cfb-8cd5-1911d866782d/retarget/work",
+      "baseline_tag": "episode_74",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/31510141-894f-4cfb-8cd5-1911d866782d/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/31510141-894f-4cfb-8cd5-1911d866782d/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 3,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/31510141-894f-4cfb-8cd5-1911d866782d",
+      "recovery_grid_bounds": [
+        478,
+        732
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_RETARGET",
+        "uuid": "08a5db6b-a259-5dc4-9285-945743b60ff2",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/08a5db6b-a259-5dc4-9285-945743b60ff2/logs/fixed-retarget-qc.log",
+        "sha256": "7a41bc760afc108857f7f34b9a62b3c2664af2dbaa5889059da16e4ec1d77b03"
+      }
+    },
+    {
+      "uuid": "9639d647-4de7-542b-9c99-3d8766644b0d",
+      "recording_id": "705275c3-fb0b-438c-8968-845a8f1f1738",
+      "take": 83,
+      "task": "cloth",
+      "split": "train",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_83_20261123_211817.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_83_20261123_211817_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/9639d647-4de7-542b-9c99-3d8766644b0d",
+      "raw_vrs_sha256": "645382162be0b032ce9f587d90f1f6b8fe8c693cb0d79268307d91bdaf77b2de",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_83",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/705275c3-fb0b-438c-8968-845a8f1f1738",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/retarget/work",
+      "baseline_tag": "episode_83",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 8,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/705275c3-fb0b-438c-8968-845a8f1f1738",
+      "recovery_grid_bounds": [
+        437,
+        629
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_FK",
+        "uuid": "9639d647-4de7-542b-9c99-3d8766644b0d",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/9639d647-4de7-542b-9c99-3d8766644b0d/logs/cloud-B.log",
+        "sha256": "68e379051fb90b48ea439b6533c37730a5e5e70a279b30a09f8ad381f048d73a",
+        "reason": "Original 5mm R-FK gate unchanged"
+      }
+    },
+    {
+      "uuid": "8e6e98c2-5d8d-5c28-9c8d-4be00faf0863",
+      "recording_id": "44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+      "take": 89,
+      "task": "cloth",
+      "split": "valid",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_89_20261123_212057.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_89_20261123_212057_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/8e6e98c2-5d8d-5c28-9c8d-4be00faf0863",
+      "raw_vrs_sha256": "9e3c77f504973d197517fd39f88ad972b9e6fa29895767583e90015d67542931",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_89",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba/retarget/work",
+      "baseline_tag": "episode_89",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 11,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+      "recovery_grid_bounds": [
+        395,
+        598
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_FK",
+        "uuid": "8e6e98c2-5d8d-5c28-9c8d-4be00faf0863",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/8e6e98c2-5d8d-5c28-9c8d-4be00faf0863/logs/cloud-B.log",
+        "sha256": "9b9e62b8cfdf738ef5bea1b68f72f3ec18893181e05461ec72ca63b997232ef3",
+        "reason": "Original 5mm R-FK gate unchanged"
+      }
+    },
+    {
+      "uuid": "e1a924fc-e26f-5947-b8ca-157a389b5e4f",
+      "recording_id": "b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+      "take": 92,
+      "task": "cloth",
+      "split": "train",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_92_20261123_214314.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_92_20261123_214314_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/e1a924fc-e26f-5947-b8ca-157a389b5e4f",
+      "raw_vrs_sha256": "b85aa4ec34935cd2bef0607b73f54a4d7f98b65fcbe0e11ba6009fd2646c58b5",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_92",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/retarget/work",
+      "baseline_tag": "episode_92",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 14,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+      "recovery_grid_bounds": [
+        440,
+        684
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_RETARGET",
+        "uuid": "e1a924fc-e26f-5947-b8ca-157a389b5e4f",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/e1a924fc-e26f-5947-b8ca-157a389b5e4f/logs/fixed-retarget-qc.log",
+        "sha256": "ad175c0a4071e3dcd723f46db583726fe9676fad908269ac2a63c9ad8770aea6"
+      }
+    },
+    {
+      "uuid": "d49cfed6-c24d-58a3-9f40-d006a8574e6b",
+      "recording_id": "0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+      "take": 94,
+      "task": "cloth",
+      "split": "train",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_94_20261123_214407.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_94_20261123_214407_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/d49cfed6-c24d-58a3-9f40-d006a8574e6b",
+      "raw_vrs_sha256": "5365ca5aa85a991ff03157679bc01da5f14870ab2d85dfee61f6d60877ae0886",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_94",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469/retarget/work",
+      "baseline_tag": "episode_94",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 15,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+      "recovery_grid_bounds": [
+        394,
+        535
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_FK",
+        "uuid": "d49cfed6-c24d-58a3-9f40-d006a8574e6b",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/d49cfed6-c24d-58a3-9f40-d006a8574e6b/logs/cloud-B.log",
+        "sha256": "499b6f11586852fc2f7a210b6a6bdcb7207550e429f5254ad4da2c5d53277bd7",
+        "reason": "Original 5mm R-FK gate unchanged"
+      }
+    },
+    {
+      "uuid": "ea32ad7c-9a83-5ee1-9ce6-a1321db126cd",
+      "recording_id": "b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+      "take": 97,
+      "task": "cloth",
+      "split": "train",
+      "vrs": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/Cloth_Chendong_new2_1120_97_20261123_214535.vrs",
+      "mps": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123/raw/mps_Cloth_Chendong_new2_1120_97_20261123_214535_vrs",
+      "episode": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/ea32ad7c-9a83-5ee1-9ce6-a1321db126cd",
+      "raw_vrs_sha256": "8c2053686c974191b2912ab3babc660cdc821c7a07b0deddb4bd635375191d66",
+      "head_height_assumption_m": 1.68,
+      "retarget_tag": "episode_97",
+      "batch": "new50",
+      "collection": "cloth_new2_new50",
+      "baseline_episode": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+      "baseline_work": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091/retarget/work",
+      "baseline_tag": "episode_97",
+      "depth": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091/depth",
+      "baseline_hdf5": "/coc/flash7/cxin34/cloth-new50-h168-20261123/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091/retarget/episode.hdf5",
+      "baseline_demo": "demo_0",
+      "index": 16,
+      "mps_readable": true,
+      "parent_episode": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+      "recovery_grid_bounds": [
+        436,
+        612
+      ],
+      "status": {
+        "status": "QUALITY_QUARANTINED_FK",
+        "uuid": "ea32ad7c-9a83-5ee1-9ce6-a1321db126cd",
+        "evidence": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/episodes/ea32ad7c-9a83-5ee1-9ce6-a1321db126cd/logs/cloud-B.log",
+        "sha256": "5970001a524f416633e6262ad2321d95cca3d408a6e2afc509bdba8cbcd7933b",
+        "reason": "Original 5mm R-FK gate unchanged"
+      }
+    }
+  ],
+  "unresolved": [],
+  "old_episodes": 43,
+  "old_rows": 21930,
+  "passed": true,
+  "episodes": 60,
+  "unique_recordings": 43,
+  "rows": 24577,
+  "added_rows": 2647,
+  "loader": [
+    {
+      "split": "train",
+      "rows": 21891,
+      "passed": true
+    },
+    {
+      "split": "valid",
+      "rows": 2686,
+      "passed": true
+    }
+  ],
+  "normalization": {
+    "action": {
+      "train": {
+        "max_abs": 11.146574727967824,
+        "q999_abs": 1.8208498202896162,
+        "fraction_abs_gt10": 9.32262722822444e-07
+      },
+      "valid": {
+        "max_abs": 2.523405580471996,
+        "q999_abs": 1.82336998688118,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_robot0_joint_pos": {
+      "train": {
+        "max_abs": 2.378106054341421,
+        "q999_abs": 1.6985291908005056,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "max_abs": 2.4611762515413966,
+        "q999_abs": 1.9439828489487172,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_eef_pose_glass": {
+      "train": {
+        "max_abs": 1.7915676735117263,
+        "q999_abs": 1.617353396891813,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "max_abs": 1.5397802995659657,
+        "q999_abs": 1.5131114246736728,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_hand_left_qpos": {
+      "train": {
+        "max_abs": 1.2298814882699023,
+        "q999_abs": 1.1460513018046978,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "max_abs": 1.1818180627470223,
+        "q999_abs": 1.1460381464426075,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_hand_right_qpos": {
+      "train": {
+        "max_abs": 2.0253549738793395,
+        "q999_abs": 1.882030698799149,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "max_abs": 1.9988326171026547,
+        "q999_abs": 1.8687714598062786,
+        "fraction_abs_gt10": 0.0
+      }
+    }
+  },
+  "normalizer_provenance": "unchanged frozen source-train FT normalizer; no target/validation fitting",
+  "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+  "manifest_sha256": "dbad0de3efbca9b0adb78ef0d9a3ad9be642ea0b52daf1e10d00205928819fbf",
+  "original_integrity_passed": true,
+  "visual_review_pending": true,
+  "training_started": false
+}

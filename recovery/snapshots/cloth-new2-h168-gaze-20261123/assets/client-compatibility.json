@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "gaze_exact6": true,
+  "native_cpu_strict_load": true,
+  "native_uv_max_error_pixels": 2.288818359375e-05,
+  "test_frames": 20,
+  "gaze_loader_sha256": "359df85eec18b615f014498e3c692066fe382aed083559037721d7df8b3a0a55",
+  "virtual_camera_native_parity": true,
+  "reset_shape_q26_hands12_12": true,
+  "reset_skipped_key": true,
+  "training_recordings_only": 55,
+  "hardware_executed": false
+}

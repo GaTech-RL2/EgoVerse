@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "package": "/coc/flash7/cxin34/egoa180-basket55-sharedfix1124-FT10k-robotpc-20261124",
+  "task": "basket",
+  "step": 10000,
+  "run": "egoa180-basket55-sharedfix1124-ft60k-MSCstrong-s42",
+  "port": 8281,
+  "job_id": "4854952",
+  "source_checkpoint_sha256": "beefc84701be31d716555933fa8b63c3ac957ec373d09e8019c4918356ee1aec",
+  "portable_checkpoint_sha256": "ca011ca86944960c70f0f4fdf31da80ffc2de6ae2bf45424f942206c72aa378e",
+  "ordinary_rtc_max_error": 0.0,
+  "camera_validation": {
+    "translation_cm_median": 1.9741215220818031,
+    "translation_cm_p90": 3.823660315629895,
+    "rotation_deg_median": 1.1649055195519766,
+    "rotation_deg_p90": 3.017076635314601
+  },
+  "train_only_geometry": true,
+  "look_at": false,
+  "hardware_tested": false,
+  "robotpc_client_checked": false
+}

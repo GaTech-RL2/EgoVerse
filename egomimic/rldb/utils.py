@@ -1398,7 +1398,14 @@ class DataSchematic(object):
             logger.info(f"[NormStats] Processing column={column_name}")
 
             # Arrow → NumPy (fast path, preserves shape)
-            column_data = dataset.hf_dataset.with_format(
+            hf = dataset.hf_dataset
+            width = getattr(hf.features.get(column_name), "length", -1) if hasattr(hf, "features") else -1
+            if width and width > 4096 and len(hf) > 20000:
+                # 11-02 pour ptf + world head: obs.dino_wm is 12,288-D on 222,800 rows (11 GB); stats on an even
+                # ~20k-row subsample (the features are per-token LayerNormed already).
+                hf = hf.select(range(0, len(hf), int(np.ceil(len(hf) / 20000))))
+                logger.info(f"[NormStats] {column_name}: {width}-D, stats on {len(hf)} evenly spaced rows")
+            column_data = hf.with_format(
                 "numpy", columns=[column_name]
             )[:][column_name]
             if column_data.ndim not in (2, 3):

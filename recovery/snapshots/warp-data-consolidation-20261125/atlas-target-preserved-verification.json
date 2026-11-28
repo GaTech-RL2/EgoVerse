@@ -1,0 +1,457 @@
+{
+  "time": 1795664042.177718,
+  "results": [
+    {
+      "dataset": "basket_to_right_finetune_chuye_hd2z5_fix1124@r1_bs",
+      "catalog": {
+        "id": "basket_to_right_finetune_chuye_hd2z5_fix1124@r1_bs",
+        "name": "basket_to_right_finetune_chuye_hd2z5_fix1124",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:35.996091+00:00",
+        "total_episodes": 24,
+        "total_frames": 14961,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 1784524900,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-18",
+        "date_to": "2026-11-18",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 24,
+      "samples": [
+        {
+          "id": "cfe96026-2b3a-5d21-b6d8-ff98aa9cb734",
+          "ordinal": 0,
+          "frames": 637,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1262087
+            },
+            {
+              "index": 9,
+              "bytes": 1256047
+            },
+            {
+              "index": 19,
+              "bytes": 1128798
+            }
+          ]
+        },
+        {
+          "id": "38fca7f4-bafa-533a-a995-0db11a78d24b",
+          "ordinal": 12,
+          "frames": 492,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1262710
+            },
+            {
+              "index": 7,
+              "bytes": 1261977
+            },
+            {
+              "index": 15,
+              "bytes": 464691
+            }
+          ]
+        },
+        {
+          "id": "a0311333-991c-5223-840e-be4bf230a443",
+          "ordinal": 23,
+          "frames": 525,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1278292
+            },
+            {
+              "index": 8,
+              "bytes": 1261969
+            },
+            {
+              "index": 16,
+              "bytes": 516318
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cart_chuye_1102_tgzvis12_fix1124@r2_wam_hd2_bs",
+      "catalog": {
+        "id": "cart_chuye_1102_tgzvis12_fix1124@r2_wam_hd2_bs",
+        "name": "cart_chuye_1102_tgzvis12_fix1124",
+        "version": "r2_wam_hd2_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:30:18.680986+00:00",
+        "total_episodes": 107,
+        "total_frames": 32798,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 3904939402,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-02",
+        "date_to": "2026-11-02",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 107,
+      "samples": [
+        {
+          "id": "098612a5-ba6c-5488-b5ba-8be13c39ad5e",
+          "ordinal": 0,
+          "frames": 282,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1281113
+            },
+            {
+              "index": 4,
+              "bytes": 1264624
+            },
+            {
+              "index": 8,
+              "bytes": 1008297
+            }
+          ]
+        },
+        {
+          "id": "80898009-50c2-5ad2-9f4c-ea81f26a978a",
+          "ordinal": 53,
+          "frames": 298,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1276393
+            },
+            {
+              "index": 4,
+              "bytes": 1273996
+            },
+            {
+              "index": 9,
+              "bytes": 400061
+            }
+          ]
+        },
+        {
+          "id": "8570c132-9a8f-5d4d-9c6e-c98986961092",
+          "ordinal": 106,
+          "frames": 312,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1293308
+            },
+            {
+              "index": 4,
+              "bytes": 1265489
+            },
+            {
+              "index": 9,
+              "bytes": 929483
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "basket_2_chuye_hd2z5_fix1124@r1_bs",
+      "catalog": {
+        "id": "basket_2_chuye_hd2z5_fix1124@r1_bs",
+        "name": "basket_2_chuye_hd2z5_fix1124",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:11.326776+00:00",
+        "total_episodes": 31,
+        "total_frames": 19269,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 2288359783,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-23",
+        "date_to": "2026-11-23",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 31,
+      "samples": [
+        {
+          "id": "6f6dd169-b8b4-51d1-9a03-fcb4cab31e61",
+          "ordinal": 0,
+          "frames": 657,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1261865
+            },
+            {
+              "index": 10,
+              "bytes": 1262249
+            },
+            {
+              "index": 20,
+              "bytes": 679686
+            }
+          ]
+        },
+        {
+          "id": "42ea223c-c841-56ff-924d-744b93f186a7",
+          "ordinal": 15,
+          "frames": 580,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1263841
+            },
+            {
+              "index": 9,
+              "bytes": 1262944
+            },
+            {
+              "index": 18,
+              "bytes": 159173
+            }
+          ]
+        },
+        {
+          "id": "e0965582-7c7d-5d0c-91cf-6dbdcff32514",
+          "ordinal": 30,
+          "frames": 559,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1280588
+            },
+            {
+              "index": 8,
+              "bytes": 1261472
+            },
+            {
+              "index": 17,
+              "bytes": 590492
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "basket_to_right_3_chuye_hd2z5@r1_bs",
+      "catalog": {
+        "id": "basket_to_right_3_chuye_hd2z5@r1_bs",
+        "name": "basket_to_right_3_chuye_hd2z5",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:28.094137+00:00",
+        "total_episodes": 58,
+        "total_frames": 33880,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 4127799952,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-24",
+        "date_to": "2026-11-24",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 58,
+      "samples": [
+        {
+          "id": "49c4236c-66e1-5177-b74b-2d46fd8d5884",
+          "ordinal": 0,
+          "frames": 764,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1433053
+            },
+            {
+              "index": 11,
+              "bytes": 1429106
+            },
+            {
+              "index": 23,
+              "bytes": 1226735
+            }
+          ]
+        },
+        {
+          "id": "a6502629-193e-5ff3-817d-80a0d49c70c2",
+          "ordinal": 29,
+          "frames": 478,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1415427
+            },
+            {
+              "index": 7,
+              "bytes": 1404928
+            },
+            {
+              "index": 14,
+              "bytes": 1295210
+            }
+          ]
+        },
+        {
+          "id": "fbe6a7f3-e97f-5847-a6bb-feacb863b96c",
+          "ordinal": 57,
+          "frames": 584,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1407440
+            },
+            {
+              "index": 9,
+              "bytes": 1396966
+            },
+            {
+              "index": 18,
+              "bytes": 347908
+            }
+          ]
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

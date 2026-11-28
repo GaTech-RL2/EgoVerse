@@ -1,4 +1,11 @@
 # EgoVerse: Egocentric Data for Robot Learning from Around the World
+
+> **Local recovery, 2026-11-27:** this branch reconstructs locally retained work
+> on top of `rby1_aria_shared@8663e4c`, without access to Skynet.
+> Start with [恢复说明 / Recovery](recovery/README.md) for tested entry points,
+> provenance, and missing components. Historical snapshots are not live jobs or
+> accepted local data releases.
+
 ![EgoVerse](./assets/egoverse.png)
 This repository contains the data processing and training code for EgoVerse and a refactored pipeline for training multi-embodiment BC policies and rolling them out.
 

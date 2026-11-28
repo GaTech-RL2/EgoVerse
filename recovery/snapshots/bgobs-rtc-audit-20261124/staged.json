@@ -1,0 +1,8 @@
+{
+  "original_unchanged": true,
+  "new_files": [
+    "/home/aloha/RB_Y1_workspace/SEW-Geometric-Teleop/projects/rby1_teleop/rollout_rby1_policy_real_bgobs_fixed.py",
+    "/home/aloha/RB_Y1_workspace/SEW-Geometric-Teleop/projects/rby1_teleop/run_rollout_pcd_policy_bgobs_fixed.sh"
+  ],
+  "activated": false
+}

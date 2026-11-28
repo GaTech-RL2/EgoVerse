@@ -1,0 +1,913 @@
+{
+  "publication.json": [
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_aria_20261125_0556_114",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_aria_20261125_0556_114",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_aria_20261125_0556_114",
+      "mode": "merge_or_new",
+      "prior_link": null,
+      "published": 1795662647.1498253,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/scratch/cxin34/warp-data/collections/cxin34_drawer_1125_qc",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_drawer_1125_qc",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_drawer_1125_qc",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/scratch/cxin34/warp-data/collections/cxin34_drawer_1125_qc",
+      "published": 1795662647.1537359,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/scratch/cxin34/warp-data/collections/cxin34_cloth_new50_fix1124_bs",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new50_fix1124_bs",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new50_fix1124_bs",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/scratch/cxin34/warp-data/collections/cxin34_cloth_new50_fix1124_bs",
+      "published": 1795662647.1575298,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_fix1124",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_fix1124",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_fix1124",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_fix1124",
+      "published": 1795662647.1617184,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_pretrain_cart",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_pretrain_cart",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_pretrain_cart",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/collections/cxin34_pretrain_cart",
+      "published": 1795663157.1820898,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_h168",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_h168",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_h168",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_h168",
+      "published": 1795663157.1906168,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_1120_preview",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_1120_preview",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_1120_preview",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_1120_preview",
+      "published": 1795663157.195093,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_pretrain_basket",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_pretrain_basket",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_pretrain_basket",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/collections/cxin34_pretrain_basket",
+      "published": 1795663157.2014306,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/scratch/cxin34/warp-data/datasets/cxin34_cloth_new50_fix1124_bs",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_new50_fix1124_bs",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_cloth_new50_fix1124_bs",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/scratch/cxin34/warp-data/datasets/cxin34_cloth_new50_fix1124_bs",
+      "published": 1795663157.221073,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_new2_h168",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_new2_h168",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_cloth_new2_h168",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_new2_h168",
+      "published": 1795663157.2282276,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_fix1124",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_fix1124",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_cloth_fix1124",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_fix1124",
+      "published": 1795663157.234064,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/scratch/cxin34/warp-data/datasets/cxin34_drawer_1125_qc",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_drawer_1125_qc",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_drawer_1125_qc",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/scratch/cxin34/warp-data/datasets/cxin34_drawer_1125_qc",
+      "published": 1795663157.240684,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_1120_preview",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_1120_preview",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_cloth_1120_preview",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/datasets/cxin34_cloth_1120_preview",
+      "published": 1795663157.2466476,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/datasets/cxin34_pretrain_basket_retarget",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_pretrain_basket_retarget",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_pretrain_basket_retarget",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/datasets/cxin34_pretrain_basket_retarget",
+      "published": 1795663157.252331,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/datasets/cxin34_pretrain_cart_retarget",
+      "canonical": "/coc/flash7/czhang883/warp-data/datasets/cxin34_pretrain_cart_retarget",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_pretrain_cart_retarget",
+      "mode": "replace_canonical_alias",
+      "prior_link": "/coc/flash7/cxin34/warp-data/datasets/cxin34_pretrain_cart_retarget",
+      "published": 1795663157.2585988,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_60",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_60",
+      "mode": "merge_or_new",
+      "published": 1795663157.3199048,
+      "kind": "nonoverwriting_merge",
+      "added": [
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/mps-skynet-verification.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/processed/training-release",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/processed/msc-scratch-20261121",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/mps-audit.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/skynet-verification.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/README.md",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60/download-manifest.json"
+      ]
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_50_20261123",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_50_20261123",
+      "mode": "merge_or_new",
+      "published": 1795663157.389138,
+      "kind": "nonoverwriting_merge",
+      "added": [
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123/mps-audit.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123/README.md",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123/skynet-verification.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123/mps-skynet-verification.json",
+        "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_50_20261123/download-manifest.json"
+      ]
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_60_111_170_20261125",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_60_111_170_20261125",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_60_111_170_20261125",
+      "mode": "merge_or_new",
+      "prior_link": null,
+      "published": 1795663157.3929849,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_110",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_110",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_110",
+      "mode": "merge_or_new",
+      "prior_link": null,
+      "published": 1795663157.3966029,
+      "kind": "atomic_alias"
+    },
+    {
+      "source": "/coc/flash7/cxin34/warp-data/collections/cxin34_cloth_new2_170",
+      "canonical": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new2_170",
+      "payload": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_170",
+      "mode": "merge_or_new",
+      "prior_link": null,
+      "published": 1795663157.4001796,
+      "kind": "atomic_alias"
+    }
+  ],
+  "file-independent-audit.json": {
+    "passed": true,
+    "checked": 96216,
+    "same_inode": 93605,
+    "copied_or_dedup_checked": 2605,
+    "rewritten_wrappers": 6,
+    "canonical_symlinks": 465,
+    "errors": [],
+    "originals_preserved": true,
+    "time": 1795663700.172889
+  },
+  "COMPATIBILITY.json": {
+    "passed": true,
+    "counts": {
+      "symbolic_links": 6199,
+      "hardlinks_kept": 3764,
+      "independent_originals_kept": 3,
+      "already_canonical": 326
+    },
+    "all_replaced_originals_preserved": true,
+    "time": 1795663780.2572088,
+    "method": "Atomic symlink replacement with original file hardlinks retained in same-filesystem registry backup; same-filesystem data hardlinks remain valid at old paths"
+  },
+  "compatibility-independent-audit.json": {
+    "passed": true,
+    "old_file_paths_readable": 96216,
+    "atomic_links_checked": 6199,
+    "backup_paths_exist": true,
+    "canonical_roots": 20,
+    "time": 1795663857.3538554
+  },
+  "cloth-atlas-mapping-repair.json": {
+    "reason": "Pre-existing Atlas missing tag_manifest.tsv",
+    "staged_file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new50_fix1124_bs/processed/r1_hd2/retargeted/tag_manifest.tsv",
+    "rows": 60,
+    "raw_recordings": 43,
+    "sha256": "65f4ac5aae3d835be59a89bf7f856e906e124d8d26589860b120077c96506952",
+    "source_metadata": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new50_fix1124_bs/processed/r1_hd2/retargeted/metadata.json",
+    "training_data_changed": false
+  },
+  "cloth-atlas-work-repair.json": {
+    "passed": true,
+    "segments": [
+      {
+        "demo": "demo_0",
+        "tag": "02526f90-4ac8-45e6-a3cb-f8cd10df6cc4",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/02526f90-4ac8-45e6-a3cb-f8cd10df6cc4/retarget/work/episode_61_aria60.npz",
+        "rows": 773,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "0758590c49ecb39ca7927104643448ac004433ff6fcbed609a7079bd44af5c69",
+        "rgb_sha256": "d7cb7379800e4372e10e53be36b89651fb0df5fa88ab112edf3d2ff19eb4b933"
+      },
+      {
+        "demo": "demo_1",
+        "tag": "b1bfcba7-4771-4b54-acce-5543cda1fb20",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b1bfcba7-4771-4b54-acce-5543cda1fb20/retarget/work/episode_62_aria60.npz",
+        "rows": 685,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a2ee4231687b8c5c0e6d5d1a3b329f60fa056ecea36e6b83b0a79c830be119d1",
+        "rgb_sha256": "089617732452f723ff123e6b32daef632e981b95cea1226c3594b9077481dee7"
+      },
+      {
+        "demo": "demo_2",
+        "tag": "cdfce9ec-f881-4c84-9fdb-edb05267e635",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/cdfce9ec-f881-4c84-9fdb-edb05267e635/retarget/work/episode_64_aria60.npz",
+        "rows": 760,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "da7e4a8e4825daa833d3baaa7558469cae0692182d861c586811776544797323",
+        "rgb_sha256": "d311804ee4c337db2b4b9da820b5968cda22b35fd56d828ddfdb57e64164f658"
+      },
+      {
+        "demo": "demo_3",
+        "tag": "f31f59e1-00fa-47c8-9821-487d98e14386",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/f31f59e1-00fa-47c8-9821-487d98e14386/retarget/work/episode_65_aria60.npz",
+        "rows": 721,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "9823485b09d046c89919233cc2655eb790d92dd943eb4903275fb2c72ec144f3",
+        "rgb_sha256": "330a516353f89bcf9ce229e85b25a4d4a1b0ecad9a813ae6d9ccad2dc599d2c4"
+      },
+      {
+        "demo": "demo_4",
+        "tag": "c795317c-37c4-4e52-8fad-923e342aba23",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/c795317c-37c4-4e52-8fad-923e342aba23/retarget/work/episode_67_aria60.npz",
+        "rows": 584,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "b1f9bd1bb08443d0cffa623622bc192c5a5f2a17d6eaba1b36c372f618f833a1",
+        "rgb_sha256": "4f397f59e87dc9bb4b8f03095aaed82acbd247dbd3f1ab1562d04c704134b132"
+      },
+      {
+        "demo": "demo_5",
+        "tag": "690bffb4-6b7d-418b-b2b9-1b4a118616b5",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/690bffb4-6b7d-418b-b2b9-1b4a118616b5/retarget/work/episode_68_aria60.npz",
+        "rows": 682,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "e6773a385095e40f5ce57391b9b37f6c75bb851fe70275d76f1935af437a654b",
+        "rgb_sha256": "bcaf87d5f8ee39d2a1dab537e57f7b5906954bc234231eb041959386bc5caa63"
+      },
+      {
+        "demo": "demo_6",
+        "tag": "84bae225-35fa-55a2-8a56-6cf2c3c188bf",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/a9a2399f-d8fa-4ae6-bee0-877033956b25/retarget/work/episode_69_aria60.npz",
+        "rows": 209,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "14935ac24ac8cda50766e653bccfb93b2c52725daa71df28e894f2560b9e4165",
+        "rgb_sha256": "0e45580ade7683404e7b38d5fec4bcaea4656afd7f11341be3dcdd41fc64b3da"
+      },
+      {
+        "demo": "demo_7",
+        "tag": "a9a2399f-d8fa-4ae6-bee0-877033956b25",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/a9a2399f-d8fa-4ae6-bee0-877033956b25/retarget/work/episode_69_aria60.npz",
+        "rows": 454,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "8d12cf59efeabf50615b25f20225bc6cfa74d116e9cbbaa9129db7d7db2118de",
+        "rgb_sha256": "9d205b9b06814d346a88f84b38eb76aeaf339fb8c684811a7935c68f8b7a637e"
+      },
+      {
+        "demo": "demo_8",
+        "tag": "4daf767e-9c75-46cf-a0ec-fc63f3c4e538",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/4daf767e-9c75-46cf-a0ec-fc63f3c4e538/retarget/work/episode_72_aria60.npz",
+        "rows": 644,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a6ff7073ef0a76f3dc6cbed6184220643768b94fe3a9daababef2cd22c025946",
+        "rgb_sha256": "fde141aa52824ae4d8d553b6809a2359a8f8467a9b11f557e31a914f7d3f952b"
+      },
+      {
+        "demo": "demo_9",
+        "tag": "31510141-894f-4cfb-8cd5-1911d866782d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/31510141-894f-4cfb-8cd5-1911d866782d/retarget/work/episode_74_aria60.npz",
+        "rows": 420,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "64932b69cbaf41483321a6174b503832713f74fff349753b6441e1b0a0df3ab4",
+        "rgb_sha256": "7bbc486e5612d5dd2b36fae86239dde6ae0bdee626d06ebf37011f1c5a3ae236"
+      },
+      {
+        "demo": "demo_10",
+        "tag": "599bee0f-5bbb-513d-b19e-670f6c8a5750",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/31510141-894f-4cfb-8cd5-1911d866782d/retarget/work/episode_74_aria60.npz",
+        "rows": 121,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "45db0cd7b70218b93964b9fdb276ce035b702be8c7cc6f3ba7cf397627b9375e",
+        "rgb_sha256": "7bb3fb0a28bb981618e1a810643a514da8f8e63c9b53c21f7f0f93a236b1d926"
+      },
+      {
+        "demo": "demo_11",
+        "tag": "e303701f-53f2-5f86-9601-3f91f6c8bace",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/f21a0cd5-5d52-4909-93eb-9b7db9584ead/retarget/work/episode_75_aria60.npz",
+        "rows": 207,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "1779589e04b6d51d78ec63a0978010aeddf08f00e3b7bef62bbe77cb48cbe633",
+        "rgb_sha256": "edb80214247f72d2a86105c86c1630312cd391c7a04baeae22501d8f0ec64c67"
+      },
+      {
+        "demo": "demo_12",
+        "tag": "f21a0cd5-5d52-4909-93eb-9b7db9584ead",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/f21a0cd5-5d52-4909-93eb-9b7db9584ead/retarget/work/episode_75_aria60.npz",
+        "rows": 450,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "c0ebc8ef6edffe7eb09399989d3dfd7e17c6b5b79a1cf3d2f99b98daef4c52bd",
+        "rgb_sha256": "6dbe17f3958db509bf122af7e385ecbbbace09a19647026f3cf89fe5c0772d16"
+      },
+      {
+        "demo": "demo_13",
+        "tag": "08340300-fd3a-496c-9981-490c6c3de153",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/08340300-fd3a-496c-9981-490c6c3de153/retarget/work/episode_76_aria60.npz",
+        "rows": 598,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a22a9f47232633d84fed4d5986295ae88d84e95cd25876ba50136ead68dbd6f8",
+        "rgb_sha256": "69376b27bcac9e2ca0f3f41896850465cbd0b353c382a771ba0d7854ef59a9ae"
+      },
+      {
+        "demo": "demo_14",
+        "tag": "bf363fb1-677f-4fc7-9d4f-f7c14932a6ed",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/bf363fb1-677f-4fc7-9d4f-f7c14932a6ed/retarget/work/episode_77_aria60.npz",
+        "rows": 653,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "dd0fa97a78ca6b139411cdb3658807f9146fe5d8854887a8e29ad1ad87a3f9b9",
+        "rgb_sha256": "360316a7e877634af784b1ce3b2b32f9b1179ebbf6d2e9ef83dc6c44e52d2832"
+      },
+      {
+        "demo": "demo_15",
+        "tag": "36828d52-4241-4687-8e4f-9f7b3445f601",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/36828d52-4241-4687-8e4f-9f7b3445f601/retarget/work/episode_78_aria60.npz",
+        "rows": 312,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "2c71bada101f3993bb2fd39451e65c0a201d77e14b3b77bc0556ad8e6d489961",
+        "rgb_sha256": "8e34da897de96453e127b95458db18111b22ad5ab7d9b7a7d63d1f7ef05f6a3d"
+      },
+      {
+        "demo": "demo_16",
+        "tag": "f139cfb3-24d1-595b-8a09-c76204128949",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/36828d52-4241-4687-8e4f-9f7b3445f601/retarget/work/episode_78_aria60.npz",
+        "rows": 266,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "254f4216f2da3c12ffcb8bad06ebafa2896e685098ab1fb40bc58b451f25a376",
+        "rgb_sha256": "3c80a8210dbf6be9aa835104cf4dd8e23ce337f5e93998d93997fac9a318e71b"
+      },
+      {
+        "demo": "demo_17",
+        "tag": "5c8961b5-f30c-43f9-8f6c-56a70a50c83c",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/5c8961b5-f30c-43f9-8f6c-56a70a50c83c/retarget/work/episode_79_aria60.npz",
+        "rows": 648,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "7838300b5ccc5c026bc5e01613e76a537184dea8323e2a020d255527641648f2",
+        "rgb_sha256": "0902063adc7dd8506fb24510445a8cbbc642541e744b1e4112d07b79b6ffc2fa"
+      },
+      {
+        "demo": "demo_18",
+        "tag": "a408ce24-a4cf-4873-be31-03a6eaf53368",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/a408ce24-a4cf-4873-be31-03a6eaf53368/retarget/work/episode_80_aria60.npz",
+        "rows": 630,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "c87bed150890f0d54d96234f120eb5cbaf71eab0488038cdc19afaf2fbbfd308",
+        "rgb_sha256": "e3cce85c9768b40419dfd140593d7a55a8dec4ceafda5d83dc2177dc6cc03285"
+      },
+      {
+        "demo": "demo_19",
+        "tag": "4a833303-437f-5478-a6b9-b4906d3288e1",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/4abb4ec0-d3ac-4563-888f-599da0cb1709/retarget/work/episode_81_aria60.npz",
+        "rows": 214,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "bc26c98ec93b0473eda1ae12a703fcbe05b0b42289c7af40ac08d7d76a9bc48d",
+        "rgb_sha256": "1407a1803215d388bab389222fec5bda5174c9a983227abebc2feb1e4632618c"
+      },
+      {
+        "demo": "demo_20",
+        "tag": "4abb4ec0-d3ac-4563-888f-599da0cb1709",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/4abb4ec0-d3ac-4563-888f-599da0cb1709/retarget/work/episode_81_aria60.npz",
+        "rows": 387,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "d756a746570e0edb83831a8cd29af2bc077644f3e74c6ed889dd1c39f65ed08e",
+        "rgb_sha256": "09189f94281ef75135b9eba9a99823ac7a26996a4497a65fda7fb43fb965106d"
+      },
+      {
+        "demo": "demo_21",
+        "tag": "06db6e97-b7c5-5707-a0a7-6168139befa5",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/retarget/work/episode_83_aria60.npz",
+        "rows": 112,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a359b19a2eff89f7cc89aefbe567db04fd4a7e7f0ac917555eaa94854d445f29",
+        "rgb_sha256": "60dc293f6edc0309a6c8cefef0b1ff3827d3b2ed8184b0ea3d0e3665a85e7968"
+      },
+      {
+        "demo": "demo_22",
+        "tag": "11103c10-f879-5a07-bb7c-32571f78a4cf",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/retarget/work/episode_83_aria60.npz",
+        "rows": 132,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "62c3f5bcbad6c2a114f4d9d05016d495914f767a678ac98adfdcbc604ca5c68f",
+        "rgb_sha256": "048111a313fe3442d848b0e56e9b5e5d6e408e96ce2b6b0d8c6856c38b7fefc2"
+      },
+      {
+        "demo": "demo_23",
+        "tag": "705275c3-fb0b-438c-8968-845a8f1f1738",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/705275c3-fb0b-438c-8968-845a8f1f1738/retarget/work/episode_83_aria60.npz",
+        "rows": 275,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "369f97ab353866c123ae01c25b018cc64a2fb3a73976184100e8fe6c281eefb3",
+        "rgb_sha256": "321756b755b81bfca96c5dd7b0c744f0d487832d8924a41cf664c0ca61d2c637"
+      },
+      {
+        "demo": "demo_24",
+        "tag": "86fb6f3e-cadc-4571-935d-3a6bdfebfd14",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/86fb6f3e-cadc-4571-935d-3a6bdfebfd14/retarget/work/episode_84_aria60.npz",
+        "rows": 326,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "59506f7e6bbca037efa05ff031a7a16badbdbd127847e6279c1ad7ad046a180d",
+        "rgb_sha256": "007bd8e47b8d5554d93e7a8398ac6b769b3f1db62d6df920e1028675ef694dc3"
+      },
+      {
+        "demo": "demo_25",
+        "tag": "90f45998-598a-51ff-9378-01a75a02f3cb",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/86fb6f3e-cadc-4571-935d-3a6bdfebfd14/retarget/work/episode_84_aria60.npz",
+        "rows": 230,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "224a8973eee4aa8ced4c92fdc9565e5881d727272eb7132770974be02263a82a",
+        "rgb_sha256": "e41e1aa59cd659776d86dd2e8f5859c31f9fb85c5a2c577ec3603ac71d7c41c5"
+      },
+      {
+        "demo": "demo_26",
+        "tag": "a5f53f92-09d3-460d-b02f-d7ffd184d1e4",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/a5f53f92-09d3-460d-b02f-d7ffd184d1e4/retarget/work/episode_87_aria60.npz",
+        "rows": 594,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "64636d22d806edcfbd00baae4af6ea0b297e2e9146f94b33c5f37946759d2927",
+        "rgb_sha256": "bb225a71bb1fc02a3044142f8826185fd5d15a3e3e860330c76e9b34e81b2de6"
+      },
+      {
+        "demo": "demo_27",
+        "tag": "c10de41c-57e6-5866-b7ed-8be6bca348ad",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/d157a33c-859b-4950-b867-3c1ba6a14688/retarget/work/episode_90_aria60.npz",
+        "rows": 207,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "6213deb6cac020a62a35f7e67e85e716530395c360faefeaacc789e5b8e081f1",
+        "rgb_sha256": "d06b7ee9e6d1d30c6330f442c7dcc08658ac5824984dff01d92ce4f20c33b77a"
+      },
+      {
+        "demo": "demo_28",
+        "tag": "d157a33c-859b-4950-b867-3c1ba6a14688",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/d157a33c-859b-4950-b867-3c1ba6a14688/retarget/work/episode_90_aria60.npz",
+        "rows": 417,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "1903ca42221a2016a9ed8754ae877e90363d7fd4589c18af21c9c136d6c9fb9e",
+        "rgb_sha256": "755a7f2b626a482287625d426d02005e4e153b4c49ee9923d02b3ef881e58f5e"
+      },
+      {
+        "demo": "demo_29",
+        "tag": "ce1bbe31-5150-4060-9495-d33fb024132d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/ce1bbe31-5150-4060-9495-d33fb024132d/retarget/work/episode_91_aria60.npz",
+        "rows": 591,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "15cf2d6f35d17b4f651b8c16485b725d5f9767402f196b99e24a7d03373849c9",
+        "rgb_sha256": "c6f8ede7c828696fae8916adc6ac4e8f6c11830619374dbddc4033722159a6d8"
+      },
+      {
+        "demo": "demo_30",
+        "tag": "3a03bd66-a0aa-53d1-b4d4-d8cdcb4680a1",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/retarget/work/episode_92_aria60.npz",
+        "rows": 97,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "3e677b16c2b0c4b0f3a65ffb85df21530674c24428e56e00599af5415500947e",
+        "rgb_sha256": "e3175209bd63b787bdceaea9db776a6045895d1ad6f40500db24f1b4c172c27f"
+      },
+      {
+        "demo": "demo_31",
+        "tag": "b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/retarget/work/episode_92_aria60.npz",
+        "rows": 212,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a3bfd626cd76a7ae41b54409c1b07c1378def3f046f1a0bbec35202e7584f4bf",
+        "rgb_sha256": "44a7c13f7a5e0bb0bdb39a00c133cb2bb4f77841c639a6e63a6dd98072b4dc05"
+      },
+      {
+        "demo": "demo_32",
+        "tag": "ce3d1f65-893e-5011-981b-cbbc3b4f6307",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b36d9780-f15d-4fb5-ba48-f43a89b1a756/retarget/work/episode_92_aria60.npz",
+        "rows": 97,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "14e686ceac9854854a713f7b0dde97d9723d7cc295bd29627c8f355d83a90d0c",
+        "rgb_sha256": "8d01320902069b5242d326e8f2ffdec2e8f7c10b1c91e20aaf03ea5a6d117ba5"
+      },
+      {
+        "demo": "demo_33",
+        "tag": "85007cc7-f62c-42b0-b065-d0d2dfb8d54d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/85007cc7-f62c-42b0-b065-d0d2dfb8d54d/retarget/work/episode_93_aria60.npz",
+        "rows": 599,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "16d4bf4e89045ff55aca0e35de5278d5fe974bb9baa2b609320b9142da39a1f0",
+        "rgb_sha256": "21dd37c79a37eca67510a821d61612b984d194a5b2efbed94f1ed0c832f8beed"
+      },
+      {
+        "demo": "demo_34",
+        "tag": "0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/0e8b6eb3-d9f5-488c-9d3c-4b0365acc469/retarget/work/episode_94_aria60.npz",
+        "rows": 331,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "8ba70a1edda7e8202f3ac61acbcffb10fa486f56427742b06140ec33e64dbbd0",
+        "rgb_sha256": "89827ce842f3e058b2024722e39323367bd01e6dc48a38069baead59d8fa45bd"
+      },
+      {
+        "demo": "demo_35",
+        "tag": "f3f77ad8-6a5f-4228-80f9-e2bfffccc67b",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/f3f77ad8-6a5f-4228-80f9-e2bfffccc67b/retarget/work/episode_95_aria60.npz",
+        "rows": 572,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "d53a7f03bae680a2c2241aa03076199a356d73d5d0c5d3db2c30359563c1361b",
+        "rgb_sha256": "6fa552cb9a30a99fd0f693ca4bfa4074876de571479f5bf4bee64f6c0e3ec2e8"
+      },
+      {
+        "demo": "demo_36",
+        "tag": "18d5e0c3-dcf3-416f-9960-598d0431e342",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/18d5e0c3-dcf3-416f-9960-598d0431e342/retarget/work/episode_96_aria60.npz",
+        "rows": 616,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "3011947ea1a91d9d80bc17af84407398d630dda37df8369cec2fa4eb0a6f65ab",
+        "rgb_sha256": "d221967fad59cafbe571675969b29cd89333abfe69bf7b075a543c18d5124e34"
+      },
+      {
+        "demo": "demo_37",
+        "tag": "b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091/retarget/work/episode_97_aria60.npz",
+        "rows": 306,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "218c6d8ab082ca28a3e5260738d9b0dc0519f8f08a16dde6eb1ac849bc51b9da",
+        "rgb_sha256": "9bb808c3af7beb45aaf621772de64c125ea362d95464cddcb847881a0ecd3d0f"
+      },
+      {
+        "demo": "demo_38",
+        "tag": "d7263c74-6e7b-5c1d-b829-c87ead87040e",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/b1bc1cb6-2b5a-4f48-9a52-f29d595cf091/retarget/work/episode_97_aria60.npz",
+        "rows": 90,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "7f500e75788daf9360b45665d44a86bf7e475911794c9d6d9e444b87201fa4b0",
+        "rgb_sha256": "7ef798f7bc6c84ef507dac0d81f877da6c3352d81bc6612680ea24ec34ae07fd"
+      },
+      {
+        "demo": "demo_39",
+        "tag": "bd6ce5ed-5c45-5f56-975b-49e23186e4b8",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/e278aeb0-89a3-47ed-9599-6744a719e1d5/retarget/work/episode_98_aria60.npz",
+        "rows": 210,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "0de59298e77a864261218241e5a107c627c8b3934c561a87fefdb478efeacab0",
+        "rgb_sha256": "b124706de79c48d3190e0562d64f9b7a49d08f1d0a5d124ce59a08a1fbb8c2d9"
+      },
+      {
+        "demo": "demo_40",
+        "tag": "e278aeb0-89a3-47ed-9599-6744a719e1d5",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/e278aeb0-89a3-47ed-9599-6744a719e1d5/retarget/work/episode_98_aria60.npz",
+        "rows": 350,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "dc92321a872470c917de0602ab316ae289357b4d4df4a2f0f66c7e5607eb1fbd",
+        "rgb_sha256": "bf716d1a03bd4978a699eafb1bc4b7f0ba46d3116ac05ee56c36f4d1c99af9e2"
+      },
+      {
+        "demo": "demo_41",
+        "tag": "becab6f4-3031-4c13-aa21-9d023d74339d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/becab6f4-3031-4c13-aa21-9d023d74339d/retarget/work/episode_99_aria60.npz",
+        "rows": 472,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "fa77b52f334a93102f41f9eaba51d78eeb858ceb43814176e42605dc5adb5a02",
+        "rgb_sha256": "cbd5cec184b2c88911611d46eb257f44e34fafcf0ec8d04e9c70bc09e3edf5fe"
+      },
+      {
+        "demo": "demo_42",
+        "tag": "6f91f302-f22b-45cd-b733-90d58ad30654",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/6f91f302-f22b-45cd-b733-90d58ad30654/retarget/work/episode_101_aria60.npz",
+        "rows": 513,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "aeafe19d255e2323667ea4de9424dce1bd8e1b27868db967ba85c317ce3eb934",
+        "rgb_sha256": "3ed671e87b10c4a98352a2d7b204a49fd356538eb7cb8a0116ae8ec51eaf0484"
+      },
+      {
+        "demo": "demo_43",
+        "tag": "db210e19-127e-4e80-a484-bc882f114642",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/db210e19-127e-4e80-a484-bc882f114642/retarget/work/episode_103_aria60.npz",
+        "rows": 469,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "80fa1ad7743317953c7530a1fe2262459edf042554e36b19d49c87f712d38c9c",
+        "rgb_sha256": "4070a35a64a0388f9fa900292c98ea67dbe761e963126dd450bfa778b8ba7148"
+      },
+      {
+        "demo": "demo_44",
+        "tag": "9f198391-1915-4129-a43b-471ba6f1e20c",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/9f198391-1915-4129-a43b-471ba6f1e20c/retarget/work/episode_104_aria60.npz",
+        "rows": 483,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "05d945e0964091be331be3acadc3d1b85b03e79f0c9db76774dec7e799e55d7b",
+        "rgb_sha256": "38656be9b846cd6c5b75cbb45fc4aaaaab799b6016260a2cca5c684c5666f45d"
+      },
+      {
+        "demo": "demo_45",
+        "tag": "a258f9e1-41f7-47cc-a30c-6b09a93f203f",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/a258f9e1-41f7-47cc-a30c-6b09a93f203f/retarget/work/episode_105_aria60.npz",
+        "rows": 541,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "5b3cf5272711cd43fa01cfaf118ae0577640ef2799166f8e60e4e5e14a2cc8bb",
+        "rgb_sha256": "088d3c8c55219795cf31ec6a371130cf83c3f346c54cda3aeb6febe882afd270"
+      },
+      {
+        "demo": "demo_46",
+        "tag": "f2430639-a8c0-46e5-a851-8190634c90c4",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/f2430639-a8c0-46e5-a851-8190634c90c4/retarget/work/episode_106_aria60.npz",
+        "rows": 496,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "eecaf25cb2ed58aecd626135272de941e6cd99425ca32381e4d2c8fba9bac3b6",
+        "rgb_sha256": "4fc61fe72a3144723460007271749d8c06ef5c7df9573261899bccfd370aafeb"
+      },
+      {
+        "demo": "demo_47",
+        "tag": "33350b13-6e54-4912-acab-57cdcc9f4ab1",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/33350b13-6e54-4912-acab-57cdcc9f4ab1/retarget/work/episode_107_aria60.npz",
+        "rows": 538,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "a78f4315eac50c2ea5fb455b4eb9e981a4a774a7cb3c3743ebda79c0275f9cfe",
+        "rgb_sha256": "7ed3cc0343add9e6a5a4756a0c3e427f7f0935e18da09796346c6ce2ef5e0723"
+      },
+      {
+        "demo": "demo_48",
+        "tag": "8bb04566-f34d-4197-bfe1-ff9edc085a3a",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/8bb04566-f34d-4197-bfe1-ff9edc085a3a/retarget/work/episode_108_aria60.npz",
+        "rows": 544,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "9ae4578ec3fbd46cfe7ecb0fd8223005e8711d59be6604c4d50aedafcd070702",
+        "rgb_sha256": "e859c0338d09b15b43700d9e90c65e3569d60b41ade3ff3b4d8b5e8eebe159a5"
+      },
+      {
+        "demo": "demo_49",
+        "tag": "2d330fb8-0f2f-4ec9-baf4-b15b7d59a203",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/2d330fb8-0f2f-4ec9-baf4-b15b7d59a203/retarget/work/episode_109_aria60.npz",
+        "rows": 515,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "353451b274a2f285133721b93e60d317173c300a393f11516c5b02339f1038d0",
+        "rgb_sha256": "3c08c1007bef5fd3da5ff2467965ee22d872c623a315b7a5161dd1790737e9ab"
+      },
+      {
+        "demo": "demo_50",
+        "tag": "7c00dafa-f87d-4fea-aca2-b3d0a28924d5",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/7c00dafa-f87d-4fea-aca2-b3d0a28924d5/retarget/work/episode_110_aria60.npz",
+        "rows": 538,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "5b4c2825cff759e1be6cc66ab020147380db25147a451aac4339f4252f4f1745",
+        "rgb_sha256": "8cf6d735352dabea5d91f9af9b6776c0fcbc8be3460517302422f2f8b7adf88d"
+      },
+      {
+        "demo": "demo_51",
+        "tag": "714f122c-f465-44f2-9260-7c1bcbcebc7c",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/work/episode_66_aria60.npz",
+        "rows": 310,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "973b0f44e390b623b44c58028d418156df70988991c17f2e569052097c50f133",
+        "rgb_sha256": "827127b2d6c88f1da1cfb6f7c54a5690e11b5a9bb901fefdb82c88da1ac839fe"
+      },
+      {
+        "demo": "demo_52",
+        "tag": "75148fc3-ca81-516b-a33b-038c53881cf9",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/work/episode_66_aria60.npz",
+        "rows": 86,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "5ad39c6258f660a9598178d0e22249b0803ce68c7b6373c576fe51f49dad280a",
+        "rgb_sha256": "22f80c48304af9407c1b590bb3d5368443ced94e2837bfea1478fa6fa16b55b0"
+      },
+      {
+        "demo": "demo_53",
+        "tag": "a22c8e7f-0a2a-59f2-be6a-5c9d22076223",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/714f122c-f465-44f2-9260-7c1bcbcebc7c/retarget/work/episode_66_aria60.npz",
+        "rows": 78,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "7d682a63e0627ee7f8b0acbee190dcd98a3c58b852a538f996a464e1f7ec1ab5",
+        "rgb_sha256": "1e6b036c6750d2d6e841669c8fef087d102e994e728f15c74478e2dedc02f900"
+      },
+      {
+        "demo": "demo_54",
+        "tag": "13c14c6e-a2aa-4453-acae-ce5673f045d0",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/13c14c6e-a2aa-4453-acae-ce5673f045d0/retarget/work/episode_82_aria60.npz",
+        "rows": 563,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "2c74d2930445b73848e7dad417efe2e19678ab0aa8ab44858f6e9bae746375e7",
+        "rgb_sha256": "c756fc15067da8495d3f9a33f6df2772824c58155a19631b4ee3f99b5f42d1fa"
+      },
+      {
+        "demo": "demo_55",
+        "tag": "3764961b-b2c4-53d8-8c11-9aa0e04b855d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/8b549038-9e75-4095-829b-7c6b3714bcd3/retarget/work/episode_85_aria60.npz",
+        "rows": 194,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "78376c51015358f327856c3cd2f64e7fc3c733b7bb74a135d7e17a4edf35725a",
+        "rgb_sha256": "482f6aff454c21481f2d9a8a11391e0bd522e535ba2fbf237e08ebd54fa0c782"
+      },
+      {
+        "demo": "demo_56",
+        "tag": "8b549038-9e75-4095-829b-7c6b3714bcd3",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/8b549038-9e75-4095-829b-7c6b3714bcd3/retarget/work/episode_85_aria60.npz",
+        "rows": 434,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "c9bb5582bbdb36607cdf116bd578db8143e9fd4497b565c75e0f6f286c4b1a18",
+        "rgb_sha256": "5e68b5b8c43b9ad952ef2236dc8b6383cf25cd3906e8b529d5d8c190ef44c59a"
+      },
+      {
+        "demo": "demo_57",
+        "tag": "44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba/retarget/work/episode_89_aria60.npz",
+        "rows": 336,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "4020c1f46dfc19ced879d7fc35239de00621173e69f68f701246bf1bca884c2b",
+        "rgb_sha256": "c20da059e1e7e24a7f4cfb61ccaa25414cb4cef5036c84dedf29c6be2a36d271"
+      },
+      {
+        "demo": "demo_58",
+        "tag": "d7adca16-f9ba-5954-bc05-da2d5a8c3916",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba/retarget/work/episode_89_aria60.npz",
+        "rows": 97,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "fabba6702ee345391878cc67d27c60e4f3d19a1814035992bf4c9c2489fd54d2",
+        "rgb_sha256": "13cbb6f6912c1f825eb0189419b1e7b2a175a2ee8d3d6ff47b0da2dc701b79c3"
+      },
+      {
+        "demo": "demo_59",
+        "tag": "90718be7-c6dd-4da1-bbe2-243288095f9d",
+        "source": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/episodes/90718be7-c6dd-4da1-bbe2-243288095f9d/retarget/work/episode_100_aria60.npz",
+        "rows": 588,
+        "timestamp_error_us": 0.0,
+        "tracking_sha256": "81efc348a6c03fe18535c87a836dafb1fe3c1f7bcb8afb754bfda64962af937a",
+        "rgb_sha256": "50c31ba0c526f30772d654ca0dfc3f0fd4e23354afc202196e5be44859168c1c"
+      }
+    ],
+    "training_data_unchanged": true
+  },
+  "cloth-reindex.json": {
+    "files": [
+      {
+        "path": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new50_fix1124_bs/processed/r1_hd2/retargeted/metadata.json",
+        "unchanged_sha256": "0fb8b3493354e2851030ae0d55575499fcf9f2c06fba28f0adf8aa62e01a0403"
+      },
+      {
+        "path": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/datasets/cxin34_cloth_new50_fix1124_bs/releases/r1_hd2/meta/info.json",
+        "unchanged_sha256": "f98567a1b7c0469e729fee267d459f4235c30387abd1a449bd19a953e7626701"
+      }
+    ],
+    "time": 1795663634.2358592,
+    "reason": "Tracking/RGB caches fully written; byte-identical metadata replacement triggers automatic discovery"
+  },
+  "training-progress-verified.json": {
+    "time": 1795663910.002357,
+    "all_advanced": true,
+    "runs": [
+      {
+        "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/finetune",
+        "prior_step": 48000,
+        "current_step": 48400,
+        "mtime": 1795663902.8285968,
+        "advanced": true
+      },
+      {
+        "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/scratch",
+        "prior_step": 66000,
+        "current_step": 66500,
+        "mtime": 1795663897.8347266,
+        "advanced": true
+      },
+      {
+        "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/lora",
+        "prior_step": 50500,
+        "current_step": 50900,
+        "mtime": 1795663905.7345212,
+        "advanced": true
+      },
+      {
+        "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/novfilter",
+        "prior_step": 22200,
+        "current_step": 22500,
+        "mtime": 1795663897.657731,
+        "advanced": true
+      },
+      {
+        "root": "/coc/flash7/scratch/cxin34/egoa-cart107-nola-geoaug-ft-20261125",
+        "prior_step": 43900,
+        "current_step": 44300,
+        "mtime": 1795663898.741703,
+        "advanced": true
+      }
+    ],
+    "squeue": "4871940|RUNNING|29:12|grom\n4871765|RUNNING|1:01:21|bishop\n4871755|RUNNING|1:07:04|grom\n4871936|RUNNING|2:39:48|dynamics\n4871766|RUNNING|1:01:56|bishop\n"
+  },
+  "hdf_summary": {
+    "passed": true,
+    "scanned": 1759,
+    "rewritten": [
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_cloth_new2_h168/processed/r1_hd2/retargeted/cxin34_cloth_new2_h168.hdf5",
+        "external_links": 2640,
+        "old_sha256": "0b9b71190cc64f5eff3246e2096f15a7c6e24cc87ce4d3d023c342600ad8d960",
+        "new_sha256": "740abaa0b6788f5705b19975d87b24cd0b248522282a4c34e01397ddb55ae5cb"
+      },
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_drawer_1125_qc/processed/r1_fix_all145/retargeted/cxin34_drawer_1125_qc.hdf5",
+        "external_links": 6380,
+        "old_sha256": "6f5fdc68f9f994e5b4ed0a0b2f1d29c61c78bf848cffea7bc759b5313851c57e",
+        "new_sha256": "0c3a51a14155bdcab14aa89a37a7b78ce7387165d930433d8eb02a5510f89176"
+      },
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_drawer_1125_qc/processed/r2_fix_bs_all145/retargeted/cxin34_drawer_1125_qc.hdf5",
+        "external_links": 6380,
+        "old_sha256": "bfb30180d4a8d0ed6a15e9ebef67f5a5bff388a3e52f6e7b05659a9f1d988490",
+        "new_sha256": "6345e862d1139cbfc4076f87553baf4d8330265f485309000d868d3688bfda32"
+      },
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_drawer_1125_qc/processed/r3_fix_bs_hd2_pass23/retargeted/cxin34_drawer_1125_qc.hdf5",
+        "external_links": 1012,
+        "old_sha256": "4e0b818ed69a59e200d1d3d5f1e32ea55c9830d82e30a62723750033506f243a",
+        "new_sha256": "9b23d5d5474621e5180233f62e089a71e4da8892ffb49b463538adeeb4bc0d30"
+      },
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_pretrain_basket/processed/r1/retargeted/cxin34_pretrain_basket.hdf5",
+        "external_links": 13992,
+        "old_sha256": "c5e54cc76d999497cc288fe247a31a8628b9d5717144366f21b48e41ebc68f8d",
+        "new_sha256": "d7322487571125766af578cad85d496731bd94e332186608d6690f3e08d515b7"
+      },
+      {
+        "file": "/coc/flash7/czhang883/warp-data/.cxin34-storage/20261125-four-tasks/collections/cxin34_pretrain_cart/processed/r1/retargeted/cxin34_pretrain_cart.hdf5",
+        "external_links": 12804,
+        "old_sha256": "beff9721ce8b88852e7d3cec8f52b7144720de49b9f4beeb37fc5d018ff553cb",
+        "new_sha256": "799bad544ce588d36bfa48d3393065532e15b71a04538cf32bca71a682c602ca"
+      }
+    ],
+    "dependencies": 350,
+    "dependency_bytes": 8616727467,
+    "copied_dependency_bytes": 6582541121
+  },
+  "limits": [
+    "Existing maintainer-owned canonical datasets and their scratch backing paths were not modified",
+    "Live training workspaces outside warp-data remain at their original paths",
+    "Archived .attempt and .staging trees retained at old paths",
+    "No source deletion; originals preserved as hardlinks/files or original-paths backups"
+  ],
+  "original_preservation": {
+    "passed": true,
+    "original_file_records_found_unchanged": 96216,
+    "unresolved": [],
+    "time": 1795664590.1169882
+  },
+  "cloth_display_summary": {
+    "passed": true,
+    "episodes": 60,
+    "rows": 24577,
+    "max_world_error_m": 4.76837158203125e-07,
+    "training_authorized": false,
+    "recipe": {
+      "visualization_only": true,
+      "training_authorized": false,
+      "source": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_new50_fix1124_bs/releases/r1_hd2",
+      "purpose": "Re-express unchanged physical cloud points in post-BS robot frames for Atlas. Not exact model-input coordinates.",
+      "unchanged": "all RGB, action, joints, hand q, base pose, times and cloud colors",
+      "transform": "inv(T_world_cloud_postBS) @ T_world_cloud_preBS; global and each hand independently",
+      "source_tensors_preserved": true
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "task": "cart",
+  "run": "egoa180-cart-fix1124-ft60k-MSCstrong-s42",
+  "source_checkpoint": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/ft/cart/runs/egoa180-cart-fix1124-ft60k-MSCstrong-s42/step_060000.pt",
+  "source_checkpoint_sha256": "8dcbfd2706add08e3ee4c9d6a2ae487a40fc91e0c30cb5ff0190ec0933f57a91",
+  "target_manifest": "/coc/flash7/cxin34/egoa-target-retarget-fix-20261124/ft/cart/releases/cart/target.json",
+  "step": 60000,
+  "seed": 42,
+  "train_recordings": 30,
+  "valid_recordings": 10,
+  "port": 8282,
+  "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+  "training_config_sha256": "3d0260e71463c0450fa30dd3799f6b2988e678a90b23952fe55d1a89dd356395",
+  "gaze_source": "/coc/flash7/cxin34/egoa180-cart-MSCstrong-FT10k-robotpc-20261123/gaze",
+  "gaze_retrained": false,
+  "gaze_sha256": {
+    "gaze_heat7_cart_m2.pt": "13fe28b022f84875feade59d5a50f23f7cd5eeac4f26fb7c78f93557f8229515",
+    "gaze_heat7_cart_m3.pt": "d21d09a77d11cd2aa9c4995d4830a6723e0de4533bec0f22eec1840f4d277505",
+    "gaze_heat7_cart_m1.pt": "d33f82df8157dcb6c3346c2f9dd126d1eabc1b474ecb11771fde297bac82890c",
+    "gaze_heat7_cart_m0.pt": "87b172722eb759f142bff2f873b387d76a4a460327f9335ced2498eed7882282",
+    "gaze_heat7_cart_m4.pt": "acd919ec8ecf2d049a154af9542f9129695077f1419bd9ee42bf024a94a1b234",
+    "gaze_heat7_cart_m5.pt": "47f3d17ac51ab10bba7eaf138133642feb71551bd65f58a767edd900d3f81b55"
+  },
+  "geometry": "Refit camera and native circular reset on corrected target training recordings only",
+  "hardware_not_tested": true,
+  "package": "/coc/flash7/cxin34/egoa180-cart-fix-FT60k-robotpc-20261124",
+  "preset": "TGZ10HD2",
+  "look_at": false,
+  "camera_file": "virtual_cam_cart_1102.npz",
+  "geometry_reused_from": "/coc/flash7/cxin34/egoa180-cart-fix-FT10k-robotpc-20261124"
+}

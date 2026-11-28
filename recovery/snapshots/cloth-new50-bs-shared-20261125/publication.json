@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "shared_release": "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_new50_fix1124_bs/releases/r1_hd2",
+  "shared_collection": "/coc/flash7/czhang883/warp-data/collections/cxin34_cloth_new50_fix1124_bs",
+  "physical_release": "/coc/flash7/scratch/cxin34/warp-data/datasets/cxin34_cloth_new50_fix1124_bs/releases/r1_hd2",
+  "episodes": 60,
+  "recordings": 43,
+  "rows": 24577,
+  "train_recordings": 38,
+  "valid_recordings": 5,
+  "arrays_sha_verified": 900,
+  "all_loader_rows": [
+    {
+      "split": "train",
+      "rows": 21891,
+      "passed": true
+    },
+    {
+      "split": "valid",
+      "rows": 2686,
+      "passed": true
+    }
+  ],
+  "permission_paths": 1100,
+  "group": "coc-skynet-access",
+  "source_unchanged": true,
+  "source_manifest_sha256": "f675e7a9471f67964cdff4d4e9c1c73bebfc5beb3fbc83df352019a3b174d561",
+  "visualizer_playback_verified": false,
+  "publication": "New namespaced directory symlinks only; existing shared directories/data unchanged"
+}

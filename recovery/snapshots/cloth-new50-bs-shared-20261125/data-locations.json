@@ -1,0 +1,13 @@
+{
+  "cart": [
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs"
+  ],
+  "basket": [
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs"
+  ],
+  "cloth": [
+    "/coc/flash7/czhang883/warp-data/datasets/cxin34_cloth_new50_fix1124_bs/releases/r1_hd2"
+  ]
+}

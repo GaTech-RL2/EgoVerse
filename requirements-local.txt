@@ -1,0 +1,19 @@
+# Local model/loader verification. CUDA production dependencies remain separate.
+torch==2.6.0
+torchvision==0.21.0
+numpy
+hydra-core
+einops
+timm
+transformers==4.57.3
+scipy
+h5py
+mujoco
+pytest
+pytorch-kinematics
+opencv-python
+termcolor
+huggingface-hub
+pandas
+pyarrow
+overrides

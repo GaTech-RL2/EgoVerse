@@ -52,9 +52,16 @@ class PatchPointEncoder(nn.Module):
         vote_slice: tuple = (0, 3),
         vote_r_pos: float = 0.30,
         vote_r_neg: float = 0.45,
+        segments=None,
         **kwargs,
     ) -> None:
         super().__init__()
+        # segments (11-02 hand-dense cart cloud): [[n_points, n_groups], ...] = fixed point segments of the input cloud (e.g.
+        # [[512, 16], [512, 16], [1024, 32]] = right-hand ball, left-hand ball, scene); the patch centres (FPS) and their K nearest
+        # points are chosen within each segment, so a dense segment gets its own share of patches. Default None = one segment.
+        self.segments = [(int(n), int(g)) for n, g in segments] if segments else None
+        if self.segments:
+            assert sum(n for n, _ in self.segments) == num_points and sum(g for _, g in self.segments) == num_groups, segments
         self.output_dim = output_dim
         self.num_points = num_points
         self.in_dim = in_dim
@@ -129,9 +136,20 @@ class PatchPointEncoder(nn.Module):
             pc = torch.cat([pc[..., :3], (pc[..., 3:6] * gain).clamp(0.0, 1.0)], -1)
         xyz = pc[..., :3]
         with torch.no_grad():
-            cidx = fps_pytorch(xyz, self.num_groups)                                    # (BF, G)
-            centres = torch.gather(xyz, 1, cidx.unsqueeze(-1).expand(-1, -1, 3))        # (BF, G, 3)
-            knn = torch.cdist(centres, xyz).topk(self.group_size, largest=False).indices  # (BF, G, K)
+            # getattr: checkpoints unpickle whole modules, so encoders saved before 11-02 have no `segments` (robot laptop agent, 11-03)
+            segments = getattr(self, "segments", None)
+            if segments:
+                cs, ks, s0 = [], [], 0
+                for n, g in segments:
+                    sx = xyz[:, s0:s0 + n]
+                    ci = fps_pytorch(sx, g)
+                    ce = torch.gather(sx, 1, ci.unsqueeze(-1).expand(-1, -1, 3))
+                    cs.append(ce); ks.append(torch.cdist(ce, sx).topk(self.group_size, largest=False).indices + s0); s0 += n
+                centres, knn = torch.cat(cs, 1), torch.cat(ks, 1)                         # (BF, G, 3), (BF, G, K)
+            else:
+                cidx = fps_pytorch(xyz, self.num_groups)                                    # (BF, G)
+                centres = torch.gather(xyz, 1, cidx.unsqueeze(-1).expand(-1, -1, 3))        # (BF, G, 3)
+                knn = torch.cdist(centres, xyz).topk(self.group_size, largest=False).indices  # (BF, G, K)
         C = pc.shape[-1]
         grp = torch.gather(pc.unsqueeze(1).expand(-1, self.num_groups, -1, -1), 2,
                            knn.unsqueeze(-1).expand(-1, -1, -1, C))                     # (BF, G, K, C)

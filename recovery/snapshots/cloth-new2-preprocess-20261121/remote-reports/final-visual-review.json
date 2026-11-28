@@ -1,0 +1,61 @@
+{
+  "passed": true,
+  "manifest_sha256": "7935c476677e8bad491640d582eab283a6a27b9ba29896eea09facdaf2d79650",
+  "files": [
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take1.png",
+      "sha256": "4666a2296f08db70f4888f96e085a6b9da25a1826ffb3d5ab16b7d84e2ac2b7f"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take16.png",
+      "sha256": "1a6cb61dfbe9d0de0cd718f2ce4708ecd1e07d208387da1aa24e615c6681b659"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take3.png",
+      "sha256": "4b84fcf19b058302ae309fee315fcb17fa10f38fe1cefb6838fd31f3e9da11cb"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take39.png",
+      "sha256": "3b4747c7f81ad41f7ebd3af90f77efab4626680292eaf8ae8d259076d52dc03d"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take43.png",
+      "sha256": "8e69ac3a276bace220c6a48ef688b772b7354d288188c2dda3019ab55eb37398"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take5.png",
+      "sha256": "8c5177de192e04ab93594cb18c05870378910a52eea0769e8e1cb7871afeab2f"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/geometry_take60.png",
+      "sha256": "a1e119b649f070f12883e8fe7831a8a7b52f6fd55acb3f7daa04b84c08baae94"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/rgb_0.png",
+      "sha256": "8a291185036b92ae055352c79d90e1c763471d18750f3297edb73fb34c9941df"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/rgb_1.png",
+      "sha256": "ebb9836895ec0da6fac0ee2a87641c908138618aa225d0d8ad3592ded8ad31c7"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/rgb_2.png",
+      "sha256": "96171bdf5af7a2ef0409f7f935e9fd18cee896dd4981ccc2304c6512d998f3cf"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/rgb_3.png",
+      "sha256": "e2dc1b550bc389ec900c83e3d7e79237dbdb59af4046504df19458baa8c4e0c0"
+    },
+    {
+      "file": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/reports/visual/rgb_4.png",
+      "sha256": "20e9065b99739e3b13a229d741c8dee198d9e4be6909bd08e86912944a2f11e3"
+    }
+  ],
+  "observations": [
+    "Reviewed start/middle/end RGB sheets for all 59 admitted recordings: upright cloth/rack/basket scenes, no blank frames in inspected samples.",
+    "Reviewed three-cloud, stereo RGB/depth and arm-joint plots for takes 1,3,5,16,39,43,60: nonempty geometric structure, aligned object silhouettes, continuous joint curves.",
+    "Validity-window filtering means some takes retain partial demonstrations (e.g. 17,19,20,21,36); admission certifies usable windows, not complete task success.",
+    "Point clouds are sparse with hand-grey regions per configured recipe; no dense reconstruction claim.",
+    "Take25 excluded by original retarget QC; no thresholds relaxed."
+  ]
+}

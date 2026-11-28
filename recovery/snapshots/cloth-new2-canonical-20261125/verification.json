@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "recordings": 165,
+  "files": 1815,
+  "bytes": 39208612164,
+  "excluded_takes": [
+    123,
+    132,
+    152,
+    157,
+    160
+  ],
+  "old_sources_retained": true,
+  "sha256_verified": true,
+  "files_manifest": "file-integrity.json"
+}

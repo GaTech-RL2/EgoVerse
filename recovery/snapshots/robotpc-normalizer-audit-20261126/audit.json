@@ -1,0 +1,90 @@
+{
+  "robot_access": false,
+  "policy_inference_run": false,
+  "bundles": [
+    {
+      "name": "cart_B180_msc_cone_bs_FT10k",
+      "normalizer_sha256": "8b04560000279d363f22eaf9ddb2d9a76ff2960f3aed6e8e55ad914efa78335e",
+      "checkpoint_identity_and_buffers_match": true,
+      "yaw_center_rad": 0.021663665771484375,
+      "yaw_scale_rad": 0.2730485796928406,
+      "yaw_sparse_fallback": true,
+      "zero_yaw_normalized": -0.07933996617794037,
+      "normalization_roundtrip_max_error": 1.862645149230957e-09,
+      "normalized_error_001_physical_deg": 0.15644529461860657,
+      "fixture_outputs_not_rollout_outputs": [
+        {
+          "case": 0,
+          "mean_yaw_rad": -0.0006032333476468921,
+          "yaw_sum_deg": -2.2120141983032227,
+          "rtc_frozen_prefix_max_error": 0.0
+        },
+        {
+          "case": 1,
+          "mean_yaw_rad": -0.0013534032041206956,
+          "yaw_sum_deg": -4.962834358215332,
+          "rtc_frozen_prefix_max_error": 0.0
+        },
+        {
+          "case": 2,
+          "mean_yaw_rad": -0.004352666437625885,
+          "yaw_sum_deg": -15.960922241210938,
+          "rtc_frozen_prefix_max_error": 0.0
+        }
+      ]
+    },
+    {
+      "name": "cart_B180_msc_ball_bs_FT10k",
+      "normalizer_sha256": "8b04560000279d363f22eaf9ddb2d9a76ff2960f3aed6e8e55ad914efa78335e",
+      "checkpoint_identity_and_buffers_match": true,
+      "yaw_center_rad": 0.021663665771484375,
+      "yaw_scale_rad": 0.2730485796928406,
+      "yaw_sparse_fallback": true,
+      "zero_yaw_normalized": -0.07933996617794037,
+      "normalization_roundtrip_max_error": 1.862645149230957e-09,
+      "normalized_error_001_physical_deg": 0.15644529461860657,
+      "fixture_outputs_not_rollout_outputs": [
+        {
+          "case": 0,
+          "mean_yaw_rad": -0.0019553217571228743,
+          "yaw_sum_deg": -7.170027256011963,
+          "rtc_frozen_prefix_max_error": 0.0
+        },
+        {
+          "case": 1,
+          "mean_yaw_rad": -0.0015408002072945237,
+          "yaw_sum_deg": -5.65000581741333,
+          "rtc_frozen_prefix_max_error": 0.0
+        },
+        {
+          "case": 2,
+          "mean_yaw_rad": -0.0035706968046724796,
+          "yaw_sum_deg": -13.093494415283203,
+          "rtc_frozen_prefix_max_error": 0.0
+        }
+      ]
+    }
+  ],
+  "latest_rollout": "/home/aloha/RB_Y1_workspace/rollout_logs/cart_B180_msc_cone_bs_FT10k_bgobs_20261126_001423",
+  "saved_observations": 12,
+  "recorded_action_or_odometry": false,
+  "observed_proprio": [
+    {
+      "key": "state_robot0_joint_pos",
+      "max_abs_normalized": 1.604533587974972,
+      "dims_outside_unit": [
+        1,
+        2,
+        15,
+        19
+      ],
+      "finite": true
+    },
+    {
+      "key": "state_eef_pose_glass",
+      "max_abs_normalized": 0.9339699365492715,
+      "dims_outside_unit": [],
+      "finite": true
+    }
+  ]
+}

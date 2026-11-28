@@ -1,0 +1,176 @@
+{
+  "passed": true,
+  "members": [
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 42,
+      "best_epoch": 9,
+      "train_loss": 0.04071588957538971,
+      "sha256": "f9bef246441fe79649964763d54eb9d6e4bb400583591fa4e5299313efb17ace",
+      "validation": {
+        "median": 1.7094858616552093,
+        "p90": 3.67651346943408,
+        "mean": 2.093736516663512,
+        "n": 2267
+      }
+    },
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 43,
+      "best_epoch": 7,
+      "train_loss": 0.04496890225280554,
+      "sha256": "1e54b399c9e188d885b67b49a9ab7ff6d231dabe3d26eb52516133019decd99a",
+      "validation": {
+        "median": 1.7911545158488542,
+        "p90": 3.7399965689953114,
+        "mean": 2.128420778375186,
+        "n": 2267
+      }
+    },
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 44,
+      "best_epoch": 18,
+      "train_loss": 0.04765028492189371,
+      "sha256": "23eaab0f96f1f1edbc94c8055d61769f1a4668b3209075251f4dac80e04c5ecd",
+      "validation": {
+        "median": 1.839269781656049,
+        "p90": 3.896806991419845,
+        "mean": 2.1529162127821317,
+        "n": 2267
+      }
+    },
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 45,
+      "best_epoch": 1,
+      "train_loss": 0.04325218369754461,
+      "sha256": "80a12c11e028e1362b072d812590935ccdd8f4bbfcb59ab889ee9998d0da0cd0",
+      "validation": {
+        "median": 1.659518286592745,
+        "p90": 4.111023554019134,
+        "mean": 2.159475728098297,
+        "n": 2267
+      }
+    },
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 46,
+      "best_epoch": 1,
+      "train_loss": 0.05380107424198053,
+      "sha256": "f8321471b801b92f1d3a2e031285d67548bee058a0e600d93e4ef60783c9f32e",
+      "validation": {
+        "median": 1.6610144972820646,
+        "p90": 4.321915356077131,
+        "mean": 2.180083933438634,
+        "n": 2267
+      }
+    },
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 47,
+      "best_epoch": 14,
+      "train_loss": 0.045273659731715155,
+      "sha256": "a44bf130f223350626ca6d28457a082ab4c8d35da56194c8776d5314d686b030",
+      "validation": {
+        "median": 1.732985773733138,
+        "p90": 3.9477164346862392,
+        "mean": 2.1070172905840057,
+        "n": 2267
+      }
+    }
+  ],
+  "validation": {
+    "median": 1.6553900434698896,
+    "p90": 3.6405339163987156,
+    "mean": 1.9862457836340803,
+    "n": 2267
+  },
+  "center_baseline": {
+    "median": 11.232856761014501,
+    "p90": 17.985629636655034,
+    "mean": 11.548359532077098,
+    "n": 2267
+  },
+  "validation_scope": "Five held-out original recordings used for checkpoint selection; no independent test set or robot validation.",
+  "split_sha256": "7916d9d4e07bd0909e6ab77a2225d05f1f12758b77e228c375434ed9c0a43090",
+  "per_recording": [
+    {
+      "key": "cloth_new2:000001",
+      "validation": {
+        "median": 2.0285684351111,
+        "p90": 3.6444554154900493,
+        "mean": 2.108626510884394,
+        "n": 423
+      },
+      "center_baseline": {
+        "median": 12.993941279164716,
+        "p90": 24.268460141745066,
+        "mean": 14.511831559742204,
+        "n": 423
+      }
+    },
+    {
+      "key": "cloth_new2:000006",
+      "validation": {
+        "median": 1.3595936099007309,
+        "p90": 4.347272372429463,
+        "mean": 1.9545176193037848,
+        "n": 297
+      },
+      "center_baseline": {
+        "median": 13.602175108923426,
+        "p90": 19.622774328848326,
+        "mean": 14.437868563045683,
+        "n": 297
+      }
+    },
+    {
+      "key": "cloth_new2:000014",
+      "validation": {
+        "median": 1.2692922835052043,
+        "p90": 5.856532393087598,
+        "mean": 1.9642600376908759,
+        "n": 361
+      },
+      "center_baseline": {
+        "median": 9.839240673655555,
+        "p90": 14.298766192036505,
+        "mean": 9.834088896693691,
+        "n": 361
+      }
+    },
+    {
+      "key": "cloth_new2:000047",
+      "validation": {
+        "median": 1.4412616683770052,
+        "p90": 2.803632010416064,
+        "mean": 1.6587780576399938,
+        "n": 619
+      },
+      "center_baseline": {
+        "median": 12.264246275964805,
+        "p90": 17.526089076767143,
+        "mean": 11.934404650590894,
+        "n": 619
+      }
+    },
+    {
+      "key": "cloth_new2:000056",
+      "validation": {
+        "median": 2.1828601598551787,
+        "p90": 3.6229721867378073,
+        "mean": 2.283063409480732,
+        "n": 567
+      },
+      "center_baseline": {
+        "median": 8.31043548402478,
+        "p90": 12.180520346564583,
+        "mean": 8.493962567550392,
+        "n": 567
+      }
+    }
+  ],
+  "deployment_name": "cloth_new2",
+  "robot_camera_accuracy": "not measured; human validation only"
+}

@@ -1,0 +1,19 @@
+{
+  "time": 1795561885.8302789,
+  "job": 4855714,
+  "queue": "4855714|RUNNING|5:59|optimistprime|egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42\n",
+  "formal_started": true,
+  "latest_formal_metrics": {
+    "step": 100,
+    "loss": 1.7201192378997803,
+    "action": 0.2570675015449524,
+    "aux": 1.4630517959594727,
+    "consistency": 0.0
+  },
+  "smoke_passed": true,
+  "smoke_step": 200,
+  "full_validation_rows": 2686,
+  "manifest_sha256": "dbad0de3efbca9b0adb78ef0d9a3ad9be642ea0b52daf1e10d00205928819fbf",
+  "old_artifacts_unchanged": true,
+  "old_jobs_not_modified": true
+}

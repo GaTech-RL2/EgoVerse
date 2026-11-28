@@ -1,0 +1,12 @@
+{
+  "uuid": "16484b09-1582-40e9-8e29-398d2af12647",
+  "task": "cloth_new2",
+  "recording_id": "16484b09-1582-40e9-8e29-398d2af12647",
+  "rows": 613,
+  "seconds": 10.199999999999989,
+  "passed": true,
+  "episode_metadata_sha256": "c024b1758b6453e87dff94f2e242faf888e74122cea0628c5136b8df916e35ec",
+  "job_id": "4827008",
+  "training_release_ready": false,
+  "visual_review_pending": true
+}

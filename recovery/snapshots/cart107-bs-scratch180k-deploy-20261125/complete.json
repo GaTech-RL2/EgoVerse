@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "package": "/coc/flash7/cxin34/cart107-la-fix1124-bs-scratch180k-MSCstrong-robotpc-20261125",
+  "run": "cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+  "step": 180000,
+  "job_id": "4871480",
+  "source_checkpoint_sha256": "28ef10b10840dd047f62c89e87ac5ee6d05b6789ea8496f212fea86d1a11e46e",
+  "portable_checkpoint_sha256": "99a8804d695e6acab91c56f6a767ae677852a00e8237ff599d6a759ceff897b2",
+  "normalizer_sha256": "e642ee7e399a2c7cae37bd037ea227b9ed715f9e2d27a1b446e6b7b42f7f4bea",
+  "ordinary_rtc_max_error": 0.0,
+  "camera_validation": {
+    "translation_cm_median": 1.58275867964385,
+    "translation_cm_p90": 4.554354122182343,
+    "rotation_deg_median": 3.1778441106021504,
+    "rotation_deg_p90": 6.875834521360921
+  },
+  "train_recordings": 97,
+  "valid_recordings": 10,
+  "geometry_refit": false,
+  "hardware_tested": false,
+  "files": 696,
+  "bytes": 597110500
+}

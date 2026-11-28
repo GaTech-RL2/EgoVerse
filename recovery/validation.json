@@ -1,0 +1,97 @@
+{
+  "passed": true,
+  "network_used": false,
+  "hardware_used": false,
+  "production_training_run": false,
+  "checks": [
+    {
+      "name": "recovered_file_integrity",
+      "passed": true,
+      "files": 536,
+      "mismatches": []
+    },
+    {
+      "name": "python_syntax",
+      "passed": true,
+      "files": 244,
+      "errors": []
+    },
+    {
+      "name": "behavior_tests",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 1.667,
+      "log": "recovery/runtime/behavior_tests.log"
+    },
+    {
+      "name": "model_ABCD",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 5.037,
+      "log": "recovery/runtime/model_ABCD.log"
+    },
+    {
+      "name": "objectives_fk",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.818,
+      "log": "recovery/runtime/objectives_fk.log"
+    },
+    {
+      "name": "paired_transfer_contracts",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 4.912,
+      "log": "recovery/runtime/paired_transfer_contracts.log"
+    },
+    {
+      "name": "gaze_preprocessing",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 0.072,
+      "log": "recovery/runtime/gaze_preprocessing.log"
+    },
+    {
+      "name": "gaze_model",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 4.974,
+      "log": "recovery/runtime/gaze_model.log"
+    },
+    {
+      "name": "train_help",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.061,
+      "log": "recovery/runtime/train_help.log"
+    },
+    {
+      "name": "train_lora_help",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.115,
+      "log": "recovery/runtime/train_lora_help.log"
+    },
+    {
+      "name": "train_cloth_help",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.051,
+      "log": "recovery/runtime/train_cloth_help.log"
+    },
+    {
+      "name": "train_rgb_help",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 2.073,
+      "log": "recovery/runtime/train_rgb_help.log"
+    },
+    {
+      "name": "deployed_checkpoint",
+      "passed": true,
+      "exit_code": 0,
+      "seconds": 3.195,
+      "log": "recovery/runtime/deployed_checkpoint.log"
+    }
+  ]
+}

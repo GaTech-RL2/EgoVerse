@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "normalizer_frozen": true,
+  "retarget_verified": true,
+  "manifests": {
+    "target": "7935c476677e8bad491640d582eab283a6a27b9ba29896eea09facdaf2d79650"
+  },
+  "normalizer_sha256": "f0f552ef854fa76b7d77826115981d4a0f5cd741039c2dfd6d404a450f481e6b",
+  "normalizer_fit_partition": "target_train",
+  "recording_hz": 60,
+  "horizon_rows": 64,
+  "dino_offset_rows": 10,
+  "visual_review_passed": true,
+  "visual_review_sha256": "05e9479cd041bdf1f8c7251b08d050a0ba91becd7aa11a252463f3f2b3b8129e",
+  "release_audit_sha256": "52332c7fefc9e11f622ed3cfeda2d7467e3355b1818ef74da4d470d8bab6058d",
+  "train_recordings": 49,
+  "valid_recordings": 10,
+  "train_rows": 22225,
+  "valid_rows": 4764
+}

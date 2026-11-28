@@ -1,0 +1,7 @@
+{
+  "values_equal": true,
+  "metadata_equal": true,
+  "strict_equal": false,
+  "disk_field": "pyarrow.Field<obs.robot0_joint_pos: fixed_size_list<element: float>[26]>",
+  "constructed_field": "pyarrow.Field<obs.robot0_joint_pos: fixed_size_list<item: float>[26]>"
+}

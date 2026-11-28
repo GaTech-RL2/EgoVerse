@@ -40,6 +40,9 @@ class DenoisingPolicy(nn.Module):
         # compute_loss also stashes per-block detached losses for logging.
         self.loss_block_slices = kwargs.get("loss_block_slices", None)
         self.last_block_losses = None
+        # Optional {block_name: [start, end, weight]} over the action dim (2026-10-30 base-loss test): the flow MSE becomes
+        # sum_d w_d mse_d / sum_d w_d, unlisted dims weight 1. Training only; a plain attribute, so state_dict is unchanged.
+        self.loss_dim_weights = kwargs.get("loss_dim_weights", None)
 
         if not infer_ac_dims:
             raise ValueError("infer_ac_dims must be a non-empty dict")
@@ -97,7 +100,14 @@ class DenoisingPolicy(nn.Module):
         """
         Computes loss, function to override for stuff like adaptive loss weighting
         """
-        return F.mse_loss(pred, target)
+        if not self.loss_dim_weights:
+            return F.mse_loss(pred, target)
+        D = pred.shape[-1]
+        w = torch.ones(D, device=pred.device, dtype=torch.float32)   # rebuilt per call: no device tensor in the pickled head
+        for a, b, wt in self.loss_dim_weights.values():
+            w[int(a):int(b)] = float(wt)
+        per_dim = ((pred.float() - target.float()) ** 2).reshape(-1, D).mean(0)
+        return (per_dim * w).sum() / w.sum()
 
     def preprocess_compute_loss(self, global_cond, data):
         if self.pooling == "mean":

@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "run": "cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+  "checkpoint_sha256": "0bad3ba3b9b150f8ecafadc1fca50b417d8f1f8679e1176a3820c7b2d8f2d8a5",
+  "step": 200,
+  "identity": {
+    "config_sha256": "4e7a51c6e490d7e248f54b532cb7285cbcc439be78b04dc79623751ff04c2d12",
+    "normalizer_sha256": "e642ee7e399a2c7cae37bd037ea227b9ed715f9e2d27a1b446e6b7b42f7f4bea",
+    "manifest_sha256": "c80ad0a03bf369ce39485468eb0715a92826992a7e36d720a90f5667a9e2530d",
+    "code_sha256": "38bc34d079d2bee4fe47d22627e6c1f6d0a218f9931a72cb6a1f827021e24d49"
+  },
+  "scheduler_T_max": 180000,
+  "full_validation": {
+    "step": 200,
+    "full": true,
+    "rows": 3027,
+    "action": 3.198287371010681,
+    "aux": 1.545935947508319
+  },
+  "initialization": "scratch",
+  "no_parent_weights": true,
+  "initial_parameter_sha256": "a9cd5e17b505480373ef976f00297ef6ee7aa04c02248f2a1a2d5854e8e9c544",
+  "arm": "B",
+  "mean_consistency": 0.0
+}

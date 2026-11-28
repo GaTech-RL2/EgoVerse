@@ -1,0 +1,27 @@
+[
+  {
+    "passed": true,
+    "package": "/coc/flash7/cxin34/egoa180-cart-fix-FT60k-robotpc-20261124",
+    "task": "cart",
+    "step": 60000,
+    "run": "egoa180-cart-fix1124-ft60k-MSCstrong-s42",
+    "port": 8282,
+    "job_id": "4855697",
+    "source_checkpoint_sha256": "8dcbfd2706add08e3ee4c9d6a2ae487a40fc91e0c30cb5ff0190ec0933f57a91",
+    "portable_checkpoint_sha256": "fd07625b17d385d8d9fc6c56edf8af337ed4e7a12c0bcb86198596d34fd280ba",
+    "ordinary_rtc_max_error": 0.0,
+    "camera_validation": {
+      "translation_cm_median": 1.6426730805386254,
+      "translation_cm_p90": 4.264506844056616,
+      "rotation_deg_median": 1.1009362985184186,
+      "rotation_deg_p90": 3.684458695706169
+    },
+    "train_only_geometry": true,
+    "look_at": false,
+    "hardware_tested": false,
+    "robotpc_client_checked": false,
+    "files": 686,
+    "bytes": 596462303,
+    "checksum_manifest_sha256": "4f89bc593a5e4c94fc1b63eecb47995bec82c95baf6fff8c726fbb4c7359d1b9"
+  }
+]

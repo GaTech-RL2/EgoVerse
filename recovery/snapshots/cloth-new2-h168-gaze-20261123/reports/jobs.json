@@ -1,0 +1,11 @@
+{
+  "prepare": "4844390",
+  "geometry": "4844416",
+  "first": "4844392",
+  "members": "4844393",
+  "final": "4844394",
+  "gpu_cap": 2,
+  "first_seed_reused": true,
+  "formal_policy_training_changed": false,
+  "geometry_attempt0": "4844391"
+}

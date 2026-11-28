@@ -1,0 +1,10 @@
+{
+  "reason": "q22 input was float32 in vectorized fit/check, native predictor explicitly casts float64; parity discrepancy max1.05e-8m. Cast fitting input float64 as original Basket fitter. Quality gates unchanged.",
+  "failed_job": "4844391",
+  "preserved": [
+    "reports/build_assets.attempt0.py",
+    "reports/virtual_cam_cloth_new2.attempt0.npz",
+    "logs/geometry-4844391.log"
+  ],
+  "new_sha256": "195a5fbbb185834816600d0f7a5e649fe7156e986b613ba405e395c9ec7908a2"
+}

@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "path": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/assets",
+  "archive": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/cloth-new2-h168-rollout-assets-20261123.tar.gz",
+  "archive_sha256": "93ca529058d4d6cb134cd90874233f65e77529602e8a273bf4fbdbb8b43bcd1a",
+  "files": 14,
+  "gaze_validation": {
+    "median": 1.6553900434698896,
+    "p90": 3.6405339163987156,
+    "mean": 1.9862457836340803,
+    "n": 2267
+  },
+  "camera_validation": {
+    "cloth_new2_native_clamped": {
+      "translation_cm_median": 1.5053074628143728,
+      "translation_cm_p90": 2.756800089288906,
+      "rotation_deg_median": 1.4113209901112789,
+      "rotation_deg_p90": 3.026200464472962
+    },
+    "old_cloth_same_valid": {
+      "translation_cm_median": 8.424842828680555,
+      "translation_cm_p90": 14.293920916233645,
+      "rotation_deg_median": 9.168783961010673,
+      "rotation_deg_p90": 19.525735067744442
+    }
+  },
+  "hardware_executed": false
+}

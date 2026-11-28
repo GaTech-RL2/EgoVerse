@@ -123,6 +123,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
+        # 11-03 (cart round 3): resume from the NEWEST of last.ckpt / last_frequent.ckpt (the frequent one is saved every 10 epochs)
+        _freq = os.path.join(trainer.default_root_dir, "checkpoints", "last_frequent.ckpt")
+        if os.path.isfile(_freq) and (not os.path.isfile(last_ckpt_path) or os.path.getmtime(_freq) > os.path.getmtime(last_ckpt_path)):
+            last_ckpt_path = _freq
         if os.path.isfile(last_ckpt_path):
             log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
             cfg.ckpt_path = last_ckpt_path

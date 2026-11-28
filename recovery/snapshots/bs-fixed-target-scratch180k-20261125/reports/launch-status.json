@@ -1,0 +1,17 @@
+{
+  "created": 1795583899.5505626,
+  "jobs": [
+    {
+      "task": "cart",
+      "run": "cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+      "data_job": "4860704",
+      "train_job": "4860705"
+    },
+    {
+      "task": "basket",
+      "run": "basket113-fix1124-bs-scratch180k-MSCstrong-s42",
+      "data_job": "4860706",
+      "train_job": "4860707"
+    }
+  ]
+}

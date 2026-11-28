@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "source_package": "/coc/flash7/cxin34/egoa180-cart-fix-FT10k-robotpc-20261124",
+  "reason": "Same non-look-at fixed target dataset/split/geometry at10k and60k",
+  "sha256": {
+    "assets/cart_virtual_camera.npz": "0bdd2485859c4c9279122a8d864ea2d2a3add8ba1123dfb5414ed332b4514f7a",
+    "assets/robot.urdf": "5bec9ee288749384a3158ace5f8644719eef9cac1935ed58c3d3ad3b8d2183a7",
+    "assets/virtual_cam_cart_1102.npz": "ed60598f40a17e4df2a490eeb0db63c71a497ad858cdd3d8f3a7f20b7189afce",
+    "assets/reset_pose_c1102.npz": "180531e95956e9f16d2dfc9f67fff31918c482e043eedb31ea6097ec98a3125f",
+    "assets/robot.json": "d89257d0ada36bb2664d25ebe1ba720312684657583979b282e692b1fd51b4d4",
+    "gaze/gaze_heat7_cart_m2.pt": "13fe28b022f84875feade59d5a50f23f7cd5eeac4f26fb7c78f93557f8229515",
+    "gaze/gaze_heat7_cart_m3.pt": "d21d09a77d11cd2aa9c4995d4830a6723e0de4533bec0f22eec1840f4d277505",
+    "gaze/gaze_heat7_cart_m1.pt": "d33f82df8157dcb6c3346c2f9dd126d1eabc1b474ecb11771fde297bac82890c",
+    "gaze/gaze_heat7_cart_m0.pt": "87b172722eb759f142bff2f873b387d76a4a460327f9335ced2498eed7882282",
+    "gaze/gaze_heat7_cart_m4.pt": "acd919ec8ecf2d049a154af9542f9129695077f1419bd9ee42bf024a94a1b234",
+    "gaze/gaze_heat7_cart_m5.pt": "47f3d17ac51ab10bba7eaf138133642feb71551bd65f58a767edd900d3f81b55"
+  },
+  "geometry_audit_sha256": "c0af99e554c25ca6a93b4c8f19d7d06a46b322766e6426f8c15ebedd38f5563e",
+  "native_assets_audit_sha256": "7fb6ad8b89cc4323f680c04495ec64b2a918c93fdae1d9a6d7e0512415952e8b"
+}

@@ -1,0 +1,60 @@
+[
+  {
+    "task": "cart",
+    "run": "egoa180-cart-la-sharedfix1124-ft60k-MSCstrong-s42",
+    "source_checkpoint": "/coc/flash7/cxin34/egoa-shared-fix1124-ft-20261124/cart/runs/egoa180-cart-la-sharedfix1124-ft60k-MSCstrong-s42/step_010000.pt",
+    "source_checkpoint_sha256": "1e31cce673793fd5c3dcd422125143b09b9b160736b877912abf5ce258e9ed54",
+    "target_manifest": "/coc/flash7/cxin34/egoa-shared-fix1124-ft-20261124/cart/releases/cart/target.json",
+    "step": 10000,
+    "seed": 42,
+    "train_recordings": 30,
+    "valid_recordings": 10,
+    "port": 8280,
+    "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+    "training_config_sha256": "2fefce098705ef687bb73c875b6283a00b0cbacb94569a169b77ccdc22b261ba",
+    "gaze_source": "/coc/flash7/cxin34/egoa180-cart-MSCstrong-FT10k-robotpc-20261123/gaze",
+    "gaze_retrained": false,
+    "gaze_sha256": {
+      "gaze_heat7_cart_m4.pt": "acd919ec8ecf2d049a154af9542f9129695077f1419bd9ee42bf024a94a1b234",
+      "gaze_heat7_cart_m5.pt": "47f3d17ac51ab10bba7eaf138133642feb71551bd65f58a767edd900d3f81b55",
+      "gaze_heat7_cart_m1.pt": "d33f82df8157dcb6c3346c2f9dd126d1eabc1b474ecb11771fde297bac82890c",
+      "gaze_heat7_cart_m0.pt": "87b172722eb759f142bff2f873b387d76a4a460327f9335ced2498eed7882282",
+      "gaze_heat7_cart_m2.pt": "13fe28b022f84875feade59d5a50f23f7cd5eeac4f26fb7c78f93557f8229515",
+      "gaze_heat7_cart_m3.pt": "d21d09a77d11cd2aa9c4995d4830a6723e0de4533bec0f22eec1840f4d277505"
+    },
+    "geometry": "Shared fix1124 actual cloud tg transforms; train-only fit",
+    "package": "/coc/flash7/cxin34/egoa180-cart-la-sharedfix1124-FT10k-robotpc-20261124",
+    "preset": "TGZ10HD2",
+    "look_at": true,
+    "camera_file": "virtual_cam_cart_1102_la_sharedfix1124.npz"
+  },
+  {
+    "task": "basket",
+    "run": "egoa180-basket55-sharedfix1124-ft60k-MSCstrong-s42",
+    "source_checkpoint": "/coc/flash7/cxin34/egoa-shared-fix1124-ft-20261124/basket/runs/egoa180-basket55-sharedfix1124-ft60k-MSCstrong-s42/step_010000.pt",
+    "source_checkpoint_sha256": "beefc84701be31d716555933fa8b63c3ac957ec373d09e8019c4918356ee1aec",
+    "target_manifest": "/coc/flash7/cxin34/egoa-shared-fix1124-ft-20261124/basket/releases/basket/target.json",
+    "step": 10000,
+    "seed": 42,
+    "train_recordings": 50,
+    "valid_recordings": 5,
+    "port": 8281,
+    "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+    "training_config_sha256": "736ef7bd36f4c455b600b2f036c1eefcac70056d1d1a88f795fb1917b322d451",
+    "gaze_source": "/coc/flash7/cxin34/egoa180-basket55-FT10k-robotpc-20261123/gaze",
+    "gaze_retrained": false,
+    "gaze_sha256": {
+      "gaze_heat7_basket_m4.pt": "5e6821d81f6003bc688b2c7ba37b0104c26288d30e9b3812a55439547d4254f0",
+      "gaze_heat7_basket_m5.pt": "1503c9a5104a33d4c5d6417fc86b9f7153e740a9e9e1e9129dce9968ac0f0af4",
+      "gaze_heat7_basket_m1.pt": "af504248dca904f7ecd0fe1515d0fadc37bb9b80c9d18ea745610ce060dcf4e4",
+      "gaze_heat7_basket_m0.pt": "d15e1718ce25562dcd713672bdfb73fa7dcb55856d92787032d5af5a086224eb",
+      "gaze_heat7_basket_m2.pt": "968fb189546ac6294fa935730c6c643981fd19d3b9d151157fa5d52722e2c0e8",
+      "gaze_heat7_basket_m3.pt": "0af10ca2a5abf254adb04cc6a0270f143ba0ef41a1b0330fcbc8665dfe969b0e"
+    },
+    "geometry": "Shared fix1124 actual cloud tg transforms; train-only fit",
+    "package": "/coc/flash7/cxin34/egoa180-basket55-sharedfix1124-FT10k-robotpc-20261124",
+    "preset": "TGZ10HD2Z5",
+    "look_at": false,
+    "camera_file": "virtual_cam_basket_sharedfix1124.npz"
+  }
+]

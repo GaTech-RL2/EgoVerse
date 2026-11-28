@@ -1,0 +1,62 @@
+{
+  "scope": "Frozen normalizer comparison, NOT a new full-array distribution audit. Current BS FT raw arrays unavailable. Fallback quantile fields contain extrema, not original quantiles.",
+  "results": [
+    {
+      "label": "exact_source_inherited_by_current_FT",
+      "path": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cart-rgb-MSCaug-10k-robotpc-20261120/packages/cart-rgb-v3-robot_r2-B180-ft-MSCaug-s42-step010000/normalizer.json",
+      "sha256": "c2effb5afade0c889eead36ec6dff17ad51243544b0bd9b584325ea6a6b13389",
+      "fit_partition": "source_train",
+      "manifest_sha256": "484cab63d71e15ff9bd4ddc618949b632cf4d248ccff9c69e88004aa73e8c698",
+      "recordings": 262,
+      "yaw": {
+        "center": 0.021663665771484375,
+        "scale": 0.2730485796928406,
+        "min": -0.2513849139213562,
+        "max": 0.29471123218536377,
+        "sparse_fallback": true,
+        "quantile_1": -0.2513849139213562,
+        "quantile_99": 0.29471123218536377
+      },
+      "scale_deg": 15.644531218441282,
+      "source_scale_ratio": 1.0
+    },
+    {
+      "label": "historical_target_20261107",
+      "path": "/Users/chendongxin/Research-RL2/warp/pretraining-report/human-pretraining-hd2-20261107/releases/cart-target-scratch/normalizer.json",
+      "sha256": "501fe43ff454b29fcde4086e48d1714a08174fa221eed3a6a471c42df0d7b4e8",
+      "fit_partition": "target_train",
+      "manifest_sha256": "2425b579375968a5375f740a4094d76d18b6cfb657fc69328e4c3ce5b9a1c7ce",
+      "recordings": 30,
+      "yaw": {
+        "center": 0.0007807565852999687,
+        "scale": 0.010787783190608025,
+        "min": -0.03411253169178963,
+        "max": 0.04158899188041687,
+        "sparse_fallback": false,
+        "quantile_1": -0.010007026605308056,
+        "quantile_99": 0.011567539535462856
+      },
+      "scale_deg": 0.6180944471240131,
+      "source_scale_ratio": 25.31090724279294
+    },
+    {
+      "label": "historical_target_cartall_20261108",
+      "path": "/Users/chendongxin/Research-RL2/warp/pretraining-report/human-pretraining-hd2-cartall-20261108/releases/cart-target-scratch/normalizer.json",
+      "sha256": "df5c4225957aacd87d7b972cf55d03f8dc497f34ee5b82adba30f31779ca80ec",
+      "fit_partition": "target_train",
+      "manifest_sha256": "b241c9f93595543a1827632f6eebef2dc30bcafec86380da8e022820f1d97292",
+      "recordings": 97,
+      "yaw": {
+        "center": 0.0005847476422786713,
+        "scale": 0.010029194876551628,
+        "min": -0.04793645069003105,
+        "max": 0.042137667536735535,
+        "sparse_fallback": false,
+        "quantile_1": -0.009444447234272957,
+        "quantile_99": 0.010612942278385162
+      },
+      "scale_deg": 0.5746305383406369,
+      "source_scale_ratio": 27.225373826490426
+    }
+  ]
+}

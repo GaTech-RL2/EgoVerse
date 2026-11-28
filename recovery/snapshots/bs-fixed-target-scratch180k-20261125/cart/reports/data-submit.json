@@ -1,0 +1,22 @@
+{
+  "time": 1795583898.7589626,
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=48G",
+    "--exclude=hal",
+    "--chdir=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/cart",
+    "--export=ALL,CAMPAIGN_ROOT=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/cart,RUN_ID=cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+    "--time=01:00:00",
+    "--job-name=cart107-la-fix1124-bs-scratch180k-MSCstrong-s42-data",
+    "--output=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/cart/logs/data-%j.log",
+    "/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/cart/scripts/data-audit.sbatch"
+  ],
+  "returncode": 0,
+  "stdout": "4860704\n",
+  "stderr": ""
+}

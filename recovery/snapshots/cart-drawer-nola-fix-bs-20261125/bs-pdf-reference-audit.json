@@ -1,0 +1,36 @@
+{
+  "reference_pdf": "/Users/chendongxin/Desktop/Base_Smoothing.pdf",
+  "pdf_sha256": "b1e491f495438436cceaecb5e790e383b9c327061416ff0c30bfe84994f73222",
+  "canonical_root": "/coc/flash7/czhang883/warp-data/pipelines/base_fix_1124",
+  "algorithm": "fix_straight S",
+  "heading_hz": 0.5,
+  "cross_path_hz": 0.25,
+  "along_path_hz": 0.5,
+  "standing_blend_m": [
+    0.05,
+    0.2
+  ],
+  "hand_gate_cm": {
+    "p999": 1,
+    "max": 2
+  },
+  "source_identical": [
+    "base_headings.py",
+    "gate_basefix.py"
+  ],
+  "builder_difference": "Own import path for same retarget builder; two-pass algorithm unchanged",
+  "additional_fk_audit": "Separate from PDF BS gate; initial heading reconstructed from inputs, unchanged error thresholds",
+  "normalizer_adaptation": {
+    "action": [
+      3,
+      8
+    ],
+    "state_robot0_joint_pos": [
+      0,
+      5
+    ],
+    "target_train_only": true
+  },
+  "observations": "Preserve fixed pre-BS three clouds, DINO and camera-frame hand poses; no post-BS cloud reprojection claim",
+  "cpu_pilot": "Renderer allocation omitted only because video_writer is None; CPU EgoPoser supported, validation still in progress"
+}

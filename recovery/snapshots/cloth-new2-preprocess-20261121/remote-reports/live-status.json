@@ -1,0 +1,24 @@
+{
+  "states": {
+    "STAGED": 59,
+    "QUARANTINED": 1
+  },
+  "active": [],
+  "errors": [],
+  "quarantine": [
+    {
+      "take": 25,
+      "uuid": "df67c535-29e6-4b40-98f4-c3cc22217d72",
+      "job_id": "4826864",
+      "disposition": "QUALITY_QUARANTINED",
+      "time": 1795281541.1152303,
+      "reason": "Original retarget QC rejected this episode; excluded, no retry, thresholds unchanged",
+      "qc_log_sha256": "98b0a1ee99cab6b5593f9ca9d229396cdd7f960fe7229c57d0c0b47f0ae668a1"
+    }
+  ],
+  "accepted": 59,
+  "free_GiB": 475.4,
+  "queue": [
+    "4826513 cxin_new2_release RUNNING walle"
+  ]
+}

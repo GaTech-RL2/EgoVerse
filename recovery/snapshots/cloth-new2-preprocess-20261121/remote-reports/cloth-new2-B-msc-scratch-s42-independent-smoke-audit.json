@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "run": "cloth-new2-B-msc-scratch-s42",
+  "checkpoint_sha256": "ff97641c674d728708dfa0d225eec0b6a7989775500bb6c22d406b73bad11a5c",
+  "step": 200,
+  "identity": {
+    "config_sha256": "eeab3faf38dcd62c1123c16d335cd18aa9e540ae375648f0fc5d16f2c38c4c9d",
+    "normalizer_sha256": "f0f552ef854fa76b7d77826115981d4a0f5cd741039c2dfd6d404a450f481e6b",
+    "manifest_sha256": "7935c476677e8bad491640d582eab283a6a27b9ba29896eea09facdaf2d79650",
+    "code_sha256": "9eae95d10ffc591ae4c607bf24675751e47c8b01a8724dea65cfb66ecd4f5284"
+  },
+  "scheduler_T_max": 180000,
+  "full_validation": {
+    "step": 200,
+    "full": true,
+    "rows": 4764,
+    "action": 2.9092896182831347,
+    "aux": 1.5399826741038403
+  },
+  "initialization": "scratch",
+  "mean_consistency": 0.0
+}

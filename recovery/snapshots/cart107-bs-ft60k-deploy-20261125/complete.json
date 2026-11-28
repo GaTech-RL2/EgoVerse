@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "package": "/coc/flash7/cxin34/egoa180-cart107-la-bs-FT60k-robotpc-20261125",
+  "run": "egoa180-cart107-la-bs-ft60k-MSCstrong-s42",
+  "step": 60000,
+  "job_id": "4869125",
+  "source_checkpoint_sha256": "e851f93e7d4313cdefbe036a3fea6932e25f3e995bff51430084d56a436eccd7",
+  "portable_checkpoint_sha256": "3668bd500803cdc82be503e91c563b653a1bda4ed4422ba7c79d07cf3ab7c7a3",
+  "ordinary_rtc_max_error": 0.0,
+  "camera_validation": {
+    "translation_cm_median": 1.58275867964385,
+    "translation_cm_p90": 4.554354122182343,
+    "rotation_deg_median": 3.1778441106021504,
+    "rotation_deg_p90": 6.875834521360921
+  },
+  "hardware_tested": false,
+  "files": 696,
+  "bytes": 597026186
+}

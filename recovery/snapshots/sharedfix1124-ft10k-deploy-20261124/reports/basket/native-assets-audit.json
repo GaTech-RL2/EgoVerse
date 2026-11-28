@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "gaze_members": 6,
+  "gaze_retrained": false,
+  "gaze_sha256": {
+    "gaze_heat7_basket_m4.pt": "5e6821d81f6003bc688b2c7ba37b0104c26288d30e9b3812a55439547d4254f0",
+    "gaze_heat7_basket_m5.pt": "1503c9a5104a33d4c5d6417fc86b9f7153e740a9e9e1e9129dce9968ac0f0af4",
+    "gaze_heat7_basket_m1.pt": "af504248dca904f7ecd0fe1515d0fadc37bb9b80c9d18ea745610ce060dcf4e4",
+    "gaze_heat7_basket_m0.pt": "d15e1718ce25562dcd713672bdfb73fa7dcb55856d92787032d5af5a086224eb",
+    "gaze_heat7_basket_m2.pt": "968fb189546ac6294fa935730c6c643981fd19d3b9d151157fa5d52722e2c0e8",
+    "gaze_heat7_basket_m3.pt": "0af10ca2a5abf254adb04cc6a0270f143ba0ef41a1b0330fcbc8665dfe969b0e"
+  },
+  "native_gaze_strict_load": true,
+  "gaze_sample_uv": [
+    [
+      121.87667846679688,
+      107.89093017578125
+    ],
+    [
+      121.87667846679688,
+      107.89093017578125
+    ],
+    [
+      121.87667846679688,
+      107.89093017578125
+    ]
+  ],
+  "native_reset_load": true,
+  "native_virtual_camera_parity": true,
+  "native_preview_rows": 3,
+  "hardware_access": false
+}

@@ -1,0 +1,58 @@
+{
+  "status": "FORMAL_RUNNING",
+  "task": "cart",
+  "recordings": 107,
+  "train": 97,
+  "valid": 10,
+  "retarget_fix": true,
+  "base_smoothing": true,
+  "look_at": false,
+  "parent": "EgoVerse180k",
+  "steps": 60000,
+  "seed": 42,
+  "augmentation": {
+    "photometric": {
+      "recipe": "pointcept_msc",
+      "brightness": 0.6,
+      "contrast": 0.6,
+      "saturation": 0.3,
+      "hue": 0.03,
+      "p": 0.8,
+      "color_noise_std": 0.075,
+      "color_noise_p": 0.95,
+      "shared_across_clouds": true,
+      "paired_rng": true,
+      "gamma": false,
+      "consistency_weight": 0.0,
+      "original_encoder_color_jitter_disabled": true
+    },
+    "point_dropout": {
+      "p": 0.8,
+      "global_ratio": [
+        0.05,
+        0.25
+      ],
+      "hand_ratio": [
+        0.05,
+        0.15
+      ],
+      "resample_to_original_count": true,
+      "allow_empty_cloud": false
+    },
+    "xyz_jitter": {
+      "p": 0.8,
+      "std_m": 0.003,
+      "clip_m": 0.009
+    },
+    "grayscale": {
+      "p": 0.1,
+      "shared_across_clouds": true
+    }
+  },
+  "train_only": true,
+  "labels_unchanged": true,
+  "source_release": "independently accepted non-LA fixed+BS tensors",
+  "formal_submission": true,
+  "job_id": "4871755",
+  "root": "/coc/flash7/scratch/cxin34/egoa-cart107-nola-geoaug-ft-20261125"
+}

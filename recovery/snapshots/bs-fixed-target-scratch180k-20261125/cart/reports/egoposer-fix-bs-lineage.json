@@ -1,0 +1,41 @@
+{
+  "passed": true,
+  "releases": [
+    {
+      "release": "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs",
+      "base_smoothing": {
+        "date": "2026-11-24",
+        "fix": "S",
+        "made_from": "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la",
+        "runs": {
+          "fix1124_lookat": "fix1124_bs_lookat"
+        },
+        "by": "pipelines/base_fix_1124/patch_release.py",
+        "what": "base heading = the measured head heading (lag-free 0.5 Hz); base path: sideways sway removed; torso and arms solved against it. Regenerated columns: actions.joint, actions.joint_arm, actions.joint_arm_hand, actions.joint_arm_hand_torso, actions.joint_arm_head, actions.joint_arm_head_torso_base, actions.joint_base_torso, actions.joint_base_torso_head_arm_hand, actions.joint_hands, actions.joint_left_arm, actions.joint_left_arm_hand, actions.joint_right_arm, actions.joint_right_arm_hand, actions.joint_right_arm_hand_torso, obs.hand_left_qpos, obs.hand_right_qpos, obs.left_arm, obs.right_arm, obs.robot0_joint_pos, obs.robot0_joint_pos_no_wheel. Everything else (clouds, eef / gaze in the camera frame, DINO targets, rows) is the source release's.",
+        "overrides_kept": {
+          "actions.joint_arm_head_torso_base": [
+            20,
+            21
+          ]
+        }
+      },
+      "egoposer_recipe": {
+        "as": "r2_wam_hd2 (hd2 recipe, unchanged)",
+        "change": "robot head = 2-DoF look-at at the human's MPS eye gaze (0.5 s smoothed); clouds, eef pose and gaze point re-built in the glass frame of that head; head columns of actions / proprio replaced",
+        "builder": "retarget_fix_rebuild_1124/clouds/real_dp3c_tri_gz_vis_hd2_fix1124.py (cart hd2 crop, TOY_REG=exact)",
+        "head": "retarget_fix_rebuild_1124/cart/g3_lookat_fix1124.py",
+        "retarget_fix": "fix1124: eye mid-point head + measured MPS wrists; scene placed with the retarget's own transform (no wrist fit)"
+      },
+      "upstream_manifest_sha256": "5bcef2b0b09b8bdf76e70a29eacbdc09324e145d28fe7ca93aac8b7b4df36534"
+    }
+  ],
+  "evidence": {
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/releases/cart/target.json": "9e280645c97ed1eb2a1d0e15be9af707aeb3b47a44bdd14e8091d76aa9515ef2",
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/releases/cart/READY.json": "d5e6f241a4bc2d2e4c48091b0ff69f91d008dfedea631ddbef7540c41e1878fd",
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/reports/data-independent-audit.json": "f2828f39e3295287af9642d58468377b1bc9a7dcd09351189ec872438674fa38",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs/source_map.jsonl": "b47bcd46ef4bb9a0a749206fd4052a5427f50e0e8c3a4045ac68c93685cdab13",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_cart_1102/processed/fix1124_bs/retargeted/gate_basefix.json": "20b8cda912ba6afa6f73e154c7c6cf87fd55d13addc9b4b3824132bd39e80a4a",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs/manifest.json": "8e5c0254966f2a6cbacd92edbf317b76cccf93234fe857de38d78f8f119ebf87",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la/manifest.json": "5bcef2b0b09b8bdf76e70a29eacbdc09324e145d28fe7ca93aac8b7b4df36534"
+  }
+}

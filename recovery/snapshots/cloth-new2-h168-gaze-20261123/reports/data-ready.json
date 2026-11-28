@@ -1,0 +1,3326 @@
+{
+  "passed": true,
+  "episodes": [
+    {
+      "uuid": "2d574e35-b294-42ae-bab4-377e2caba868",
+      "take": 1,
+      "key": "cloth_new2:000000",
+      "split": "train",
+      "rows": 627,
+      "cached_rows": 627,
+      "in_image": 627,
+      "gaze_hit": 627,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "633e99e7b01399c270a6946795748f8151680395fa8e898a560f89bfa4c33d4e",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2d574e35-b294-42ae-bab4-377e2caba868/clouds/gaze_center_000000.npy": "263bec779d8736199cde79224943243affd7fbae0ca5d624b2a9a8bb0070c30d",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2d574e35-b294-42ae-bab4-377e2caba868/clouds/camera_transform_000000.npy": "d0286826b16ef5afd6275e7eb2b094c7d3f1a547cce2ae1db3fe3bdfbf592980",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2d574e35-b294-42ae-bab4-377e2caba868/clouds/gaze_hit_000000.npy": "69d0243f17f5e6071afe5f77c830bde126d1b319f39158dda0a2741af1f1749e"
+      },
+      "cache_sha256": "d61d62a7ece7fa84778ca31b1bc86df6eecd3575dcd3736de9f70eb2fd1e8069",
+      "source_rgb_sha256": "723086bd34ff6c41a126bc5379097dda6fe1a016947d146efac3cf5f31816bd3",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2d574e35-b294-42ae-bab4-377e2caba868/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2d574e35-b294-42ae-bab4-377e2caba868/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "2715d179-1f0f-4287-a3d2-67570a2c1e12",
+      "take": 2,
+      "key": "cloth_new2:000001",
+      "split": "valid",
+      "rows": 423,
+      "cached_rows": 423,
+      "in_image": 423,
+      "gaze_hit": 423,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f41b6a5725462c50c05780742cda02dc908f64339028fe71ca743af45637a491",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2715d179-1f0f-4287-a3d2-67570a2c1e12/clouds/gaze_center_000000.npy": "cb163025a996889b5c955124dfe0f38d8534a2780ac10c8c8b7cb3ae693f7ce6",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2715d179-1f0f-4287-a3d2-67570a2c1e12/clouds/camera_transform_000000.npy": "76e78636b6094e37aeea9bddbe32fc5aa6cee601f5e5040777abd8084262feb8",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2715d179-1f0f-4287-a3d2-67570a2c1e12/clouds/gaze_hit_000000.npy": "f5cee73f25204b37cb82d7e944c87ddc1538882f3a7775fbc271587067fc58b8"
+      },
+      "cache_sha256": "0c292f700ee57e3d6d0869f27974eb58cd0ad1a70908207dfe5cfc5c35aa01cf",
+      "source_rgb_sha256": "38cd013ee0ae11641ab0fd55c69a663e18c1b319139bf6a37bd88637b1d98c38",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2715d179-1f0f-4287-a3d2-67570a2c1e12/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2715d179-1f0f-4287-a3d2-67570a2c1e12/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "91e69761-8a62-4e89-8b85-16e80351e2ca",
+      "take": 3,
+      "key": "cloth_new2:000002",
+      "split": "train",
+      "rows": 365,
+      "cached_rows": 365,
+      "in_image": 365,
+      "gaze_hit": 365,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "fc539c11f267d537853e6a1f12ff923893f2661f1c81a600393883d37d2fbcd1",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/91e69761-8a62-4e89-8b85-16e80351e2ca/clouds/gaze_center_000000.npy": "bb401f67d46e5892cfb9a19c80b15e6a3e5fb23ec6ec0ecaf29dacbf19430ff5",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/91e69761-8a62-4e89-8b85-16e80351e2ca/clouds/camera_transform_000000.npy": "5ab0a46e94c7054522b046ff480fa56f3fe9cf38462ad3c6add4cfa66ec02226",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/91e69761-8a62-4e89-8b85-16e80351e2ca/clouds/gaze_hit_000000.npy": "c18434328549ef1dacb525ebee5812bec41a092b2b235877217c5948fc0a7e95"
+      },
+      "cache_sha256": "e9892255c36b87eeb3d97c59250a5e45112d2976864ccfa02e928bfafb267705",
+      "source_rgb_sha256": "2522151340000971b8419f82ef994c76ce00272a99f008dd5acc8850bdd1ef52",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/91e69761-8a62-4e89-8b85-16e80351e2ca/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/91e69761-8a62-4e89-8b85-16e80351e2ca/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "2c8ab90e-81a3-4288-a2cf-49f5424bb3d9",
+      "take": 4,
+      "key": "cloth_new2:000003",
+      "split": "train",
+      "rows": 385,
+      "cached_rows": 385,
+      "in_image": 385,
+      "gaze_hit": 385,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "3ff0188deb4c8481b66e2142894a537bf8b9df60f275a5be48e5f381ddb01d51",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9/clouds/gaze_center_000000.npy": "6c1ada407a9a0af0ceb7b2b9f5efdd907e98e13cf8473defba1ffdc7e28052c5",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9/clouds/camera_transform_000000.npy": "fc4071e466df3a2396bde71e608a1a7dd48192b22d8f488406b91e1b3bd73798",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9/clouds/gaze_hit_000000.npy": "af395af878a5997a61cb6be20d0a4c1c65e4be2c55dbb1e67cf1810f43d75ee9"
+      },
+      "cache_sha256": "36fe803c4b057338e50a53c0e1f541e8262a07d946cd4f339bb12c2feafdb3d5",
+      "source_rgb_sha256": "5848de35ad3a12148449d72a67dfdcea49d89a9c3d5403f8f1944edc0c752456",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "1b393461-c0b8-46ce-a5b0-5abf38540b3e",
+      "take": 5,
+      "key": "cloth_new2:000004",
+      "split": "train",
+      "rows": 349,
+      "cached_rows": 349,
+      "in_image": 349,
+      "gaze_hit": 349,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "8adef103727e631ab896c3ff34085fd2edf99d6db166c907c2ec4482311d0b9f",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/1b393461-c0b8-46ce-a5b0-5abf38540b3e/clouds/gaze_center_000000.npy": "c043bf9ce104c811ebf223d1ec022df39203ad6936933b58002528a55d667c23",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/1b393461-c0b8-46ce-a5b0-5abf38540b3e/clouds/camera_transform_000000.npy": "24b2856e6032926f17df6c2b520f8656696ca93140eb6a4339da7d3c2481af73",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/1b393461-c0b8-46ce-a5b0-5abf38540b3e/clouds/gaze_hit_000000.npy": "767e93d8c97924dde381468c9744ab063a3a715203ed28da1e0fbe4023f0b1eb"
+      },
+      "cache_sha256": "51de096c7382d8b19bc86d7aa7710a5200e8c6d5675defcd00c19b06b61083d1",
+      "source_rgb_sha256": "96243e87d6895fb7a5bc62b900e9c23a0714d2144b89f618d02217b227b8e615",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/1b393461-c0b8-46ce-a5b0-5abf38540b3e/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/1b393461-c0b8-46ce-a5b0-5abf38540b3e/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "621a2b9e-3504-49fe-a395-7d31ddfe8c2d",
+      "take": 6,
+      "key": "cloth_new2:000005",
+      "split": "train",
+      "rows": 406,
+      "cached_rows": 406,
+      "in_image": 406,
+      "gaze_hit": 406,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "fc36b833f49bd8abb29a6c7917d8ab5875159d145f85bad9c0e7fed7e7187888",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/621a2b9e-3504-49fe-a395-7d31ddfe8c2d/clouds/gaze_center_000000.npy": "46b52543e83ebf11720b3090f4437cbc50e939afc4f929a35f8cbbda04d75051",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/621a2b9e-3504-49fe-a395-7d31ddfe8c2d/clouds/camera_transform_000000.npy": "7bf3a29887d451367795e26f0942101ffcff315a339f02530edf6542c3ce5389",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/621a2b9e-3504-49fe-a395-7d31ddfe8c2d/clouds/gaze_hit_000000.npy": "bc5e9560bbbe8dd241acc97967416172494cedd8bc0d068d099d613065cbe21a"
+      },
+      "cache_sha256": "1a09cec21c769e9e300c22eb83870786ff2bc7c6e37d3fa68ff257666853ce9b",
+      "source_rgb_sha256": "36bf1370b23a20aa735d7e4fb3fd89e2449bad86685069425c1ac278da424fe0",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/621a2b9e-3504-49fe-a395-7d31ddfe8c2d/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/621a2b9e-3504-49fe-a395-7d31ddfe8c2d/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "fbb42e0f-e1f4-4b87-b6bf-74e668807540",
+      "take": 7,
+      "key": "cloth_new2:000006",
+      "split": "valid",
+      "rows": 297,
+      "cached_rows": 297,
+      "in_image": 297,
+      "gaze_hit": 297,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "d9758abb22be1c762ea5511030b94c6ae8cf59cdb921b1c4daf173d90a537cd4",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fbb42e0f-e1f4-4b87-b6bf-74e668807540/clouds/gaze_center_000000.npy": "cba9c5077eca445dd7b7e4f09c9887f4d432e878f94608cf00ce9a7d33fa7e01",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fbb42e0f-e1f4-4b87-b6bf-74e668807540/clouds/camera_transform_000000.npy": "000d99edfd62fd85365d82592d24a1b2b9990e8fc66b2b36ff778e9a8d9142ac",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fbb42e0f-e1f4-4b87-b6bf-74e668807540/clouds/gaze_hit_000000.npy": "52c6307505e263e4bf88c0697a23fca4e95f1124f66b10ba3338f53d4e9428c0"
+      },
+      "cache_sha256": "253a30c7a1f02b4f36f921fc1d74f428345cbf0accf0f31d3baef25762e9b26f",
+      "source_rgb_sha256": "37492a48a68cfcb94925c74cdc04d063deb5307f4a6ce438f8e2f9f431157cc6",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fbb42e0f-e1f4-4b87-b6bf-74e668807540/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fbb42e0f-e1f4-4b87-b6bf-74e668807540/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "4600f336-56e1-4565-bc2e-eb4c3532b8a4",
+      "take": 8,
+      "key": "cloth_new2:000007",
+      "split": "train",
+      "rows": 345,
+      "cached_rows": 345,
+      "in_image": 345,
+      "gaze_hit": 345,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "81b415d391dd13e81702614aa33aea73edaee886f64716b90775e361c76b911c",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4600f336-56e1-4565-bc2e-eb4c3532b8a4/clouds/gaze_center_000000.npy": "60e3eae068f058039dc626870c41528e405cc0ab384c6c7fa444c6c0c4ad009b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4600f336-56e1-4565-bc2e-eb4c3532b8a4/clouds/camera_transform_000000.npy": "8977895dfefe2afa8d127cb45b90a1d285ac15edb10fc2959d3e5853ec1b2ff0",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4600f336-56e1-4565-bc2e-eb4c3532b8a4/clouds/gaze_hit_000000.npy": "3bf456d1c2e3bed8417ce24522162f9c0de22326a31804bf4bcc59165f6c2c2f"
+      },
+      "cache_sha256": "7788e467b0dccbb6da534cdf66d6ce798d2ca8ffd8d1fd644a4d85a15b6b9643",
+      "source_rgb_sha256": "5377af2b1288b142581278adfbbac054d99a8ebb68fc4a6bcaedf70be9040c6b",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4600f336-56e1-4565-bc2e-eb4c3532b8a4/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4600f336-56e1-4565-bc2e-eb4c3532b8a4/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "c2ce22d3-a293-43ec-9714-d404891bb11a",
+      "take": 9,
+      "key": "cloth_new2:000008",
+      "split": "train",
+      "rows": 393,
+      "cached_rows": 393,
+      "in_image": 393,
+      "gaze_hit": 393,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "121cd269912fae40751e9d6badda3e5a93c1e34413bdf33ffb615f8d99ed03bf",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c2ce22d3-a293-43ec-9714-d404891bb11a/clouds/gaze_center_000000.npy": "860883598809ce00415fd48bf4ea38ce7c9d21248d2f54cf1779ff8fcc90b613",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c2ce22d3-a293-43ec-9714-d404891bb11a/clouds/camera_transform_000000.npy": "893680e0c11c0f8b8b194c9cf5f5e943b943248d670a7f5f985116d77afb6f48",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c2ce22d3-a293-43ec-9714-d404891bb11a/clouds/gaze_hit_000000.npy": "286dd4d13ca339dfa28720471041fb4aefc34c2addf0556dff8dc464c623bfe9"
+      },
+      "cache_sha256": "e52652589c0df41846801ae582e8472cee9f885a5671884fb1e94e082ae7d285",
+      "source_rgb_sha256": "c2fd17df78a71f2f8ecb782519ea9312996ff46d6536b0dd2ef058c80397a6ee",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c2ce22d3-a293-43ec-9714-d404891bb11a/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c2ce22d3-a293-43ec-9714-d404891bb11a/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "adee2cd1-f882-400c-a093-e026a4e4a548",
+      "take": 10,
+      "key": "cloth_new2:000009",
+      "split": "train",
+      "rows": 357,
+      "cached_rows": 357,
+      "in_image": 357,
+      "gaze_hit": 357,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "58c2d4b06fac54db7ea3a4e6d7ac3ca51f25df9c4cb5c5ad34580c34afc5df27",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/adee2cd1-f882-400c-a093-e026a4e4a548/clouds/gaze_center_000000.npy": "c08ca70ad0b22b4268dbebcb933841f31a1795cba8fc970c7d5162c5d240d7ee",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/adee2cd1-f882-400c-a093-e026a4e4a548/clouds/camera_transform_000000.npy": "0abac2ff4ee70af28cd45022ebfb27218316eeda8bfd72600df289708e446f47",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/adee2cd1-f882-400c-a093-e026a4e4a548/clouds/gaze_hit_000000.npy": "af07f1948790acab6c7c548650118927b51e8e6ef0a79c9d66bd82b8bda624bf"
+      },
+      "cache_sha256": "ef2f68ad088a5ce56619ad7cbff808ab6adc5fb776936167ce411b45111cd734",
+      "source_rgb_sha256": "8dfbaaad4fdadc979462c49d6e22d58a37830de33771a8ba8e5c061434a720ea",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/adee2cd1-f882-400c-a093-e026a4e4a548/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/adee2cd1-f882-400c-a093-e026a4e4a548/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "786be959-45df-4737-b370-d5aeaf9c6065",
+      "take": 11,
+      "key": "cloth_new2:000010",
+      "split": "train",
+      "rows": 695,
+      "cached_rows": 695,
+      "in_image": 695,
+      "gaze_hit": 695,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "5bfdbd569097fedd927240e0e589cd7884ef9f0e78fd7ad19adfd624aacff691",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/786be959-45df-4737-b370-d5aeaf9c6065/clouds/gaze_center_000000.npy": "092660465cd6ade1287318d2d92bdaee0db1936b20e163837d52645e216a047f",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/786be959-45df-4737-b370-d5aeaf9c6065/clouds/camera_transform_000000.npy": "053cd979f319f1fd4f8cdf0e404b21ae5b15ce8094756369724a3fe230e33e88",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/786be959-45df-4737-b370-d5aeaf9c6065/clouds/gaze_hit_000000.npy": "106e391c47bd503087736eae2d7ae0e9fce134d3a83c4b1567230cf9027f6bde"
+      },
+      "cache_sha256": "0e71e96ab421b8bfd21e22404283a2f350c4118d9c986674868ac84502c5ecf4",
+      "source_rgb_sha256": "074a7ac0e82e889358b659a6a7f5fa695c5409e04ed12f2ce05d62a839135153",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/786be959-45df-4737-b370-d5aeaf9c6065/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/786be959-45df-4737-b370-d5aeaf9c6065/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "365512d6-5082-4b21-b6b9-6cccebb3d537",
+      "take": 12,
+      "key": "cloth_new2:000011",
+      "split": "train",
+      "rows": 452,
+      "cached_rows": 452,
+      "in_image": 452,
+      "gaze_hit": 452,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "a48320252fc6f87d51064df5faeb5da7fa183ecd6f4356f83403eae0cf32f34b",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/365512d6-5082-4b21-b6b9-6cccebb3d537/clouds/gaze_center_000000.npy": "4a25ea78787914e702841c3dac34417de4ec1382bf5499427e0f88e35184302a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/365512d6-5082-4b21-b6b9-6cccebb3d537/clouds/camera_transform_000000.npy": "983a2da616c3e3aef911a312869416447e1275bafc7de66f6836dbe0395c2970",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/365512d6-5082-4b21-b6b9-6cccebb3d537/clouds/gaze_hit_000000.npy": "4feaace4ee99eea94219236c647344090258e08c6d5204c34987f2b2c2f67c34"
+      },
+      "cache_sha256": "9fa417361cfc92b7191cc41a41329c67d0beb6b22691210c5b918a720e213b48",
+      "source_rgb_sha256": "53a15674b218350854174d52e017001fc3bf59ab8901e4d3c786c52bbd4f3832",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/365512d6-5082-4b21-b6b9-6cccebb3d537/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/365512d6-5082-4b21-b6b9-6cccebb3d537/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "a7debb0c-804c-43f3-afee-dccbcde0680d",
+      "take": 13,
+      "key": "cloth_new2:000012",
+      "split": "train",
+      "rows": 563,
+      "cached_rows": 563,
+      "in_image": 563,
+      "gaze_hit": 563,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "8e8b6acfae3f19d6b0d3bcf7e4368d816167e06fa71f2149aea85461f906e1d2",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/a7debb0c-804c-43f3-afee-dccbcde0680d/clouds/gaze_center_000000.npy": "ec6baea6c6f8e498cea47d3fd47b410f7162c1db5f4ddc4cbd78ba8f2b8f1885",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/a7debb0c-804c-43f3-afee-dccbcde0680d/clouds/camera_transform_000000.npy": "f8ffdc4ba402da32db1ce8b1f8984935d14cd0d043dcc925568889e5daa30b75",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/a7debb0c-804c-43f3-afee-dccbcde0680d/clouds/gaze_hit_000000.npy": "d388486c2dca7e4d785f5ea15d583682944a74ea358a1ccd2f001612b557ce55"
+      },
+      "cache_sha256": "141659c0dbc83a0afa8fe336f390a24d0ae05f22228f9e57fd8a17c7721bca15",
+      "source_rgb_sha256": "b3649defa872cc2972e771432c63a9107b69c7b36bb2b1bd0cc9f11029cda71d",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/a7debb0c-804c-43f3-afee-dccbcde0680d/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/a7debb0c-804c-43f3-afee-dccbcde0680d/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "e2533b69-287d-469d-93df-c949f954344b",
+      "take": 14,
+      "key": "cloth_new2:000013",
+      "split": "train",
+      "rows": 299,
+      "cached_rows": 299,
+      "in_image": 299,
+      "gaze_hit": 299,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f70c68482f11cf09a85185bb2dbdb99199ba7cd730edf8f8e49c8fe0b4599930",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e2533b69-287d-469d-93df-c949f954344b/clouds/gaze_center_000000.npy": "763a3a5c4d76287ea0305cadb7f865ee70a2845c89f623e68c499cee7c580203",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e2533b69-287d-469d-93df-c949f954344b/clouds/camera_transform_000000.npy": "25a4f482ab6f3b6b1f7dfaa82616b4f35b8167ac68f25c98ffbef32f8a02b687",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e2533b69-287d-469d-93df-c949f954344b/clouds/gaze_hit_000000.npy": "66662185675bbc7af9ea6c76df095b9f535b8a1024b03950cc406893b29299ef"
+      },
+      "cache_sha256": "4bd802da12a0e1f4b0ae1189c7e635df14cabcad659680faa33ba175262c82ca",
+      "source_rgb_sha256": "e7be53d3e2ca2763ab85f68cdde641ff13aaae1fe8d7bc809dd299ba731817c4",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e2533b69-287d-469d-93df-c949f954344b/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e2533b69-287d-469d-93df-c949f954344b/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "4509d241-ccae-4ce4-b1e8-eb1efa6357c8",
+      "take": 15,
+      "key": "cloth_new2:000014",
+      "split": "valid",
+      "rows": 361,
+      "cached_rows": 361,
+      "in_image": 361,
+      "gaze_hit": 361,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "3e84e1b8a5ea99401fd34f30a01b488c7ea4271f2025da60224105c070e28e41",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4509d241-ccae-4ce4-b1e8-eb1efa6357c8/clouds/gaze_center_000000.npy": "a07cb91aa5ecde9c7df81acf7fb27d956036c1857f076f13d5026823e18bda30",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4509d241-ccae-4ce4-b1e8-eb1efa6357c8/clouds/camera_transform_000000.npy": "2923dbfe16a1ac89b774eede789754e6db0550221e7b8181f371b613cf4a10e3",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4509d241-ccae-4ce4-b1e8-eb1efa6357c8/clouds/gaze_hit_000000.npy": "15c13b34e8f64b47a810c1fb23bef11af977fe15c91891d8ca9b53e3be5ccde2"
+      },
+      "cache_sha256": "c60cdab80ffb0158433e41ca775d11433e6a0308192dc55d16c7b6ea6090a5b2",
+      "source_rgb_sha256": "e456384298b9cc75180ba06f88e60daf4c60efd7cc1ca64d37591467837729ad",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4509d241-ccae-4ce4-b1e8-eb1efa6357c8/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4509d241-ccae-4ce4-b1e8-eb1efa6357c8/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "98f7736f-f23b-4c5a-8c80-0af4ad7635d7",
+      "take": 16,
+      "key": "cloth_new2:000015",
+      "split": "train",
+      "rows": 571,
+      "cached_rows": 571,
+      "in_image": 571,
+      "gaze_hit": 571,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "39f8898fbdccad148a904b652bd6d867fe57cf0ecc9c0ef53cc8873115c5ed7c",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/98f7736f-f23b-4c5a-8c80-0af4ad7635d7/clouds/gaze_center_000000.npy": "c4132811da962f3dc6fd638daa8eb06b351426ba6c691a2c483772390a0cb639",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/98f7736f-f23b-4c5a-8c80-0af4ad7635d7/clouds/camera_transform_000000.npy": "52a2e5f54bf2ad9de4b0a2f4394ec96836f695b9357fd95c03dae485a5fb3a87",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/98f7736f-f23b-4c5a-8c80-0af4ad7635d7/clouds/gaze_hit_000000.npy": "db41bb05e5f4cb8a4dbc03e284e3e84405618253a8c93ab880ad92a29a887b43"
+      },
+      "cache_sha256": "063ee8c1beac180675a221117b2ae98362789dae49596c2fbad608d63e9fc47c",
+      "source_rgb_sha256": "16e9f699f8dd2da909bfe4b10a7e1b4d97cc5f9a5b4f701ebac7eae4dfd5d642",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/98f7736f-f23b-4c5a-8c80-0af4ad7635d7/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/98f7736f-f23b-4c5a-8c80-0af4ad7635d7/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "df390158-1cab-4864-acf2-9baa5fe90028",
+      "take": 17,
+      "key": "cloth_new2:000016",
+      "split": "train",
+      "rows": 225,
+      "cached_rows": 225,
+      "in_image": 225,
+      "gaze_hit": 225,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f76c1ecd7b95fb2f0c4f6f78afdab5c3e8d2ff6071a275f1775d1cb2f404e2fb",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df390158-1cab-4864-acf2-9baa5fe90028/clouds/gaze_center_000000.npy": "12e2d40be93918aab4a1a38f7d3b6755b532e38c982f10281154313efa393f27",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df390158-1cab-4864-acf2-9baa5fe90028/clouds/camera_transform_000000.npy": "8796629fd8a7d9116fa4628b86f9c5d6695d1f18c2a2f9f8e03aa9895bc1d6ad",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df390158-1cab-4864-acf2-9baa5fe90028/clouds/gaze_hit_000000.npy": "10a411f8d175027b98f23375d9647fb745ee2fe4224a7eb72e86329cb4813697"
+      },
+      "cache_sha256": "f4b4bf4e8a183ae6ea8dc5ba8c63987947bfe7f6fe414e54621e5b69ef8dc30f",
+      "source_rgb_sha256": "99483ddad67fbb4755e559bac1b49b702913b247186cd68038edb74b71cbbff8",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df390158-1cab-4864-acf2-9baa5fe90028/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df390158-1cab-4864-acf2-9baa5fe90028/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "892f7fb3-3caa-4403-82de-29ea33b5600f",
+      "take": 18,
+      "key": "cloth_new2:000017",
+      "split": "train",
+      "rows": 625,
+      "cached_rows": 625,
+      "in_image": 625,
+      "gaze_hit": 625,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "c01709fefa12f50c299e060f290b0526b953966e0d383ac6b28db15c276c0768",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/892f7fb3-3caa-4403-82de-29ea33b5600f/clouds/gaze_center_000000.npy": "106e83a88ca8adc2d3ce9c8fb233ec06c0f8df6b076c771d87228e9f6292d324",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/892f7fb3-3caa-4403-82de-29ea33b5600f/clouds/camera_transform_000000.npy": "d5ac977306e599fef6e1c16a990bf11286783b678de45dd105c4671312d3ee29",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/892f7fb3-3caa-4403-82de-29ea33b5600f/clouds/gaze_hit_000000.npy": "7b5d75811e503b2ce0145547bd7cfeb547cd8378d3cae49442959f19cfc24c7f"
+      },
+      "cache_sha256": "330f4ceb899c5f2ff76c59c3dcf471e651cd42f60b7764408b8e5ebd7d006173",
+      "source_rgb_sha256": "6bc9b9bf01ca76a31d2e7e1e745392a77daa98a9e204d8325d8428134a940895",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/892f7fb3-3caa-4403-82de-29ea33b5600f/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/892f7fb3-3caa-4403-82de-29ea33b5600f/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "218608c0-a4bb-491a-944e-22707f4d2490",
+      "take": 19,
+      "key": "cloth_new2:000018",
+      "split": "train",
+      "rows": 279,
+      "cached_rows": 279,
+      "in_image": 279,
+      "gaze_hit": 279,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "ca19413ec7b0aaf4a251d486bf9627889fd0c93a95a48f35bb7cd85fc5576715",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/218608c0-a4bb-491a-944e-22707f4d2490/clouds/gaze_center_000000.npy": "606b9a891abbe2245b0eccfdc216ad6a12de6c16a152c5a2e9097e6b934c0074",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/218608c0-a4bb-491a-944e-22707f4d2490/clouds/camera_transform_000000.npy": "e35f1be9d7ec8c21ca655df2cee9511ed2ea3fbb8e6468f6346c5d150bc1b001",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/218608c0-a4bb-491a-944e-22707f4d2490/clouds/gaze_hit_000000.npy": "8dfb25e0c0a6438868ad7e94af5ba211ec4a376c136c1af223d2aacf1dd7f2e0"
+      },
+      "cache_sha256": "046af6a739f23e5b16e2fcf979cdf6cd1637599ce01432801c93859c15470875",
+      "source_rgb_sha256": "a3e29d3e05c633136ede9d11483a7e65b6dfdffbda927ae2dc405b5dfde2d159",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/218608c0-a4bb-491a-944e-22707f4d2490/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/218608c0-a4bb-491a-944e-22707f4d2490/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "4d771652-e290-4a6a-95bf-5657cda5840f",
+      "take": 20,
+      "key": "cloth_new2:000019",
+      "split": "train",
+      "rows": 409,
+      "cached_rows": 409,
+      "in_image": 409,
+      "gaze_hit": 409,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "656751b33b74c5bb002b3997244b2de6a486aa6ab4ddc142f63eb946e8221c86",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4d771652-e290-4a6a-95bf-5657cda5840f/clouds/gaze_center_000000.npy": "c0c59dd9fe72775d75daed275c5353759231707567cdc31d6f6416e253fcfdd2",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4d771652-e290-4a6a-95bf-5657cda5840f/clouds/camera_transform_000000.npy": "cde1abf20e8bfe6a6fd2000a31a77caed7c63d18cd793910ee49edc19c6770b9",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4d771652-e290-4a6a-95bf-5657cda5840f/clouds/gaze_hit_000000.npy": "cd314202a4182bfa6ae1028c25380ff67fc01f71b5da800a17ac11c391f130f4"
+      },
+      "cache_sha256": "0cfeaf380bd99999ac7a546145018fb6643f598bb4cb12162d58e9a259919492",
+      "source_rgb_sha256": "dcd031cb72b645536bef1c11b446302976859336ea913776859497a4a400c008",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4d771652-e290-4a6a-95bf-5657cda5840f/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4d771652-e290-4a6a-95bf-5657cda5840f/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "377a0430-9ba6-4b91-9cd7-de69ccc92101",
+      "take": 21,
+      "key": "cloth_new2:000020",
+      "split": "train",
+      "rows": 259,
+      "cached_rows": 259,
+      "in_image": 259,
+      "gaze_hit": 259,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "9aa5f0a666a66acb4af6e2f7168f3a15d7db9a99eb3b66cb56f532b50701030f",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/377a0430-9ba6-4b91-9cd7-de69ccc92101/clouds/gaze_center_000000.npy": "30c7e78b1982bdd42f3dc51290d5f21d1f6586452c3160c564b82193142084d0",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/377a0430-9ba6-4b91-9cd7-de69ccc92101/clouds/camera_transform_000000.npy": "e97b36a3e521210c98b059cc68285b0899f7da5d010315574c8cc2f06fdd31cf",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/377a0430-9ba6-4b91-9cd7-de69ccc92101/clouds/gaze_hit_000000.npy": "05a2840bca4091cd4dcf6d899c58f1a3a6ace1bd92293c654c974ff41986c9b9"
+      },
+      "cache_sha256": "c3f44f531a4da2f22f91c91314b3dace6162abb9a4156a36050a1fc695677644",
+      "source_rgb_sha256": "9cd97d330150da09c27eae80a4a327593ef2a8db30521d46c459f6daddecf356",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/377a0430-9ba6-4b91-9cd7-de69ccc92101/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/377a0430-9ba6-4b91-9cd7-de69ccc92101/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "e3e13f76-3863-4701-870b-7052cf904972",
+      "take": 22,
+      "key": "cloth_new2:000021",
+      "split": "train",
+      "rows": 573,
+      "cached_rows": 573,
+      "in_image": 573,
+      "gaze_hit": 573,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "16f6ea780259de4c55ff2c160f31ddac8cbe8a4d42eb5178ac45be2895830f72",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3e13f76-3863-4701-870b-7052cf904972/clouds/gaze_center_000000.npy": "d6325766646f6a6476bbb1ac88a596a11d3fe981c0ff56c0675d5fd972fbba4b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3e13f76-3863-4701-870b-7052cf904972/clouds/camera_transform_000000.npy": "e4367f961afd8283b678decb292321663751797e3749c2801174c85207db12dd",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3e13f76-3863-4701-870b-7052cf904972/clouds/gaze_hit_000000.npy": "a5a6d67d1e7faf28da8fde7e263bf1c05bfb485ea7fe2ce37d1b011f5d3cf21c"
+      },
+      "cache_sha256": "e8aeb9d6e2503cb096408a51e609caab990ad38a55ad8689d21ba6eb813d75d9",
+      "source_rgb_sha256": "3d2afcfaa9324c59d32aac3af92d0ef1670aa663d6d9ff03461d1f8ab8ec03df",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3e13f76-3863-4701-870b-7052cf904972/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3e13f76-3863-4701-870b-7052cf904972/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "193ba504-9c5a-4bf7-bcb8-aed4d379bf6c",
+      "take": 23,
+      "key": "cloth_new2:000022",
+      "split": "train",
+      "rows": 605,
+      "cached_rows": 605,
+      "in_image": 605,
+      "gaze_hit": 605,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "7d3a0e9f0a8eb1b8f735aaf85da34db4c4e6015531e4740f21075ac5718f657a",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c/clouds/gaze_center_000000.npy": "14501a54a5103b07c4ed2187d5ad7933fc11300375c2b93859ef1adbf27dee85",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c/clouds/camera_transform_000000.npy": "b73ec28cab891f93a64ee8d19e03128a5609bad0254865d22ed215ed05f49e27",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c/clouds/gaze_hit_000000.npy": "e2b9a913d18d167d6be04247d6f4c1c702755dfb06c3cd104e2a62aed0608dae"
+      },
+      "cache_sha256": "088b61e3667f4e0d08b9c7a8101ee66d4fbee490181a6b5964c628aac1f2b2fc",
+      "source_rgb_sha256": "5303573dab7f2984b76963cb6ef7e79f2f7b9c98e12aee80964be221ac746fca",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "7b9d5c3b-5957-4b90-ac02-7f53223a2253",
+      "take": 24,
+      "key": "cloth_new2:000023",
+      "split": "train",
+      "rows": 385,
+      "cached_rows": 385,
+      "in_image": 385,
+      "gaze_hit": 385,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "95f31c52026dfcf0415d42bc70318e32d0cd24cffaacd47a92d5331cc59bd9a1",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/7b9d5c3b-5957-4b90-ac02-7f53223a2253/clouds/gaze_center_000000.npy": "a1efec605aec69c03159e5a058afba6bb36c6dc9a3096dc21d0ef93ef645763a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/7b9d5c3b-5957-4b90-ac02-7f53223a2253/clouds/camera_transform_000000.npy": "664dfa8a3ed4e051bf02d2e7d691aa204e82b3949717270d9df3d7b78b08ee32",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/7b9d5c3b-5957-4b90-ac02-7f53223a2253/clouds/gaze_hit_000000.npy": "af395af878a5997a61cb6be20d0a4c1c65e4be2c55dbb1e67cf1810f43d75ee9"
+      },
+      "cache_sha256": "b4ec5e257023629be145a475fe4bec180921202aba0716b7c82a139dedbab7f8",
+      "source_rgb_sha256": "a0ea5610f627e93df75a692848b225836a35f9e11b4a73a613a08835570de6c8",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/7b9d5c3b-5957-4b90-ac02-7f53223a2253/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/7b9d5c3b-5957-4b90-ac02-7f53223a2253/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "df67c535-29e6-4b40-98f4-c3cc22217d72",
+      "take": 25,
+      "key": "cloth_new2:000024",
+      "split": "train",
+      "rows": 355,
+      "cached_rows": 355,
+      "in_image": 355,
+      "gaze_hit": 355,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "92548eae9bb560bd3cf14828b738184f4df93fcb08d56e7bc644126e019c5abd",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df67c535-29e6-4b40-98f4-c3cc22217d72/clouds/gaze_center_000000.npy": "f39419d559783794203f7843c3c465d1c1501332168f5833148a15baaa3d5c73",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df67c535-29e6-4b40-98f4-c3cc22217d72/clouds/camera_transform_000000.npy": "7f3e21df02d65bb59cbb34c66b0bbcd356530847c284e68558148db48dd8f664",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df67c535-29e6-4b40-98f4-c3cc22217d72/clouds/gaze_hit_000000.npy": "c5083249ed0335ebf86655ff6f384232bf076c248601e0423eb76be80126023f"
+      },
+      "cache_sha256": "97595b90782c49a4011e53202d805c0f9a1bcd575d65a2404d0d4d30a48b7109",
+      "source_rgb_sha256": "b4535738cf722c11fb4a5fcbeaa30a126dee8d79829f5cd441a7f8ba70072a88",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df67c535-29e6-4b40-98f4-c3cc22217d72/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/df67c535-29e6-4b40-98f4-c3cc22217d72/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "16eaf80b-297b-4841-8a9c-0960a7d81696",
+      "take": 26,
+      "key": "cloth_new2:000025",
+      "split": "train",
+      "rows": 361,
+      "cached_rows": 361,
+      "in_image": 361,
+      "gaze_hit": 361,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "0131a66e41d08dfebcd80b9f668598e48452c197bff8a7554eae2d2bfb5a8274",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16eaf80b-297b-4841-8a9c-0960a7d81696/clouds/gaze_center_000000.npy": "0236af7e06b4be9df7cb1599ca480338426bb48337c64d8ba4369560496afa3e",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16eaf80b-297b-4841-8a9c-0960a7d81696/clouds/camera_transform_000000.npy": "81051d38372b6aeead99f5b2fae22e0d996b66a058f0b96606d8944d66d7877e",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16eaf80b-297b-4841-8a9c-0960a7d81696/clouds/gaze_hit_000000.npy": "15c13b34e8f64b47a810c1fb23bef11af977fe15c91891d8ca9b53e3be5ccde2"
+      },
+      "cache_sha256": "c11668cf870ef4e4cf57e02ef539699146270cbd55f95f770e89623d0fc27861",
+      "source_rgb_sha256": "1a26b9abf00cda115d5a2e33ee78bdcb3cf56890437fd3cd82c5c85c444a4265",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16eaf80b-297b-4841-8a9c-0960a7d81696/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16eaf80b-297b-4841-8a9c-0960a7d81696/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "3ef65426-a28b-436f-af17-1b0c028b0246",
+      "take": 27,
+      "key": "cloth_new2:000026",
+      "split": "train",
+      "rows": 629,
+      "cached_rows": 629,
+      "in_image": 629,
+      "gaze_hit": 629,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "9f7ca92a30ee251cd7bd94fce55b80d35af966c7cf1b77d24e904385aa231401",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ef65426-a28b-436f-af17-1b0c028b0246/clouds/gaze_center_000000.npy": "4dc714d4af1b7f0403a486703b012422e7e3dc019e7291079647e6eef9d20bfa",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ef65426-a28b-436f-af17-1b0c028b0246/clouds/camera_transform_000000.npy": "67a2d8f221b9e9805949884d444caa83524957da48e99e29684a0c4a1db7453d",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ef65426-a28b-436f-af17-1b0c028b0246/clouds/gaze_hit_000000.npy": "0954f6958556a599cbc55e1dadcac4924e4d06efa6da54e2e57195938b3f904d"
+      },
+      "cache_sha256": "cef7446c0a7d0b04d0c822130063d33877d7ccbffbb6c443de80d59ea58217f2",
+      "source_rgb_sha256": "acf3763521e19f53d086e37e6e47f45947f9627de729a7d0247ab19bcf62951c",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ef65426-a28b-436f-af17-1b0c028b0246/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ef65426-a28b-436f-af17-1b0c028b0246/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "6df31427-d815-4c31-8c44-21a3afa4adfc",
+      "take": 28,
+      "key": "cloth_new2:000027",
+      "split": "train",
+      "rows": 485,
+      "cached_rows": 485,
+      "in_image": 485,
+      "gaze_hit": 485,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f377f320cad341517bc8b3c3a00cda05cc821f3bf265cffbb6ff5bca6783f6ea",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/6df31427-d815-4c31-8c44-21a3afa4adfc/clouds/gaze_center_000000.npy": "822fee667cb91c418e2ce4782a90877a7c7ec49d5849ae08f8a88ab9bd62b911",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/6df31427-d815-4c31-8c44-21a3afa4adfc/clouds/camera_transform_000000.npy": "90fcdc2af13eed257762382075fe808cbcb755003f301fa16cb4676627f91abe",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/6df31427-d815-4c31-8c44-21a3afa4adfc/clouds/gaze_hit_000000.npy": "e0744e10b63f7c28f4e415879398b20a1ccac909c4152b4cd39b5927244066b9"
+      },
+      "cache_sha256": "87967418513d8705524a16c32abd072a743c04818f4191b12ee6e3e1e8e77bc8",
+      "source_rgb_sha256": "8967899c9240a2da8741f7fd452e264822f5b90e6d825b0df4e02c4c65ac3aff",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/6df31427-d815-4c31-8c44-21a3afa4adfc/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/6df31427-d815-4c31-8c44-21a3afa4adfc/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "654ca1d5-2ea7-47e8-9b6b-566faff87234",
+      "take": 29,
+      "key": "cloth_new2:000028",
+      "split": "train",
+      "rows": 617,
+      "cached_rows": 617,
+      "in_image": 617,
+      "gaze_hit": 617,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "4ecfc5a7a8c0c478306ff8ce5c36580027dcb671afc5fa7ff1b326310599177e",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/654ca1d5-2ea7-47e8-9b6b-566faff87234/clouds/gaze_center_000000.npy": "3f49183abcc995a47d44b7f7be5cc288d68eed3806bcd07f2b9a4930cb2c8c4a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/654ca1d5-2ea7-47e8-9b6b-566faff87234/clouds/camera_transform_000000.npy": "3d3eae0a11467115a9310498c6b40d453a885ddbf02405f23b5f758808a7ee05",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/654ca1d5-2ea7-47e8-9b6b-566faff87234/clouds/gaze_hit_000000.npy": "e4810f706644756e403fd0269db88c4f65d9a024ae1a2c6e13b7c79d06d4bef1"
+      },
+      "cache_sha256": "83c867a4c73b30946eb5f2496324299830a57723f3ec73ab3c2a5d9a69c895c1",
+      "source_rgb_sha256": "ec9c6a4844a5e1f75705cdfe0425e06c3076c9e98d9a3da110a5c68be11699c3",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/654ca1d5-2ea7-47e8-9b6b-566faff87234/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/654ca1d5-2ea7-47e8-9b6b-566faff87234/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "e3185781-d3f1-4821-90e3-6b64dc59b9c7",
+      "take": 30,
+      "key": "cloth_new2:000029",
+      "split": "train",
+      "rows": 360,
+      "cached_rows": 360,
+      "in_image": 360,
+      "gaze_hit": 360,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "be4395c5c95c62acdd57306980b5f8ba98c44d7023da7753cf719f995356ca9e",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3185781-d3f1-4821-90e3-6b64dc59b9c7/clouds/gaze_center_000000.npy": "261ccadbd6595a4ca7248baf58cf57163f7be0a05283a32bcc458738656780bd",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3185781-d3f1-4821-90e3-6b64dc59b9c7/clouds/camera_transform_000000.npy": "895e5fb7e63ec461f2d0b06ffe9371bf4f5c4ff5f9e719f749a83cd0dc5bfad5",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3185781-d3f1-4821-90e3-6b64dc59b9c7/clouds/gaze_hit_000000.npy": "3cc1ba79eb90c7a70df56fd98075d64ef45c1a616c62e4cd7b63cdd780388af1"
+      },
+      "cache_sha256": "096f3c8caa16faced061ecedfd59e69db039ce38aaadc7469e537d5eb371c6e0",
+      "source_rgb_sha256": "26e8554d340165bc59da89423145f595ae1d6a1df720036e3bfacdc403ee79cc",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3185781-d3f1-4821-90e3-6b64dc59b9c7/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e3185781-d3f1-4821-90e3-6b64dc59b9c7/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "695cba8e-29fe-4578-8b00-2ade6c70d5c4",
+      "take": 31,
+      "key": "cloth_new2:000030",
+      "split": "train",
+      "rows": 583,
+      "cached_rows": 583,
+      "in_image": 583,
+      "gaze_hit": 583,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "0d925efbb8323d3a40d58233b58fff3a6658c781525ab1a0772845390befaf3c",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/695cba8e-29fe-4578-8b00-2ade6c70d5c4/clouds/gaze_center_000000.npy": "e3280b9290bc4581985cba50bcf26ad8bdd1d16c98290b522c53cfc3e134af3f",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/695cba8e-29fe-4578-8b00-2ade6c70d5c4/clouds/camera_transform_000000.npy": "a1a287f456862f8dbc4ccf33fbd13d82e726497581527518b31a66fac090c12a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/695cba8e-29fe-4578-8b00-2ade6c70d5c4/clouds/gaze_hit_000000.npy": "8904a072c5c853963127b38ed498c369f7de5cf01b4c46096249890d87d02e90"
+      },
+      "cache_sha256": "210b6d8d2bcdb52725c6b777f69dbc1d0263d25edd9752cd1b0f04a752e5670d",
+      "source_rgb_sha256": "02171ca57d3e6fe838b209a8ad4ab7e6d84e8799127723435199b90a703ddc9b",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/695cba8e-29fe-4578-8b00-2ade6c70d5c4/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/695cba8e-29fe-4578-8b00-2ade6c70d5c4/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "61f4fc82-1855-4b28-869b-b3a5609babac",
+      "take": 32,
+      "key": "cloth_new2:000031",
+      "split": "train",
+      "rows": 386,
+      "cached_rows": 386,
+      "in_image": 386,
+      "gaze_hit": 386,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "0a04d8acb6bbc40601aa71db4e928bddcb62a0a3cb51c91086a8d184a892ed95",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/61f4fc82-1855-4b28-869b-b3a5609babac/clouds/gaze_center_000000.npy": "3ca5a0fb248c2edd3f7c41137f1ce4d2638fd6c19db782904d630f19a3db1aec",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/61f4fc82-1855-4b28-869b-b3a5609babac/clouds/camera_transform_000000.npy": "547b82dcd49448c99460a265035ca3af90e0203ce5abbd66b4f3c572d5448689",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/61f4fc82-1855-4b28-869b-b3a5609babac/clouds/gaze_hit_000000.npy": "aa223a3982c0fcb7351b72e1a552cb4c4c47b7133cfb408bfc2711f3db22121c"
+      },
+      "cache_sha256": "e1bd4912747a77a77fcc5fee43597e0b04527c513786f32690afaa8a425b1057",
+      "source_rgb_sha256": "2979bdb0c4642dab07e39227c03b54613d0717faa40a9411f4adb5c5cec778d6",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/61f4fc82-1855-4b28-869b-b3a5609babac/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/61f4fc82-1855-4b28-869b-b3a5609babac/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "94703304-9da9-4c32-89c3-035b93993308",
+      "take": 33,
+      "key": "cloth_new2:000032",
+      "split": "train",
+      "rows": 649,
+      "cached_rows": 649,
+      "in_image": 649,
+      "gaze_hit": 649,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "b6f35f994780b55d57d9889669ec501f64e8cb36c615bbfc39a4c13c0096dae1",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/94703304-9da9-4c32-89c3-035b93993308/clouds/gaze_center_000000.npy": "e1abbc8c4ccd167fdc7a7b07323ee3c4c0fc4619b1abd5e36fa54e5df2d047a7",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/94703304-9da9-4c32-89c3-035b93993308/clouds/camera_transform_000000.npy": "0be3dff2fde6d8f4dcce7487afc4cbaab74022c4245d2af9e8f2a6501f816bac",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/94703304-9da9-4c32-89c3-035b93993308/clouds/gaze_hit_000000.npy": "39ce6c178985fbc290def85ee608558857003e950c135ba45cb4fd312833e53c"
+      },
+      "cache_sha256": "afcf544cffebae025a0cef798f3773ccc4cfd718c03ae260977f1cf8f3bc4897",
+      "source_rgb_sha256": "a383722a1f30ef13c6015dc9c15bbc2adc92f76191bfe809635ef45826d1ab2c",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/94703304-9da9-4c32-89c3-035b93993308/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/94703304-9da9-4c32-89c3-035b93993308/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "3c6bf737-f986-4ff9-be12-ef994a386158",
+      "take": 34,
+      "key": "cloth_new2:000033",
+      "split": "train",
+      "rows": 311,
+      "cached_rows": 311,
+      "in_image": 311,
+      "gaze_hit": 311,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "2475dea701e1db0ed65fa17953482d8cf6188b30e1ddd1e82f197123ce22a065",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c6bf737-f986-4ff9-be12-ef994a386158/clouds/gaze_center_000000.npy": "8ef6202420e5af461c989d063f9d6d94d976878456658fcbba1e59ace9cc587a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c6bf737-f986-4ff9-be12-ef994a386158/clouds/camera_transform_000000.npy": "db124376525192828ff490f26e32b757a4507f6f8c70458657d641c659b5ba03",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c6bf737-f986-4ff9-be12-ef994a386158/clouds/gaze_hit_000000.npy": "2fa8e2f98ef4110aac6c0c7c0f4ecf6a2bc08a2fe6f0ab7bb1f6a5c85fbf3adc"
+      },
+      "cache_sha256": "5513ec53234a1b3bf670285c4f33a5f1ef75c3f5d06ee067db9c9eacbe8cfba5",
+      "source_rgb_sha256": "6aae36745623987a19a2303572e369c0a1a3e74533357e81333a633d6287eafb",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c6bf737-f986-4ff9-be12-ef994a386158/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c6bf737-f986-4ff9-be12-ef994a386158/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "c9cdfa8d-9586-45b4-ab05-38c87c140209",
+      "take": 35,
+      "key": "cloth_new2:000034",
+      "split": "train",
+      "rows": 547,
+      "cached_rows": 547,
+      "in_image": 547,
+      "gaze_hit": 547,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f478e04ece564f6d3e36f987ae925db155033b37763c41f253424bbe25d75832",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c9cdfa8d-9586-45b4-ab05-38c87c140209/clouds/gaze_center_000000.npy": "d9f15b97cedc6cbef8deae9c5a91e61dee7bb422d31d3ca1871c36c6ee3087c7",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c9cdfa8d-9586-45b4-ab05-38c87c140209/clouds/camera_transform_000000.npy": "a831b53c8e24d1ae29b504498be1e30ae0becbaff0cd37313f16cb41442ac2b0",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c9cdfa8d-9586-45b4-ab05-38c87c140209/clouds/gaze_hit_000000.npy": "083ffcad33a548ca28f428cde8e0cda897dd5b0b0fe612a841f82a99a5a1841c"
+      },
+      "cache_sha256": "e1e849d981cc08f8389843055ecb7970377f20d770e7d9cea335eb352ce5926a",
+      "source_rgb_sha256": "5973f83774a67750679f94a8bfe6fd50551fee629dc1fc0b197491a63e9875a6",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c9cdfa8d-9586-45b4-ab05-38c87c140209/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/c9cdfa8d-9586-45b4-ab05-38c87c140209/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "b6dbf23a-c08b-4fe3-a97c-671e2c28b70f",
+      "take": 36,
+      "key": "cloth_new2:000035",
+      "split": "train",
+      "rows": 209,
+      "cached_rows": 209,
+      "in_image": 209,
+      "gaze_hit": 209,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "bea86d9611e9a6ea67bf49bccf58dcc1e5176d0153cf99943d2e2325a4664ec0",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f/clouds/gaze_center_000000.npy": "630c181908d8b3725943b054cd21c0b86ccc7881b4257df5b34a42fc61c80720",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f/clouds/camera_transform_000000.npy": "4768b05b9f777765b2869b549b7fb51dfc98a838ef088bd78f0b316b04e1fd4e",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f/clouds/gaze_hit_000000.npy": "de9558990e3f948f52928ff4fb7435644d66578ffac6cf23e6a9a57a2b166325"
+      },
+      "cache_sha256": "3e006f7b056e70afa7a84fdb6727052a3ab769fbb428f55956b0e0434910cf13",
+      "source_rgb_sha256": "847916629648fac169cf8183727f00a394dec82486a7af0cf7571b5d6d8e38e4",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "4466c322-8007-4ad4-a06f-6eb95a0a3674",
+      "take": 37,
+      "key": "cloth_new2:000036",
+      "split": "train",
+      "rows": 599,
+      "cached_rows": 599,
+      "in_image": 599,
+      "gaze_hit": 599,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f4ed812cae29ef79b003f1ed457848bb7c9cfd00d692491719a42b66afb7b2a0",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4466c322-8007-4ad4-a06f-6eb95a0a3674/clouds/gaze_center_000000.npy": "90a882019d262f8dff6fe2452934c0fd936fd13d4a8af4dad14845503728d0f4",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4466c322-8007-4ad4-a06f-6eb95a0a3674/clouds/camera_transform_000000.npy": "1b12e718875468bf6ec27e83473c7f9b0a5a2eae1b2a67f3cdf3c04ea53d38f5",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4466c322-8007-4ad4-a06f-6eb95a0a3674/clouds/gaze_hit_000000.npy": "3f47b47043ea96d9b187077540dd37f8fcd54dafe39d5aa9713a43023065f715"
+      },
+      "cache_sha256": "4386738568d8eb6039673d4b1c4a4a0c7f7d58cb237539ed1970397e8de2bba0",
+      "source_rgb_sha256": "cf151d43b2bcaf0bda713bf2728dcfe204a2100fb8d1a30bfbea80786ebf58ea",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4466c322-8007-4ad4-a06f-6eb95a0a3674/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/4466c322-8007-4ad4-a06f-6eb95a0a3674/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "e99a05ef-d919-4b9a-b168-e72e7d82f51b",
+      "take": 38,
+      "key": "cloth_new2:000037",
+      "split": "train",
+      "rows": 305,
+      "cached_rows": 305,
+      "in_image": 305,
+      "gaze_hit": 305,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "bb1b3831b2293f4d59cb6d7123b4c2bc98090b7147eb0c0db7ce2bdf5cbcf1e2",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e99a05ef-d919-4b9a-b168-e72e7d82f51b/clouds/gaze_center_000000.npy": "6159767582cb09f10c5c8af695a926f877590b31171d72ba527870452a24c1d0",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e99a05ef-d919-4b9a-b168-e72e7d82f51b/clouds/camera_transform_000000.npy": "7135cb96bc9716226a5a504702ee3091aef06ce068a61cb7b21113b8a6776b0c",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e99a05ef-d919-4b9a-b168-e72e7d82f51b/clouds/gaze_hit_000000.npy": "411e1bd0fc605523865bf4617b1c4a2f53593242edf8179375b408e173262416"
+      },
+      "cache_sha256": "196f9cc73ad55e1945bb0bb7de3886ccc746bdebd6e9292e749954a2efa74b21",
+      "source_rgb_sha256": "9fae45fee193abb54391bd5eef4605211d827f1be6dd65e414ff78f717a3f6f6",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e99a05ef-d919-4b9a-b168-e72e7d82f51b/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/e99a05ef-d919-4b9a-b168-e72e7d82f51b/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "b9cc1b7f-af5c-4787-8f81-5855348f49d9",
+      "take": 39,
+      "key": "cloth_new2:000038",
+      "split": "train",
+      "rows": 309,
+      "cached_rows": 309,
+      "in_image": 309,
+      "gaze_hit": 309,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "0477902008c5a3f1642c931799f4477e12db71b82f5be2686a2203537ed3b126",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b9cc1b7f-af5c-4787-8f81-5855348f49d9/clouds/gaze_center_000000.npy": "9c851095e6be2846a82f9928cf604dff42d7ee359379c7fd1387122d284ab104",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b9cc1b7f-af5c-4787-8f81-5855348f49d9/clouds/camera_transform_000000.npy": "b9725fe1a1876299e9683275814d16401c1f718f70f24d7f3d68a9be30f0c82a",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b9cc1b7f-af5c-4787-8f81-5855348f49d9/clouds/gaze_hit_000000.npy": "8fc2fae8046029910643250204d2ccad278871aea5f382bcbc582c2f185f23d1"
+      },
+      "cache_sha256": "d0042918c8664120cbe03285e7775f211de7bb846b70793dfaf4bb8125a7e1f2",
+      "source_rgb_sha256": "8a5ea51eb6cf5e8ed5896f439c81889377f7f6adce397671841f9e2323ce73e2",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b9cc1b7f-af5c-4787-8f81-5855348f49d9/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/b9cc1b7f-af5c-4787-8f81-5855348f49d9/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "dcf3af8b-80ee-4cf5-8e7a-2c350fde783c",
+      "take": 40,
+      "key": "cloth_new2:000039",
+      "split": "train",
+      "rows": 661,
+      "cached_rows": 661,
+      "in_image": 661,
+      "gaze_hit": 661,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "671d46104444bb4ecce5c4427c05e7d0971641e18bb17e20e7985a1cc4b72657",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c/clouds/gaze_center_000000.npy": "5ca8022bf1676e9f38f4ad63eca0ab7e95cc9b601ec025a33cd04b68f293cc00",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c/clouds/camera_transform_000000.npy": "e8c129803b4d5fd7500cdb456a97c11ed8f230f52e389d52e0d8a5d907fe622d",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c/clouds/gaze_hit_000000.npy": "cc4f9e62878e63876ce646d55a4fd8c47cc5dc7d2c5480f1c265bae3dcd44803"
+      },
+      "cache_sha256": "6fc4a0722d402f74a1457ddeb3f5ecf10ff93c540ebb02c8e9bed01591f40589",
+      "source_rgb_sha256": "5d3c8a229cb64be933038d45d82a789141fed5d46ae053c88ec1506f4d848c66",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "be18d7a5-bd3b-4dd1-bd46-52128bdef3a5",
+      "take": 41,
+      "key": "cloth_new2:000040",
+      "split": "train",
+      "rows": 563,
+      "cached_rows": 563,
+      "in_image": 563,
+      "gaze_hit": 563,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "94fa1e466e7d6bd4120e8ea5fdbf0fcccb27a0c98b6705ec4fc4a9431a084d23",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5/clouds/gaze_center_000000.npy": "deb8f0396e6addc469a811c706f017df8a9d36fbfbebba02564120fe6cfcd71b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5/clouds/camera_transform_000000.npy": "ef5a351a14e7a6f84224744a1a0fe3df3d7bf88c981c4f579294189c9e51dfec",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5/clouds/gaze_hit_000000.npy": "d388486c2dca7e4d785f5ea15d583682944a74ea358a1ccd2f001612b557ce55"
+      },
+      "cache_sha256": "df1c5fe930222f2409c93d634a7fb9df557333ed7f5fecaaa074667b52b8523f",
+      "source_rgb_sha256": "86cfc838e4d06daba7067e4a27856e1b0fd44eb0f38d664916f5b3eb866bd468",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "2185c192-b82f-484e-9d5e-999af734d7fb",
+      "take": 42,
+      "key": "cloth_new2:000041",
+      "split": "train",
+      "rows": 555,
+      "cached_rows": 555,
+      "in_image": 555,
+      "gaze_hit": 555,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "164683edcdeb8df6af208cbd4351c80d2ff6aa8ea6c1cbb44032ba07b5441523",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2185c192-b82f-484e-9d5e-999af734d7fb/clouds/gaze_center_000000.npy": "eace0260e4afb89edc54d08b1b853fe0466f0a1d893f5ff54f6e1e38c9aa6a64",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2185c192-b82f-484e-9d5e-999af734d7fb/clouds/camera_transform_000000.npy": "4f4dd36fde2f8772a5f46dd19fd3613b568bb1b345ea538a9f0312431611f570",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2185c192-b82f-484e-9d5e-999af734d7fb/clouds/gaze_hit_000000.npy": "d862c57cc4c8292061a09e3121684d81f560eec94ef62386c5008abe7e2517fe"
+      },
+      "cache_sha256": "93692ee4e70d3286c4dd58b6807a2dd47034b6acd7e38d20b1ddc3742ab9770a",
+      "source_rgb_sha256": "32017ed7498fc341b26e182b3e4468a163c2b570ddbfc0d59457e6e0458e9f58",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2185c192-b82f-484e-9d5e-999af734d7fb/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2185c192-b82f-484e-9d5e-999af734d7fb/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7",
+      "take": 43,
+      "key": "cloth_new2:000042",
+      "split": "train",
+      "rows": 541,
+      "cached_rows": 541,
+      "in_image": 541,
+      "gaze_hit": 541,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "4e43e49a39a9304bf5e4cae7c17f1367a705b093b8159d7e15f33a8c3d2b7881",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7/clouds/gaze_center_000000.npy": "1c314b32a76b7a24f559bb02c3abedeae1b2e432722d6b2c875123216a3cdd97",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7/clouds/camera_transform_000000.npy": "36afe91dd372b7da06f04037121e6959da9ebf85e74b6e4515c3ab8caf62d840",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7/clouds/gaze_hit_000000.npy": "67d518f0d1f6549b4853c5e35b9f9958ae435165236afd1c605c0a82b3f5ecbd"
+      },
+      "cache_sha256": "c23e6324eafe88353f87ca04516d3a09dc2e04a8142254baeede3e94b3b77296",
+      "source_rgb_sha256": "d413080180c8497952fec7c09d1c1cd27ba28a5279a25adce43dbde30e240f4d",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "0bed0625-9652-4f44-b45d-4fe57b53d752",
+      "take": 44,
+      "key": "cloth_new2:000043",
+      "split": "train",
+      "rows": 392,
+      "cached_rows": 392,
+      "in_image": 392,
+      "gaze_hit": 392,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "23434cbb758af1896a04e2dc6b26f247e6e8056674e7868168f9667e8ec506b4",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/0bed0625-9652-4f44-b45d-4fe57b53d752/clouds/gaze_center_000000.npy": "bde0a79749f667acc9c3c16c3da1ffe65ecf2041aca68894124e484d217bf36b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/0bed0625-9652-4f44-b45d-4fe57b53d752/clouds/camera_transform_000000.npy": "6e88edffc076e326328ac1d876ecdc97551604bf4781b1bb822f80fd200d58e0",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/0bed0625-9652-4f44-b45d-4fe57b53d752/clouds/gaze_hit_000000.npy": "2b3a58e5e051470bb307dd2d844fc1fadff4a5cdcd83074fe44b922448211caa"
+      },
+      "cache_sha256": "79e1ede3c56ac47f4b1c6086806d2037c3a57e32b32022f4f32963a631af54b9",
+      "source_rgb_sha256": "82172d6cc75e57b834d038d5a1f08d3cb9f86b4f57cac61f49912bcc3cc00093",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/0bed0625-9652-4f44-b45d-4fe57b53d752/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/0bed0625-9652-4f44-b45d-4fe57b53d752/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "48d9ae20-958d-4061-9b09-9b967cdc8676",
+      "take": 45,
+      "key": "cloth_new2:000044",
+      "split": "train",
+      "rows": 475,
+      "cached_rows": 475,
+      "in_image": 475,
+      "gaze_hit": 475,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "1772e22a537c7408a880d2580521d2a785b123b18a2ad2b7a3d47b86bc2aec9b",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/48d9ae20-958d-4061-9b09-9b967cdc8676/clouds/gaze_center_000000.npy": "7467d4b0dc285b8ab27fb515e14dbf7df7723a0c0082d613afbbfba5668b6e47",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/48d9ae20-958d-4061-9b09-9b967cdc8676/clouds/camera_transform_000000.npy": "5fe0d5b8752fe08e09db127f23724635691e10b3cf880ecfadcfeb6fc4d57d4f",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/48d9ae20-958d-4061-9b09-9b967cdc8676/clouds/gaze_hit_000000.npy": "321ba6750c50865956d1ad08023a9c5f1aa7d08c4c9e63d8f1297073eb69cc6d"
+      },
+      "cache_sha256": "b42a46963e739a41abec3d42122edf8007eefb4b6d2c3617dc09207e096638b6",
+      "source_rgb_sha256": "0c6692f00db76f3417b21e8eb4d53b48ef23c3bb04c680994c6e918f80155d0b",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/48d9ae20-958d-4061-9b09-9b967cdc8676/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/48d9ae20-958d-4061-9b09-9b967cdc8676/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "84ee3b38-0912-490a-a35c-ed278feae597",
+      "take": 46,
+      "key": "cloth_new2:000045",
+      "split": "train",
+      "rows": 507,
+      "cached_rows": 507,
+      "in_image": 507,
+      "gaze_hit": 507,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "326f4efb776d608e74f7229a1ce74e4a3742fc5a69cc439fcf61fe93243fee9e",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/84ee3b38-0912-490a-a35c-ed278feae597/clouds/gaze_center_000000.npy": "05d5dfafb4949ab9e1cdbe86cfc474c791d41a7f8e77946ce364737ed5e8278b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/84ee3b38-0912-490a-a35c-ed278feae597/clouds/camera_transform_000000.npy": "b75eca641f3d8803666896fe16160a1fcf0b204c02ecb3948a5e6b58348d6d98",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/84ee3b38-0912-490a-a35c-ed278feae597/clouds/gaze_hit_000000.npy": "c9dde7a5b13ac23b29036d9a91f1dacf140a34ad1b5d45964a3e3a392f93b9b8"
+      },
+      "cache_sha256": "56f27c47e3870bad42538139a759238b6e427e3e15d299960ff077990f386418",
+      "source_rgb_sha256": "f1d4a87e78c40066cc35984336ec05df8f62dfeb7b601ada56d73c28b3e25976",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/84ee3b38-0912-490a-a35c-ed278feae597/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/84ee3b38-0912-490a-a35c-ed278feae597/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "16484b09-1582-40e9-8e29-398d2af12647",
+      "take": 47,
+      "key": "cloth_new2:000046",
+      "split": "train",
+      "rows": 613,
+      "cached_rows": 613,
+      "in_image": 613,
+      "gaze_hit": 613,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "f7a5da8a32e40fc74f3831591a8be7b649b80c9f5fc0dc14c4fb11cc4c3a188c",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16484b09-1582-40e9-8e29-398d2af12647/clouds/gaze_center_000000.npy": "da123ae83d6a63dfb54fef1507241f77ae0e5a7e4d1247da1f8ac18d40b5e506",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16484b09-1582-40e9-8e29-398d2af12647/clouds/camera_transform_000000.npy": "6cdbb8bddc603a431cec07087eb42349e43d8949891a8a176aeead52e9792114",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16484b09-1582-40e9-8e29-398d2af12647/clouds/gaze_hit_000000.npy": "ac37c40604c97dd8230f180ee0983fe4633e97cabe3d408febd405c320308a5d"
+      },
+      "cache_sha256": "fd531b45b078503635fd3caa7c21b47a2af2faa7e53188df6a07496e1b6ab4cf",
+      "source_rgb_sha256": "5ad44793023352112945e53d0d71c7573a8747660686ea173bc8b82e46abf596",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16484b09-1582-40e9-8e29-398d2af12647/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/16484b09-1582-40e9-8e29-398d2af12647/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "9cab29b4-eef1-4fa9-8dfc-ce54900e9a39",
+      "take": 48,
+      "key": "cloth_new2:000047",
+      "split": "valid",
+      "rows": 619,
+      "cached_rows": 619,
+      "in_image": 619,
+      "gaze_hit": 619,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "2b0a332c30cb2d47a89eb164e5c50592ba22efe429372fef431f1c42e8fb7d36",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39/clouds/gaze_center_000000.npy": "64bf8a8e82ca365bbea7e6f94ed8913497c4f0387f59e71b0bb7bcf7c541fe07",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39/clouds/camera_transform_000000.npy": "6204f2b8cce60a139aa7dde636809f75a1ba51bf15621a03517e32a2c3282690",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39/clouds/gaze_hit_000000.npy": "d03ed8987d4afe384813baebe9bef3be6416fafed119d1b8e0d5b3a82a755af2"
+      },
+      "cache_sha256": "31c1aa69db436a545cc1fe9fa1ed60270c5a9d78f4b2f9bff59859d159f799f9",
+      "source_rgb_sha256": "122979745f3aee4e206d0ab0a5971ae6ee88aaea259a6830854acd7ed555a463",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "2c958c85-d29b-4e9f-b159-b5c0526a527e",
+      "take": 49,
+      "key": "cloth_new2:000048",
+      "split": "train",
+      "rows": 388,
+      "cached_rows": 388,
+      "in_image": 388,
+      "gaze_hit": 388,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "371e66c945942e057cdafadbf628b34db9dc428c12decc28fb3fb84aef811910",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c958c85-d29b-4e9f-b159-b5c0526a527e/clouds/gaze_center_000000.npy": "35665845576ebc3c25450bf1277acc49ee4c68180e2eecd0b4e9943f856ce9a9",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c958c85-d29b-4e9f-b159-b5c0526a527e/clouds/camera_transform_000000.npy": "d4c2bf6e3a4a29c5d6a81fecaac55ed8c8fb1c7ca73ebffc0e3b67189eba7b62",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c958c85-d29b-4e9f-b159-b5c0526a527e/clouds/gaze_hit_000000.npy": "d990729cd35e467756a4f5ce6a82a2f2f3e13eeac306935a2610bcc96332bf5c"
+      },
+      "cache_sha256": "1adae0bb4365205d9f84f4c80704a8f9a828427c80604ff664f901b05633a39b",
+      "source_rgb_sha256": "ef7b33a53bf236e77fbf3825976adbda4d9b4eb76defeaf85984a6c614bf57b3",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c958c85-d29b-4e9f-b159-b5c0526a527e/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c958c85-d29b-4e9f-b159-b5c0526a527e/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "329c3e77-5f94-4236-97c0-98864a744e18",
+      "take": 50,
+      "key": "cloth_new2:000049",
+      "split": "train",
+      "rows": 617,
+      "cached_rows": 617,
+      "in_image": 617,
+      "gaze_hit": 617,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "4ccfec999f240f33324dfbc7d2aa58dfa8356317cdf3a93935ac4668830bba19",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/329c3e77-5f94-4236-97c0-98864a744e18/clouds/gaze_center_000000.npy": "e19f8fe2be5dc10cf96652cd4d01e90fe8a80f8d174f29f1d0e6ef7f9e886445",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/329c3e77-5f94-4236-97c0-98864a744e18/clouds/camera_transform_000000.npy": "f09868f5935c5b23402e494ad88ebe553155ad5782e1470126d0a47d12574a6d",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/329c3e77-5f94-4236-97c0-98864a744e18/clouds/gaze_hit_000000.npy": "e4810f706644756e403fd0269db88c4f65d9a024ae1a2c6e13b7c79d06d4bef1"
+      },
+      "cache_sha256": "a7f811da4c52ac4044b333989f8216d6eda2ecdefcf92895c7dc6c506b7afafe",
+      "source_rgb_sha256": "eb346e7b78130b6ceb5828bcc7f708fd8ff48e732c041869c3ef55801e54a995",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/329c3e77-5f94-4236-97c0-98864a744e18/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/329c3e77-5f94-4236-97c0-98864a744e18/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "155572e1-a710-4f9d-8eab-2f4d39e3ea3e",
+      "take": 51,
+      "key": "cloth_new2:000050",
+      "split": "train",
+      "rows": 371,
+      "cached_rows": 371,
+      "in_image": 371,
+      "gaze_hit": 371,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "06bffccf8bc8a1140359ee0eff62ccb89dd637cab3b36f0129b20702dc4bb161",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/155572e1-a710-4f9d-8eab-2f4d39e3ea3e/clouds/gaze_center_000000.npy": "b7944ff6cd0ed076ec2e9eeafc615cd203af2276ae9b4c49679081917da7180b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/155572e1-a710-4f9d-8eab-2f4d39e3ea3e/clouds/camera_transform_000000.npy": "ce6ea0c1b2bcd72b1023cd9f1f9f1f728c8981489ae81976e0ff7f916997bd4f",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/155572e1-a710-4f9d-8eab-2f4d39e3ea3e/clouds/gaze_hit_000000.npy": "57aaaecad343ab2cc5365b6a13ba90819b63e400bdf0dce0c58a51386b17346e"
+      },
+      "cache_sha256": "5ba0c3783cf403643679ae28e618e7fee8cd9f78410dbe64d44f1787f3ec6661",
+      "source_rgb_sha256": "a73ef2070715ef538ccae8e4aaa1fef741dc8d43dfd2b7100625b1de7e69230b",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/155572e1-a710-4f9d-8eab-2f4d39e3ea3e/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/155572e1-a710-4f9d-8eab-2f4d39e3ea3e/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "04c5cb80-1dad-4ab0-9085-764fa4c18b10",
+      "take": 52,
+      "key": "cloth_new2:000051",
+      "split": "train",
+      "rows": 523,
+      "cached_rows": 523,
+      "in_image": 523,
+      "gaze_hit": 523,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "990664de7d3d187871c793aa12813d1e25a6eefcdd6664759000cf7cc8fa63bb",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/04c5cb80-1dad-4ab0-9085-764fa4c18b10/clouds/gaze_center_000000.npy": "95cc88a3a455c4a912e15aa5ecfac1f4131a4c7b99df4fbaa5bd59a36fbdb459",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/04c5cb80-1dad-4ab0-9085-764fa4c18b10/clouds/camera_transform_000000.npy": "4046dc64ca3e4b405377daf2103e7fa9753712b110a41d44d64b7ea293aa4d43",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/04c5cb80-1dad-4ab0-9085-764fa4c18b10/clouds/gaze_hit_000000.npy": "6622e721c5145c308bdba996eac70e4183036cf3a1ed831f8e9f7e4350369448"
+      },
+      "cache_sha256": "33f8212155b4f8fb1888f15bd5054d4cf019cc3011c00061bf7163fe44aef7ec",
+      "source_rgb_sha256": "952e5f7483b606037be0b01084a730cb9bf388d8c4e5073c1cc7cd9d1540b65c",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/04c5cb80-1dad-4ab0-9085-764fa4c18b10/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/04c5cb80-1dad-4ab0-9085-764fa4c18b10/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "36551141-4f10-46e8-b8c0-386734feda4c",
+      "take": 53,
+      "key": "cloth_new2:000052",
+      "split": "train",
+      "rows": 351,
+      "cached_rows": 351,
+      "in_image": 351,
+      "gaze_hit": 351,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "e548f9054b2c406f8b949579f1477a5f614cdfaa3c378e8b7423a28ebeb73c09",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/36551141-4f10-46e8-b8c0-386734feda4c/clouds/gaze_center_000000.npy": "bea79304d5c9e7b50b3d9bf5050bcc76cea3503aac7581c2dde7b1cba18a1eec",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/36551141-4f10-46e8-b8c0-386734feda4c/clouds/camera_transform_000000.npy": "6fad14d847fa6f5e4700922b9a44354a4b4f982f7b299c0e7f1e6ade7c575383",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/36551141-4f10-46e8-b8c0-386734feda4c/clouds/gaze_hit_000000.npy": "da58e78cd2657531099a13d6404dd9252f08e5e37da3f6185186b45acf493950"
+      },
+      "cache_sha256": "e7c7e01e22a0f709e876937bd305f4280f49a6e1b059dd2ea2d95368e6d13802",
+      "source_rgb_sha256": "4454e2afedfa03a1f41397417589e648bcd3aaa78c5123215e891efb1f8cf696",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/36551141-4f10-46e8-b8c0-386734feda4c/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/36551141-4f10-46e8-b8c0-386734feda4c/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "25a05230-edec-4209-8753-ba914fe4d48e",
+      "take": 54,
+      "key": "cloth_new2:000053",
+      "split": "train",
+      "rows": 553,
+      "cached_rows": 553,
+      "in_image": 553,
+      "gaze_hit": 553,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "8070e838d08a02917a37d5a22012b4428bb691957d7153c0067b2403a56e7a53",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/25a05230-edec-4209-8753-ba914fe4d48e/clouds/gaze_center_000000.npy": "5f91dcbbff9093dd7c24e523f96050188fd307dd3e3ccbafbccc8dddce3484d1",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/25a05230-edec-4209-8753-ba914fe4d48e/clouds/camera_transform_000000.npy": "e2539f97cf80aec53d9d1cd6dec22430e1c584b6085dc470ea52f529b37f50da",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/25a05230-edec-4209-8753-ba914fe4d48e/clouds/gaze_hit_000000.npy": "b1d8e8d9c26aa6a8213495d0ea4b893c51220809dbf857fc2d3f0705f5aff2cc"
+      },
+      "cache_sha256": "e46aa65cc6ba074ace2027cb0ac19cff4dbcde0cc16d150c2dbed7621ed81099",
+      "source_rgb_sha256": "75044fae418289d5bd0bd3226316db3aa8c2d88f245ef7f0b34c071f6eb86084",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/25a05230-edec-4209-8753-ba914fe4d48e/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/25a05230-edec-4209-8753-ba914fe4d48e/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "3c2641c1-cd4c-4b46-b537-2732c166502f",
+      "take": 55,
+      "key": "cloth_new2:000054",
+      "split": "train",
+      "rows": 497,
+      "cached_rows": 497,
+      "in_image": 497,
+      "gaze_hit": 497,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "975ddbfabddd4d20ce66ac51aff3b010033e44fbdd8cf78f9901237ffe92af22",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c2641c1-cd4c-4b46-b537-2732c166502f/clouds/gaze_center_000000.npy": "c8604f0166a17300a910163d2cf7e0af24d456bddd53079a20fc24be4f72b8f7",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c2641c1-cd4c-4b46-b537-2732c166502f/clouds/camera_transform_000000.npy": "83de13177d4015343e3d9dbaec844b8f309ee4c4cce7b9722a60f7cfd10f295b",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c2641c1-cd4c-4b46-b537-2732c166502f/clouds/gaze_hit_000000.npy": "ba4d4d4a17521b182708e06a5a2e506075444f5460920d351362affceb9a1c14"
+      },
+      "cache_sha256": "9f4cb152c86f1e56efc0869515a07c736c03e7f6adaec7382790845edd87a9b4",
+      "source_rgb_sha256": "fbb609f08f404ca86e66697282f4e72b33bf21ab197033be03a0a9498b6ed7c0",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c2641c1-cd4c-4b46-b537-2732c166502f/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3c2641c1-cd4c-4b46-b537-2732c166502f/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "fae63c52-02e9-4e52-a3d4-80ae02377241",
+      "take": 56,
+      "key": "cloth_new2:000055",
+      "split": "train",
+      "rows": 557,
+      "cached_rows": 557,
+      "in_image": 557,
+      "gaze_hit": 557,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "cf5df1b7fd01d4f5263850b0622f06be2808ef3b7362553f457e73272b25716f",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fae63c52-02e9-4e52-a3d4-80ae02377241/clouds/gaze_center_000000.npy": "8b6f46aafcf616724262a8d837ec889fa00e7e1910cb84d3d5f521afdfd99457",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fae63c52-02e9-4e52-a3d4-80ae02377241/clouds/camera_transform_000000.npy": "4591d68a38d38f345fe4a3766a49cc44d82587a96a89f6664f708b9f113f67f8",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fae63c52-02e9-4e52-a3d4-80ae02377241/clouds/gaze_hit_000000.npy": "521410b4fbaefbe00efac2358a7421dc18fdeebd10a81f3e8e26d218271ed94a"
+      },
+      "cache_sha256": "2ee413562000cb285953d8a1814ac7f1728b2afd12af9064f1c28286e2b8e7aa",
+      "source_rgb_sha256": "16b25840dfdd561276204b09ca3382771f22efd858050bc529187c28ad8b6617",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fae63c52-02e9-4e52-a3d4-80ae02377241/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/fae63c52-02e9-4e52-a3d4-80ae02377241/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "5a2bd1d4-364d-4416-a0ba-d180eb35b7e1",
+      "take": 57,
+      "key": "cloth_new2:000056",
+      "split": "valid",
+      "rows": 567,
+      "cached_rows": 567,
+      "in_image": 567,
+      "gaze_hit": 567,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "483b270c89704b308b7d29bfe71e27358aeedff64610785c59c039ec87f53b72",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1/clouds/gaze_center_000000.npy": "94651beaebd6c3bbba77639503cc7974717564cd1c2ef960996ed4e789c095d7",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1/clouds/camera_transform_000000.npy": "9db36b9dfdedcfc40ffc20dfd265537284d6bc79ea9eeac0f68c1ebcedfd8117",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1/clouds/gaze_hit_000000.npy": "50d7da5aae5dc9da02aceee49aa5e5d6a5930e44899345d9908a882ebdcbaea6"
+      },
+      "cache_sha256": "a45f008af0f7eb626a9a8bccf390197882ce4022c7f982ec387a5817d507994c",
+      "source_rgb_sha256": "18eb711b537b93c8baa4747c645ab30b15be986317a7802ebb94f6d0a298f1a5",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "3ac7f45a-07ba-48a9-902c-58fb95828350",
+      "take": 58,
+      "key": "cloth_new2:000057",
+      "split": "train",
+      "rows": 345,
+      "cached_rows": 345,
+      "in_image": 345,
+      "gaze_hit": 345,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "1a31245e5fad5c4f7ce75a04e558760ab316b1594a2f9cc6954a600a304f2c30",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ac7f45a-07ba-48a9-902c-58fb95828350/clouds/gaze_center_000000.npy": "52074fdf28457e5dc2f7f177aec68981c7c98797d3ca3e2692653cfe25236591",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ac7f45a-07ba-48a9-902c-58fb95828350/clouds/camera_transform_000000.npy": "b34d77004e5c9ea717cc9adba816f41d7203a16770ea51d8f177c1a8343487c9",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ac7f45a-07ba-48a9-902c-58fb95828350/clouds/gaze_hit_000000.npy": "3bf456d1c2e3bed8417ce24522162f9c0de22326a31804bf4bcc59165f6c2c2f"
+      },
+      "cache_sha256": "f6d55f0c77ec57b174ce9d4a2a415eaa5c4d7a8b57633e4e315105e54467dbf6",
+      "source_rgb_sha256": "33fc84fdc4407543374aacc6848d25e10a00c7e65f6eb2dd2d842dfdc415c236",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ac7f45a-07ba-48a9-902c-58fb95828350/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/3ac7f45a-07ba-48a9-902c-58fb95828350/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "44fbb456-42d0-4df7-af55-dee68df9a876",
+      "take": 59,
+      "key": "cloth_new2:000058",
+      "split": "train",
+      "rows": 343,
+      "cached_rows": 343,
+      "in_image": 343,
+      "gaze_hit": 343,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "ce01c134787e85f00dee5b4ed3d93e70e99fa764981dfd68300fde0734e6b56b",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/44fbb456-42d0-4df7-af55-dee68df9a876/clouds/gaze_center_000000.npy": "2e135b3f249db6d492e1b81efd73a43b67b689edd426dba67f89bad7b0948c29",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/44fbb456-42d0-4df7-af55-dee68df9a876/clouds/camera_transform_000000.npy": "4ab807c41bb83e76b1ed161325ca8a35ff3e29ac3152d0c476f569efd2bca24c",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/44fbb456-42d0-4df7-af55-dee68df9a876/clouds/gaze_hit_000000.npy": "7a5734eda29195d442489119c67a7c901a61d2dbe307a37838da7f75f3cdcff7"
+      },
+      "cache_sha256": "fc48488ab781c23a0010b94b7594535fc3ccef05f086eaabf31539517ef00e03",
+      "source_rgb_sha256": "63dac2704c8e4106d31c2fccdbfe4fb616cbdd87b9403fb31ebbc4b7a982a0e7",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/44fbb456-42d0-4df7-af55-dee68df9a876/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/44fbb456-42d0-4df7-af55-dee68df9a876/retarget/episode.hdf5"
+    },
+    {
+      "uuid": "2c7c86f7-901d-436a-a7d6-02f1c5b0ab93",
+      "take": 60,
+      "key": "cloth_new2:000059",
+      "split": "train",
+      "rows": 353,
+      "cached_rows": 353,
+      "in_image": 353,
+      "gaze_hit": 353,
+      "source_K": [
+        [
+          134.14910566506768,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.14910566506768,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "output_K": [
+        [
+          134.7729411875,
+          0.0,
+          112.0
+        ],
+        [
+          0.0,
+          134.7729411875,
+          112.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "raw_sha256": "b1edc88143b4db3db21be271a7b501a985a34986b7285219ec411be3b7081bdd",
+      "label_sha": {
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93/clouds/gaze_center_000000.npy": "2e52b515ea7a86126bf390269bf481dd090c5202cace711f30c6c04e1d3c0d38",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93/clouds/camera_transform_000000.npy": "d24e738e814d9e25740d95bb7f79508be9ddd4bb01400c98a2cbad5fe8cfca47",
+        "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93/clouds/gaze_hit_000000.npy": "f61fd49c5d080fc955bc8a4f039c4762d18c6d8d21a3d3a52dd26e7a337b0f88"
+      },
+      "cache_sha256": "7f44ed58414f68ebc754231b4b1cf06f1c21068c62062555d11aa91acb293ab4",
+      "source_rgb_sha256": "1cc664d12c60dc56f3cbb3eda8e414455ef25483dea66c9d12fcf721e7e206e4",
+      "rgb_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93/rgbd/shards/shard_0.hdf5",
+      "retarget_source": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/episodes/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93/retarget/episode.hdf5"
+    }
+  ],
+  "rows": 27344,
+  "split": {
+    "name": "cloth_new2_h168_55train_5valid",
+    "train": [
+      "cloth_new2:000000",
+      "cloth_new2:000002",
+      "cloth_new2:000003",
+      "cloth_new2:000004",
+      "cloth_new2:000005",
+      "cloth_new2:000007",
+      "cloth_new2:000008",
+      "cloth_new2:000009",
+      "cloth_new2:000010",
+      "cloth_new2:000011",
+      "cloth_new2:000012",
+      "cloth_new2:000013",
+      "cloth_new2:000015",
+      "cloth_new2:000016",
+      "cloth_new2:000017",
+      "cloth_new2:000018",
+      "cloth_new2:000019",
+      "cloth_new2:000020",
+      "cloth_new2:000021",
+      "cloth_new2:000022",
+      "cloth_new2:000023",
+      "cloth_new2:000024",
+      "cloth_new2:000025",
+      "cloth_new2:000026",
+      "cloth_new2:000027",
+      "cloth_new2:000028",
+      "cloth_new2:000029",
+      "cloth_new2:000030",
+      "cloth_new2:000031",
+      "cloth_new2:000032",
+      "cloth_new2:000033",
+      "cloth_new2:000034",
+      "cloth_new2:000035",
+      "cloth_new2:000036",
+      "cloth_new2:000037",
+      "cloth_new2:000038",
+      "cloth_new2:000039",
+      "cloth_new2:000040",
+      "cloth_new2:000041",
+      "cloth_new2:000042",
+      "cloth_new2:000043",
+      "cloth_new2:000044",
+      "cloth_new2:000045",
+      "cloth_new2:000046",
+      "cloth_new2:000048",
+      "cloth_new2:000049",
+      "cloth_new2:000050",
+      "cloth_new2:000051",
+      "cloth_new2:000052",
+      "cloth_new2:000053",
+      "cloth_new2:000054",
+      "cloth_new2:000055",
+      "cloth_new2:000057",
+      "cloth_new2:000058",
+      "cloth_new2:000059"
+    ],
+    "selection": [
+      "cloth_new2:000001",
+      "cloth_new2:000006",
+      "cloth_new2:000014",
+      "cloth_new2:000047",
+      "cloth_new2:000056"
+    ],
+    "test": [
+      "cloth_new2:000001",
+      "cloth_new2:000006",
+      "cloth_new2:000014",
+      "cloth_new2:000047",
+      "cloth_new2:000056"
+    ],
+    "test_is_selection_alias": true,
+    "scope": "Five held-out original recordings used for checkpoint selection; no independent test set or robot validation."
+  },
+  "source_manifest": "/coc/flash7/cxin34/cloth-new2-h168-scratch-20261121/releases/cloth-new2-scratch-split55-5/target.json",
+  "source_manifest_sha256": "1f5ec711589873cfcb1dd806178e86d1fc280239ef422383227763eb1acafb14",
+  "split_sha256": "7916d9d4e07bd0909e6ab77a2225d05f1f12758b77e228c375434ed9c0a43090",
+  "camera_note": "Gen2 source K calibrated resampling to deployed KH, same rectified optical axes; actual gaze hits only; no fallback labels."
+}

@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=48G",
+    "--time=01:00:00",
+    "--exclude=hal",
+    "--job-name=deploy-cart-fix-60k",
+    "--output=/coc/flash7/cxin34/cart-fix-ft60k-deploy-control-20261124/logs/%j-cart.out",
+    "/coc/flash7/cxin34/egoa180-cart-fix-FT60k-robotpc-20261124/scripts/test.sbatch"
+  ],
+  "returncode": 0,
+  "stdout": "4855697\n",
+  "stderr": ""
+}

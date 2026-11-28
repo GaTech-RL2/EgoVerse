@@ -1,0 +1,10 @@
+{
+  "trigger_utc": "2026-11-26T13:49:13.169Z",
+  "trigger_new_york": "2026-11-26 08:49 EST",
+  "status": "SSH_CONNECT_TIMEOUT",
+  "host": "sky1",
+  "current_remote_state_verified": false,
+  "remote_mutations": false,
+  "last_independent_count_historical": 1243,
+  "pending": "Verify dispatcher1467159, recovery45, deferred NODE_FAIL and 0110c receipt before audit submission; no duplicate retries"
+}

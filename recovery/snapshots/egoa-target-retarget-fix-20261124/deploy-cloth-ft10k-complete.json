@@ -1,0 +1,56 @@
+[
+  {
+    "passed": true,
+    "package": "/coc/flash7/cxin34/egoa180-cloth50-fix-FT10k-robotpc-20261124",
+    "task": "cloth50",
+    "step": 10000,
+    "job_id": "4854315",
+    "job_state": "COMPLETED",
+    "exit_code": "0:0",
+    "source_checkpoint_sha256": "31e667529eb47f042debfee55c0627d97cbf5fddfbe9cf86f8ad3f344326fcaa",
+    "portable_checkpoint_sha256": "bfbdaa536fa801485d536da10a5a4dff0961db1626568d47dce4de349ab20216",
+    "gaze_members": 6,
+    "geometry_train_only": true,
+    "camera_validation": {
+      "translation_cm_median": 1.2768503118451475,
+      "translation_cm_p90": 2.3486041505044017,
+      "rotation_deg_median": 1.0449074146702875,
+      "rotation_deg_p90": 2.6857450000119867
+    },
+    "ordinary_rtc_max_error": 0.0,
+    "native_assets_passed": true,
+    "offline_contract_passed": true,
+    "hardware_access": false,
+    "robotpc_client_checked": false,
+    "files": 685,
+    "bytes": 596463974,
+    "checksum_manifest_sha256": "b6e303741ac910a423659b2031910393fde540062ec980bf483db1dac659c1de"
+  },
+  {
+    "passed": true,
+    "package": "/coc/flash7/cxin34/egoa180-cloth110-fix-FT10k-robotpc-20261124",
+    "task": "cloth110",
+    "step": 10000,
+    "job_id": "4854316",
+    "job_state": "COMPLETED",
+    "exit_code": "0:0",
+    "source_checkpoint_sha256": "f2f7dfe103503d0540dc9f880f42b3f39f78cecfd6f23c5576da93b99d9c8948",
+    "portable_checkpoint_sha256": "89c3f06735e0fdaea6586ac14b10aec0aaab672a925081f72df3f6518798f7e9",
+    "gaze_members": 6,
+    "geometry_train_only": true,
+    "camera_validation": {
+      "translation_cm_median": 1.351602221713242,
+      "translation_cm_p90": 2.4663166769602265,
+      "rotation_deg_median": 1.1750714793155073,
+      "rotation_deg_p90": 2.778244075967677
+    },
+    "ordinary_rtc_max_error": 0.0,
+    "native_assets_passed": true,
+    "offline_contract_passed": true,
+    "hardware_access": false,
+    "robotpc_client_checked": false,
+    "files": 685,
+    "bytes": 596481504,
+    "checksum_manifest_sha256": "3b80c8386212366d7e094de157f2ab235dbf185297b90213e4d4b0344b3cb011"
+  }
+]

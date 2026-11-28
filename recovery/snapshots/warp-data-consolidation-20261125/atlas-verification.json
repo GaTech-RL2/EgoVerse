@@ -1,0 +1,1146 @@
+{
+  "passed": true,
+  "time": 1795664662.79296,
+  "releases": 10,
+  "sampled_episodes": 30,
+  "sampled_chunks": 90,
+  "results": [
+    {
+      "dataset": "cxin34_pretrain_cart_retarget@r2_retarget_pcd",
+      "catalog": {
+        "id": "cxin34_pretrain_cart_retarget@r2_retarget_pcd",
+        "name": "cxin34_pretrain_cart_retarget",
+        "version": "r2_retarget_pcd",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:30:53.611422+00:00",
+        "total_episodes": 291,
+        "total_frames": 123598,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 10375219459,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-17",
+        "date_to": "2026-11-17",
+        "reviewed_episodes": 1,
+        "verdicts": {
+          "reject": 1
+        },
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 291,
+      "samples": [
+        {
+          "id": "cc6ac9df-a41b-5d19-88d5-dc59377a8c31",
+          "ordinal": 0,
+          "frames": 389,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1231717
+            },
+            {
+              "index": 6,
+              "bytes": 1231792
+            },
+            {
+              "index": 12,
+              "bytes": 203537
+            }
+          ]
+        },
+        {
+          "id": "a8f153ca-34be-522d-ac24-21077ac511c9",
+          "ordinal": 145,
+          "frames": 479,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1272692
+            },
+            {
+              "index": 7,
+              "bytes": 1251261
+            },
+            {
+              "index": 14,
+              "bytes": 1235528
+            }
+          ]
+        },
+        {
+          "id": "80799161-11ae-58fc-9d41-e482f1ee1f09",
+          "ordinal": 290,
+          "frames": 356,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1296052
+            },
+            {
+              "index": 5,
+              "bytes": 1276674
+            },
+            {
+              "index": 11,
+              "bytes": 177025
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cxin34_pretrain_basket_retarget@r2_retarget_pcd",
+      "catalog": {
+        "id": "cxin34_pretrain_basket_retarget@r2_retarget_pcd",
+        "name": "cxin34_pretrain_basket_retarget",
+        "version": "r2_retarget_pcd",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:30:49.118846+00:00",
+        "total_episodes": 318,
+        "total_frames": 130452,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 10364902665,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-17",
+        "date_to": "2026-11-17",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 318,
+      "samples": [
+        {
+          "id": "eefc2d53-19b1-5b13-a58f-b1f9af6d718f",
+          "ordinal": 0,
+          "frames": 566,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1291928
+            },
+            {
+              "index": 8,
+              "bytes": 1262238
+            },
+            {
+              "index": 17,
+              "bytes": 866452
+            }
+          ]
+        },
+        {
+          "id": "228008f3-f1b5-5fb8-b211-882f5be99434",
+          "ordinal": 159,
+          "frames": 552,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1273998
+            },
+            {
+              "index": 8,
+              "bytes": 1262753
+            },
+            {
+              "index": 17,
+              "bytes": 317997
+            }
+          ]
+        },
+        {
+          "id": "7e1646b9-33a5-5603-9e54-6b35f7f7db56",
+          "ordinal": 317,
+          "frames": 401,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1287359
+            },
+            {
+              "index": 6,
+              "bytes": 1282906
+            },
+            {
+              "index": 12,
+              "bytes": 684349
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cxin34_cloth_new2_h168@r1_hd2",
+      "catalog": {
+        "id": "cxin34_cloth_new2_h168@r1_hd2",
+        "name": "cxin34_cloth_new2_h168",
+        "version": "r1_hd2",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:30:38.840049+00:00",
+        "total_episodes": 60,
+        "total_frames": 27344,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 3457731389,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-20",
+        "date_to": "2026-11-20",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 60,
+      "samples": [
+        {
+          "id": "3af21413-9edf-546b-8a0f-e7ca721e2ef3",
+          "ordinal": 0,
+          "frames": 627,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1704319
+            },
+            {
+              "index": 9,
+              "bytes": 1662147
+            },
+            {
+              "index": 19,
+              "bytes": 983080
+            }
+          ]
+        },
+        {
+          "id": "4f79fb67-98fa-5fbf-96c9-01a3ac55c898",
+          "ordinal": 30,
+          "frames": 311,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1689808
+            },
+            {
+              "index": 4,
+              "bytes": 1686976
+            },
+            {
+              "index": 9,
+              "bytes": 1188665
+            }
+          ]
+        },
+        {
+          "id": "7d841095-f424-5b0e-b178-f6f898bea413",
+          "ordinal": 59,
+          "frames": 567,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1674553
+            },
+            {
+              "index": 8,
+              "bytes": 1596883
+            },
+            {
+              "index": 17,
+              "bytes": 1197411
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cxin34_cloth_fix1124@r1_hd2_fix1124",
+      "catalog": {
+        "id": "cxin34_cloth_fix1124@r1_hd2_fix1124",
+        "name": "cxin34_cloth_fix1124",
+        "version": "r1_hd2_fix1124",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:30:38.267556+00:00",
+        "total_episodes": 101,
+        "total_frames": 48360,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 6096520904,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-20",
+        "date_to": "2026-11-23",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 101,
+      "samples": [
+        {
+          "id": "1b00fe24-562a-581d-b0db-c6d3896030bc",
+          "ordinal": 0,
+          "frames": 773,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1697353
+            },
+            {
+              "index": 12,
+              "bytes": 1665520
+            },
+            {
+              "index": 24,
+              "bytes": 259340
+            }
+          ]
+        },
+        {
+          "id": "9da8e948-08dc-5477-97ae-04aefc2a480b",
+          "ordinal": 50,
+          "frames": 625,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1685380
+            },
+            {
+              "index": 9,
+              "bytes": 1650705
+            },
+            {
+              "index": 19,
+              "bytes": 876472
+            }
+          ]
+        },
+        {
+          "id": "10e0cbf0-8943-57bb-b55d-929563e9e91e",
+          "ordinal": 100,
+          "frames": 566,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1674553
+            },
+            {
+              "index": 8,
+              "bytes": 1596883
+            },
+            {
+              "index": 17,
+              "bytes": 1145418
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cxin34_drawer_1125_qc@r4_fix_bs_display23",
+      "catalog": {
+        "id": "cxin34_drawer_1125_qc@r4_fix_bs_display23",
+        "name": "cxin34_drawer_1125_qc",
+        "version": "r4_fix_bs_display23",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:30:43.510108+00:00",
+        "total_episodes": 23,
+        "total_frames": 15623,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 1352826942,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-25",
+        "date_to": "2026-11-25",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 23,
+      "samples": [
+        {
+          "id": "b1545bf2-34ea-549e-b885-d00454d3be13",
+          "ordinal": 0,
+          "frames": 641,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1247264
+            },
+            {
+              "index": 10,
+              "bytes": 1233243
+            },
+            {
+              "index": 20,
+              "bytes": 45170
+            }
+          ]
+        },
+        {
+          "id": "13a87268-8b8b-5094-8384-def1ebf26372",
+          "ordinal": 11,
+          "frames": 611,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1244744
+            },
+            {
+              "index": 9,
+              "bytes": 1232273
+            },
+            {
+              "index": 19,
+              "bytes": 125447
+            }
+          ]
+        },
+        {
+          "id": "465e1f63-ff63-52ab-80a9-39b59b0ea338",
+          "ordinal": 22,
+          "frames": 128,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1222726
+            },
+            {
+              "index": 2,
+              "bytes": 1225209
+            },
+            {
+              "index": 3,
+              "bytes": 1224773
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "basket_to_right_finetune_chuye_hd2z5_fix1124@r1_bs",
+      "catalog": {
+        "id": "basket_to_right_finetune_chuye_hd2z5_fix1124@r1_bs",
+        "name": "basket_to_right_finetune_chuye_hd2z5_fix1124",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:35.996091+00:00",
+        "total_episodes": 24,
+        "total_frames": 14961,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 1784524900,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-18",
+        "date_to": "2026-11-18",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 24,
+      "samples": [
+        {
+          "id": "cfe96026-2b3a-5d21-b6d8-ff98aa9cb734",
+          "ordinal": 0,
+          "frames": 637,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1262087
+            },
+            {
+              "index": 9,
+              "bytes": 1256047
+            },
+            {
+              "index": 19,
+              "bytes": 1128798
+            }
+          ]
+        },
+        {
+          "id": "38fca7f4-bafa-533a-a995-0db11a78d24b",
+          "ordinal": 12,
+          "frames": 492,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1262710
+            },
+            {
+              "index": 7,
+              "bytes": 1261977
+            },
+            {
+              "index": 15,
+              "bytes": 464691
+            }
+          ]
+        },
+        {
+          "id": "a0311333-991c-5223-840e-be4bf230a443",
+          "ordinal": 23,
+          "frames": 525,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1278292
+            },
+            {
+              "index": 8,
+              "bytes": 1261969
+            },
+            {
+              "index": 16,
+              "bytes": 516318
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cart_chuye_1102_tgzvis12_fix1124@r2_wam_hd2_bs",
+      "catalog": {
+        "id": "cart_chuye_1102_tgzvis12_fix1124@r2_wam_hd2_bs",
+        "name": "cart_chuye_1102_tgzvis12_fix1124",
+        "version": "r2_wam_hd2_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:30:18.680986+00:00",
+        "total_episodes": 107,
+        "total_frames": 32798,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 3904939402,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-02",
+        "date_to": "2026-11-02",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 107,
+      "samples": [
+        {
+          "id": "098612a5-ba6c-5488-b5ba-8be13c39ad5e",
+          "ordinal": 0,
+          "frames": 282,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1281113
+            },
+            {
+              "index": 4,
+              "bytes": 1264624
+            },
+            {
+              "index": 8,
+              "bytes": 1008297
+            }
+          ]
+        },
+        {
+          "id": "80898009-50c2-5ad2-9f4c-ea81f26a978a",
+          "ordinal": 53,
+          "frames": 298,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1276393
+            },
+            {
+              "index": 4,
+              "bytes": 1273996
+            },
+            {
+              "index": 9,
+              "bytes": 400061
+            }
+          ]
+        },
+        {
+          "id": "8570c132-9a8f-5d4d-9c6e-c98986961092",
+          "ordinal": 106,
+          "frames": 312,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1293308
+            },
+            {
+              "index": 4,
+              "bytes": 1265489
+            },
+            {
+              "index": 9,
+              "bytes": 929483
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "basket_2_chuye_hd2z5_fix1124@r1_bs",
+      "catalog": {
+        "id": "basket_2_chuye_hd2z5_fix1124@r1_bs",
+        "name": "basket_2_chuye_hd2z5_fix1124",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:11.326776+00:00",
+        "total_episodes": 31,
+        "total_frames": 19269,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 2288359783,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-23",
+        "date_to": "2026-11-23",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 31,
+      "samples": [
+        {
+          "id": "6f6dd169-b8b4-51d1-9a03-fcb4cab31e61",
+          "ordinal": 0,
+          "frames": 657,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1261865
+            },
+            {
+              "index": 10,
+              "bytes": 1262249
+            },
+            {
+              "index": 20,
+              "bytes": 679686
+            }
+          ]
+        },
+        {
+          "id": "42ea223c-c841-56ff-924d-744b93f186a7",
+          "ordinal": 15,
+          "frames": 580,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1263841
+            },
+            {
+              "index": 9,
+              "bytes": 1262944
+            },
+            {
+              "index": 18,
+              "bytes": 159173
+            }
+          ]
+        },
+        {
+          "id": "e0965582-7c7d-5d0c-91cf-6dbdcff32514",
+          "ordinal": 30,
+          "frames": 559,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1280588
+            },
+            {
+              "index": 8,
+              "bytes": 1261472
+            },
+            {
+              "index": 17,
+              "bytes": 590492
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "basket_to_right_3_chuye_hd2z5@r1_bs",
+      "catalog": {
+        "id": "basket_to_right_3_chuye_hd2z5@r1_bs",
+        "name": "basket_to_right_3_chuye_hd2z5",
+        "version": "r1_bs",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Chuye",
+        "imported_at": "2026-11-26T03:29:28.094137+00:00",
+        "total_episodes": 58,
+        "total_frames": 33880,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 10,
+        "storage_bytes": 4127799952,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-24",
+        "date_to": "2026-11-24",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 58,
+      "samples": [
+        {
+          "id": "49c4236c-66e1-5177-b74b-2d46fd8d5884",
+          "ordinal": 0,
+          "frames": 764,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1433053
+            },
+            {
+              "index": 11,
+              "bytes": 1429106
+            },
+            {
+              "index": 23,
+              "bytes": 1226735
+            }
+          ]
+        },
+        {
+          "id": "a6502629-193e-5ff3-817d-80a0d49c70c2",
+          "ordinal": 29,
+          "frames": 478,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1415427
+            },
+            {
+              "index": 7,
+              "bytes": 1404928
+            },
+            {
+              "index": 14,
+              "bytes": 1295210
+            }
+          ]
+        },
+        {
+          "id": "fbe6a7f3-e97f-5847-a6bb-feacb863b96c",
+          "ordinal": 57,
+          "frames": 584,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1407440
+            },
+            {
+              "index": 9,
+              "bytes": 1396966
+            },
+            {
+              "index": 18,
+              "bytes": 347908
+            }
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "dataset": "cxin34_cloth_new50_fix1124_bs@r2_bs_display",
+      "catalog": {
+        "id": "cxin34_cloth_new50_fix1124_bs@r2_bs_display",
+        "name": "cxin34_cloth_new50_fix1124_bs",
+        "version": "r2_bs_display",
+        "catalog_state": "ready",
+        "catalog_message": "",
+        "status": "Ready",
+        "created_at": null,
+        "created_by": null,
+        "captured_by": "Cxin34",
+        "imported_at": "2026-11-26T03:43:14.972235+00:00",
+        "total_episodes": 60,
+        "total_frames": 24577,
+        "format": "LeRobot v2.0",
+        "task": "Basket manipulation",
+        "capture_hz": 59.99999880000002,
+        "declared_fps": 60,
+        "storage_bytes": 4866935079,
+        "contents": [
+          "pointcloud",
+          "rgb",
+          "joints",
+          "actions",
+          "hands"
+        ],
+        "has_cloud": true,
+        "date_from": "2026-11-23",
+        "date_to": "2026-11-23",
+        "reviewed_episodes": 0,
+        "verdicts": {},
+        "attributes": {},
+        "annotation": {},
+        "annotation_revision": 0
+      },
+      "episodes": 60,
+      "samples": [
+        {
+          "id": "a4288a9a-076e-5632-82b2-d5c374bc88a4",
+          "ordinal": 0,
+          "frames": 773,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1697353
+            },
+            {
+              "index": 12,
+              "bytes": 1665520
+            },
+            {
+              "index": 24,
+              "bytes": 259340
+            }
+          ]
+        },
+        {
+          "id": "50487b78-3ba2-55fe-916e-e5dae96440a9",
+          "ordinal": 30,
+          "frames": 97,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1605776
+            },
+            {
+              "index": 1,
+              "bytes": 1634194
+            },
+            {
+              "index": 3,
+              "bytes": 51360
+            }
+          ]
+        },
+        {
+          "id": "e8ce6999-4462-598e-a894-c4ece4dba9ea",
+          "ordinal": 59,
+          "frames": 588,
+          "point_counts": [
+            2048,
+            1024,
+            1024
+          ],
+          "chunks": [
+            {
+              "index": 0,
+              "bytes": 1698182
+            },
+            {
+              "index": 9,
+              "bytes": 1668696
+            },
+            {
+              "index": 18,
+              "bytes": 629650
+            }
+          ]
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "known_legacy_limits": [
+    "Cloth new50 r1_hd2 retains exact training coordinates; a recovered segment fails Atlas frame preparation. Use r2_bs_display for visualization.",
+    "Drawer r3 exact-input cloud version retains its pre-existing display-frame limitation. Use r4_fix_bs_display23.",
+    "Historical maintainer lerobot_raw releases with pre-existing provenance errors were not modified."
+  ]
+}

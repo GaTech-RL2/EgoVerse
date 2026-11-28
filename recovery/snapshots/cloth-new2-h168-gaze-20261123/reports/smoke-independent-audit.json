@@ -1,0 +1,110 @@
+{
+  "passed": true,
+  "members": [
+    {
+      "changed_backbone_tensors": 100,
+      "seed": 42,
+      "best_epoch": 9,
+      "train_loss": 0.04071588957538971,
+      "sha256": "f9bef246441fe79649964763d54eb9d6e4bb400583591fa4e5299313efb17ace",
+      "validation": {
+        "median": 1.7094858616552093,
+        "p90": 3.67651346943408,
+        "mean": 2.093736516663512,
+        "n": 2267
+      }
+    }
+  ],
+  "validation": {
+    "median": 1.7094858616552093,
+    "p90": 3.67651346943408,
+    "mean": 2.093736516663512,
+    "n": 2267
+  },
+  "center_baseline": {
+    "median": 11.232856761014501,
+    "p90": 17.985629636655034,
+    "mean": 11.548359532077098,
+    "n": 2267
+  },
+  "validation_scope": "Five held-out original recordings used for checkpoint selection; no independent test set or robot validation.",
+  "split_sha256": "7916d9d4e07bd0909e6ab77a2225d05f1f12758b77e228c375434ed9c0a43090",
+  "per_recording": [
+    {
+      "key": "cloth_new2:000001",
+      "validation": {
+        "median": 1.788933387418645,
+        "p90": 3.7068637123623907,
+        "mean": 2.1107373150818307,
+        "n": 423
+      },
+      "center_baseline": {
+        "median": 12.993941279164716,
+        "p90": 24.268460141745066,
+        "mean": 14.511831559742204,
+        "n": 423
+      }
+    },
+    {
+      "key": "cloth_new2:000006",
+      "validation": {
+        "median": 1.4285498097644225,
+        "p90": 4.527551027470995,
+        "mean": 2.1563939726203203,
+        "n": 297
+      },
+      "center_baseline": {
+        "median": 13.602175108923426,
+        "p90": 19.622774328848326,
+        "mean": 14.437868563045683,
+        "n": 297
+      }
+    },
+    {
+      "key": "cloth_new2:000014",
+      "validation": {
+        "median": 1.477496241215528,
+        "p90": 5.501516666128855,
+        "mean": 2.17128988107844,
+        "n": 361
+      },
+      "center_baseline": {
+        "median": 9.839240673655555,
+        "p90": 14.298766192036505,
+        "mean": 9.834088896693691,
+        "n": 361
+      }
+    },
+    {
+      "key": "cloth_new2:000047",
+      "validation": {
+        "median": 1.4938239975035026,
+        "p90": 3.1130220827924533,
+        "mean": 1.809213438559761,
+        "n": 619
+      },
+      "center_baseline": {
+        "median": 12.264246275964805,
+        "p90": 17.526089076767143,
+        "mean": 11.934404650590894,
+        "n": 619
+      }
+    },
+    {
+      "key": "cloth_new2:000056",
+      "validation": {
+        "median": 2.1728745867409334,
+        "p90": 3.623162481792891,
+        "mean": 2.3094727047451893,
+        "n": 567
+      },
+      "center_baseline": {
+        "median": 8.31043548402478,
+        "p90": 12.180520346564583,
+        "mean": 8.493962567550392,
+        "n": 567
+      }
+    }
+  ],
+  "acceptance_scope": "Full30epoch first member with same recipe and separate-process resume; reuse as ensemble seed42. Earlier2epoch smoke preserved, health threshold unchanged."
+}

@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "reviewed_frames": 60,
+  "scope": "One mid-recording frame per all60 recordings; green target mostly on clothing/hand interaction or destination basket; no gross offset or mirrored-image mismatch. Not precise gaze ground truth.",
+  "contact_sha": {
+    "labels-1.jpg": "f5783efe8205f6dfad581f70aa0f546cb01151a00b530bd5814f56accccd5ea2",
+    "labels-0.jpg": "1e1c019a5f5751269508e482f3524b3090468240b858e1e684b7718c4cbc1c40",
+    "labels-2.jpg": "8110aae9b102e09f051dc1ddb43f1f50840a67b2056349e2479446173f593069"
+  }
+}

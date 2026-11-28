@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "formal_job": "4827201",
+  "queue": "4827201|RUNNING|brainiac|gres/gpu:a40:1",
+  "metrics": {
+    "step": 100,
+    "loss": 5.684412479400635,
+    "action": 3.8939177989959717,
+    "aux": 1.7904947996139526,
+    "consistency": 0.0
+  },
+  "configuration_sha256": "eeab3faf38dcd62c1123c16d335cd18aa9e540ae375648f0fc5d16f2c38c4c9d",
+  "data_ready_sha256": "b382de367bf3d06eb5480da3f00f85300af219f9d612f02b5eff9d9771644a4f",
+  "smoke_audit_sha256": "81315696362dc9911cf86032457a993386ac5c7a720fce53d1949ac6836ab331",
+  "initialization": "scratch; no parent checkpoint",
+  "steps": 180000,
+  "checkpoint_every_steps": 10000,
+  "model": "three PCD + DINO B objective with MSC augmentation only",
+  "run_dir": "/coc/flash7/cxin34/cloth-new2-scratch-20261121/runs/cloth-new2-B-msc-scratch-s42",
+  "training_complete": false
+}

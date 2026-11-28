@@ -1,0 +1,32 @@
+{
+  "task": "basket",
+  "run": "basket113-fix1124-bs-scratch180k-MSCstrong-s42",
+  "root": "/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/basket",
+  "upstream": "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124",
+  "rows": {
+    "train": 61563,
+    "valid": 6547
+  },
+  "counts": {
+    "train": 102,
+    "valid": 11
+  },
+  "source_sha": {
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/releases/basket/target.json": "95c379b115e8ee58ee38887851cc72ebd2c648d2dd9c55a399455332ad21166a",
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/releases/basket/READY.json": "0dd5d6770766239c092a80383e43f873b58e28bd11fd528d705f053d7f86c0bb",
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/reports/data-independent-audit.json": "fd390f56fea133ab3ce4f089826b6338eb4de1b2a5fc33f30abc0a41b952a753",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs/source_map.jsonl": "bd9f6797fca9772f0f30ca95683f990b46bb4d5e63956d66589925cfd096969b",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs/source_map.jsonl": "a33950e59bab682527e016df329e2cc6904503aa1961cadb4251e8e3161adb62",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs/source_map.jsonl": "ca037d9c24dcfb582c7f81e7c386b8c25dd71749ce555fe0b00d99b9317e6aed",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_2_1123/processed/fix1124_bs/retargeted/gate_basefix.json": "9b06e61b18feef0c10363b9bebfb7648143755c7367d57679591dfdb2088847d",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_3_1124/processed/r1_bs/retargeted/gate_basefix.json": "b2bad6d0cb87e3a30a5d11324f044a04c8b94f69b136fcc511793871ca17b003",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_finetune_1118/processed/fix1124_bs/retargeted/gate_basefix.json": "17cf8300063dd680b54f69d061554880ca5d4d68d9e90a0a744c4aa9bd85ac3e",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_finetune_batch2_1118/processed/fix1124_bs/retargeted/gate_basefix.json": "60951e65a860786e9ac362c5089906a5f1ee09cf44264496e2f3345e2403ba3d",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs/manifest.json": "905f328122575e1fa6e5e275af5dee761fc1dbd03745d8ea2ac1e6ac0ce9202a",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1/manifest.json": "f6bf2e49b698983a66667fedc8fd5ae2603b2f4e3529d4eea3864dddaa9732ef",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs/manifest.json": "8093fb31955994ea5736436b5f752eaabcff88cd2ad4d1b1a444d80fe8a41711",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1/manifest.json": "91063cc8f5b1260ddb64046d00fa373218194bba0586f2c30fff62075e290bfe",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs/manifest.json": "dfcefb6b3e3c99eb4b75453ef798534845e72d8945e926a724bcbdaecc36faa2",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1/manifest.json": "08b76e197c74d176e7a04f988d6820f7c329a184b9e64229afc2ce1b73e905c2"
+  }
+}

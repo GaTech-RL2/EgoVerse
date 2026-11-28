@@ -1,0 +1,9 @@
+{
+  "commit": "77f87abe69bf098ebccf3e9b08400963954af6ac",
+  "transform_sha256": "ccf147cc1e1b51f5ec875819566083997b094fd453b32e033b685ccfa512ab9d",
+  "classes": [
+    "RandomColorGrayScale",
+    "RandomColorJitter",
+    "ChromaticJitter"
+  ]
+}

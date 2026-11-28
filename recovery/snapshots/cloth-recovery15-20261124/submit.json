@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--gres=gpu:l40s:1",
+    "--exclude=alexa,ash,asimo,ava,bb8,bishop,bmo,c3po,calculon,cell,cheetah,chomps,clank,claptrap,conroy,cortana,droid,ephemeral-3,eva,fiona,flexo,friday,gideon,glados,hal,irona,jarvis,jill,johnny5,kipp,neo,olivaw,oppy,pops,ripl-s1,rosie,siri,sky1,sky2,smith,sophon,t1000,tars,tx,ultron,vector,vicki,vincent,walle,zima",
+    "--cpus-per-task=4",
+    "--mem=48G",
+    "--time=04:00:00",
+    "--job-name=egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42",
+    "--chdir=/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft",
+    "--output=/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft/logs/egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42-%j.log",
+    "--requeue",
+    "--signal=B:USR1@900",
+    "--export=ALL,CAMPAIGN_ROOT=/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft,RUN_ID=egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42",
+    "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft/scripts/chain.sbatch"
+  ],
+  "returncode": 0,
+  "stdout": "4855714\n",
+  "stderr": "",
+  "time": 1795561475.763943
+}

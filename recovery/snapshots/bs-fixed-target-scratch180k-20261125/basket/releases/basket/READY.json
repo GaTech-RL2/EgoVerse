@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "normalizer_frozen": true,
+  "retarget_verified": true,
+  "recording_hz": 60,
+  "horizon_rows": 64,
+  "dino_offset_rows": 10,
+  "manifests": {
+    "target": "45d442b1c23fe39f37a04577254661b616e3d711da6c5fc8a4e8faac1dcb0c02"
+  },
+  "normalizer_sha256": "6076eb83bcef9393a8049aedef96bec61c150e5435c964521faaf92fe60f767f",
+  "normalizer_fit_partition": "target_train",
+  "source_data_used": false,
+  "egoposer_fixed": true,
+  "base_smoothed": true,
+  "train_recordings": 102,
+  "valid_recordings": 11,
+  "train_rows": 61563,
+  "valid_rows": 6547,
+  "independent_audit_sha256": "8623450ec22c6aeb013558ff91110776183f0a8b936f429c91542f386ee5d504",
+  "lineage_sha256": "c68008072d142e61e16a75b7535dbdb85e24a038f9f8d078d7d167393290cf82",
+  "formal_training_authorized": true,
+  "geometry_note": "BS retains fixed-release camera-frame clouds; inherited accepted BS approximation, not fresh camera reprojection"
+}

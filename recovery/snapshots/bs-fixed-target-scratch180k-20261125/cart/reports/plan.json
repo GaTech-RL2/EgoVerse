@@ -1,0 +1,23 @@
+{
+  "task": "cart",
+  "run": "cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+  "root": "/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/cart",
+  "upstream": "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124",
+  "rows": {
+    "train": 29771,
+    "valid": 3027
+  },
+  "counts": {
+    "train": 97,
+    "valid": 10
+  },
+  "source_sha": {
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/releases/cart/target.json": "9e280645c97ed1eb2a1d0e15be9af707aeb3b47a44bdd14e8091d76aa9515ef2",
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/releases/cart/READY.json": "d5e6f241a4bc2d2e4c48091b0ff69f91d008dfedea631ddbef7540c41e1878fd",
+    "/coc/flash7/scratch/cxin34/egoa-cart107-bs-strong-ft-20261124/reports/data-independent-audit.json": "f2828f39e3295287af9642d58468377b1bc9a7dcd09351189ec872438674fa38",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs/source_map.jsonl": "b47bcd46ef4bb9a0a749206fd4052a5427f50e0e8c3a4045ac68c93685cdab13",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_cart_1102/processed/fix1124_bs/retargeted/gate_basefix.json": "20b8cda912ba6afa6f73e154c7c6cf87fd55d13addc9b4b3824132bd39e80a4a",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la_bs/manifest.json": "8e5c0254966f2a6cbacd92edbf317b76cccf93234fe857de38d78f8f119ebf87",
+    "/coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12_fix1124/releases/r2_wam_hd2la/manifest.json": "5bcef2b0b09b8bdf76e70a29eacbdc09324e145d28fe7ca93aac8b7b4df36534"
+  }
+}

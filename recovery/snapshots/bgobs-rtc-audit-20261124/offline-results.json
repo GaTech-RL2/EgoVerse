@@ -1,0 +1,49 @@
+{
+  "passed": true,
+  "rtc": [
+    12,
+    13,
+    21
+  ],
+  "old_filter_frozen_max_error": 0.9825299243161651,
+  "fixed_filter_frozen_max_error": 0.0,
+  "splice_cases": [
+    {
+      "delta": 0,
+      "remaining": 64,
+      "late": false
+    },
+    {
+      "delta": 1,
+      "remaining": 63,
+      "late": false
+    },
+    {
+      "delta": 5,
+      "remaining": 59,
+      "late": false
+    },
+    {
+      "delta": 11,
+      "remaining": 53,
+      "late": false
+    },
+    {
+      "delta": 12,
+      "remaining": 52,
+      "late": false
+    },
+    {
+      "delta": 13,
+      "remaining": 51,
+      "late": true
+    },
+    {
+      "delta": 20,
+      "remaining": 44,
+      "late": true
+    }
+  ],
+  "worker_hand_snapshot_passed": true,
+  "scope": "actual pure RTC and extracted worker/filter; no robot/camera imports"
+}

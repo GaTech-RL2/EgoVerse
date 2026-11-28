@@ -857,6 +857,8 @@ class HPTModel(nn.Module):
                     )
 
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
+        if auxiliary_action_loss.requires_grad:   # 11-02 ptfwam: log the action and world-head parts (Train/<domain>_loss/act, /aux)
+            self.last_block_losses = dict(self.last_block_losses or {}, act=action_loss.detach(), aux=auxiliary_action_loss.detach())
         return total_loss
 
     def forward(self, domain, data):
@@ -930,6 +932,8 @@ class HPTModel(nn.Module):
         m : nn.Module
             The module to initialize.
         """
+        if getattr(m, "_hpt_keep_init", False):  # pretrained sub-modules, e.g. UtoniaPointEncoder.backbone
+            return
         if isinstance(m, nn.Linear):
             torch.nn.init.xavier_uniform_(m.weight)
             if isinstance(m, nn.Linear) and m.bias is not None:

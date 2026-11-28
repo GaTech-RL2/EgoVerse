@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader, random_split, default_collate
+from torch.utils.data import DataLoader, random_split, default_collate, WeightedRandomSampler
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning import LightningDataModule
 from transformers import AutoTokenizer
@@ -280,18 +280,39 @@ class MultiDataModuleWrapper(LightningDataModule):
                     balanced=self.episode_balanced, row_weights=self.row_weights, obs_delay=self.obs_delay,
                 )
                 continue
-            if self.episode_balanced or self.row_weights or self.obs_delay:
-                raise ValueError("data.episode_balanced / data.row_weights / data.obs_delay need the gpu_resident path (data.gpu_resident=true or host)")
+            if self.episode_balanced or self.obs_delay:
+                raise ValueError("data.episode_balanced / data.obs_delay need the gpu_resident path (data.gpu_resident=true or host)")
             if self.gpu_resident:
                 cprint(f"gpu_resident: {dataset_name} needs the DataLoader path (images, several datasets, key maps, ...)", "yellow")
+            sampler = self.row_weight_sampler(dataset) if self.row_weights else None
             iterables[dataset.embodiment] = DataLoader(
                 dataset,
-                shuffle=True,
+                shuffle=sampler is None,
+                sampler=sampler,
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
+
+    def row_weight_sampler(self, dataset):
+        """data.row_weights on the DataLoader path (11-01, cart dense manip-phase sampling): the GpuResidentBatches contract, a
+        weight per release row indexed by the release's global `index` column; len(dataset) draws per epoch, with replacement"""
+        leaf = dataset
+        while not isinstance(leaf, RLDBDataset):
+            if getattr(leaf, "key_map", None) or len(getattr(leaf, "datasets", {})) != 1:
+                raise ValueError("data.row_weights on the DataLoader path: one dataset without key maps only")
+            leaf = next(iter(leaf.datasets.values()))
+        rows = np.arange(len(leaf)) if leaf.sampled_indices is None else np.asarray(leaf.sampled_indices)
+        gi = np.asarray(leaf.hf_dataset.with_format("numpy", columns=["index"])[:]["index"], dtype=np.int64)[rows]
+        assert len(gi) == len(dataset), f"row_weights: {len(gi)} leaf rows vs {len(dataset)} dataset items"
+        W = np.load(self.row_weights).astype(np.float64)
+        assert gi.max() < len(W), f"row_weights {self.row_weights}: {len(W)} weights, release index up to {gi.max()}"
+        w = W[gi]
+        assert (w >= 0).all() and w.sum() > 0, "row_weights must be >= 0 with a positive sum"
+        cprint(f"row_weights {self.row_weights}: {len(w)} rows, weight min {w.min():.2f} max {w.max():.2f} mean {w.mean():.3f}, "
+               f"share drawn from weight > 1 rows {w[w > 1].sum() / w.sum():.3f} (natural {np.mean(w > 1):.3f})", "green")
+        return WeightedRandomSampler(torch.from_numpy(w), num_samples=len(dataset), replacement=True)
 
     def val_dataloader(self):
         iterables = dict()

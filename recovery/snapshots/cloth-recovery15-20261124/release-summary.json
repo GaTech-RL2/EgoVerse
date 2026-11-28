@@ -1,0 +1,283 @@
+{
+  "time": 1795561653.781851,
+  "original_recordings": 43,
+  "episodes": 60,
+  "rows": 24577,
+  "added_rows": 2647,
+  "added_segments": 17,
+  "recovered_recordings": 14,
+  "recording_split": {
+    "train": 38,
+    "valid": 5
+  },
+  "row_split": [
+    {
+      "split": "train",
+      "rows": 21891,
+      "passed": true
+    },
+    {
+      "split": "valid",
+      "rows": 2686,
+      "passed": true
+    }
+  ],
+  "per_recording": [
+    {
+      "take": 66,
+      "recording_id": "714f122c-f465-44f2-9260-7c1bcbcebc7c",
+      "split": "valid",
+      "original_rows": 310,
+      "recovered_rows": 164,
+      "recovered_segments": 2,
+      "recovered_sample_duration_s": 2.7333333333333334,
+      "intervals": [
+        [
+          331,
+          409
+        ],
+        [
+          588,
+          674
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 69,
+      "recording_id": "a9a2399f-d8fa-4ae6-bee0-877033956b25",
+      "split": "train",
+      "original_rows": 454,
+      "recovered_rows": 209,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.4833333333333334,
+      "intervals": [
+        [
+          467,
+          676
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 74,
+      "recording_id": "31510141-894f-4cfb-8cd5-1911d866782d",
+      "split": "train",
+      "original_rows": 420,
+      "recovered_rows": 121,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 2.0166666666666666,
+      "intervals": [
+        [
+          589,
+          710
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 75,
+      "recording_id": "f21a0cd5-5d52-4909-93eb-9b7db9584ead",
+      "split": "train",
+      "original_rows": 450,
+      "recovered_rows": 207,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.45,
+      "intervals": [
+        [
+          0,
+          207
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 78,
+      "recording_id": "36828d52-4241-4687-8e4f-9f7b3445f601",
+      "split": "train",
+      "original_rows": 312,
+      "recovered_rows": 266,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 4.433333333333334,
+      "intervals": [
+        [
+          384,
+          650
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 81,
+      "recording_id": "4abb4ec0-d3ac-4563-888f-599da0cb1709",
+      "split": "train",
+      "original_rows": 387,
+      "recovered_rows": 214,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.566666666666667,
+      "intervals": [
+        [
+          517,
+          732
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 83,
+      "recording_id": "705275c3-fb0b-438c-8968-845a8f1f1738",
+      "split": "train",
+      "original_rows": 275,
+      "recovered_rows": 244,
+      "recovered_segments": 2,
+      "recovered_sample_duration_s": 4.066666666666666,
+      "intervals": [
+        [
+          283,
+          415
+        ],
+        [
+          517,
+          629
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 84,
+      "recording_id": "86fb6f3e-cadc-4571-935d-3a6bdfebfd14",
+      "split": "train",
+      "original_rows": 326,
+      "recovered_rows": 230,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.8333333333333335,
+      "intervals": [
+        [
+          399,
+          629
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 85,
+      "recording_id": "8b549038-9e75-4095-829b-7c6b3714bcd3",
+      "split": "valid",
+      "original_rows": 434,
+      "recovered_rows": 194,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.2333333333333334,
+      "intervals": [
+        [
+          440,
+          634
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 89,
+      "recording_id": "44a3b9fe-18cb-4908-9aa9-ec4fc8bc02ba",
+      "split": "valid",
+      "original_rows": 336,
+      "recovered_rows": 97,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 1.6166666666666667,
+      "intervals": [
+        [
+          477,
+          574
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 90,
+      "recording_id": "d157a33c-859b-4950-b867-3c1ba6a14688",
+      "split": "train",
+      "original_rows": 417,
+      "recovered_rows": 207,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.45,
+      "intervals": [
+        [
+          440,
+          647
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 92,
+      "recording_id": "b36d9780-f15d-4fb5-ba48-f43a89b1a756",
+      "split": "train",
+      "original_rows": 212,
+      "recovered_rows": 194,
+      "recovered_segments": 2,
+      "recovered_sample_duration_s": 3.2333333333333334,
+      "intervals": [
+        [
+          284,
+          381
+        ],
+        [
+          587,
+          684
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 94,
+      "recording_id": "0e8b6eb3-d9f5-488c-9d3c-4b0365acc469",
+      "split": "train",
+      "original_rows": 331,
+      "recovered_rows": 0,
+      "recovered_segments": 0,
+      "recovered_sample_duration_s": 0.0,
+      "intervals": [],
+      "status": "additional_interval_quality_excluded"
+    },
+    {
+      "take": 97,
+      "recording_id": "b1bc1cb6-2b5a-4f48-9a52-f29d595cf091",
+      "split": "train",
+      "original_rows": 306,
+      "recovered_rows": 90,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 1.5,
+      "intervals": [
+        [
+          517,
+          607
+        ]
+      ],
+      "status": "recovered"
+    },
+    {
+      "take": 98,
+      "recording_id": "e278aeb0-89a3-47ed-9599-6744a719e1d5",
+      "split": "train",
+      "original_rows": 350,
+      "recovered_rows": 210,
+      "recovered_segments": 1,
+      "recovered_sample_duration_s": 3.5,
+      "intervals": [
+        [
+          377,
+          587
+        ]
+      ],
+      "status": "recovered"
+    }
+  ],
+  "training": {
+    "job": 4855714,
+    "root": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft",
+    "parent_step": 180000,
+    "target_steps": 60000,
+    "seed": 42,
+    "recipe": "B+strongMSC"
+  },
+  "note": "Disjoint segments; sample count/60 is additive sample-duration, not elapsed recording duration; old43 artifacts unchanged. Validation now has extra valid frames; loss not directly comparable to old row set."
+}

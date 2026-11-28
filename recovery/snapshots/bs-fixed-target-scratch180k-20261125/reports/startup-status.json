@@ -1,0 +1,105 @@
+{
+  "timestamp": 1795584254.0590954,
+  "jobs": [
+    {
+      "task": "cart",
+      "job": "4860705",
+      "queue": "4860705 RUNNING bishop gres/gpu:l40s:1",
+      "-smoke": {
+        "latest_metric": {
+          "step": 200,
+          "loss": 4.420790195465088,
+          "action": 2.851132392883301,
+          "aux": 1.569657802581787,
+          "consistency": 0.0
+        },
+        "proof": true
+      },
+      "formal": {
+        "latest_metric": {
+          "step": 600,
+          "loss": 2.4213671684265137,
+          "action": 1.3283734321594238,
+          "aux": 1.0929938554763794,
+          "consistency": 0.0
+        },
+        "proof": false
+      },
+      "independent_smoke": {
+        "passed": true,
+        "run": "cart107-la-fix1124-bs-scratch180k-MSCstrong-s42",
+        "checkpoint_sha256": "0bad3ba3b9b150f8ecafadc1fca50b417d8f1f8679e1176a3820c7b2d8f2d8a5",
+        "step": 200,
+        "identity": {
+          "config_sha256": "4e7a51c6e490d7e248f54b532cb7285cbcc439be78b04dc79623751ff04c2d12",
+          "normalizer_sha256": "e642ee7e399a2c7cae37bd037ea227b9ed715f9e2d27a1b446e6b7b42f7f4bea",
+          "manifest_sha256": "c80ad0a03bf369ce39485468eb0715a92826992a7e36d720a90f5667a9e2530d",
+          "code_sha256": "38bc34d079d2bee4fe47d22627e6c1f6d0a218f9931a72cb6a1f827021e24d49"
+        },
+        "scheduler_T_max": 180000,
+        "full_validation": {
+          "step": 200,
+          "full": true,
+          "rows": 3027,
+          "action": 3.198287371010681,
+          "aux": 1.545935947508319
+        },
+        "initialization": "scratch",
+        "no_parent_weights": true,
+        "initial_parameter_sha256": "a9cd5e17b505480373ef976f00297ef6ee7aa04c02248f2a1a2d5854e8e9c544",
+        "arm": "B",
+        "mean_consistency": 0.0
+      }
+    },
+    {
+      "task": "basket",
+      "job": "4860707",
+      "queue": "4860707 RUNNING bishop gres/gpu:l40s:1",
+      "-smoke": {
+        "latest_metric": {
+          "step": 200,
+          "loss": 4.519318580627441,
+          "action": 2.9324722290039062,
+          "aux": 1.5868464708328247,
+          "consistency": 0.0
+        },
+        "proof": true
+      },
+      "formal": {
+        "latest_metric": {
+          "step": 100,
+          "loss": 6.133515357971191,
+          "action": 4.231292724609375,
+          "aux": 1.9022226333618164,
+          "consistency": 0.0
+        },
+        "proof": false
+      },
+      "independent_smoke": {
+        "passed": true,
+        "run": "basket113-fix1124-bs-scratch180k-MSCstrong-s42",
+        "checkpoint_sha256": "79fc4e87f6448ab64181891512e8de3a1b678af7f641f321f96a2d65dbf5b7cd",
+        "step": 200,
+        "identity": {
+          "config_sha256": "32946a9802494da2e773f4f1da05f1f2b9e590f06e9dac01cf3874753f3ca718",
+          "normalizer_sha256": "6076eb83bcef9393a8049aedef96bec61c150e5435c964521faaf92fe60f767f",
+          "manifest_sha256": "45d442b1c23fe39f37a04577254661b616e3d711da6c5fc8a4e8faac1dcb0c02",
+          "code_sha256": "38bc34d079d2bee4fe47d22627e6c1f6d0a218f9931a72cb6a1f827021e24d49"
+        },
+        "scheduler_T_max": 180000,
+        "full_validation": {
+          "step": 200,
+          "full": true,
+          "rows": 6547,
+          "action": 3.2057437383256397,
+          "aux": 1.5810393080996141
+        },
+        "initialization": "scratch",
+        "no_parent_weights": true,
+        "initial_parameter_sha256": "a9cd5e17b505480373ef976f00297ef6ee7aa04c02248f2a1a2d5854e8e9c544",
+        "arm": "B",
+        "mean_consistency": 0.0
+      }
+    }
+  ]
+}

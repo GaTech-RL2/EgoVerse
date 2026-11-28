@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "device": "cpu",
+  "freeze": 12,
+  "period_tail_offset": 13,
+  "soft": 21,
+  "results": [
+    {
+      "fixture": 0,
+      "freeze_max_error": 0.0,
+      "seconds": 1.254694938659668
+    },
+    {
+      "fixture": 1,
+      "freeze_max_error": 0.0,
+      "seconds": 1.3193392753601074
+    },
+    {
+      "fixture": 2,
+      "freeze_max_error": 0.0,
+      "seconds": 1.1929423809051514
+    }
+  ]
+}

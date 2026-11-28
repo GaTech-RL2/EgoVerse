@@ -1,0 +1,1331 @@
+{
+  "passed": true,
+  "count": 165,
+  "raw_links": 165,
+  "mps_links": 165,
+  "records": [
+    {
+      "take": 1,
+      "rows": {
+        "slam": 16200,
+        "hand_tracking": 1012,
+        "eye_gaze": 87
+      }
+    },
+    {
+      "take": 2,
+      "rows": {
+        "slam": 12000,
+        "hand_tracking": 769,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 3,
+      "rows": {
+        "slam": 11800,
+        "hand_tracking": 765,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 4,
+      "rows": {
+        "slam": 11000,
+        "hand_tracking": 716,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 5,
+      "rows": {
+        "slam": 11201,
+        "hand_tracking": 726,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 6,
+      "rows": {
+        "slam": 11001,
+        "hand_tracking": 717,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 7,
+      "rows": {
+        "slam": 11000,
+        "hand_tracking": 709,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 8,
+      "rows": {
+        "slam": 10400,
+        "hand_tracking": 678,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 9,
+      "rows": {
+        "slam": 10500,
+        "hand_tracking": 680,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 10,
+      "rows": {
+        "slam": 10201,
+        "hand_tracking": 646,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 11,
+      "rows": {
+        "slam": 12201,
+        "hand_tracking": 783,
+        "eye_gaze": 68
+      }
+    },
+    {
+      "take": 12,
+      "rows": {
+        "slam": 15000,
+        "hand_tracking": 948,
+        "eye_gaze": 82
+      }
+    },
+    {
+      "take": 13,
+      "rows": {
+        "slam": 9400,
+        "hand_tracking": 620,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 14,
+      "rows": {
+        "slam": 9301,
+        "hand_tracking": 613,
+        "eye_gaze": 53
+      }
+    },
+    {
+      "take": 15,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 662,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 16,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 664,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 17,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 649,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 18,
+      "rows": {
+        "slam": 12001,
+        "hand_tracking": 783,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 19,
+      "rows": {
+        "slam": 9901,
+        "hand_tracking": 631,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 20,
+      "rows": {
+        "slam": 11600,
+        "hand_tracking": 741,
+        "eye_gaze": 64
+      }
+    },
+    {
+      "take": 21,
+      "rows": {
+        "slam": 11000,
+        "hand_tracking": 706,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 22,
+      "rows": {
+        "slam": 10501,
+        "hand_tracking": 686,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 23,
+      "rows": {
+        "slam": 10400,
+        "hand_tracking": 672,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 24,
+      "rows": {
+        "slam": 12600,
+        "hand_tracking": 808,
+        "eye_gaze": 69
+      }
+    },
+    {
+      "take": 25,
+      "rows": {
+        "slam": 10900,
+        "hand_tracking": 706,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 26,
+      "rows": {
+        "slam": 9801,
+        "hand_tracking": 648,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 27,
+      "rows": {
+        "slam": 10900,
+        "hand_tracking": 696,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 28,
+      "rows": {
+        "slam": 8300,
+        "hand_tracking": 544,
+        "eye_gaze": 47
+      }
+    },
+    {
+      "take": 29,
+      "rows": {
+        "slam": 10701,
+        "hand_tracking": 680,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 30,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 645,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 31,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 641,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 32,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 667,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 33,
+      "rows": {
+        "slam": 11101,
+        "hand_tracking": 706,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 34,
+      "rows": {
+        "slam": 9100,
+        "hand_tracking": 594,
+        "eye_gaze": 52
+      }
+    },
+    {
+      "take": 35,
+      "rows": {
+        "slam": 9400,
+        "hand_tracking": 629,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 36,
+      "rows": {
+        "slam": 9201,
+        "hand_tracking": 617,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 37,
+      "rows": {
+        "slam": 10600,
+        "hand_tracking": 710,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 38,
+      "rows": {
+        "slam": 9500,
+        "hand_tracking": 630,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 39,
+      "rows": {
+        "slam": 8801,
+        "hand_tracking": 583,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 40,
+      "rows": {
+        "slam": 11301,
+        "hand_tracking": 729,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 41,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 632,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 42,
+      "rows": {
+        "slam": 9600,
+        "hand_tracking": 620,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 43,
+      "rows": {
+        "slam": 9300,
+        "hand_tracking": 605,
+        "eye_gaze": 53
+      }
+    },
+    {
+      "take": 44,
+      "rows": {
+        "slam": 9000,
+        "hand_tracking": 604,
+        "eye_gaze": 53
+      }
+    },
+    {
+      "take": 45,
+      "rows": {
+        "slam": 8100,
+        "hand_tracking": 538,
+        "eye_gaze": 47
+      }
+    },
+    {
+      "take": 46,
+      "rows": {
+        "slam": 8500,
+        "hand_tracking": 571,
+        "eye_gaze": 49
+      }
+    },
+    {
+      "take": 47,
+      "rows": {
+        "slam": 10400,
+        "hand_tracking": 675,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 48,
+      "rows": {
+        "slam": 10401,
+        "hand_tracking": 669,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 49,
+      "rows": {
+        "slam": 10500,
+        "hand_tracking": 684,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 50,
+      "rows": {
+        "slam": 10301,
+        "hand_tracking": 660,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 51,
+      "rows": {
+        "slam": 8600,
+        "hand_tracking": 567,
+        "eye_gaze": 50
+      }
+    },
+    {
+      "take": 52,
+      "rows": {
+        "slam": 9000,
+        "hand_tracking": 583,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 53,
+      "rows": {
+        "slam": 9100,
+        "hand_tracking": 593,
+        "eye_gaze": 52
+      }
+    },
+    {
+      "take": 54,
+      "rows": {
+        "slam": 9500,
+        "hand_tracking": 622,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 55,
+      "rows": {
+        "slam": 8500,
+        "hand_tracking": 570,
+        "eye_gaze": 49
+      }
+    },
+    {
+      "take": 56,
+      "rows": {
+        "slam": 9401,
+        "hand_tracking": 624,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 57,
+      "rows": {
+        "slam": 9600,
+        "hand_tracking": 631,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 58,
+      "rows": {
+        "slam": 8701,
+        "hand_tracking": 576,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 59,
+      "rows": {
+        "slam": 9600,
+        "hand_tracking": 636,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 60,
+      "rows": {
+        "slam": 10200,
+        "hand_tracking": 645,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 61,
+      "rows": {
+        "slam": 13200,
+        "hand_tracking": 847,
+        "eye_gaze": 73
+      }
+    },
+    {
+      "take": 62,
+      "rows": {
+        "slam": 12100,
+        "hand_tracking": 780,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 63,
+      "rows": {
+        "slam": 20000,
+        "hand_tracking": 1264,
+        "eye_gaze": 108
+      }
+    },
+    {
+      "take": 64,
+      "rows": {
+        "slam": 12700,
+        "hand_tracking": 803,
+        "eye_gaze": 69
+      }
+    },
+    {
+      "take": 65,
+      "rows": {
+        "slam": 12401,
+        "hand_tracking": 790,
+        "eye_gaze": 68
+      }
+    },
+    {
+      "take": 66,
+      "rows": {
+        "slam": 11901,
+        "hand_tracking": 768,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 67,
+      "rows": {
+        "slam": 11600,
+        "hand_tracking": 743,
+        "eye_gaze": 64
+      }
+    },
+    {
+      "take": 68,
+      "rows": {
+        "slam": 12000,
+        "hand_tracking": 779,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 69,
+      "rows": {
+        "slam": 12101,
+        "hand_tracking": 767,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 70,
+      "rows": {
+        "slam": 11201,
+        "hand_tracking": 727,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 71,
+      "rows": {
+        "slam": 10601,
+        "hand_tracking": 689,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 72,
+      "rows": {
+        "slam": 11500,
+        "hand_tracking": 745,
+        "eye_gaze": 64
+      }
+    },
+    {
+      "take": 73,
+      "rows": {
+        "slam": 10200,
+        "hand_tracking": 670,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 74,
+      "rows": {
+        "slam": 12501,
+        "hand_tracking": 794,
+        "eye_gaze": 68
+      }
+    },
+    {
+      "take": 75,
+      "rows": {
+        "slam": 12100,
+        "hand_tracking": 780,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 76,
+      "rows": {
+        "slam": 10700,
+        "hand_tracking": 687,
+        "eye_gaze": 60
+      }
+    },
+    {
+      "take": 77,
+      "rows": {
+        "slam": 10900,
+        "hand_tracking": 704,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 78,
+      "rows": {
+        "slam": 11401,
+        "hand_tracking": 727,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 79,
+      "rows": {
+        "slam": 11400,
+        "hand_tracking": 723,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 80,
+      "rows": {
+        "slam": 11200,
+        "hand_tracking": 718,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 81,
+      "rows": {
+        "slam": 12201,
+        "hand_tracking": 780,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 82,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 652,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 83,
+      "rows": {
+        "slam": 10601,
+        "hand_tracking": 681,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 84,
+      "rows": {
+        "slam": 10501,
+        "hand_tracking": 681,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 85,
+      "rows": {
+        "slam": 11000,
+        "hand_tracking": 705,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 86,
+      "rows": {
+        "slam": 10701,
+        "hand_tracking": 688,
+        "eye_gaze": 60
+      }
+    },
+    {
+      "take": 87,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 676,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 88,
+      "rows": {
+        "slam": 11800,
+        "hand_tracking": 747,
+        "eye_gaze": 64
+      }
+    },
+    {
+      "take": 89,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 680,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 90,
+      "rows": {
+        "slam": 11101,
+        "hand_tracking": 716,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 91,
+      "rows": {
+        "slam": 10200,
+        "hand_tracking": 650,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 92,
+      "rows": {
+        "slam": 11901,
+        "hand_tracking": 752,
+        "eye_gaze": 65
+      }
+    },
+    {
+      "take": 93,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 682,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 94,
+      "rows": {
+        "slam": 9400,
+        "hand_tracking": 611,
+        "eye_gaze": 53
+      }
+    },
+    {
+      "take": 95,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 670,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 96,
+      "rows": {
+        "slam": 10601,
+        "hand_tracking": 691,
+        "eye_gaze": 60
+      }
+    },
+    {
+      "take": 97,
+      "rows": {
+        "slam": 10600,
+        "hand_tracking": 678,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 98,
+      "rows": {
+        "slam": 10201,
+        "hand_tracking": 665,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 99,
+      "rows": {
+        "slam": 9500,
+        "hand_tracking": 618,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 100,
+      "rows": {
+        "slam": 10700,
+        "hand_tracking": 679,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 101,
+      "rows": {
+        "slam": 8900,
+        "hand_tracking": 581,
+        "eye_gaze": 50
+      }
+    },
+    {
+      "take": 102,
+      "rows": {
+        "slam": 12200,
+        "hand_tracking": 783,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 103,
+      "rows": {
+        "slam": 8400,
+        "hand_tracking": 554,
+        "eye_gaze": 49
+      }
+    },
+    {
+      "take": 104,
+      "rows": {
+        "slam": 8900,
+        "hand_tracking": 580,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 105,
+      "rows": {
+        "slam": 9700,
+        "hand_tracking": 630,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 106,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 634,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 107,
+      "rows": {
+        "slam": 9100,
+        "hand_tracking": 586,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 108,
+      "rows": {
+        "slam": 9900,
+        "hand_tracking": 646,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 109,
+      "rows": {
+        "slam": 8601,
+        "hand_tracking": 571,
+        "eye_gaze": 50
+      }
+    },
+    {
+      "take": 110,
+      "rows": {
+        "slam": 10301,
+        "hand_tracking": 667,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 111,
+      "rows": {
+        "slam": 13701,
+        "hand_tracking": 568,
+        "eye_gaze": 74
+      }
+    },
+    {
+      "take": 112,
+      "rows": {
+        "slam": 13201,
+        "hand_tracking": 547,
+        "eye_gaze": 72
+      }
+    },
+    {
+      "take": 113,
+      "rows": {
+        "slam": 13400,
+        "hand_tracking": 571,
+        "eye_gaze": 75
+      }
+    },
+    {
+      "take": 114,
+      "rows": {
+        "slam": 13701,
+        "hand_tracking": 567,
+        "eye_gaze": 75
+      }
+    },
+    {
+      "take": 115,
+      "rows": {
+        "slam": 11800,
+        "hand_tracking": 498,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 116,
+      "rows": {
+        "slam": 13000,
+        "hand_tracking": 544,
+        "eye_gaze": 71
+      }
+    },
+    {
+      "take": 117,
+      "rows": {
+        "slam": 12700,
+        "hand_tracking": 529,
+        "eye_gaze": 69
+      }
+    },
+    {
+      "take": 118,
+      "rows": {
+        "slam": 12801,
+        "hand_tracking": 530,
+        "eye_gaze": 70
+      }
+    },
+    {
+      "take": 119,
+      "rows": {
+        "slam": 12200,
+        "hand_tracking": 516,
+        "eye_gaze": 68
+      }
+    },
+    {
+      "take": 120,
+      "rows": {
+        "slam": 12601,
+        "hand_tracking": 523,
+        "eye_gaze": 69
+      }
+    },
+    {
+      "take": 121,
+      "rows": {
+        "slam": 11600,
+        "hand_tracking": 491,
+        "eye_gaze": 65
+      }
+    },
+    {
+      "take": 122,
+      "rows": {
+        "slam": 11900,
+        "hand_tracking": 506,
+        "eye_gaze": 67
+      }
+    },
+    {
+      "take": 124,
+      "rows": {
+        "slam": 11900,
+        "hand_tracking": 499,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 125,
+      "rows": {
+        "slam": 11101,
+        "hand_tracking": 467,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 126,
+      "rows": {
+        "slam": 11301,
+        "hand_tracking": 477,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 127,
+      "rows": {
+        "slam": 11901,
+        "hand_tracking": 501,
+        "eye_gaze": 66
+      }
+    },
+    {
+      "take": 128,
+      "rows": {
+        "slam": 11700,
+        "hand_tracking": 487,
+        "eye_gaze": 64
+      }
+    },
+    {
+      "take": 129,
+      "rows": {
+        "slam": 11100,
+        "hand_tracking": 470,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 130,
+      "rows": {
+        "slam": 10200,
+        "hand_tracking": 433,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 131,
+      "rows": {
+        "slam": 9600,
+        "hand_tracking": 419,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 133,
+      "rows": {
+        "slam": 10601,
+        "hand_tracking": 443,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 134,
+      "rows": {
+        "slam": 9801,
+        "hand_tracking": 423,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 135,
+      "rows": {
+        "slam": 10800,
+        "hand_tracking": 451,
+        "eye_gaze": 60
+      }
+    },
+    {
+      "take": 136,
+      "rows": {
+        "slam": 11601,
+        "hand_tracking": 476,
+        "eye_gaze": 63
+      }
+    },
+    {
+      "take": 137,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 442,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 138,
+      "rows": {
+        "slam": 9101,
+        "hand_tracking": 389,
+        "eye_gaze": 52
+      }
+    },
+    {
+      "take": 139,
+      "rows": {
+        "slam": 9400,
+        "hand_tracking": 408,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 140,
+      "rows": {
+        "slam": 11100,
+        "hand_tracking": 468,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 141,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 429,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 142,
+      "rows": {
+        "slam": 10700,
+        "hand_tracking": 447,
+        "eye_gaze": 59
+      }
+    },
+    {
+      "take": 143,
+      "rows": {
+        "slam": 9900,
+        "hand_tracking": 419,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 144,
+      "rows": {
+        "slam": 10801,
+        "hand_tracking": 461,
+        "eye_gaze": 62
+      }
+    },
+    {
+      "take": 145,
+      "rows": {
+        "slam": 10200,
+        "hand_tracking": 426,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 146,
+      "rows": {
+        "slam": 10300,
+        "hand_tracking": 429,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 147,
+      "rows": {
+        "slam": 10100,
+        "hand_tracking": 427,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 148,
+      "rows": {
+        "slam": 10801,
+        "hand_tracking": 459,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 149,
+      "rows": {
+        "slam": 9601,
+        "hand_tracking": 409,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 150,
+      "rows": {
+        "slam": 9701,
+        "hand_tracking": 421,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 151,
+      "rows": {
+        "slam": 10701,
+        "hand_tracking": 461,
+        "eye_gaze": 61
+      }
+    },
+    {
+      "take": 153,
+      "rows": {
+        "slam": 9601,
+        "hand_tracking": 409,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 154,
+      "rows": {
+        "slam": 9700,
+        "hand_tracking": 408,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 155,
+      "rows": {
+        "slam": 10201,
+        "hand_tracking": 424,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 156,
+      "rows": {
+        "slam": 9501,
+        "hand_tracking": 406,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 158,
+      "rows": {
+        "slam": 9500,
+        "hand_tracking": 404,
+        "eye_gaze": 54
+      }
+    },
+    {
+      "take": 159,
+      "rows": {
+        "slam": 10500,
+        "hand_tracking": 439,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 161,
+      "rows": {
+        "slam": 8901,
+        "hand_tracking": 376,
+        "eye_gaze": 50
+      }
+    },
+    {
+      "take": 162,
+      "rows": {
+        "slam": 9900,
+        "hand_tracking": 424,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 163,
+      "rows": {
+        "slam": 9101,
+        "hand_tracking": 381,
+        "eye_gaze": 51
+      }
+    },
+    {
+      "take": 164,
+      "rows": {
+        "slam": 10000,
+        "hand_tracking": 423,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 165,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 414,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 166,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 422,
+        "eye_gaze": 57
+      }
+    },
+    {
+      "take": 167,
+      "rows": {
+        "slam": 9500,
+        "hand_tracking": 407,
+        "eye_gaze": 55
+      }
+    },
+    {
+      "take": 168,
+      "rows": {
+        "slam": 10400,
+        "hand_tracking": 436,
+        "eye_gaze": 58
+      }
+    },
+    {
+      "take": 169,
+      "rows": {
+        "slam": 9800,
+        "hand_tracking": 420,
+        "eye_gaze": 56
+      }
+    },
+    {
+      "take": 170,
+      "rows": {
+        "slam": 10400,
+        "hand_tracking": 436,
+        "eye_gaze": 58
+      }
+    }
+  ],
+  "training_ready": false,
+  "atlas_playback_ready": false,
+  "note": "Raw+MPS input; no retargeted Atlas/training release generated"
+}

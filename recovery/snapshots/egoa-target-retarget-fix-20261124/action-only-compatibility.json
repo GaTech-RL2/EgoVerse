@@ -1,0 +1,85 @@
+{
+  "time": "2026-11-24T11:37:25.556193-05:00",
+  "results": [
+    {
+      "uuid": "fold_clothes_1762898833526_s008",
+      "rows": 491,
+      "timestamp_exact_equal": true,
+      "action_changed_rows": 491,
+      "current_q_changed_rows": 491,
+      "joint_abs_delta_rad": {
+        "mean": 0.09299319982528687,
+        "p95": 0.2747194468975067,
+        "max": 3.427191734313965
+      },
+      "head_joint_abs_delta_deg": {
+        "mean": 3.3702735900878906,
+        "p95": 7.557809352874756,
+        "max": 10.380311012268066
+      },
+      "right_eef_in_robot_glass_delta_mm": {
+        "mean": 43.246826171875,
+        "p95": 65.37728881835938,
+        "max": 80.265869140625
+      },
+      "rgb_keys_old": [
+        "aria_image"
+      ],
+      "rgb_exact_equal_aria_image": true
+    },
+    {
+      "uuid": "bag_groceries_1767440552067_s003",
+      "rows": 177,
+      "timestamp_exact_equal": true,
+      "action_changed_rows": 177,
+      "current_q_changed_rows": 177,
+      "joint_abs_delta_rad": {
+        "mean": 0.09394142776727676,
+        "p95": 0.28561607003211975,
+        "max": 0.40906643867492676
+      },
+      "head_joint_abs_delta_deg": {
+        "mean": 2.530099868774414,
+        "p95": 6.6211323738098145,
+        "max": 7.169154167175293
+      },
+      "right_eef_in_robot_glass_delta_mm": {
+        "mean": 58.783206939697266,
+        "p95": 95.14480590820312,
+        "max": 96.96224212646484
+      },
+      "rgb_keys_old": [
+        "aria_image"
+      ],
+      "rgb_exact_equal_aria_image": true
+    },
+    {
+      "uuid": "object_in_container_1767737199229_s002",
+      "rows": 164,
+      "timestamp_exact_equal": true,
+      "action_changed_rows": 164,
+      "current_q_changed_rows": 164,
+      "joint_abs_delta_rad": {
+        "mean": 0.5343213081359863,
+        "p95": 3.0895345211029053,
+        "max": 4.045261859893799
+      },
+      "head_joint_abs_delta_deg": {
+        "mean": 4.302274703979492,
+        "p95": 9.529016494750977,
+        "max": 10.977940559387207
+      },
+      "right_eef_in_robot_glass_delta_mm": {
+        "mean": 83.24047088623047,
+        "p95": 110.12276458740234,
+        "max": 113.21505737304688
+      },
+      "rgb_keys_old": [
+        "aria_image"
+      ],
+      "rgb_exact_equal_aria_image": true
+    }
+  ],
+  "conclusion": "Action-only replacement is not a coherent corrected hd2 release: current robot state and head/hand-dependent observation geometry changed. Raw RGB/depth and RGB-only DINO may be reused after exact timestamp/image/preprocessing verification. No full cloud rebuild performed in this comparison.",
+  "no_bulk_submission": true
+}

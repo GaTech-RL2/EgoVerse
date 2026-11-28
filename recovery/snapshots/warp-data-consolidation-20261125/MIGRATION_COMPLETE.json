@@ -1,0 +1,47 @@
+{
+  "status": "CONSOLIDATED_VERIFIED",
+  "time": 1795664726.7256958,
+  "canonical_root": "/coc/flash7/czhang883/warp-data",
+  "published_roots": 20,
+  "file_records": 96216,
+  "old_paths_readable": true,
+  "originals_preserved": true,
+  "no_source_deletion": true,
+  "atlas_releases": 10,
+  "atlas_samples": 30,
+  "atlas_chunks": 90,
+  "training_squeue": "4871940|RUNNING|42:49|grom\n4871765|RUNNING|1:14:58|bishop\n4871755|RUNNING|1:20:41|grom\n4871936|RUNNING|2:53:25|dynamics\n4871766|RUNNING|1:15:33|bishop\n",
+  "training_steps": [
+    {
+      "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/finetune",
+      "step": 50800,
+      "mtime": 1795664722.7721295
+    },
+    {
+      "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/scratch",
+      "step": 69700,
+      "mtime": 1795664708.311488
+    },
+    {
+      "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/lora",
+      "step": 53300,
+      "mtime": 1795664720.5511844
+    },
+    {
+      "root": "/coc/flash7/scratch/cxin34/cart-drawer-nola-fix-bs-20261125/training/cart/novfilter",
+      "step": 24500,
+      "mtime": 1795664722.5961337
+    },
+    {
+      "root": "/coc/flash7/scratch/cxin34/egoa-cart107-nola-geoaug-ft-20261125",
+      "step": 46500,
+      "mtime": 1795664699.2397127
+    }
+  ],
+  "artifacts": {
+    "README.md": "ef5603c7da9d9037271debbc6c9c1c3af97edafc19fe07f5acfda6997a1ce13f",
+    "migration-evidence.json": "91e14507cedf9a5ec24b0d2f15c4b594c2621bef8becc5c456f8eac4331332e2",
+    "atlas-verification.json": "591ae12f4d1c65dfbc4926a55928c40565cf23aeb26114fbf852f5b37b44b33e",
+    "canonical-paths.json": "e3793200d1692d2a0d29e71a2b6c97380d59a684e5d8f7f7c3f66021ed411340"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "passed": true,
+  "host": "bmo.cc.gatech.edu",
+  "no_hardware_access": true,
+  "protocol": "hardware obs without simulation seed supported",
+  "cases": [
+    {
+      "frame": 0,
+      "plain_mean": 0.0,
+      "plain_max": 0.0,
+      "rtc_max": 0.0
+    },
+    {
+      "frame": 1,
+      "plain_mean": 0.0,
+      "plain_max": 0.0,
+      "rtc_max": 0.0
+    },
+    {
+      "frame": 2,
+      "plain_mean": 0.0,
+      "plain_max": 0.0,
+      "rtc_max": 0.0
+    }
+  ],
+  "metadata": {
+    "embodiment": "rby1",
+    "action_horizon": 64,
+    "action_dim": 49,
+    "robot0_joint_pos_dim": 22,
+    "camera_keys": [
+      "front_pcd_1",
+      "front_pcd_2",
+      "front_pcd_3"
+    ],
+    "proprio_keys": [
+      "robot0_joint_pos",
+      "eef_pose_glass",
+      "hand_left_qpos",
+      "hand_right_qpos"
+    ],
+    "rtc": true,
+    "inference_device": "cpu",
+    "num_inference_steps": 16,
+    "pin_constant_proprio": true,
+    "abl": "TGZ10HD2Z5",
+    "virtual_view": true,
+    "checkpoint_sha256": "ca011ca86944960c70f0f4fdf31da80ffc2de6ae2bf45424f942206c72aa378e",
+    "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+    "methods": [
+      "infer",
+      "infer_batch"
+    ]
+  },
+  "original_checkpoint_sha256": "beefc84701be31d716555933fa8b63c3ac957ec373d09e8019c4918356ee1aec",
+  "portable_checkpoint_sha256": "ca011ca86944960c70f0f4fdf31da80ffc2de6ae2bf45424f942206c72aa378e",
+  "fixture_sha256": "66d23a71f977f9b1b33a93cea2d2d45d355860d37eaa44a1fbda171b6ed56f5d",
+  "hardware_not_tested": true
+}

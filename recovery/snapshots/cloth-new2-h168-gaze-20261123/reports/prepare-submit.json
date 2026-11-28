@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=16G",
+    "--time=00:40:00",
+    "--exclude=hal",
+    "--job-name=cloth-new2-gaze-prepare",
+    "--output=/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/logs/prepare-%j.log",
+    "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/scripts/prepare.sh"
+  ],
+  "returncode": 0,
+  "stdout": "4844390\n",
+  "stderr": "",
+  "job_id": "4844390"
+}

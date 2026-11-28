@@ -224,7 +224,14 @@ class ModelWrapper(LightningModule):
 
         :return: A dict containing the configured optimizers and learning-rate schedulers to be used for training.
         """
-        optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
+        params = list(self.trainer.model.parameters())
+        # encoders with a fine-tuned pretrained backbone (UtoniaPointEncoder.backbone_lr) get their own learning rate
+        own_lr = [m for m in self.trainer.model.modules() if getattr(m, "backbone_lr", None)]
+        if own_lr:
+            ids = {id(p) for m in own_lr for p in m.backbone_trainable_parameters()}
+            params = [{"params": [p for p in params if id(p) not in ids]}] + [
+                {"params": m.backbone_trainable_parameters(), "lr": m.backbone_lr} for m in own_lr]
+        optimizer = self.hparams.optimizer(params=params)
         if self.hparams.scheduler is not None:
             scheduler = self.hparams.scheduler(optimizer=optimizer)
             return {
@@ -265,6 +272,7 @@ class ModelWrapper(LightningModule):
         # output with the next (2026-10-16 smoke test), so the heads compile without them
         heads = [head.model for head in pol.heads.values() if hasattr(head, "model")]
         heads += [m for head in pol.heads.values() for m in getattr(head, "experts", [])]   # mixture-of-frames experts
+        heads += [m for head in pol.heads.values() for m in getattr(head, "block_models", [])]   # HierarchicalFMPolicy blocks
         for module in heads:
             module.compile(**({} if mode == "reduce-overhead" else kwargs))
         self._policy_compiled = True

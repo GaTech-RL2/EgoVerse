@@ -1,0 +1,84 @@
+{
+  "passed": true,
+  "releases": [
+    {
+      "release": "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs",
+      "base_smoothing": {
+        "date": "2026-11-24",
+        "fix": "S",
+        "made_from": "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1",
+        "runs": {
+          "fix1124": "fix1124_bs"
+        },
+        "by": "pipelines/base_fix_1124/patch_release.py",
+        "what": "base heading = the measured head heading (lag-free 0.5 Hz); base path: sideways sway removed; torso and arms solved against it. Regenerated columns: actions.joint, actions.joint_arm, actions.joint_arm_hand, actions.joint_arm_hand_torso, actions.joint_arm_head, actions.joint_arm_head_torso_base, actions.joint_base_torso, actions.joint_base_torso_head_arm_hand, actions.joint_hands, actions.joint_left_arm, actions.joint_left_arm_hand, actions.joint_right_arm, actions.joint_right_arm_hand, actions.joint_right_arm_hand_torso, obs.hand_left_qpos, obs.hand_right_qpos, obs.left_arm, obs.right_arm, obs.robot0_joint_pos, obs.robot0_joint_pos_no_wheel. Everything else (clouds, eef / gaze in the camera frame, DINO targets, rows) is the source release's.",
+        "overrides_kept": {}
+      },
+      "egoposer_recipe": {
+        "recipe": "hd2z5 (depth 0.25-5 m, no lateral crop, gaze ball 1 m) on the fix1124 retarget",
+        "builder": "retarget_fix_rebuild_1124/clouds/real_dp3c_tri_gz_vis_hd2_fix1124_v2.py (_v3.py = the same output; TOY_REG=exact: scene placed by the tracked index knuckles on the robot hand centres, refit on the pairs within 1 cm)",
+        "note": "basket_2 (11-23, 31 takes as the old basket_2_chuye_hd2z5 r1) on the fix1124 retarget, builder v2"
+      },
+      "upstream_manifest_sha256": "f6bf2e49b698983a66667fedc8fd5ae2603b2f4e3529d4eea3864dddaa9732ef"
+    },
+    {
+      "release": "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs",
+      "base_smoothing": {
+        "date": "2026-11-24",
+        "fix": "S",
+        "made_from": "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1",
+        "runs": {
+          "r1": "r1_bs"
+        },
+        "by": "pipelines/base_fix_1124/patch_release.py",
+        "what": "base heading = the measured head heading (lag-free 0.5 Hz); base path: sideways sway removed; torso and arms solved against it. Regenerated columns: actions.joint, actions.joint_arm, actions.joint_arm_hand, actions.joint_arm_hand_torso, actions.joint_arm_head, actions.joint_arm_head_torso_base, actions.joint_base_torso, actions.joint_base_torso_head_arm_hand, actions.joint_hands, actions.joint_left_arm, actions.joint_left_arm_hand, actions.joint_right_arm, actions.joint_right_arm_hand, actions.joint_right_arm_hand_torso, obs.hand_left_qpos, obs.hand_right_qpos, obs.left_arm, obs.right_arm, obs.robot0_joint_pos, obs.robot0_joint_pos_no_wheel. Everything else (clouds, eef / gaze in the camera frame, DINO targets, rows) is the source release's.",
+        "overrides_kept": {}
+      },
+      "egoposer_recipe": {
+        "recipe": "hd2 (cart1102_ptfwam_hd2) with the newest hd2 cloud crop (fridge OPEN v2 / cloth basket): depth slab 0.25-5 m, no lateral crop, gaze ball 1 m (the 11-18 basket_to_right_finetune chain; this collection: user 11-24 \"also work on this afterwards plz\")",
+        "builder": "retarget_fix_rebuild_1124/clouds/real_dp3c_tri_gz_vis_hd2_fix1124_v3.py via chuye_1124_basket_to_right_3/hd2/build_hd2z5_exact.sbatch (TOY_REG=exact: scene placed by the tracked index knuckles on the robot hand centres, refit on the pairs within 1 cm)",
+        "retarget": "the 11-24 head + wrist fix (eye mid-point head, measured MPS wrists; handoff_retarget_fix_1124), run r1",
+        "data": "chuye_basket_to_right_3_1124 (takes 1-61 minus the short non-task takes 3 and 53; glasses 1M0YDC5H8M0282, profile10; task not described) whole raise-cut takes minus the retarget-QC failures (chuye_1124_basket_to_right_3/hd2/spec_btr3.json)"
+      },
+      "upstream_manifest_sha256": "91063cc8f5b1260ddb64046d00fa373218194bba0586f2c30fff62075e290bfe"
+    },
+    {
+      "release": "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs",
+      "base_smoothing": {
+        "date": "2026-11-24",
+        "fix": "S",
+        "made_from": "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1",
+        "runs": {
+          "fix1124": "fix1124_bs"
+        },
+        "by": "pipelines/base_fix_1124/patch_release.py",
+        "what": "base heading = the measured head heading (lag-free 0.5 Hz); base path: sideways sway removed; torso and arms solved against it. Regenerated columns: actions.joint, actions.joint_arm, actions.joint_arm_hand, actions.joint_arm_hand_torso, actions.joint_arm_head, actions.joint_arm_head_torso_base, actions.joint_base_torso, actions.joint_base_torso_head_arm_hand, actions.joint_hands, actions.joint_left_arm, actions.joint_left_arm_hand, actions.joint_right_arm, actions.joint_right_arm_hand, actions.joint_right_arm_hand_torso, obs.hand_left_qpos, obs.hand_right_qpos, obs.left_arm, obs.right_arm, obs.robot0_joint_pos, obs.robot0_joint_pos_no_wheel. Everything else (clouds, eef / gaze in the camera frame, DINO targets, rows) is the source release's.",
+        "overrides_kept": {}
+      },
+      "egoposer_recipe": {
+        "recipe": "hd2z5 (depth 0.25-5 m, no lateral crop, gaze ball 1 m) on the fix1124 retarget",
+        "builder": "retarget_fix_rebuild_1124/clouds/real_dp3c_tri_gz_vis_hd2_fix1124_v2.py (_v3.py = the same output; TOY_REG=exact: scene placed by the tracked index knuckles on the robot hand centres, refit on the pairs within 1 cm)",
+        "note": "basket_to_right (11-18, 24 takes as the old basket_to_right_finetune_chuye_hd2z5 r1) on the fix1124 retarget, builder v2"
+      },
+      "upstream_manifest_sha256": "08b76e197c74d176e7a04f988d6820f7c329a184b9e64229afc2ce1b73e905c2"
+    }
+  ],
+  "evidence": {
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/releases/basket/target.json": "95c379b115e8ee58ee38887851cc72ebd2c648d2dd9c55a399455332ad21166a",
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/releases/basket/READY.json": "0dd5d6770766239c092a80383e43f873b58e28bd11fd528d705f053d7f86c0bb",
+    "/coc/flash7/cxin34/egoa-basket-bs-strong-ft-20261124/reports/data-independent-audit.json": "fd390f56fea133ab3ce4f089826b6338eb4de1b2a5fc33f30abc0a41b952a753",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs/source_map.jsonl": "bd9f6797fca9772f0f30ca95683f990b46bb4d5e63956d66589925cfd096969b",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs/source_map.jsonl": "a33950e59bab682527e016df329e2cc6904503aa1961cadb4251e8e3161adb62",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs/source_map.jsonl": "ca037d9c24dcfb582c7f81e7c386b8c25dd71749ce555fe0b00d99b9317e6aed",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_2_1123/processed/fix1124_bs/retargeted/gate_basefix.json": "9b06e61b18feef0c10363b9bebfb7648143755c7367d57679591dfdb2088847d",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_3_1124/processed/r1_bs/retargeted/gate_basefix.json": "b2bad6d0cb87e3a30a5d11324f044a04c8b94f69b136fcc511793871ca17b003",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_finetune_1118/processed/fix1124_bs/retargeted/gate_basefix.json": "17cf8300063dd680b54f69d061554880ca5d4d68d9e90a0a744c4aa9bd85ac3e",
+    "/coc/flash7/czhang883/warp-data/collections/chuye_basket_to_right_finetune_batch2_1118/processed/fix1124_bs/retargeted/gate_basefix.json": "60951e65a860786e9ac362c5089906a5f1ee09cf44264496e2f3345e2403ba3d",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1_bs/manifest.json": "905f328122575e1fa6e5e275af5dee761fc1dbd03745d8ea2ac1e6ac0ce9202a",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_2_chuye_hd2z5_fix1124/releases/r1/manifest.json": "f6bf2e49b698983a66667fedc8fd5ae2603b2f4e3529d4eea3864dddaa9732ef",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1_bs/manifest.json": "8093fb31955994ea5736436b5f752eaabcff88cd2ad4d1b1a444d80fe8a41711",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_3_chuye_hd2z5/releases/r1/manifest.json": "91063cc8f5b1260ddb64046d00fa373218194bba0586f2c30fff62075e290bfe",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1_bs/manifest.json": "dfcefb6b3e3c99eb4b75453ef798534845e72d8945e926a724bcbdaecc36faa2",
+    "/coc/flash7/czhang883/warp-data/datasets/basket_to_right_finetune_chuye_hd2z5_fix1124/releases/r1/manifest.json": "08b76e197c74d176e7a04f988d6820f7c329a184b9e64229afc2ce1b73e905c2"
+  }
+}

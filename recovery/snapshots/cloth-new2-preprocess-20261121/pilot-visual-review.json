@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "scope": "pilot take1 only",
+  "observations": [
+    "RGB sequence upright with cloth manipulation",
+    "Depth boundaries align with arm, table and rack",
+    "Three point clouds nonempty with expected hand-grey regions",
+    "Arm joint curves continuous without visible jump"
+  ],
+  "files": [
+    {
+      "file": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cloth-new2-preprocess-20261121/visual/rgb_0.png",
+      "sha256": "798e19d9a7640cc4150c9e3c7a2c64e80d12e8ed8d522c9c37d8799fd0857284"
+    },
+    {
+      "file": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cloth-new2-preprocess-20261121/visual/geometry_take1.png",
+      "sha256": "4666a2296f08db70f4888f96e085a6b9da25a1826ffb3d5ab16b7d84e2ac2b7f"
+    }
+  ]
+}

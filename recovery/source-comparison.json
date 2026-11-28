@@ -1,0 +1,75 @@
+[
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cart-rgb-MSCaug-10k-robotpc-20261120/packages/cart-rgb-v3-robot_r2-B180-ft-MSCaug-s42-step010000/source",
+    "differences": [
+      "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/config/joint_names_X5A.yaml"
+    ]
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cart-rgb-MSCaug-10k-robotpc-20261120/packages/cart-rgb-v3-rect-scratch-MSCaug-s42-step010000/source",
+    "differences": [
+      "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/config/joint_names_X5A.yaml"
+    ]
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cart-rgb-MSCaug-10k-robotpc-20261120/packages/cart-rgb-v3-rect-B180-ft-MSCaug-s42-step010000/source",
+    "differences": [
+      "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/config/joint_names_X5A.yaml"
+    ]
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/cart-rgb-MSCaug-10k-robotpc-20261120/packages/cart-rgb-v3-robot_r2-scratch-MSCaug-s42-step010000/source",
+    "differences": [
+      "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/config/joint_names_X5A.yaml"
+    ]
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/basket-ft10k-deploy-r2-20261119/basket_C180_MSCaug_FT10k-robotpc-20261119-r2/source",
+    "differences": []
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/basket-ft10k-deploy-r2-20261119/basket_B180_MSCaug_FT10k-robotpc-20261119-r2/source",
+    "differences": []
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/pretraining-report/human-pretraining-hd2-20261107/source",
+    "differences": [
+      "egomimic/pl_utils/__pycache__/pl_data_utils.cpython-311.pyc",
+      "egomimic/pl_utils/__pycache__/pl_model.cpython-311.pyc",
+      "egomimic/algo/__pycache__/algo.cpython-311.pyc",
+      "egomimic/algo/__pycache__/hpt.cpython-311.pyc",
+      "egomimic/algo/__pycache__/act.cpython-311.pyc",
+      "egomimic/algo/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/utils/__pycache__/pylogger.cpython-311.pyc",
+      "egomimic/utils/__pycache__/logging_utils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/rich_utils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/utils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/tensor_utils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/egomimicUtils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/memory_utils.cpython-311.pyc",
+      "egomimic/utils/__pycache__/instantiators.cpython-311.pyc",
+      "egomimic/utils/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/utils/aws/__pycache__/aws_sql.cpython-311.pyc",
+      "egomimic/utils/aws/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/models/__pycache__/denoising_nets.cpython-311.pyc",
+      "egomimic/models/__pycache__/patch_tf_encoder.cpython-311.pyc",
+      "egomimic/models/__pycache__/fm_policy.cpython-311.pyc",
+      "egomimic/models/__pycache__/hpt_nets.cpython-311.pyc",
+      "egomimic/models/__pycache__/patch_pcd_encoder.cpython-311.pyc",
+      "egomimic/models/__pycache__/denoising_policy.cpython-311.pyc",
+      "egomimic/models/__pycache__/pcd_aug.cpython-311.pyc",
+      "egomimic/models/__pycache__/adapt3r_3d_encoder.cpython-311.pyc",
+      "egomimic/models/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/rldb/__pycache__/utils.cpython-311.pyc",
+      "egomimic/rldb/__pycache__/data_utils.cpython-311.pyc",
+      "egomimic/rldb/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/scripts/__pycache__/__init__.cpython-311.pyc",
+      "egomimic/scripts/evaluation/__pycache__/eval.cpython-311.pyc"
+    ]
+  },
+  {
+    "source": "/Users/chendongxin/Research-RL2/warp/pretraining-report/human-pretraining-hd2-cartall-20261108/source",
+    "differences": []
+  }
+]

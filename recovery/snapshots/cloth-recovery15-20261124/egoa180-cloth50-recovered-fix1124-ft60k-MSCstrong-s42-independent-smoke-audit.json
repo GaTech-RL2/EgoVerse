@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "run": "egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42",
+  "checkpoint_sha256": "ca3decf1f99d6bcdab42a0d7e3a8a9bbabbc2d0e9d65e8f375f94e5dc38503ea",
+  "step": 200,
+  "identity": {
+    "config_sha256": "d2f07593f59afdcb1c99f6128c70a7e249e517d861f0e38fdff2564cb72f7276",
+    "normalizer_sha256": "a0b26f3f9b888afc5cde1daea433530cbcbe3890d328cdac49212a96ed3b55cb",
+    "manifest_sha256": "dbad0de3efbca9b0adb78ef0d9a3ad9be642ea0b52daf1e10d00205928819fbf",
+    "code_sha256": "f38d57b477e050414cae9a139ac5818d6156f9bbe4e8d5f9cb681cd6a844aef6"
+  },
+  "scheduler_T_max": 60000,
+  "full_validation": {
+    "step": 200,
+    "full": true,
+    "rows": 2686,
+    "action": 0.21600005281388715,
+    "aux": 1.2092119993243924
+  },
+  "parent_sha256": "94b695a5786fa97a554076ed1c86272f575a3cf3979d873fcb5c3f812c87a430",
+  "initialization": "EgoVerse180k policy transfer; fresh DINO head",
+  "arm": "B",
+  "mean_consistency": 0.0
+}

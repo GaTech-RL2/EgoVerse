@@ -1,0 +1,19 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=32G",
+    "--time=02:00:00",
+    "--exclude=hal",
+    "--job-name=cloth50-fixed-bs-publish",
+    "--output=/coc/flash7/scratch/cxin34/warp-data/pipelines/cxin34_cloth_new50_fix1124_bs/export-%j.log",
+    "/coc/flash7/scratch/cxin34/warp-data/pipelines/cxin34_cloth_new50_fix1124_bs/export.sbatch"
+  ],
+  "returncode": 0,
+  "stdout": "4868030\n",
+  "stderr": ""
+}

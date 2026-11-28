@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=48G",
+    "--time=01:00:00",
+    "--exclude=hal",
+    "--job-name=deploy-sharedfix-lexical-cart-10k",
+    "--output=/coc/flash7/cxin34/egoa-shared-fix1124-ft-20261124/deploy-control/logs/%j-cart.out",
+    "/coc/flash7/cxin34/egoa180-cart-la-sharedfix1124-FT10k-robotpc-20261124/scripts/test.sbatch"
+  ],
+  "returncode": 0,
+  "stdout": "4854951\n",
+  "stderr": "",
+  "original_job": "4854949"
+}

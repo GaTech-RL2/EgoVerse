@@ -1,0 +1,568 @@
+{
+  "passed": true,
+  "train_recordings": 55,
+  "valid_recordings": 5,
+  "train_rows": 25077,
+  "valid_rows": 2267,
+  "results": {
+    "cloth_new2_native_clamped": {
+      "translation_cm_median": 1.5053074628143728,
+      "translation_cm_p90": 2.756800089288906,
+      "rotation_deg_median": 1.4113209901112789,
+      "rotation_deg_p90": 3.026200464472962
+    },
+    "old_cloth_same_valid": {
+      "translation_cm_median": 8.424842828680555,
+      "translation_cm_p90": 14.293920916233645,
+      "rotation_deg_median": 9.168783961010673,
+      "rotation_deg_p90": 19.525735067744442
+    }
+  },
+  "per_validation_recording": [
+    {
+      "uuid": "2715d179-1f0f-4287-a3d2-67570a2c1e12",
+      "rows": 423,
+      "metrics": {
+        "translation_cm_median": 1.5608879969945,
+        "translation_cm_p90": 2.97781444663386,
+        "rotation_deg_median": 1.316095293764766,
+        "rotation_deg_p90": 2.284408610637131
+      }
+    },
+    {
+      "uuid": "fbb42e0f-e1f4-4b87-b6bf-74e668807540",
+      "rows": 297,
+      "metrics": {
+        "translation_cm_median": 2.280267527408562,
+        "translation_cm_p90": 3.5575845859139656,
+        "rotation_deg_median": 3.003599365773783,
+        "rotation_deg_p90": 5.593849684818769
+      }
+    },
+    {
+      "uuid": "4509d241-ccae-4ce4-b1e8-eb1efa6357c8",
+      "rows": 361,
+      "metrics": {
+        "translation_cm_median": 1.6236869843708657,
+        "translation_cm_p90": 3.238104596255958,
+        "rotation_deg_median": 1.2659852225966661,
+        "rotation_deg_p90": 3.744027239496084
+      }
+    },
+    {
+      "uuid": "9cab29b4-eef1-4fa9-8dfc-ce54900e9a39",
+      "rows": 619,
+      "metrics": {
+        "translation_cm_median": 1.1945789520864085,
+        "translation_cm_p90": 1.7970165825500624,
+        "rotation_deg_median": 1.2436014781078921,
+        "rotation_deg_p90": 2.2376839926416974
+      }
+    },
+    {
+      "uuid": "5a2bd1d4-364d-4416-a0ba-d180eb35b7e1",
+      "rows": 567,
+      "metrics": {
+        "translation_cm_median": 1.4840615358300029,
+        "translation_cm_p90": 2.4447418957226685,
+        "rotation_deg_median": 1.3336582453397523,
+        "rotation_deg_p90": 2.439466950253187
+      }
+    }
+  ],
+  "source_manifest_sha256": "1f5ec711589873cfcb1dd806178e86d1fc280239ef422383227763eb1acafb14",
+  "split_sha256": "7916d9d4e07bd0909e6ab77a2225d05f1f12758b77e228c375434ed9c0a43090",
+  "provenance": [
+    {
+      "uuid": "2d574e35-b294-42ae-bab4-377e2caba868",
+      "take": 1,
+      "split": "train",
+      "rows": 627,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2d574e35-b294-42ae-bab4-377e2caba868.npz",
+      "sha256": "5b5829b8c05a3ee0f4709814946d5eba7ea82a083b318db06e54e89a82fb8a3a"
+    },
+    {
+      "uuid": "2715d179-1f0f-4287-a3d2-67570a2c1e12",
+      "take": 2,
+      "split": "valid",
+      "rows": 423,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2715d179-1f0f-4287-a3d2-67570a2c1e12.npz",
+      "sha256": "bce1d17cc2387817c01963bf5fe7136f8b0c8d8c85d8d36fc2879667639a1d0a"
+    },
+    {
+      "uuid": "91e69761-8a62-4e89-8b85-16e80351e2ca",
+      "take": 3,
+      "split": "train",
+      "rows": 365,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/91e69761-8a62-4e89-8b85-16e80351e2ca.npz",
+      "sha256": "98fa9122b50623b99796d7ecb06108fbfedd953025830ac658e4efc62e180c07"
+    },
+    {
+      "uuid": "2c8ab90e-81a3-4288-a2cf-49f5424bb3d9",
+      "take": 4,
+      "split": "train",
+      "rows": 385,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2c8ab90e-81a3-4288-a2cf-49f5424bb3d9.npz",
+      "sha256": "1d805c033b87e318a1b86877553654a6fefab82292f2403052fbda69f4a0994f"
+    },
+    {
+      "uuid": "1b393461-c0b8-46ce-a5b0-5abf38540b3e",
+      "take": 5,
+      "split": "train",
+      "rows": 349,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/1b393461-c0b8-46ce-a5b0-5abf38540b3e.npz",
+      "sha256": "3ed1db31440c87e8bed90ecbe5e76480a146bde32b7f60d9880820d6553643aa"
+    },
+    {
+      "uuid": "621a2b9e-3504-49fe-a395-7d31ddfe8c2d",
+      "take": 6,
+      "split": "train",
+      "rows": 406,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/621a2b9e-3504-49fe-a395-7d31ddfe8c2d.npz",
+      "sha256": "5755c73226825b69b1787da18bac53d5e3fccf31be355b41648a8c14c50b0a9b"
+    },
+    {
+      "uuid": "fbb42e0f-e1f4-4b87-b6bf-74e668807540",
+      "take": 7,
+      "split": "valid",
+      "rows": 297,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/fbb42e0f-e1f4-4b87-b6bf-74e668807540.npz",
+      "sha256": "7b50fa85f7e7207b5dc926bb8e712560656a2931280d8cce8981ab916133166a"
+    },
+    {
+      "uuid": "4600f336-56e1-4565-bc2e-eb4c3532b8a4",
+      "take": 8,
+      "split": "train",
+      "rows": 345,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/4600f336-56e1-4565-bc2e-eb4c3532b8a4.npz",
+      "sha256": "0a3747fb2659c78affe7857fe5ae9e93734cdd337186bbb4da0819a9b3ff6084"
+    },
+    {
+      "uuid": "c2ce22d3-a293-43ec-9714-d404891bb11a",
+      "take": 9,
+      "split": "train",
+      "rows": 393,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/c2ce22d3-a293-43ec-9714-d404891bb11a.npz",
+      "sha256": "f1baaa88406956bd9d870eb4b52b91fcd53f207634168f7047bb0740409a598c"
+    },
+    {
+      "uuid": "adee2cd1-f882-400c-a093-e026a4e4a548",
+      "take": 10,
+      "split": "train",
+      "rows": 357,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/adee2cd1-f882-400c-a093-e026a4e4a548.npz",
+      "sha256": "042e70ff30e4ac5c424a1438870a45b28c3fcdb1d87766760fcd07e0112a15c6"
+    },
+    {
+      "uuid": "786be959-45df-4737-b370-d5aeaf9c6065",
+      "take": 11,
+      "split": "train",
+      "rows": 695,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/786be959-45df-4737-b370-d5aeaf9c6065.npz",
+      "sha256": "4b4988ea604c84c37734533ecd2f7184a9be849a2f0438dee269d317f480e2af"
+    },
+    {
+      "uuid": "365512d6-5082-4b21-b6b9-6cccebb3d537",
+      "take": 12,
+      "split": "train",
+      "rows": 452,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/365512d6-5082-4b21-b6b9-6cccebb3d537.npz",
+      "sha256": "24ca587e277d8a07aa01a96b1af017a016f5e60823cf17c9fa39e32c198c1029"
+    },
+    {
+      "uuid": "a7debb0c-804c-43f3-afee-dccbcde0680d",
+      "take": 13,
+      "split": "train",
+      "rows": 563,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/a7debb0c-804c-43f3-afee-dccbcde0680d.npz",
+      "sha256": "7ee800a3aeac1fdeeb7ca817a17c7f9a24f46ff71b0ad0a1ddb4b66a16ccc409"
+    },
+    {
+      "uuid": "e2533b69-287d-469d-93df-c949f954344b",
+      "take": 14,
+      "split": "train",
+      "rows": 299,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/e2533b69-287d-469d-93df-c949f954344b.npz",
+      "sha256": "b6f5e047a875eef1daff6663078aa69f6cebef9b5ba0c4441beb6a87200a71bc"
+    },
+    {
+      "uuid": "4509d241-ccae-4ce4-b1e8-eb1efa6357c8",
+      "take": 15,
+      "split": "valid",
+      "rows": 361,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/4509d241-ccae-4ce4-b1e8-eb1efa6357c8.npz",
+      "sha256": "2bb7188623721f8cd6c6dba80ab33c850f108d71d3e399888fb097d3d570b772"
+    },
+    {
+      "uuid": "98f7736f-f23b-4c5a-8c80-0af4ad7635d7",
+      "take": 16,
+      "split": "train",
+      "rows": 571,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/98f7736f-f23b-4c5a-8c80-0af4ad7635d7.npz",
+      "sha256": "5dbb54527a9858a0b5026f2d2efab73bffd3e0517a7e00fb1ea76751e558a96c"
+    },
+    {
+      "uuid": "df390158-1cab-4864-acf2-9baa5fe90028",
+      "take": 17,
+      "split": "train",
+      "rows": 225,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/df390158-1cab-4864-acf2-9baa5fe90028.npz",
+      "sha256": "826ce5465991ff8982a506908eb919a76f7ade72af2dcb23e5d480db67ce8c8e"
+    },
+    {
+      "uuid": "892f7fb3-3caa-4403-82de-29ea33b5600f",
+      "take": 18,
+      "split": "train",
+      "rows": 625,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/892f7fb3-3caa-4403-82de-29ea33b5600f.npz",
+      "sha256": "6de120538082c29f68ff33a47677ba014951ab2d83e8cd3abdb1f2e8215a24af"
+    },
+    {
+      "uuid": "218608c0-a4bb-491a-944e-22707f4d2490",
+      "take": 19,
+      "split": "train",
+      "rows": 279,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/218608c0-a4bb-491a-944e-22707f4d2490.npz",
+      "sha256": "84bb4153a14adb7f79e7066f8db8d7a85b8e693044a9481f410c02a2e50090e6"
+    },
+    {
+      "uuid": "4d771652-e290-4a6a-95bf-5657cda5840f",
+      "take": 20,
+      "split": "train",
+      "rows": 409,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/4d771652-e290-4a6a-95bf-5657cda5840f.npz",
+      "sha256": "d94f8bad0eb982e9cf7e381c258401544eea90c04c55f2263e0a4e813140cd28"
+    },
+    {
+      "uuid": "377a0430-9ba6-4b91-9cd7-de69ccc92101",
+      "take": 21,
+      "split": "train",
+      "rows": 259,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/377a0430-9ba6-4b91-9cd7-de69ccc92101.npz",
+      "sha256": "af6f262cc75083ef59f5006902f37dddd38f2bc9f610410546f206f5193e4d16"
+    },
+    {
+      "uuid": "e3e13f76-3863-4701-870b-7052cf904972",
+      "take": 22,
+      "split": "train",
+      "rows": 573,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/e3e13f76-3863-4701-870b-7052cf904972.npz",
+      "sha256": "f5548934aea8140b1acc69184e898f8108fde5586fdb504ffd6246250023fc59"
+    },
+    {
+      "uuid": "193ba504-9c5a-4bf7-bcb8-aed4d379bf6c",
+      "take": 23,
+      "split": "train",
+      "rows": 605,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/193ba504-9c5a-4bf7-bcb8-aed4d379bf6c.npz",
+      "sha256": "02c03aaf95c96ebc4ea9887c8aeb306487e673e6a95d8d129caff3e962998474"
+    },
+    {
+      "uuid": "7b9d5c3b-5957-4b90-ac02-7f53223a2253",
+      "take": 24,
+      "split": "train",
+      "rows": 385,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/7b9d5c3b-5957-4b90-ac02-7f53223a2253.npz",
+      "sha256": "4771d94bde5a0e47cb38700592864e1c987c47b7a269afe0d7933324a4ed9906"
+    },
+    {
+      "uuid": "df67c535-29e6-4b40-98f4-c3cc22217d72",
+      "take": 25,
+      "split": "train",
+      "rows": 355,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/df67c535-29e6-4b40-98f4-c3cc22217d72.npz",
+      "sha256": "65f608b5364c72e63efad12e9789b7cf8cbd4eaea5a9488336b269fc32a883dd"
+    },
+    {
+      "uuid": "16eaf80b-297b-4841-8a9c-0960a7d81696",
+      "take": 26,
+      "split": "train",
+      "rows": 361,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/16eaf80b-297b-4841-8a9c-0960a7d81696.npz",
+      "sha256": "0ead8abb2470f3837915d72ca6bf7ec607072d5750d4f94c407a6d643e62c5aa"
+    },
+    {
+      "uuid": "3ef65426-a28b-436f-af17-1b0c028b0246",
+      "take": 27,
+      "split": "train",
+      "rows": 629,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/3ef65426-a28b-436f-af17-1b0c028b0246.npz",
+      "sha256": "22dbad3cb1ccc00880c789dc7ffde372bab07671faf814df79d41377357180f3"
+    },
+    {
+      "uuid": "6df31427-d815-4c31-8c44-21a3afa4adfc",
+      "take": 28,
+      "split": "train",
+      "rows": 485,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/6df31427-d815-4c31-8c44-21a3afa4adfc.npz",
+      "sha256": "13d3f675690097f48d2d9bf50ccd454e9816fff3edc0a9cb2d256b83ed51852a"
+    },
+    {
+      "uuid": "654ca1d5-2ea7-47e8-9b6b-566faff87234",
+      "take": 29,
+      "split": "train",
+      "rows": 617,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/654ca1d5-2ea7-47e8-9b6b-566faff87234.npz",
+      "sha256": "c7a936faecf2e19ef96f0b4818f9b61b94a1795668958722cf858a56aade4409"
+    },
+    {
+      "uuid": "e3185781-d3f1-4821-90e3-6b64dc59b9c7",
+      "take": 30,
+      "split": "train",
+      "rows": 360,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/e3185781-d3f1-4821-90e3-6b64dc59b9c7.npz",
+      "sha256": "6e0770e33fbffbd003ffaeb802c9f86f1077261482ec35dbc3aa2092d0d906c5"
+    },
+    {
+      "uuid": "695cba8e-29fe-4578-8b00-2ade6c70d5c4",
+      "take": 31,
+      "split": "train",
+      "rows": 583,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/695cba8e-29fe-4578-8b00-2ade6c70d5c4.npz",
+      "sha256": "780691562b6e6d3fd66afbd3fcbc914d56bedd7933909e9c4c85e59974ab1907"
+    },
+    {
+      "uuid": "61f4fc82-1855-4b28-869b-b3a5609babac",
+      "take": 32,
+      "split": "train",
+      "rows": 386,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/61f4fc82-1855-4b28-869b-b3a5609babac.npz",
+      "sha256": "16d7f819b5acc58c56fda720c9af5a8b5005b6a74e2942aa8fceb931d6b64849"
+    },
+    {
+      "uuid": "94703304-9da9-4c32-89c3-035b93993308",
+      "take": 33,
+      "split": "train",
+      "rows": 649,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/94703304-9da9-4c32-89c3-035b93993308.npz",
+      "sha256": "4e1401484b84dfab8d5173e9b35dc348ca0351aa51331234fdda2a3e2628cdce"
+    },
+    {
+      "uuid": "3c6bf737-f986-4ff9-be12-ef994a386158",
+      "take": 34,
+      "split": "train",
+      "rows": 311,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/3c6bf737-f986-4ff9-be12-ef994a386158.npz",
+      "sha256": "50fa5c7b6fe402c5fb347d03d9f7f56303a2c194c2506f5ae930a6d57492b9e3"
+    },
+    {
+      "uuid": "c9cdfa8d-9586-45b4-ab05-38c87c140209",
+      "take": 35,
+      "split": "train",
+      "rows": 547,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/c9cdfa8d-9586-45b4-ab05-38c87c140209.npz",
+      "sha256": "4330e371135b6979d0442923575a9ae70de250e71450712ab728fbd76331ec02"
+    },
+    {
+      "uuid": "b6dbf23a-c08b-4fe3-a97c-671e2c28b70f",
+      "take": 36,
+      "split": "train",
+      "rows": 209,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/b6dbf23a-c08b-4fe3-a97c-671e2c28b70f.npz",
+      "sha256": "23e1976b309ff06e88b6a6e7cac601aaaf52a993fd1a784ed192c69fde66b266"
+    },
+    {
+      "uuid": "4466c322-8007-4ad4-a06f-6eb95a0a3674",
+      "take": 37,
+      "split": "train",
+      "rows": 599,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/4466c322-8007-4ad4-a06f-6eb95a0a3674.npz",
+      "sha256": "2762eb21bf772d4b28d83cbf0cf576d5c092395be5af67a2b1feed806143e51a"
+    },
+    {
+      "uuid": "e99a05ef-d919-4b9a-b168-e72e7d82f51b",
+      "take": 38,
+      "split": "train",
+      "rows": 305,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/e99a05ef-d919-4b9a-b168-e72e7d82f51b.npz",
+      "sha256": "817ab776217c31a80d8280702906bbaf25c1f828c8a3242f73b0ac804d9efccd"
+    },
+    {
+      "uuid": "b9cc1b7f-af5c-4787-8f81-5855348f49d9",
+      "take": 39,
+      "split": "train",
+      "rows": 309,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/b9cc1b7f-af5c-4787-8f81-5855348f49d9.npz",
+      "sha256": "9b55eafe67f313fed17fe543c5191ad5f0775f55f1bc63e4211455991c1b94c6"
+    },
+    {
+      "uuid": "dcf3af8b-80ee-4cf5-8e7a-2c350fde783c",
+      "take": 40,
+      "split": "train",
+      "rows": 661,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/dcf3af8b-80ee-4cf5-8e7a-2c350fde783c.npz",
+      "sha256": "d86be12e62df46daa0b05c5e0c73dd59840e9c95ce4f65fab876f23c6b9bd32a"
+    },
+    {
+      "uuid": "be18d7a5-bd3b-4dd1-bd46-52128bdef3a5",
+      "take": 41,
+      "split": "train",
+      "rows": 563,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/be18d7a5-bd3b-4dd1-bd46-52128bdef3a5.npz",
+      "sha256": "d0b7852827231880a47204b9f52b4a6ee9b4358e2f5310e1d9a1eba75e99ad33"
+    },
+    {
+      "uuid": "2185c192-b82f-484e-9d5e-999af734d7fb",
+      "take": 42,
+      "split": "train",
+      "rows": 555,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2185c192-b82f-484e-9d5e-999af734d7fb.npz",
+      "sha256": "ec3ea729509f99d1ca4d3baf071335e6bc8aefa057488f4bc5f81137bb0c3b2f"
+    },
+    {
+      "uuid": "9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7",
+      "take": 43,
+      "split": "train",
+      "rows": 541,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/9aba0f1d-1bf7-4dbf-a3be-739f61a8bed7.npz",
+      "sha256": "d060d64910afb08513e776377ef26497b17fb02f2ff3a83caf57ebfc20e17be2"
+    },
+    {
+      "uuid": "0bed0625-9652-4f44-b45d-4fe57b53d752",
+      "take": 44,
+      "split": "train",
+      "rows": 392,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/0bed0625-9652-4f44-b45d-4fe57b53d752.npz",
+      "sha256": "28d59fb9e30462d87e254e2df9a10e7f1fef8a605544a21c08c75fd9eb0daa5b"
+    },
+    {
+      "uuid": "48d9ae20-958d-4061-9b09-9b967cdc8676",
+      "take": 45,
+      "split": "train",
+      "rows": 475,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/48d9ae20-958d-4061-9b09-9b967cdc8676.npz",
+      "sha256": "b9192dda68f58f2865271319a0a1f7fc041336e64013bee3a9e62de3cedb9350"
+    },
+    {
+      "uuid": "84ee3b38-0912-490a-a35c-ed278feae597",
+      "take": 46,
+      "split": "train",
+      "rows": 507,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/84ee3b38-0912-490a-a35c-ed278feae597.npz",
+      "sha256": "f820becd2e777ee78cbf63033b266b7078888972264932d8f34078bb92246379"
+    },
+    {
+      "uuid": "16484b09-1582-40e9-8e29-398d2af12647",
+      "take": 47,
+      "split": "train",
+      "rows": 613,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/16484b09-1582-40e9-8e29-398d2af12647.npz",
+      "sha256": "02b6293b23c5ca06d20043148be84a0598e6bec6a77c1b7e3e11bb15265c05f0"
+    },
+    {
+      "uuid": "9cab29b4-eef1-4fa9-8dfc-ce54900e9a39",
+      "take": 48,
+      "split": "valid",
+      "rows": 619,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/9cab29b4-eef1-4fa9-8dfc-ce54900e9a39.npz",
+      "sha256": "4707542028ed101d78d0b0d660586baf09ee46f7d1215879136e11210a3f75be"
+    },
+    {
+      "uuid": "2c958c85-d29b-4e9f-b159-b5c0526a527e",
+      "take": 49,
+      "split": "train",
+      "rows": 388,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2c958c85-d29b-4e9f-b159-b5c0526a527e.npz",
+      "sha256": "8ac9eba2d0589b356e2a639a538d301bb2f9de4549c803f3ffc199551775c7c6"
+    },
+    {
+      "uuid": "329c3e77-5f94-4236-97c0-98864a744e18",
+      "take": 50,
+      "split": "train",
+      "rows": 617,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/329c3e77-5f94-4236-97c0-98864a744e18.npz",
+      "sha256": "d14856306189ee711a65a669a41a8c36930a865ba25f5f632320f3be38a5879d"
+    },
+    {
+      "uuid": "155572e1-a710-4f9d-8eab-2f4d39e3ea3e",
+      "take": 51,
+      "split": "train",
+      "rows": 371,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/155572e1-a710-4f9d-8eab-2f4d39e3ea3e.npz",
+      "sha256": "f3a43ecb9305c2b2731ef4c388a97f94dcb748e0dcc8154d713297fb489ed295"
+    },
+    {
+      "uuid": "04c5cb80-1dad-4ab0-9085-764fa4c18b10",
+      "take": 52,
+      "split": "train",
+      "rows": 523,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/04c5cb80-1dad-4ab0-9085-764fa4c18b10.npz",
+      "sha256": "3b6c2e80213f065cd7b05fc230ac0419f67ac9dacf574b552a9123b7bbc2ca77"
+    },
+    {
+      "uuid": "36551141-4f10-46e8-b8c0-386734feda4c",
+      "take": 53,
+      "split": "train",
+      "rows": 351,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/36551141-4f10-46e8-b8c0-386734feda4c.npz",
+      "sha256": "2b0cf59a62689bad6dab5e219deccecc6bdc8bf7f4a8b88691db66182a2e666b"
+    },
+    {
+      "uuid": "25a05230-edec-4209-8753-ba914fe4d48e",
+      "take": 54,
+      "split": "train",
+      "rows": 553,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/25a05230-edec-4209-8753-ba914fe4d48e.npz",
+      "sha256": "9f3dfb8b5231b5d7ab19978e75904a4781da76a863274b3339bcd7611bfccbfe"
+    },
+    {
+      "uuid": "3c2641c1-cd4c-4b46-b537-2732c166502f",
+      "take": 55,
+      "split": "train",
+      "rows": 497,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/3c2641c1-cd4c-4b46-b537-2732c166502f.npz",
+      "sha256": "dc5645dd5cf38ac5ed4a5cab7088e3cc6aae204f73a8839548590e2c2514e395"
+    },
+    {
+      "uuid": "fae63c52-02e9-4e52-a3d4-80ae02377241",
+      "take": 56,
+      "split": "train",
+      "rows": 557,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/fae63c52-02e9-4e52-a3d4-80ae02377241.npz",
+      "sha256": "9e7e83c3cfca50ae8f49ee3e42c673c23d0ea725f05a02c746633af934df234b"
+    },
+    {
+      "uuid": "5a2bd1d4-364d-4416-a0ba-d180eb35b7e1",
+      "take": 57,
+      "split": "valid",
+      "rows": 567,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/5a2bd1d4-364d-4416-a0ba-d180eb35b7e1.npz",
+      "sha256": "8009883d15f895da5882c0c9babb7bdf128f329484e80ea82bf1ead39b2d12b5"
+    },
+    {
+      "uuid": "3ac7f45a-07ba-48a9-902c-58fb95828350",
+      "take": 58,
+      "split": "train",
+      "rows": 345,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/3ac7f45a-07ba-48a9-902c-58fb95828350.npz",
+      "sha256": "a31a19a15739ccb4cd8a0b30defa79663708aa4038cd96955ac005d59c826324"
+    },
+    {
+      "uuid": "44fbb456-42d0-4df7-af55-dee68df9a876",
+      "take": 59,
+      "split": "train",
+      "rows": 343,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/44fbb456-42d0-4df7-af55-dee68df9a876.npz",
+      "sha256": "d6331b62beb9f903a31c27e0f2ba9f634fc9475efa478876fb6692feef7ba326"
+    },
+    {
+      "uuid": "2c7c86f7-901d-436a-a7d6-02f1c5b0ab93",
+      "take": 60,
+      "split": "train",
+      "rows": 353,
+      "file": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/geometry/2c7c86f7-901d-436a-a7d6-02f1c5b0ab93.npz",
+      "sha256": "56f7c0b836c2eeb83ca21b07447fb947efaa7159c283ccdb177125ab35372cfc"
+    }
+  ],
+  "reset_exact_train_row0_mean_verified": "Native circular mean for q4:26; arithmetic mean for hands, independently verified",
+  "reset_skipped_key_present": true,
+  "native_camera_parity_passed": true,
+  "constant_sd_infinity": "intentional native-client constant-channel disabling",
+  "client_sha256": "6b7c322d0204367943a5037d1c1425a1a69e3f87b11fbf0ca2038967d517332e",
+  "file_sha256": {
+    "virtual_cam_cloth_new2.npz": "c3e46fbcbca418cf6156eb3bc99a9a618b5341a4a590520d04aa03721cafd6f0",
+    "reset_pose_cloth_new2.npz": "5038c673535f9622bcf4c1c443ad02e649b42860ee4289d0d9e171352ffb9a6f"
+  },
+  "hardware_executed": false,
+  "reset_native_audit": "reset-native-audit.json"
+}

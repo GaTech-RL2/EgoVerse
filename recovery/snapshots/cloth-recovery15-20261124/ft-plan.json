@@ -1,0 +1,22 @@
+{
+  "authorized": true,
+  "root": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/ft",
+  "run": "egoa180-cloth50-recovered-fix1124-ft60k-MSCstrong-s42",
+  "parent": "egoa-multitask-pre-B-MSCaug-s42",
+  "parent_step": 180000,
+  "parent_sha256": "94b695a5786fa97a554076ed1c86272f575a3cf3979d873fcb5c3f812c87a430",
+  "steps": 60000,
+  "seed": 42,
+  "recipe": "B + strongMSC",
+  "original_recording_split": [
+    38,
+    5
+  ],
+  "formal_gate": "new release numeric + visual READY, then100-to200 resume/fullval smoke and independent gate",
+  "submission_pending": false,
+  "existing_runs_unchanged": true,
+  "job": 4855714,
+  "smoke_passed": true,
+  "formal_started": true,
+  "latest_status": "/coc/flash7/cxin34/cloth-valid-recovery-fix1124-20261124/reports/launch-status.json"
+}

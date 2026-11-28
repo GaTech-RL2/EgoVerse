@@ -1,0 +1,147 @@
+{
+  "source": "/home/aloha/RB_Y1_workspace/rollout_logs/egoa180_cloth50_prefix_FT10k_bgobs_20261124_152642",
+  "sample_frames": 15,
+  "prefetch_frames": 14,
+  "rows": [
+    {
+      "file": "frame_00000.npz",
+      "step": 0,
+      "prefetch": false,
+      "rgb_slam_delta_ms": 83.41431617736816,
+      "slam_age_at_build_ms": -14.174461364746094,
+      "build_to_dump_ms": 386.0483169555664
+    },
+    {
+      "file": "frame_00001.npz",
+      "step": 13,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 4.178524017333984,
+      "slam_age_at_build_ms": 74.4636058807373,
+      "build_to_dump_ms": 768.4986591339111
+    },
+    {
+      "file": "frame_00002.npz",
+      "step": 27,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -35.57419776916504,
+      "slam_age_at_build_ms": 48.66671562194824,
+      "build_to_dump_ms": 458.89806747436523
+    },
+    {
+      "file": "frame_00003.npz",
+      "step": 40,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 14.081954956054688,
+      "slam_age_at_build_ms": 50.08101463317871,
+      "build_to_dump_ms": 494.7350025177002
+    },
+    {
+      "file": "frame_00004.npz",
+      "step": 53,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 44.43168640136719,
+      "slam_age_at_build_ms": 56.83183670043945,
+      "build_to_dump_ms": 443.84193420410156
+    },
+    {
+      "file": "frame_00005.npz",
+      "step": 66,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -19.890308380126953,
+      "slam_age_at_build_ms": 16.742467880249023,
+      "build_to_dump_ms": 460.41274070739746
+    },
+    {
+      "file": "frame_00006.npz",
+      "step": 79,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -42.027950286865234,
+      "slam_age_at_build_ms": 11.770248413085938,
+      "build_to_dump_ms": 409.6553325653076
+    },
+    {
+      "file": "frame_00007.npz",
+      "step": 92,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -14.235496520996094,
+      "slam_age_at_build_ms": 21.965980529785156,
+      "build_to_dump_ms": 415.99130630493164
+    },
+    {
+      "file": "frame_00008.npz",
+      "step": 105,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -55.51624298095703,
+      "slam_age_at_build_ms": 17.96436309814453,
+      "build_to_dump_ms": 415.8365726470947
+    },
+    {
+      "file": "frame_00009.npz",
+      "step": 118,
+      "prefetch": true,
+      "rgb_slam_delta_ms": -17.055034637451172,
+      "slam_age_at_build_ms": 32.04941749572754,
+      "build_to_dump_ms": 598.9742279052734
+    },
+    {
+      "file": "frame_00010.npz",
+      "step": 131,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 5.458593368530273,
+      "slam_age_at_build_ms": 75.46401023864746,
+      "build_to_dump_ms": 452.05068588256836
+    },
+    {
+      "file": "frame_00011.npz",
+      "step": 144,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 43.83540153503418,
+      "slam_age_at_build_ms": 79.28276062011719,
+      "build_to_dump_ms": 482.1746349334717
+    },
+    {
+      "file": "frame_00012.npz",
+      "step": 157,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 96.45938873291016,
+      "slam_age_at_build_ms": 137.24589347839355,
+      "build_to_dump_ms": 506.49333000183105
+    },
+    {
+      "file": "frame_00013.npz",
+      "step": 170,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 38.62285614013672,
+      "slam_age_at_build_ms": 50.09818077087402,
+      "build_to_dump_ms": 602.5066375732422
+    },
+    {
+      "file": "frame_00014.npz",
+      "step": 183,
+      "prefetch": true,
+      "rgb_slam_delta_ms": 165.1594638824463,
+      "slam_age_at_build_ms": 788.1309986114502,
+      "build_to_dump_ms": 522.9032039642334
+    }
+  ],
+  "stats": {
+    "rgb_slam_delta_ms": {
+      "median": 37.09852695465088,
+      "max": 165.1594638824463
+    },
+    "slam_age_at_build_ms": {
+      "median": 50.08959770202637,
+      "max": 788.1309986114502
+    },
+    "build_to_dump_ms": {
+      "median": 471.29368782043457,
+      "max": 768.4986591339111
+    }
+  },
+  "caveats": [
+    "Cloth active-run sample, not Cart validation",
+    "Logged sensor timestamps are not proven exposure-clock aligned",
+    "Old t_snapshot is worker build start, not main-thread state sample",
+    "Old t_rgb_read is after compute even when RGB was read before compute"
+  ]
+}

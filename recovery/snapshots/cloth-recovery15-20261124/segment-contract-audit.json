@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "original_split_passed": true,
+  "same_recording_extra_train_segment_passed": true,
+  "same_recording_cross_split_rejected": true,
+  "changes": "Only new workspace accounting: recording_id group counts instead of episode UUID counts; policy/loss unchanged",
+  "reference_yaml_sha256": "6eca04f3f2ddd778cae0e224472899f18e9d815ada13b6e8eebb0ca8e0980c9d"
+}

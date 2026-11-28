@@ -1,0 +1,401 @@
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  robomimic_model:
+    _target_: egomimic.algo.hpt.HPT
+    data_schematic: _${data_schematic}
+    diffusion: true
+    6dof: true
+    manip_base_disp_thresh: 0.05
+    ac_keys:
+      rby1: actions_joint_base_torso_head_arm_hand
+    trunk:
+      embed_dim: 256
+      num_blocks: 16
+      num_heads: 8
+      token_postprocessing: action_token
+      observation_horizon: 1
+      action_horizon: 64
+      no_trunk: false
+      use_domain_embedding: true
+      drop_path: 0.0
+      weight_init_style: pytorch
+    multitask: false
+    pretrained: false
+    pretrained_checkpoint: ''
+    reverse_kl_samples: 4
+    domains:
+    - rby1
+    shared_obs_keys:
+    - front_rgb
+    shared_stem_specs:
+      front_rgb:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths:
+        - 256
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 48
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.0
+            modality_embed_dim: 256
+    stem_specs:
+      rby1:
+        state_robot0_joint_pos:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 22
+          output_dim: 256
+          widths:
+          - 256
+          specs:
+            random_horizon_masking: false
+            proprio_dropout_p: 0.9
+            noise_std_raw: 0.0
+            proprio_clamp: 3.0
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 4
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.0
+              modality_embed_dim: 256
+        state_eef_pose_glass:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 9
+          output_dim: 256
+          widths:
+          - 256
+          specs:
+            random_horizon_masking: false
+            proprio_dropout_p: 0.9
+            noise_std_raw: 0.0
+            proprio_clamp: 3.0
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 4
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.0
+              modality_embed_dim: 256
+        state_hand_left_qpos:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 12
+          output_dim: 256
+          widths:
+          - 256
+          specs:
+            random_horizon_masking: false
+            proprio_dropout_p: 0.9
+            noise_std_raw: 0.0
+            proprio_clamp: 3.0
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 4
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.0
+              modality_embed_dim: 256
+        state_hand_right_qpos:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 12
+          output_dim: 256
+          widths:
+          - 256
+          specs:
+            random_horizon_masking: false
+            proprio_dropout_p: 0.9
+            noise_std_raw: 0.0
+            proprio_clamp: 3.0
+            cross_attn:
+              crossattn_latent: 16
+              crossattn_heads: 4
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.0
+              modality_embed_dim: 256
+    head_specs:
+      rby1:
+        _target_: egomimic.models.fm_policy.HierarchicalFMPolicy
+        action_horizon: 64
+        num_inference_steps: 64
+        pooling: null
+        time_dist: beta
+        cond_dim: 256
+        infer_ac_dims:
+          rby1: 49
+        block_dims:
+        - 3
+        - 46
+        block_parents:
+        - []
+        - - 0
+        block_model_cfg:
+          nblocks: 6
+          hidden_dim: 128
+          n_heads: 4
+          dropout: 0.0
+          mlp_layers: 4
+          mlp_ratio: 4
+          act_seq: 64
+        model:
+          _target_: torch.nn.Identity
+      rby1_dino_wm_future:
+        _target_: egomimic.models.fm_policy.FMPolicy
+        action_horizon: 16
+        num_inference_steps: 50
+        pooling: null
+        time_dist: beta
+        infer_ac_dims:
+          rby1: 768
+        model:
+          _target_: egomimic.models.denoising_nets.CrossTransformer
+          nblocks: 3
+          cond_dim: 256
+          hidden_dim: 768
+          act_dim: 768
+          act_seq: 16
+          n_heads: 8
+          dropout: 0.1
+          mlp_layers: 2
+          mlp_ratio: 2
+    encoder_specs:
+      front_rgb:
+        _target_: campaign.rgb_policy.FrozenRGBEncoder
+        checkpoint: ${oc.env:RGB_BUNDLE_ROOT}/assets/dinov3_vitb16.safetensors
+    train_image_augs:
+      _target_: torchvision.transforms.Compose
+      transforms: []
+    eval_image_augs:
+      _target_: torchvision.transforms.Compose
+      transforms: []
+    auxiliary_ac_keys:
+      rby1:
+      - dino_wm_future
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0001
+  scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    _partial_: true
+    T_max: 1800
+    eta_min: 1.0e-05
+paths:
+  log_dir: ${paths.root_dir}/logs/
+  output_dir: ${hydra:runtime.output_dir}
+  work_dir: ${hydra:runtime.cwd}
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: 1800
+  min_epochs: 1800
+  accelerator: gpu
+  devices: 1
+  precision: bf16
+  limit_train_batches: 100
+  limit_val_batches: 300
+  check_val_every_n_epoch: 50
+  deterministic: false
+  strategy: auto
+  num_nodes: 1
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+logger:
+  wandb:
+    _target_: lightning.pytorch.loggers.wandb.WandbLogger
+    save_dir: ${paths.output_dir}
+    offline: false
+    id: ${name}_${description}
+    anonymous: null
+    project: sew_policy
+    log_model: false
+    prefix: ''
+    entity: null
+    group: ''
+    tags: []
+    job_type: ''
+    resume: allow
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  zero_obs: false
+  zero_obs_use_numpy: false
+  train_datasets:
+    dataset1:
+      _target_: egomimic.rldb.utils.MultiRLDBDataset
+      datasets:
+        rl2_lab:
+          _target_: egomimic.rldb.utils.FolderRLDBDataset
+          folder_path: /coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12/releases/r2_wam_hd2
+          embodiment: rby1
+          mode: train
+          local_files_only: true
+          delta_timestamps:
+            actions.joint_base_torso_head_arm_hand: &id001
+            - 0.0
+            - 0.1
+            - 0.2
+            - 0.3
+            - 0.4
+            - 0.5
+            - 0.6
+            - 0.7
+            - 0.8
+            - 0.9
+            - 1.0
+            - 1.1
+            - 1.2
+            - 1.3
+            - 1.4
+            - 1.5
+            - 1.6
+            - 1.7
+            - 1.8
+            - 1.9
+            - 2.0
+            - 2.1
+            - 2.2
+            - 2.3
+            - 2.4
+            - 2.5
+            - 2.6
+            - 2.7
+            - 2.8
+            - 2.9
+            - 3.0
+            - 3.1
+            - 3.2
+            - 3.3
+            - 3.4
+            - 3.5
+            - 3.6
+            - 3.7
+            - 3.8
+            - 3.9
+            - 4.0
+            - 4.1
+            - 4.2
+            - 4.3
+            - 4.4
+            - 4.5
+            - 4.6
+            - 4.7
+            - 4.8
+            - 4.9
+            - 5.0
+            - 5.1
+            - 5.2
+            - 5.3
+            - 5.4
+            - 5.5
+            - 5.6
+            - 5.7
+            - 5.8
+            - 5.9
+            - 6.0
+            - 6.1
+            - 6.2
+            - 6.3
+            obs.dino_wm:
+            - 1.0
+          cache_in_memory: false
+          valid_ratio: 0.07
+      embodiment: rby1
+  valid_datasets:
+    dataset1:
+      _target_: egomimic.rldb.utils.MultiRLDBDataset
+      datasets:
+        eth_lab:
+          _target_: egomimic.rldb.utils.FolderRLDBDataset
+          folder_path: /coc/flash7/czhang883/warp-data/datasets/cart_chuye_1102_tgzvis12/releases/r2_wam_hd2
+          embodiment: rby1
+          mode: valid
+          local_files_only: true
+          delta_timestamps:
+            actions.joint_base_torso_head_arm_hand: *id001
+            obs.dino_wm:
+            - 1.0
+          cache_in_memory: false
+          valid_ratio: 0.07
+      embodiment: rby1
+  train_dataloader_params:
+    dataset1:
+      batch_size: 32
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 2
+  valid_dataloader_params:
+    dataset1:
+      batch_size: 32
+      num_workers: 6
+      persistent_workers: true
+      pin_memory: true
+  gpu_resident: true
+callbacks:
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: epoch_{epoch}
+    save_last: true
+    save_top_k: -1
+    every_n_epochs: 100
+  last_frequent:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: last_frequent
+    save_last: false
+    save_top_k: 1
+    every_n_epochs: 10
+    save_on_train_epoch_end: true
+    enable_version_counter: false
+name: RBY1_cart1102_ptfwam_hd2
+description: r1
+ckpt_path: null
+train: true
+eval: false
+eval_class:
+  _target_: egomimic.scripts.evaluation.Eve
+  mode: real
+  arm: both
+  eval_path: ./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_pcd_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_pcdc
+      front_pcd_2:
+        key_type: camera_keys
+        lerobot_key: obs.aria_pcdc_local
+      front_pcd_3:
+        key_type: camera_keys
+        lerobot_key: obs.aria_pcdc_local_left
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      eef_pose_glass:
+        key_type: proprio_keys
+        lerobot_key: obs.eef_pose_glass
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+      dino_wm_future:
+        key_type: action_keys
+        lerobot_key: obs.dino_wm
+  viz_img_key:
+    rby1: front_pcd_1
+seed: 20261031

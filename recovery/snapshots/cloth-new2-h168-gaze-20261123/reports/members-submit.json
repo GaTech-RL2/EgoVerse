@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--nice=0",
+    "--exclude=hal",
+    "--gres=gpu:l40s:1",
+    "--cpus-per-task=6",
+    "--mem=20G",
+    "--time=02:00:00",
+    "--dependency=afterok:4844392",
+    "--array=1-5%2",
+    "--job-name=cloth-new2-gaze-members",
+    "--output=/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/logs/members-%A_%a.log",
+    "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/scripts/members.sh"
+  ],
+  "returncode": 0,
+  "stdout": "4844393\n",
+  "stderr": "",
+  "job_id": "4844393"
+}

@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "package": "/coc/flash7/cxin34/egoa180-cart-la-sharedfix1124-FT10k-robotpc-20261124",
+  "task": "cart",
+  "step": 10000,
+  "run": "egoa180-cart-la-sharedfix1124-ft60k-MSCstrong-s42",
+  "port": 8280,
+  "job_id": "4854951",
+  "source_checkpoint_sha256": "1e31cce673793fd5c3dcd422125143b09b9b160736b877912abf5ce258e9ed54",
+  "portable_checkpoint_sha256": "c2a4a6d01ddded6a923d35a69845bc08333f5bd6605ae0f4a9d82c8c365bca32",
+  "ordinary_rtc_max_error": 0.0,
+  "camera_validation": {
+    "translation_cm_median": 1.719149809084428,
+    "translation_cm_p90": 5.292279415795829,
+    "rotation_deg_median": 3.74348299721873,
+    "rotation_deg_p90": 8.196501576383346
+  },
+  "train_only_geometry": true,
+  "look_at": true,
+  "hardware_tested": false,
+  "robotpc_client_checked": false
+}

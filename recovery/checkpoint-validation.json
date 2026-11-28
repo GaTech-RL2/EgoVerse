@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "checkpoint_step": 10000,
+  "strict_state_keys": 893,
+  "checkpoint_sha256": "33ceb5398ef65e3bfc280b359972c2ad2144a7cd4b81baef479a438a3abd7579",
+  "normalizer_sha256": "685b0df1da6e692b4dc57e947f8d00d5c62684a665749750a82e2b297978f33c",
+  "source": "Nov19 Basket B deployment; not latest Nov25 checkpoint",
+  "device": "cpu",
+  "network_used": false,
+  "hardware_used": false,
+  "cases": [
+    {
+      "frame": 0,
+      "plain_mean": 1.0994380517104219e-07,
+      "plain_max": 1.6689300537109375e-06,
+      "rtc_mean": 9.177914961355782e-08,
+      "rtc_max": 1.6689300537109375e-06
+    },
+    {
+      "frame": 1,
+      "plain_mean": 1.293163052196178e-07,
+      "plain_max": 2.1457672119140625e-06,
+      "rtc_mean": 1.0941874961645226e-07,
+      "rtc_max": 1.6689300537109375e-06
+    },
+    {
+      "frame": 2,
+      "plain_mean": 3.0296152431219525e-07,
+      "plain_max": 3.11732292175293e-05,
+      "rtc_mean": 1.1407224320691967e-07,
+      "rtc_max": 2.1457672119140625e-06
+    }
+  ]
+}

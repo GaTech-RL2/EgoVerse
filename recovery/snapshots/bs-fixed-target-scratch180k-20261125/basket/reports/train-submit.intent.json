@@ -1,0 +1,25 @@
+{
+  "time": 1795583899.5066748,
+  "command": [
+    "/opt/slurm/Ubuntu-24.04/current/bin/sbatch",
+    "--parsable",
+    "--account=rl2-lab",
+    "--partition=rl2-lab",
+    "--qos=debug",
+    "--cpus-per-task=4",
+    "--mem=48G",
+    "--exclude=hal",
+    "--chdir=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/basket",
+    "--export=ALL,CAMPAIGN_ROOT=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/basket,RUN_ID=basket113-fix1124-bs-scratch180k-MSCstrong-s42",
+    "--gres=gpu:l40s:1",
+    "--time=04:00:00",
+    "--requeue",
+    "--signal=B:USR1@900",
+    "--open-mode=append",
+    "--dependency=afterok:4860706",
+    "--kill-on-invalid-dep=yes",
+    "--job-name=basket113-fix1124-bs-scratch180k-MSCstrong-s42",
+    "--output=/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/basket/logs/basket113-fix1124-bs-scratch180k-MSCstrong-s42-%j.log",
+    "/coc/flash7/scratch/cxin34/bs-fixed-target-scratch180k-20261125/basket/scripts/chain.sbatch"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "campaign/photometric.py": {
+    "kind": "replayed_evidenced_patch",
+    "evidence": [
+      "local Codex history 2026-11-23T15-00-04, call292 (strong MSC config wiring)",
+      "local Codex history 2026-11-25T17-15-29, call399 (optional GeoAug wiring)"
+    ],
+    "changes": [
+      "augment accepts config, retaining standard defaults",
+      "jitter and noise read requested parameters",
+      "training_forward passes model.photometric_config",
+      "optional geoaug dispatch"
+    ]
+  },
+  "campaign/contracts.py": {
+    "kind": "replayed_evidenced_patch",
+    "evidence": [
+      "recovery/snapshots/cart-drawer-nola-fix-bs-20261125/setup_workspaces.py"
+    ],
+    "changes": [
+      "Add drawer to accepted fixed FT release IDs; retain all other gates"
+    ]
+  },
+  "campaign/train_lora.py": {
+    "kind": "replayed_evidenced_patch",
+    "evidence": [
+      "recovery/snapshots/cart-drawer-nola-fix-bs-20261125/setup_lora.py"
+    ],
+    "changes": [
+      "Replay install/transfer/smoke patch into a separately named trainer; no remote setup script executed"
+    ]
+  },
+  "runner_layout": {
+    "kind": "local_integration",
+    "files": [
+      "campaign/train.py",
+      "campaign/train_lora.py",
+      "campaign/train_cloth.py",
+      "campaign/train_rgb.py"
+    ],
+    "changes": [
+      "Hash egomimic/ at repository root rather than missing source/egomimic/",
+      "RGB and Cloth import their own preserved contracts"
+    ]
+  },
+  "tests/recovered": {
+    "kind": "local_integration",
+    "changes": [
+      "Adjust test root from parents[1] to parents[2] after relocation; assertions unchanged"
+    ]
+  },
+  "recovery_tooling": {
+    "kind": "new_local_code",
+    "files": [
+      "recovery/verify.py",
+      "recovery/check_deployed.py",
+      "tests/test_local_recovery.py"
+    ],
+    "changes": [
+      "Offline local verification; no original remote parity assertion"
+    ]
+  }
+}

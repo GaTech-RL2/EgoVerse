@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "created_utc": "2026-11-23T15:37:31.869539+00:00",
+  "archive": {
+    "passed": true,
+    "path": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/assets",
+    "archive": "/coc/flash7/cxin34/cloth-new2-h168-gaze-20261123/cloth-new2-h168-rollout-assets-20261123.tar.gz",
+    "archive_sha256": "93ca529058d4d6cb134cd90874233f65e77529602e8a273bf4fbdbb8b43bcd1a",
+    "files": 14,
+    "gaze_validation": {
+      "median": 1.6553900434698896,
+      "p90": 3.6405339163987156,
+      "mean": 1.9862457836340803,
+      "n": 2267
+    },
+    "camera_validation": {
+      "cloth_new2_native_clamped": {
+        "translation_cm_median": 1.5053074628143728,
+        "translation_cm_p90": 2.756800089288906,
+        "rotation_deg_median": 1.4113209901112789,
+        "rotation_deg_p90": 3.026200464472962
+      },
+      "old_cloth_same_valid": {
+        "translation_cm_median": 8.424842828680555,
+        "translation_cm_p90": 14.293920916233645,
+        "rotation_deg_median": 9.168783961010673,
+        "rotation_deg_p90": 19.525735067744442
+      }
+    },
+    "hardware_executed": false
+  },
+  "slurm": "4844390|COMPLETED|0:0|00:01:33|bmo\n4844392|COMPLETED|0:0|00:03:54|bishop\n4844394|COMPLETED|0:0|00:05:18|bmo\n4844393_1|COMPLETED|0:0|00:03:16|bishop\n4844393_2|COMPLETED|0:0|00:03:18|bishop\n4844393_3|COMPLETED|0:0|00:03:20|bishop\n4844393_4|COMPLETED|0:0|00:03:17|bishop\n4844393_5|COMPLETED|0:0|00:03:04|bishop\n4844416|COMPLETED|0:0|00:00:04|bmo\n",
+  "sha256sum_output": "README.md: OK\nclient-compatibility.json: OK\ngaze/gaze_heat7_cloth_new2_m0.pt: OK\ngaze/gaze_heat7_cloth_new2_m1.pt: OK\ngaze/gaze_heat7_cloth_new2_m2.pt: OK\ngaze/gaze_heat7_cloth_new2_m3.pt: OK\ngaze/gaze_heat7_cloth_new2_m4.pt: OK\ngaze/gaze_heat7_cloth_new2_m5.pt: OK\ngaze-validation.json: OK\ngeometry-audit.json: OK\nreset-native-audit.json: OK\nreset_pose_cloth_new2.npz: OK\nuse-assets.sh: OK\nvirtual_cam_cloth_new2.npz: OK\n",
+  "environment_script_syntax_passed": true,
+  "hardware_executed": false
+}

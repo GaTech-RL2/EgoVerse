@@ -1,0 +1,188 @@
+{
+  "passed": true,
+  "validation_used_for_fit": false,
+  "source_data_used": false,
+  "train_uuids": [
+    "020f79de-5186-44ca-a1ac-e7d03b58848d",
+    "02b36da2-68a7-4f6d-aa7b-1a091a6fb4f4",
+    "02cd0b17-c30c-4754-9acf-209c1a58fa91",
+    "034f6ed1-8139-43ad-b3b7-00a80a325415",
+    "0ad6e438-87c5-47da-9889-96bb1672d097",
+    "0c63662f-c5bb-45eb-a39e-2d4060fc5b94",
+    "0fcbb451-5989-48c4-a314-b7b294be84fb",
+    "100c4e45-92dd-4936-92ea-7a7aab67b506",
+    "14322b9d-7a62-400c-a9fe-ec24e00f552a",
+    "16d7517c-083a-40d4-b6ae-15da440e80d6",
+    "1b26e88a-6f6b-4c09-b632-2ac54dc2aedd",
+    "1d679a09-f655-4646-a547-fa5456ec2a09",
+    "20917e66-edd6-4b0e-9066-c8ce4701cd21",
+    "259f9772-3f47-4806-b8c9-542f604007a6",
+    "27b09a9d-0df7-4210-a102-8e10d449e85f",
+    "2c36bfd6-5e0f-491b-82ff-1b816bb64b42",
+    "2f457d47-8b72-4dc4-a49c-ad07bb211506",
+    "3163ab71-d6ef-4a5c-a8a1-2eb4d3280ddb",
+    "331b7168-9056-4bac-907e-27ccec6c6313",
+    "368d1387-91e4-4c13-8c1b-038a093d329e",
+    "37f0fbb3-10b4-43cc-b61f-ec70ca9513b4",
+    "38488d70-00f1-4aae-a718-be8826a41b84",
+    "3ac0b28d-cccf-4d48-94d4-0db16ab5b253",
+    "4186dd05-0b72-4c5d-930e-01f0b16f1672",
+    "44840e44-f5e3-49ca-83b5-4996594379b8",
+    "4aae24ef-db6b-49b7-8d01-776ccb49c527",
+    "4d314a3f-ebaf-4f96-b1b8-6c4d1be80d71",
+    "4d53ca00-78d6-41c2-ae48-5f34ea48d755",
+    "4f327f4d-ff4f-47c5-a62d-b41b3b47ae01",
+    "50cc88fe-8ed6-456e-992a-c117d0d700df",
+    "516e2351-b1ac-447d-851f-dde2e029f196",
+    "55995aad-c1b9-410f-80de-42b25a878888",
+    "55c00f23-94d7-481a-80be-6879a10b20be",
+    "5827cb9c-b7ff-4b2c-8780-d0f54a16ab8d",
+    "5a1aac25-365d-4c29-b413-78d31fc0d33c",
+    "610a1b3a-d320-4a55-a6eb-8daada26ef49",
+    "64cc4264-e0e6-4b95-9603-9b457836743e",
+    "697dc28a-5fcb-4540-8e10-6e924aa4c154",
+    "6a364aa9-e254-4bed-ad77-45708f7dfa3d",
+    "6b268280-3d56-40f4-b594-10f4bbb5fff2",
+    "6de42d54-721b-4524-a5b5-40ffbc358444",
+    "715491b6-5f7f-42d0-83e4-aa75d7a1b068",
+    "77fe4a1a-7de4-4e01-ac02-afa1c07e1fef",
+    "796f918c-366a-4248-bbda-880c2fdfad2a",
+    "7c3723c5-1303-4802-9545-ce5a7f587cc3",
+    "7ea975cd-5916-4b0c-81ab-da84246c990b",
+    "8286b240-e35e-432b-9271-c08a47dd2f71",
+    "8411614a-9b59-4d83-a63e-8177fd0641a4",
+    "8707dadc-7bc2-468f-b293-6134cfad1833",
+    "88f4c1a1-289e-4daf-8f55-8318a2055042",
+    "89b9468c-3187-42f7-bdcc-68a3c896327a",
+    "8a38a7d4-bfc7-4137-843c-21d4527b072d",
+    "8a730e37-c569-45ab-acdb-09db00b7e881",
+    "8aa780ab-432c-4ae4-a299-7ec931142687",
+    "8afd46c9-0bb2-4032-a120-313da1c3b83f",
+    "8cd5939f-063d-4ad3-9661-3d9e098ab8d6",
+    "8f249c48-e628-4f0a-8386-b60e44fefcdd",
+    "8fe78cec-5ec1-4bf5-a78c-693045c248b7",
+    "905097d6-e11e-41fa-96b4-88e8f298b0aa",
+    "92c186d9-8185-48cd-a8d5-471c06fc2c85",
+    "92e1fda0-8dc8-4a6e-b3bf-5da28ace2102",
+    "93ce2e02-e4c0-455d-b51c-1ef48b7ccbfc",
+    "99edb26b-9694-40a9-924a-cd060543500b",
+    "9a31350b-d054-459f-8f7a-104eb7d7e0dd",
+    "9a864c5b-f938-442c-9996-2921df4f94d4",
+    "9bd3b567-987b-4f60-8dc0-00b3ed7727c1",
+    "9bf3bd59-b91b-4fcb-813e-a3f043be59b6",
+    "9dc04fc5-6072-4401-88b4-945bf4f25b75",
+    "a630044e-634e-47a4-8b3a-4f197e748040",
+    "aff023cd-2f4c-4450-8bf4-e2980237e655",
+    "b03a8def-50e4-4ddf-8067-c707583cbf0f",
+    "b1ae0593-7aa6-48a5-a814-df519cbdab3d",
+    "bb740c4a-144c-45a0-8821-934e9a7b93ce",
+    "bfd6fa49-9c2c-4e63-bd2a-96200e401845",
+    "c538ff6c-f706-478c-9896-d539c5d5e5b2",
+    "cac5aa38-cf6c-4543-8257-bcd29fd6fa40",
+    "d1dcdbb2-9ce2-445f-859d-564f5fe2214c",
+    "d32149f9-b081-45ef-abd8-5c7f570b396b",
+    "d49e784b-3cc2-49ce-9abd-8585f0e1bebd",
+    "d4c14374-9171-4bbf-987d-f1beebed75ad",
+    "da5410fc-f4f9-4c43-a202-4e86d62eff84",
+    "da6b82ed-98a0-4c09-9ac5-50ad741635c0",
+    "e2a2c6b2-66ae-4a5b-b0c3-9b4b5951ea13",
+    "e313e708-681e-441d-9ae5-acf054984172",
+    "e5afbb93-0eab-4f72-ad5c-6b5364674f8e",
+    "e77c75ed-08b7-46ac-9302-9860bde88255",
+    "e788e460-2d8c-46d9-9666-94ab4f578d2b",
+    "ea8c730a-b338-4275-ba3e-e876f898b481",
+    "eb1615a7-0efe-44e4-b79d-67f6985e426f",
+    "ebb0f95e-b6ae-4694-8467-7f08358855e8",
+    "ebd81265-4d4e-4a96-9421-2dd3daf3f684",
+    "efbfe691-26c1-40ae-bb3e-e59f9ce0dbc8",
+    "f791c4fd-bad7-4d32-9e71-d21208bed61c",
+    "f8576c1b-a121-4cfa-b8a2-2baaed56e01b",
+    "f8fc0517-8dfb-4b71-8d54-3cdcbe8bc4af",
+    "f9a7a439-2cee-404a-921a-76186dffb498",
+    "f9bb0c39-daa3-45b8-a7f9-8ad7350bd5b9"
+  ],
+  "valid_uuids": [
+    "04df492a-19d7-4679-a7a8-405d621b1cea",
+    "0d70315b-560d-448b-a8f9-84049465ac36",
+    "15393b5a-806e-4d7d-a106-080e4a6762dd",
+    "5ec98de8-ccc0-42fb-8833-17a5dd44a074",
+    "6445ee34-a47d-4f36-9597-e2895f6c0781",
+    "64f829a0-7630-4a34-af9e-560534d240f7",
+    "6f999162-56e0-4c67-b696-885055a34763",
+    "a4c457f8-1a43-40a5-9e94-76068b14bd62",
+    "ae63d32c-9a61-4558-875d-a654f70d0b61",
+    "c585b624-eb01-4d20-96d9-d045e6c79468"
+  ],
+  "stats": {
+    "action": {
+      "train": {
+        "rows": 29771,
+        "max_abs": 14.107574462890625,
+        "q999_abs": 1.4287240505218506,
+        "fraction_abs_gt10": 2.7420191817951863e-06
+      },
+      "valid": {
+        "rows": 3027,
+        "max_abs": 31.6585693359375,
+        "q999_abs": 1.9200407266616821,
+        "fraction_abs_gt10": 1.3484085408196976e-05
+      }
+    },
+    "state_robot0_joint_pos": {
+      "train": {
+        "rows": 29771,
+        "max_abs": 2.3432304859161377,
+        "q999_abs": 1.508789300918579,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "rows": 3027,
+        "max_abs": 2.9629099369049072,
+        "q999_abs": 2.1843113899230957,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_eef_pose_glass": {
+      "train": {
+        "rows": 29771,
+        "max_abs": 2.4952895641326904,
+        "q999_abs": 1.4611334800720215,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "rows": 3027,
+        "max_abs": 1.9901188611984253,
+        "q999_abs": 1.8571138381958008,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_hand_left_qpos": {
+      "train": {
+        "rows": 29771,
+        "max_abs": 2.2926125526428223,
+        "q999_abs": 1.250492811203003,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "rows": 3027,
+        "max_abs": 1.4885339736938477,
+        "q999_abs": 1.205163598060608,
+        "fraction_abs_gt10": 0.0
+      }
+    },
+    "state_hand_right_qpos": {
+      "train": {
+        "rows": 29771,
+        "max_abs": 1.5865864753723145,
+        "q999_abs": 1.167913556098938,
+        "fraction_abs_gt10": 0.0
+      },
+      "valid": {
+        "rows": 3027,
+        "max_abs": 1.7491344213485718,
+        "q999_abs": 1.2187458276748657,
+        "fraction_abs_gt10": 0.0
+      }
+    }
+  }
+}
