@@ -78,5 +78,19 @@
       "Preserve original import/source hashes; current hashes are maintained in file-manifest.json."
     ],
     "verification": "recovery/language-audit.json"
+  },
+  "recovery_gap_documentation": {
+    "kind": "documentation_only",
+    "assessed_revision": "262fd6d406e383fe70b57f1ad10d94e9675b7f8a",
+    "files": [
+      "recovery/RECOVERY_GAPS.md",
+      "recovery/gap-evidence.json",
+      "README.md",
+      "recovery/README.md"
+    ],
+    "changes": [
+      "Document recovery gaps against retained Skynet records, distinguish local-only payloads from absent artifacts and unverified parity, and preserve evidence excerpts."
+    ],
+    "validation": "Checked relative Markdown links, English text, evidence values, tracked payload counts and updated file hashes; no model/runtime tests rerun."
   }
 }

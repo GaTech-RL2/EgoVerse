@@ -95,6 +95,10 @@ recorded in Git-ignored `local-paths.json`; recovery did not relocate raw data.
 
 ## Incomplete recovery areas
 
+See [Recovery gaps relative to the last recorded Skynet work](RECOVERY_GAPS.md)
+for the detailed code/data/checkpoint inventory, evidence, status definitions
+and recovery priorities. The list below is a short overview.
+
 1. **Nov24 fixed-retarget upstream:** the complete `SEW-aria-pipeline`, EgoPoser
    handoff source and weights, and exact latest `aria_egoposer`/Base Smoothing S
    implementation were not found in the GitHub baseline or local snapshots.

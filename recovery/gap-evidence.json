@@ -1,0 +1,106 @@
+{
+  "assessment_date": "2026-11-27",
+  "timezone": "America/New_York",
+  "assessed_revision": "262fd6d406e383fe70b57f1ad10d94e9675b7f8a",
+  "method": "Read local tracked source, archived reports and prior Mac inventory; no Skynet connection or fresh bulk data audit.",
+  "tracked_payload_suffix_counts": {
+    ".vrs": 0,
+    ".pt": 0,
+    ".pth": 0,
+    ".ckpt": 0,
+    ".hdf5": 0,
+    ".h5": 0,
+    ".npy": 0,
+    ".npz": 0
+  },
+  "local_inventory_source": {
+    "path": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/artifacts/local-data-availability-20261127/summary.json",
+    "sha256": "8bdd42e4cf3629efc87a04f27aaa7fcab6e24c04d21f85b022bc7aff41ce7fa7",
+    "record": {
+      "date": "2026-11-27",
+      "scope": "Local Mac filesystem only; no SSH or remote calls",
+      "aria_root": "/Users/chendongxin/Research-RL2/aria_gen2_scripts/data",
+      "total_bytes_excluding_hardlink_duplicates": 76939924231,
+      "raw_vrs_unique_files": 352,
+      "raw_vrs_bytes": 70925529829,
+      "mps_bytes": 5636274191,
+      "raw_header_read_errors": [],
+      "limitations": [
+        "No full VRS checksum or playback audit this session",
+        "Downloads unreadable; no external volumes mounted; cloud-only locations not inventoried",
+        "Dataset completeness against Skynet unverified"
+      ],
+      "other_vrs": [
+        {
+          "path": "/Users/chendongxin/Documents/ChatGPT/Wuji/work/aria-whiteboard-20261028/inputs/Plate_task_2_20261028_112102.vrs",
+          "size": 117932065,
+          "dev": 16777234,
+          "ino": 20462673,
+          "blocks": 230344,
+          "flags": 0
+        },
+        {
+          "path": "/Users/chendongxin/Documents/ChatGPT/Wuji/work/glove-box-left-sim-20261117/source/glove_card_box_lifting/ep_007/recording.vrs",
+          "size": 110091605,
+          "dev": 16777234,
+          "ino": 24830350,
+          "blocks": 215024,
+          "flags": 0
+        },
+        {
+          "path": "/Users/chendongxin/Documents/ChatGPT/Wuji/work/glove-bulb-left-sim-20261118/source/glove_light_bulb/ep_001/recording.vrs",
+          "size": 243118117,
+          "dev": 16777234,
+          "ino": 25167323,
+          "blocks": 474848,
+          "flags": 0
+        },
+        {
+          "path": "/Users/chendongxin/Documents/ChatGPT/Wuji/work/layout-registration-20261028/calibration_v2/inputs/Real2Sim_traj1_4_20261019_132840.vrs",
+          "size": 125086824,
+          "dev": 16777234,
+          "ino": 20524529,
+          "blocks": 244312,
+          "flags": 0
+        }
+      ]
+    }
+  },
+  "retained_task_record": {
+    "path": "/Users/chendongxin/Research-RL2/warp/SEW-Geometric-Teleop/docs/ai/plans/tasks/T-0003-dp3c-dual-pretraining-research.md",
+    "sha256_at_read": "9daef3743f1bc69fd9600f70e69e072af131e4d9a2fe69d58e46a05c1eb31989",
+    "scope": "Selected historical records only; not a live remote snapshot. The source task file may later receive append-only session updates.",
+    "excerpts": [
+      {
+        "source_line": 6891,
+        "text": "- Latest remote snapshot S/reports/hourly-monitor-20261126-0110.json:worker1428(Pick897/Bag397/Fold133/Object1),56processing18quality,7active+refill; actual2RUNNING6PENDINGQOS. Main2978GiB/scratch4747GiB,lockheld,noINTENT. Old4Bagcloudrecovery allACCEPTED (4874915/17/18/22). Worker counts NOT independentQC."
+      },
+      {
+        "source_line": 6893,
+        "text": "- Audit4877076 FAILED1 atterminalCOMPLETED0assert; boundedupdatedaudit4877849 FAILED1 exact fold_clothes_1758691961000_s009 has artifactACCEPTED butSlurmNODE_FAIL1:0. Do NOT count orrerunsuccessfulstages blindly. Independentcountremains1243(last2358). Proposed0110c explicitlydeferallnonCOMPLETED0 and auditunaffecteddata; submissioncallSSHconnectTIMEOUT BEFOREconnection,notknownsubmitted. SecondreadonlyretryalsoTIMEOUT. Check0110c intent/receipt beforeanysubmission; nevercount0110/0110bfailedreports. NeeddiagnoseNODE_FAILartifact vsSlurm separately andfullQC beforeacceptance."
+      },
+      {
+        "source_line": 6503,
+        "text": "- Changes confined to new workspaces: validated scratch runner, Basket release whitelist, scratch env root, existing mmap-cache optimization with256limit/16384FD. AST/bash checks passed. Durable exclusive submission intent/receipt and name-history guards; no duplicate or unrelated-job changes. Authority root reports/startup-status.json; local docs/ai/artifacts/bs-fixed-target-scratch180k-20261125 stores configs/lineage/audits/receipts. Current board updated; no robot rollout."
+      },
+      {
+        "source_line": 6771,
+        "text": "- User selects last105 of canonical `collections/cxin34_cloth_new2_165/manifests/all165.json`: new50 takes61–110 +55 available takes111–170; omitted123/132/152/157/160 are MPS-incomplete.105uniqueUUIDs,20,198,458,862bytes,25065 manifest RGBframes. All105VRS existence/size and SLAM closed-loop/hands/general-eye-gaze files verified; no fullVRS rehash/newQC claim. Devices0282(50)/0119(55); use previousChendongCloth1.68m setting."
+      },
+      {
+        "source_line": 6772,
+        "text": "- User confirmed95train/10valid beforeQC, same for EgoVerse180k→FT60k and scratch180k; strongMSC,seed42,10kckpts. Preserved originalnew50validtakes66,82,85,89,100 from immutablecloth50BS target.json; new55 sortedbytake sampledPythonRandom42→112,118,129,154,163. Allsegments fromsameUUID staytogether; QC mayreducecounts."
+      },
+      {
+        "source_line": 6774,
+        "text": "- StateAWAITING_CHUYE_FIXED_BS_RELEASE; no training submitted, no duplicate/self-start processing. After release mustcheckquality,split,trainonlynorm,loader/smoke before formal. Addedpendingentrytocurrent; oldruns unaffected."
+      }
+    ]
+  },
+  "limits": [
+    "Missing from this branch is not equivalent to lost everywhere.",
+    "Raw recordings and older weights may exist outside Git; complete latest matching releases/checkpoints are not established locally.",
+    "No current remote inventory exists for calculating total missing bytes or a recovery percentage.",
+    "READY, RUNNING, completion and acceptance values in archived files describe their original observation dates only."
+  ]
+}

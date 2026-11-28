@@ -5,6 +5,8 @@
 > Start with [Recovery guide](recovery/README.md) for tested entry points,
 > provenance, and missing components. Historical snapshots are not live jobs or
 > accepted local data releases.
+> See [Recovery gaps](recovery/RECOVERY_GAPS.md) for missing code, datasets,
+> checkpoints, local-only holdings and the limits of comparison with Skynet.
 
 ![EgoVerse](./assets/egoverse.png)
 This repository contains the data processing and training code for EgoVerse and a refactored pipeline for training multi-embodiment BC policies and rolling them out.
