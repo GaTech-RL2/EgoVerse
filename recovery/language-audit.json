@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-27",
+  "previous_revision": "d5e6562b0a38e60f1a4ac498d32535084f3f13f0",
+  "scope": "Current tracked text, including decoded JSON values and Python string literals; binary assets and Git history excluded.",
+  "translated_files": [
+    "README.md",
+    "recovery/README.md",
+    "recovery/snapshots/local-tmp-20261127/setup_cloth_recovery.py",
+    "recovery/snapshots/cloth-recovery15-20261124/audit-input.json",
+    "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/urdf/X5A.csv"
+  ],
+  "text_files_scanned": 1418,
+  "json_files_decoded": 258,
+  "python_files_parsed": 526,
+  "binary_files_excluded": 40,
+  "remaining_east_asian_text_files": [],
+  "checks": {
+    "python_ast_matches_after_only_documented_string_translation": true,
+    "json_matches_after_reversing_only_documented_string_translation": true,
+    "csv_only_sw_component_descriptions_changed": true,
+    "csv_changed_description_cells": 9,
+    "original_import_manifest_unchanged": true
+  },
+  "prior_validation": "validation.json and checkpoint-validation.json retain the initial recovery results; model/runtime tests were not rerun for this language-only change."
+}

@@ -59,5 +59,24 @@
     "changes": [
       "Offline local verification; no original remote parity assertion"
     ]
+  },
+  "english_content": {
+    "kind": "user_requested_language_adaptation",
+    "previous_revision": "d5e6562b0a38e60f1a4ac498d32535084f3f13f0",
+    "files": [
+      "README.md",
+      "recovery/README.md",
+      "recovery/snapshots/local-tmp-20261127/setup_cloth_recovery.py",
+      "recovery/snapshots/cloth-recovery15-20261124/audit-input.json",
+      "egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/urdf/X5A.csv",
+      "AGENTS.md"
+    ],
+    "changes": [
+      "Translate recovery documentation and two archived audit records into English.",
+      "Translate inherited X5A CAD component descriptors in the SW Components column; preserve all other columns.",
+      "Record the authorized snapshot exception and require English for future human-readable content.",
+      "Preserve original import/source hashes; current hashes are maintained in file-manifest.json."
+    ],
+    "verification": "recovery/language-audit.json"
   }
 }

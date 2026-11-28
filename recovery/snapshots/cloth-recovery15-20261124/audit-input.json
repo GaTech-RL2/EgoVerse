@@ -87,8 +87,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u65ad0.27s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted for 0.27 s; a later frozen segment also caused tail trimming.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 69,
@@ -151,8 +151,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u65ad0.22s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted for 0.22 s; a later frozen segment also caused tail trimming.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 74,
@@ -224,8 +224,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u65ad0.20s\uff1b\u540e\u7eed\u53e6\u6709\u51bb\u7ed3\u622a\u5c3e",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted for 0.20 s; a later frozen segment also caused tail trimming.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 75,
@@ -284,8 +284,8 @@
         ]
       ]
     },
-    "reason": "\u5de6\u624b\u4e2d\u9014\u4e2d\u65ad0.98s\uff0c\u6700\u957f\u6bb5\u9009\u62e9\u4e22\u5f03\u524d\u6bb5",
-    "visual_assessment": "\u662f\uff1a\u53d6\u8863\u524d\u6bb5"
+    "reason": "Left-hand tracking interrupted mid-recording for 0.98 s; selecting the longest segment discards the earlier segment.",
+    "visual_assessment": "Yes: earlier cloth-pickup segment."
   },
   {
     "take": 78,
@@ -356,8 +356,8 @@
         ]
       ]
     },
-    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.20s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking invalid at the start; interrupted mid-recording for 0.20 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 81,
@@ -425,8 +425,8 @@
         ]
       ]
     },
-    "reason": "\u5f00\u5934\u8ffd\u8e2a\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.22s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Tracking invalid at the start; right-hand tracking interrupted mid-recording for 0.22 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 83,
@@ -498,8 +498,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.13s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted mid-recording for 0.13 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 84,
@@ -571,8 +571,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.48s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted mid-recording for 0.48 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 85,
@@ -635,8 +635,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.10s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted mid-recording for 0.10 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 89,
@@ -707,8 +707,8 @@
         ]
       ]
     },
-    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.20s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking invalid at the start; interrupted mid-recording for 0.20 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 90,
@@ -766,8 +766,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u4e2d\u9014\u4e2d\u65ad0.38s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking interrupted mid-recording for 0.38 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 92,
@@ -840,8 +840,8 @@
         ]
       ]
     },
-    "reason": "\u5de6\u624b\u4e2d\u65ad1.20s\uff1b\u540e\u7eed\u53f3\u624b\u51bb\u7ed3\u622a\u5c3e",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Left-hand tracking interrupted for 1.20 s; later right-hand freezing caused tail trimming.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 94,
@@ -904,8 +904,8 @@
         ]
       ]
     },
-    "reason": "\u53f3\u624b\u51bb\u7ed31.05s\u540e\u622a\u5c3e\uff0c\u5373\u4f7f\u540e\u7eed\u6062\u590d",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Tail trimmed after 1.05 s of right-hand freezing, even though tracking later recovered.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 97,
@@ -989,8 +989,8 @@
         ]
       ]
     },
-    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad/\u51bb\u7ed3",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking invalid at the start; interrupted or frozen mid-recording.",
+    "visual_assessment": "Yes: later basket-placement segment."
   },
   {
     "take": 98,
@@ -1052,7 +1052,7 @@
         ]
       ]
     },
-    "reason": "\u5f00\u5934\u53f3\u624b\u65e0\u6548\uff1b\u4e2d\u9014\u53f3\u624b\u4e2d\u65ad0.067s",
-    "visual_assessment": "\u662f\uff1a\u5165\u7bee\u540e\u6bb5"
+    "reason": "Right-hand tracking invalid at the start; interrupted mid-recording for 0.067 s.",
+    "visual_assessment": "Yes: later basket-placement segment."
   }
 ]

@@ -6,8 +6,10 @@
 - This repository is based on `GaTech-RL2/EgoVerse`, branch
   `rby1_aria_shared`, commit recorded in `recovery/import-manifest.json`.
 - `campaign/` is the recovered training/model code. `recovery/snapshots/` is
-  immutable historical source/evidence, often containing absolute remote paths.
+  historical source/evidence, often containing absolute remote paths. Preserve it
+  except for the user-requested English translations recorded in adaptations.
   Do not mistake an archived READY or RUNNING report for current readiness.
+- Keep all documentation, comments and human-readable metadata in English.
 - Preserve source provenance. Record further adaptations separately from exact
   imported bytes; do not infer remote parity from a local test.
 - Keep raw data, weights, runtime environments, and machine-local path mappings
